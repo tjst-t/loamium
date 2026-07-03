@@ -1,0 +1,253 @@
+/**
+ * loamium CLI — REST API の薄いラッパー。エンドポイントとサブコマンドは 1:1 対応
+ * (DESIGN_PRINCIPLES architecture / ARCHITECTURE.md CLI)。
+ *
+ *   read <path>                          GET    /api/notes/{path}
+ *   write <path> <content>               PUT    /api/notes/{path}
+ *   append <path> <content>              POST   /api/notes/{path}/append
+ *   patch <path> --old <s> --new <s>     POST   /api/notes/{path}/patch
+ *   journal [date]                       GET    /api/journal[?date=]
+ *   journal-append <content> [date]      POST   /api/journal/append
+ *   search <query>                       GET    /api/search?q=
+ *   backlinks <path>                     GET    /api/backlinks?path=
+ *   list [--tag] [--folder]              GET    /api/notes[?tag=&folder=]
+ *   tags                                 GET    /api/tags
+ *
+ * 出力規約 (AC-S0c9a48-1-2):
+ * - 成功: exit 0、結果を stdout へ。--json で API レスポンスの生 JSON をそのまま出す
+ * - 失敗: 非 0 exit、stderr に 1 行 JSON {"error","message"} (機械可読 + 人間可読 message)
+ *   exit 1 = API / 接続エラー、exit 2 = 使い方エラー (引数不足・不明コマンド等)
+ */
+import { Command, CommanderError } from 'commander';
+import {
+  backlinksResponseSchema,
+  journalAppendResponseSchema,
+  journalResponseSchema,
+  noteListResponseSchema,
+  noteResponseSchema,
+  noteWriteResponseSchema,
+  searchResponseSchema,
+  tagsResponseSchema,
+} from '@loamium/shared';
+import { apiFetch, CliError, encodeNotePath, postJson, putJson, toVaultPath, type ApiResult } from './client.js';
+import { resolveBaseUrl } from './url.js';
+
+/** 失敗を stderr の 1 行 JSON + 非 0 exit code に変換する。 */
+function fail(code: string, message: string, exitCode: number): never {
+  process.stderr.write(`${JSON.stringify({ error: code, message })}\n`);
+  process.exit(exitCode);
+}
+
+function printRaw(result: ApiResult): void {
+  const text = result.raw.endsWith('\n') ? result.raw : `${result.raw}\n`;
+  process.stdout.write(text);
+}
+
+function println(line: string): void {
+  process.stdout.write(`${line}\n`);
+}
+
+/** サーバーレスポンスを期待スキーマで検証して返す (契約ずれは protocol_error)。 */
+function parseAs<T>(result: ApiResult, schema: { safeParse: (v: unknown) => { success: boolean; data?: T } }, what: string): T {
+  const parsed = schema.safeParse(result.data);
+  if (!parsed.success || parsed.data === undefined) {
+    throw new CliError('protocol_error', `unexpected ${what} response shape from server (is LOAMIUM_URL pointing at a loamium server?)`);
+  }
+  return parsed.data;
+}
+
+interface JsonOpt {
+  json?: boolean;
+}
+
+/** --json 指定時は生 JSON、それ以外は human() の整形で stdout に出す。 */
+function output(opts: JsonOpt, result: ApiResult, human: () => void): void {
+  if (opts.json === true) {
+    printRaw(result);
+    return;
+  }
+  human();
+}
+
+function buildProgram(): Command {
+  const program = new Command();
+  program
+    .name('loamium')
+    .description('loamium CLI — REST API と 1:1 のノート操作コマンド');
+
+  /** サブコマンドを作る (全コマンド共通の --json フラグ付き)。 */
+  const sub = (name: string, description: string): Command => {
+    const c = new Command(name);
+    c.description(description);
+    c.option('--json', 'API レスポンスの生 JSON をそのまま出力する');
+    program.addCommand(c);
+    return c;
+  };
+
+  sub('read', 'ノートを取得して本文を表示する (GET /api/notes/{path})')
+    .argument('<path>', 'vault 相対パス (例: projects/hydra.md)')
+    .action(async (path: string, opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, `/api/notes/${encodeNotePath(path)}`);
+      output(opts, result, () => {
+        const note = parseAs(result, noteResponseSchema, 'note');
+        process.stdout.write(note.content.endsWith('\n') || note.content === '' ? note.content : `${note.content}\n`);
+      });
+    });
+
+  sub('write', 'ノートを作成・上書きする (PUT /api/notes/{path})')
+    .argument('<path>', 'vault 相対パス')
+    .argument('<content>', 'ノート全文')
+    .action(async (path: string, content: string, opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, `/api/notes/${encodeNotePath(path)}`, putJson({ content }));
+      output(opts, result, () => {
+        const res = parseAs(result, noteWriteResponseSchema, 'write');
+        println(`${res.created ? 'created' : 'updated'} ${res.path}`);
+      });
+    });
+
+  sub('append', 'ノート末尾に追記する (POST /api/notes/{path}/append)')
+    .argument('<path>', 'vault 相対パス')
+    .argument('<content>', '追記するテキスト')
+    .action(async (path: string, content: string, opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, `/api/notes/${encodeNotePath(path)}/append`, postJson({ content }));
+      output(opts, result, () => {
+        const res = parseAs(result, noteWriteResponseSchema, 'append');
+        println(`appended to ${res.path}`);
+      });
+    });
+
+  sub('patch', 'ノートの一意な old 文字列を new に置換する (POST /api/notes/{path}/patch)')
+    .argument('<path>', 'vault 相対パス')
+    .requiredOption('--old <string>', '置換前の文字列 (ノート内で一意であること)')
+    .requiredOption('--new <string>', '置換後の文字列')
+    .action(async (path: string, opts: JsonOpt & { old: string; new: string }) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(
+        base,
+        `/api/notes/${encodeNotePath(path)}/patch`,
+        postJson({ old: opts.old, new: opts.new }),
+      );
+      output(opts, result, () => {
+        const res = parseAs(result, noteWriteResponseSchema, 'patch');
+        println(`patched ${res.path}`);
+      });
+    });
+
+  sub('journal', 'デイリージャーナルを取得する。無ければ自動生成 (GET /api/journal)')
+    .argument('[date]', 'YYYY-MM-DD (省略時は今日)')
+    .action(async (date: string | undefined, opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const qs = date === undefined ? '' : `?date=${encodeURIComponent(date)}`;
+      const result = await apiFetch(base, `/api/journal${qs}`);
+      output(opts, result, () => {
+        const res = parseAs(result, journalResponseSchema, 'journal');
+        process.stdout.write(res.content.endsWith('\n') || res.content === '' ? res.content : `${res.content}\n`);
+      });
+    });
+
+  sub('journal-append', 'デイリージャーナル末尾に追記する (POST /api/journal/append)')
+    .argument('<content>', '追記するテキスト')
+    .argument('[date]', 'YYYY-MM-DD (省略時は今日)')
+    .action(async (content: string, date: string | undefined, opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const body: { content: string; date?: string } = { content };
+      if (date !== undefined) body.date = date;
+      const result = await apiFetch(base, '/api/journal/append', postJson(body));
+      output(opts, result, () => {
+        const res = parseAs(result, journalAppendResponseSchema, 'journal-append');
+        println(`appended to journal ${res.date} (${res.path})`);
+      });
+    });
+
+  sub('search', '全文検索する (GET /api/search)')
+    .argument('<query>', '検索クエリ')
+    .action(async (query: string, opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, `/api/search?q=${encodeURIComponent(query)}`);
+      output(opts, result, () => {
+        const res = parseAs(result, searchResponseSchema, 'search');
+        for (const r of res.results) {
+          println(r.line === null ? `${r.path}: ${r.snippet}` : `${r.path}:${r.line}: ${r.snippet}`);
+        }
+      });
+    });
+
+  sub('backlinks', 'ノートへのバックリンク一覧を表示する (GET /api/backlinks)')
+    .argument('<path>', 'vault 相対パス')
+    .action(async (path: string, opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, `/api/backlinks?path=${encodeURIComponent(toVaultPath(path))}`);
+      output(opts, result, () => {
+        const res = parseAs(result, backlinksResponseSchema, 'backlinks');
+        for (const src of res.backlinks) {
+          for (const link of src.links) {
+            println(`${src.source}:${link.line}: ${link.context}`);
+          }
+        }
+      });
+    });
+
+  sub('list', 'ノート一覧を表示する。--tag / --folder で絞り込み (GET /api/notes)')
+    .option('--tag <tag>', 'タグで絞り込む (# なし)')
+    .option('--folder <folder>', 'vault 相対フォルダで絞り込む')
+    .action(async (opts: JsonOpt & { tag?: string; folder?: string }) => {
+      const base = await resolveBaseUrl();
+      const params = new URLSearchParams();
+      if (opts.tag !== undefined) params.set('tag', opts.tag);
+      if (opts.folder !== undefined) params.set('folder', opts.folder);
+      const qs = params.size > 0 ? `?${params.toString()}` : '';
+      const result = await apiFetch(base, `/api/notes${qs}`);
+      output(opts, result, () => {
+        const res = parseAs(result, noteListResponseSchema, 'list');
+        for (const note of res.notes) {
+          println(note.path);
+        }
+      });
+    });
+
+  sub('tags', 'タグ一覧を件数付きで表示する (GET /api/tags)')
+    .action(async (opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, '/api/tags');
+      output(opts, result, () => {
+        const res = parseAs(result, tagsResponseSchema, 'tags');
+        for (const t of res.tags) {
+          println(`${t.tag}\t${t.count}`);
+        }
+      });
+    });
+
+  return program;
+}
+
+async function main(): Promise<void> {
+  const program = buildProgram();
+  // commander の自前 stderr 出力と process.exit を止め、規約どおりの
+  // 1 行 JSON + 終了コードに正規化する
+  program.exitOverride();
+  program.configureOutput({ writeErr: () => {} });
+  for (const c of program.commands) {
+    c.exitOverride();
+    c.configureOutput({ writeErr: () => {} });
+  }
+  try {
+    await program.parseAsync(process.argv);
+  } catch (err) {
+    if (err instanceof CommanderError) {
+      // --help / help コマンドは正常終了扱い
+      if (err.code === 'commander.helpDisplayed' || err.code === 'commander.help' || err.code === 'commander.version') {
+        process.exit(err.exitCode);
+      }
+      fail('usage', err.message.trim(), 2);
+    }
+    if (err instanceof CliError) {
+      fail(err.code, err.message, err.exitCode);
+    }
+    fail('internal_error', err instanceof Error ? err.message : String(err), 1);
+  }
+}
+
+await main();

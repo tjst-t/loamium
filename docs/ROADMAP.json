@@ -5,7 +5,7 @@
     "current_sprint": "S0c9a48",
     "total": 6,
     "done": 2,
-    "in_progress": 0,
+    "in_progress": 1,
     "remaining": 4,
     "percentage": 33
   },
@@ -239,7 +239,7 @@
     },
     "S0c9a48": {
       "title": "CLI と Skill — エージェント統合",
-      "status": "pending",
+      "status": "in_progress",
       "description": "REST API を叩く薄い CLI(loamium)と claude-skills 形式の Skill。エンドポイントとコマンドは 1:1。これで『エージェントからノートを操作する』という独自価値が完成する。",
       "milestone": true,
       "stories": {
