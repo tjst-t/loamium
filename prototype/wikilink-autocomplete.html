@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loamium — [[リンク]] オートコンプリート</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- ================= 左: サイドバー ================= -->
+  <aside class="sidebar" data-testid="sidebar">
+    <div class="sidebar-header">
+      <div class="vault-badge">L</div>
+      <div class="vault-name">loamium-notes</div>
+      <button class="icon-btn" data-testid="sidebar-settings" title="設定">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4"/></svg>
+      </button>
+    </div>
+
+    <nav class="journal-nav" data-testid="journal-nav" aria-label="ジャーナル日付ナビゲーション">
+      <div class="journal-nav-label">Daily Journal</div>
+      <div class="journal-nav-row">
+        <button class="icon-btn" data-testid="journal-prev" title="前日のジャーナルへ">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+        </button>
+        <button class="journal-date-btn" data-testid="journal-today" title="今日のジャーナルを開く">2026-07-03<span class="dow">金</span></button>
+        <button class="icon-btn" data-testid="journal-next" title="翌日のジャーナルへ">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>
+        </button>
+        <button class="icon-btn" data-testid="journal-open-list" title="ジャーナル一覧">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2.5 4h11M2.5 8h11M2.5 12h11"/></svg>
+        </button>
+      </div>
+    </nav>
+
+    <div class="tree-section-title">
+      <span>ノート</span>
+      <span class="actions">
+        <button class="icon-btn" data-testid="sidebar-new-note" title="新規ノート">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 1.8h5.2L12.2 4.8v4.2M9.2 1.8v3h3M8 11v4M6 13h4"/></svg>
+        </button>
+        <button class="icon-btn" data-testid="sidebar-new-folder" title="新規フォルダ">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1.8 3.5h4l1.5 1.8h6.9v7.2H1.8z"/><path d="M8 8v3M6.5 9.5h3"/></svg>
+        </button>
+      </span>
+    </div>
+    <div class="tree" data-testid="file-tree">
+      <button class="tree-item" data-testid="tree-folder" data-path="journals">
+        <svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        <span class="name">journals</span>
+      </button>
+      <div class="tree-children">
+        <button class="tree-item active" data-testid="tree-item" data-path="journals/2026-07-03.md">
+          <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+          <span class="name">2026-07-03</span>
+        </button>
+        <button class="tree-item" data-testid="tree-item" data-path="journals/2026-07-02.md">
+          <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+          <span class="name">2026-07-02</span>
+        </button>
+      </div>
+      <button class="tree-item" data-testid="tree-folder" data-path="projects">
+        <svg class="chev closed" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        <span class="name">projects</span>
+      </button>
+      <button class="tree-item" data-testid="tree-folder" data-path="reading">
+        <svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        <span class="name">reading</span>
+      </button>
+      <div class="tree-children">
+        <button class="tree-item" data-testid="tree-item" data-path="reading/読書ノート - プログラマー脳.md">
+          <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+          <span class="name">読書ノート - プログラマー脳</span>
+        </button>
+        <button class="tree-item" data-testid="tree-item" data-path="reading/読書ノート - A Philosophy of Software Design.md">
+          <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+          <span class="name">読書ノート - A Philosophy of So…</span>
+        </button>
+      </div>
+      <button class="tree-item" data-testid="tree-item" data-path="CodeMirror 6 調査.md">
+        <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+        <span class="name">CodeMirror 6 調査</span>
+      </button>
+      <button class="tree-item" data-testid="tree-item" data-path="バックリンク実装方針.md">
+        <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+        <span class="name">バックリンク実装方針</span>
+      </button>
+      <button class="tree-item" data-testid="tree-item" data-path="週次レビュー.md">
+        <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+        <span class="name">週次レビュー</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ================= 中央: エディタ + オートコンプリート ================= -->
+  <main class="workspace">
+    <div class="editor-header">
+      <div class="breadcrumb">
+        <span>journals</span><span class="sep">/</span><span class="current">2026-07-03</span>
+      </div>
+      <div class="save-status dirty" data-testid="save-status" data-state="dirty">
+        <span class="dot"></span><span>編集中…</span>
+      </div>
+    </div>
+
+    <div class="cm-scroll">
+      <div class="cm-editor" data-testid="editor" style="position: relative;">
+
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h1">2026-07-03(金)</span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h2">メモ</span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">•</span><span><span class="wikilink" data-testid="wikilink" data-target="CodeMirror 6 調査.md" title="Ctrl+クリックで開く">CodeMirror 6 調査</span> の続き。autocompletion 拡張のトリガーは <span class="md-code">[[</span> の 2 文字</span></span></div>
+
+        <!-- 壊れリンク: 未解決ノートは赤 + 破線 -->
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">•</span><span>デスクトップ化の検討は <span class="wikilink broken" data-testid="wikilink-broken" data-target="Tauri 移行計画.md" title="ノートが存在しません — クリックで新規作成">Tauri 移行計画</span> にまとめる予定</span></span></div>
+
+        <!-- カーソル行: [[読書 まで入力中 -->
+        <div class="cm-line active-line"><span class="gutter"></span><span class="cm-content">- 読書メモ: [[読書<span class="caret"></span></span></div>
+
+        <!-- オートコンプリートポップアップ -->
+        <div class="autocomplete-pop" data-testid="wikilink-autocomplete" style="left: 120px; top: 175px;">
+          <div class="autocomplete-hint"><span>ノートにリンク</span><span><kbd>↑</kbd><kbd>↓</kbd> 選択 / <kbd>Enter</kbd> 挿入</span></div>
+          <button class="autocomplete-option selected" data-testid="wikilink-autocomplete-option" data-note="reading/読書ノート - プログラマー脳.md">
+            <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+            <span><mark>読書</mark>ノート - プログラマー脳</span>
+            <span class="path">reading/</span>
+          </button>
+          <button class="autocomplete-option" data-testid="wikilink-autocomplete-option" data-note="reading/読書ノート - A Philosophy of Software Design.md">
+            <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+            <span><mark>読書</mark>ノート - A Philosophy of Software Design</span>
+            <span class="path">reading/</span>
+          </button>
+          <button class="autocomplete-option create-new" data-testid="wikilink-autocomplete-create" data-note="読書.md">
+            <span class="plus">＋</span>
+            <span>新規ノート「読書」を作成してリンク</span>
+          </button>
+        </div>
+
+        <div class="cm-line" style="margin-top: 150px;"><span class="gutter"></span><span class="cm-content"></span></div>
+
+        <div class="proto-note">
+          <span class="tag">PROTO</span>
+          <strong>[[ オートコンプリート(AC-S6fbf45-1-1)</strong>: <code>[[読書</code> の入力で既存ノート名を部分一致で絞り込み。一致部分は紫でハイライト。
+          <br><strong>壊れリンク(AC-S6fbf45-1-2)</strong>: 上の <span style="color:#d64545; text-decoration: underline dashed;">Tauri 移行計画</span> は未解決ノート。赤 + 破線で区別し、クリックで新規ノートを作成して開く。
+          <br><strong>ナビゲーション(AC-S6fbf45-1-3)</strong>: 解決済みリンクはクリック(または <kbd>Ctrl</kbd>+クリック)で対象ノートへ移動。
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= 右: バックリンクパネル ================= -->
+  <aside class="panel" data-testid="backlink-panel">
+    <div class="panel-header">
+      <span>バックリンク</span>
+      <span class="count" data-testid="backlink-count">2</span>
+      <button class="icon-btn" data-testid="backlink-panel-toggle" title="パネルを閉じる">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 3l5 5-5 5"/></svg>
+      </button>
+    </div>
+    <div class="panel-body">
+      <button class="backlink-item" data-testid="backlink-item" data-source="週次レビュー.md">
+        <span class="backlink-source">
+          <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+          週次レビュー
+        </span>
+        <span class="backlink-context">来週分: <mark>[[2026-07-03]]</mark> にバックリンクパネルの実装着手を割り当てる</span>
+      </button>
+      <button class="backlink-item" data-testid="backlink-item" data-source="projects/Loamium 開発ログ.md">
+        <span class="backlink-source">
+          <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+          Loamium 開発ログ
+        </span>
+        <span class="backlink-context">Sprint S6fbf45 の進捗は <mark>[[2026-07-03]]</mark> のジャーナルに記録する</span>
+      </button>
+    </div>
+  </aside>
+
+</div>
+
+<a class="proto-chip" href="index.html">← プロトタイプ一覧</a>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loamium — GUI プロトタイプ(Sa704c3 / S9ab6c3 / S6fbf45)</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="index-page">
+
+  <header class="index-hero">
+    <div class="logo-row">
+      <div class="vault-badge">L</div>
+      <h1>Loamium — GUI プロトタイプ</h1>
+    </div>
+    <p class="sub">
+      「ファイルはピュア Markdown、編集はアウトライナー、操作はエージェントからも」。
+      左: ファイルツリー + ジャーナル日付ナビ / 中央: CodeMirror ライブプレビューエディタ / 右: バックリンクパネル の 3 ペイン構成。
+      各画面は静的 HTML です。<code>data-testid</code> は <code>TESTIDS.md</code> の契約表と一致します。
+    </p>
+    <div class="sprint-tags">
+      <span class="sprint-tag">Sa704c3 — UI 基盤(ツリー / エディタ / ジャーナル)</span>
+      <span class="sprint-tag">S9ab6c3 — アウトライン操作とライブプレビュー</span>
+      <span class="sprint-tag milestone">S6fbf45 — リンク機構 [MILESTONE]</span>
+    </div>
+  </header>
+
+  <div class="screen-grid">
+    <a class="screen-card" href="journal.html">
+      <span class="num">1</span>
+      <h3>起動直後 — 今日のジャーナル</h3>
+      <p>今日(2026-07-03)のデイリージャーナルが開いた 3 ペイン。サイドバー上部に前日/翌日/一覧のジャーナル日付ナビゲーション。チェックボックスと折りたたみガター付き。</p>
+      <span class="stories">Sa704c3-1 / Sa704c3-2 / S6fbf45-2</span>
+    </a>
+
+    <a class="screen-card" href="editor.html">
+      <span class="num">2</span>
+      <h3>ノート編集 — ライブプレビュー</h3>
+      <p>Hydra 設計メモを開いた状態。見出し・太字・インラインコード・[[リンク]] の装飾、カーソル行のみソース表示。mermaid 図 / KaTeX 数式 / Shiki 風コードハイライトの 3 レジストリ描画例。</p>
+      <span class="stories">S9ab6c3-2 / S6fbf45-2</span>
+    </a>
+
+    <a class="screen-card" href="editor-outline.html">
+      <span class="num">3</span>
+      <h3>アウトライン操作の状態</h3>
+      <p>折りたたまれたリストサブツリー(… 4 行 ピル)、3 段のインデント階層、番号付きリスト。「見出し・段落では Tab が効かない」C 方式の境界を注記オーバーレイで明示。</p>
+      <span class="stories">S9ab6c3-1</span>
+    </a>
+
+    <a class="screen-card" href="wikilink-autocomplete.html">
+      <span class="num">4</span>
+      <h3>[[リンク]] オートコンプリート</h3>
+      <p><code>[[読書</code> 入力中の候補ポップアップ(部分一致ハイライト・新規作成オプション)。未解決ノートへの壊れリンクは赤 + 破線で区別。</p>
+      <span class="stories">S6fbf45-1</span>
+    </a>
+
+    <a class="screen-card" href="tree-rename.html">
+      <span class="num">5</span>
+      <h3>ツリー操作 — リネーム</h3>
+      <p>ツリー項目のコンテキストメニュー(開く / 新規 / リネーム / 削除)と、リネームダイアログ。「[[リンク]] 7 件を 4 ノートで自動更新」の説明つき。キャンセルでダイアログが閉じます。</p>
+      <span class="stories">Sa704c3-1 / S6fbf45-3</span>
+    </a>
+
+    <a class="screen-card" href="editor-empty.html">
+      <span class="num">6</span>
+      <h3>空 vault — empty state</h3>
+      <p>ノートがひとつもない初回起動状態。ツリー・エディタ・バックリンクパネルそれぞれの empty state と、「今日のジャーナルを開始」への導線。</p>
+      <span class="stories">Sa704c3-1 / Sa704c3-2</span>
+    </a>
+  </div>
+
+</div>
+</body>
+</html>
