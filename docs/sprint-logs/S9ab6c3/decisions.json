@@ -80,6 +80,22 @@
       "rationale": "E2E で発覚: lezer-markdown は [[x]] の内側 [x] を参照リンク (Link ノード) と解釈するため、Link を除外領域にすると wikilink が一切描画されなくなる。inline レジストリのルールは従来どおり Link 内も除外する (2 段階の claim リスト)。"
     }
   ],
-  "review_decisions": [],
+  "review_decisions": [
+    {
+      "id": "R1",
+      "decision": "インライン数式の閉じ $ 直前は非空白を必須にする正規表現へ修正 (通貨の前置ドル '$5 と $10' の誤描画を防止)",
+      "rationale": "コードレビュー (code-review skill 手順) で CONFIRMED。Obsidian/Pandoc の $…$ 規約と一致させ、mock テストにエッジケースとして固定した。"
+    },
+    {
+      "id": "R2",
+      "decision": "inline レジストリの正規表現コンパイルを行ループの外 (装飾ビルド 1 回) に巻き上げ",
+      "rationale": "コードレビューで CONFIRMED (毎行 new RegExp は無駄)。挙動は不変。"
+    },
+    {
+      "id": "R3",
+      "decision": "タブ文字で字下げされたリスト行の Shift+Tab は no-op のまま (スペースのみ対応) — 修正せず既知の制限として記録",
+      "rationale": "本プロジェクトはインデント単位 4 スペース固定 (I1) でタブを生成しない。外部エディタ由来のタブ行は編集でスペース化される想定。priority 5 (シンプルさ) により対応見送り。"
+    }
+  ],
   "done_judgment": {}
 }

@@ -361,7 +361,14 @@ function buildInlineDecorations(view: EditorView): DecorationSet {
     // ---- 行単位の走査: [[リンク]] と inline レジストリ ----
     const firstLine = doc.lineAt(from).number;
     const lastLine = doc.lineAt(to).number;
-    const inlineRules = getInlineRules();
+    // ルールの正規表現は 1 パスにつき 1 回だけ g 付きでコンパイルする
+    const inlineRules = getInlineRules().map((rule) => ({
+      rule,
+      re: new RegExp(
+        rule.pattern.source,
+        rule.pattern.flags.includes('g') ? rule.pattern.flags : `${rule.pattern.flags}g`,
+      ),
+    }));
     for (let n = firstLine; n <= lastLine; n++) {
       if (active.has(n) || fenceLines.has(n)) continue;
       const line = doc.line(n);
@@ -382,11 +389,8 @@ function buildInlineDecorations(view: EditorView): DecorationSet {
         claimed.push({ from, to });
       }
 
-      for (const rule of inlineRules) {
-        const re = new RegExp(
-          rule.pattern.source,
-          rule.pattern.flags.includes('g') ? rule.pattern.flags : `${rule.pattern.flags}g`,
-        );
+      for (const { rule, re } of inlineRules) {
+        re.lastIndex = 0;
         let im: RegExpExecArray | null;
         while ((im = re.exec(line.text)) !== null) {
           if (im[0].length === 0) break; // 無限ループ防止

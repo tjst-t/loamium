@@ -24,9 +24,10 @@ const BLOCK_SINGLE_LINE_RE = /^\s*\$\$(.+)\$\$\s*$/;
 const BLOCK_CLOSE_RE = /\$\$\s*$/;
 
 export function registerKatexRenderers(): void {
-  // $…$ インライン数式。開始直後が空白/$ のもの (通貨表記等) は対象外。
+  // $…$ インライン数式。開始 $ の直後・終了 $ の直前が空白/$ のもの
+  // (通貨表記 "$5 と $10" 等) は対象外 — Obsidian/Pandoc と同じ規約。
   registerInlineRule({
-    pattern: /\$([^\s$][^$\n]*?)\$/g,
+    pattern: /\$([^\s$](?:[^$\n]*?[^\s$])?)\$/g,
     render(match) {
       return renderMath(match[1] ?? '', false);
     },
