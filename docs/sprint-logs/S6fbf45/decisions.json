@@ -88,7 +88,7 @@
     {
       "id": "I13",
       "decision": "バックリンクパネルは (source, link) ペアごとに 1 項目表示し、件数バッジはリンク総数。ノート切替と保存成功 (refreshToken) で再取得",
-      "rationale": "AC-S6fbf45-2-1 の「参照元 + コンテキスト行」表示。タスク記述『ノート切替・保存で更新』どおり。取得失敗は backlink-error (additive testid) でパネル内に留めエディタを阻害しない。"
+      "rationale": "AC-S6fbf45-2-1 の「参照元 + コンテキスト行」表示。タスク記述『ノート切替・保存で更新』どおり。取得失敗は backlink-error (additive testid) でパネル内に留めエディタを阻害しない。 補足 (verifier 指摘): RenameLinkNote が表示する件数はインデックスベース (GET /api/backlinks) であり、rename 本体の FS 直接走査と完全同期はしない — 情報表示のみで書き換え対象の決定には使わない。"
     },
     {
       "id": "I14",
@@ -99,6 +99,11 @@
       "id": "I15",
       "decision": "UI リネーム成功後、開いているノートがリネーム対象または書き換え対象なら api.getNote で開き直す",
       "rationale": "エディタバッファとディスクの乖離を放置すると次回保存が 409 になり、上書きを選ぶと追従済みリンクを巻き戻してしまう (priority 2)。リネーム前に saveNow で未保存編集を反映してから実行する。"
+    },
+    {
+      "id": "I16",
+      "decision": "rename 適用後のインデックス再構築失敗は console.error のみで続行し 200 を返す (ファイル書き込みは成功済み)",
+      "rationale": "priority 6: インデックスは使い捨て・ファイルが正。chokidar / 再起動で自己修復するため、書けたファイルの成功応答をインデックス都合で失敗にしない。indexSyncMiddleware と同じ方針。(独立 verifier の指摘を受けて記録 — compromises.json C1)"
     }
   ],
   "review_decisions": [
@@ -116,6 +121,11 @@
       "id": "R3",
       "decision": "listNoteFiles と VaultIndex.build の walk 重複は許容",
       "rationale": "build は NFD 実パスヒント付き読み込みという別責務を持つ。共通化は結合を増やすだけと判断 (priority 5)。"
+    },
+    {
+      "id": "R4",
+      "decision": "verifier warn (compromises 完全性) は推奨アクションを verify フェーズ内で適用して解消。done_judgment の overall=ok を維持",
+      "rationale": "指摘は『設計判断の記録漏れ』というドキュメントギャップであり、コード・テスト・AC への影響なし (verifier 自身が『機能的な問題ではない』と判定、ac_failures=0)。推奨どおり I16 追加 + I13 補足 + compromises.json C1 (overlooked_by_autopilot: true, resolved-in-sprint) を記録した。未解消のまま done にしない、というルールの意図は満たされている。milestone レビューはこの記録を参照可能。"
     }
   ],
   "done_judgment": {}

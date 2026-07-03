@@ -1,0 +1,128 @@
+{
+  "$schema_note": "VERIFICATION_REPORT_SCHEMA",
+  "sprint": "S6fbf45",
+  "verifier": "independent read-only session",
+  "verified_at": "2026-07-03",
+  "base_sha": "260352014850171f1de5fba6e31bd0d9fa7eafe5",
+  "head_sha": "7b3824f77bfa574f9e30bb7a642f451ee3450449",
+  "verifier_model": "claude-sonnet-4-6",
+  "overall": "warn",
+  "findings": [
+    {
+      "id": "V1",
+      "category": "execution_log",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "全 3 run の __VERIFY_EXIT_CODE__ トレーラーが exit 0 を確認。verification-results.json の 246/246 pass 宣言をすべてマシン実績がバックする。verify-run-test.log 末尾: __VERIFY_EXIT_CODE__:test:0 (189/189 passed) / verify-run-lint.log 末尾: __VERIFY_EXIT_CODE__:lint:0 / verify-run-ui-tests.log 末尾: __VERIFY_EXIT_CODE__:ui-tests:0 (57/57 passed). verify-run.json overall_machine_status=pass. verification-results.json の pass 246 件 vs machine pass 246 件: 差分なし (overlooked_by_autopilot: false).",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "V2",
+      "category": "ac_code",
+      "story": "S6fbf45-1",
+      "ac": "AC-S6fbf45-1-1",
+      "verdict": "pass",
+      "detail": "実装: wikilink.ts:68-137 — wikilinkCompletionSource が OPEN_LINK_RE (/(!?)\\[\\[([^\\[\\]|#\\n]*)$/) で [[ トリガーを検出し、wikilinkEnvFacet 経由の getNotes() からノート一覧を取得。query.trim() との comparable (NFC+lowercase) 一致でフィルタし、filter:false + 1打鍵ごと再実行で部分一致を実装。選択で preferredLinkTarget(note.path, paths) を使った最短リンク表記を insertCompletionText で挿入する (priority 4 Obsidian互換: baseename一意ならbasename, 衝突ならfullpath)。到達経路: Editor.tsx → wikilinkAutocomplete() → autocompletion({ override: [wikilinkCompletionSource] }). testid 付与: tooltipTestidPlugin (MutationObserver で .cm-tooltip-autocomplete に data-testid=wikilink-autocomplete, addToOptions で data-testid=wikilink-autocomplete-option)。テスト: wikilink.e2e.spec.ts:38-72 — 実ブラウザ→実Vite→実サーバー→実vault。[[ 入力 + 'Code' でオプション数1に絞り込まれ不一致候補消滅を assert、Enter で [[CodeMirror 6 調査]] が editor 行に見える、Ctrl+S 後 readFile でピュア Markdown 確認 (priority 1)。network mock なし (grep 0件)。machine: wikilink.e2e.spec.ts.[AC-S6fbf45-1-1] pass.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "V3",
+      "category": "ac_code",
+      "story": "S6fbf45-1",
+      "ac": "AC-S6fbf45-1-2",
+      "verdict": "pass",
+      "detail": "実装: live-preview.ts:259-283 — WikilinkWidget は resolved===null のとき className='wikilink broken', data-testid='wikilink-broken', data-target=wikilinkTarget(rawTarget) をセット。resolveWikilink: vaultPaths===null なら undefined (中立), resolveLinkTarget(target, vaultPaths) が null なら broken。mousedown で createAndOpenNote(rawTarget) を呼ぶ (click は装飾が差し替わり届かないため — I10)。App.tsx:253-278 — createNoteFromLink: 非.md拡張子は app-error で拒否 (R1)、存在しない場合は baseMtime:0 の create-only PUT (priority 2: 既存を上書きしない)。テスト: wikilink.e2e.spec.ts:74-107 — 実ブラウザ+実サーバー。broken testid あり、data-target='Tauri 移行計画.md'、getComputedStyle でunderline dashed rgb(214,69,69) を assert、クリックでファイル生成 (stat)、breadcrumb='Tauri 移行計画'、ツリー反映、元ノートに戻ると解決済み [wikilink] に変わることまで assert。network mock なし。machine: wikilink.e2e.spec.ts.[AC-S6fbf45-1-2] pass.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "V4",
+      "category": "ac_code",
+      "story": "S6fbf45-1",
+      "ac": "AC-S6fbf45-1-3",
+      "verdict": "pass",
+      "detail": "実装: live-preview.ts:272-282 — WikilinkWidget.toDOM() の mousedown ハンドラ (button===0, preventDefault) が env.openNote(resolved) を呼ぶ。resolved は resolveLinkTarget(target, vaultPaths) で得た vault 相対パス (決定的: basename一意ならbasename解決、衝突ならfullpath)。data-target は resolved ?? wikilinkTarget(rawTarget)。I11: data-target は解決済みvaultパス (S9ab6c3 decisions I8 の先送り解決)。テスト: wikilink.e2e.spec.ts:109-135 — 実ブラウザ+実サーバー。data-target='projects/Hydra 設計メモ.md' のリンクを 2件確認、プレーンクリック+breadcrumb遷移、ControlOrMeta+クリックでエイリアスリンクからも遷移、readFile でソースファイル byte 完全不変を assert。network mock なし。machine: wikilink.e2e.spec.ts.[AC-S6fbf45-1-3] pass.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "V5",
+      "category": "ac_code",
+      "story": "S6fbf45-2",
+      "ac": "AC-S6fbf45-2-1",
+      "verdict": "pass",
+      "detail": "実装: BacklinkPanel.tsx:49-70 — useEffect([notePath, refreshToken]) で api.getBacklinks(notePath) を呼び、成功時 setBacklinks、失敗時 backlink-error (パネル内表示のみ、エディタ阻害なし)。api.ts:101-102 — GET /api/backlinks?path= に直結。Server: routes/search.ts:48-60 — index.backlinks(rel) を返す。App.tsx:134, 186 — backlinksToken は保存成功のたびにインクリメント。BacklinkPanel props に refreshToken として渡す。クリック: onOpenNote(source) → openNotePath でノート切替。テスト: backlinks-panel.e2e.spec.ts:25-72 — 実ブラウザ+実サーバー+実vault。PUT でシード3ノート、backlink-count=2, backlink-item[data-source] のコンテキスト行 (plain / #heading+alias 形式) を assert、item クリックで breadcrumb 遷移+パネル更新 (count→0→empty)、PUT で第3ノート追加後 Ctrl+S トリガー→count=3→新item 表示まで assert。network mock なし。machine: backlinks-panel.e2e.spec.ts.[AC-S6fbf45-2-1] pass.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "V6",
+      "category": "ac_code",
+      "story": "S6fbf45-3",
+      "ac": "AC-S6fbf45-3-1",
+      "verdict": "pass",
+      "detail": "実装: notes.ts:153-258 — rename handler。Phase 1 (読み取り+計算のみ、disk write ゼロ): listNoteFiles でFS直接走査 (priority 6ファイルが正, I5)、before→after 配列、preferredLinkTarget(newRel,after) で replacement 決定、shouldRewrite: resolveLinkTarget(target,before)===rel のリンクのみ書き換え (曖昧リンクは対象外 I3)、全ファイルの rewriteLinks 計算。Phase 2 (writeNote→deleteNote→source書き換え): 途中失敗は rename_partial_failure(500)で適用済みリストを明示 (I2)。検証順: 404(source不存在)→409(target存在)→400(path不正) がすべて Phase 1 前に完了。data-safety: scannableLines でコードフェンス(```/~~~)・フロントマター・インラインコード(`...`)の行をnull扱い、rewriteLinks がこれらをスキップ (extract.ts:46-76)。permissions: POST /api/notes/*/rename は classifyOp='mutate' なので read-only モードは 403 (permissions.ts:20-26)。テスト: tests/acceptance/rename.spec.ts 8ケース — 実HTTP+実サーバー。plain/heading/alias/embed/fullpath 4形式, fence+inline code 不変, self-link, backlink index 追従, audit log note.rename, 曖昧 basename 非書き換え, 409/404/400/403 ファイル完全不変, no-op。machine: rename.spec.ts 11/11 pass (8 HTTP + 3 CLI)。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "V7",
+      "category": "ac_code",
+      "story": "S6fbf45-3",
+      "ac": "AC-S6fbf45-3-1",
+      "verdict": "pass",
+      "detail": "CLI rename の REST/CLI 1:1 確認。cli/src/main.ts:141-159 — 'rename' サブコマンドが <path> <new-path> を受け取り POST /api/notes/{encodeNotePath(path)}/rename を呼ぶ。toVaultPath(newPath) で .md 補完。成功: 'renamed oldPath -> newPath' + 更新ノート一覧を stdout。--json: API レスポンス生 JSON をそのまま出力。失敗: exit 1 + stderr 1行JSON。DESIGN_PRINCIPLES priority 3 (REST/CLI 1:1) と decisions.json P4/I6 に準拠。コマンド数 10→11 (skill.spec.ts も更新済み)。テスト: rename.spec.ts CLI 3ケース: 成功+stdout内訳, --json生JSON, 409→exit 1+stderr conflict。machine: 11/11 pass。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "V8",
+      "category": "ac_code",
+      "story": "S6fbf45-3",
+      "ac": "AC-S6fbf45-3-2",
+      "verdict": "pass",
+      "detail": "実装: App.tsx:380-415 — renameNote コールバック。setDialog(null) → saveNow() (失敗時 abort、priority 2: 未保存内容を先にディスクへ I15) → api.renameNote(oldPath, newPath) → refreshNotes() → 開いているノートが oldPath なら api.getNote(newPath) で開き直し (自己リンク書き換え反映)、开いているノートが updatedNotes に含まれるなら api.getNote(openPath) で開き直し (バッファとディスクの乖離防止 I15)。監査ログ: auditMiddleware が handler 終了後に result: 'ok'/'error'/'denied' を記録 (setAudit はContext変数設定のみ、disk writeはミドルウェア後段)。testid: rename-dialog / rename-input / rename-confirm / rename-link-note (BacklinksAPIから件数表示)。e2e: rename.e2e.spec.ts:39-102 — 実ブラウザ+実サーバー+実vault。右クリック→context-rename→dialog表示、link-note '1ノートにある [[リンク]] 2件'、fill+confirm、ツリー更新 (旧消滅+新出現)、エディタバッファ追従 ([[rn-renamed]] 表示)、readFile でfence内不変を byte exactで assert、旧ファイル消滅、audit.log note.rename result=ok、rename後リンクのクリック遷移。network mock なし。machine: rename.e2e.spec.ts.[AC-S6fbf45-3-2] pass.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "V9",
+      "category": "forbidden_scan",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "§2.4 禁止カテゴリを diff 全体で走査。(1) test_skipped: it.skip / xit( / test.skip / .skip( のヒットなし。(2) test_assertion_weakened: preview.e2e.spec.ts の data-target 期待値変更 ('Hydra 設計メモ.md'→'projects/Hydra 設計メモ.md') は解決済みvaultパスへの強化 (S9ab6c3 decisions I8 先送り分, I11 に記録)。mock-helpers.ts への installCatchAll 内 backlinks route 追加は assertion weakening ではなく定常呼び出しの許容 (I14 に記録)。いずれも weakening でなく strengthening / necessary adaptation と判断。(3) error_swallowed: @ts-ignore なし。catch ブロックは既存パターンのみ (audit.ts の console.error フォールバックは既存)。(4) type_safety_relaxed: ': any' / 'as any' の新規追加なし。(5) AC_modified: ROADMAP.json diff はすべて status/in_progress/remaining フィールドのみ。description テキストに変更なし。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "V10",
+      "category": "adr_conformance",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "docs/DESIGN/ ディレクトリ不在 (ADR チェックは DESIGN_PRINCIPLES.json)。DESIGN_PRINCIPLES forbidden リストへの照合: (1)ブロックIDをファイルに書き込むコードなし (rewriteLinks はリンクターゲット部分のみ置換)。(2)Obsidian 非互換記法なし ([[wiki]] / #heading / |alias / !embed は Obsidian 互換)。(3)vault ルート外書き込みなし (normalizeVaultPath が .. 脱出を検証)。(4)テスト無効化なし (246 件全件 active)。(5)AC 削除なし。priority 3 REST/CLI 1:1: rename エンドポイント追加に対し loamium rename コマンドを追加 (P4/I6)、skill.spec.ts コマンド数 10→11 更新、SKILL.md 更新。priority 1 ピュア Markdown: rewriteLinks は [[...]] の target 部分のみ置換、改行/他テキストに一切触れない。priority 2 データ安全性: compute-then-apply、ambiguous link 非書き換え (I3)。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "V11",
+      "category": "compromises",
+      "story": "S6fbf45-3",
+      "ac": "AC-S6fbf45-3-2",
+      "verdict": "warn",
+      "detail": "compromises.json は存在しない (実装者は「コンプロマイズなし」と申告)。decisions.json には記録されていない振る舞いが 1 件ある: notes.ts:243-249 のインデックス再構築エラーハンドリング。rename の Phase 2 適用後、index.refreshFile が失敗した場合 console.error のみで続行し 200 を返す (コード内コメント: 'chokidar / 再起動で自己修復')。これは設計上正当だが (ファイルは正しく書かれており priority 6 に沿う)、decisions.json に実装判断として記録されていない。テストが失敗経路をカバーしていないため、将来の変更者が誤って挙動を変える可能性がある。機能的な問題ではない。また RenameLinkNote コンポーネント (App.tsx:68-109) がダイアログに表示するリンク件数は api.getBacklinks (インデックスベース) から取得するが、rename 本体は listNoteFiles (FS直接走査) で書き換えを計算するため、インデックスが遅延している場合にダイアログ表示件数と実際の書き換え件数が食い違う可能性がある。情報表示のみで安全性に影響しないが、decisions.json I13 はこの divergence を明示していない。",
+      "overlooked_by_autopilot": true,
+      "recommended_action": "decisions.json に 'I16: インデックス再構築エラーは console.error のみで続行 (chokidar が自己修復)' を追加することを推奨。また I13 に 'RenameLinkNote 件数はインデックスベース (rename 本体のFS走査と完全同期はしない)' を補足すること。"
+    }
+  ],
+  "summary": {
+    "ac_failures": 0,
+    "forbidden_warnings": 0,
+    "adr_conflicts": 0,
+    "overlooked_count": 1
+  }
+}
