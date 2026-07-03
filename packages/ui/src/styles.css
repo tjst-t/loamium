@@ -873,3 +873,17 @@ code {
   color: var(--text-faint);
   word-break: break-all;
 }
+
+.dialog .link-update-note {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--accent-soft);
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--accent-hover);
+  line-height: 1.6;
+}
+.dialog .link-update-note svg { width: 15px; height: 15px; flex-shrink: 0; margin-top: 2px; }
