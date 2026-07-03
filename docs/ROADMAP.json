@@ -182,7 +182,7 @@
         },
         "S31ba00-2": {
           "title": "バックリンク解決",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、あるノートへ [[リンク]] しているノートの一覧を取得したい。なぜなら、ノート間のつながりから文脈を辿るのが Loamium の中核価値だから。",
@@ -204,12 +204,12 @@
             "S31ba00-2-1": {
               "title": "リンク解決ロジック",
               "description": "リンクターゲット → vault パス解決(NFC 正規化、大文字小文字、フォルダ横断のファイル名一致)。ユニットテスト必須。",
-              "status": "pending"
+              "status": "done"
             },
             "S31ba00-2-2": {
               "title": "server: backlinks エンドポイント",
               "description": "インデックスから逆リンクを引く GET /api/backlinks。受け入れテスト付き。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
