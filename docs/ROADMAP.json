@@ -215,7 +215,7 @@
         },
         "S31ba00-3": {
           "title": "ファイル監視とインデックス再構築",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "vault 所有者として、外部エディタや Git 操作で変更したファイルも検索・バックリンクに即座に反映してほしい。なぜなら、ファイルシステムが正本という原則の下では API 経由以外の変更が普通に起きるから。",
@@ -231,7 +231,7 @@
             "S31ba00-3-1": {
               "title": "chokidar 監視とインデックス差分更新",
               "description": "chokidar で vault を監視し add/change/unlink でインデックスを差分更新。.loamium/ は監視除外。受け入れテスト付き。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
