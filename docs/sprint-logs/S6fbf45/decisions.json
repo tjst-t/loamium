@@ -1,0 +1,30 @@
+{
+  "sprint": "S6fbf45",
+  "mode": "auto (autopilot, --with-verifier)",
+  "base_sha": "260352014850171f1de5fba6e31bd0d9fa7eafe5",
+  "planning_decisions": [
+    {
+      "id": "P1",
+      "decision": "Story 実行はシーケンシャル (S6fbf45-3 サーバー側 → S6fbf45-1 → S6fbf45-2 → S6fbf45-3 UI 側)。worktree 並列は使わない",
+      "rationale": "3 Story とも packages/ui/src (App.tsx / Editor.tsx / live-preview.ts / api.ts / styles.css) を集中的に変更するため並列 worktree はほぼ確実にコンフリクトする。本セッションにはサブエージェント起動ツールも無い (S9ab6c3 P1 と同じ状況)。rename API を最初に作るのは S6fbf45-3 UI と rename-link-note 表示が API に依存するため。DESIGN_PRINCIPLES priority 5 (シンプルさ)。"
+    },
+    {
+      "id": "P2",
+      "decision": "ユーザーストーリーは ROADMAP のまま採用 (書き換え不要)",
+      "rationale": "3 Story とも「{役割}として、{やりたいこと}。なぜなら {理由}」形式を満たし、粒度も 1 Story = 1 ユーザー体験で適切。"
+    },
+    {
+      "id": "P3",
+      "decision": "GUI spec は autonomous mode で導出 (gui-spec-S6fbf45-1/2/3.json)。S6fbf45-3 は mixed (api + gui) として scenario-S6fbf45-3.json も作成",
+      "rationale": "エントリポイント・状態遷移は prototype/wikilink-autocomplete.html / tree-rename.html と TESTIDS.md 契約から一意に導出できる。AC-S6fbf45-3-1 は API 直叩き (tests/acceptance/rename.spec.ts)、AC-S6fbf45-3-2 は GUI (rename.e2e.spec.ts) の二層。"
+    },
+    {
+      "id": "P4",
+      "decision": "CLI に `loamium rename <path> <new-path>` を追加する (REST rename と 1:1)",
+      "rationale": "CLAUDE.md / DESIGN_PRINCIPLES priority 3「REST API と CLI コマンドは 1:1 対応」が明文の不変条件であり、SPEC §5 の CLI 表はドラフト (『次のステップで確定させる』) にすぎない。rename はエージェントのノート整理ユースケース (VISION target_users) に直結し、薄いラッパー 1 コマンドの追加コストは小さい。skill/SKILL.md と tests/acceptance/skill.spec.ts のコマンド一覧 (10→11) も追従更新する。"
+    }
+  ],
+  "implementation_decisions": [],
+  "review_decisions": [],
+  "done_judgment": {}
+}

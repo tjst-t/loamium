@@ -1,0 +1,40 @@
+{
+  "$file": "scenario-S6fbf45-3.json",
+  "sprint": "S6fbf45",
+  "story": "S6fbf45-3",
+  "story_type": "api",
+  "note": "AC-S6fbf45-3-1 (REST rename + リンク追従) の API scenario。GUI 部分 (AC-S6fbf45-3-2) は gui-spec-S6fbf45-3.json。",
+  "entry_point": "実サーバー (サブプロセス起動、一時 vault) への実 HTTP クライアント + 実 CLI サブプロセス",
+  "scenarios": [
+    {
+      "id": "rename-follow-links",
+      "linked_ac": ["AC-S6fbf45-3-1"],
+      "steps": [
+        { "action": "一時 vault に旧名ノートと、[[旧名]] / [[旧名#見出し]] / [[旧名|表示名]] / ![[旧名]] / [[folder/旧名]] / コードフェンス内 [[旧名]] / インラインコード内 [[旧名]] を含む複数の参照元ノートをシードしてサーバー起動", "expected": "GET /api/backlinks が参照元を返す" },
+        { "action": "POST /api/notes/{旧パス}/rename に {newPath: 新パス} を送る", "expected": "200。oldPath/path/updatedNotes/updatedLinks を含むレスポンス" },
+        { "action": "vault のファイルを直接読む", "expected": "旧パスのファイルは消え新パスに本文が移動。全参照元の [[旧名]] 系リンクが新名に書き換わり、heading・alias・embed 形式は保存される。コードフェンス・インラインコード内は不変" },
+        { "action": "GET /api/backlinks?path={新パス}", "expected": "参照元が新パス向けに解決される (インデックス追従)" },
+        { "action": "{vault}/.loamium/audit.log を読む", "expected": "op=note.rename result=ok のエントリが記録されている" }
+      ]
+    },
+    {
+      "id": "rename-safety",
+      "linked_ac": ["AC-S6fbf45-3-1"],
+      "steps": [
+        { "action": "リネーム先に既存ノートがある状態で POST rename", "expected": "409 conflict。ファイル・リンクは一切変更されない (部分適用なし)" },
+        { "action": "存在しないノートを POST rename", "expected": "404 not_found" },
+        { "action": "newPath に .md 以外 / vault 外脱出 (..) を指定", "expected": "400 invalid_path。ファイル不変" },
+        { "action": "read-only モードのサーバーへ POST rename", "expected": "403 forbidden + 監査ログ result=denied" },
+        { "action": "同名 basename が別フォルダにあるノート ([[Name]] が別ノートに解決される場合) をリネーム", "expected": "そのリンクは書き換えない (解決先が旧パスのリンクのみ書き換える)" }
+      ]
+    },
+    {
+      "id": "rename-cli",
+      "linked_ac": ["AC-S6fbf45-3-1"],
+      "steps": [
+        { "action": "loamium rename <旧パス> <新パス> を実バイナリのサブプロセスで実行", "expected": "exit 0、stdout に結果。--json で API レスポンスの生 JSON" },
+        { "action": "loamium rename で 409 になるケース", "expected": "exit 1、stderr に {\"error\",\"message\"} 1 行 JSON" }
+      ]
+    }
+  ]
+}

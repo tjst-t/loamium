@@ -28,7 +28,7 @@ export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv>
   // プレフィックスが異なるため衝突しない (先に登録して明確化)
   app.route('/', searchRoutes(index));
   app.route('/', journalRoutes(config));
-  app.route('/', notesRoutes(config));
+  app.route('/', notesRoutes(config, index));
 
   return app;
 }

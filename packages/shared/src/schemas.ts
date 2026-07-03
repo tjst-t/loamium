@@ -33,6 +33,16 @@ export const notePatchRequestSchema = z.object({
 });
 export type NotePatchRequest = z.infer<typeof notePatchRequestSchema>;
 
+export const noteRenameRequestSchema = z.object({
+  /**
+   * リネーム先の vault 相対パス (例: "projects/新名.md"。".md" は省略可 —
+   * サーバー側で normalizeVaultPath により補完・検証される)。
+   * フォルダをまたぐ移動も可 (Obsidian のノート移動と同義)。
+   */
+  newPath: z.string().min(1, 'newPath must not be empty'),
+});
+export type NoteRenameRequest = z.infer<typeof noteRenameRequestSchema>;
+
 export const journalAppendRequestSchema = z.object({
   content: z.string().min(1, 'content must not be empty'),
   date: z.string().optional(),
@@ -40,6 +50,28 @@ export const journalAppendRequestSchema = z.object({
 export type JournalAppendRequest = z.infer<typeof journalAppendRequestSchema>;
 
 // ---- レスポンス ----
+
+export const renameUpdatedNoteSchema = z.object({
+  /** リンクを書き換えたノートの vault 相対パス (リネーム後の表記) */
+  path: z.string(),
+  /** そのノート内で書き換えたリンク数 */
+  links: z.number(),
+});
+export type RenameUpdatedNote = z.infer<typeof renameUpdatedNoteSchema>;
+
+export const noteRenameResponseSchema = z.object({
+  /** リネーム前のパス */
+  oldPath: z.string(),
+  /** リネーム後のパス */
+  path: z.string(),
+  /** リネーム後ファイルの mtime (ms epoch) */
+  mtime: z.number(),
+  /** [[リンク]] を書き換えたノートの内訳 (リネームされたノート自身の自己リンクも含む) */
+  updatedNotes: z.array(renameUpdatedNoteSchema),
+  /** 書き換えたリンク総数 */
+  updatedLinks: z.number(),
+});
+export type NoteRenameResponse = z.infer<typeof noteRenameResponseSchema>;
 
 export const frontmatterSchema = z.record(z.string(), z.unknown()).nullable();
 

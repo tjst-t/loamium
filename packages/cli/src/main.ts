@@ -6,6 +6,7 @@
  *   write <path> <content>               PUT    /api/notes/{path}
  *   append <path> <content>              POST   /api/notes/{path}/append
  *   patch <path> --old <s> --new <s>     POST   /api/notes/{path}/patch
+ *   rename <path> <new-path>             POST   /api/notes/{path}/rename
  *   journal [date]                       GET    /api/journal[?date=]
  *   journal-append <content> [date]      POST   /api/journal/append
  *   search <query>                       GET    /api/search?q=
@@ -24,6 +25,7 @@ import {
   journalAppendResponseSchema,
   journalResponseSchema,
   noteListResponseSchema,
+  noteRenameResponseSchema,
   noteResponseSchema,
   noteWriteResponseSchema,
   searchResponseSchema,
@@ -133,6 +135,26 @@ function buildProgram(): Command {
       output(opts, result, () => {
         const res = parseAs(result, noteWriteResponseSchema, 'patch');
         println(`patched ${res.path}`);
+      });
+    });
+
+  sub('rename', 'ノートをリネームし、vault 内の全 [[旧名]] リンクを追従書き換えする (POST /api/notes/{path}/rename)')
+    .argument('<path>', '現在の vault 相対パス')
+    .argument('<new-path>', 'リネーム先の vault 相対パス (.md 省略可)')
+    .action(async (path: string, newPath: string, opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(
+        base,
+        `/api/notes/${encodeNotePath(path)}/rename`,
+        postJson({ newPath: toVaultPath(newPath) }),
+      );
+      output(opts, result, () => {
+        const res = parseAs(result, noteRenameResponseSchema, 'rename');
+        println(`renamed ${res.oldPath} -> ${res.path}`);
+        for (const u of res.updatedNotes) {
+          println(`updated ${u.path} (${String(u.links)} link${u.links === 1 ? '' : 's'})`);
+        }
+        println(`${String(res.updatedLinks)} link(s) rewritten`);
       });
     });
 

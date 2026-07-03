@@ -54,3 +54,24 @@ export function resolveLinkTarget(target: string, vaultPaths: Iterable<string>):
   });
   return candidates[0] ?? null;
 }
+
+/**
+ * notePath を指す [[リンク]] に書くべき最短ターゲット表記 (拡張子なし) を返す。
+ *
+ * Obsidian の「可能なら最短パス」慣行に合わせる:
+ * - basename が vault 内で notePath に一意解決するなら basename (例: "メモ")
+ * - 同名衝突で解決が別ノートへ向かうならフルパス (例: "projects/メモ")
+ *
+ * リネーム追従の書き換え先とオートコンプリートの挿入テキストの両方で使い、
+ * 書いたリンクが必ず notePath に解決することを保証する。
+ *
+ * @param notePath リンク先ノートの vault 相対パス (`a/b.md`)
+ * @param vaultPaths リンクが解決される時点の全ノートパス (notePath を含むこと)
+ */
+export function preferredLinkTarget(notePath: string, vaultPaths: Iterable<string>): string {
+  const path = notePath.normalize('NFC');
+  const base = path.split('/').pop() ?? path;
+  const baseNoExt = base.replace(/\.md$/i, '');
+  if (resolveLinkTarget(baseNoExt, vaultPaths) === path) return baseNoExt;
+  return path.replace(/\.md$/i, '');
+}

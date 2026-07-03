@@ -72,6 +72,36 @@ export async function writeNote(
   return { created: !existed, mtime: Math.trunc(st.mtimeMs) };
 }
 
+/**
+ * vault 内の全ノート (.md) の相対パス一覧を返す (NFC 正規化・"/" 区切り・パス昇順)。
+ * ドット始まりのセグメント (.loamium / .git / .obsidian) は除外。
+ * リネーム追従の「ファイルが正」走査に使う (インデックスの鮮度に依存しない)。
+ */
+export async function listNoteFiles(vaultRoot: string): Promise<string[]> {
+  const root = path.resolve(vaultRoot);
+  const out: string[] = [];
+  const walk = async (dirAbs: string): Promise<void> => {
+    let entries;
+    try {
+      entries = await fs.readdir(dirAbs, { withFileTypes: true });
+    } catch {
+      return; // 消えたディレクトリ等は無視 (ファイルが正)
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue;
+      const abs = path.join(dirAbs, entry.name);
+      if (entry.isDirectory()) {
+        await walk(abs);
+      } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.md')) {
+        out.push(path.relative(root, abs).split(path.sep).join('/').normalize('NFC'));
+      }
+    }
+  };
+  await walk(root);
+  out.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  return out;
+}
+
 /** ノートを削除する。存在しなければ false。 */
 export async function deleteNote(vaultRoot: string, relPath: string): Promise<boolean> {
   const abs = resolveVaultFile(vaultRoot, relPath);

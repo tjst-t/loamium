@@ -5,8 +5,8 @@
     "current_sprint": "S6fbf45",
     "total": 6,
     "done": 5,
-    "in_progress": 0,
-    "remaining": 1,
+    "in_progress": 1,
+    "remaining": 0,
     "percentage": 83
   },
   "execution_order": [
@@ -479,7 +479,7 @@
     },
     "S6fbf45": {
       "title": "リンク機構 — オートコンプリートとバックリンクパネル",
-      "status": "pending",
+      "status": "in_progress",
       "description": "[[リンク]] のオートコンプリート、バックリンクパネル、リネーム時のリンク追従。ノート間のネットワークを UI で完成させ、MVP スコープを締める。",
       "milestone": true,
       "stories": {
