@@ -1,0 +1,56 @@
+{
+  "story": "S0c9a48-1",
+  "story_type": "cli",
+  "user_role": "エージェント (Claude Code) および人間の利用者がターミナルから loamium コマンドでノートを操作する",
+  "entry_point": "loamium CLI (packages/cli/bin/loamium.js — bin エントリをサブプロセスとして起動)",
+  "scenarios": [
+    {
+      "id": "scenario-1",
+      "linked_ac": ["AC-S0c9a48-1-1"],
+      "description": "利用者が 10 サブコマンド (read/write/append/patch/journal/journal-append/search/backlinks/list/tags) を API と 1:1 で使い、ノートの読み書き・検索・一覧を行う",
+      "preconditions": ["一時 vault で実サーバーが起動しており、LOAMIUM_URL がそのサーバーを指す"],
+      "steps": [
+        { "n": 1, "action": "loamium write projects/hydra.md '# Hydra\\n監査ログ設計。[[meeting]] 参照 #dev'", "expected": "exit 0。stdout に書き込み結果 (path, created)。ファイルが vault に作成される" },
+        { "n": 2, "action": "loamium read projects/hydra.md", "expected": "exit 0。stdout にノート本文が出る" },
+        { "n": 3, "action": "loamium append projects/hydra.md '追記行'", "expected": "exit 0。read すると末尾に追記行が入っている" },
+        { "n": 4, "action": "loamium patch projects/hydra.md --old '監査ログ設計' --new '監査ログ設計 v2'", "expected": "exit 0。read すると置換済み" },
+        { "n": 5, "action": "loamium journal", "expected": "exit 0。今日の YYYY-MM-DD.md が自動生成され stdout に内容 (空でもヘッダ情報) が出る" },
+        { "n": 6, "action": "loamium journal-append '作業ログ: CLI 実装完了'", "expected": "exit 0。journal で読むと追記されている" },
+        { "n": 7, "action": "loamium journal-append '過去分メモ' 2026-01-15", "expected": "exit 0。journals/2026-01-15.md に追記される" },
+        { "n": 8, "action": "loamium search 監査ログ", "expected": "exit 0。stdout に projects/hydra.md とマッチ行スニペットが出る" },
+        { "n": 9, "action": "loamium backlinks meeting.md", "expected": "exit 0。stdout に projects/hydra.md からの [[meeting]] リンクが出る" },
+        { "n": 10, "action": "loamium list --tag dev / loamium list --folder projects", "expected": "exit 0。絞り込まれたノート一覧が出る" },
+        { "n": 11, "action": "loamium tags", "expected": "exit 0。stdout にタグと件数の一覧 (dev を含む) が出る" },
+        { "n": 12, "action": "loamium read projects/hydra.md --json / loamium search 監査ログ --json", "expected": "exit 0。stdout が API レスポンスそのままの JSON (JSON.parse 可能)" }
+      ],
+      "cleanup": ["一時 vault ディレクトリ削除・サーバー停止"]
+    },
+    {
+      "id": "scenario-2",
+      "linked_ac": ["AC-S0c9a48-1-2"],
+      "description": "失敗時 (ノート不在・権限拒否・サーバー未起動・引数不正) に非 0 終了コードと機械可読な JSON エラーが stderr に出る",
+      "preconditions": ["一時 vault で実サーバーが起動している"],
+      "steps": [
+        { "n": 1, "action": "loamium read no-such-note.md", "expected": "exit 非 0。stderr に JSON.parse 可能な {error: 'not_found', message} が 1 行で出る。stdout は空" },
+        { "n": 2, "action": "loamium patch note.md --old '存在しない文字列' --new x", "expected": "exit 非 0。stderr に {error: 'old_not_found'}" },
+        { "n": 3, "action": "read-only モードのサーバーに対して loamium write note.md x", "expected": "exit 非 0。stderr に権限拒否エラー (error: permission_denied 等)" },
+        { "n": 4, "action": "LOAMIUM_URL を誰も listen していないポートに向けて loamium read a.md", "expected": "exit 非 0。stderr に {error: 'server_unreachable', message: 接続先とヒント}" },
+        { "n": 5, "action": "loamium read (引数なし) / loamium unknown-command", "expected": "exit 非 0。stderr に使い方エラー" },
+        { "n": 6, "action": "loamium write ../escape.md x (vault 外パス)", "expected": "exit 非 0。stderr に {error: 'invalid_path'}" }
+      ],
+      "cleanup": ["一時 vault ディレクトリ削除・サーバー停止"]
+    },
+    {
+      "id": "scenario-3",
+      "linked_ac": ["AC-S0c9a48-1-1"],
+      "description": "サーバー URL の解決順: LOAMIUM_URL → portman port --name loamium → デフォルト",
+      "preconditions": ["実サーバーが一時 vault で起動している"],
+      "steps": [
+        { "n": 1, "action": "LOAMIUM_URL=<実サーバー> で loamium read note.md", "expected": "exit 0。LOAMIUM_URL が最優先で使われる" },
+        { "n": 2, "action": "LOAMIUM_URL 未設定 + PATH 先頭に『port --name loamium で実サーバーのポートを出力する』フェイク portman を置いて loamium read note.md", "expected": "exit 0。portman 解決でサーバーに到達する" },
+        { "n": 3, "action": "LOAMIUM_URL 未設定 + portman が失敗する状態で loamium read a.md", "expected": "デフォルト http://127.0.0.1:3000 に接続を試みる (未起動なら server_unreachable エラーにデフォルト URL が現れる)" }
+      ],
+      "cleanup": ["一時 vault ディレクトリ削除・サーバー停止"]
+    }
+  ]
+}

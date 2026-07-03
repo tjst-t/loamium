@@ -1,0 +1,17 @@
+{
+  "name": "@loamium/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "loamium": "bin/loamium.js"
+  },
+  "scripts": {
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@loamium/shared": "*",
+    "commander": "^13.1.0",
+    "tsx": "^4.19.0"
+  }
+}

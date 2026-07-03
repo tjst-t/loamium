@@ -1,0 +1,113 @@
+{
+  "sprint": "S0c9a48",
+  "decisions": [
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "GUI spec プロセス: 本 Sprint に GUI Story なし",
+      "detail": "Story 1 は CLI (story_type=cli、実 bin をサブプロセス起動して stdout/stderr/exit code を検証)、Story 2 は Skill ドキュメント (story_type=library、SKILL.md の構造検証)。Playwright 対象なし。",
+      "reference": "test-discipline Rule 2 (cli) / references/gui-spec.md Phase 1",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "Story の直列実行 (1 → 2)",
+      "detail": "Story 2 の SKILL.md は Story 1 の CLI コマンド体系 (実在サブコマンド・フラグ) に依存するため直列で実装する。Sd63ad1 / S31ba00 と同じく本セッションで実装し、Story レベルレビューは code-review スキル、独立 verifier は claude CLI の別セッション (read-only) を同期起動する。",
+      "reference": "DESIGN_PRINCIPLES priority 5 (シンプルさ > 汎用性) / S31ba00 planning decision と同一方式",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "CLI コマンドセットは ROADMAP の 10 コマンドに限定 (delete は追加しない)",
+      "detail": "API には DELETE /api/notes があるが、AC-S0c9a48-1-1 が列挙するのは read/write/append/patch/journal/journal-append/search/backlinks/list/tags の 10 個。破壊的操作の CLI 追加は AC 外のサーフェス拡大であり、『ユーザーの vault データを確認なしに削除』リスクに近づくため見送り、必要になったら次 Sprint 以降で AC 付きで追加する。",
+      "reference": "DESIGN_PRINCIPLES priority 2 (データ安全性 > 開発速度) / forbidden (一括削除) / test-discipline Rule 6 (実装した表面はすべてテスト対象になる)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "引数パーサは commander を採用",
+      "detail": "ROADMAP task S0c9a48-1-1 に『commander 等でサブコマンド定義』とあり、自作パーサより実績あるライブラリを選ぶ (existing library > custom)。サブコマンド・フラグ・ヘルプ・不明コマンドの非 0 終了が標準で揃う。",
+      "reference": "ROADMAP task S0c9a48-1-1 / DESIGN_PRINCIPLES priority 5 (最も単純な実装)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "bin は tsx ランタイム登録の薄い JS ラッパー (ビルド不要、パッケージ内で完結)",
+      "detail": "既存方針 (TS ソース直配布 + tsx 実行) に合わせ、packages/cli/bin/loamium.js が tsx/esm/api の register() を呼んでから src/main.ts を import する。tsx は @loamium/cli の dependencies に持たせ、npm link やグローバルインストールなしで node packages/cli/bin/loamium.js が動く。受け入れテストはこの bin をサブプロセス起動する (test-discipline Rule 2: 実際に配布される入口)。",
+      "reference": "CLAUDE.md Tech Stack (tsx 実行) / test-discipline Rule 2 (cli)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "エラー出力は stderr に 1 行 JSON {error, message}、終了コードは 1 (API/接続) / 2 (使い方)",
+      "detail": "エージェント第一 (priority 3) なので stderr は常に機械可読 JSON 1 行。error はサーバーの機械可読コード (not_found / permission_denied / old_not_found / invalid_path 等) をそのまま透過し、CLI 起因は server_unreachable / usage を使う。message は人間可読 (両立)。使い方エラー (引数不足・不明コマンド) は exit 2、API・接続エラーは exit 1。",
+      "reference": "DESIGN_PRINCIPLES priority 3 (エージェント操作性) / AC-S0c9a48-1-2",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "content は引数渡しのみ (stdin 読み込みは実装しない)",
+      "detail": "write/append/journal-append の content は位置引数のみとする。stdin サポートはサーフェスが 3 コマンド分増え、それぞれ受け入れテストが必要になる (Rule 6)。エージェント・人間ともシェルのクォートで複数行を渡せるため MVP では不要。必要になったら backlog へ。",
+      "reference": "DESIGN_PRINCIPLES priority 5 (シンプルさ > 汎用性) / test-discipline Rule 6",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "URL 解決は LOAMIUM_URL → portman port --name loamium → http://127.0.0.1:3000。実機の portman に port サブコマンドが無い件",
+      "detail": "解決順は ROADMAP 指定どおり。この開発機の portman には port サブコマンドが存在しない (unknown command) が、CLI は spec のコマンド文字列を試行し、コマンド不在・非 0 終了・パース不能のいずれでも黙ってデフォルト (サーバー index.ts の既定ポート 3000) へフォールバックするため動作に支障はない。受け入れテストは PATH 先頭のフェイク portman で解決順そのものを検証する。",
+      "reference": "ROADMAP task S0c9a48-1-1 / CLAUDE.md Server (ポートをハードコードしない — デフォルトは最終フォールバックのみ)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "implementation",
+      "title": "CLI パッケージ構成: url.ts (解決) / client.ts (HTTP + エラー正規化) / main.ts (commander 定義)",
+      "detail": "bin/loamium.js は tsx/esm/api の register() 後に src/main.ts を import する 8 行のラッパー。API エラーはサーバーの {error, message} をそのまま CliError に透過し、CLI 起因は server_unreachable / protocol_error / usage / internal_error を追加。--json は「レスポンスボディの生テキスト」をそのまま出力し API と 1:1 を厳密に保つ (整形し直さない)。人間可読出力は zod スキーマ (shared) で検証してから整形する。",
+      "reference": "DESIGN_PRINCIPLES priority 3 (API/CLI の 1:1・後方互換) / coding_conventions (zod スキーマ共有)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "implementation",
+      "title": "パスは CLI 側でも shared の normalizeVaultPath を通す",
+      "detail": "`../escape.md` のような不正パスは fetch の WHATWG URL 正規化に食われてサーバーに届かず、曖昧な http_error (404 Not Found) になることが手動確認で判明。CLAUDE.md の規約 (vault 内パスは必ず shared のパス正規化を経由) に従い CLI で先に検証し、機械可読な invalid_path を stderr に返すようにした。サーバー側の検証は従来どおり残る (二重防御)。",
+      "reference": "CLAUDE.md Development Rules / DESIGN_PRINCIPLES priority 2 (データ安全性)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "implementation",
+      "title": "SKILL.md の構造検証テストは「実 CLI とのコマンド整合」まで検証する",
+      "detail": "frontmatter (name/description)・journal-append 3 例以上・search 2 例以上・全 10 コマンド用例・エラー対処 (server_unreachable→make serve / not_found→search 等) に加え、ドキュメント中の全 loamium コマンド例のサブコマンド・フラグが実在するものだけであることを検証する。Skill と CLI の食い違い (ドキュメント腐敗) を機械的に検出するため。プレースホルダ (<cmd> 等) は用例として許容。",
+      "reference": "AC-S0c9a48-2-1 / DESIGN_PRINCIPLES priority 3 (エージェント操作性 — Skill が間違ったコマンドを教えるのが最悪の劣化)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "review",
+      "title": "Story レビュー (code-review): 確認済み指摘 1 件を修正、エッジケースは実機検証で問題なし",
+      "detail": "指摘: skill.spec.ts が import する yaml が root package.json に未宣言 (shared からのホイスティング頼み) → devDependencies に追加。実機検証したエッジケース: patch の --old/--new にダッシュ始まり値 (OK)、フラグ様の positional content (usage エラーで拒否 — 妥当)、空 content append (サーバーの invalid_request を透過)、NFD パス (OK)。localToday の journal.spec/cli.spec 重複はテスト自己完結の既存慣習に合わせ許容。",
+      "reference": "sprint SKILL.md (Two-level review) / DESIGN_PRINCIPLES coding_conventions",
+      "adr_ref": null,
+      "drift_flag": "none"
+    }
+  ]
+}

@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "S0c9a48",
+    "current_sprint": "Sa704c3",
     "total": 6,
-    "done": 2,
+    "done": 3,
     "in_progress": 0,
-    "remaining": 4,
-    "percentage": 33
+    "remaining": 3,
+    "percentage": 50
   },
   "execution_order": [
     "Sd63ad1",
@@ -239,13 +239,13 @@
     },
     "S0c9a48": {
       "title": "CLI と Skill — エージェント統合",
-      "status": "pending",
+      "status": "done",
       "description": "REST API を叩く薄い CLI(loamium)と claude-skills 形式の Skill。エンドポイントとコマンドは 1:1。これで『エージェントからノートを操作する』という独自価値が完成する。",
       "milestone": true,
       "stories": {
         "S0c9a48-1": {
           "title": "loamium CLI",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "エージェントおよび人間の利用者として、ターミナルから loamium コマンドでノートを読み書き・検索したい。なぜなら、curl より簡潔で、Claude Code からも人間からも同じ入口で操作できるから。",
@@ -254,13 +254,13 @@
               "id": "AC-S0c9a48-1-1",
               "description": "loamium read / write / append / patch / journal / journal-append / search / backlinks / list / tags が API と 1:1 で動作する",
               "test": "[AC-S0c9a48-1-1] in tests/acceptance/cli.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S0c9a48-1-2",
               "description": "成功時は終了コード 0 と結果を stdout に、失敗時(ノート不在・権限拒否等)は非 0 終了コードと機械可読なエラーメッセージを stderr に出す",
               "test": "[AC-S0c9a48-1-2] in tests/acceptance/cli.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
@@ -278,7 +278,7 @@
         },
         "S0c9a48-2": {
           "title": "Loamium Skill",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "Claude Code 利用者として、自然言語で『これジャーナルにメモして』『〜について書いたノート探して』と頼みたい。なぜなら、CLI コマンドを暗記せずにエージェント経由でノートを操作するのが Loamium の中核ユースケースだから。",
@@ -287,7 +287,7 @@
               "id": "AC-S0c9a48-2-1",
               "description": "skill/ に claude-skills 形式の SKILL.md があり、journal-append と search を中心に自然言語→コマンド変換例とエラー対処(サーバー未起動・ノート不在等)が記載されている",
               "test": "[AC-S0c9a48-2-1] in tests/acceptance/skill.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
