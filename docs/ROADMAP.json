@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "S6fbf45",
+    "current_sprint": null,
     "total": 6,
-    "done": 5,
-    "in_progress": 1,
+    "done": 6,
+    "in_progress": 0,
     "remaining": 0,
-    "percentage": 83
+    "percentage": 100
   },
   "execution_order": [
     "Sd63ad1",
@@ -479,7 +479,7 @@
     },
     "S6fbf45": {
       "title": "リンク機構 — オートコンプリートとバックリンクパネル",
-      "status": "in_progress",
+      "status": "done",
       "description": "[[リンク]] のオートコンプリート、バックリンクパネル、リネーム時のリンク追従。ノート間のネットワークを UI で完成させ、MVP スコープを締める。",
       "milestone": true,
       "stories": {
@@ -494,19 +494,19 @@
               "id": "AC-S6fbf45-1-1",
               "description": "エディタで [[ を入力すると既存ノート名の候補が表示され、選択で [[ノート名]] が挿入される(部分一致で絞り込み)",
               "test": "[AC-S6fbf45-1-1] in packages/ui/tests/e2e/wikilink.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6fbf45-1-2",
               "description": "存在しないノートへの [[リンク]] は壊れリンクとして視覚的に区別され、クリックすると新規ノートが作成される",
               "test": "[AC-S6fbf45-1-2] in packages/ui/tests/e2e/wikilink.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6fbf45-1-3",
               "description": "[[リンク]] をクリック(または Cmd/Ctrl+クリック)でそのノートに移動できる",
               "test": "[AC-S6fbf45-1-3] in packages/ui/tests/e2e/wikilink.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
@@ -533,7 +533,7 @@
               "id": "AC-S6fbf45-2-1",
               "description": "ノートを開くとバックリンクパネルに参照元ノートとリンク行のコンテキストが表示され、クリックで参照元に移動できる",
               "test": "[AC-S6fbf45-2-1] in packages/ui/tests/e2e/backlinks-panel.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
@@ -555,13 +555,13 @@
               "id": "AC-S6fbf45-3-1",
               "description": "POST /api/notes/{path}/rename で、vault 内の全 [[旧名]]([[旧名#見出し]] / [[旧名|表示名]] 含む)が新名に書き換わる",
               "test": "[AC-S6fbf45-3-1] in tests/acceptance/rename.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6fbf45-3-2",
               "description": "UI のツリーからのリネームでもリンク追従が動き、変更は監査ログに記録される",
               "test": "[AC-S6fbf45-3-2] in packages/ui/tests/e2e/rename.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
