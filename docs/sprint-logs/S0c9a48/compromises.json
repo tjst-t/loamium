@@ -1,0 +1,12 @@
+{
+  "milestone_summary": {
+    "stopped_at": "milestone_M1_agent_integration (Sprints Sd63ad1, S31ba00, S0c9a48)",
+    "compromises": [],
+    "blockers_encountered": [
+      "Sprint 実行サブエージェント (Sd63ad1, S0c9a48) が独立 verifier の起動をバックグラウンド待ちのままターン終了する事象が 2 回発生。親 autopilot が verifier (opus, read-only, 別セッション) を直接起動して補完した。verifier 判定自体は 3 Sprint とも overall=pass で、検証の独立性・完全性への影響なし。"
+    ],
+    "scope_changes": [
+      "マイルストーンのライブデモで発見した SKILL.md の実害あるドキュメントバグ (`journal-append \"- ...\"` の例が commander のオプション誤認で実際には失敗する) を sprint fix 相当の小修正として main 上で即時修正 (コミット 7d32b87, 8cf00eb)。`--` 区切りの案内を追記し、doc-drift テストが裸の `--` を end-of-options として認識するよう修正 (アサーション対象は不変)。"
+    ]
+  }
+}
