@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "S31ba00",
+    "current_sprint": "S0c9a48",
     "total": 6,
-    "done": 1,
-    "in_progress": 1,
+    "done": 2,
+    "in_progress": 0,
     "remaining": 4,
-    "percentage": 17
+    "percentage": 33
   },
   "execution_order": [
     "Sd63ad1",
@@ -143,7 +143,7 @@
     },
     "S31ba00": {
       "title": "インデックス — 検索・バックリンク・ファイル監視",
-      "status": "in_progress",
+      "status": "done",
       "description": "インメモリインデックス(全文検索・バックリンク・タグ)と chokidar によるファイル監視・再構築。外部編集(エディタ・Git)にも追従する。インデックスは使い捨て、ファイルが正。",
       "milestone": false,
       "stories": {
@@ -158,13 +158,13 @@
               "id": "AC-S31ba00-1-1",
               "description": "GET /api/search?q= で全文検索でき、ヒットしたノートのパスとマッチ箇所(スニペット)が返る",
               "test": "[AC-S31ba00-1-1] in tests/acceptance/search.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S31ba00-1-2",
               "description": "GET /api/notes 一覧が tag / folder クエリで絞り込める(タグは #tag と frontmatter tags の両方を認識)",
               "test": "[AC-S31ba00-1-2] in tests/acceptance/search.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
@@ -191,13 +191,13 @@
               "id": "AC-S31ba00-2-1",
               "description": "GET /api/backlinks?path= で対象ノートへリンクしているノート一覧(リンク行のコンテキスト付き)が返る",
               "test": "[AC-S31ba00-2-1] in tests/acceptance/backlinks.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S31ba00-2-2",
               "description": "[[note#heading]] 形式・NFC/NFD ゆれ・拡張子省略のリンクが正しく同一ノートに解決される。ブロック ID は生成されない",
               "test": "[AC-S31ba00-2-2] in tests/acceptance/backlinks.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
@@ -224,7 +224,7 @@
               "id": "AC-S31ba00-3-1",
               "description": "API を経由せずにファイルを追加・変更・削除しても、検索とバックリンクの結果に反映される",
               "test": "[AC-S31ba00-3-1] in tests/acceptance/watch.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {

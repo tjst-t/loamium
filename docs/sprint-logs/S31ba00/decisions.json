@@ -99,6 +99,51 @@
       "reference": "SPEC §9-8 (NFC/NFD 正規化が検索とリンク解決を静かに壊す) / DESIGN_PRINCIPLES priority 2",
       "adr_ref": null,
       "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T16:23:45Z",
+      "category": "verification",
+      "title": "機械検証 pass (126/126) + 独立 verifier (claude CLI 別セッション・read-only) overall=pass",
+      "detail": "hooks/run-verify.py: make test exit=0 (JUnit 126/126/0fail/0skip)・make lint exit=0 → overall_machine_status=pass。verification-results.json の status は全件 verify-run.json から機械コピー。独立 verifier は claude CLI (opus) の別セッションを Read/Grep/git diff/make test + verification-report.json のみ Write 許可で同期起動し、実行ログ照合・AC×実コード・禁止カテゴリ・ADR・compromise 完全性の 9 findings 全 pass、overlooked 0 件。verifier の書き込み先は git status 差分で verification-report.json 1 ファイルのみであることを監査済み。",
+      "reference": "sprint references/verify-execution.md / references/verifier-agent.md",
+      "adr_ref": null,
+      "drift_flag": "none"
     }
-  ]
+  ],
+  "done_judgment": {
+    "S31ba00-1": {
+      "guard1": "pass",
+      "guard2": "pass",
+      "guard3": "pass",
+      "guard4": "n/a",
+      "guard5": "pass",
+      "guard6": "pass",
+      "guard7": "n/a",
+      "guard8": "n/a",
+      "overall": "ok"
+    },
+    "S31ba00-2": {
+      "guard1": "pass",
+      "guard2": "pass",
+      "guard3": "pass",
+      "guard4": "n/a",
+      "guard5": "pass",
+      "guard6": "pass",
+      "guard7": "n/a",
+      "guard8": "n/a",
+      "overall": "ok"
+    },
+    "S31ba00-3": {
+      "guard1": "pass",
+      "guard2": "pass",
+      "guard3": "pass",
+      "guard4": "n/a",
+      "guard5": "pass",
+      "guard6": "pass",
+      "guard7": "n/a",
+      "guard8": "n/a",
+      "overall": "ok"
+    },
+    "note": "全 Story user_review_required=false。詳細は verification-results.json の done_judgment を参照。"
+  }
 }
