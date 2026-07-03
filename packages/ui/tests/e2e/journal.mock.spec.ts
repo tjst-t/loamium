@@ -3,12 +3,9 @@
  * page.route で全 /api/* をモックする。モック形は packages/server/src/routes/journal.ts
  * の実レスポンス構造に一致させる (gui-spec-Sa704c3-2.json の endpoint_contracts 参照)。
  */
-import { test, expect, type Page, type Route } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { readHarnessState } from '../harness/state.js';
-
-function json(body: unknown, status = 200): Parameters<Route['fulfill']>[0] {
-  return { status, contentType: 'application/json', body: JSON.stringify(body) };
-}
+import { installCatchAll, json } from '../harness/mock-helpers.js';
 
 function journal(date: string, content: string, mtime = 1000): Record<string, unknown> {
   return {
@@ -22,14 +19,6 @@ function journal(date: string, content: string, mtime = 1000): Record<string, un
   };
 }
 
-async function installCatchAll(page: Page): Promise<string[]> {
-  const unexpected: string[] = [];
-  await page.route('**/api/**', (route) => {
-    unexpected.push(`${route.request().method()} ${route.request().url()}`);
-    void route.fulfill(json({ error: 'unmocked', message: 'unmocked endpoint in mock test' }, 500));
-  });
-  return unexpected;
-}
 
 test('[MOCK] 起動時に GET /api/journal が呼ばれ、返った内容がエディタに開く', async ({ page }) => {
   const unexpected = await installCatchAll(page);

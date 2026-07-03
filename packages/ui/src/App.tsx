@@ -222,12 +222,15 @@ export function App(): JSX.Element {
   }, []);
 
   // ---- グローバルキー: Cmd/Ctrl+S (エディタ外フォーカス時) と F2 (リネーム) ----
+  const modalOpenRef = useRef(false);
+  modalOpenRef.current = dialog !== null || conflictPath !== null || menu !== null;
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent): void => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         void saveNow();
-      } else if (e.key === 'F2' && docRef.current !== null) {
+      } else if (e.key === 'F2' && docRef.current !== null && !modalOpenRef.current) {
+        // ダイアログ・メニュー表示中は F2 で状態を奪わない
         e.preventDefault();
         setDialog({ type: 'rename', path: docRef.current.path });
       }
@@ -272,12 +275,19 @@ export function App(): JSX.Element {
       const path = folder === '' ? `${name}.md` : `${folder}/${name}.md`;
       setDialog(null);
       try {
-        const res = await api.putNote(path, '');
+        // baseMtime: 0 = create-only。ツリーが古く、同名ノートが外部 (エージェント等) で
+        // 既に作られていた場合は 409 になり、黙って上書きしない (データ安全性 priority 2)。
+        const res = await api.putNote(path, '', 0);
         await refreshNotes();
         setOpenDoc(res.path, '', res.mtime);
         setAppError(null);
       } catch (err) {
-        setAppError(`ノートを作成できませんでした — ${errMessage(err)}`);
+        if (err instanceof ApiError && err.status === 409) {
+          setAppError(`同名のノートが既に存在します — ${path}`);
+          void refreshNotes();
+        } else {
+          setAppError(`ノートを作成できませんでした — ${errMessage(err)}`);
+        }
       }
     },
     [refreshNotes, setOpenDoc],
@@ -293,7 +303,8 @@ export function App(): JSX.Element {
         // 開いているノートのリネームは未保存編集を先に反映する
         if (docRef.current?.path === oldPath && !(await saveNow())) return;
         const current = await api.getNote(oldPath);
-        const written = await api.putNote(newPath, current.content);
+        // baseMtime: 0 = create-only (リネーム先が既にある場合は 409 で守る)
+        const written = await api.putNote(newPath, current.content, 0);
         await api.deleteNote(oldPath);
         await refreshNotes();
         if (docRef.current?.path === oldPath) {
@@ -301,7 +312,13 @@ export function App(): JSX.Element {
         }
         setAppError(null);
       } catch (err) {
-        setAppError(`リネームできませんでした — ${errMessage(err)}`);
+        if (err instanceof ApiError && err.status === 409) {
+          setAppError(`リネーム先に同名のノートが既に存在します — ${newPath}`);
+        } else {
+          setAppError(`リネームできませんでした — ${errMessage(err)}`);
+        }
+        // 部分失敗 (新パス作成後に旧パス削除が失敗等) でもツリーを実状に合わせる
+        void refreshNotes();
       }
     },
     [refreshNotes, saveNow, setOpenDoc],

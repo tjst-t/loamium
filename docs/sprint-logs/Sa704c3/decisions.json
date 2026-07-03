@@ -154,6 +154,15 @@
       "reference": "prototype/TESTIDS.md / 誠実な UI 表示",
       "adr_ref": null,
       "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "review",
+      "title": "Story レビュー (code-review high): 5 件検出・4 件修正・1 件許容",
+      "detail": "サブエージェント起動ツールが無いためレビューはメインセッションが 7 アングル (行単位 diff / 削除挙動 / クロスファイル / 再利用 / 単純化 / 効率 / 高度) を直接実施。修正: (1) 新規作成・リネームの PUT を baseMtime:0 の create-only にし、ツリーが古い場合の外部作成ノート上書き (データロス) を 409 で防止 + 専用エラー表示。(2) F2 がダイアログ/メニュー表示中に状態を奪う問題をガード。(3) リネーム部分失敗時に refreshNotes してツリーを実状に同期。(4) mock テストの json/installCatchAll 重複を tests/harness/mock-helpers.ts へ抽出、Rule 6 ギャップ (backlink-panel-toggle / empty-new-note / 各ダイアログのキャンセル / context-open / F2) の mock テスト 3 件を追加。許容: 保存進行中 (数 ms) のノート切替クリックが no-op になる挙動 — ローカル API でウィンドウが極小のため複雑化しない。",
+      "reference": "test-discipline Rule 6 / DESIGN_PRINCIPLES priority 2",
+      "adr_ref": null,
+      "drift_flag": "none"
     }
   ]
 }
