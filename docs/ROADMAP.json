@@ -1,0 +1,648 @@
+{
+  "project": "Loamium",
+  "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
+  "progress": {
+    "current_sprint": "Sd63ad1",
+    "total": 6,
+    "done": 0,
+    "in_progress": 0,
+    "remaining": 6,
+    "percentage": 0
+  },
+  "execution_order": ["Sd63ad1", "S31ba00", "S0c9a48", "Sa704c3", "S9ab6c3", "S6fbf45"],
+  "sprints": {
+    "Sd63ad1": {
+      "title": "REST API コア — ノート読み書きとジャーナル",
+      "status": "pending",
+      "description": "モノレポ基盤と Hono REST API のコア。ノートの CRUD・追記・部分置換、デイリージャーナル、監査ログと権限モードを実装する。これが動くと以降の開発を Claude Code がノートを書きながら進められる。",
+      "milestone": false,
+      "stories": {
+        "Sd63ad1-1": {
+          "title": "ノート読み書き API",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "エージェント利用者として、REST API でノートの取得・作成・上書き・追記・部分置換をしたい。なぜなら、Claude Code などのエージェントがノートを安全に操作できる土台が必要だから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sd63ad1-1-1",
+              "description": "PUT /api/notes/{path} でノートを作成・上書きし、GET /api/notes/{path} で内容と frontmatter を取得できる",
+              "test": "[AC-Sd63ad1-1-1] in tests/acceptance/notes-crud.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd63ad1-1-2",
+              "description": "POST /api/notes/{path}/append で末尾追記、POST /api/notes/{path}/patch で old→new の部分置換ができる(old が見つからない場合は 409 エラー)",
+              "test": "[AC-Sd63ad1-1-2] in tests/acceptance/notes-crud.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd63ad1-1-3",
+              "description": "vault ルート外へのパス(../ 等)は 400 で拒否され、ファイルは常に UTF-8 / LF で保存される",
+              "test": "[AC-Sd63ad1-1-3] in tests/acceptance/notes-crud.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sd63ad1-1-1": {
+              "title": "モノレポ基盤の構築",
+              "description": "npm workspaces で packages/shared, packages/server を作成。TypeScript strict、Vitest、zod をセットアップ。make test が JUnit XML を reports/ に出す構成にする。",
+              "status": "pending"
+            },
+            "Sd63ad1-1-2": {
+              "title": "shared: パス正規化と Markdown パーサー",
+              "description": "normalizeVaultPath()(NFC 正規化、.. 脱出検証、.md 拡張子)、parseNote()(frontmatter YAML 抽出)。ユニットテスト必須。",
+              "status": "pending"
+            },
+            "Sd63ad1-1-3": {
+              "title": "server: notes エンドポイント実装",
+              "description": "GET/PUT /api/notes/{path}、POST append/patch、DELETE。zod スキーマ検証。vault ルートは環境変数 LOAMIUM_VAULT で指定。",
+              "status": "pending"
+            },
+            "Sd63ad1-1-4": {
+              "title": "受け入れテスト作成",
+              "description": "実 HTTP クライアントで API を叩く受け入れテストを tests/acceptance/ に作成。AC タグ付き。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sd63ad1-2": {
+          "title": "デイリージャーナル API",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、今日のデイリージャーナルの取得と追記を 1 コマンド相当の API でしたい。なぜなら、Claude Code の作業ログ・決定事項を自動でジャーナルに蓄積するのが最重要ユースケースだから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sd63ad1-2-1",
+              "description": "GET /api/journal(または ?date=YYYY-MM-DD)でジャーナルを取得でき、存在しない場合は journals/YYYY-MM-DD.md が自動生成される",
+              "test": "[AC-Sd63ad1-2-1] in tests/acceptance/journal.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd63ad1-2-2",
+              "description": "POST /api/journal/append で今日(または指定日)のジャーナル末尾に追記できる",
+              "test": "[AC-Sd63ad1-2-2] in tests/acceptance/journal.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sd63ad1-2-1": {
+              "title": "shared: ジャーナル日付処理",
+              "description": "journalPath(date) — YYYY-MM-DD.md のパス解決、日付バリデーション。タイムゾーンはサーバーローカル。ユニットテスト必須。",
+              "status": "pending"
+            },
+            "Sd63ad1-2-2": {
+              "title": "server: journal エンドポイント実装",
+              "description": "GET /api/journal、POST /api/journal/append。存在しない日付ファイルの自動生成。受け入れテスト付き。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sd63ad1-3": {
+          "title": "監査ログと権限モード",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "vault 所有者として、エージェントの書き込みを監査ログに残し、権限モード(read-only / append-only / full)で制限したい。なぜなら、機微情報を含みうる vault をエージェントが誤って破壊するリスクを最初から抑える必要があるから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sd63ad1-3-1",
+              "description": "すべての書き込み系 API 呼び出しが .loamium/audit.log に記録される(時刻・操作・パス)",
+              "test": "[AC-Sd63ad1-3-1] in tests/acceptance/audit-permissions.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd63ad1-3-2",
+              "description": "LOAMIUM_MODE=read-only では書き込み系 API が 403、append-only では上書き・削除が 403 になり追記のみ通る",
+              "test": "[AC-Sd63ad1-3-2] in tests/acceptance/audit-permissions.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sd63ad1-3-1": {
+              "title": "監査ログ実装",
+              "description": ".loamium/audit.log に JSONL で書き込み操作を記録するミドルウェア。",
+              "status": "pending"
+            },
+            "Sd63ad1-3-2": {
+              "title": "権限モード実装",
+              "description": "LOAMIUM_MODE 環境変数(full / read-only / append-only)でエンドポイント群をガードするミドルウェア。受け入れテスト付き。",
+              "status": "pending"
+            }
+          }
+        }
+      }
+    },
+    "S31ba00": {
+      "title": "インデックス — 検索・バックリンク・ファイル監視",
+      "status": "pending",
+      "description": "インメモリインデックス(全文検索・バックリンク・タグ)と chokidar によるファイル監視・再構築。外部編集(エディタ・Git)にも追従する。インデックスは使い捨て、ファイルが正。",
+      "milestone": false,
+      "stories": {
+        "S31ba00-1": {
+          "title": "全文検索とノート一覧",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、vault 全体をキーワードで検索し、タグやフォルダでノートを絞り込みたい。なぜなら、蓄積したノートから目的の情報へ素早く到達できなければ知識が死蔵されるから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S31ba00-1-1",
+              "description": "GET /api/search?q= で全文検索でき、ヒットしたノートのパスとマッチ箇所(スニペット)が返る",
+              "test": "[AC-S31ba00-1-1] in tests/acceptance/search.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S31ba00-1-2",
+              "description": "GET /api/notes 一覧が tag / folder クエリで絞り込める(タグは #tag と frontmatter tags の両方を認識)",
+              "test": "[AC-S31ba00-1-2] in tests/acceptance/search.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S31ba00-1-1": {
+              "title": "shared: タグ・リンク抽出",
+              "description": "parseNote() を拡張し #tag(コードフェンス内は除外)と frontmatter tags、[[WikiLink]] を抽出。ユニットテスト必須。",
+              "status": "pending"
+            },
+            "S31ba00-1-2": {
+              "title": "server: インデックスと検索エンドポイント",
+              "description": "起動時に vault を全走査してインメモリインデックス構築。Fuse.js で /api/search、/api/notes 一覧 + フィルタ、/api/tags。",
+              "status": "pending"
+            }
+          }
+        },
+        "S31ba00-2": {
+          "title": "バックリンク解決",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、あるノートへ [[リンク]] しているノートの一覧を取得したい。なぜなら、ノート間のつながりから文脈を辿るのが Loamium の中核価値だから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S31ba00-2-1",
+              "description": "GET /api/backlinks?path= で対象ノートへリンクしているノート一覧(リンク行のコンテキスト付き)が返る",
+              "test": "[AC-S31ba00-2-1] in tests/acceptance/backlinks.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S31ba00-2-2",
+              "description": "[[note#heading]] 形式・NFC/NFD ゆれ・拡張子省略のリンクが正しく同一ノートに解決される。ブロック ID は生成されない",
+              "test": "[AC-S31ba00-2-2] in tests/acceptance/backlinks.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S31ba00-2-1": {
+              "title": "リンク解決ロジック",
+              "description": "リンクターゲット → vault パス解決(NFC 正規化、大文字小文字、フォルダ横断のファイル名一致)。ユニットテスト必須。",
+              "status": "pending"
+            },
+            "S31ba00-2-2": {
+              "title": "server: backlinks エンドポイント",
+              "description": "インデックスから逆リンクを引く GET /api/backlinks。受け入れテスト付き。",
+              "status": "pending"
+            }
+          }
+        },
+        "S31ba00-3": {
+          "title": "ファイル監視とインデックス再構築",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "vault 所有者として、外部エディタや Git 操作で変更したファイルも検索・バックリンクに即座に反映してほしい。なぜなら、ファイルシステムが正本という原則の下では API 経由以外の変更が普通に起きるから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S31ba00-3-1",
+              "description": "API を経由せずにファイルを追加・変更・削除しても、検索とバックリンクの結果に反映される",
+              "test": "[AC-S31ba00-3-1] in tests/acceptance/watch.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S31ba00-3-1": {
+              "title": "chokidar 監視とインデックス差分更新",
+              "description": "chokidar で vault を監視し add/change/unlink でインデックスを差分更新。.loamium/ は監視除外。受け入れテスト付き。",
+              "status": "pending"
+            }
+          }
+        }
+      }
+    },
+    "S0c9a48": {
+      "title": "CLI と Skill — エージェント統合",
+      "status": "pending",
+      "description": "REST API を叩く薄い CLI(loamium)と claude-skills 形式の Skill。エンドポイントとコマンドは 1:1。これで『エージェントからノートを操作する』という独自価値が完成する。",
+      "milestone": true,
+      "stories": {
+        "S0c9a48-1": {
+          "title": "loamium CLI",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "エージェントおよび人間の利用者として、ターミナルから loamium コマンドでノートを読み書き・検索したい。なぜなら、curl より簡潔で、Claude Code からも人間からも同じ入口で操作できるから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S0c9a48-1-1",
+              "description": "loamium read / write / append / patch / journal / journal-append / search / backlinks / list / tags が API と 1:1 で動作する",
+              "test": "[AC-S0c9a48-1-1] in tests/acceptance/cli.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S0c9a48-1-2",
+              "description": "成功時は終了コード 0 と結果を stdout に、失敗時(ノート不在・権限拒否等)は非 0 終了コードと機械可読なエラーメッセージを stderr に出す",
+              "test": "[AC-S0c9a48-1-2] in tests/acceptance/cli.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S0c9a48-1-1": {
+              "title": "CLI スケルトンとサーバー URL 解決",
+              "description": "packages/cli。commander 等でサブコマンド定義。LOAMIUM_URL → portman port --name loamium → デフォルトの順で解決。",
+              "status": "pending"
+            },
+            "S0c9a48-1-2": {
+              "title": "全サブコマンド実装",
+              "description": "read/write/append/patch/journal/journal-append/search/backlinks/list/tags。--json フラグで生 JSON 出力。CLI サブプロセスを起動する受け入れテスト付き。",
+              "status": "pending"
+            }
+          }
+        },
+        "S0c9a48-2": {
+          "title": "Loamium Skill",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "Claude Code 利用者として、自然言語で『これジャーナルにメモして』『〜について書いたノート探して』と頼みたい。なぜなら、CLI コマンドを暗記せずにエージェント経由でノートを操作するのが Loamium の中核ユースケースだから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S0c9a48-2-1",
+              "description": "skill/ に claude-skills 形式の SKILL.md があり、journal-append と search を中心に自然言語→コマンド変換例とエラー対処(サーバー未起動・ノート不在等)が記載されている",
+              "test": "[AC-S0c9a48-2-1] in tests/acceptance/skill.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S0c9a48-2-1": {
+              "title": "SKILL.md 作成",
+              "description": "claude-skills 形式。journal-append / search の変換例を厚めに、全コマンドの用例とエラーハンドリング指針。構造の検証テスト付き。",
+              "status": "pending"
+            }
+          }
+        }
+      }
+    },
+    "Sa704c3": {
+      "title": "UI 基盤 — ファイルツリーとエディタ",
+      "status": "pending",
+      "description": "React + CodeMirror 6 の UI 基盤。ファイルツリー、ノートのソース編集・保存、起動時に今日のデイリージャーナルを開く。拡張レンダリングの 3 レジストリ構造をここで敷く。",
+      "milestone": false,
+      "stories": {
+        "Sa704c3-1": {
+          "title": "ファイルツリーとエディタで編集・保存",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、ブラウザでファイルツリーからノートを開き、編集して保存したい。なぜなら、日常のノート編集を Loamium だけで完結させたいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sa704c3-1-1",
+              "description": "ファイルツリーに vault のフォルダ構造が表示され、クリックでノートが CodeMirror エディタに開く",
+              "test": "[AC-Sa704c3-1-1] in packages/ui/tests/e2e/editor.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa704c3-1-2",
+              "description": "編集内容が保存(Cmd/Ctrl+S および自動保存)され、再読み込み後も保持される。ファイルはピュア Markdown のまま",
+              "test": "[AC-Sa704c3-1-2] in packages/ui/tests/e2e/editor.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa704c3-1-3",
+              "description": "ツリーから新規ノート作成・リネーム・削除ができる",
+              "test": "[AC-Sa704c3-1-3] in packages/ui/tests/e2e/editor.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sa704c3-1-1": {
+              "title": "UI パッケージ基盤",
+              "description": "packages/ui。Vite + React + TypeScript。API プロキシ設定。Playwright セットアップ(e2e + mock)。",
+              "status": "pending"
+            },
+            "Sa704c3-1-2": {
+              "title": "ファイルツリーコンポーネント",
+              "description": "GET /api/notes からツリー構築。開閉・選択・新規作成・リネーム・削除。",
+              "status": "pending"
+            },
+            "Sa704c3-1-3": {
+              "title": "CodeMirror エディタと保存",
+              "description": "CodeMirror 6 + lezer-markdown。開く・編集・保存(手動 + デバウンス自動保存)。競合検出(mtime)は上書き前に警告。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sa704c3-2": {
+          "title": "デイリージャーナルへの着地",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、アプリを開いたらすぐ今日のジャーナルに書き始めたい。なぜなら、デイリージャーナル中心のワークフローが思考の起点だから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sa704c3-2-1",
+              "description": "アプリ起動時に今日のジャーナル(なければ自動生成)がエディタに開く",
+              "test": "[AC-Sa704c3-2-1] in packages/ui/tests/e2e/journal.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa704c3-2-2",
+              "description": "サイドバーの日付ナビゲーションで過去のジャーナルへ移動できる",
+              "test": "[AC-Sa704c3-2-2] in packages/ui/tests/e2e/journal.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sa704c3-2-1": {
+              "title": "ジャーナルビューとナビゲーション",
+              "description": "起動時 /api/journal を開く。日付前後移動とジャーナル一覧。",
+              "status": "pending"
+            }
+          }
+        }
+      }
+    },
+    "S9ab6c3": {
+      "title": "エディタ体験 — アウトライン操作とライブプレビュー",
+      "status": "pending",
+      "description": "C 方式の核心。リスト行限定のアウトライン操作(Tab/Shift+Tab/折りたたみ)と、ライブプレビュー装飾。fence/inline/block の 3 レジストリを実装し Mermaid + KaTeX + Shiki で実証する。",
+      "milestone": false,
+      "stories": {
+        "S9ab6c3-1": {
+          "title": "リスト行限定のアウトライン操作",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、リスト行では Tab/Shift+Tab でインデント操作と折りたたみをしたい。なぜなら、ジャーナルや断片メモをアウトライナー的に扱いつつ、文章ノートは普通の Markdown のままにしたいから(C 方式)。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S9ab6c3-1-1",
+              "description": "カーソルがリスト行(- / 1. / - [ ])にあるとき Tab でインデント、Shift+Tab でアンインデントされる(子要素も追従)",
+              "test": "[AC-S9ab6c3-1-1] in packages/ui/tests/e2e/outline.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S9ab6c3-1-2",
+              "description": "見出し行・段落では Tab を押してもインデント操作にならない",
+              "test": "[AC-S9ab6c3-1-2] in packages/ui/tests/e2e/outline.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S9ab6c3-1-3",
+              "description": "子を持つリスト行をガターから折りたたみ・展開できる",
+              "test": "[AC-S9ab6c3-1-3] in packages/ui/tests/e2e/outline.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S9ab6c3-1-4",
+              "description": "- [ ] チェックボックスをクリックでトグルでき、ファイルには - [x] として保存される",
+              "test": "[AC-S9ab6c3-1-4] in packages/ui/tests/e2e/outline.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S9ab6c3-1-1": {
+              "title": "リスト行判定とインデント操作",
+              "description": "lezer-markdown の構文木でリスト行を判定する CodeMirror 拡張。Tab/Shift+Tab キーマップ(リスト行のみ)。子ブロック追従。",
+              "status": "pending"
+            },
+            "S9ab6c3-1-2": {
+              "title": "折りたたみとチェックボックス",
+              "description": "リストサブツリーの fold 拡張 + ガター UI。チェックボックスのクリックトグル。",
+              "status": "pending"
+            }
+          }
+        },
+        "S9ab6c3-2": {
+          "title": "ライブプレビューと 3 レジストリ",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、編集中に Markdown が装飾表示(見出しサイズ・太字・リンク・図・数式・ハイライト)されてほしい。なぜなら、ソースと結果を行き来せず Obsidian の Live Preview 相当の体験で書きたいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S9ab6c3-2-1",
+              "description": "見出し・太字/斜体・インラインコード・[[リンク]] がカーソル行以外で装飾表示され、カーソルを置くとソースが見える",
+              "test": "[AC-S9ab6c3-2-1] in packages/ui/tests/e2e/preview.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S9ab6c3-2-2",
+              "description": "mermaid フェンスが図として、$…$ / $$…$$ が KaTeX 数式として、コードフェンスが Shiki ハイライトとして描画される",
+              "test": "[AC-S9ab6c3-2-2] in packages/ui/tests/e2e/preview.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S9ab6c3-2-3",
+              "description": "レンダラーは fence / inline / block の 3 レジストリ経由で登録されており、新しい言語識別子をレジストリ登録だけで追加できる",
+              "test": "[AC-S9ab6c3-2-3] in packages/ui/tests/unit/registry.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S9ab6c3-2-1": {
+              "title": "3 レジストリ機構",
+              "description": "registerFenceRenderer / registerInlineRule / registerBlockRule。CodeMirror の decoration/widget として適用する基盤。",
+              "status": "pending"
+            },
+            "S9ab6c3-2-2": {
+              "title": "基本装飾(見出し・強調・リンク)",
+              "description": "カーソル行以外を装飾するライブプレビュー拡張。",
+              "status": "pending"
+            },
+            "S9ab6c3-2-3": {
+              "title": "Mermaid + KaTeX + Shiki レンダラー",
+              "description": "3 レジストリの上に client 種別レンダラーとして実装(mode: replace/augment)。",
+              "status": "pending"
+            }
+          }
+        }
+      }
+    },
+    "S6fbf45": {
+      "title": "リンク機構 — オートコンプリートとバックリンクパネル",
+      "status": "pending",
+      "description": "[[リンク]] のオートコンプリート、バックリンクパネル、リネーム時のリンク追従。ノート間のネットワークを UI で完成させ、MVP スコープを締める。",
+      "milestone": true,
+      "stories": {
+        "S6fbf45-1": {
+          "title": "[[リンク]] オートコンプリート",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、[[ と打ったら既存ノート名の候補から選んでリンクを張りたい。なぜなら、正確なノート名を思い出せなくてもリンクを素早く張れることがネットワーク形成の前提だから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S6fbf45-1-1",
+              "description": "エディタで [[ を入力すると既存ノート名の候補が表示され、選択で [[ノート名]] が挿入される(部分一致で絞り込み)",
+              "test": "[AC-S6fbf45-1-1] in packages/ui/tests/e2e/wikilink.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S6fbf45-1-2",
+              "description": "存在しないノートへの [[リンク]] は壊れリンクとして視覚的に区別され、クリックすると新規ノートが作成される",
+              "test": "[AC-S6fbf45-1-2] in packages/ui/tests/e2e/wikilink.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S6fbf45-1-3",
+              "description": "[[リンク]] をクリック(または Cmd/Ctrl+クリック)でそのノートに移動できる",
+              "test": "[AC-S6fbf45-1-3] in packages/ui/tests/e2e/wikilink.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S6fbf45-1-1": {
+              "title": "オートコンプリート拡張",
+              "description": "CodeMirror autocompletion。[[ トリガーでノート名一覧(API から取得・キャッシュ)を候補表示。",
+              "status": "pending"
+            },
+            "S6fbf45-1-2": {
+              "title": "リンクの解決・装飾・ナビゲーション",
+              "description": "存在チェックによる壊れリンク装飾、クリックで開く/新規作成。",
+              "status": "pending"
+            }
+          }
+        },
+        "S6fbf45-2": {
+          "title": "バックリンクパネル",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、開いているノートへのバックリンク一覧をパネルで見たい。なぜなら、そのノートがどんな文脈から参照されているかを辿ることで思考がつながるから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S6fbf45-2-1",
+              "description": "ノートを開くとバックリンクパネルに参照元ノートとリンク行のコンテキストが表示され、クリックで参照元に移動できる",
+              "test": "[AC-S6fbf45-2-1] in packages/ui/tests/e2e/backlinks-panel.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S6fbf45-2-1": {
+              "title": "バックリンクパネル実装",
+              "description": "GET /api/backlinks を表示するサイドパネル。ノート切替・保存で更新。",
+              "status": "pending"
+            }
+          }
+        },
+        "S6fbf45-3": {
+          "title": "リネーム時のリンク追従",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、ノートをリネームしたら全ノートの [[旧名]] が自動で書き換わってほしい。なぜなら、リンク切れが蓄積するとノートネットワークの信頼性が崩壊するから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S6fbf45-3-1",
+              "description": "POST /api/notes/{path}/rename で、vault 内の全 [[旧名]]([[旧名#見出し]] / [[旧名|表示名]] 含む)が新名に書き換わる",
+              "test": "[AC-S6fbf45-3-1] in tests/acceptance/rename.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S6fbf45-3-2",
+              "description": "UI のツリーからのリネームでもリンク追従が動き、変更は監査ログに記録される",
+              "test": "[AC-S6fbf45-3-2] in packages/ui/tests/e2e/rename.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S6fbf45-3-1": {
+              "title": "server: rename エンドポイント",
+              "description": "ファイル移動 + 全ノートの [[旧名]] 書き換え(見出し・エイリアス形式含む)。コードフェンス内は書き換えない。受け入れテスト付き。",
+              "status": "pending"
+            },
+            "S6fbf45-3-2": {
+              "title": "UI リネーム統合",
+              "description": "ツリーのリネームを rename API に接続。",
+              "status": "pending"
+            }
+          }
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "S31ba00": {
+      "depends_on": ["Sd63ad1"],
+      "reason": "インデックスは Sd63ad1 の shared パーサーと server 基盤の上に構築する"
+    },
+    "S0c9a48": {
+      "depends_on": ["S31ba00"],
+      "reason": "CLI は search / backlinks を含む全 API が揃ってから 1:1 で実装する"
+    },
+    "Sa704c3": {
+      "depends_on": ["Sd63ad1"],
+      "reason": "UI は notes / journal API を利用する"
+    },
+    "S9ab6c3": {
+      "depends_on": ["Sa704c3"],
+      "reason": "アウトライン操作とプレビューは Sa704c3 のエディタ基盤の拡張"
+    },
+    "S6fbf45": {
+      "depends_on": ["S9ab6c3", "S31ba00"],
+      "reason": "リンク UI はエディタ拡張基盤とバックリンクインデックスの両方を使う"
+    }
+  },
+  "backlog": [
+    {
+      "title": "Cloudflare Tunnel + Access による外部公開",
+      "description": "cloudflared 設定 + OAuth 認証で外出先・スマホからアクセス。実アカウント・実ドメインが必要なため自律実行では検証不能。設定手順のドキュメント化を含む。",
+      "added_in": "roadmap-generation",
+      "reason": "外部サービスの実アカウントが必要で、ローカル開発の MVP と独立しているため"
+    },
+    {
+      "title": "アプリ内 Claude Code タブ",
+      "description": "node-pty + xterm.js + WebSocket で TUI 版 Claude Code をタブ内で動かす。SPEC.md §6 参照。",
+      "added_in": "roadmap-generation",
+      "reason": "SPEC で将来機能と明記。claude CLI の認証がサーバー側に必要"
+    },
+    {
+      "title": "デスクトップ化(Tauri)",
+      "description": "当面 Tauri。Deno Desktop 安定版が出たら再比較(SPEC.md §3)。",
+      "added_in": "roadmap-generation",
+      "reason": "SPEC の実装順序で最後。ブラウザ運用で MVP は成立する"
+    },
+    {
+      "title": "グラフビュー(D3.js)",
+      "description": "ノートネットワークの可視化。/api/graph エンドポイント含む。",
+      "added_in": "roadmap-generation",
+      "reason": "VISION でスコープ外(MVP 後)と明記"
+    },
+    {
+      "title": "server 種別レンダラー(POST /render/:lang)",
+      "description": "PlantUML(Docker 同梱)/ Graphviz 等。3 レジストリの kind: 'server' として追加。",
+      "added_in": "roadmap-generation",
+      "reason": "3 レジストリ構造があれば後付け可能。Docker 依存のため MVP から除外"
+    },
+    {
+      "title": "![[embed]] transclusion",
+      "description": "ノート/画像埋め込み。block rule として実装。リンク解決基盤(S6fbf45)の上に乗せる。",
+      "added_in": "roadmap-generation",
+      "reason": "SPEC で優先度高だが MVP スコープ(5 項目)に含まれないため次期"
+    },
+    {
+      "title": "検索の SQLite FTS5 移行",
+      "description": "数千ノート規模での全文検索性能対策。インデックス抽象の背後で差し替え。",
+      "added_in": "roadmap-generation",
+      "reason": "個人 vault の初期規模では Fuse.js で十分"
+    },
+    {
+      "title": "callout / ==highlight== / dataview 等の追加記法",
+      "description": "SPEC §8.4 の対応候補一覧。3 レジストリの上に順次追加。",
+      "added_in": "roadmap-generation",
+      "reason": "レジストリ実証(Mermaid/KaTeX/Shiki)後に個別追加できる"
+    }
+  ]
+}

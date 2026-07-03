@@ -1,0 +1,11 @@
+node_modules/
+dist/
+reports/
+.server.pid
+.ui.pid
+.env
+dev-vault/
+.loamium/
+*.log
+.claude/worktrees/
+.claude/autopilot-*.lock

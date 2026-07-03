@@ -1,0 +1,43 @@
+{
+  "summary": "LogSeq と Obsidian のいいとこどりを狙った個人用ノートアプリ。ローカルの Markdown ファイルを正とし、アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立させる。",
+  "target_users": [
+    "開発者本人(個人用途)。ノートを Git 管理し、Claude Code を日常的に使う",
+    "エージェント(Claude Code 等)。REST API / CLI / Skill 経由でノートを読み書き・整理する"
+  ],
+  "problem": "Obsidian はピュア Markdown だがアウトライナー編集とエージェント統合が弱い。LogSeq はアウトライナーだが全行リスト化とブロック ID でファイルが汚れ、ロックインが生じる。既存ツールでは『ファイルはピュア Markdown、編集はアウトライナー、操作はエージェントからも』が同時に成立しない。",
+  "success_criteria": [
+    "ノートの正本が常にプレーンな Markdown テキスト 1 本であり、Obsidian や素のエディタで開いても壊れない",
+    "Claude Code が CLI / REST API 経由で journal-append と search を安定して使え、作業ログ・決定事項が自動でデイリージャーナルに蓄積される",
+    "リスト行に対する Tab/Shift+Tab インデント・折りたたみが CodeMirror 上で動作し、見出し・段落には作用しない(C 方式)",
+    "[[WikiLink]] のバックリンクがインメモリインデックスで解決され、ファイル変更時にインデックスが追従する",
+    "デイリージャーナル(YYYY-MM-DD.md)が自動生成され、ジャーナル中心ワークフローが回る",
+    "vault は Git リポジトリとして履歴・バックアップ・競合解決が効く"
+  ],
+  "out_of_scope": [
+    "プラグイン API(個人用なのでコア機能で完結)",
+    "ブロック ID の生成・埋め込み(既存の ^blockid / ((uuid)) の読み取り互換のみ)",
+    "LogSeq 式ブロック参照の生成",
+    "全行のリストブロック化(LogSeq 方式)",
+    "Loamium 固有の独自 Markdown 記法",
+    "グラフビュー(MVP 後)",
+    "モバイルでの本格的な編集体験(外出先は閲覧中心と割り切る)",
+    "マルチユーザー・コラボレーション機能"
+  ],
+  "tech_constraints": [
+    "フロントエンド: React + CodeMirror 6(lezer-markdown ベースの構文解析)",
+    "バックエンド: Hono(Node.js 上、型安全・軽量)",
+    "CLI: Node.js の薄いラッパー(REST API を叩くだけ、エンドポイントと 1:1 対応)",
+    "全文検索: Fuse.js(将来 SQLite FTS5 への移行余地を残す)",
+    "文字コード UTF-8 固定、改行 LF 固定、リンク解決は NFC 正規化",
+    "vault = Git リポジトリ前提。.loamium/(インデックスキャッシュ等)は .gitignore",
+    "frontmatter(YAML)はデータモデルの第一級市民",
+    "外部公開は Cloudflare Tunnel + Access(ローカルは無認証、認証は Access に委譲)",
+    "拡張レンダリングは fence / inline / block の 3 レジストリ構造(最初に実証するのは Mermaid + KaTeX + Shiki)",
+    "デスクトップ化は当面 Tauri(Deno Desktop は安定版が出たら再評価)"
+  ],
+  "design_references": [
+    "Obsidian の Live Preview(ソース編集と装飾表示の行き来)",
+    "LogSeq のデイリージャーナル中心ワークフローとアウトライン操作",
+    "Obsidian の drawio プラグイン(別ファイル参照 ![[diagram.drawio.svg]] 方式)"
+  ]
+}
