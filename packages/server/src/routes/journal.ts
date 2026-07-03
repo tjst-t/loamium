@@ -19,7 +19,7 @@ import {
   type JournalResponse,
 } from '@loamium/shared';
 import type { ServerConfig } from '../config.js';
-import { readNote, writeNote } from '../vault.js';
+import { noteMtime, readNote, writeNote } from '../vault.js';
 import { errorJson, parseBody, setAudit, type AppEnv } from '../http.js';
 
 export function journalRoutes(config: ServerConfig): Hono<AppEnv> {
@@ -34,15 +34,20 @@ export function journalRoutes(config: ServerConfig): Hono<AppEnv> {
 
     let content = await readNote(config.vaultRoot, rel);
     let created = false;
+    let mtime: number | null = null;
     if (content === null) {
       content = '';
       if (config.mode !== 'read-only') {
         // 自動生成 (VISION success_criteria: デイリージャーナルの自動生成)。
         // これはディスクへの書き込みなので監査ログに残す。
         setAudit(c, 'journal.create', rel);
-        await writeNote(config.vaultRoot, rel, content);
+        const written = await writeNote(config.vaultRoot, rel, content);
+        mtime = written.mtime;
         created = true;
       }
+      // read-only の仮想ジャーナル (ファイル無し) は mtime: null のまま
+    } else {
+      mtime = await noteMtime(config.vaultRoot, rel);
     }
 
     const parsed = parseNote(content);
@@ -53,6 +58,7 @@ export function journalRoutes(config: ServerConfig): Hono<AppEnv> {
       frontmatter: parsed.frontmatter,
       body: parsed.body,
       created,
+      mtime,
     };
     return c.json(res);
   });

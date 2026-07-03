@@ -45,6 +45,36 @@ export function journalPath(date: string): string {
 }
 
 /**
+ * ジャーナル日付を delta 日ずらす (UI の前日/翌日ナビゲーション用)。
+ * 月・年境界は Date のカレンダー計算に任せる。無効な日付は JournalDateError。
+ */
+export function shiftJournalDate(date: string, delta: number): string {
+  if (!isValidJournalDate(date)) {
+    throw new JournalDateError(`invalid journal date: "${date}" (expected YYYY-MM-DD)`);
+  }
+  const m = DATE_RE.exec(date);
+  if (!m) throw new JournalDateError(`invalid journal date: "${date}"`);
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + delta);
+  return todayJournalDate(d);
+}
+
+/**
+ * ジャーナル日付の曜日 (日〜土)。UI 表示用。
+ */
+export function journalDayOfWeek(date: string): string {
+  if (!isValidJournalDate(date)) {
+    throw new JournalDateError(`invalid journal date: "${date}" (expected YYYY-MM-DD)`);
+  }
+  const m = DATE_RE.exec(date);
+  if (!m) throw new JournalDateError(`invalid journal date: "${date}"`);
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const days = ['日', '月', '火', '水', '木', '金', '土'] as const;
+  const dow = days[d.getDay()];
+  if (dow === undefined) throw new JournalDateError(`invalid journal date: "${date}"`);
+  return dow;
+}
+
+/**
  * サーバーローカルタイムゾーンでの今日の日付 (YYYY-MM-DD)。
  */
 export function todayJournalDate(now: Date = new Date()): string {

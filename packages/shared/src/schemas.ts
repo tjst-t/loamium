@@ -13,6 +13,12 @@ export type PermissionMode = z.infer<typeof permissionModeSchema>;
 
 export const noteWriteRequestSchema = z.object({
   content: z.string(),
+  /**
+   * 楽観的競合検出 (SPEC §9 高-1 / ARCHITECTURE: last-write-wins + mtime)。
+   * 指定時、対象ファイルの現 mtime (ms epoch) と不一致なら 409 conflict。
+   * 省略時は無条件で上書き (last-write-wins)。
+   */
+  baseMtime: z.number().int().nonnegative().optional(),
 });
 export type NoteWriteRequest = z.infer<typeof noteWriteRequestSchema>;
 
@@ -42,12 +48,16 @@ export const noteResponseSchema = z.object({
   content: z.string(),
   frontmatter: frontmatterSchema,
   body: z.string(),
+  /** ファイルの mtime (ms epoch)。保存時の baseMtime に使う */
+  mtime: z.number(),
 });
 export type NoteResponse = z.infer<typeof noteResponseSchema>;
 
 export const noteWriteResponseSchema = z.object({
   path: z.string(),
   created: z.boolean(),
+  /** 書き込み後のファイル mtime (ms epoch)。次回保存の baseMtime に使う */
+  mtime: z.number(),
 });
 export type NoteWriteResponse = z.infer<typeof noteWriteResponseSchema>;
 
@@ -65,6 +75,8 @@ export const journalResponseSchema = z.object({
   body: z.string(),
   /** このリクエストでファイルが新規生成されたか */
   created: z.boolean(),
+  /** ファイルの mtime (ms epoch)。read-only モードの仮想ジャーナル (ファイル無し) は null */
+  mtime: z.number().nullable(),
 });
 export type JournalResponse = z.infer<typeof journalResponseSchema>;
 

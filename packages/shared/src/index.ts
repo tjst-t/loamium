@@ -12,6 +12,8 @@ export {
   JOURNAL_DIR,
   isValidJournalDate,
   journalPath,
+  journalDayOfWeek,
+  shiftJournalDate,
   todayJournalDate,
   JournalDateError,
 } from './journal.js';

@@ -8,6 +8,11 @@
     {
       "name": "lint",
       "command": "make lint"
+    },
+    {
+      "name": "ui-tests",
+      "command": "make test-ui",
+      "junit_glob": "reports/ui/*.xml"
     }
   ]
 }

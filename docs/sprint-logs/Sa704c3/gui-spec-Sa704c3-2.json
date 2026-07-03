@@ -1,0 +1,50 @@
+{
+  "$file": "gui-spec-Sa704c3-2.json",
+  "sprint": "Sa704c3",
+  "story": "Sa704c3-2",
+  "story_type": "gui",
+  "state_diagram": "stateDiagram-v2\n    [*] --> StartupLoading: app load\n    StartupLoading --> TodayJournalOpen: GET /api/journal success (無ければサーバーが自動生成)\n    StartupLoading --> EditorEmpty: GET /api/journal failure\n    TodayJournalOpen --> PrevJournalOpen: journal-prev click (GET /api/journal?date=前日)\n    PrevJournalOpen --> TodayJournalOpen: journal-today click\n    TodayJournalOpen --> NextDayJournalOpen: journal-next click\n    TodayJournalOpen --> JournalListOpen: journal-open-list click\n    JournalListOpen --> PastJournalOpen: journal-list-item click (GET /api/journal?date=選択日)\n    EditorEmpty --> TodayJournalOpen: empty-open-journal click",
+  "scenarios": {
+    "entry_point": "ブラウザで UI ルート URL を開くと、追加操作なしで今日のジャーナルがエディタに開いている",
+    "happy_path": "起動 → GET /api/journal が今日の journals/YYYY-MM-DD.md を返し(無ければ自動生成)、エディタに開く。journal-today に今日の日付が表示される。journal-prev で前日、journal-next で翌日のジャーナルに移動。journal-open-list で既存ジャーナルの一覧ポップアップが開き、日付クリックでそのジャーナルへ移動",
+    "data_states": {
+      "empty": "過去日のジャーナルが 1 件も無い場合、一覧ポップアップには今日のみ表示される",
+      "loading": "日付切替中は現在の表示を維持",
+      "error": "journal API 失敗時は editor-empty-state に落ちる(empty-open-journal で再試行)"
+    },
+    "edge_cases": [
+      "月・年境界の前後移動(2026-07-01 の前日 → 2026-06-30)",
+      "未来日のジャーナルも journal API 仕様どおり開ける(自動生成)",
+      "ジャーナル一覧は journals/ フォルダの YYYY-MM-DD.md のみを新しい順に表示(それ以外のファイル名は無視)"
+    ],
+    "success_feedback": "エディタのパンくずと journal-today 表示が対象日に更新され、ツリー上の該当ジャーナルが選択状態になる",
+    "failure_feedback": "取得失敗時はエラーメッセージ + empty state"
+  },
+  "endpoint_contracts": [
+    {
+      "path": "/api/journal",
+      "method": "GET",
+      "registered": true,
+      "request_fields": null,
+      "response_fields": { "date": "string YYYY-MM-DD", "path": "string journals/YYYY-MM-DD.md", "content": "string", "frontmatter": "object|null", "body": "string", "created": "boolean", "mtime": "number (this Sprint で追加)" }
+    },
+    {
+      "path": "/api/journal?date=YYYY-MM-DD",
+      "method": "GET",
+      "registered": true,
+      "request_fields": null,
+      "response_fields": { "date": "string", "path": "string", "content": "string", "frontmatter": "object|null", "body": "string", "created": "boolean", "mtime": "number" }
+    },
+    {
+      "path": "/api/notes?folder=journals",
+      "method": "GET",
+      "registered": true,
+      "request_fields": null,
+      "response_fields": { "notes": "NoteMeta[] {path, title, tags, folder}" }
+    }
+  ],
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/journal.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/journal.mock.spec.ts"
+  }
+}

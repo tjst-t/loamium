@@ -22,7 +22,7 @@ import {
   type NoteWriteResponse,
 } from '@loamium/shared';
 import type { ServerConfig } from '../config.js';
-import { deleteNote, readNote, writeNote } from '../vault.js';
+import { deleteNote, noteMtime, readNote, writeNote } from '../vault.js';
 import { errorJson, parseBody, setAudit, type AppEnv } from '../http.js';
 
 const NOTES_PREFIX = '/api/notes/';
@@ -61,7 +61,8 @@ export function notesRoutes(config: ServerConfig): Hono<AppEnv> {
       throw err;
     }
     const content = await readNote(config.vaultRoot, rel);
-    if (content === null) {
+    const mtime = await noteMtime(config.vaultRoot, rel);
+    if (content === null || mtime === null) {
       return errorJson(c, 404, 'not_found', `note not found: ${rel}`);
     }
     const parsed = parseNote(content);
@@ -70,6 +71,7 @@ export function notesRoutes(config: ServerConfig): Hono<AppEnv> {
       content: parsed.content,
       frontmatter: parsed.frontmatter,
       body: parsed.body,
+      mtime,
     };
     return c.json(res);
   });
@@ -85,8 +87,22 @@ export function notesRoutes(config: ServerConfig): Hono<AppEnv> {
     setAudit(c, 'note.write', rel);
     const body = await parseBody(c, noteWriteRequestSchema);
     if (!body.ok) return body.response;
-    const { created } = await writeNote(config.vaultRoot, rel, body.data.content);
-    const res: NoteWriteResponse = { path: rel, created };
+    if (body.data.baseMtime !== undefined) {
+      // 楽観的競合検出: 読み込み時点の mtime と現在の mtime が食い違ったら
+      // 上書きせず 409 を返す (データ安全性 priority 2 — 迷ったらファイルを守る)。
+      // ファイルが消えている場合は非破壊 (再作成) なのでそのまま書く。
+      const current = await noteMtime(config.vaultRoot, rel);
+      if (current !== null && current !== body.data.baseMtime) {
+        return errorJson(
+          c,
+          409,
+          'conflict',
+          `note was modified by another process (mtime ${current} != baseMtime ${body.data.baseMtime})`,
+        );
+      }
+    }
+    const { created, mtime } = await writeNote(config.vaultRoot, rel, body.data.content);
+    const res: NoteWriteResponse = { path: rel, created, mtime };
     return c.json(res, created ? 201 : 200);
   });
 
@@ -134,8 +150,8 @@ export function notesRoutes(config: ServerConfig): Hono<AppEnv> {
       if (existing === null) {
         return errorJson(c, 404, 'not_found', `note not found: ${rel}`);
       }
-      await writeNote(config.vaultRoot, rel, appendText(existing, body.data.content));
-      const res: NoteWriteResponse = { path: rel, created: false };
+      const appended = await writeNote(config.vaultRoot, rel, appendText(existing, body.data.content));
+      const res: NoteWriteResponse = { path: rel, created: false, mtime: appended.mtime };
       return c.json(res);
     }
 
@@ -162,8 +178,8 @@ export function notesRoutes(config: ServerConfig): Hono<AppEnv> {
     }
     // 関数形式で置換: new に $& / $' 等が含まれても特殊解釈させない (データ安全性)
     const updated = existing.replace(body.data.old, () => body.data.new);
-    await writeNote(config.vaultRoot, rel, updated);
-    const res: NoteWriteResponse = { path: rel, created: false };
+    const patched = await writeNote(config.vaultRoot, rel, updated);
+    const res: NoteWriteResponse = { path: rel, created: false, mtime: patched.mtime };
     return c.json(res);
   });
 
