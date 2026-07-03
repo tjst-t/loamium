@@ -26,7 +26,7 @@
       "stories": {
         "Sd63ad1-1": {
           "title": "ノート読み書き API",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "エージェント利用者として、REST API でノートの取得・作成・上書き・追記・部分置換をしたい。なぜなら、Claude Code などのエージェントがノートを安全に操作できる土台が必要だから。",
@@ -54,22 +54,22 @@
             "Sd63ad1-1-1": {
               "title": "モノレポ基盤の構築",
               "description": "npm workspaces で packages/shared, packages/server を作成。TypeScript strict、Vitest、zod をセットアップ。make test が JUnit XML を reports/ に出す構成にする。",
-              "status": "pending"
+              "status": "done"
             },
             "Sd63ad1-1-2": {
               "title": "shared: パス正規化と Markdown パーサー",
               "description": "normalizeVaultPath()(NFC 正規化、.. 脱出検証、.md 拡張子)、parseNote()(frontmatter YAML 抽出)。ユニットテスト必須。",
-              "status": "pending"
+              "status": "done"
             },
             "Sd63ad1-1-3": {
               "title": "server: notes エンドポイント実装",
               "description": "GET/PUT /api/notes/{path}、POST append/patch、DELETE。zod スキーマ検証。vault ルートは環境変数 LOAMIUM_VAULT で指定。",
-              "status": "pending"
+              "status": "done"
             },
             "Sd63ad1-1-4": {
               "title": "受け入れテスト作成",
               "description": "実 HTTP クライアントで API を叩く受け入れテストを tests/acceptance/ に作成。AC タグ付き。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },

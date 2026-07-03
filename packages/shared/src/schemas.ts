@@ -68,6 +68,14 @@ export const journalResponseSchema = z.object({
 });
 export type JournalResponse = z.infer<typeof journalResponseSchema>;
 
+export const journalAppendResponseSchema = z.object({
+  date: z.string(),
+  path: z.string(),
+  /** このリクエストでファイルが新規生成されたか */
+  created: z.boolean(),
+});
+export type JournalAppendResponse = z.infer<typeof journalAppendResponseSchema>;
+
 export const errorResponseSchema = z.object({
   error: z.string(),
   message: z.string(),
