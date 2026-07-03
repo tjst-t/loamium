@@ -1,0 +1,122 @@
+{
+  "sprint": "Sd63ad1",
+  "decisions": [
+    {
+      "timestamp": "2026-07-03T15:30:00Z",
+      "category": "planning",
+      "title": "GUI spec プロセス: 本 Sprint に GUI Story なし",
+      "detail": "3 Story すべて REST API のみで UI を持たないため story_type=api と分類。Playwright/プロトタイプは不要。受け入れテストは実 HTTP クライアントで実サーバーを叩く形式とする。",
+      "reference": "VISION.tech_constraints (Hono バックエンド先行) / SPEC 実装順序 1. REST API を最初に作る",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T15:30:00Z",
+      "category": "planning",
+      "title": "Story の直列実行 (サブエージェント並列化なし)",
+      "detail": "この実行環境にはワークツリー分離サブエージェントを起動する Agent ツールが無い。Story 2/3 は Story 1 のモノレポ基盤・notes エンドポイントに依存するため、いずれにせよ Wave は直列 (1→2→3)。本セッションで直列実装し、Story レベルレビューは実装完了後に /review でまとめて実施、Sprint レベルレビューは verify で再実施する。",
+      "reference": "DESIGN_PRINCIPLES priority 5 (シンプルさ > 汎用性)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T15:30:00Z",
+      "category": "planning",
+      "title": "受け入れテストは tsx 経由で実サーバーをサブプロセス起動",
+      "detail": "tests/acceptance/*.spec.ts は packages/server のエントリポイントを tsx でサブプロセス起動し (PORT=0 で空きポート取得、stdout から実ポートをパース)、実 HTTP クライアント(fetch)で叩く。make serve の dev 実行 (tsx) と同一のコードパス。vault はテストごとの一時ディレクトリ。",
+      "reference": "test-discipline Rule 2 (api: real HTTP client against the running server) / CLAUDE.md (テストは一時ディレクトリの vault)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T15:40:00Z",
+      "category": "implementation",
+      "title": "notes API は .md ファイルのみを扱う (拡張子自動付与)",
+      "detail": "normalizeVaultPath は末尾が .md でないパスに .md を付与する。これにより notes API から .md 以外のファイル (添付・設定等) には一切触れられない不変条件が成立する。隠しセグメント (.loamium/.git/.obsidian) も 400 で拒否し、エージェントが監査ログや Git メタデータを API 経由で破壊できないようにした。",
+      "reference": "DESIGN_PRINCIPLES priority 2 (データ安全性 > 開発速度) / forbidden (vault ルート外アクセス禁止)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T15:40:00Z",
+      "category": "implementation",
+      "title": "patch は old の複数一致を 409 (ambiguous_match) で拒否",
+      "detail": "AC は「old が見つからない場合は 409」のみ要求するが、複数一致時に先頭を黙って置換するとエージェントが意図しない箇所を書き換えるリスクがあるため、0 件 (old_not_found) と 2 件以上 (ambiguous_match) の両方を 409 とした。AC の緩和ではなく安全側への強化。",
+      "reference": "DESIGN_PRINCIPLES priority 2 (迷ったらファイルを守る側に倒す)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T15:40:00Z",
+      "category": "implementation",
+      "title": "append は常に改行終端 (LF) で追記",
+      "detail": "appendText は既存末尾に改行が無ければ補い、追記分も必ず \\n で終端する。journal-append の連続呼び出しで行が連結されない、Git フレンドリーな POSIX 終端を保証。CRLF 入力は書き込み時に LF へ正規化 (本文の文字自体は無変換、正本性を維持)。",
+      "reference": "VISION tech_constraints (UTF-8 / LF 固定) / priority 1 (ピュア Markdown 正本性)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T15:40:00Z",
+      "category": "implementation",
+      "title": "append-only モードでは PUT (新規作成含む) を 403",
+      "detail": "AC の「追記のみ通る」を文字通り解釈し、append-only では notes append / journal append のみ許可。PUT は新規作成でも既存上書きか判別せず一律 403 (実装が単純で、判定レースも無い)。分類不能な書き込みメソッドは mutate 扱いで安全側に拒否。",
+      "reference": "DESIGN_PRINCIPLES priority 5 (シンプルさ) / priority 2 (安全側に倒す)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T15:40:00Z",
+      "category": "implementation",
+      "title": "監査ログは拒否 (403)・ジャーナル自動生成も記録",
+      "detail": "AC は成功した書き込みの記録のみ要求するが、権限モードで拒否された試行 (result: denied) と GET /api/journal によるファイル自動生成 (op: journal.create) も記録する。エージェントの挙動監査という Story の目的に照らして情報量を増やす方向の追加。読み取りは記録しない。audit.log 書き込み失敗時は API 応答は返しつつ stderr に警告 (握りつぶさない)。",
+      "reference": "Story Sd63ad1-3 user_story (エージェントの書き込みを監査) / priority 2",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T15:40:00Z",
+      "category": "implementation",
+      "title": "ジャーナル自動生成は空ファイル、read-only では生成しない",
+      "detail": "自動生成されるジャーナルは空 (0 バイト) の Markdown。テンプレート (見出し等) を入れない最も単純な形を採用 — 内容はユーザー/エージェントの追記に委ねる。read-only モードでは GET /api/journal はディスクに書かず content:\"\" created:false の仮想ジャーナルを返す。",
+      "reference": "DESIGN_PRINCIPLES priority 5 (最も単純な実装) / priority 1 (独自テンプレート記法を入れない)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T15:40:00Z",
+      "category": "implementation",
+      "title": "パッケージは TS ソース直配布 + tsx 実行 (ビルド工程なし)",
+      "detail": "個人用ローカルアプリのため、shared は exports で src/index.ts を直接公開し、server は tsx で実行 (make serve と同一経路)。make build / lint は tsc --noEmit の型検査。将来 CLI バイナリ配布が必要になった時点で dist ビルドを導入する。",
+      "reference": "DESIGN_PRINCIPLES priority 5 (シンプルさ > 汎用性)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T15:55:00Z",
+      "category": "review",
+      "title": "Story レベルレビューで 2 件のバグを検出・修正",
+      "detail": "(1) patch の String.replace が置換文字列中の $& / $' 等を特殊解釈しノートを破損しうる → 関数形式置換に修正。(2) POST /api/notes/append (ノートパス空) がアクション名を誤って切り詰め appen.md を対象にしうる → suffix 検証を追加し 400。両方に回帰テストを追加 (66 tests)。",
+      "reference": "DESIGN_PRINCIPLES priority 2 (データ安全性)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T15:58:00Z",
+      "category": "review",
+      "title": "Sprint レベルレビュー: 競合制御をバックログ化",
+      "detail": "append/patch は read-modify-write で並行書き込みは last-write-wins。ARCHITECTURE 既定の mtime/hash 楽観的検出は本 Sprint のスコープ外のためバックログに追加 (自動追加、auto モード)。クロス Story の不整合 (エラー形状・LF 書込経路・監査/権限の配線) は検出なし。",
+      "reference": "ARCHITECTURE Data Flow (競合制御は last-write-wins + 楽観的検出から始める)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T15:58:00Z",
+      "category": "verification",
+      "title": "機械検証基盤 (hooks/run-verify.py + .claude/verify.json) を整備",
+      "detail": "スキル配布物に run-verify.py が存在しなかったため、verify-execution.md の契約 (実 exit code + JUnit、__VERIFY_EXIT_CODE__ トレーラ、freshness 削除) に従いプロジェクト内 hooks/run-verify.py として実装。verify.json は make test (JUnit reports/*.xml) + make lint を宣言。",
+      "reference": "sprint skill references/verify-execution.md (machine-derived test status)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    }
+  ]
+}

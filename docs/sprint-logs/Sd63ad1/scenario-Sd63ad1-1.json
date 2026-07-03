@@ -1,0 +1,43 @@
+{
+  "story": "Sd63ad1-1",
+  "story_type": "api",
+  "user_role": "エージェント(Claude Code 等)が REST API でノートを操作する",
+  "entry_point": "http://localhost:{PORT}/api (LOAMIUM_VAULT で指定した vault、認証なしローカル)",
+  "scenarios": [
+    {
+      "id": "scenario-1",
+      "linked_ac": ["AC-Sd63ad1-1-1"],
+      "description": "エージェントがノートを作成し、取得して内容と frontmatter を確認し、上書きする",
+      "preconditions": ["空の一時 vault が LOAMIUM_VAULT に設定されサーバーが起動している"],
+      "steps": [
+        { "n": 1, "action": "PUT /api/notes/projects/loamium.md に frontmatter 付き Markdown 本文を送る", "expected": "200/201。vault に projects/loamium.md が作成される" },
+        { "n": 2, "action": "GET /api/notes/projects/loamium.md", "expected": "200。content に本文全文、frontmatter にパース済み YAML (tags 等) が入る" },
+        { "n": 3, "action": "PUT /api/notes/projects/loamium.md に新しい本文を送る", "expected": "200。GET で新しい本文が返る(上書きされている)" }
+      ],
+      "cleanup": ["一時 vault ディレクトリ削除"]
+    },
+    {
+      "id": "scenario-2",
+      "linked_ac": ["AC-Sd63ad1-1-2"],
+      "description": "エージェントが既存ノートに追記し、部分置換する。見つからない old は 409",
+      "preconditions": ["notes/todo.md が存在する"],
+      "steps": [
+        { "n": 1, "action": "POST /api/notes/notes/todo.md/append に {content: \"- [ ] new task\"}", "expected": "200。GET で末尾に追記されている(改行区切りが正しい)" },
+        { "n": 2, "action": "POST /api/notes/notes/todo.md/patch に {old: 既存文字列, new: 置換文字列}", "expected": "200。GET で置換済みの本文が返る" },
+        { "n": 3, "action": "POST /api/notes/notes/todo.md/patch に存在しない old", "expected": "409。ファイルは変更されない" }
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "scenario-3",
+      "linked_ac": ["AC-Sd63ad1-1-3"],
+      "description": "パストラバーサルは拒否され、保存ファイルは常に UTF-8/LF",
+      "preconditions": ["サーバー起動済み"],
+      "steps": [
+        { "n": 1, "action": "PUT /api/notes/../escape.md", "expected": "400。vault 外にファイルが作られない" },
+        { "n": 2, "action": "PUT /api/notes/crlf.md に CRLF を含む本文を送る", "expected": "200。ディスク上のバイト列に \\r が含まれず LF のみ、UTF-8 で読める" }
+      ],
+      "cleanup": []
+    }
+  ]
+}

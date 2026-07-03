@@ -9,3 +9,4 @@ dev-vault/
 *.log
 .claude/worktrees/
 .claude/autopilot-*.lock
+.claude/settings.local.json

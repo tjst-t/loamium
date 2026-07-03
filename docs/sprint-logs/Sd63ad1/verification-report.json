@@ -1,0 +1,113 @@
+{
+  "sprint": "Sd63ad1",
+  "verified_at": "2026-07-03T16:00:00Z",
+  "verifier_model": "claude-opus-4-8 (read-only, separate session)",
+  "overall": "pass",
+  "findings": [
+    {
+      "category": "compromises_completeness",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "実行ログ照合 (決定論): docs/sprint-logs/Sd63ad1/verify-run.json は $machine_authored=true で、test(make test, exit 0)・lint(make lint, exit 0) ともに machine_status=pass。verify-run-test.log の __VERIFY_EXIT_CODE__:test:0 / lint:0 トレーラと JUnit 66 total/66 passed/0 failed/0 errored/0 skipped が一致。自己申告 verification-results.json の summary(66 pass, 0 fail, 0 skip)および 66 件の per-test pass はすべて機械 pass に裏付けられ、機械 fail の上に pass を記録した箇所は皆無。hooks/run-verify.py を実読し、実 exit code 捕捉 + reports/*.xml の実 JUnit パース(failed>0 または exit!=0 で fail 判定)で status を機械導出していることを確認。検証者が make test を独立再実行し 66/66 pass・exit 0 を再現。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "Sd63ad1-1",
+      "ac": "AC-Sd63ad1-1-1",
+      "verdict": "pass",
+      "detail": "PUT/GET は packages/server/src/routes/notes.ts の実ハンドラで app.route 経由 /api/notes/* に配線。writeNote は created を stat で判定し 201/200 を返す。GET は parseNote で frontmatter を抽出。tests/acceptance/notes-crud.spec.ts の [AC-Sd63ad1-1-1] は tsx サブプロセスの実サーバに実 fetch で叩き、レスポンス body・content 完全一致・frontmatter 構造・vault 上の実ファイル存在(stat)・上書き時 created=false・拡張子自動付与・404・NFC 正規化(NFD 入力を NFC で往復)をアサート。ユーザー観測可能。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "Sd63ad1-1",
+      "ac": "AC-Sd63ad1-1-2",
+      "verdict": "pass",
+      "detail": "append(末尾追記)・patch(old→new)は notes.ts の POST ハンドラで実装。patch は countOccurrences で 0 件→409 old_not_found、複数一致→409 ambiguous_match(AC 要求は 0 件 409 のみ、複数一致 409 は安全側強化で decisions.json に申告済み・AC 緩和ではない)。置換は existing.replace(old, () => new) の関数形式で $& / $' 等を特殊解釈させない。テストは 200 追記結果の content 完全一致、409 時にファイルが before と一致(未改変)、$-パターンが文字通り保存されること、パス無 append の 400、欠損ノート append の 404、zod 400 をアサート。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "Sd63ad1-1",
+      "ac": "AC-Sd63ad1-1-3",
+      "verdict": "pass",
+      "detail": "パストラバーサル拒否は shared/path.ts normalizeVaultPath(../ . 空セグメント/先頭ドット/絶対/ドライブレター/バックスラッシュ/null byte を VaultPathError)で一次防御、server/vault.ts resolveVaultFile が path.resolve 後 rootAbs+sep 前方一致で二重防御。notes.ts は VaultPathError を 400 invalid_path に変換。書き込みは vault.ts writeNote が toLf(content) で常に LF・utf8 固定。テストは ..%2Fescape.md を 400 かつ vault 親に escape.md が作られないこと(stat rejects)、.loamium/.git 隠しセグメント拒否、CRLF 入力が LF に正規化され \\r 不在・UTF-8 バイト往復一致をアサート。AC 文言どおり。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "Sd63ad1-2",
+      "ac": "AC-Sd63ad1-2-1",
+      "verdict": "pass",
+      "detail": "GET /api/journal は routes/journal.ts で todayJournalDate()(サーバローカル TZ)または ?date= を isValidJournalDate で検証(非存在暦日 2026-02-30 も 400)、journalPath で journals/YYYY-MM-DD.md 解決、未存在時 writeNote で自動生成し created=true。テストは today 一致・path 一致・created=true・実ファイル stat 存在・2 回目 created=false・?date 指定生成・不正日付 400(4 パターン)・frontmatter パースをアサート。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "Sd63ad1-2",
+      "ac": "AC-Sd63ad1-2-2",
+      "verdict": "pass",
+      "detail": "POST /api/journal/append は body.date ?? todayJournalDate() を検証、appendText で LF 終端追記、未存在なら作成し 201/既存 200。テストは today 追記の実ファイル末尾一致、指定日 201 生成 + 連続追記の content 完全一致(- past log entry\\n- second entry\\n)、不正日付/空 content 400 をアサート。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "Sd63ad1-3",
+      "ac": "AC-Sd63ad1-3-1",
+      "verdict": "pass",
+      "detail": "audit.ts auditMiddleware が /api/* に配線され、書き込み系(PUT/POST/DELETE + /api/)またはハンドラが setAudit した場合に {vault}/.loamium/audit.log へ ts(ISO8601)・op・path・mode・result・status を JSONL で追記。読み取り GET は記録しない。ジャーナル自動生成(GET が書く)は journal.create で記録(AC を超える強化・申告済み)。テストは PUT/append/patch/journal-append/DELETE の op+path を toContainEqual で検証、全行に ts パース可能・op/path 非空をアサート、read-only 系 GET/health でログ行数不変を確認。監査ログ書込失敗は握りつぶさず console.error(空 catch でない)。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "Sd63ad1-3",
+      "ac": "AC-Sd63ad1-3-2",
+      "verdict": "pass",
+      "detail": "permissions.ts permissionMiddleware が /api/* に配線。classifyOp: GET/HEAD/OPTIONS=read、POST の /api/journal/append と /api/notes/*/append=append、他は mutate(PUT/DELETE/PATCH/不明メソッドは安全側 mutate)。read-only は read 以外を 403、append-only は append 以外を 403、full は無制限。テストは read-only で PUT/append/patch/DELETE/journal-append すべて 403 forbidden かつ existing.md 未改変、read は 200、GET /api/journal が read-only で自動生成しない(created=false・content=''・ファイル未生成)、denied ログ 5 件以上で status 403/mode read-only。append-only は note/journal append 通過・実ファイル追記反映、PUT/patch/DELETE 403 かつファイル未改変をアサート。LOAMIUM_MODE は config.ts で configFromEnv が permissionModeSchema.safeParse で検証。AC 文言どおり。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "forbidden_categories",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "git diff 2bc06dd..HEAD を走査。test_skipped(.skip/.only/xit/test.todo)=0、test_assertion_weakened=なし(むしろファイル未改変・content 完全一致など強アサート)、error_swallowed(新規空 catch {} / @ts-ignore / eslint-disable)=0。path.ts/vault.ts の `catch { return false }` は boolean 縮約ヘルパで値を返す意図的分岐、audit.ts の catch は console.error で明示ログ。type_safety_relaxed(新規 any / 乱暴な as any / as unknown as)=0(as は response 型付けの局所 as z.infer 等のみ)。acceptance_criteria_modified: ROADMAP.json diff は status(pending→done/in_progress)遷移のみで AC の description 文言削除・緩和なし。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "adr_conformance",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "docs/DESIGN/ は不在のため ADR 適合は n/a。代替として DESIGN_PRINCIPLES.json forbidden を diff で検証: ブロック ID(^blockid/id:: uuid)書込=なし、全行リストブロック化=なし、Obsidian 非互換の独自記法=なし(markdown.ts は標準 --- YAML frontmatter のみ抽出、正本は無加工の Markdown 1 本)、プラグイン API=なし、vault ルート外読み書き=二重防御で不可、確認なし一括削除/変換=なし(DELETE は単一ファイル・patch は曖昧時 409 で拒否)、テスト無効化/アサ弱体化/エラー握りつぶし=なし、AC 緩和=なし。違反なし。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "compromises_completeness",
+      "story": null,
+      "ac": null,
+      "verdict": "warn",
+      "detail": "申告済みだが注意点として記録: (1) 機械検証基盤 hooks/run-verify.py + .claude/verify.json はスキル配布物に存在せず本 Sprint 中に自己実装された(decisions.json verification エントリで申告、drift_flag=none)。検証者は当該スクリプトを実読し実 exit code + 実 JUnit パースで status を機械導出しており fabrication ではないことを確認したが、検証ハーネス自体が被検証コードと同一セッション産である点は構造的に留意。(2) append/patch の read-modify-write は last-write-wins で楽観的競合検出(mtime/hash)は未実装 — decisions.json でバックログ化を明示申告済み・本 Sprint AC の要求外。いずれも overlooked ではなく、fail に至る妥協ではないため warn。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "次 Sprint 以降で楽観的競合検出(ARCHITECTURE 既定)を実装。検証ハーネスは可能なら upstream スキルへ還元し被検証物との分離を強める。"
+    }
+  ],
+  "summary": {
+    "ac_failures": 0,
+    "forbidden_warnings": 0,
+    "adr_conflicts": 0,
+    "overlooked_count": 0
+  }
+}

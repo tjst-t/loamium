@@ -1,0 +1,296 @@
+{
+  "$machine_authored": true,
+  "sprint": "Sd63ad1",
+  "command_source": "declared (.claude/verify.json)",
+  "runs": [
+    {
+      "name": "test",
+      "command": "make test",
+      "exit_code": 0,
+      "log": "docs/sprint-logs/Sd63ad1/verify-run-test.log",
+      "machine_status": "pass",
+      "junit": {
+        "total": 66,
+        "passed": 66,
+        "failed": 0,
+        "errored": 0,
+        "skipped": 0,
+        "cases": [
+          {
+            "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-1] audit log records every write API call > logs PUT / append / patch / DELETE / journal-append with ts, op, path",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-1] audit log records every write API call > logs journal auto-generation (GET that writes to disk)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-1] audit log records every write API call > does not log read-only calls (GET note)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-2] read-only mode rejects all writes with 403 > rejects PUT / append / patch / DELETE / journal-append with 403 and leaves files untouched",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-2] read-only mode rejects all writes with 403 > still allows reads (200)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-2] read-only mode rejects all writes with 403 > GET /api/journal does not auto-create the file in read-only mode",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-2] read-only mode rejects all writes with 403 > records denied write attempts in the audit log",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-2] append-only mode allows only appends > allows note append and journal append",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-2] append-only mode allows only appends > rejects overwrite (PUT), patch, and DELETE with 403",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/journal.spec.ts.[AC-Sd63ad1-2-1] GET /api/journal auto-generates today's journal > returns today (server-local) and creates journals/YYYY-MM-DD.md when missing",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/journal.spec.ts.[AC-Sd63ad1-2-1] GET /api/journal auto-generates today's journal > supports ?date=YYYY-MM-DD and auto-generates that file",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/journal.spec.ts.[AC-Sd63ad1-2-1] GET /api/journal auto-generates today's journal > rejects invalid dates with 400 (format and non-existent calendar day)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/journal.spec.ts.[AC-Sd63ad1-2-1] GET /api/journal auto-generates today's journal > returns parsed frontmatter for a journal that has one",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/journal.spec.ts.[AC-Sd63ad1-2-2] POST /api/journal/append > appends to today's journal (creating it if missing)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/journal.spec.ts.[AC-Sd63ad1-2-2] POST /api/journal/append > appends to a specified date, auto-creating the file (201)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/journal.spec.ts.[AC-Sd63ad1-2-2] POST /api/journal/append > rejects invalid date / empty content with 400",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-1] PUT/GET notes (create, read with frontmatter, overwrite) > creates a note with PUT and reads it back with parsed frontmatter",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-1] PUT/GET notes (create, read with frontmatter, overwrite) > overwrites an existing note with PUT (200, created=false)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-1] PUT/GET notes (create, read with frontmatter, overwrite) > adds .md automatically when the path has no extension",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-1] PUT/GET notes (create, read with frontmatter, overwrite) > returns 404 for a missing note",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-1] PUT/GET notes (create, read with frontmatter, overwrite) > handles Japanese (NFC-normalized) paths",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > appends to the end of a note",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > patches old→new (single occurrence)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > returns 409 when old is not found, without modifying the file",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > returns 409 when old matches multiple locations (ambiguous, data safety)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > does not interpret $-patterns in the replacement string (data safety)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > rejects an action call without a note path (POST /api/notes/append) with 400",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > returns 404 when appending to a missing note",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > rejects an invalid request body with 400 (zod validation)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-3] path traversal rejection and UTF-8/LF storage > rejects ../ traversal with 400 and writes nothing outside the vault",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-3] path traversal rejection and UTF-8/LF storage > rejects nested traversal and hidden segments (.loamium protection)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-3] path traversal rejection and UTF-8/LF storage > stores files as UTF-8 with LF only (CRLF input is normalized)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.health endpoint > GET /api/health returns ok with the permission mode",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.DELETE /api/notes/{path} > deletes an existing note and returns 404 afterwards",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/journal.test.ts.isValidJournalDate > accepts real dates",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/journal.test.ts.isValidJournalDate > rejects wrong formats",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/journal.test.ts.isValidJournalDate > rejects non-existent calendar dates",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/journal.test.ts.journalPath > maps a date to journals/YYYY-MM-DD.md",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/journal.test.ts.journalPath > throws JournalDateError for invalid dates",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/journal.test.ts.todayJournalDate > formats in server-local timezone",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/journal.test.ts.todayJournalDate > pads month and day",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/markdown.test.ts.parseNote > extracts YAML frontmatter and body",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/markdown.test.ts.parseNote > returns null frontmatter when there is none",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/markdown.test.ts.parseNote > does not treat a later --- as frontmatter open",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/markdown.test.ts.parseNote > returns null frontmatter for an unclosed block",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/markdown.test.ts.parseNote > returns null frontmatter for broken YAML without destroying content",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/markdown.test.ts.parseNote > returns null frontmatter when YAML top-level is not an object",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/markdown.test.ts.parseNote > handles empty frontmatter block",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/markdown.test.ts.parseNote > handles CRLF content without crashing",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/path.test.ts.normalizeVaultPath > appends .md when extension is missing",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/path.test.ts.normalizeVaultPath > keeps .md extension as-is",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/path.test.ts.normalizeVaultPath > treats non-md extensions as part of the name (notes API only manages .md)",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/path.test.ts.normalizeVaultPath > normalizes to NFC (NFD input from macOS)",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/path.test.ts.normalizeVaultPath > accepts Japanese paths",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/path.test.ts.normalizeVaultPath > rejects \"..\" traversal",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/path.test.ts.normalizeVaultPath > rejects \".\" segments",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/path.test.ts.normalizeVaultPath > rejects absolute paths",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/path.test.ts.normalizeVaultPath > rejects hidden segments (.loamium / .git protection)",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/path.test.ts.normalizeVaultPath > rejects empty / backslash / null-byte paths",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/path.test.ts.normalizeVaultPath > isValidVaultPath mirrors normalizeVaultPath",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/text.test.ts.toLf > converts CRLF and lone CR to LF",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/text.test.ts.appendText > appends to empty content with trailing newline",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/text.test.ts.appendText > inserts a newline when existing content lacks one",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/text.test.ts.appendText > does not double newlines when existing content ends with one",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/text.test.ts.appendText > normalizes CRLF in the addition",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/text.test.ts.countOccurrences > counts non-overlapping occurrences",
+            "status": "pass"
+          }
+        ]
+      }
+    },
+    {
+      "name": "lint",
+      "command": "make lint",
+      "exit_code": 0,
+      "log": "docs/sprint-logs/Sd63ad1/verify-run-lint.log",
+      "machine_status": "pass",
+      "junit": null
+    }
+  ],
+  "overall_machine_status": "pass"
+}
