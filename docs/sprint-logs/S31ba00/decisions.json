@@ -63,6 +63,42 @@
       "reference": "DESIGN_PRINCIPLES priority 3 (API/CLI の安定)・coding_conventions (zod 共有)",
       "adr_ref": null,
       "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T16:05:00Z",
+      "category": "implementation",
+      "title": "write-through は監査コンテキストをフックにしたミドルウェアで実装",
+      "detail": "書き込み系ハンドラは全て監査コンテキスト (op + 正規化済み相対パス) をセットする既存不変条件を利用し、indexSyncMiddleware がレスポンス成功 (<400) 後に該当ファイルだけ refreshFile する。ルートハンドラのシグネチャを変えず、journal 自動生成 (journal.create) も自然にカバーされる。インデックス更新失敗は API 応答を壊さず stderr に記録 (ファイルが正、watch/再起動で自己修復)。",
+      "reference": "ARCHITECTURE Data Flow (書き込み → 監査ログ → インデックス即時更新) / DESIGN_PRINCIPLES priority 6",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T16:05:00Z",
+      "category": "implementation",
+      "title": "検索スニペットは「クエリ完全一致行 → Fuse マッチ位置の行 → タイトル」の順で決定",
+      "detail": "AC の『マッチ箇所(スニペット)』は行単位で返す。Fuse.js はファジー一致のためマッチ位置が直感に反することがあり、まず完全一致行を優先する。1 始まりの行番号も返し、将来の UI ジャンプに使える。",
+      "reference": "DESIGN_PRINCIPLES priority 5 (最も単純な形)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T16:08:00Z",
+      "category": "implementation",
+      "title": "watch テストの検索語はファジー距離の離れた固有語を使う",
+      "detail": "Fuse.js (threshold 0.2) は externalword1/externalword2 のような 1 文字違いを同一視するため、『旧内容がヒットしない』検証が偽陽性になった。検索機能の仕様 (ファジー一致) は変えず、テスト側の語を編集距離の大きい固有語に変更。アサーション自体は弱めていない。",
+      "reference": "test-discipline (アサーション弱体化の禁止) — 語の選定変更でありアサーション不変",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T16:10:00Z",
+      "category": "review",
+      "title": "Story レベルレビュー (code-review 7 角度・セッション内実施) で NFD ファイル名バグを検出・修正",
+      "detail": "この環境には Agent ツールが無いため、code-review スキルの 7 finder 角度を本セッションで実施。(1) 確定バグ: refreshFile が NFC 正規化済み相対パスでディスクを読むため、Linux 上の NFD ファイル名 (macOS 同期由来) のノートが起動走査・watch のどちらでも黙って未インデックスになる → walk/watcher の実 abs パスをヒントとして渡し封じ込め検証の上で読む形に修正、回帰テスト追加 (SPEC §9-8 の罠)。(2) 未使用の export type NoteIndexEntry を削除 (Rule 6 の未テスト表面)。",
+      "reference": "SPEC §9-8 (NFC/NFD 正規化が検索とリンク解決を静かに壊す) / DESIGN_PRINCIPLES priority 2",
+      "adr_ref": null,
+      "drift_flag": "none"
     }
   ]
 }
