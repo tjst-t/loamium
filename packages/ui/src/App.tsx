@@ -16,7 +16,7 @@ import { JournalNav } from './components/JournalNav.js';
 import { BacklinkPanel } from './components/BacklinkPanel.js';
 import { ContextMenu } from './components/ContextMenu.js';
 import { ConflictDialog, DeleteDialog, NameDialog } from './components/dialogs.js';
-import { DocumentIcon, GearIcon, NewFolderIcon, NewNoteIcon } from './icons.js';
+import { DocumentIcon, GearIcon, LinkIcon, NewFolderIcon, NewNoteIcon } from './icons.js';
 
 const AUTOSAVE_DEBOUNCE_MS = 1500;
 const JOURNAL_FILE_RE = /^journals\/(\d{4}-\d{2}-\d{2})\.md$/;
@@ -61,6 +61,54 @@ function errMessage(err: unknown): string {
   return String(err);
 }
 
+/**
+ * リネームダイアログの「[[リンク]] N 件を自動更新」表示 (S6fbf45-3 /
+ * prototype/tree-rename.html)。件数は GET /api/backlinks から求める。
+ */
+function RenameLinkNote({ path }: { path: string }): JSX.Element {
+  const [counts, setCounts] = useState<{ notes: number; links: number } | 'loading' | 'error'>(
+    'loading',
+  );
+  useEffect(() => {
+    let cancelled = false;
+    api.getBacklinks(path).then(
+      (res) => {
+        if (cancelled) return;
+        setCounts({
+          notes: res.backlinks.length,
+          links: res.backlinks.reduce((n, s) => n + s.links.length, 0),
+        });
+      },
+      () => {
+        if (!cancelled) setCounts('error');
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [path]);
+  return (
+    <div className="link-update-note" data-testid="rename-link-note">
+      <LinkIcon />
+      <span>
+        {counts === 'loading' ? (
+          '参照元の [[リンク]] を確認しています…'
+        ) : counts === 'error' ? (
+          'リンク数を確認できませんでした (リネーム自体はリンク追従つきで実行されます)。'
+        ) : counts.links === 0 ? (
+          'このノートへの [[リンク]] はありません。リネームのみ実行します。'
+        ) : (
+          <>
+            {counts.notes} ノートにある <strong>[[リンク]] {counts.links} 件</strong>
+            を自動更新します (<code>[[名前#見出し]]</code> / <code>[[名前|表示名]]</code>{' '}
+            形式を含む)。コードフェンス内は変更されません。
+          </>
+        )}
+      </span>
+    </div>
+  );
+}
+
 export function App(): JSX.Element {
   // ---- サイドバー: ノート一覧とツリー ----
   const [notes, setNotes] = useState<NoteMeta[] | null>(null);
@@ -82,6 +130,8 @@ export function App(): JSX.Element {
   const [dialog, setDialog] = useState<DialogState>(null);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
+  /** 保存成功のたびに増える — バックリンクパネルの再取得トリガー (S6fbf45-2) */
+  const [backlinksToken, setBacklinksToken] = useState(0);
 
   const docRef = useRef<OpenDoc | null>(null);
   const contentRef = useRef('');
@@ -133,6 +183,7 @@ export function App(): JSX.Element {
         setConflictPath(null);
         setAppError(null);
         if (res.created) void refreshNotes();
+        setBacklinksToken((v) => v + 1); // 保存でバックリンクパネルを更新
         return true;
       } catch (err) {
         if (err instanceof ApiError && err.status === 409) {
@@ -191,6 +242,39 @@ export function App(): JSX.Element {
       }
     },
     [saveNow, setOpenDoc],
+  );
+
+  /**
+   * [[リンク]] からのノート作成 (S6fbf45-1)。
+   * - 壊れリンクのクリック: open=true (作成して開く)
+   * - オートコンプリートの「作成してリンク」: open=false (作成のみ、執筆を中断しない)
+   * baseMtime: 0 の create-only PUT なので既存ノートを上書きしない (priority 2)。
+   */
+  const createNoteFromLink = useCallback(
+    async (target: string, open: boolean): Promise<void> => {
+      const t = target.trim().normalize('NFC');
+      if (t.length === 0) return;
+      if (/\.[A-Za-z0-9]+$/.test(t) && !/\.md$/i.test(t)) {
+        // [[image.png]] 等の非 Markdown ターゲットを "image.png.md" として
+        // 作成してしまわない (レビュー指摘 R1 — 添付参照はノート作成対象外)
+        setAppError(`ノート以外のファイルは [[リンク]] から作成できません — ${t}`);
+        return;
+      }
+      const rel = /\.md$/i.test(t) ? t : `${t}.md`;
+      try {
+        await api.putNote(rel, '', 0);
+        setAppError(null);
+      } catch (err) {
+        if (!(err instanceof ApiError && err.status === 409)) {
+          setAppError(`ノートを作成できませんでした — ${errMessage(err)}`);
+          return;
+        }
+        // 409 = 既に存在 (外部で作成済み等)。リンク先はあるので続行してよい
+      }
+      void refreshNotes();
+      if (open) await openNotePath(rel);
+    },
+    [openNotePath, refreshNotes],
   );
 
   const openJournal = useCallback(
@@ -300,16 +384,23 @@ export function App(): JSX.Element {
       setDialog(null);
       if (newPath === oldPath) return;
       try {
-        // 開いているノートのリネームは未保存編集を先に反映する
-        if (docRef.current?.path === oldPath && !(await saveNow())) return;
-        const current = await api.getNote(oldPath);
-        // baseMtime: 0 = create-only (リネーム先が既にある場合は 409 で守る)
-        const written = await api.putNote(newPath, current.content, 0);
-        await api.deleteNote(oldPath);
+        // 未保存編集を先に反映してから rename API に任せる:
+        // vault 全体の [[旧名]] 追従・監査ログ・409 保護はサーバー側 (S6fbf45-3)
+        if (!(await saveNow())) return;
+        const res = await api.renameNote(oldPath, newPath);
         await refreshNotes();
-        if (docRef.current?.path === oldPath) {
-          setOpenDoc(written.path, current.content, written.mtime);
+        const openPath = docRef.current?.path;
+        if (openPath === oldPath) {
+          // 開いているノート自身のリネーム: 新パスで開き直す (自己リンク書き換えも反映)
+          const note = await api.getNote(res.path);
+          setOpenDoc(note.path, note.content, note.mtime);
+        } else if (openPath !== undefined && res.updatedNotes.some((u) => u.path === openPath)) {
+          // 開いているノートがリンク書き換え対象: ディスクの新内容を読み直す
+          // (保存済みなので編集は失われない。放置すると次回保存が 409 になる)
+          const note = await api.getNote(openPath);
+          setOpenDoc(note.path, note.content, note.mtime);
         }
+        setBacklinksToken((v) => v + 1);
         setAppError(null);
       } catch (err) {
         if (err instanceof ApiError && err.status === 409) {
@@ -317,7 +408,6 @@ export function App(): JSX.Element {
         } else {
           setAppError(`リネームできませんでした — ${errMessage(err)}`);
         }
-        // 部分失敗 (新パス作成後に旧パス削除が失敗等) でもツリーを実状に合わせる
         void refreshNotes();
       }
     },
@@ -495,8 +585,12 @@ export function App(): JSX.Element {
             docPath={doc.path}
             content={doc.text}
             resetToken={doc.resetToken}
+            notes={notes}
             onChange={onEditorChange}
             onSave={() => void saveNow()}
+            onOpenNote={(path) => void openNotePath(path)}
+            onCreateAndOpenNote={(target) => void createNoteFromLink(target, true)}
+            onCreateNote={(target) => void createNoteFromLink(target, false)}
           />
         ) : (
           <div className="empty-state" data-testid="editor-empty-state">
@@ -536,7 +630,13 @@ export function App(): JSX.Element {
       </main>
 
       {/* ================= 右: バックリンクパネル ================= */}
-      <BacklinkPanel collapsed={panelCollapsed} onToggle={() => setPanelCollapsed((v) => !v)} />
+      <BacklinkPanel
+        collapsed={panelCollapsed}
+        onToggle={() => setPanelCollapsed((v) => !v)}
+        notePath={doc?.path ?? null}
+        refreshToken={backlinksToken}
+        onOpenNote={(path) => void openNotePath(path)}
+      />
 
       {/* ================= ポップアップ ================= */}
       {menu !== null && (
@@ -602,8 +702,9 @@ export function App(): JSX.Element {
           title="ノートをリネーム"
           sub={dialog.path}
           initial={(dialog.path.split('/').at(-1) ?? '').replace(/\.md$/, '')}
-          confirmLabel="リネーム"
+          confirmLabel="リネームしてリンクを更新"
           testids={{ dialog: 'rename-dialog', input: 'rename-input', confirm: 'rename-confirm', cancel: 'rename-cancel' }}
+          extra={<RenameLinkNote path={dialog.path} />}
           validate={(name) => {
             const current = (dialog.path.split('/').at(-1) ?? '').replace(/\.md$/, '');
             if (name === current) return null; // 同名は no-op

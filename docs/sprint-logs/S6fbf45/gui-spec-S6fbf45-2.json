@@ -1,0 +1,38 @@
+{
+  "$file": "gui-spec-S6fbf45-2.json",
+  "sprint": "S6fbf45",
+  "story": "S6fbf45-2",
+  "story_type": "gui",
+  "state_diagram": "stateDiagram-v2\n    [*] --> NoteOpen: ノートをエディタに開く\n    NoteOpen --> BacklinksLoaded: GET /api/backlinks?path= 成功 (backlink-count + backlink-item 表示)\n    NoteOpen --> BacklinksEmpty: 参照元 0 件 (backlink-empty 表示、count=0)\n    NoteOpen --> BacklinksError: API 失敗 (パネル内エラー表示)\n    BacklinksLoaded --> SourceNoteOpen: backlink-item クリックで参照元ノートへ移動\n    BacklinksLoaded --> BacklinksLoaded: 保存 (PUT 成功) / ノート切替で再取得\n    NoteOpen --> PanelCollapsed: backlink-panel-toggle で開閉",
+  "scenarios": {
+    "entry_point": "ブラウザで UI を開き、他ノートから [[リンク]] されているノートをツリーから開く",
+    "happy_path": "ノートを開くと右パネルに参照元ノート (backlink-item, data-source) とリンク行のコンテキストが表示され、件数バッジ (backlink-count) が付く。項目クリックで参照元ノートがエディタに開く",
+    "data_states": {
+      "empty": "参照元 0 件のノートでは backlink-empty が表示され件数は 0",
+      "loading": "取得完了までは直前の内容を維持 (フリッカー防止)。初回はプレースホルダ",
+      "error": "GET /api/backlinks 失敗時はパネル内にエラーメッセージを表示 (エディタは使用可能なまま)"
+    },
+    "edge_cases": [
+      "保存 (自動保存含む) で他ノートに [[リンク]] を書き足すと、そのノートを開いたときのバックリンクに反映される",
+      "開いているノートを編集して保存したらパネルを再取得する (参照元の増減に追従)",
+      "[[note#見出し]] / [[note|別名]] 形式もコンテキスト行に元テキストのまま表示される",
+      "パネル折りたたみ中も開閉トグルで復帰できる"
+    ],
+    "success_feedback": "パネルに参照元 + コンテキスト行が並び、クリックでパンくず・エディタが参照元に切り替わる",
+    "failure_feedback": "API 失敗時はパネル内エラー表示。ノート編集は阻害しない"
+  },
+  "endpoint_contracts": [
+    {
+      "path": "/api/backlinks",
+      "method": "GET",
+      "registered": true,
+      "request_fields": { "path": "string (query)" },
+      "response_fields": { "path": "string", "backlinks": "[{source, links: [{raw, heading, line, context}]}]" }
+    }
+  ],
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/backlinks-panel.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/backlinks-panel.mock.spec.ts"
+  },
+  "linked_ac": ["AC-S6fbf45-2-1"]
+}

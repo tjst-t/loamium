@@ -109,12 +109,20 @@ Sa704c3 実装で追加した testid。既存行の変更はなし(契約は add
 | `tree-error` | 全画面 | ノート一覧の取得失敗表示 |
 | `app-error` | 全画面 | API エラーのバナー表示(エディタヘッダ内) |
 
-### 未実装の契約 testid(後続 Sprint で結線)
+### S6fbf45 で実装済 (2026-07-03) — 契約 testid 全結線完了
 
-- `backlink-count` / `backlink-item` — S6fbf45-2(バックリンクパネルの実データ)
-- `rename-link-note` — S6fbf45-3(リネーム時のリンク追従)
-- `wikilink-broken` — S6fbf45-1(壊れリンクの判定はバックリンクインデックス結線後)
+- `backlink-count` / `backlink-item` — S6fbf45-2(バックリンクパネルの実データ。GET /api/backlinks)
+- `rename-link-note` — S6fbf45-3(リネームダイアログの「[[リンク]] N 件を自動更新」表示)
+- `wikilink-broken` — S6fbf45-1(壊れリンク: 赤+破線、クリックで新規作成)
 - `wikilink-autocomplete` / `wikilink-autocomplete-option` / `wikilink-autocomplete-create` — S6fbf45-1
+- `wikilink` の `data-target` は S6fbf45-1 から**解決済み vault パス**(例: `projects/Hydra 設計メモ.md`)。
+  未解決 (`wikilink-broken`) は従来どおり「記法どおり + .md 補完」
+
+#### S6fbf45 実装時追加(契約は additive にのみ拡張)
+
+| data-testid | 画面 | 役割 |
+|---|---|---|
+| `backlink-error` | 全画面 | バックリンク取得失敗時のパネル内エラー表示 |
 
 ### S9ab6c3 で実装済 (2026-07-03)
 

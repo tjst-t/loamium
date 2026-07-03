@@ -24,5 +24,12 @@ export async function installCatchAll(page: Page): Promise<string[]> {
     unexpected.push(`${route.request().method()} ${route.request().url()}`);
     void route.fulfill(json({ error: 'unmocked', message: 'unmocked endpoint in mock test' }, 500));
   });
+  // GET /api/backlinks はノートを開くたびに飛ぶ定常呼び出し (S6fbf45-2 パネル)。
+  // 既定は空で応答する。バックリンクを検証するテストは後から自前の route を
+  // 登録すれば上書きできる (Playwright の route は後勝ち)。
+  await page.route('**/api/backlinks*', (route) => {
+    const url = new URL(route.request().url());
+    void route.fulfill(json({ path: url.searchParams.get('path') ?? '', backlinks: [] }));
+  });
   return unexpected;
 }

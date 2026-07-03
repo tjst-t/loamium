@@ -726,3 +726,164 @@ code {
   border-radius: 10px;
   cursor: pointer;
 }
+
+/* ==========================================================================
+   S6fbf45 — [[リンク]] 機構 (壊れリンク / オートコンプリート)
+   prototype/wikilink-autocomplete.html 準拠
+   ========================================================================== */
+
+.wikilink.broken {
+  color: var(--danger);
+  text-decoration: underline dashed;
+  text-underline-offset: 3px;
+}
+.wikilink.broken:hover { background: var(--danger-soft); }
+
+/* CodeMirror autocompletion の tooltip を prototype の .autocomplete-pop に寄せる */
+.cm-editor .cm-tooltip.cm-tooltip-autocomplete {
+  width: 320px;
+  background: var(--bg-editor);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  padding: 5px;
+}
+.cm-editor .cm-tooltip-autocomplete::before {
+  /* prototype の .autocomplete-hint (装飾のみ) */
+  content: 'ノートにリンク — ↑↓ 選択 / Enter 挿入';
+  display: block;
+  font-size: 11px;
+  color: var(--text-faint);
+  padding: 4px 9px 5px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+.cm-editor .cm-tooltip-autocomplete > ul {
+  font-family: var(--font-sans, inherit);
+  max-height: 260px;
+}
+.cm-editor .cm-tooltip-autocomplete > ul > li {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  border-radius: 6px;
+  font-size: 13.5px;
+  color: var(--text);
+}
+.cm-editor .cm-tooltip-autocomplete > ul > li:hover { background: var(--bg-hover); }
+.cm-editor .cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: var(--bg-active);
+  color: var(--text);
+}
+/* 表示は wl-option (renderOption) が担う — 既定ラベルは隠す */
+.cm-editor .cm-tooltip-autocomplete .cm-completionLabel,
+.cm-editor .cm-tooltip-autocomplete .cm-completionDetail { display: none; }
+.cm-editor .cm-tooltip-autocomplete .wl-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 9px;
+}
+.cm-editor .cm-tooltip-autocomplete .wl-option .wl-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cm-editor .cm-tooltip-autocomplete .wl-option .wl-path {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+.cm-editor .cm-tooltip-autocomplete .wl-option mark {
+  background: none;
+  color: var(--accent);
+  font-weight: 700;
+}
+.cm-editor .cm-tooltip-autocomplete .wl-option.create-new {
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 6px 6px;
+  margin-top: 4px;
+  padding-top: 8px;
+}
+.cm-editor .cm-tooltip-autocomplete .wl-option.create-new .plus {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   S6fbf45 — バックリンクパネル (実データ)
+   prototype/wikilink-autocomplete.html 右ペイン準拠
+   ========================================================================== */
+
+.panel-header .count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.backlink-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--bg-editor);
+  border-radius: 8px;
+  padding: 9px 11px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.backlink-item:hover { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.backlink-source {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.backlink-source svg { width: 13px; height: 13px; color: var(--text-faint); flex-shrink: 0; }
+.backlink-context {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.backlink-context mark {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 3px;
+  padding: 0 2px;
+}
+.panel-empty .detail {
+  font-size: 11px;
+  color: var(--text-faint);
+  word-break: break-all;
+}
+
+.dialog .link-update-note {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--accent-soft);
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--accent-hover);
+  line-height: 1.6;
+}
+.dialog .link-update-note svg { width: 15px; height: 15px; flex-shrink: 0; margin-top: 2px; }

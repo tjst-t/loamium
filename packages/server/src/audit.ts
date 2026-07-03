@@ -28,6 +28,7 @@ export function deriveOp(method: string, reqPath: string): string {
     if (method === 'POST') {
       if (reqPath.endsWith('/append')) return 'note.append';
       if (reqPath.endsWith('/patch')) return 'note.patch';
+      if (reqPath.endsWith('/rename')) return 'note.rename';
       return 'note.unknown';
     }
   }

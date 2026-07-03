@@ -1,0 +1,47 @@
+{
+  "$file": "gui-spec-S6fbf45-3.json",
+  "sprint": "S6fbf45",
+  "story": "S6fbf45-3",
+  "story_type": "mixed",
+  "note": "AC-S6fbf45-3-1 は API scenario (scenario-S6fbf45-3.json / tests/acceptance/rename.spec.ts)。本ファイルは AC-S6fbf45-3-2 の GUI 部分。",
+  "state_diagram": "stateDiagram-v2\n    [*] --> NoteInTree: ツリーにノートが表示されている\n    NoteInTree --> ContextMenu: 右クリック (tree-context-menu)\n    ContextMenu --> RenameDialog: context-rename クリック (rename-dialog 表示)\n    NoteInTree --> RenameDialog: F2 (開いているノート)\n    RenameDialog --> RenameDialog: rename-input に新名を入力 (rename-link-note にリンク更新件数を表示)\n    RenameDialog --> Renamed: rename-confirm → POST /api/notes/{path}/rename 成功\n    Renamed --> [*]: ツリー・パンくず更新、全ノートの [[旧名]] が新名に、監査ログに note.rename 記録\n    RenameDialog --> RenameError: 409 (リネーム先が既存) → app-error 表示、ファイル不変\n    RenameDialog --> NoteInTree: rename-cancel",
+  "scenarios": {
+    "entry_point": "ブラウザで UI を開き、ツリーのノートを右クリック → リネーム…",
+    "happy_path": "リネームダイアログに新名を入力すると「[[リンク]] N 件を自動更新」の説明 (rename-link-note) が出る → リネーム実行で POST /api/notes/{path}/rename が呼ばれ、ツリーが新名になり、参照元ノートの [[旧名]] ([[旧名#見出し]] / [[旧名|表示名]] 含む) が新名に書き換わり、監査ログに note.rename が記録される",
+    "data_states": {
+      "empty": "バックリンク 0 件のノートのリネームでは rename-link-note は 0 件表示 (リンク書き換えなし)",
+      "loading": "リンク件数取得中はダイアログは開くが件数は取得完了後に表示",
+      "error": "rename API 失敗 (409 既存名など) は app-error 表示、ファイル・ツリーは不変"
+    },
+    "edge_cases": [
+      "開いているノート自身のリネームはエディタ・パンくずが新パスに追従する",
+      "リネーム先に同名ノートが既にある場合は 409 で拒否 (上書きしない — priority 2)",
+      "同名のまま確定は no-op",
+      "コードフェンス内の [[旧名]] は書き換わらない"
+    ],
+    "success_feedback": "ツリー項目が新名になり、開いていた場合はパンくずも新名。参照元ノートを開くとリンクが新名に書き換わっている",
+    "failure_feedback": "app-error バナー表示。旧ファイル・リンクは不変"
+  },
+  "endpoint_contracts": [
+    {
+      "path": "/api/notes/:path/rename",
+      "method": "POST",
+      "registered": false,
+      "note": "本 Sprint (S6fbf45-3-1) で新設",
+      "request_fields": { "newPath": "string (vault 相対パス)" },
+      "response_fields": { "oldPath": "string", "path": "string (新パス)", "mtime": "number", "updatedNotes": "[{path, links}] (リンク書き換えの内訳)", "updatedLinks": "number (書き換えたリンク総数)" }
+    },
+    {
+      "path": "/api/backlinks",
+      "method": "GET",
+      "registered": true,
+      "request_fields": { "path": "string (query)" },
+      "response_fields": { "path": "string", "backlinks": "[{source, links: [...]}]" }
+    }
+  ],
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/rename.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/rename.mock.spec.ts"
+  },
+  "linked_ac": ["AC-S6fbf45-3-2"]
+}

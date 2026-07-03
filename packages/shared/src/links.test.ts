@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveLinkTarget } from './links.js';
+import { preferredLinkTarget, resolveLinkTarget } from './links.js';
 
 const vault = [
   'hydra.md',
@@ -55,5 +55,25 @@ describe('resolveLinkTarget', () => {
 
   it('does not fall back to basename matching for path-qualified misses', () => {
     expect(resolveLinkTarget('other/hydra', vault)).toBeNull();
+  });
+});
+
+describe('preferredLinkTarget', () => {
+  const vault = ['projects/hydra.md', 'notes/メモ.md', 'メモ.md', 'ユニーク.md'];
+
+  it('returns the basename when it resolves uniquely to the note', () => {
+    expect(preferredLinkTarget('ユニーク.md', vault)).toBe('ユニーク');
+    expect(preferredLinkTarget('projects/hydra.md', vault)).toBe('hydra');
+  });
+
+  it('returns the full path when the basename resolves to a different note', () => {
+    // "メモ" は浅いパス優先で メモ.md に解決されるため、notes/メモ.md はフルパス表記
+    expect(preferredLinkTarget('notes/メモ.md', vault)).toBe('notes/メモ');
+    expect(preferredLinkTarget('メモ.md', vault)).toBe('メモ');
+  });
+
+  it('NFC-normalizes the note path', () => {
+    const nfd = 'ユニーク.md'.normalize('NFD');
+    expect(preferredLinkTarget(nfd, vault)).toBe('ユニーク');
   });
 });

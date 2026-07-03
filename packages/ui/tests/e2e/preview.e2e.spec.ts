@@ -73,7 +73,8 @@ test('[AC-S9ab6c3-2-1] 見出し・太字/斜体・インラインコード・[[
   await expect(para).not.toContainText('`');
 
   // --- [[リンク]]: wikilink ピルとして装飾 (エイリアスは表示名だけ変わる) ---
-  const link = page.locator('[data-testid="wikilink"][data-target="Hydra 設計メモ.md"]');
+  // data-target は S6fbf45-1 で解決済み vault パスになった (S9ab6c3 decisions I8 の予定どおり)
+  const link = page.locator('[data-testid="wikilink"][data-target="projects/Hydra 設計メモ.md"]');
   await expect(link).toHaveCount(2);
   await expect(link.first()).toHaveText('Hydra 設計メモ');
   await expect(link.nth(1)).toHaveText('エイリアス');

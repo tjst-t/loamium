@@ -6,6 +6,7 @@
  * - DELETE /api/notes/{path}          削除
  * - POST   /api/notes/{path}/append   末尾追記
  * - POST   /api/notes/{path}/patch    old→new 部分置換 (old 不在 / 曖昧は 409)
+ * - POST   /api/notes/{path}/rename   リネーム + vault 全体の [[旧名]] 追従書き換え
  */
 import { Hono } from 'hono';
 import {
@@ -13,20 +14,27 @@ import {
   countOccurrences,
   noteAppendRequestSchema,
   notePatchRequestSchema,
+  noteRenameRequestSchema,
   noteWriteRequestSchema,
   normalizeVaultPath,
   parseNote,
+  preferredLinkTarget,
+  resolveLinkTarget,
+  rewriteLinks,
   VaultPathError,
   type NoteDeleteResponse,
+  type NoteRenameResponse,
   type NoteResponse,
   type NoteWriteResponse,
+  type RenameUpdatedNote,
 } from '@loamium/shared';
 import type { ServerConfig } from '../config.js';
-import { deleteNote, noteMtime, readNote, writeNote } from '../vault.js';
+import { deleteNote, listNoteFiles, noteMtime, readNote, writeNote } from '../vault.js';
+import type { VaultIndex } from '../noteIndex.js';
 import { errorJson, parseBody, setAudit, type AppEnv } from '../http.js';
 
 const NOTES_PREFIX = '/api/notes/';
-const POST_ACTIONS = ['append', 'patch'] as const;
+const POST_ACTIONS = ['append', 'patch', 'rename'] as const;
 type PostAction = (typeof POST_ACTIONS)[number];
 
 /** リクエストパスから vault 相対のノートパスを取り出して正規化する。 */
@@ -49,7 +57,7 @@ function notePathFrom(rawPath: string, stripAction: PostAction | null = null): s
   return normalizeVaultPath(decoded);
 }
 
-export function notesRoutes(config: ServerConfig): Hono<AppEnv> {
+export function notesRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
   app.get(`${NOTES_PREFIX}*`, async (c) => {
@@ -140,6 +148,114 @@ export function notesRoutes(config: ServerConfig): Hono<AppEnv> {
     } catch (err) {
       if (err instanceof VaultPathError) return errorJson(c, 400, 'invalid_path', err.message);
       throw err;
+    }
+
+    if (action === 'rename') {
+      // リネーム + vault 全体のリンク追従 (SPEC §9 高-2 / AC-S6fbf45-3-1)。
+      // データ安全性 (priority 2): 書き込みは全計算が終わってから。移動先が
+      // 既存なら 409 で拒否し、解決先が旧パスであるリンクだけを書き換える。
+      setAudit(c, 'note.rename', rel);
+      const body = await parseBody(c, noteRenameRequestSchema);
+      if (!body.ok) return body.response;
+      let newRel: string;
+      try {
+        newRel = normalizeVaultPath(body.data.newPath);
+      } catch (err) {
+        if (err instanceof VaultPathError) return errorJson(c, 400, 'invalid_path', err.message);
+        throw err;
+      }
+      const oldContent = await readNote(config.vaultRoot, rel);
+      if (oldContent === null) {
+        return errorJson(c, 404, 'not_found', `note not found: ${rel}`);
+      }
+      if (newRel === rel) {
+        // 同名リネームは no-op (冪等)
+        const mtime = await noteMtime(config.vaultRoot, rel);
+        const res: NoteRenameResponse = {
+          oldPath: rel,
+          path: rel,
+          mtime: mtime ?? 0,
+          updatedNotes: [],
+          updatedLinks: 0,
+        };
+        return c.json(res);
+      }
+      if ((await noteMtime(config.vaultRoot, newRel)) !== null) {
+        return errorJson(c, 409, 'conflict', `rename target already exists: ${newRel}`);
+      }
+
+      // ---- Phase 1: 読み取りと書き換え計算のみ (この間ディスクへの書き込みゼロ) ----
+      // インデックスではなくファイルシステムを走査する (priority 6: ファイルが正)。
+      const pathSet = new Set(await listNoteFiles(config.vaultRoot));
+      pathSet.add(rel);
+      const before = [...pathSet];
+      const after = before.map((p) => (p === rel ? newRel : p));
+      // 書き換え後リンクは新パスに必ず解決する最短表記 (basename 衝突時はフルパス)
+      const replacement = preferredLinkTarget(newRel, after);
+      // 解決先が旧パスのリンクだけ書き換える。同名 basename が別ノートに解決される
+      // 曖昧リンクは対象外 (勝手に付け替えない — priority 2)。
+      const shouldRewrite = (target: string): string | null =>
+        resolveLinkTarget(target, before) === rel ? replacement : null;
+
+      let movedContent = oldContent;
+      let selfLinks = 0;
+      const sourceUpdates: { path: string; content: string; links: number }[] = [];
+      for (const p of before) {
+        const content = p === rel ? oldContent : await readNote(config.vaultRoot, p);
+        if (content === null) continue; // 走査後に消えたファイルは対象外
+        const rewritten = rewriteLinks(content, shouldRewrite);
+        if (p === rel) {
+          movedContent = rewritten.content; // 自己リンクも追従
+          selfLinks = rewritten.count;
+        } else if (rewritten.count > 0) {
+          sourceUpdates.push({ path: p, content: rewritten.content, links: rewritten.count });
+        }
+      }
+
+      // ---- Phase 2: 適用 (移動 → 参照元書き換え) ----
+      const updatedNotes: RenameUpdatedNote[] = [];
+      let written: { created: boolean; mtime: number };
+      try {
+        written = await writeNote(config.vaultRoot, newRel, movedContent);
+        await deleteNote(config.vaultRoot, rel);
+        if (selfLinks > 0) updatedNotes.push({ path: newRel, links: selfLinks });
+        for (const u of sourceUpdates) {
+          await writeNote(config.vaultRoot, u.path, u.content);
+          updatedNotes.push({ path: u.path, links: u.links });
+        }
+      } catch (err) {
+        // 部分適用の隠蔽はしない: どこまで適用されたかを明示して 500 を返す
+        // (vault は Git 管理前提 — VISION。ユーザーが差分を確認して復旧できる)
+        const appliedList = updatedNotes.map((u) => u.path).join(', ') || '(none)';
+        return errorJson(
+          c,
+          500,
+          'rename_partial_failure',
+          `rename was interrupted mid-apply (rewritten so far: ${appliedList}); ` +
+            `the vault is git-managed — review \`git diff\` to recover. cause: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+        );
+      }
+
+      // ---- インデックス即時追従 (audit ミドルウェアの単一パス更新では足りない) ----
+      index.removeFile(rel);
+      try {
+        await index.refreshFile(newRel);
+        for (const u of sourceUpdates) await index.refreshFile(u.path);
+      } catch (err) {
+        // ファイルは正しく書けている。インデックスは chokidar / 再起動で自己修復する
+        console.error(`[loamium] index refresh after rename failed:`, err);
+      }
+
+      const res: NoteRenameResponse = {
+        oldPath: rel,
+        path: newRel,
+        mtime: written.mtime,
+        updatedNotes,
+        updatedLinks: updatedNotes.reduce((sum, u) => sum + u.links, 0),
+      };
+      return c.json(res);
     }
 
     if (action === 'append') {

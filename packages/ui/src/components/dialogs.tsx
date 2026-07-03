@@ -3,7 +3,7 @@
  * rename-* は prototype/TESTIDS.md の契約 testid。new-note-* / new-folder-* /
  * delete-* / conflict-* は Sa704c3 実装時に契約へ追記した testid (TESTIDS.md 参照)。
  */
-import { useEffect, useRef, useState, type JSX } from 'react';
+import { useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
 
 interface NameDialogProps {
   title: string;
@@ -12,6 +12,8 @@ interface NameDialogProps {
   placeholder?: string;
   confirmLabel: string;
   testids: { dialog: string; input: string; confirm: string; cancel: string };
+  /** 入力欄の下に差し込む補足表示 (リネームのリンク更新数など) */
+  extra?: ReactNode;
   /** 入力を検証し、エラー文字列 (null = OK) を返す */
   validate: (name: string) => string | null;
   onConfirm: (name: string) => void;
@@ -66,6 +68,7 @@ export function NameDialog(props: NameDialogProps): JSX.Element {
           }}
         />
         {error !== null && <div className="dialog-error">{error}</div>}
+        {props.extra}
         <div className="dialog-actions">
           <button className="btn" data-testid={props.testids.cancel} onClick={props.onCancel}>
             キャンセル

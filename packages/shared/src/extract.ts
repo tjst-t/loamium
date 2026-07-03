@@ -181,3 +181,71 @@ export function noteTitle(relPath: string): string {
   const base = relPath.split('/').pop() ?? relPath;
   return base.replace(/\.md$/i, '').normalize('NFC');
 }
+
+export interface RewriteResult {
+  /** 書き換え後の本文 (書き換えゼロなら元の content と同一文字列) */
+  content: string;
+  /** 書き換えたリンク数 */
+  count: number;
+}
+
+/**
+ * ノート本文の [[WikiLink]] ターゲットを書き換える (リネーム追従の心臓部)。
+ *
+ * - extractLinks と同じ走査規則: frontmatter・コードフェンス・インラインコード内は不変
+ * - ターゲット部分 (最初の `#` / `|` より前) だけを置換し、
+ *   `#見出し` / `#^block` / `|表示名` / 埋め込み `!` はそのまま保存する
+ * - replace コールバックが null を返したリンクは変更しない
+ *
+ * @param content ノート本文 (ピュア Markdown)
+ * @param replace NFC 正規化済みターゲットを受け取り、新ターゲット文字列
+ *   (拡張子なし表記) を返す。書き換えないなら null。
+ */
+export function rewriteLinks(
+  content: string,
+  replace: (target: string) => string | null,
+): RewriteResult {
+  const lines = content.split('\n');
+  const scannable = scannableLines(content);
+  let count = 0;
+  for (let i = 0; i < scannable.length; i++) {
+    const blanked = scannable[i];
+    if (blanked === null || blanked === undefined) continue;
+    const original = lines[i] ?? '';
+    // blanked 行でマッチ位置を求め、置換は同一オフセットの original に適用する
+    // (インラインコードの空白化は行長・桁位置を保存している)
+    let out = '';
+    let cursor = 0;
+    LINK_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    let changed = false;
+    while ((m = LINK_RE.exec(blanked)) !== null) {
+      const start = m.index;
+      const end = start + m[0].length;
+      const originalSpan = original.slice(start, end);
+      // blanked と original が食い違う (リンク風テキストに ` が混在する等の病的ケース) は触らない
+      if (originalSpan !== m[0]) continue;
+      const inner = m[2] ?? '';
+      if (inner.trim().length === 0) continue;
+      // ターゲット部分 = 最初の # / | より前。それ以降 (rest) は無加工で保存
+      const hash = inner.indexOf('#');
+      const pipe = inner.indexOf('|');
+      const restIdx = hash === -1 ? pipe : pipe === -1 ? hash : Math.min(hash, pipe);
+      const targetRaw = (restIdx === -1 ? inner : inner.slice(0, restIdx)).trim();
+      if (targetRaw.length === 0) continue; // [[#heading]] 同一ノート内リンク
+      const rest = restIdx === -1 ? '' : inner.slice(restIdx);
+      const next = replace(targetRaw.normalize('NFC'));
+      if (next === null) continue;
+      const embed = m[1] ?? '';
+      out += original.slice(cursor, start) + `${embed}[[${next}${rest}]]`;
+      cursor = end;
+      count += 1;
+      changed = true;
+    }
+    if (changed) {
+      lines[i] = out + original.slice(cursor);
+    }
+  }
+  if (count === 0) return { content, count: 0 };
+  return { content: lines.join('\n'), count };
+}

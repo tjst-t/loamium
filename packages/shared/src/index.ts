@@ -5,9 +5,11 @@ export {
   extractLinks,
   frontmatterTags,
   noteTitle,
+  rewriteLinks,
+  type RewriteResult,
   type WikiLink,
 } from './extract.js';
-export { resolveLinkTarget } from './links.js';
+export { resolveLinkTarget, preferredLinkTarget } from './links.js';
 export {
   JOURNAL_DIR,
   isValidJournalDate,
