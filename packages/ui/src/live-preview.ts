@@ -260,9 +260,12 @@ class InlineRuleWidget extends WidgetType {
   override toDOM(): HTMLElement {
     try {
       return this.make();
-    } catch {
+    } catch (err: unknown) {
+      // レンダラー失敗時はソース文字列にフォールバックし、原因は console に残す
+      // (verifier 指摘 V11: 無言の握りつぶしにしない)
+      console.warn('[loamium] inline renderer failed:', this.matchedText, err);
       const span = document.createElement('span');
-      span.textContent = this.matchedText; // レンダラー失敗時はソース文字列にフォールバック
+      span.textContent = this.matchedText;
       return span;
     }
   }

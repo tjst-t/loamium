@@ -109,10 +109,15 @@ Sa704c3 実装で追加した testid。既存行の変更はなし(契約は add
 | `tree-error` | 全画面 | ノート一覧の取得失敗表示 |
 | `app-error` | 全画面 | API エラーのバナー表示(エディタヘッダ内) |
 
-### Sa704c3 で未実装の契約 testid(後続 Sprint で結線)
+### 未実装の契約 testid(後続 Sprint で結線)
 
 - `backlink-count` / `backlink-item` — S6fbf45-2(バックリンクパネルの実データ)
 - `rename-link-note` — S6fbf45-3(リネーム時のリンク追従)
-- `fold-toggle` / `fold-pill` / `task-checkbox` — S9ab6c3-1(アウトライン操作)
-- `wikilink` / `wikilink-broken` / `fence-widget` / `math-inline` / `math-block` — S9ab6c3-2 / S6fbf45-1
+- `wikilink-broken` — S6fbf45-1(壊れリンクの判定はバックリンクインデックス結線後)
 - `wikilink-autocomplete` / `wikilink-autocomplete-option` / `wikilink-autocomplete-create` — S6fbf45-1
+
+### S9ab6c3 で実装済 (2026-07-03)
+
+- `fold-toggle` / `fold-pill` / `task-checkbox` — アウトライン操作 (S9ab6c3-1)
+- `wikilink` / `fence-widget` / `math-inline` / `math-block` — ライブプレビュー (S9ab6c3-2)。
+  `wikilink` の `data-target` は現時点では記法どおりのターゲット + `.md` 補完 (パス解決・クリック遷移は S6fbf45-1)

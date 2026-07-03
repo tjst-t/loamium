@@ -1,0 +1,24 @@
+npm run lint --workspaces --if-present
+
+> @loamium/cli@0.1.0 lint
+> tsc --noEmit
+
+
+> @loamium/server@0.1.0 lint
+> tsc --noEmit
+
+
+> @loamium/shared@0.1.0 lint
+> tsc --noEmit
+
+
+> @loamium/ui@0.1.0 lint
+> tsc --noEmit
+
+npm run lint:tests --if-present
+
+> loamium@0.1.0 lint:tests
+> tsc --noEmit -p tests/tsconfig.json
+
+
+__VERIFY_EXIT_CODE__:lint:0
