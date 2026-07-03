@@ -75,7 +75,7 @@
         },
         "Sd63ad1-2": {
           "title": "デイリージャーナル API",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、今日のデイリージャーナルの取得と追記を 1 コマンド相当の API でしたい。なぜなら、Claude Code の作業ログ・決定事項を自動でジャーナルに蓄積するのが最重要ユースケースだから。",
@@ -97,12 +97,12 @@
             "Sd63ad1-2-1": {
               "title": "shared: ジャーナル日付処理",
               "description": "journalPath(date) — YYYY-MM-DD.md のパス解決、日付バリデーション。タイムゾーンはサーバーローカル。ユニットテスト必須。",
-              "status": "pending"
+              "status": "done"
             },
             "Sd63ad1-2-2": {
               "title": "server: journal エンドポイント実装",
               "description": "GET /api/journal、POST /api/journal/append。存在しない日付ファイルの自動生成。受け入れテスト付き。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
