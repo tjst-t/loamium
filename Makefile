@@ -1,5 +1,7 @@
 PROJECT_NAME := loamium
 DEV_VAULT ?= $(CURDIR)/dev-vault
+# デフォルトはローカルのみ。LAN からアクセスするなら `make serve HOST=0.0.0.0` (無認証なので注意)
+HOST ?= 127.0.0.1
 
 .PHONY: serve serve-ui stop test test-ui build lint verify clean
 
@@ -11,7 +13,7 @@ serve:
 		kill $$(cat .server.pid); sleep 1; \
 	fi
 	@PORT=$$(portman lease --name $(PROJECT_NAME)) && { \
-		LOAMIUM_VAULT="$(DEV_VAULT)" PORT=$$PORT \
+		LOAMIUM_VAULT="$(DEV_VAULT)" PORT=$$PORT LOAMIUM_HOST=$(HOST) \
 			nohup node_modules/.bin/tsx watch packages/server/src/index.ts > .server.log 2>&1 & \
 		echo $$! > .server.pid; \
 	}
@@ -24,7 +26,7 @@ serve-ui:
 	@UI_PORT=$$(portman lease --name $(PROJECT_NAME)-ui) && \
 	API_PORT=$$(portman lease --name $(PROJECT_NAME)) && { \
 		LOAMIUM_API_URL=http://127.0.0.1:$$API_PORT \
-			nohup node_modules/.bin/vite packages/ui --port $$UI_PORT --strictPort > .ui.log 2>&1 & \
+			nohup node_modules/.bin/vite packages/ui --host $(HOST) --port $$UI_PORT --strictPort > .ui.log 2>&1 & \
 		echo $$! > .ui.pid; \
 	}
 	@sleep 2 && grep -m1 "Local:" .ui.log || tail -3 .ui.log

@@ -11,6 +11,9 @@ if (!Number.isInteger(port) || port < 0 || port > 65535) {
   throw new Error(`invalid PORT: ${process.env.PORT ?? ''}`);
 }
 
+// バインド先。デフォルトはローカルのみ (無認証のため)。LAN 公開は LOAMIUM_HOST=0.0.0.0 で明示的に。
+const hostname = process.env.LOAMIUM_HOST ?? '127.0.0.1';
+
 // インデックスは使い捨て・ファイルが正: 起動時に vault 全走査で構築してから受け付ける
 const index = new VaultIndex(config.vaultRoot);
 await index.build();
@@ -20,10 +23,10 @@ const app = createApp(config, index);
 // API 外の変更 (外部エディタ・Git) にも追従する
 const watcher = startWatcher(config.vaultRoot, index);
 
-const server = serve({ fetch: app.fetch, port, hostname: '127.0.0.1' }, (info) => {
+const server = serve({ fetch: app.fetch, port, hostname }, (info) => {
   // テスト/CLI がポートを検出できるよう、必ずこの 1 行を出す
   console.log(
-    `loamium server listening on http://127.0.0.1:${info.port} (vault=${config.vaultRoot}, mode=${config.mode}, indexed=${index.size} notes)`,
+    `loamium server listening on http://${info.address}:${info.port} (vault=${config.vaultRoot}, mode=${config.mode}, indexed=${index.size} notes)`,
   );
 });
 
