@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "S9ab6c3",
+    "current_sprint": "S6fbf45",
     "total": 6,
-    "done": 4,
+    "done": 5,
     "in_progress": 0,
-    "remaining": 2,
-    "percentage": 67
+    "remaining": 1,
+    "percentage": 83
   },
   "execution_order": [
     "Sd63ad1",
@@ -382,13 +382,13 @@
     },
     "S9ab6c3": {
       "title": "エディタ体験 — アウトライン操作とライブプレビュー",
-      "status": "pending",
+      "status": "done",
       "description": "C 方式の核心。リスト行限定のアウトライン操作(Tab/Shift+Tab/折りたたみ)と、ライブプレビュー装飾。fence/inline/block の 3 レジストリを実装し Mermaid + KaTeX + Shiki で実証する。",
       "milestone": false,
       "stories": {
         "S9ab6c3-1": {
           "title": "リスト行限定のアウトライン操作",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、リスト行では Tab/Shift+Tab でインデント操作と折りたたみをしたい。なぜなら、ジャーナルや断片メモをアウトライナー的に扱いつつ、文章ノートは普通の Markdown のままにしたいから(C 方式)。",
@@ -397,43 +397,43 @@
               "id": "AC-S9ab6c3-1-1",
               "description": "カーソルがリスト行(- / 1. / - [ ])にあるとき Tab でインデント、Shift+Tab でアンインデントされる(子要素も追従)",
               "test": "[AC-S9ab6c3-1-1] in packages/ui/tests/e2e/outline.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S9ab6c3-1-2",
               "description": "見出し行・段落では Tab を押してもインデント操作にならない",
               "test": "[AC-S9ab6c3-1-2] in packages/ui/tests/e2e/outline.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S9ab6c3-1-3",
               "description": "子を持つリスト行をガターから折りたたみ・展開できる",
               "test": "[AC-S9ab6c3-1-3] in packages/ui/tests/e2e/outline.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S9ab6c3-1-4",
               "description": "- [ ] チェックボックスをクリックでトグルでき、ファイルには - [x] として保存される",
               "test": "[AC-S9ab6c3-1-4] in packages/ui/tests/e2e/outline.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S9ab6c3-1-1": {
               "title": "リスト行判定とインデント操作",
               "description": "lezer-markdown の構文木でリスト行を判定する CodeMirror 拡張。Tab/Shift+Tab キーマップ(リスト行のみ)。子ブロック追従。",
-              "status": "pending"
+              "status": "done"
             },
             "S9ab6c3-1-2": {
               "title": "折りたたみとチェックボックス",
               "description": "リストサブツリーの fold 拡張 + ガター UI。チェックボックスのクリックトグル。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S9ab6c3-2": {
           "title": "ライブプレビューと 3 レジストリ",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、編集中に Markdown が装飾表示(見出しサイズ・太字・リンク・図・数式・ハイライト)されてほしい。なぜなら、ソースと結果を行き来せず Obsidian の Live Preview 相当の体験で書きたいから。",
@@ -442,36 +442,36 @@
               "id": "AC-S9ab6c3-2-1",
               "description": "見出し・太字/斜体・インラインコード・[[リンク]] がカーソル行以外で装飾表示され、カーソルを置くとソースが見える",
               "test": "[AC-S9ab6c3-2-1] in packages/ui/tests/e2e/preview.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S9ab6c3-2-2",
               "description": "mermaid フェンスが図として、$…$ / $$…$$ が KaTeX 数式として、コードフェンスが Shiki ハイライトとして描画される",
               "test": "[AC-S9ab6c3-2-2] in packages/ui/tests/e2e/preview.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S9ab6c3-2-3",
               "description": "レンダラーは fence / inline / block の 3 レジストリ経由で登録されており、新しい言語識別子をレジストリ登録だけで追加できる",
               "test": "[AC-S9ab6c3-2-3] in packages/ui/tests/unit/registry.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S9ab6c3-2-1": {
               "title": "3 レジストリ機構",
               "description": "registerFenceRenderer / registerInlineRule / registerBlockRule。CodeMirror の decoration/widget として適用する基盤。",
-              "status": "pending"
+              "status": "done"
             },
             "S9ab6c3-2-2": {
               "title": "基本装飾(見出し・強調・リンク)",
               "description": "カーソル行以外を装飾するライブプレビュー拡張。",
-              "status": "pending"
+              "status": "done"
             },
             "S9ab6c3-2-3": {
               "title": "Mermaid + KaTeX + Shiki レンダラー",
               "description": "3 レジストリの上に client 種別レンダラーとして実装(mode: replace/augment)。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }

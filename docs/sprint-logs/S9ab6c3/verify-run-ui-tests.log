@@ -1,0 +1,43 @@
+cd packages/ui && npx playwright test
+
+Running 35 tests using 1 worker
+
+  ✓   1 [mock] › tests/e2e/editor.mock.spec.ts:22:1 › [MOCK] 空 vault では tree-empty を表示し、journal 取得失敗時はエディタが empty state になる (498ms)
+  ✓   2 [mock] › tests/e2e/editor.mock.spec.ts:47:1 › [MOCK] ノート一覧の取得失敗はツリーにエラーを表示する (ジャーナルは開ける) (531ms)
+  ✓   3 [mock] › tests/e2e/editor.mock.spec.ts:63:1 › [MOCK] 保存失敗 (500) はエラー表示のまま dirty を維持し、PUT ボディに content と baseMtime を含む (689ms)
+  ✓   4 [mock] › tests/e2e/editor.mock.spec.ts:108:1 › [MOCK] 409 conflict は競合ダイアログを出し、上書きは baseMtime なしで再 PUT する (677ms)
+  ✓   5 [mock] › tests/e2e/editor.mock.spec.ts:158:1 › [MOCK] 競合ダイアログの再読込は最新のサーバー内容でエディタを置き換える (714ms)
+  ✓   6 [mock] › tests/e2e/editor.mock.spec.ts:200:1 › [MOCK] 長いノート名や特殊文字 (#・スペース) を含むパスもツリーに表示され、開ける (523ms)
+  ✓   7 [mock] › tests/e2e/editor.mock.spec.ts:238:1 › [MOCK] バックリンクパネルはトグルで開閉できる (シェルのみ — 結線は S6fbf45-2) (527ms)
+  ✓   8 [mock] › tests/e2e/editor.mock.spec.ts:260:1 › [MOCK] 新規ノート作成は create-only (baseMtime: 0) で PUT し、409 なら重複エラーを表示する (651ms)
+  ✓   9 [mock] › tests/e2e/editor.mock.spec.ts:306:1 › [MOCK] ダイアログのキャンセルと context-open、F2 リネームショートカット (1.1s)
+  ✓  10 [mock] › tests/e2e/journal.mock.spec.ts:23:1 › [MOCK] 起動時に GET /api/journal が呼ばれ、返った内容がエディタに開く (485ms)
+  ✓  11 [mock] › tests/e2e/journal.mock.spec.ts:45:1 › [MOCK] journal 取得失敗で empty state に落ち、empty-open-journal の再試行で開ける (527ms)
+  ✓  12 [mock] › tests/e2e/journal.mock.spec.ts:69:1 › [MOCK] journal-prev は前日 (月境界を跨ぐ) の date パラメータで取得する (591ms)
+  ✓  13 [mock] › tests/e2e/journal.mock.spec.ts:102:1 › [MOCK] ジャーナル一覧は journals/ の YYYY-MM-DD.md だけを新しい順に表示する (567ms)
+  ✓  14 [mock] › tests/e2e/outline.mock.spec.ts:57:1 › [MOCK] 見出し・段落で Tab、トップレベルのリスト行で Shift+Tab はドキュメントを変えない (615ms)
+  ✓  15 [mock] › tests/e2e/outline.mock.spec.ts:85:1 › [MOCK] タスク行 (- [ ]) の Tab はサブツリーごとインデントし PUT 本文に反映される (537ms)
+  ✓  16 [mock] › tests/e2e/outline.mock.spec.ts:111:1 › [MOCK] チェックボックストグル後の保存が 500 で失敗したら app-error を表示し dirty のまま (編集は失われない) (532ms)
+  ✓  17 [mock] › tests/e2e/outline.mock.spec.ts:134:1 › [MOCK] fold-toggle は子を持つリスト行だけに出る (472ms)
+  ✓  18 [mock] › tests/e2e/preview.mock.spec.ts:47:1 › [MOCK] 不正な mermaid コードはフェンス内のエラー表示に留まり、エディタは編集可能なまま (716ms)
+  ✓  19 [mock] › tests/e2e/preview.mock.spec.ts:63:1 › [MOCK] 未登録言語のフェンスは fence-widget にならずソース表示のまま (552ms)
+  ✓  20 [mock] › tests/e2e/preview.mock.spec.ts:73:1 › [MOCK] 閉じられていない $$ ブロックは描画されずソース表示のまま (524ms)
+  ✓  21 [mock] › tests/e2e/preview.mock.spec.ts:83:1 › [MOCK] インラインコード内の $x$ と単独の $ (通貨表記) は数式にならない (545ms)
+  ✓  22 [mock] › tests/e2e/preview.mock.spec.ts:111:1 › [MOCK] $$x$$ 1 行ブロックは math-block として描画され、カーソルを置くとソースに戻る (557ms)
+  ✓  23 [e2e] › tests/e2e/editor.e2e.spec.ts:16:1 › [AC-Sa704c3-1-1] ファイルツリーに vault のフォルダ構造が表示され、クリックでノートが CodeMirror エディタに開く (674ms)
+  ✓  24 [e2e] › tests/e2e/editor.e2e.spec.ts:39:1 › [AC-Sa704c3-1-2] Cmd/Ctrl+S と自動保存で編集が保存され、再読み込み後も保持される (ファイルはピュア Markdown のまま) (3.2s)
+  ✓  25 [e2e] › tests/e2e/editor.e2e.spec.ts:81:1 › [AC-Sa704c3-1-3] ツリーから新規ノート作成・リネーム・削除ができる (1.6s)
+  ✓  26 [e2e] › tests/e2e/editor.e2e.spec.ts:133:1 › [AC-Sa704c3-1-3] コンテキストメニューの「同じフォルダに新規ノート」と新規フォルダ作成 (1.5s)
+  ✓  27 [e2e] › tests/e2e/editor.e2e.spec.ts:173:1 › [AC-Sa704c3-1-2] 別プロセスの変更と競合したら警告ダイアログを出す (mtime 楽観的検出) (1.5s)
+  ✓  28 [e2e] › tests/e2e/journal.e2e.spec.ts:14:1 › [AC-Sa704c3-2-1] アプリ起動時に今日のジャーナル (なければ自動生成) がエディタに開く (835ms)
+  ✓  29 [e2e] › tests/e2e/journal.e2e.spec.ts:47:1 › [AC-Sa704c3-2-2] サイドバーの日付ナビゲーションで過去のジャーナルへ移動できる (764ms)
+  ✓  30 [e2e] › tests/e2e/outline.e2e.spec.ts:55:1 › [AC-S9ab6c3-1-1] リスト行で Tab がサブツリーごとインデント、Shift+Tab でアンインデントされる (854ms)
+  ✓  31 [e2e] › tests/e2e/outline.e2e.spec.ts:98:1 › [AC-S9ab6c3-1-2] 見出し行・段落では Tab を押してもインデント操作にならない (578ms)
+  ✓  32 [e2e] › tests/e2e/outline.e2e.spec.ts:116:1 › [AC-S9ab6c3-1-3] 子を持つリスト行をガターから折りたたみ・展開できる (776ms)
+  ✓  33 [e2e] › tests/e2e/outline.e2e.spec.ts:148:1 › [AC-S9ab6c3-1-4] チェックボックスのクリックでトグルされ、ファイルに - [x] として保存される (6.1s)
+  ✓  34 [e2e] › tests/e2e/preview.e2e.spec.ts:61:1 › [AC-S9ab6c3-2-1] 見出し・太字/斜体・インラインコード・[[リンク]] がカーソル行以外で装飾され、カーソル行はソース表示 (1.1s)
+  ✓  35 [e2e] › tests/e2e/preview.e2e.spec.ts:106:1 › [AC-S9ab6c3-2-2] mermaid フェンスが図、$…$/$$…$$ が KaTeX、コードフェンスが Shiki で描画される (3 レジストリ経由) (999ms)
+
+  35 passed (35.7s)
+
+__VERIFY_EXIT_CODE__:ui-tests:0

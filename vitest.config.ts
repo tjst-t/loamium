@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     include: [
       'packages/*/src/**/*.test.ts',
+      'packages/*/tests/unit/**/*.spec.ts',
       'tests/acceptance/**/*.spec.ts',
     ],
     reporters: ['default', 'junit'],

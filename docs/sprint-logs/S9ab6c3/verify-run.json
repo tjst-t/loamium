@@ -1,0 +1,856 @@
+{
+  "$machine_authored": true,
+  "sprint": "S9ab6c3",
+  "command_source": "declared (.claude/verify.json)",
+  "runs": [
+    {
+      "name": "test",
+      "command": "make test",
+      "exit_code": 0,
+      "log": "docs/sprint-logs/S9ab6c3/verify-run-test.log",
+      "machine_status": "pass",
+      "junit": {
+        "total": 167,
+        "passed": 167,
+        "failed": 0,
+        "errored": 0,
+        "skipped": 0,
+        "cases": [
+          {
+            "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-1] audit log records every write API call > logs PUT / append / patch / DELETE / journal-append with ts, op, path",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-1] audit log records every write API call > logs journal auto-generation (GET that writes to disk)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-1] audit log records every write API call > does not log read-only calls (GET note)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-2] read-only mode rejects all writes with 403 > rejects PUT / append / patch / DELETE / journal-append with 403 and leaves files untouched",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-2] read-only mode rejects all writes with 403 > still allows reads (200)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-2] read-only mode rejects all writes with 403 > GET /api/journal does not auto-create the file in read-only mode",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-2] read-only mode rejects all writes with 403 > records denied write attempts in the audit log",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-2] append-only mode allows only appends > allows note append and journal append",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-2] append-only mode allows only appends > rejects overwrite (PUT), patch, and DELETE with 403",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/backlinks.spec.ts.[AC-S31ba00-2-1] GET /api/backlinks lists linking notes with context > returns all notes linking to the target, with line context",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/backlinks.spec.ts.[AC-S31ba00-2-1] GET /api/backlinks lists linking notes with context > returns an empty list for a note nobody links to",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/backlinks.spec.ts.[AC-S31ba00-2-1] GET /api/backlinks lists linking notes with context > accepts the path without the .md extension (normalized)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/backlinks.spec.ts.[AC-S31ba00-2-1] GET /api/backlinks lists linking notes with context > rejects a missing path parameter and traversal attempts with 400",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/backlinks.spec.ts.[AC-S31ba00-2-2] link resolution: #heading, NFC/NFD, extension omission — no block IDs > resolves NFD input, #heading form, and extension omission to the same note",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/backlinks.spec.ts.[AC-S31ba00-2-2] link resolution: #heading, NFC/NFD, extension omission — no block IDs > resolves an NFD path query to the NFC-normalized target",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/backlinks.spec.ts.[AC-S31ba00-2-2] link resolution: #heading, NFC/NFD, extension omission — no block IDs > never writes block IDs or any markup into vault files (pure Markdown)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/cli.spec.ts.[AC-S0c9a48-1-1] loamium の 10 サブコマンドが API と 1:1 で動作する > write → read → append → patch のノート往復 (ファイルにも反映される)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/cli.spec.ts.[AC-S0c9a48-1-1] loamium の 10 サブコマンドが API と 1:1 で動作する > journal が今日の YYYY-MM-DD.md を自動生成し、journal-append が追記する (日付指定込み)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/cli.spec.ts.[AC-S0c9a48-1-1] loamium の 10 サブコマンドが API と 1:1 で動作する > search / backlinks / list / tags がインデックス系 API と 1:1 で動作する",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/cli.spec.ts.[AC-S0c9a48-1-1] loamium の 10 サブコマンドが API と 1:1 で動作する > --json フラグで API レスポンスの生 JSON をそのまま stdout に出す (全系統)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/cli.spec.ts.[AC-S0c9a48-1-1] サーバー URL の解決順: LOAMIUM_URL → portman → デフォルト > LOAMIUM_URL 未設定なら portman port --name loamium のポートで解決される",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/cli.spec.ts.[AC-S0c9a48-1-1] サーバー URL の解決順: LOAMIUM_URL → portman → デフォルト > port サブコマンドを持たない portman (lease 版) でも解決される (Sa704c3)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/cli.spec.ts.[AC-S0c9a48-1-1] サーバー URL の解決順: LOAMIUM_URL → portman → デフォルト > LOAMIUM_URL は portman より優先される",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/cli.spec.ts.[AC-S0c9a48-1-1] サーバー URL の解決順: LOAMIUM_URL → portman → デフォルト > LOAMIUM_URL も portman も無ければデフォルト http://127.0.0.1:3000 に接続を試みる",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/cli.spec.ts.[AC-S0c9a48-1-2] 成功は exit 0 + stdout、失敗は非 0 + stderr に機械可読エラー > 成功時: exit 0、結果は stdout、stderr は空",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/cli.spec.ts.[AC-S0c9a48-1-2] 成功は exit 0 + stdout、失敗は非 0 + stderr に機械可読エラー > ノート不在: exit 1、stderr に {error: \"not_found\"} の 1 行 JSON、stdout は空",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/cli.spec.ts.[AC-S0c9a48-1-2] 成功は exit 0 + stdout、失敗は非 0 + stderr に機械可読エラー > patch の old 不在 / 曖昧一致はサーバーの機械可読コードを透過する",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/cli.spec.ts.[AC-S0c9a48-1-2] 成功は exit 0 + stdout、失敗は非 0 + stderr に機械可読エラー > vault 外パス (../ / 絶対パス) は invalid_path で拒否される",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/cli.spec.ts.[AC-S0c9a48-1-2] 成功は exit 0 + stdout、失敗は非 0 + stderr に機械可読エラー > read-only モードのサーバーへの write は権限拒否 (forbidden) で非 0 終了する",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/cli.spec.ts.[AC-S0c9a48-1-2] 成功は exit 0 + stdout、失敗は非 0 + stderr に機械可読エラー > サーバー未起動: exit 1、stderr に {error: \"server_unreachable\"} と起動ヒント",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/cli.spec.ts.[AC-S0c9a48-1-2] 成功は exit 0 + stdout、失敗は非 0 + stderr に機械可読エラー > 使い方エラー (引数不足・不明コマンド・不明フラグ) は exit 2 + {error: \"usage\"}",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/cli.spec.ts.[AC-S0c9a48-1-2] 成功は exit 0 + stdout、失敗は非 0 + stderr に機械可読エラー > --help は exit 0 で全 10 サブコマンドを表示する",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/journal.spec.ts.[AC-Sd63ad1-2-1] GET /api/journal auto-generates today's journal > returns today (server-local) and creates journals/YYYY-MM-DD.md when missing",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/journal.spec.ts.[AC-Sd63ad1-2-1] GET /api/journal auto-generates today's journal > supports ?date=YYYY-MM-DD and auto-generates that file",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/journal.spec.ts.[AC-Sd63ad1-2-1] GET /api/journal auto-generates today's journal > rejects invalid dates with 400 (format and non-existent calendar day)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/journal.spec.ts.[AC-Sd63ad1-2-1] GET /api/journal auto-generates today's journal > returns parsed frontmatter for a journal that has one",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/journal.spec.ts.[AC-Sd63ad1-2-2] POST /api/journal/append > appends to today's journal (creating it if missing)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/journal.spec.ts.[AC-Sd63ad1-2-2] POST /api/journal/append > appends to a specified date, auto-creating the file (201)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/journal.spec.ts.[AC-Sd63ad1-2-2] POST /api/journal/append > rejects invalid date / empty content with 400",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-1] PUT/GET notes (create, read with frontmatter, overwrite) > creates a note with PUT and reads it back with parsed frontmatter",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-1] PUT/GET notes (create, read with frontmatter, overwrite) > overwrites an existing note with PUT (200, created=false)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-1] PUT/GET notes (create, read with frontmatter, overwrite) > adds .md automatically when the path has no extension",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-1] PUT/GET notes (create, read with frontmatter, overwrite) > returns 404 for a missing note",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-1] PUT/GET notes (create, read with frontmatter, overwrite) > handles Japanese (NFC-normalized) paths",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > appends to the end of a note",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > patches old→new (single occurrence)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > returns 409 when old is not found, without modifying the file",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > returns 409 when old matches multiple locations (ambiguous, data safety)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > does not interpret $-patterns in the replacement string (data safety)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > rejects an action call without a note path (POST /api/notes/append) with 400",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > returns 404 when appending to a missing note",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > rejects an invalid request body with 400 (zod validation)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-3] path traversal rejection and UTF-8/LF storage > rejects ../ traversal with 400 and writes nothing outside the vault",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-3] path traversal rejection and UTF-8/LF storage > rejects nested traversal and hidden segments (.loamium protection)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-3] path traversal rejection and UTF-8/LF storage > stores files as UTF-8 with LF only (CRLF input is normalized)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.health endpoint > GET /api/health returns ok with the permission mode",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.DELETE /api/notes/{path} > deletes an existing note and returns 404 afterwards",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.PUT /api/notes/{path} — mtime 楽観的競合検出 (Sa704c3) > returns 409 conflict and keeps the file intact when baseMtime is stale",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.PUT /api/notes/{path} — mtime 楽観的競合検出 (Sa704c3) > succeeds when baseMtime matches the current file mtime",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/notes-crud.spec.ts.PUT /api/notes/{path} — mtime 楽観的競合検出 (Sa704c3) > creates the note when baseMtime is given but the file no longer exists (non-destructive)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/search.spec.ts.[AC-S31ba00-1-1] GET /api/search full-text search > finds a note by a body keyword and returns path + matching snippet",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/search.spec.ts.[AC-S31ba00-1-1] GET /api/search full-text search > reflects notes created through the API immediately (write-through index)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/search.spec.ts.[AC-S31ba00-1-1] GET /api/search full-text search > returns an empty result list for a query that matches nothing",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/search.spec.ts.[AC-S31ba00-1-1] GET /api/search full-text search > rejects a missing/empty q parameter with 400",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/search.spec.ts.[AC-S31ba00-1-2] GET /api/notes list with tag / folder filters > lists all vault notes without filters",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/search.spec.ts.[AC-S31ba00-1-2] GET /api/notes list with tag / folder filters > filters by tag, recognizing both inline #tag and frontmatter tags",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/search.spec.ts.[AC-S31ba00-1-2] GET /api/notes list with tag / folder filters > accepts the tag filter with a leading #",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/search.spec.ts.[AC-S31ba00-1-2] GET /api/notes list with tag / folder filters > does not recognize #tags inside fenced code blocks",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/search.spec.ts.[AC-S31ba00-1-2] GET /api/notes list with tag / folder filters > filters by folder (subfolders included)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/search.spec.ts.[AC-S31ba00-1-2] GET /api/notes list with tag / folder filters > combines tag and folder filters",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/search.spec.ts.[AC-S31ba00-1-2] GET /api/notes list with tag / folder filters > GET /api/tags returns vault-wide tags with counts",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/skill.spec.ts.[AC-S0c9a48-2-1] skill/SKILL.md が claude-skills 形式で構造的に妥当 > frontmatter に非空の name と description がある",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/skill.spec.ts.[AC-S0c9a48-2-1] skill/SKILL.md が claude-skills 形式で構造的に妥当 > description にいつ使うか (ジャーナルへのメモ・ノート検索のトリガー) が書かれている",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/skill.spec.ts.[AC-S0c9a48-2-1] journal-append / search 中心の自然言語→コマンド変換例 > 自然言語の依頼とコマンドの対応例が記載されている",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/skill.spec.ts.[AC-S0c9a48-2-1] journal-append / search 中心の自然言語→コマンド変換例 > journal-append の変換例が 3 例以上ある (最重要ユースケース)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/skill.spec.ts.[AC-S0c9a48-2-1] journal-append / search 中心の自然言語→コマンド変換例 > search の変換例が 2 例以上あり、list によるタグ/フォルダ絞り込みへの誘導もある",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/skill.spec.ts.[AC-S0c9a48-2-1] journal-append / search 中心の自然言語→コマンド変換例 > 全 10 コマンドの用例が記載されている",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/skill.spec.ts.[AC-S0c9a48-2-1] エラー対処 (サーバー未起動・ノート不在等) が記載されている > サーバー未起動: server_unreachable → make serve での復旧手順がある",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/skill.spec.ts.[AC-S0c9a48-2-1] エラー対処 (サーバー未起動・ノート不在等) が記載されている > ノート不在: not_found → search / list で探し直す手順がある",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/skill.spec.ts.[AC-S0c9a48-2-1] エラー対処 (サーバー未起動・ノート不在等) が記載されている > patch の失敗 (old_not_found / ambiguous_match) と権限 (forbidden) の対処がある",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/skill.spec.ts.[AC-S0c9a48-2-1] エラー対処 (サーバー未起動・ノート不在等) が記載されている > 失敗時の出力形式 (stderr の 1 行 JSON {error, message}) が説明されている",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/skill.spec.ts.[AC-S0c9a48-2-1] 記載コマンドが実 CLI と食い違わない > すべての loamium コマンド例のサブコマンドが実在の 10 コマンド (+--help) である",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/skill.spec.ts.[AC-S0c9a48-2-1] 記載コマンドが実 CLI と食い違わない > すべての loamium コマンド例のフラグが実在のフラグである",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/watch.spec.ts.[AC-S31ba00-3-1] external file changes are reflected in search and backlinks > picks up a file added outside the API (search + backlinks)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/watch.spec.ts.[AC-S31ba00-3-1] external file changes are reflected in search and backlinks > picks up an external modification (old content gone, new content searchable)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/watch.spec.ts.[AC-S31ba00-3-1] external file changes are reflected in search and backlinks > picks up an external deletion (gone from search and backlinks)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/watch.spec.ts.[AC-S31ba00-3-1] external file changes are reflected in search and backlinks > indexes an externally added NFD-named file under its NFC path (macOS filename quirk)",
+            "status": "pass"
+          },
+          {
+            "name": "tests/acceptance/watch.spec.ts.[AC-S31ba00-3-1] external file changes are reflected in search and backlinks > does not index files under .loamium/ (watch exclusion)",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.extractTags > extracts inline #tags from the body",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.extractTags > extracts Japanese and unicode tags",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.extractTags > merges frontmatter tags (array form) with inline tags, deduplicated",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.extractTags > accepts frontmatter tags as a comma-separated string",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.extractTags > strips a leading # from frontmatter tags",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.extractTags > ignores #tags inside fenced code blocks",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.extractTags > ignores #tags inside tilde fences",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.extractTags > ignores #tags inside inline code",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.extractTags > does not treat markdown headings as tags",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.extractTags > rejects numeric-only tags (Obsidian rule)",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.extractTags > does not extract tags glued to a word or in URLs",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.extractTags > NFC-normalizes tags (NFD input)",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.extractTags > deduplicates case-insensitively keeping first spelling",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.frontmatterTags > returns [] for null frontmatter",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.frontmatterTags > handles the singular \"tag\" key too",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.frontmatterTags > ignores non-string values safely",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.extractLinks > extracts simple [[WikiLink]] with line number and context",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.extractLinks > parses [[note#heading|alias]] into target + heading",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.extractLinks > treats ^block references as read-compat (not headings)",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.extractLinks > marks embeds (![[...]])",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.extractLinks > extracts multiple links on one line in order",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.extractLinks > ignores links inside fenced code blocks and inline code",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.extractLinks > ignores links inside frontmatter",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.extractLinks > skips same-note links ([[#heading]] with no target)",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.extractLinks > NFC-normalizes targets (NFD input)",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.noteTitle > returns the basename without .md",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/extract.test.ts.noteTitle > NFC-normalizes",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/journal.test.ts.isValidJournalDate > accepts real dates",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/journal.test.ts.isValidJournalDate > rejects wrong formats",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/journal.test.ts.isValidJournalDate > rejects non-existent calendar dates",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/journal.test.ts.journalPath > maps a date to journals/YYYY-MM-DD.md",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/journal.test.ts.journalPath > throws JournalDateError for invalid dates",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/journal.test.ts.todayJournalDate > formats in server-local timezone",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/journal.test.ts.todayJournalDate > pads month and day",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/journal.test.ts.shiftJournalDate (Sa704c3: 前日/翌日ナビゲーション) > shifts within a month",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/journal.test.ts.shiftJournalDate (Sa704c3: 前日/翌日ナビゲーション) > crosses month and year boundaries",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/journal.test.ts.shiftJournalDate (Sa704c3: 前日/翌日ナビゲーション) > throws for invalid dates",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/journal.test.ts.journalDayOfWeek > returns the Japanese day of week",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/journal.test.ts.journalDayOfWeek > throws for invalid dates",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/links.test.ts.resolveLinkTarget > resolves a bare filename across folders (shortest path wins)",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/links.test.ts.resolveLinkTarget > resolves with explicit .md extension the same as without",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/links.test.ts.resolveLinkTarget > resolves a path-qualified target from the vault root",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/links.test.ts.resolveLinkTarget > resolves case-insensitively (Obsidian-compatible)",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/links.test.ts.resolveLinkTarget > resolves NFD input to the NFC path",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/links.test.ts.resolveLinkTarget > prefers fewer path segments, then lexicographic order",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/links.test.ts.resolveLinkTarget > returns null for a broken link",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/links.test.ts.resolveLinkTarget > returns null for an empty target",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/links.test.ts.resolveLinkTarget > treats a leading / as vault-root reference",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/links.test.ts.resolveLinkTarget > does not fall back to basename matching for path-qualified misses",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/markdown.test.ts.parseNote > extracts YAML frontmatter and body",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/markdown.test.ts.parseNote > returns null frontmatter when there is none",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/markdown.test.ts.parseNote > does not treat a later --- as frontmatter open",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/markdown.test.ts.parseNote > returns null frontmatter for an unclosed block",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/markdown.test.ts.parseNote > returns null frontmatter for broken YAML without destroying content",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/markdown.test.ts.parseNote > returns null frontmatter when YAML top-level is not an object",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/markdown.test.ts.parseNote > handles empty frontmatter block",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/markdown.test.ts.parseNote > handles CRLF content without crashing",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/path.test.ts.normalizeVaultPath > appends .md when extension is missing",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/path.test.ts.normalizeVaultPath > keeps .md extension as-is",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/path.test.ts.normalizeVaultPath > treats non-md extensions as part of the name (notes API only manages .md)",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/path.test.ts.normalizeVaultPath > normalizes to NFC (NFD input from macOS)",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/path.test.ts.normalizeVaultPath > accepts Japanese paths",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/path.test.ts.normalizeVaultPath > rejects \"..\" traversal",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/path.test.ts.normalizeVaultPath > rejects \".\" segments",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/path.test.ts.normalizeVaultPath > rejects absolute paths",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/path.test.ts.normalizeVaultPath > rejects hidden segments (.loamium / .git protection)",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/path.test.ts.normalizeVaultPath > rejects empty / backslash / null-byte paths",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/path.test.ts.normalizeVaultPath > isValidVaultPath mirrors normalizeVaultPath",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/text.test.ts.toLf > converts CRLF and lone CR to LF",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/text.test.ts.appendText > appends to empty content with trailing newline",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/text.test.ts.appendText > inserts a newline when existing content lacks one",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/text.test.ts.appendText > does not double newlines when existing content ends with one",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/text.test.ts.appendText > normalizes CRLF in the addition",
+            "status": "pass"
+          },
+          {
+            "name": "packages/shared/src/text.test.ts.countOccurrences > counts non-overlapping occurrences",
+            "status": "pass"
+          },
+          {
+            "name": "packages/ui/tests/unit/registry.spec.ts.[AC-S9ab6c3-2-3] fence レジストリ > 新しい言語識別子はレジストリ登録だけで追加できる (エンジンと同じ lookup 経路)",
+            "status": "pass"
+          },
+          {
+            "name": "packages/ui/tests/unit/registry.spec.ts.[AC-S9ab6c3-2-3] fence レジストリ > 複数言語識別子 (lang: string[]) を 1 レンダラーで登録できる",
+            "status": "pass"
+          },
+          {
+            "name": "packages/ui/tests/unit/registry.spec.ts.[AC-S9ab6c3-2-3] inline レジストリ > registerInlineRule で登録したルールが getInlineRules に現れる",
+            "status": "pass"
+          },
+          {
+            "name": "packages/ui/tests/unit/registry.spec.ts.[AC-S9ab6c3-2-3] block レジストリ > registerBlockRule で登録したルールが getBlockRules に現れ、match / matchEnd が機能する",
+            "status": "pass"
+          },
+          {
+            "name": "packages/ui/tests/unit/registry.spec.ts.[AC-S9ab6c3-2-3] ビルトインレンダラー (Mermaid + KaTeX + Shiki) は 3 レジストリ経由で登録される > registerBuiltinRenderers で mermaid / コード言語 / 数式ルールが揃う",
+            "status": "pass"
+          }
+        ]
+      }
+    },
+    {
+      "name": "lint",
+      "command": "make lint",
+      "exit_code": 0,
+      "log": "docs/sprint-logs/S9ab6c3/verify-run-lint.log",
+      "machine_status": "pass",
+      "junit": null
+    },
+    {
+      "name": "ui-tests",
+      "command": "make test-ui",
+      "exit_code": 0,
+      "log": "docs/sprint-logs/S9ab6c3/verify-run-ui-tests.log",
+      "machine_status": "pass",
+      "junit": {
+        "total": 35,
+        "passed": 35,
+        "failed": 0,
+        "errored": 0,
+        "skipped": 0,
+        "cases": [
+          {
+            "name": "editor.mock.spec.ts.[MOCK] 空 vault では tree-empty を表示し、journal 取得失敗時はエディタが empty state になる",
+            "status": "pass"
+          },
+          {
+            "name": "editor.mock.spec.ts.[MOCK] ノート一覧の取得失敗はツリーにエラーを表示する (ジャーナルは開ける)",
+            "status": "pass"
+          },
+          {
+            "name": "editor.mock.spec.ts.[MOCK] 保存失敗 (500) はエラー表示のまま dirty を維持し、PUT ボディに content と baseMtime を含む",
+            "status": "pass"
+          },
+          {
+            "name": "editor.mock.spec.ts.[MOCK] 409 conflict は競合ダイアログを出し、上書きは baseMtime なしで再 PUT する",
+            "status": "pass"
+          },
+          {
+            "name": "editor.mock.spec.ts.[MOCK] 競合ダイアログの再読込は最新のサーバー内容でエディタを置き換える",
+            "status": "pass"
+          },
+          {
+            "name": "editor.mock.spec.ts.[MOCK] 長いノート名や特殊文字 (#・スペース) を含むパスもツリーに表示され、開ける",
+            "status": "pass"
+          },
+          {
+            "name": "editor.mock.spec.ts.[MOCK] バックリンクパネルはトグルで開閉できる (シェルのみ — 結線は S6fbf45-2)",
+            "status": "pass"
+          },
+          {
+            "name": "editor.mock.spec.ts.[MOCK] 新規ノート作成は create-only (baseMtime: 0) で PUT し、409 なら重複エラーを表示する",
+            "status": "pass"
+          },
+          {
+            "name": "editor.mock.spec.ts.[MOCK] ダイアログのキャンセルと context-open、F2 リネームショートカット",
+            "status": "pass"
+          },
+          {
+            "name": "journal.mock.spec.ts.[MOCK] 起動時に GET /api/journal が呼ばれ、返った内容がエディタに開く",
+            "status": "pass"
+          },
+          {
+            "name": "journal.mock.spec.ts.[MOCK] journal 取得失敗で empty state に落ち、empty-open-journal の再試行で開ける",
+            "status": "pass"
+          },
+          {
+            "name": "journal.mock.spec.ts.[MOCK] journal-prev は前日 (月境界を跨ぐ) の date パラメータで取得する",
+            "status": "pass"
+          },
+          {
+            "name": "journal.mock.spec.ts.[MOCK] ジャーナル一覧は journals/ の YYYY-MM-DD.md だけを新しい順に表示する",
+            "status": "pass"
+          },
+          {
+            "name": "outline.mock.spec.ts.[MOCK] 見出し・段落で Tab、トップレベルのリスト行で Shift+Tab はドキュメントを変えない",
+            "status": "pass"
+          },
+          {
+            "name": "outline.mock.spec.ts.[MOCK] タスク行 (- [ ]) の Tab はサブツリーごとインデントし PUT 本文に反映される",
+            "status": "pass"
+          },
+          {
+            "name": "outline.mock.spec.ts.[MOCK] チェックボックストグル後の保存が 500 で失敗したら app-error を表示し dirty のまま (編集は失われない)",
+            "status": "pass"
+          },
+          {
+            "name": "outline.mock.spec.ts.[MOCK] fold-toggle は子を持つリスト行だけに出る",
+            "status": "pass"
+          },
+          {
+            "name": "preview.mock.spec.ts.[MOCK] 不正な mermaid コードはフェンス内のエラー表示に留まり、エディタは編集可能なまま",
+            "status": "pass"
+          },
+          {
+            "name": "preview.mock.spec.ts.[MOCK] 未登録言語のフェンスは fence-widget にならずソース表示のまま",
+            "status": "pass"
+          },
+          {
+            "name": "preview.mock.spec.ts.[MOCK] 閉じられていない $$ ブロックは描画されずソース表示のまま",
+            "status": "pass"
+          },
+          {
+            "name": "preview.mock.spec.ts.[MOCK] インラインコード内の $x$ と単独の $ (通貨表記) は数式にならない",
+            "status": "pass"
+          },
+          {
+            "name": "preview.mock.spec.ts.[MOCK] $$x$$ 1 行ブロックは math-block として描画され、カーソルを置くとソースに戻る",
+            "status": "pass"
+          },
+          {
+            "name": "editor.e2e.spec.ts.[AC-Sa704c3-1-1] ファイルツリーに vault のフォルダ構造が表示され、クリックでノートが CodeMirror エディタに開く",
+            "status": "pass"
+          },
+          {
+            "name": "editor.e2e.spec.ts.[AC-Sa704c3-1-2] Cmd/Ctrl+S と自動保存で編集が保存され、再読み込み後も保持される (ファイルはピュア Markdown のまま)",
+            "status": "pass"
+          },
+          {
+            "name": "editor.e2e.spec.ts.[AC-Sa704c3-1-3] ツリーから新規ノート作成・リネーム・削除ができる",
+            "status": "pass"
+          },
+          {
+            "name": "editor.e2e.spec.ts.[AC-Sa704c3-1-3] コンテキストメニューの「同じフォルダに新規ノート」と新規フォルダ作成",
+            "status": "pass"
+          },
+          {
+            "name": "editor.e2e.spec.ts.[AC-Sa704c3-1-2] 別プロセスの変更と競合したら警告ダイアログを出す (mtime 楽観的検出)",
+            "status": "pass"
+          },
+          {
+            "name": "journal.e2e.spec.ts.[AC-Sa704c3-2-1] アプリ起動時に今日のジャーナル (なければ自動生成) がエディタに開く",
+            "status": "pass"
+          },
+          {
+            "name": "journal.e2e.spec.ts.[AC-Sa704c3-2-2] サイドバーの日付ナビゲーションで過去のジャーナルへ移動できる",
+            "status": "pass"
+          },
+          {
+            "name": "outline.e2e.spec.ts.[AC-S9ab6c3-1-1] リスト行で Tab がサブツリーごとインデント、Shift+Tab でアンインデントされる",
+            "status": "pass"
+          },
+          {
+            "name": "outline.e2e.spec.ts.[AC-S9ab6c3-1-2] 見出し行・段落では Tab を押してもインデント操作にならない",
+            "status": "pass"
+          },
+          {
+            "name": "outline.e2e.spec.ts.[AC-S9ab6c3-1-3] 子を持つリスト行をガターから折りたたみ・展開できる",
+            "status": "pass"
+          },
+          {
+            "name": "outline.e2e.spec.ts.[AC-S9ab6c3-1-4] チェックボックスのクリックでトグルされ、ファイルに - [x] として保存される",
+            "status": "pass"
+          },
+          {
+            "name": "preview.e2e.spec.ts.[AC-S9ab6c3-2-1] 見出し・太字/斜体・インラインコード・[[リンク]] がカーソル行以外で装飾され、カーソル行はソース表示",
+            "status": "pass"
+          },
+          {
+            "name": "preview.e2e.spec.ts.[AC-S9ab6c3-2-2] mermaid フェンスが図、$…$/$$…$$ が KaTeX、コードフェンスが Shiki で描画される (3 レジストリ経由)",
+            "status": "pass"
+          }
+        ]
+      }
+    }
+  ],
+  "overall_machine_status": "pass"
+}

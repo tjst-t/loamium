@@ -13,6 +13,8 @@ import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { syntaxHighlighting, HighlightStyle } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
+import { outlineExtension } from '../outline.js';
+import { livePreviewExtension, notePathFacet } from '../live-preview.js';
 
 const mdHighlight = HighlightStyle.define([
   { tag: tags.heading1, class: 'cm-md-heading cm-md-h1' },
@@ -45,49 +47,52 @@ export interface EditorProps {
 export function Editor({ docPath, content, resetToken, onChange, onSave }: EditorProps): JSX.Element {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
-  const extensionsRef = useRef<Extension[]>([]);
   const onChangeRef = useRef(onChange);
   const onSaveRef = useRef(onSave);
   const suppressRef = useRef(false);
   onChangeRef.current = onChange;
   onSaveRef.current = onSave;
 
+  // ノートパスに依存する拡張があるため (notePathFacet)、setState での
+  // ドキュメント差し替え時も同じビルダーで拡張を作り直す。
+  const buildExtensionsRef = useRef((path: string): Extension[] => [
+    history(),
+    drawSelection(),
+    highlightActiveLine(),
+    EditorView.lineWrapping,
+    keymap.of([
+      {
+        key: 'Mod-s',
+        preventDefault: true,
+        run: () => {
+          onSaveRef.current();
+          return true;
+        },
+      },
+      ...defaultKeymap,
+      ...historyKeymap,
+    ]),
+    markdown({ base: markdownLanguage }),
+    syntaxHighlighting(mdHighlight),
+    notePathFacet.of(path),
+    outlineExtension(),
+    livePreviewExtension(),
+    EditorView.updateListener.of((update) => {
+      if (update.docChanged && !suppressRef.current) {
+        onChangeRef.current(update.state.doc.toString());
+      }
+    }),
+  ]);
+
   useEffect(() => {
     const host = hostRef.current;
     if (host === null) return;
 
-    const extensions = [
-      history(),
-      drawSelection(),
-      highlightActiveLine(),
-      EditorView.lineWrapping,
-      keymap.of([
-        {
-          key: 'Mod-s',
-          preventDefault: true,
-          run: () => {
-            onSaveRef.current();
-            return true;
-          },
-        },
-        ...defaultKeymap,
-        ...historyKeymap,
-      ]),
-      markdown({ base: markdownLanguage }),
-      syntaxHighlighting(mdHighlight),
-      EditorView.updateListener.of((update) => {
-        if (update.docChanged && !suppressRef.current) {
-          onChangeRef.current(update.state.doc.toString());
-        }
-      }),
-    ];
-
     const view = new EditorView({
-      state: EditorState.create({ doc: content, extensions }),
+      state: EditorState.create({ doc: content, extensions: buildExtensionsRef.current(docPath) }),
       parent: host,
     });
     viewRef.current = view;
-    extensionsRef.current = extensions;
 
     return () => {
       view.destroy();
@@ -108,7 +113,7 @@ export function Editor({ docPath, content, resetToken, onChange, onSave }: Edito
     // setState で undo 履歴ごと差し替える: ノート切替後の Ctrl+Z で
     // 前ノートの本文が復活して誤保存される事故を防ぐ (データ安全性)。
     suppressRef.current = true;
-    view.setState(EditorState.create({ doc: content, extensions: extensionsRef.current }));
+    view.setState(EditorState.create({ doc: content, extensions: buildExtensionsRef.current(docPath) }));
     suppressRef.current = false;
     view.focus();
   }, [docPath, content, resetToken]);
