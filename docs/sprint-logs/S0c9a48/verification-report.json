@@ -1,0 +1,70 @@
+{
+  "sprint": "S0c9a48",
+  "verified_at": "2026-07-03T00:00:00Z",
+  "verifier_model": "claude-opus-4-8 (read-only, separate session)",
+  "overall": "pass",
+  "findings": [
+    {
+      "id": "F-1",
+      "category": "machine_verdict_reconciliation",
+      "status": "pass",
+      "ac": null,
+      "summary": "verify-run.json (machine-authored) と verify-run-test.log の __VERIFY_EXIT_CODE__:test:0 が一致し、junit 153/153 pass・0 fail・0 skip。verification-results.json の自己申告 summary (153 pass) と完全一致。独立に `make test` を再実行して 153/153 pass・exit 0 を再現確認。lint も tsc --noEmit 全 workspace + tests で exit 0。緑チェックが機械 pass に裏付けられている。",
+      "evidence": "verify-run-test.log trailer __VERIFY_EXIT_CODE__:test:0; independent make test rerun -> Tests 153 passed (153), EXIT=0; lint log __VERIFY_EXIT_CODE__:lint:0"
+    },
+    {
+      "id": "F-2",
+      "category": "AC-S0c9a48-1-1",
+      "status": "pass",
+      "ac": "AC-S0c9a48-1-1",
+      "summary": "10 サブコマンド (read/write/append/patch/journal/journal-append/search/backlinks/list/tags) が packages/cli/src/main.ts に実在し、それぞれ固有の REST エンドポイント (GET/PUT/POST /api/notes, /api/journal, /api/search, /api/backlinks, /api/notes(list), /api/tags) に向かう。テストは in-process 呼び出しではなく、実配布 bin (packages/cli/bin/loamium.js) を spawn でサブプロセス起動 (tests/acceptance/helpers/cli.ts runCli) し、実サーバー (tsx サブプロセス, LOAMIUM_URL 指定) 経由で CLI→HTTP→サーバー→ファイルの全経路を通す。write→read→append→patch 往復で vault の実ファイル (readFile) に反映されることまでアサート。--json は API の生レスポンスと deepEqual で照合。URL 解決順 (LOAMIUM_URL→portman→default) もフェイク portman を PATH 先頭に置いて subprocess で検証。Rule 2 (cli) 遵守。",
+      "evidence": "tests/acceptance/helpers/cli.ts spawn(process.execPath,[cliBin,...]); tests/acceptance/cli.spec.ts:43-178 file-effect + --json vs live API assertions"
+    },
+    {
+      "id": "F-3",
+      "category": "AC-S0c9a48-1-2",
+      "status": "pass",
+      "ac": "AC-S0c9a48-1-2",
+      "summary": "成功時 exit 0 + stdout・stderr 空をアサート。失敗系はサーバーの機械可読コードを透過: not_found (ノート不在, exit 1), old_not_found / ambiguous_match (patch), invalid_path (../・絶対パス, CLI 側 normalizeVaultPath で先行検証), forbidden (read-only サーバーへの write — server/permissions.ts の 403 由来), server_unreachable (接続不能, make serve ヒット付き), usage (引数不足・不明コマンド・不明フラグ, exit 2)。テストは parseStderrJson で stderr が 1 行 {error,message} JSON であることを実際に検証し error コード値もアサート。exit code (0/1/2) も観測。commander の exitOverride + writeErr 抑止で規約どおり正規化されている。",
+      "evidence": "packages/cli/src/main.ts:36-39 fail(); packages/cli/src/client.ts:30-56 error passthrough; tests/acceptance/cli.spec.ts:233-329; server/permissions.ts:35-49 forbidden origin"
+    },
+    {
+      "id": "F-4",
+      "category": "AC-S0c9a48-2-1",
+      "status": "pass",
+      "ac": "AC-S0c9a48-2-1",
+      "summary": "skill/SKILL.md は claude-skills 形式 (YAML frontmatter name/description + 本文)。journal-append と search を最重要ユースケースとして厚く記載 (自然言語→コマンド変換表)、エラー対処表 (server_unreachable→make serve, not_found→search/list で探し直す, old_not_found/ambiguous_match/forbidden 等) あり。skill.spec.ts は配布物そのものを読み、frontmatter 妥当性・journal-append 3 例以上 (日付指定込み)・search 2 例以上・全 10 コマンド用例・エラー対処・stderr 1 行 JSON 形式をアサート。さらにドキュメント中の全 loamium コマンド例のサブコマンド/フラグが実在の 10 コマンド+実フラグのみであることを機械検証し、ドキュメント腐敗 (Skill が存在しないコマンドを教える) を防いでいる。実在の構造をアサートしている。",
+      "evidence": "skill/SKILL.md:1-88; tests/acceptance/skill.spec.ts:110-175 REAL_COMMANDS/REAL_FLAGS cross-check"
+    },
+    {
+      "id": "F-5",
+      "category": "forbidden_category_scan",
+      "status": "pass",
+      "ac": null,
+      "summary": "diff 全体 (packages/**/*.ts, tests/**/*.ts) を .skip/.only/.todo/xit/xdescribe/空 catch/@ts-ignore/@ts-nocheck/eslint-disable/as any/toBeTruthy/expect.any でスキャン — 該当なし。ROADMAP の AC 文言変更なし (diff は status フラグと progress カウンタのみ; acceptance_criteria の description 文字列は不変)。client.ts の JSON.parse catch はエラー握り潰しではなく非 JSON ボディを null 扱いにする明示的フォールバックで、!res.ok 時は必ず CliError を throw する。test_skipped / test_assertion_weakened / error_swallowed / type_safety_relaxed / acceptance_criteria_modified いずれも 0 件。",
+      "evidence": "git diff grep for forbidden patterns -> no matches; git diff docs/ROADMAP.json -> status/counter only"
+    },
+    {
+      "id": "F-6",
+      "category": "design_principles_forbidden",
+      "status": "pass",
+      "ac": null,
+      "summary": "DESIGN/ ディレクトリ・ADR は存在せず ADR 適合は n/a。DESIGN_PRINCIPLES forbidden 観点: (1) ブロック ID 書込 — CLI は API 経由のみで独自にブロック ID を生成/書込しない。(2) vault 外アクセス — CLI 側 client.ts encodeNotePath/toVaultPath が shared の normalizeVaultPath (`..` 脱出検証) を先行適用し ../・絶対パスを invalid_path で拒否 (テスト済み)、サーバー側も二重防御。(3) 独自記法 — 導入なし、API と 1:1。(4) 破壊的操作 — DELETE /api/notes は存在するが CLI に delete コマンドを追加せず (decisions で『確認なし削除リスク回避』と明示)、データ安全性優先。違反なし。",
+      "evidence": "packages/cli/src/client.ts:64-81 vault-path normalization; decisions.json 'delete は追加しない'"
+    },
+    {
+      "id": "F-7",
+      "category": "compromise_completeness",
+      "status": "pass",
+      "ac": null,
+      "summary": "decisions.json / verification-results.json の自己申告と diff を突合。申告漏れなし。主要判断 (commander 採用, tsx bin ラッパー, stderr 1 行 JSON + exit 1/2, content は引数のみ (stdin 非対応), URL 解決順とこの開発機の portman に port サブコマンドが無い件のフォールバック, CLI 側パス正規化, SKILL.md のコマンド整合検証, code-review 指摘 yaml devDependency 追加) はすべて記録済みで diff と整合。この開発機で `portman port` が unknown command を返す事実を独立確認 — execFile が err を受けて default にフォールバックする設計で問題なく、フェイク portman テストが解決順を独立に立証。overlooked_by_autopilot な項目は検出されず。",
+      "evidence": "decisions.json 12 entries all match diff; real `portman port` -> unknown command, falls back to default; fake-portman test proves order"
+    }
+  ],
+  "summary": {
+    "ac_failures": 0,
+    "forbidden_warnings": 0,
+    "adr_conflicts": 0,
+    "overlooked_count": 0
+  }
+}
