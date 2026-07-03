@@ -1,0 +1,13 @@
+{
+  "commands": [
+    {
+      "name": "test",
+      "command": "make test",
+      "junit_glob": "reports/*.xml"
+    },
+    {
+      "name": "lint",
+      "command": "make lint"
+    }
+  ]
+}

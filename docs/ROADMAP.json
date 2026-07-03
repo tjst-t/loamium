@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "Sd63ad1",
+    "current_sprint": "S31ba00",
     "total": 6,
-    "done": 0,
-    "in_progress": 1,
+    "done": 1,
+    "in_progress": 0,
     "remaining": 5,
-    "percentage": 0
+    "percentage": 17
   },
   "execution_order": [
     "Sd63ad1",
@@ -20,7 +20,7 @@
   "sprints": {
     "Sd63ad1": {
       "title": "REST API コア — ノート読み書きとジャーナル",
-      "status": "in_progress",
+      "status": "done",
       "description": "モノレポ基盤と Hono REST API のコア。ノートの CRUD・追記・部分置換、デイリージャーナル、監査ログと権限モードを実装する。これが動くと以降の開発を Claude Code がノートを書きながら進められる。",
       "milestone": false,
       "stories": {
@@ -35,19 +35,19 @@
               "id": "AC-Sd63ad1-1-1",
               "description": "PUT /api/notes/{path} でノートを作成・上書きし、GET /api/notes/{path} で内容と frontmatter を取得できる",
               "test": "[AC-Sd63ad1-1-1] in tests/acceptance/notes-crud.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sd63ad1-1-2",
               "description": "POST /api/notes/{path}/append で末尾追記、POST /api/notes/{path}/patch で old→new の部分置換ができる(old が見つからない場合は 409 エラー)",
               "test": "[AC-Sd63ad1-1-2] in tests/acceptance/notes-crud.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sd63ad1-1-3",
               "description": "vault ルート外へのパス(../ 等)は 400 で拒否され、ファイルは常に UTF-8 / LF で保存される",
               "test": "[AC-Sd63ad1-1-3] in tests/acceptance/notes-crud.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
@@ -84,13 +84,13 @@
               "id": "AC-Sd63ad1-2-1",
               "description": "GET /api/journal(または ?date=YYYY-MM-DD)でジャーナルを取得でき、存在しない場合は journals/YYYY-MM-DD.md が自動生成される",
               "test": "[AC-Sd63ad1-2-1] in tests/acceptance/journal.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sd63ad1-2-2",
               "description": "POST /api/journal/append で今日(または指定日)のジャーナル末尾に追記できる",
               "test": "[AC-Sd63ad1-2-2] in tests/acceptance/journal.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
@@ -108,7 +108,7 @@
         },
         "Sd63ad1-3": {
           "title": "監査ログと権限モード",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "vault 所有者として、エージェントの書き込みを監査ログに残し、権限モード(read-only / append-only / full)で制限したい。なぜなら、機微情報を含みうる vault をエージェントが誤って破壊するリスクを最初から抑える必要があるから。",
@@ -117,25 +117,25 @@
               "id": "AC-Sd63ad1-3-1",
               "description": "すべての書き込み系 API 呼び出しが .loamium/audit.log に記録される(時刻・操作・パス)",
               "test": "[AC-Sd63ad1-3-1] in tests/acceptance/audit-permissions.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sd63ad1-3-2",
               "description": "LOAMIUM_MODE=read-only では書き込み系 API が 403、append-only では上書き・削除が 403 になり追記のみ通る",
               "test": "[AC-Sd63ad1-3-2] in tests/acceptance/audit-permissions.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sd63ad1-3-1": {
               "title": "監査ログ実装",
               "description": ".loamium/audit.log に JSONL で書き込み操作を記録するミドルウェア。",
-              "status": "pending"
+              "status": "done"
             },
             "Sd63ad1-3-2": {
               "title": "権限モード実装",
               "description": "LOAMIUM_MODE 環境変数(full / read-only / append-only)でエンドポイント群をガードするミドルウェア。受け入れテスト付き。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
@@ -661,6 +661,13 @@
       "description": "SPEC §8.4 の対応候補一覧。3 レジストリの上に順次追加。",
       "added_in": "roadmap-generation",
       "reason": "レジストリ実証(Mermaid/KaTeX/Shiki)後に個別追加できる"
+    },
+    {
+      "title": "書き込み競合の楽観的検出 (mtime/hash)",
+      "description": "append/patch は read-modify-write のため同時書き込みで last-write-wins になり、並行 append の片方が失われうる。ARCHITECTURE の計画どおり mtime/hash による楽観的競合検出 (409 Conflict) を導入する。",
+      "added_in": "Sd63ad1 verify",
+      "reason": "Sprint レベルレビューで発見 (現スプリントのスコープ外、ARCHITECTURE 既定路線)",
+      "status": "pending"
     }
   ]
 }
