@@ -1,0 +1,32 @@
+{
+  "sprint": "Sd63ad1",
+  "decisions": [
+    {
+      "timestamp": "2026-07-03T15:30:00Z",
+      "category": "planning",
+      "title": "GUI spec プロセス: 本 Sprint に GUI Story なし",
+      "detail": "3 Story すべて REST API のみで UI を持たないため story_type=api と分類。Playwright/プロトタイプは不要。受け入れテストは実 HTTP クライアントで実サーバーを叩く形式とする。",
+      "reference": "VISION.tech_constraints (Hono バックエンド先行) / SPEC 実装順序 1. REST API を最初に作る",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T15:30:00Z",
+      "category": "planning",
+      "title": "Story の直列実行 (サブエージェント並列化なし)",
+      "detail": "この実行環境にはワークツリー分離サブエージェントを起動する Agent ツールが無い。Story 2/3 は Story 1 のモノレポ基盤・notes エンドポイントに依存するため、いずれにせよ Wave は直列 (1→2→3)。本セッションで直列実装し、Story レベルレビューは実装完了後に /review でまとめて実施、Sprint レベルレビューは verify で再実施する。",
+      "reference": "DESIGN_PRINCIPLES priority 5 (シンプルさ > 汎用性)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T15:30:00Z",
+      "category": "planning",
+      "title": "受け入れテストは tsx 経由で実サーバーをサブプロセス起動",
+      "detail": "tests/acceptance/*.spec.ts は packages/server のエントリポイントを tsx でサブプロセス起動し (PORT=0 で空きポート取得、stdout から実ポートをパース)、実 HTTP クライアント(fetch)で叩く。make serve の dev 実行 (tsx) と同一のコードパス。vault はテストごとの一時ディレクトリ。",
+      "reference": "test-discipline Rule 2 (api: real HTTP client against the running server) / CLAUDE.md (テストは一時ディレクトリの vault)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    }
+  ]
+}

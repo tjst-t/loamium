@@ -5,15 +5,22 @@
     "current_sprint": "Sd63ad1",
     "total": 6,
     "done": 0,
-    "in_progress": 0,
-    "remaining": 6,
+    "in_progress": 1,
+    "remaining": 5,
     "percentage": 0
   },
-  "execution_order": ["Sd63ad1", "S31ba00", "S0c9a48", "Sa704c3", "S9ab6c3", "S6fbf45"],
+  "execution_order": [
+    "Sd63ad1",
+    "S31ba00",
+    "S0c9a48",
+    "Sa704c3",
+    "S9ab6c3",
+    "S6fbf45"
+  ],
   "sprints": {
     "Sd63ad1": {
       "title": "REST API コア — ノート読み書きとジャーナル",
-      "status": "pending",
+      "status": "in_progress",
       "description": "モノレポ基盤と Hono REST API のコア。ノートの CRUD・追記・部分置換、デイリージャーナル、監査ログと権限モードを実装する。これが動くと以降の開発を Claude Code がノートを書きながら進められる。",
       "milestone": false,
       "stories": {
@@ -575,23 +582,34 @@
   },
   "dependencies": {
     "S31ba00": {
-      "depends_on": ["Sd63ad1"],
+      "depends_on": [
+        "Sd63ad1"
+      ],
       "reason": "インデックスは Sd63ad1 の shared パーサーと server 基盤の上に構築する"
     },
     "S0c9a48": {
-      "depends_on": ["S31ba00"],
+      "depends_on": [
+        "S31ba00"
+      ],
       "reason": "CLI は search / backlinks を含む全 API が揃ってから 1:1 で実装する"
     },
     "Sa704c3": {
-      "depends_on": ["Sd63ad1"],
+      "depends_on": [
+        "Sd63ad1"
+      ],
       "reason": "UI は notes / journal API を利用する"
     },
     "S9ab6c3": {
-      "depends_on": ["Sa704c3"],
+      "depends_on": [
+        "Sa704c3"
+      ],
       "reason": "アウトライン操作とプレビューは Sa704c3 のエディタ基盤の拡張"
     },
     "S6fbf45": {
-      "depends_on": ["S9ab6c3", "S31ba00"],
+      "depends_on": [
+        "S9ab6c3",
+        "S31ba00"
+      ],
       "reason": "リンク UI はエディタ拡張基盤とバックリンクインデックスの両方を使う"
     }
   },

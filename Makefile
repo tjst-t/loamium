@@ -25,3 +25,4 @@ build:
 
 lint:
 	npm run lint --workspaces --if-present
+	npm run lint:tests --if-present
