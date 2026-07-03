@@ -33,7 +33,12 @@ type PostAction = (typeof POST_ACTIONS)[number];
 function notePathFrom(rawPath: string, stripAction: PostAction | null = null): string {
   let rest = rawPath.slice(NOTES_PREFIX.length);
   if (stripAction !== null) {
-    rest = rest.slice(0, rest.length - (stripAction.length + 1));
+    const suffix = `/${stripAction}`;
+    if (!rest.endsWith(suffix)) {
+      // 例: POST /api/notes/append (ノートパスが空) — アクションだけでパスが無い
+      throw new VaultPathError(`note path is missing before /${stripAction}`);
+    }
+    rest = rest.slice(0, rest.length - suffix.length);
   }
   let decoded: string;
   try {
@@ -155,7 +160,8 @@ export function notesRoutes(config: ServerConfig): Hono<AppEnv> {
         `old string matches ${count} locations; provide a more specific old string`,
       );
     }
-    const updated = existing.replace(body.data.old, body.data.new);
+    // 関数形式で置換: new に $& / $' 等が含まれても特殊解釈させない (データ安全性)
+    const updated = existing.replace(body.data.old, () => body.data.new);
     await writeNote(config.vaultRoot, rel, updated);
     const res: NoteWriteResponse = { path: rel, created: false };
     return c.json(res);

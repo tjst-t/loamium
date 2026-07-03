@@ -173,6 +173,32 @@ describe('[AC-Sd63ad1-1-2] append and patch', () => {
     expect(body.error).toBe('ambiguous_match');
   });
 
+  it('does not interpret $-patterns in the replacement string (data safety)', async () => {
+    await fetch(`${server.baseUrl}/api/notes/notes/dollar.md`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ content: 'price: TBD\n' }),
+    });
+    const patch = await fetch(`${server.baseUrl}/api/notes/notes/dollar.md/patch`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ old: 'TBD', new: "$& $' $$100" }),
+    });
+    expect(patch.status).toBe(200);
+    const get = await fetch(`${server.baseUrl}/api/notes/notes/dollar.md`);
+    const note = (await get.json()) as { content: string };
+    expect(note.content).toBe("price: $& $' $$100\n"); // 文字通り置換される
+  });
+
+  it('rejects an action call without a note path (POST /api/notes/append) with 400', async () => {
+    const res = await fetch(`${server.baseUrl}/api/notes/append`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ content: 'x' }),
+    });
+    expect(res.status).toBe(400);
+  });
+
   it('returns 404 when appending to a missing note', async () => {
     const res = await fetch(`${server.baseUrl}/api/notes/ghost.md/append`, {
       method: 'POST',
