@@ -38,7 +38,8 @@ export function startWatcher(vaultRoot: string, index: VaultIndex): FSWatcher {
   const refresh = (absPath: string): void => {
     const rel = toVaultRel(rootAbs, absPath);
     if (rel === null || !rel.toLowerCase().endsWith('.md')) return;
-    index.refreshFile(rel).catch((err: unknown) => {
+    // absPath をヒントとして渡す: NFD ファイル名でも実パスで読める (インデックスキーは NFC)
+    index.refreshFile(rel, absPath).catch((err: unknown) => {
       console.error(`[loamium] watch refresh failed for ${rel}:`, err);
     });
   };

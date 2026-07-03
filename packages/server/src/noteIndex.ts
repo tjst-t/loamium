@@ -75,7 +75,7 @@ export class VaultIndex {
           await walk(abs);
         } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.md')) {
           const rel = path.relative(root, abs).split(path.sep).join('/').normalize('NFC');
-          await this.refreshFile(rel);
+          await this.refreshFile(rel, abs);
         }
       }
     };
@@ -85,15 +85,26 @@ export class VaultIndex {
   /**
    * 1 ファイルを再読込してインデックスを更新する。
    * ファイルが存在しなければインデックスから取り除く (削除にも使える)。
+   *
+   * @param absPathHint ディスク上の実パス。NFD ファイル名 (macOS 由来) は NFC 正規化した
+   *   相対パスと一致しないことがあるため、walk / watcher が見つけた実パスを優先して読む。
+   *   インデックスキーは常に NFC 正規化済み相対パス。
    */
-  async refreshFile(relPath: string): Promise<void> {
+  async refreshFile(relPath: string, absPathHint?: string): Promise<void> {
     const rel = relPath.normalize('NFC');
     if (hasHiddenSegment(rel) || !rel.toLowerCase().endsWith('.md')) return;
+    const rootAbs = path.resolve(this.vaultRoot);
     let abs: string;
-    try {
-      abs = resolveVaultFile(this.vaultRoot, rel);
-    } catch {
-      return; // vault 外は決して読まない (defense in depth)
+    if (absPathHint !== undefined) {
+      // ヒントも封じ込め検証する (defense in depth)
+      abs = path.resolve(absPathHint);
+      if (abs !== rootAbs && !abs.startsWith(rootAbs + path.sep)) return;
+    } else {
+      try {
+        abs = resolveVaultFile(this.vaultRoot, rel);
+      } catch {
+        return; // vault 外は決して読まない (defense in depth)
+      }
     }
     let content: string;
     try {

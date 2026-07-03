@@ -6,7 +6,6 @@ export {
   frontmatterTags,
   noteTitle,
   type WikiLink,
-  type NoteIndexEntry,
 } from './extract.js';
 export { resolveLinkTarget } from './links.js';
 export {

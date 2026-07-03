@@ -130,6 +130,17 @@ describe('[AC-S31ba00-3-1] external file changes are reflected in search and bac
     expect(sources).not.toContain('notes/external.md');
   });
 
+  it('indexes an externally added NFD-named file under its NFC path (macOS filename quirk)', async () => {
+    // macOS 由来の NFD ファイル名がディスクに現れても、NFC キーでインデックスされ検索できる
+    const nfdName = 'げんこう.md'.normalize('NFD');
+    await writeFile(path.join(vault, 'notes', nfdName), 'NFD ファイルの固有語 wombatfourth。\n', 'utf8');
+    const found = await pollUntil(
+      () => searchPaths('wombatfourth'),
+      (paths) => paths.length > 0,
+    );
+    expect(found).toContain(`notes/${'げんこう.md'.normalize('NFC')}`);
+  });
+
   it('does not index files under .loamium/ (watch exclusion)', async () => {
     await mkdir(path.join(vault, '.loamium'), { recursive: true });
     await writeFile(

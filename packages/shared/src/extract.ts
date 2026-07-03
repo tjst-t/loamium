@@ -23,13 +23,6 @@ export interface WikiLink {
   embed: boolean;
 }
 
-export interface NoteIndexEntry {
-  /** タグ一覧 (NFC 正規化、"#" なし、重複除去、出現順) */
-  tags: string[];
-  /** 本文中の [[WikiLink]] 一覧 (出現順) */
-  links: WikiLink[];
-}
-
 const FENCE_RE = /^(\s{0,3})(`{3,}|~{3,})/;
 const LINK_RE = /(!?)\[\[([^[\]\n]+?)\]\]/g;
 // Obsidian 互換タグ: 英数字・_ - / と Unicode 文字。純数字のみは除外。
