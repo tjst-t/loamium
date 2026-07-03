@@ -1,0 +1,95 @@
+{
+  "sprint": "Sa704c3",
+  "verified_at": "2026-07-03T12:00:00Z",
+  "verifier_model": "claude-sonnet-4-6",
+  "overall": "pass",
+  "findings": [
+    {
+      "category": "execution_log",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "Step 0 — exit-code reconciliation. All three log trailers confirmed: verify-run-test.log → __VERIFY_EXIT_CODE__:test:0, verify-run-lint.log → __VERIFY_EXIT_CODE__:lint:0, verify-run-ui-tests.log → __VERIFY_EXIT_CODE__:ui-tests:0. Matches verify-run.json.overall_machine_status='pass'. Every 'pass' in verification-results.json is backed by a machine pass. No pass-over-failure inflation detected.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "Sa704c3-1",
+      "ac": "AC-Sa704c3-1-1",
+      "verdict": "pass",
+      "detail": "packages/ui/tests/e2e/editor.e2e.spec.ts:16 exercises the full browser→Vite→real-server path with no network mocks (grep of editor.e2e.spec.ts finds zero page.route calls). Test asserts: (a) tree-folder[data-path='projects'] and tree-folder[data-path='journals'] visible; (b) tree-item[data-path='projects/Loamium 開発ログ.md'] click → editor contains 'REST API は Sd63ad1 で実装済み'; (c) active CSS class on clicked item; (d) save-status[data-state='saved']; (e) folder toggle hides/restores the item. Implementing code: FileTree.tsx renders data-testid='tree-folder'/'tree-item' with data-path attributes; App.tsx:181 openNotePath calls api.getNote and sets editor state; Editor.tsx renders data-testid='editor'. All three reachable from the browser entry point.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "Sa704c3-1",
+      "ac": "AC-Sa704c3-1-2",
+      "verdict": "pass",
+      "detail": "Three complementary test scenarios: (1) editor.e2e.spec.ts:39 — Ctrl+S manual save: types stamp, checks save-status goes dirty→saved, reloads UI, clicks note, verifies stamp persists. Also reads actual vault file (readFile) and asserts: fileContent contains stamp, starts with '# CodeMirror 6 調査', no /\\^[a-zA-Z0-9]{4,}/ blockid, no 'id::', no '\\r'. This is a direct file-level pure-Markdown assertion. (2) Same test: autosave scenario types autoStamp without Ctrl+S, waits up to 10s (playwright.config.ts expect.timeout=10_000) for save-status→saved (AUTOSAVE_DEBOUNCE_MS=1500 in App.tsx:21), reloads and verifies. (3) editor.e2e.spec.ts:173 — mtime conflict: external PUT advances mtime, UI PUT returns 409 (notes.ts:95-101), conflict-dialog appears; both reload and overwrite paths tested end-to-end. Backend: vault.ts:noteMtime reads Math.trunc(st.mtimeMs); writeNote returns {created, mtime}. notes-crud.spec.ts:314-381 tests the three conflict scenarios with file-level assertions. All assertions are user-observable or file-level; no weakening detected.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "Sa704c3-1",
+      "ac": "AC-Sa704c3-1-3",
+      "verdict": "pass",
+      "detail": "editor.e2e.spec.ts:81 and :133 cover create/rename/delete end-to-end with real backend. Create: sidebar-new-note → new-note-dialog → new-note-input.fill → new-note-confirm → tree-item visible and active → types content → Ctrl+S. Rename: right-click → context-rename → rename-dialog → rename-input.fill → rename-confirm → old tree-item gone, new one visible, editor still shows content, reload persists. Delete: right-click → context-delete → delete-dialog → delete-confirm → item gone, editor-empty-state visible, reload confirms deletion. Second test adds context-menu 'same-folder new note' and new-folder (client-side via extraFolders/App.tsx:348) → note inside folder persists after reload (folder directory created by writeNote's mkdir). Rename is recorded in decisions.json as GET→PUT→DELETE composition; link-following deferred to S6fbf45-3 (recorded). New-note create-only (baseMtime:0) semantics verified in editor.mock.spec.ts:260.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "Sa704c3-2",
+      "ac": "AC-Sa704c3-2-1",
+      "verdict": "pass",
+      "detail": "journal.e2e.spec.ts:14 uses real server. After page.goto with no interaction: (a) journal-today contains today's date (today = shared.todayJournalDate()); (b) save-status[data-state='saved']; (c) editor visible, editor-empty-state absent; (d) tree-item[data-path=journalPath(today)] visible and active; (e) types stamp, Ctrl+S, reload, editor still contains stamp; (f) reads vault file and asserts fileContent contains stamp and no 'id::'. Journal route (journal.ts:28-63) calls writeNote on first access when missing, returning mtime. App.tsx:213-222 uses didInitRef guard to call openJournal() once on mount (StrictMode double-invoke protection, documented in decisions.json). The AC text says 'なければ自動生成' which is proven by the e2e fixture: vault is seeded with no journals/YYYY-MM-DD.md for today, the test succeeds, and a new file is created.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "Sa704c3-2",
+      "ac": "AC-Sa704c3-2-2",
+      "verdict": "pass",
+      "detail": "journal.e2e.spec.ts:47 exercises date navigation against real server with fixture files. yesterday (shiftJournalDate(today,-1)) and threeDaysAgo (shiftJournalDate(today,-3)) are seeded by global-setup.ts:44-53 with content '昨日のメモ' and '3日前のメモ'. Test: (a) journal-prev → editor contains '昨日のメモ', yesterdayItem.toHaveClass(/active/); (b) journal-next → today's item active, content no longer '昨日のメモ'; (c) journal-open-list → journal-list visible → journal-list-item[data-date=threeDaysAgo] visible and clickable → editor shows '3日前のメモ', tree-item for threeDaysAgo active; (d) journal-today → today's tree-item active. JournalNav.tsx:37/54/64/83 render the tested buttons. App.tsx:364 computes journalBaseDate = doc?.journalDate ?? today; today is set only on no-date openJournal (App.tsx:202), so the 'today' button always reflects server's initial date, not the currently open journal's date. All assertions are user-observable via the live browser.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "forbidden",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "Forbidden-category scan over git diff dd028fb..HEAD: (1) test_skipped — no .skip/.todo in any added test file (grep clean). (2) test_assertion_weakened — mtime: expect.any(Number) is paired with Number.isInteger(putBody.mtime) for full integer check; no assertion weakening found. (3) error_swallowed — error paths in App.tsx/notes.ts/journal.ts all surface to UI (setAppError) or return HTTP errors; no empty catch blocks. (4) type_safety_relaxed — grep for ': any'/'as any' in packages/*/src/ returns no hits; the eslint-disable-next-line in App.tsx:221 is a React hooks lint comment for tsc-only lint (make lint runs tsc --noEmit, not ESLint), not a type safety violation. (5) acceptance_criteria_modified — ROADMAP diff contains only status field changes (pending→done/in_progress, counts); no description or test field changes to any AC. (6) page.route in e2e tests — grep of editor.e2e.spec.ts and journal.e2e.spec.ts returns zero matches; page.route appears only in *.mock.spec.ts (permitted per test discipline). (7) block IDs — notes.ts writes only raw content strings; AC-1-2 e2e test asserts /\\^[a-zA-Z0-9]{4,}/ absent and 'id::' absent in the actual vault file.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "adr_conformance",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "No docs/DESIGN/ directory exists. Checked against DESIGN_PRINCIPLES.json forbidden list and priority_rules: (1) Priority 1 — pure Markdown: AC-1-2 and AC-2-1 e2e tests read vault files directly and assert no block IDs, no non-LF, no id::. Confirmed clean. (2) Priority 2 — data safety: baseMtime=0 create-only semantics prevent overwriting externally-created notes (App.tsx:278-293); rename refreshNotes on partial failure (App.tsx:320-321); 409 conflict detection keeps file intact (notes.ts:94-103, tested with file-level assert in notes-crud.spec.ts). (3) Priority 3 — API/CLI stability: REST→CLI 1:1 preserved; baseMtime is additive to PUT body (optional field), backwards-compatible. (4) Priority 4 — Obsidian compatibility: no proprietary syntax introduced; lezer-markdown used for parsing. (5) Priority 5 — simplicity: new-folder is client-side only (no empty-folder API); --base-mtime CLI flag not added (decisions.json entry). (6) coding_conventions — TypeScript strict: tsc --noEmit passes for all 4 packages (verify-run-lint.log). NFC normalization: normalizeVaultPath from packages/shared used in notes.ts:49, journal.ts uses journalPath from shared. zod schema: noteWriteRequestSchema/noteResponseSchema/journalResponseSchema all updated in schemas.ts with mtime fields. CLAUDE.md 'vault 内パスは必ず shared のパス正規化ユーティリティを経由' — satisfied.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "compromises",
+      "story": "Sa704c3-1",
+      "ac": "AC-Sa704c3-1-3",
+      "verdict": "pass",
+      "detail": "Rename without link-following (GET→PUT→DELETE composition) is recorded in decisions.json 'リネームは既存 API のクライアント合成 (GET→PUT→DELETE)'. Backlink panel is shell only (no backlink-count/backlink-item) — recorded in decisions.json 'バックリンクパネルはシェルのみ実装(結線は S6fbf45-2)'. sidebar-settings disabled — recorded 'sidebar-settings は disabled で配置'. 3-registry skeleton with zero registrations — recorded '3 レジストリ(fence/inline/block)は骨格のみ敷く'. New-folder client-side — recorded '新規フォルダはクライアント側の一時表示'. create-only baseMtime=0 and F2 guard were added during story review — both recorded in decisions.json review entry. All prototype_drift items (backlink-count, backlink-item, fold-toggle, task-checkbox, wikilink) are accounted for in decisions.json and verified against S9ab6c3/S6fbf45 roadmap scope. No unrecorded compromises found in the diff.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    }
+  ],
+  "summary": {
+    "ac_failures": 0,
+    "forbidden_warnings": 0,
+    "adr_conflicts": 0,
+    "overlooked_count": 0
+  }
+}

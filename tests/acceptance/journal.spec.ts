@@ -42,10 +42,13 @@ describe("[AC-Sd63ad1-2-1] GET /api/journal auto-generates today's journal", () 
       path: string;
       content: string;
       created: boolean;
+      mtime: number | null;
     };
     expect(body.date).toBe(today);
     expect(body.path).toBe(`journals/${today}.md`);
     expect(body.created).toBe(true);
+    // Sa704c3: 実ファイルの mtime を返す (UI の楽観的競合検出の基準値)
+    expect(typeof body.mtime).toBe('number');
 
     // ファイルが実際に自動生成されている (ファイルが正本)
     const abs = path.join(server.vault, 'journals', `${today}.md`);

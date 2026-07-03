@@ -33,8 +33,14 @@ describe('[AC-Sd63ad1-1-1] PUT/GET notes (create, read with frontmatter, overwri
       body: JSON.stringify({ content }),
     });
     expect(put.status).toBe(201);
-    const putBody = (await put.json()) as { path: string; created: boolean };
-    expect(putBody).toEqual({ path: 'projects/loamium.md', created: true });
+    const putBody = (await put.json()) as { path: string; created: boolean; mtime: number };
+    expect(putBody).toEqual({
+      path: 'projects/loamium.md',
+      created: true,
+      // Sa704c3: 書き込み後の mtime (ms epoch) — UI の楽観的競合検出の基準値
+      mtime: expect.any(Number),
+    });
+    expect(Number.isInteger(putBody.mtime)).toBe(true);
 
     // vault 上に実ファイルが作られている (ファイルが正本)
     const abs = path.join(server.vault, 'projects/loamium.md');
@@ -47,11 +53,15 @@ describe('[AC-Sd63ad1-1-1] PUT/GET notes (create, read with frontmatter, overwri
       content: string;
       frontmatter: Record<string, unknown> | null;
       body: string;
+      mtime: number;
     };
     expect(note.path).toBe('projects/loamium.md');
     expect(note.content).toBe(content);
     expect(note.frontmatter).toEqual({ title: 'Loamium', tags: ['project'] });
     expect(note.body).toBe('# Loamium\n\nメモ本文。\n');
+    // GET はファイルの実 mtime を返す (Sa704c3: 保存時の baseMtime に使う)
+    const fileMtime = Math.trunc((await stat(abs)).mtimeMs);
+    expect(note.mtime).toBe(fileMtime);
   });
 
   it('overwrites an existing note with PUT (200, created=false)', async () => {
@@ -124,6 +134,9 @@ describe('[AC-Sd63ad1-1-2] append and patch', () => {
       body: JSON.stringify({ content: '- [ ] new task' }),
     });
     expect(append.status).toBe(200);
+    // Sa704c3: append レスポンスも書き込み後 mtime を返す (UI の baseMtime 更新用)
+    const appendBody = (await append.json()) as { mtime: number };
+    expect(Number.isInteger(appendBody.mtime)).toBe(true);
 
     const get = await fetch(`${server.baseUrl}/api/notes/notes/todo.md`);
     const note = (await get.json()) as { content: string };
@@ -294,5 +307,76 @@ describe('DELETE /api/notes/{path}', () => {
       method: 'DELETE',
     });
     expect(delAgain.status).toBe(404);
+  });
+});
+
+/**
+ * Sa704c3: mtime ベースの楽観的競合検出 (SPEC §9 高-1 / ARCHITECTURE 既定路線)。
+ * PUT に baseMtime を渡すと、ファイルの現 mtime と不一致な場合 409 conflict になり
+ * ファイルは上書きされない (データ安全性 priority 2)。
+ */
+describe('PUT /api/notes/{path} — mtime 楽観的競合検出 (Sa704c3)', () => {
+  it('returns 409 conflict and keeps the file intact when baseMtime is stale', async () => {
+    // 1. ノートを作成し、その時点の mtime を得る
+    const put1 = await fetch(`${server.baseUrl}/api/notes/conflict/target.md`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ content: 'v1\n' }),
+    });
+    expect(put1.status).toBe(201);
+    const { mtime: baseMtime } = (await put1.json()) as { mtime: number };
+
+    // 2. 別プロセス相当の書き込みで mtime を進める (mtime の解像度対策で待つ)
+    await new Promise((r) => setTimeout(r, 20));
+    const put2 = await fetch(`${server.baseUrl}/api/notes/conflict/target.md`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ content: 'v2 (external)\n' }),
+    });
+    expect(put2.status).toBe(200);
+
+    // 3. 古い baseMtime で保存すると 409、ファイルは v2 のまま
+    const conflicted = await fetch(`${server.baseUrl}/api/notes/conflict/target.md`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ content: 'v3 (stale editor)\n', baseMtime }),
+    });
+    expect(conflicted.status).toBe(409);
+    const err = (await conflicted.json()) as { error: string };
+    expect(err.error).toBe('conflict');
+    const abs = path.join(server.vault, 'conflict/target.md');
+    expect(await readFile(abs, 'utf8')).toBe('v2 (external)\n');
+  });
+
+  it('succeeds when baseMtime matches the current file mtime', async () => {
+    const put1 = await fetch(`${server.baseUrl}/api/notes/conflict/ok.md`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ content: 'v1\n' }),
+    });
+    const { mtime } = (await put1.json()) as { mtime: number };
+
+    const put2 = await fetch(`${server.baseUrl}/api/notes/conflict/ok.md`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ content: 'v2\n', baseMtime: mtime }),
+    });
+    expect(put2.status).toBe(200);
+    const body = (await put2.json()) as { created: boolean; mtime: number };
+    expect(body.created).toBe(false);
+    expect(body.mtime).toBeGreaterThanOrEqual(mtime);
+    const abs = path.join(server.vault, 'conflict/ok.md');
+    expect(await readFile(abs, 'utf8')).toBe('v2\n');
+  });
+
+  it('creates the note when baseMtime is given but the file no longer exists (non-destructive)', async () => {
+    const res = await fetch(`${server.baseUrl}/api/notes/conflict/recreated.md`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ content: 'restored\n', baseMtime: 12345 }),
+    });
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { created: boolean };
+    expect(body.created).toBe(true);
   });
 });

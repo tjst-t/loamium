@@ -1,0 +1,6 @@
+{
+  "$file": "compromises.json",
+  "sprint": "Sa704c3",
+  "compromises": [],
+  "note": "§2.4 の禁止カテゴリ (テスト無効化 / アサーション弱体化 / エラー握りつぶし / any 化 / AC 変更) に該当する妥協はゼロ。独立 verifier (verification-report.json, overall: pass, overlooked_count: 0) も同判定。意図的なスコープ判断 (バックリンクパネルはシェルのみ・リネームのリンク追従は S6fbf45-3・sidebar-settings は disabled 等) は decisions.json に根拠付きで記録済みで、いずれも ROADMAP 上の後続 Story が受け皿。"
+}

@@ -10,3 +10,8 @@ dev-vault/
 .claude/worktrees/
 .claude/autopilot-*.lock
 .claude/settings.local.json
+
+# Playwright (packages/ui)
+packages/ui/test-results/
+packages/ui/playwright-report/
+packages/ui/tests/.harness-state.json

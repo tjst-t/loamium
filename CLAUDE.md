@@ -13,6 +13,7 @@ Backend: Hono / Frontend: React + CodeMirror 6 (lezer-markdown) / 検索: Fuse.j
 - `make serve-ui` — UI 開発サーバーをバックグラウンド起動 (portman 管理)
 - `make stop` — サーバー停止
 - `make test` — 全 workspace のテスト実行 (JUnit XML を `reports/` に出力)
+- `make test-ui` — UI の Playwright テスト (mock + e2e。実サーバー/Vite はハーネスが一時 vault で自動起動)
 - `make build` — 全 workspace のビルド
 - `make lint` — 型チェック + lint
 
@@ -29,7 +30,8 @@ Backend: Hono / Frontend: React + CodeMirror 6 (lezer-markdown) / 検索: Fuse.j
 ## Server
 
 - `make serve` はバックグラウンド起動 (portman がポートを管理)。再実行で前プロセスを自動 kill
-- ポート番号をハードコードしない。CLI/テストは `portman port --name loamium` で取得
+- ポート番号をハードコードしない。CLI/テストは `portman lease --name loamium` で取得 (旧版 portman の `portman port` にも CLI はフォールバック対応)
+- UI 開発サーバー (`make serve-ui`) は `/api` を `portman lease --name loamium` のポートへプロキシする (`LOAMIUM_API_URL` で上書き可)
 - 開発用 vault: `dev-vault/` (git 管理外)
 
 ## References

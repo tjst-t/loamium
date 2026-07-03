@@ -170,9 +170,11 @@ describe('[AC-Sd63ad1-3-2] read-only mode rejects all writes with 403', () => {
   it('GET /api/journal does not auto-create the file in read-only mode', async () => {
     const res = await fetch(`${server.baseUrl}/api/journal?date=2026-06-01`);
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { content: string; created: boolean };
+    const body = (await res.json()) as { content: string; created: boolean; mtime: number | null };
     expect(body.created).toBe(false);
     expect(body.content).toBe('');
+    // Sa704c3: 仮想ジャーナル (ファイル無し) は mtime: null
+    expect(body.mtime).toBeNull();
     await expect(
       readFile(path.join(server.vault, 'journals', '2026-06-01.md'), 'utf8'),
     ).rejects.toThrow();

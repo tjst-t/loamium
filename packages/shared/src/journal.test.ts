@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   isValidJournalDate,
   JournalDateError,
+  journalDayOfWeek,
   journalPath,
+  shiftJournalDate,
   todayJournalDate,
 } from './journal.js';
 
@@ -49,5 +51,36 @@ describe('todayJournalDate', () => {
   it('pads month and day', () => {
     const d = new Date(2026, 8, 9); // 2026-09-09
     expect(todayJournalDate(d)).toBe('2026-09-09');
+  });
+});
+
+describe('shiftJournalDate (Sa704c3: 前日/翌日ナビゲーション)', () => {
+  it('shifts within a month', () => {
+    expect(shiftJournalDate('2026-07-03', -1)).toBe('2026-07-02');
+    expect(shiftJournalDate('2026-07-03', 1)).toBe('2026-07-04');
+  });
+
+  it('crosses month and year boundaries', () => {
+    expect(shiftJournalDate('2026-07-01', -1)).toBe('2026-06-30');
+    expect(shiftJournalDate('2026-01-01', -1)).toBe('2025-12-31');
+    expect(shiftJournalDate('2025-12-31', 1)).toBe('2026-01-01');
+    expect(shiftJournalDate('2024-02-28', 1)).toBe('2024-02-29'); // うるう年
+    expect(shiftJournalDate('2025-02-28', 1)).toBe('2025-03-01'); // 非うるう年
+  });
+
+  it('throws for invalid dates', () => {
+    expect(() => shiftJournalDate('2026-02-30', 1)).toThrow(JournalDateError);
+    expect(() => shiftJournalDate('bad', -1)).toThrow(JournalDateError);
+  });
+});
+
+describe('journalDayOfWeek', () => {
+  it('returns the Japanese day of week', () => {
+    expect(journalDayOfWeek('2026-07-03')).toBe('金');
+    expect(journalDayOfWeek('2026-07-05')).toBe('日');
+  });
+
+  it('throws for invalid dates', () => {
+    expect(() => journalDayOfWeek('2026-13-01')).toThrow(JournalDateError);
   });
 });

@@ -40,17 +40,36 @@ export async function readNote(vaultRoot: string, relPath: string): Promise<stri
   }
 }
 
-/** ノートを書く (親ディレクトリ自動作成、UTF-8 / LF 固定)。 */
+/**
+ * ノートの mtime (ms epoch、整数へ切り捨て) を返す。存在しなければ null。
+ * 楽観的競合検出 (PUT baseMtime) と GET レスポンスの mtime に使う。
+ */
+export async function noteMtime(vaultRoot: string, relPath: string): Promise<number | null> {
+  const abs = resolveVaultFile(vaultRoot, relPath);
+  try {
+    const st = await fs.stat(abs);
+    if (!st.isFile()) return null;
+    return Math.trunc(st.mtimeMs);
+  } catch (err) {
+    if (isErrnoException(err) && err.code === 'ENOENT') {
+      return null;
+    }
+    throw err;
+  }
+}
+
+/** ノートを書く (親ディレクトリ自動作成、UTF-8 / LF 固定)。書き込み後の mtime を返す。 */
 export async function writeNote(
   vaultRoot: string,
   relPath: string,
   content: string,
-): Promise<{ created: boolean }> {
+): Promise<{ created: boolean; mtime: number }> {
   const abs = resolveVaultFile(vaultRoot, relPath);
   const existed = await fileExists(abs);
   await fs.mkdir(path.dirname(abs), { recursive: true });
   await fs.writeFile(abs, toLf(content), 'utf8');
-  return { created: !existed };
+  const st = await fs.stat(abs);
+  return { created: !existed, mtime: Math.trunc(st.mtimeMs) };
 }
 
 /** ノートを削除する。存在しなければ false。 */

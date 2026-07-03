@@ -163,7 +163,12 @@ describe('[AC-S0c9a48-1-1] loamium の 10 サブコマンドが API と 1:1 で�
     // 書き込み系
     const writeJson = await cli(['write', 'json-check.md', 'x', '--json']);
     expect(writeJson.code).toBe(0);
-    expect(JSON.parse(writeJson.stdout)).toEqual({ path: 'json-check.md', created: true });
+    expect(JSON.parse(writeJson.stdout)).toEqual({
+      path: 'json-check.md',
+      created: true,
+      // Sa704c3: 書き込みレスポンスに mtime (ms epoch) が追加された
+      mtime: expect.any(Number),
+    });
 
     // 構造系
     const tagsJson = await cli(['tags', '--json']);
@@ -192,6 +197,20 @@ describe('[AC-S0c9a48-1-1] サーバー URL の解決順: LOAMIUM_URL → portma
     const port = new URL(server.baseUrl).port;
     const fakeDir = await makeFakePortman(
       `#!/bin/sh\nif [ "$1" = "port" ] && [ "$3" = "loamium" ]; then echo ${port}; exit 0; fi\nexit 1\n`,
+    );
+    const res = await runCli(['read', 'projects/hydra.md'], {
+      unsetLoamiumUrl: true,
+      env: { PATH: `${fakeDir}:${process.env.PATH ?? ''}` },
+    });
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain('# Hydra');
+  });
+
+  it('port サブコマンドを持たない portman (lease 版) でも解決される (Sa704c3)', async () => {
+    const port = new URL(server.baseUrl).port;
+    // インストール版 portman の差異: `port` が無く `lease` だけがある場合
+    const fakeDir = await makeFakePortman(
+      `#!/bin/sh\nif [ "$1" = "lease" ] && [ "$3" = "loamium" ]; then echo ${port}; exit 0; fi\necho "unknown command" >&2; exit 1\n`,
     );
     const res = await runCli(['read', 'projects/hydra.md'], {
       unsetLoamiumUrl: true,
