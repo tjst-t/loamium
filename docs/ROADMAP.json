@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "S31ba00",
+    "current_sprint": "S0c9a48",
     "total": 6,
-    "done": 1,
+    "done": 2,
     "in_progress": 0,
-    "remaining": 5,
-    "percentage": 17
+    "remaining": 4,
+    "percentage": 33
   },
   "execution_order": [
     "Sd63ad1",
@@ -143,13 +143,13 @@
     },
     "S31ba00": {
       "title": "インデックス — 検索・バックリンク・ファイル監視",
-      "status": "pending",
+      "status": "done",
       "description": "インメモリインデックス(全文検索・バックリンク・タグ)と chokidar によるファイル監視・再構築。外部編集(エディタ・Git)にも追従する。インデックスは使い捨て、ファイルが正。",
       "milestone": false,
       "stories": {
         "S31ba00-1": {
           "title": "全文検索とノート一覧",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、vault 全体をキーワードで検索し、タグやフォルダでノートを絞り込みたい。なぜなら、蓄積したノートから目的の情報へ素早く到達できなければ知識が死蔵されるから。",
@@ -158,31 +158,31 @@
               "id": "AC-S31ba00-1-1",
               "description": "GET /api/search?q= で全文検索でき、ヒットしたノートのパスとマッチ箇所(スニペット)が返る",
               "test": "[AC-S31ba00-1-1] in tests/acceptance/search.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S31ba00-1-2",
               "description": "GET /api/notes 一覧が tag / folder クエリで絞り込める(タグは #tag と frontmatter tags の両方を認識)",
               "test": "[AC-S31ba00-1-2] in tests/acceptance/search.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S31ba00-1-1": {
               "title": "shared: タグ・リンク抽出",
               "description": "parseNote() を拡張し #tag(コードフェンス内は除外)と frontmatter tags、[[WikiLink]] を抽出。ユニットテスト必須。",
-              "status": "pending"
+              "status": "done"
             },
             "S31ba00-1-2": {
               "title": "server: インデックスと検索エンドポイント",
               "description": "起動時に vault を全走査してインメモリインデックス構築。Fuse.js で /api/search、/api/notes 一覧 + フィルタ、/api/tags。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S31ba00-2": {
           "title": "バックリンク解決",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、あるノートへ [[リンク]] しているノートの一覧を取得したい。なぜなら、ノート間のつながりから文脈を辿るのが Loamium の中核価値だから。",
@@ -191,31 +191,31 @@
               "id": "AC-S31ba00-2-1",
               "description": "GET /api/backlinks?path= で対象ノートへリンクしているノート一覧(リンク行のコンテキスト付き)が返る",
               "test": "[AC-S31ba00-2-1] in tests/acceptance/backlinks.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S31ba00-2-2",
               "description": "[[note#heading]] 形式・NFC/NFD ゆれ・拡張子省略のリンクが正しく同一ノートに解決される。ブロック ID は生成されない",
               "test": "[AC-S31ba00-2-2] in tests/acceptance/backlinks.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S31ba00-2-1": {
               "title": "リンク解決ロジック",
               "description": "リンクターゲット → vault パス解決(NFC 正規化、大文字小文字、フォルダ横断のファイル名一致)。ユニットテスト必須。",
-              "status": "pending"
+              "status": "done"
             },
             "S31ba00-2-2": {
               "title": "server: backlinks エンドポイント",
               "description": "インデックスから逆リンクを引く GET /api/backlinks。受け入れテスト付き。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S31ba00-3": {
           "title": "ファイル監視とインデックス再構築",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "vault 所有者として、外部エディタや Git 操作で変更したファイルも検索・バックリンクに即座に反映してほしい。なぜなら、ファイルシステムが正本という原則の下では API 経由以外の変更が普通に起きるから。",
@@ -224,14 +224,14 @@
               "id": "AC-S31ba00-3-1",
               "description": "API を経由せずにファイルを追加・変更・削除しても、検索とバックリンクの結果に反映される",
               "test": "[AC-S31ba00-3-1] in tests/acceptance/watch.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S31ba00-3-1": {
               "title": "chokidar 監視とインデックス差分更新",
               "description": "chokidar で vault を監視し add/change/unlink でインデックスを差分更新。.loamium/ は監視除外。受け入れテスト付き。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }

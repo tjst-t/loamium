@@ -76,6 +76,78 @@ export const journalAppendResponseSchema = z.object({
 });
 export type JournalAppendResponse = z.infer<typeof journalAppendResponseSchema>;
 
+// ---- インデックス系 (検索・一覧・タグ・バックリンク) ----
+
+export const searchResultSchema = z.object({
+  path: z.string(),
+  title: z.string(),
+  /** Fuse.js スコア (0 = 完全一致に近い)。小さいほど良い */
+  score: z.number(),
+  /** マッチ箇所を含む行 (スニペット)。本文にマッチが無い場合はタイトル行 */
+  snippet: z.string(),
+  /** snippet の 1 始まり行番号 (本文マッチ時のみ、それ以外は null) */
+  line: z.number().nullable(),
+});
+export type SearchResult = z.infer<typeof searchResultSchema>;
+
+export const searchResponseSchema = z.object({
+  query: z.string(),
+  results: z.array(searchResultSchema),
+});
+export type SearchResponse = z.infer<typeof searchResponseSchema>;
+
+export const noteMetaSchema = z.object({
+  path: z.string(),
+  title: z.string(),
+  /** インライン #tag + frontmatter tags (NFC 正規化、# なし) */
+  tags: z.array(z.string()),
+  /** vault 相対の親フォルダ ("" = ルート直下) */
+  folder: z.string(),
+});
+export type NoteMeta = z.infer<typeof noteMetaSchema>;
+
+export const noteListResponseSchema = z.object({
+  notes: z.array(noteMetaSchema),
+});
+export type NoteListResponse = z.infer<typeof noteListResponseSchema>;
+
+export const tagCountSchema = z.object({
+  tag: z.string(),
+  count: z.number(),
+});
+export type TagCount = z.infer<typeof tagCountSchema>;
+
+export const tagsResponseSchema = z.object({
+  tags: z.array(tagCountSchema),
+});
+export type TagsResponse = z.infer<typeof tagsResponseSchema>;
+
+export const backlinkLinkSchema = z.object({
+  /** リンク元テキスト全体 (例: "[[note#見出し|別名]]") */
+  raw: z.string(),
+  /** [[note#heading]] の heading 部分 (無ければ null) */
+  heading: z.string().nullable(),
+  /** リンク元ノート内の 1 始まり行番号 */
+  line: z.number(),
+  /** リンクを含む行の元テキスト */
+  context: z.string(),
+});
+export type BacklinkLink = z.infer<typeof backlinkLinkSchema>;
+
+export const backlinkSourceSchema = z.object({
+  /** リンク元ノートの vault 相対パス */
+  source: z.string(),
+  links: z.array(backlinkLinkSchema),
+});
+export type BacklinkSource = z.infer<typeof backlinkSourceSchema>;
+
+export const backlinksResponseSchema = z.object({
+  /** 正規化済みターゲットパス */
+  path: z.string(),
+  backlinks: z.array(backlinkSourceSchema),
+});
+export type BacklinksResponse = z.infer<typeof backlinksResponseSchema>;
+
 export const errorResponseSchema = z.object({
   error: z.string(),
   message: z.string(),
