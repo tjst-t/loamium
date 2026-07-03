@@ -5,8 +5,8 @@
     "current_sprint": "S9ab6c3",
     "total": 6,
     "done": 4,
-    "in_progress": 0,
-    "remaining": 2,
+    "in_progress": 1,
+    "remaining": 1,
     "percentage": 67
   },
   "execution_order": [
@@ -382,13 +382,13 @@
     },
     "S9ab6c3": {
       "title": "エディタ体験 — アウトライン操作とライブプレビュー",
-      "status": "pending",
+      "status": "in_progress",
       "description": "C 方式の核心。リスト行限定のアウトライン操作(Tab/Shift+Tab/折りたたみ)と、ライブプレビュー装飾。fence/inline/block の 3 レジストリを実装し Mermaid + KaTeX + Shiki で実証する。",
       "milestone": false,
       "stories": {
         "S9ab6c3-1": {
           "title": "リスト行限定のアウトライン操作",
-          "status": "pending",
+          "status": "in_progress",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、リスト行では Tab/Shift+Tab でインデント操作と折りたたみをしたい。なぜなら、ジャーナルや断片メモをアウトライナー的に扱いつつ、文章ノートは普通の Markdown のままにしたいから(C 方式)。",
@@ -422,18 +422,18 @@
             "S9ab6c3-1-1": {
               "title": "リスト行判定とインデント操作",
               "description": "lezer-markdown の構文木でリスト行を判定する CodeMirror 拡張。Tab/Shift+Tab キーマップ(リスト行のみ)。子ブロック追従。",
-              "status": "pending"
+              "status": "done"
             },
             "S9ab6c3-1-2": {
               "title": "折りたたみとチェックボックス",
               "description": "リストサブツリーの fold 拡張 + ガター UI。チェックボックスのクリックトグル。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S9ab6c3-2": {
           "title": "ライブプレビューと 3 レジストリ",
-          "status": "pending",
+          "status": "in_progress",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、編集中に Markdown が装飾表示(見出しサイズ・太字・リンク・図・数式・ハイライト)されてほしい。なぜなら、ソースと結果を行き来せず Obsidian の Live Preview 相当の体験で書きたいから。",
@@ -461,17 +461,17 @@
             "S9ab6c3-2-1": {
               "title": "3 レジストリ機構",
               "description": "registerFenceRenderer / registerInlineRule / registerBlockRule。CodeMirror の decoration/widget として適用する基盤。",
-              "status": "pending"
+              "status": "done"
             },
             "S9ab6c3-2-2": {
               "title": "基本装飾(見出し・強調・リンク)",
               "description": "カーソル行以外を装飾するライブプレビュー拡張。",
-              "status": "pending"
+              "status": "done"
             },
             "S9ab6c3-2-3": {
               "title": "Mermaid + KaTeX + Shiki レンダラー",
               "description": "3 レジストリの上に client 種別レンダラーとして実装(mode: replace/augment)。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }

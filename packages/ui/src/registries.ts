@@ -10,6 +10,11 @@
 export interface RenderContext {
   /** レンダリング対象ノートの vault 相対パス */
   notePath: string;
+  /**
+   * フェンスの言語識別子 (S9ab6c3-2 で追加 — additive)。
+   * 複数言語を 1 レンダラーで受ける場合 (Shiki 等) に render 側で参照する。
+   */
+  lang?: string;
 }
 
 export interface FenceRenderer {
@@ -22,6 +27,8 @@ export interface FenceRenderer {
   render(code: string, el: HTMLElement, ctx: RenderContext): void | Promise<void>;
   /** 専用エディタ (draw.io 等)。あればダブルクリックで起動 */
   edit?(code: string, ctx: RenderContext): Promise<string>;
+  /** fence-widget のバー右側に出す補足表示 (省略時は「クリックでソース編集」) */
+  info?: string;
 }
 
 export interface InlineRule {
@@ -33,6 +40,14 @@ export interface InlineRule {
 export interface BlockRule {
   /** 行頭パターン (> [!note] callout, ![[embed]] 等) */
   match(line: string): boolean;
+  /**
+   * 複数行ブロックの終端判定 (S9ab6c3-2 で追加 — additive)。
+   * offsetFromStart は開始行を 0 とした行オフセット。開始行を含め、最初に
+   * true を返した行までがブロック。省略時は開始行のみの 1 行ブロック。
+   * 定義されているのに終端が見つからない場合、ブロックは成立しない
+   * (閉じられていない $$ 等はソース表示のまま)。
+   */
+  matchEnd?(line: string, offsetFromStart: number): boolean;
   render(lines: string[], ctx: RenderContext): HTMLElement;
 }
 

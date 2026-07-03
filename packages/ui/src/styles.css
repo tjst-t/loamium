@@ -589,3 +589,140 @@ code {
 @media (max-width: 680px) {
   .sidebar { width: 210px; }
 }
+
+/* ==========================================================================
+   S9ab6c3 — アウトライン操作 (fold-toggle / fold-pill / task-checkbox)
+   prototype/editor-outline.html 準拠
+   ========================================================================== */
+
+.editor-host .cm-gutters {
+  background: transparent;
+  border-right: none;
+}
+.editor-host .cm-outline-gutter {
+  width: 22px;
+}
+.editor-host .cm-outline-gutter .cm-gutterElement {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fold-toggle {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: 4px;
+  color: var(--text-faint);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.55;
+}
+.editor-host .cm-gutterElement:hover .fold-toggle { opacity: 1; }
+.fold-toggle:hover { background: var(--bg-hover); color: var(--text); }
+.fold-toggle svg { width: 11px; height: 11px; }
+.fold-toggle.folded { color: var(--accent); opacity: 1; }
+
+.fold-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 0 8px;
+  margin-left: 8px;
+  vertical-align: middle;
+  cursor: pointer;
+}
+.fold-pill:hover { background: #e5dff8; }
+
+.task-checkbox {
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-editor);
+  vertical-align: baseline;
+  transform: translateY(2px);
+  margin-right: 4px;
+  cursor: pointer;
+}
+.task-checkbox:hover { border-color: var(--accent); }
+.task-checkbox.checked {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.task-checkbox svg { width: 10px; height: 10px; }
+
+/* ==========================================================================
+   S9ab6c3 — ライブプレビュー (wikilink / fence-widget / math)
+   prototype/editor.html 準拠
+   ========================================================================== */
+
+.wikilink {
+  color: var(--link);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.wikilink:hover { text-decoration: underline; background: var(--accent-soft); }
+
+.fence-widget {
+  margin: 6px 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-panel);
+  cursor: pointer;
+}
+.fence-widget .fence-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 12px;
+  font-size: 11px;
+  color: var(--text-faint);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-editor);
+  font-family: var(--font-mono);
+}
+.fence-widget .fence-bar .lang { font-weight: 600; letter-spacing: 0.04em; }
+.fence-widget .fence-body { padding: 14px 16px; }
+.fence-widget.mermaid .fence-body { display: flex; justify-content: center; background: var(--bg-editor); }
+.fence-widget .fence-body.code-block { padding: 0; }
+.fence-widget .fence-body pre.shiki {
+  margin: 0;
+  padding: 14px 16px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.65;
+  overflow-x: auto;
+}
+.fence-render-error {
+  color: var(--danger);
+  font-size: 12.5px;
+  font-family: var(--font-mono);
+  white-space: pre-wrap;
+}
+
+.math-inline { padding: 0 2px; }
+.math-block {
+  margin: 6px 0;
+  padding: 14px 20px;
+  text-align: center;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+}

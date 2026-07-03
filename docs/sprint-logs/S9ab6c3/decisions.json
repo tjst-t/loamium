@@ -1,0 +1,85 @@
+{
+  "sprint": "S9ab6c3",
+  "mode": "auto (autopilot, --with-verifier)",
+  "planning_decisions": [
+    {
+      "id": "P1",
+      "decision": "Story 実行はシーケンシャル (S9ab6c3-1 → S9ab6c3-2)、worktree 並列は使わない",
+      "rationale": "両 Story とも packages/ui/src/components/Editor.tsx と styles.css を集中的に変更するため、並列 worktree はほぼ確実にコンフリクトする。本セッションにはサブエージェント起動ツールも無い。DESIGN_PRINCIPLES priority 5 (シンプルさ > 汎用性) に従い、逐次実装 + Story ごとの mock テストゲートで進める。"
+    },
+    {
+      "id": "P2",
+      "decision": "ユーザーストーリーは ROADMAP のまま採用 (書き換え不要)",
+      "rationale": "両 Story とも「{役割}として、{やりたいこと}。なぜなら {理由}」形式を満たしており、粒度も 1 Story = 1 ユーザー体験 (アウトライン操作 / ライブプレビュー) で適切。"
+    },
+    {
+      "id": "P3",
+      "decision": "GUI spec は autonomous mode で導出 (gui-spec-S9ab6c3-1.json / gui-spec-S9ab6c3-2.json)",
+      "rationale": "エントリポイント・状態遷移はプロトタイプ (prototype/editor.html, editor-outline.html) と TESTIDS.md 契約から一意に導出できる。新規エンドポイントなし (既存 GET/PUT /api/notes を利用)。"
+    }
+  ],
+  "implementation_decisions": [
+    {
+      "id": "I1",
+      "decision": "インデント単位は 4 スペース (タブ文字は使わない)",
+      "rationale": "CommonMark では番号付きリスト (1. ) の子は 3 文字以上のインデントが必要で、2 スペースでは lezer-markdown が子と解釈しない。4 スペースは - / 1. / - [ ] のすべてで安全にネストでき、タブ文字を .md に混入させない (priority 1: ピュア Markdown、priority 4: Obsidian 互換 — Obsidian デフォルト 4 スペース幅と一致)。"
+    },
+    {
+      "id": "I2",
+      "decision": "リスト行判定・サブツリー範囲は lezer-markdown の構文木 (ListItem ノード) で行う",
+      "rationale": "SPEC §1 の指定どおり。ListItem ノードはネストした子リスト・継続行を包含するため、Tab/Shift+Tab の子要素追従と折りたたみ範囲 (行末〜ListItem.to) を同じノードから導出できる。正規表現による行判定は brittle なため不採用。"
+    },
+    {
+      "id": "I3",
+      "decision": "Tab キーマップは Prec.high で登録し、非リスト行では false を返してブラウザ既定 (フォーカス移動) に委ねる。view.composing 中は無効",
+      "rationale": "AC-S9ab6c3-1-2 (見出し・段落で Tab がインデント操作にならない) の C 方式境界。DESIGN_PRINCIPLES ui_ux「アウトライン操作はリスト行のみ」「IME 第一級」準拠。prototype/editor-outline.html の注記とも一致。"
+    },
+    {
+      "id": "I4",
+      "decision": "チェックボックスとライブプレビュー装飾は「選択範囲が触れている行」ではソースを表示し、それ以外の行で widget/装飾に置換する",
+      "rationale": "VISION design_references「Obsidian の Live Preview (ソース編集と装飾表示の行き来)」準拠。AC-S9ab6c3-2-1 の『カーソルを置くとソースが見える』をすべての装飾で一貫させる。"
+    },
+    {
+      "id": "I5",
+      "decision": "Shiki コードフェンスは fence レジストリの mode: 'replace' で登録 (カーソル外でハイライト widget、カーソル内でソース)。mermaid も replace。engine は augment (ソースの下に widget 追加) も実装済み",
+      "rationale": "prototype/editor.html の DOM 構造 (bash フェンスは fence-widget 単体で表示され、生フェンス行は併存しない) がビジュアルの正。proto-note の文言は「コードフェンス = fence(augment)」だが、TESTIDS.md により proto-note は実装対象外の注記であり、DOM 構造と Obsidian Live Preview 準拠 (priority 4) を優先した。augment モード自体はレジストリ機構としてユニットテストで検証する。"
+    },
+    {
+      "id": "I6",
+      "decision": "BlockRule インターフェースに optional matchEnd(line) を追加 (additive) して複数行ブロック ($$…$$) の終端判定を可能にする",
+      "rationale": "SPEC §8.2 の骨格は match(line) のみで開始行しか判定できず、複数行ブロックの範囲が決められない。additive な拡張のため既存登録は壊れない (後方互換)。priority 5: 最も単純な拡張。"
+    },
+    {
+      "id": "I7",
+      "decision": "mermaid / katex / shiki は npm 依存としてバンドル (CDN 不使用)。mermaid と shiki は dynamic import で遅延ロード、katex は静的 import",
+      "rationale": "オフライン動作要件のため CDN 不可。mermaid/shiki はサイズが大きく初期ロードを遅らせるため使用時に遅延ロード (バンドルには含まれる)。katex は小さく inline 数式は高頻度なので静的。「バンドルサイズより動くこと優先」(priority 5)。"
+    },
+    {
+      "id": "I8",
+      "decision": "[[リンク]] 装飾の data-target はリンク記法に書かれたターゲット文字列 (+ .md 補完、NFC 正規化) をそのまま使い、vault パス解決・クリック遷移・壊れリンク判定は S6fbf45 に委ねる",
+      "rationale": "AC-S9ab6c3-2-1 は装飾表示とカーソル行のソース表示のみを要求。パス解決はバックリンクインデックス (S31ba00 API) との結線であり S6fbf45-1 のスコープ。テストされないクリック挙動をこの Sprint で追加しない (test-discipline Rule 6)。"
+    },
+    {
+      "id": "I9",
+      "decision": "AC-S9ab6c3-2-3 のユニットテストを make test に含めるため、root vitest.config.ts の include に 'packages/*/tests/unit/**/*.spec.ts' を追加",
+      "rationale": "AC の test フィールドが packages/ui/tests/unit/registry.spec.ts を指定しており、既存 include パターンに含まれていなかった。AC のパスを変えるのではなくランナー設定を合わせる (AC 変更禁止)。"
+    },
+    {
+      "id": "I10",
+      "decision": "fold-toggle ガターは子行を持つリスト行 (ListItem が複数行に跨る) のみに表示。折りたたみ placeholder は codeFolding の preparePlaceholder/placeholderDOM で fold-pill (… N 行) を生成",
+      "rationale": "prototype/editor-outline.html の「折りたたみガターの表示条件(子を持つリスト行のみ)」と TESTIDS.md の fold-toggle/fold-pill 契約 (data-line / data-folded) に一致させる。@codemirror/language の標準 fold 機構に乗せる (priority 5)。"
+    },
+    {
+      "id": "I11",
+      "decision": "Tab インデントは「直前に同レベルの兄弟リスト項目があるとき」だけ許可 (先頭項目では no-op)。アウトライナー標準セマンティクス",
+      "rationale": "E2E で発覚: 先頭リスト項目を 4 スペース字下げすると CommonMark では段落直後の字下げ = インデントコードブロックになり、リスト構造 (ピュア Markdown) が壊れる。LogSeq 等のアウトライナーも先頭項目の indent は不可。priority 1 (ピュア Markdown 正本性) に従い no-op とし、mock テストでエッジケースとして固定した。"
+    },
+    {
+      "id": "I12",
+      "decision": "[[リンク]] 装飾の除外判定は codeClaims (コードスパン/fence/autolink) のみを避け、lezer の Link ノードは避けない",
+      "rationale": "E2E で発覚: lezer-markdown は [[x]] の内側 [x] を参照リンク (Link ノード) と解釈するため、Link を除外領域にすると wikilink が一切描画されなくなる。inline レジストリのルールは従来どおり Link 内も除外する (2 段階の claim リスト)。"
+    }
+  ],
+  "review_decisions": [],
+  "done_judgment": {}
+}

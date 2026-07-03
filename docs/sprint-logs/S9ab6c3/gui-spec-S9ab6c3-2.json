@@ -1,0 +1,40 @@
+{
+  "$file": "gui-spec-S9ab6c3-2.json",
+  "sprint": "S9ab6c3",
+  "story": "S9ab6c3-2",
+  "story_type": "gui",
+  "state_diagram": "stateDiagram-v2\n    [*] --> NoteOpen: ノートをエディタに開く\n    NoteOpen --> Decorated: カーソルが行外 → 見出し/太字/斜体/インラインコード/[[リンク]] が装飾表示\n    Decorated --> SourceLine: カーソルをその行に置く → その行だけソース表示 (## や ** が見える)\n    SourceLine --> Decorated: カーソルを別の行へ\n    NoteOpen --> FenceRendered: mermaid/コードフェンス → fence-widget (レジストリ経由)\n    FenceRendered --> FenceSource: fence-widget クリック → カーソルがフェンス内へ移りソース表示\n    NoteOpen --> MathRendered: $…$ → math-inline / $$…$$ → math-block (KaTeX)",
+  "scenarios": {
+    "entry_point": "ブラウザで UI を開き、Markdown 装飾記法を含むノートをツリーから開く",
+    "happy_path": "カーソル行以外で # 見出しの記号が消え見出しサイズ表示、**太字**/*斜体* のマーク非表示、`code` のバッククォート非表示、[[リンク]] が wikilink ピルに。カーソルを置いた行だけ生 Markdown が見える。mermaid フェンスは図 (svg)、$…$/$$…$$ は KaTeX、bash 等のコードフェンスは Shiki ハイライトで描画される。fence-widget クリックでソース編集に戻れる",
+    "data_states": {
+      "empty": "装飾記法のないプレーン段落はそのまま表示",
+      "loading": "mermaid/shiki は動的 import — 描画完了までフェンスはソース表示のまま",
+      "error": "不正な mermaid コードはフェンス内にエラー表示 (アプリはクラッシュしない)"
+    },
+    "edge_cases": [
+      "未登録言語のコードフェンスは fence-widget にならず素のフェンスのまま",
+      "閉じられていない $$ ブロックは描画されずソースのまま",
+      "インラインコード内の $x$ は数式として描画しない",
+      "単独の $ (通貨表記等) は数式にしない",
+      "[[target|alias]] は alias 側を表示する"
+    ],
+    "success_feedback": "装飾はすべて表示層のみ — ファイル内容 (ピュア Markdown) は一切変わらない",
+    "failure_feedback": "レンダラーエラーはフェンス内のエラー表示に留める"
+  },
+  "endpoint_contracts": [
+    {
+      "path": "/api/notes/:path",
+      "method": "GET",
+      "registered": true,
+      "request_fields": null,
+      "response_fields": { "path": "string", "content": "string", "frontmatter": "object|null", "body": "string", "mtime": "number" }
+    }
+  ],
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/preview.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/preview.mock.spec.ts",
+    "unit": "packages/ui/tests/unit/registry.spec.ts"
+  },
+  "linked_ac": ["AC-S9ab6c3-2-1", "AC-S9ab6c3-2-2", "AC-S9ab6c3-2-3"]
+}
