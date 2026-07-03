@@ -13,8 +13,15 @@ import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { syntaxHighlighting, HighlightStyle } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
+import type { NoteMeta } from '@loamium/shared';
 import { outlineExtension } from '../outline.js';
 import { livePreviewExtension, notePathFacet } from '../live-preview.js';
+import {
+  notesUpdatedAnnotation,
+  wikilinkAutocomplete,
+  wikilinkEnvFacet,
+  type WikilinkEnv,
+} from '../wikilink.js';
 
 const mdHighlight = HighlightStyle.define([
   { tag: tags.heading1, class: 'cm-md-heading cm-md-h1' },
@@ -40,11 +47,29 @@ export interface EditorProps {
   content: string;
   /** 同一パスのまま外部内容で置き換えたいとき (競合の再読込等) に増やす */
   resetToken: number;
+  /** ノート一覧 (オートコンプリート候補 + 壊れリンク判定)。null = 未ロード */
+  notes: NoteMeta[] | null;
   onChange: (text: string) => void;
   onSave: () => void;
+  /** 解決済み [[リンク]] クリック — 対象ノートを開く */
+  onOpenNote: (path: string) => void;
+  /** 壊れ [[リンク]] クリック — ノートを作成して開く */
+  onCreateAndOpenNote: (target: string) => void;
+  /** オートコンプリートの「作成してリンク」— ノートを作成する (移動しない) */
+  onCreateNote: (target: string) => void;
 }
 
-export function Editor({ docPath, content, resetToken, onChange, onSave }: EditorProps): JSX.Element {
+export function Editor({
+  docPath,
+  content,
+  resetToken,
+  notes,
+  onChange,
+  onSave,
+  onOpenNote,
+  onCreateAndOpenNote,
+  onCreateNote,
+}: EditorProps): JSX.Element {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -52,6 +77,27 @@ export function Editor({ docPath, content, resetToken, onChange, onSave }: Edito
   const suppressRef = useRef(false);
   onChangeRef.current = onChange;
   onSaveRef.current = onSave;
+
+  // [[リンク]] 環境: すべて ref 読みの安定オブジェクト (拡張の作り直し不要)
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
+  const onOpenNoteRef = useRef(onOpenNote);
+  const onCreateAndOpenNoteRef = useRef(onCreateAndOpenNote);
+  const onCreateNoteRef = useRef(onCreateNote);
+  onOpenNoteRef.current = onOpenNote;
+  onCreateAndOpenNoteRef.current = onCreateAndOpenNote;
+  onCreateNoteRef.current = onCreateNote;
+  const wikilinkEnvRef = useRef<WikilinkEnv>({
+    getNotes: () => notesRef.current,
+    openNote: (path) => onOpenNoteRef.current(path),
+    createAndOpenNote: (target) => onCreateAndOpenNoteRef.current(target),
+    createNote: (target) => onCreateNoteRef.current(target),
+  });
+
+  // ノート一覧の変化を装飾へ伝える (壊れリンク⇄解決済みの切替)
+  useEffect(() => {
+    viewRef.current?.dispatch({ annotations: notesUpdatedAnnotation.of(true) });
+  }, [notes]);
 
   // ノートパスに依存する拡張があるため (notePathFacet)、setState での
   // ドキュメント差し替え時も同じビルダーで拡張を作り直す。
@@ -75,6 +121,8 @@ export function Editor({ docPath, content, resetToken, onChange, onSave }: Edito
     markdown({ base: markdownLanguage }),
     syntaxHighlighting(mdHighlight),
     notePathFacet.of(path),
+    wikilinkEnvFacet.of(wikilinkEnvRef.current),
+    wikilinkAutocomplete(),
     outlineExtension(),
     livePreviewExtension(),
     EditorView.updateListener.of((update) => {

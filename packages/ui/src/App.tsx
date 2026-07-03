@@ -193,6 +193,33 @@ export function App(): JSX.Element {
     [saveNow, setOpenDoc],
   );
 
+  /**
+   * [[リンク]] からのノート作成 (S6fbf45-1)。
+   * - 壊れリンクのクリック: open=true (作成して開く)
+   * - オートコンプリートの「作成してリンク」: open=false (作成のみ、執筆を中断しない)
+   * baseMtime: 0 の create-only PUT なので既存ノートを上書きしない (priority 2)。
+   */
+  const createNoteFromLink = useCallback(
+    async (target: string, open: boolean): Promise<void> => {
+      const t = target.trim().normalize('NFC');
+      if (t.length === 0) return;
+      const rel = /\.[A-Za-z0-9]+$/.test(t) ? t : `${t}.md`;
+      try {
+        await api.putNote(rel, '', 0);
+        setAppError(null);
+      } catch (err) {
+        if (!(err instanceof ApiError && err.status === 409)) {
+          setAppError(`ノートを作成できませんでした — ${errMessage(err)}`);
+          return;
+        }
+        // 409 = 既に存在 (外部で作成済み等)。リンク先はあるので続行してよい
+      }
+      void refreshNotes();
+      if (open) await openNotePath(rel);
+    },
+    [openNotePath, refreshNotes],
+  );
+
   const openJournal = useCallback(
     async (date?: string): Promise<void> => {
       if (!(await saveNow())) return;
@@ -495,8 +522,12 @@ export function App(): JSX.Element {
             docPath={doc.path}
             content={doc.text}
             resetToken={doc.resetToken}
+            notes={notes}
             onChange={onEditorChange}
             onSave={() => void saveNow()}
+            onOpenNote={(path) => void openNotePath(path)}
+            onCreateAndOpenNote={(target) => void createNoteFromLink(target, true)}
+            onCreateNote={(target) => void createNoteFromLink(target, false)}
           />
         ) : (
           <div className="empty-state" data-testid="editor-empty-state">

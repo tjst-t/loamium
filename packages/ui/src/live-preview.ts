@@ -23,7 +23,15 @@ import {
   type ViewUpdate,
 } from '@codemirror/view';
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
+import { resolveLinkTarget } from '@loamium/shared';
 import { activeLines } from './outline.js';
+import {
+  notesUpdatedAnnotation,
+  notePathsOf,
+  wikilinkEnvFacet,
+  wikilinkTarget,
+  type WikilinkEnv,
+} from './wikilink.js';
 import {
   getBlockRules,
   getFenceRenderer,
@@ -224,23 +232,53 @@ const blockDecoField = StateField.define<DecorationSet>({
 // ---- 行内装飾 (ViewPlugin) ---------------------------------------------------
 
 class WikilinkWidget extends WidgetType {
+  /**
+   * @param rawTarget 記法どおりのターゲット (例: "Hydra 設計メモ")
+   * @param label 表示テキスト (エイリアスがあればエイリアス)
+   * @param resolved 解決済み vault パス。null = 壊れリンク。
+   *   undefined = ノート一覧が未ロードで判定不能 (壊れ扱いにしない)
+   * @param env クリックナビゲーション先 (null なら装飾のみ)
+   */
   constructor(
-    readonly target: string,
+    readonly rawTarget: string,
     readonly label: string,
+    readonly resolved: string | null | undefined,
+    readonly env: WikilinkEnv | null,
   ) {
     super();
   }
 
   override eq(other: WikilinkWidget): boolean {
-    return other.target === this.target && other.label === this.label;
+    return (
+      other.rawTarget === this.rawTarget &&
+      other.label === this.label &&
+      other.resolved === this.resolved
+    );
   }
 
   override toDOM(): HTMLElement {
     const span = document.createElement('span');
-    span.className = 'wikilink';
-    span.setAttribute('data-testid', 'wikilink');
-    span.setAttribute('data-target', this.target);
+    const broken = this.resolved === null;
+    span.className = broken ? 'wikilink broken' : 'wikilink';
+    span.setAttribute('data-testid', broken ? 'wikilink-broken' : 'wikilink');
+    span.setAttribute('data-target', this.resolved ?? wikilinkTarget(this.rawTarget));
+    span.title = broken
+      ? 'ノートが存在しません — クリックで新規作成'
+      : 'クリックで開く';
     span.textContent = this.label;
+    // click ではなく mousedown で扱う: クリックでカーソルが行に入ると装飾が
+    // ソース表示に差し替わり、click イベントが届かなくなるため。
+    // preventDefault でカーソル移動も抑止する (Obsidian の LP と同じ挙動)。
+    span.addEventListener('mousedown', (e) => {
+      if (e.button !== 0 || this.env === null) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (this.resolved === null) {
+        this.env.createAndOpenNote(this.rawTarget);
+      } else {
+        this.env.openNote(this.resolved ?? wikilinkTarget(this.rawTarget));
+      }
+    });
     return span;
   }
 }
@@ -273,12 +311,6 @@ class InlineRuleWidget extends WidgetType {
 
 const WIKILINK_RE = /\[\[([^[\]|]+)(?:\|([^[\]]+))?\]\]/g;
 
-/** [[target]] の data-target 値 (記法どおり + .md 補完、NFC 正規化 — decisions.json I8) */
-function wikilinkTarget(raw: string): string {
-  const t = raw.trim().normalize('NFC');
-  return /\.[A-Za-z0-9]+$/.test(t) ? t : `${t}.md`;
-}
-
 interface ClaimedRange {
   from: number;
   to: number;
@@ -294,6 +326,17 @@ function buildInlineDecorations(view: EditorView): DecorationSet {
   const doc = state.doc;
   const active = activeLines(state);
   const notePath = state.facet(notePathFacet);
+  const wikilinkEnv = state.facet(wikilinkEnvFacet);
+  const vaultPaths = notePathsOf(state);
+  /** [[target]] → 解決済みパス (null=壊れ / undefined=一覧未ロードで判定不能) */
+  const resolveWikilink = (rawTarget: string): string | null | undefined => {
+    if (vaultPaths === null) return undefined;
+    // heading 部分 (#見出し / #^block) は解決に使わない
+    const hash = rawTarget.indexOf('#');
+    const target = (hash === -1 ? rawTarget : rawTarget.slice(0, hash)).trim();
+    if (target.length === 0) return notePath; // [[#見出し]] は同一ノート内
+    return resolveLinkTarget(target, vaultPaths);
+  };
   /**
    * 装飾を一切適用しない範囲 (コードスパン・fence・autolink)。
    * [[リンク]] はこのリストだけを避ける — lezer は [[x]] の内側 [x] を
@@ -384,9 +427,18 @@ function buildInlineDecorations(view: EditorView): DecorationSet {
         if (overlaps(codeClaims, from, to)) continue;
         const rawTarget = m[1] ?? '';
         const label = (m[2] ?? rawTarget).trim();
+        // 解決・作成には heading (#見出し / #^block) を除いたターゲットを使う
+        const hash = rawTarget.indexOf('#');
+        const targetNoHeading = (hash === -1 ? rawTarget : rawTarget.slice(0, hash)).trim();
+        const resolved = resolveWikilink(rawTarget);
         decos.push(
           Decoration.replace({
-            widget: new WikilinkWidget(wikilinkTarget(rawTarget), label),
+            widget: new WikilinkWidget(
+              targetNoHeading.length > 0 ? targetNoHeading : rawTarget.trim(),
+              label,
+              resolved,
+              wikilinkEnv,
+            ),
           }).range(from, to),
         );
         claimed.push({ from, to });
@@ -428,7 +480,9 @@ const inlinePreviewPlugin = ViewPlugin.fromClass(
         update.docChanged ||
         update.selectionSet ||
         update.viewportChanged ||
-        syntaxTree(update.state) !== syntaxTree(update.startState)
+        syntaxTree(update.state) !== syntaxTree(update.startState) ||
+        // ノート一覧の変化 (作成・削除・リネーム) で壊れリンク判定をやり直す
+        update.transactions.some((tr) => tr.annotation(notesUpdatedAnnotation) === true)
       ) {
         this.decorations = buildInlineDecorations(update.view);
       }
