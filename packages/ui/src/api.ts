@@ -4,15 +4,19 @@
  */
 import { z } from 'zod';
 import {
+  backlinksResponseSchema,
   journalResponseSchema,
   noteDeleteResponseSchema,
   noteListResponseSchema,
+  noteRenameResponseSchema,
   noteResponseSchema,
   noteWriteResponseSchema,
   errorResponseSchema,
+  type BacklinksResponse,
   type JournalResponse,
   type NoteDeleteResponse,
   type NoteListResponse,
+  type NoteRenameResponse,
   type NoteResponse,
   type NoteWriteResponse,
 } from '@loamium/shared';
@@ -92,5 +96,17 @@ export const api = {
   getJournal(date?: string): Promise<JournalResponse> {
     const qs = date !== undefined ? `?date=${encodeURIComponent(date)}` : '';
     return request(journalResponseSchema, `/api/journal${qs}`);
+  },
+
+  getBacklinks(path: string): Promise<BacklinksResponse> {
+    return request(backlinksResponseSchema, `/api/backlinks?path=${encodeURIComponent(path)}`);
+  },
+
+  renameNote(path: string, newPath: string): Promise<NoteRenameResponse> {
+    return request(noteRenameResponseSchema, `/api/notes/${encodeNotePath(path)}/rename`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ newPath }),
+    });
   },
 };

@@ -82,6 +82,8 @@ export function App(): JSX.Element {
   const [dialog, setDialog] = useState<DialogState>(null);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
+  /** 保存成功のたびに増える — バックリンクパネルの再取得トリガー (S6fbf45-2) */
+  const [backlinksToken, setBacklinksToken] = useState(0);
 
   const docRef = useRef<OpenDoc | null>(null);
   const contentRef = useRef('');
@@ -133,6 +135,7 @@ export function App(): JSX.Element {
         setConflictPath(null);
         setAppError(null);
         if (res.created) void refreshNotes();
+        setBacklinksToken((v) => v + 1); // 保存でバックリンクパネルを更新
         return true;
       } catch (err) {
         if (err instanceof ApiError && err.status === 409) {
@@ -567,7 +570,13 @@ export function App(): JSX.Element {
       </main>
 
       {/* ================= 右: バックリンクパネル ================= */}
-      <BacklinkPanel collapsed={panelCollapsed} onToggle={() => setPanelCollapsed((v) => !v)} />
+      <BacklinkPanel
+        collapsed={panelCollapsed}
+        onToggle={() => setPanelCollapsed((v) => !v)}
+        notePath={doc?.path ?? null}
+        refreshToken={backlinksToken}
+        onOpenNote={(path) => void openNotePath(path)}
+      />
 
       {/* ================= ポップアップ ================= */}
       {menu !== null && (

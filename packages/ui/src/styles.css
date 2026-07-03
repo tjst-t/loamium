@@ -812,3 +812,64 @@ code {
   color: var(--accent);
   font-weight: 700;
 }
+
+/* ==========================================================================
+   S6fbf45 — バックリンクパネル (実データ)
+   prototype/wikilink-autocomplete.html 右ペイン準拠
+   ========================================================================== */
+
+.panel-header .count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.backlink-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--bg-editor);
+  border-radius: 8px;
+  padding: 9px 11px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.backlink-item:hover { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.backlink-source {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.backlink-source svg { width: 13px; height: 13px; color: var(--text-faint); flex-shrink: 0; }
+.backlink-context {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.backlink-context mark {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 3px;
+  padding: 0 2px;
+}
+.panel-empty .detail {
+  font-size: 11px;
+  color: var(--text-faint);
+  word-break: break-all;
+}
