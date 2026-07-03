@@ -134,6 +134,9 @@ describe('[AC-Sd63ad1-1-2] append and patch', () => {
       body: JSON.stringify({ content: '- [ ] new task' }),
     });
     expect(append.status).toBe(200);
+    // Sa704c3: append レスポンスも書き込み後 mtime を返す (UI の baseMtime 更新用)
+    const appendBody = (await append.json()) as { mtime: number };
+    expect(Number.isInteger(appendBody.mtime)).toBe(true);
 
     const get = await fetch(`${server.baseUrl}/api/notes/notes/todo.md`);
     const note = (await get.json()) as { content: string };
