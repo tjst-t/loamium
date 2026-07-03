@@ -1,0 +1,68 @@
+{
+  "sprint": "S31ba00",
+  "decisions": [
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "GUI spec プロセス: 本 Sprint に GUI Story なし",
+      "detail": "3 Story すべて REST API (検索・バックリンク・監視反映) で UI を持たないため story_type=api と分類。受け入れテストは実 HTTP クライアントで実サーバー (tsx サブプロセス) を叩く Sd63ad1 と同じハーネスを使う。",
+      "reference": "VISION.tech_constraints / test-discipline Rule 2 (api)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "Story の直列実行 (Sd63ad1 と同方式)",
+      "detail": "この実行環境にはワークツリー分離サブエージェントを起動する Agent ツールが無い。また Story 2 は Story 1 のインデックス基盤に、Story 3 は 1・2 のインデックス更新経路に依存するため Wave はいずれにせよ直列 (1→2→3)。本セッションで直列実装し、Story レベルレビューは code-review スキルで実施、独立 verifier は claude CLI の別セッション (read-only) で起動する。",
+      "reference": "DESIGN_PRINCIPLES priority 5 (シンプルさ > 汎用性) / Sd63ad1 planning decision と同一",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "検索は Fuse.js、インデックスは Map + Fuse を都度再構成",
+      "detail": "全文検索は VISION 指定どおり Fuse.js (fuse.js) を採用。インデックス本体は Map<path, IndexedNote> のインメモリ構造とし、Fuse インスタンスは変更時に配列から再生成する (個人 vault 規模では十分軽く、実装が最も単純)。数千ノートで遅くなったら SQLite FTS5 へ移行する余地を残す (SPEC §9-9)。",
+      "reference": "VISION.tech_constraints (Fuse.js、FTS5 移行余地) / DESIGN_PRINCIPLES priority 5・6",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "書き込み API はインデックスを即時更新 (write-through) + chokidar は外部変更の追従",
+      "detail": "ARCHITECTURE の書き込みフロー『ファイル書き込み → 監査ログ追記 → インデックス即時更新』に従い、notes/journal の書き込み成功後にインデックスへ write-through する。chokidar は API 外の変更 (外部エディタ・Git) の追従が主目的。同一ファイルへの二重更新はべき等 (ファイル再読み込み) なので競合しない。",
+      "reference": "docs/ARCHITECTURE.md Data Flow / DESIGN_PRINCIPLES priority 6 (ファイルが正)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "タグ・リンク抽出は shared に置き、コードフェンス・インラインコードを除外",
+      "detail": "#tag / [[WikiLink]] 抽出は packages/shared (markdown.ts 拡張) に実装し、将来 UI からも再利用する。フェンス付きコードブロック (``` / ~~~) 内とインラインコード (`...`) 内はタグ・リンクとも抽出対象外。タグは Obsidian 互換 (英数字・_ - / ・Unicode 文字、純数字は除外、frontmatter tags は配列・カンマ区切り文字列の両方を認識)。",
+      "reference": "DESIGN_PRINCIPLES priority 4 (Obsidian 互換) / ROADMAP task S31ba00-1-1 (コードフェンス内除外)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "リンク解決規則: NFC 正規化 + 大文字小文字不区別 + 拡張子省略 + フォルダ横断ファイル名一致",
+      "detail": "[[target]] の解決は (1) target を NFC 正規化し #heading / ^block / |alias 部分を除去、(2) .md 拡張子は省略可、(3) '/' を含む場合は vault ルートからのパス一致を優先、(4) ファイル名のみの場合は全フォルダ横断で basename 一致、(5) 大文字小文字は不区別 (Obsidian 準拠)、(6) 複数候補はパス昇順で最短パスを採用 (決定的)。ブロック ID・見出しアンカーはファイルへ一切書き込まない (読み取り互換のみ)。",
+      "reference": "DESIGN_PRINCIPLES priority 4 (Obsidian 互換)・forbidden (ブロック ID 書き込み禁止) / SPEC §9-8 (NFC/NFD)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "新規エンドポイントは GET /api/search・GET /api/notes (一覧)・GET /api/tags・GET /api/backlinks の 4 本",
+      "detail": "すべて読み取り系のため全権限モードで許可され、監査ログ対象外 (既存方針: 読み取りは記録しない)。レスポンスは zod スキーマを shared に追加して型共有する。GET /api/notes (一覧) は既存の GET /api/notes/{path} と衝突しない (prefix が異なる)。",
+      "reference": "DESIGN_PRINCIPLES priority 3 (API/CLI の安定)・coding_conventions (zod 共有)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    }
+  ]
+}

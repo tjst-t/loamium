@@ -1,0 +1,35 @@
+{
+  "story": "S31ba00-1",
+  "story_type": "api",
+  "user_role": "エージェント(Claude Code 等)・ノート利用者が REST API で vault を検索・一覧する",
+  "entry_point": "http://localhost:{PORT}/api (LOAMIUM_VAULT で指定した vault、認証なしローカル)",
+  "scenarios": [
+    {
+      "id": "scenario-1",
+      "linked_ac": ["AC-S31ba00-1-1"],
+      "description": "利用者がノートを作成した後、キーワードで全文検索してパスとマッチ箇所(スニペット)を得る",
+      "preconditions": ["空の一時 vault でサーバーが起動している"],
+      "steps": [
+        { "n": 1, "action": "PUT /api/notes/projects/hydra.md に『Hydra の監査ログ設計』を含む本文を送る", "expected": "201。ノートが作成される" },
+        { "n": 2, "action": "GET /api/search?q=監査ログ", "expected": "200。results に path: projects/hydra.md が含まれ、snippet にマッチ箇所(『監査ログ』を含む行)が入っている" },
+        { "n": 3, "action": "GET /api/search?q=存在しない語XYZQW", "expected": "200。results は空配列" },
+        { "n": 4, "action": "GET /api/search (q なし)", "expected": "400。エラーレスポンス" }
+      ],
+      "cleanup": ["一時 vault ディレクトリ削除"]
+    },
+    {
+      "id": "scenario-2",
+      "linked_ac": ["AC-S31ba00-1-2"],
+      "description": "利用者がタグ(#tag / frontmatter tags)とフォルダでノート一覧を絞り込む",
+      "preconditions": ["インラインタグ #dev を含むノート、frontmatter tags: [dev] のノート、projects/ 配下のノート、コードフェンス内にだけ #fake を含むノートが存在する"],
+      "steps": [
+        { "n": 1, "action": "GET /api/notes", "expected": "200。vault 内の全 .md ノートが一覧される" },
+        { "n": 2, "action": "GET /api/notes?tag=dev", "expected": "200。#dev インラインタグのノートと frontmatter tags のノートが両方含まれる" },
+        { "n": 3, "action": "GET /api/notes?folder=projects", "expected": "200。projects/ 配下のノートのみが返る" },
+        { "n": 4, "action": "GET /api/notes?tag=fake", "expected": "200。空配列 (コードフェンス内の #fake はタグとして認識されない)" },
+        { "n": 5, "action": "GET /api/tags", "expected": "200。vault 内のタグと件数の一覧が返る" }
+      ],
+      "cleanup": ["一時 vault ディレクトリ削除"]
+    }
+  ]
+}

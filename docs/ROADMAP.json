@@ -5,8 +5,8 @@
     "current_sprint": "S31ba00",
     "total": 6,
     "done": 1,
-    "in_progress": 0,
-    "remaining": 5,
+    "in_progress": 1,
+    "remaining": 4,
     "percentage": 17
   },
   "execution_order": [
@@ -143,13 +143,13 @@
     },
     "S31ba00": {
       "title": "インデックス — 検索・バックリンク・ファイル監視",
-      "status": "pending",
+      "status": "in_progress",
       "description": "インメモリインデックス(全文検索・バックリンク・タグ)と chokidar によるファイル監視・再構築。外部編集(エディタ・Git)にも追従する。インデックスは使い捨て、ファイルが正。",
       "milestone": false,
       "stories": {
         "S31ba00-1": {
           "title": "全文検索とノート一覧",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、vault 全体をキーワードで検索し、タグやフォルダでノートを絞り込みたい。なぜなら、蓄積したノートから目的の情報へ素早く到達できなければ知識が死蔵されるから。",
@@ -171,12 +171,12 @@
             "S31ba00-1-1": {
               "title": "shared: タグ・リンク抽出",
               "description": "parseNote() を拡張し #tag(コードフェンス内は除外)と frontmatter tags、[[WikiLink]] を抽出。ユニットテスト必須。",
-              "status": "pending"
+              "status": "done"
             },
             "S31ba00-1-2": {
               "title": "server: インデックスと検索エンドポイント",
               "description": "起動時に vault を全走査してインメモリインデックス構築。Fuse.js で /api/search、/api/notes 一覧 + フィルタ、/api/tags。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },

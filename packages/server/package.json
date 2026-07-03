@@ -11,6 +11,8 @@
   "dependencies": {
     "@hono/node-server": "^1.14.0",
     "@loamium/shared": "*",
+    "chokidar": "^5.0.0",
+    "fuse.js": "^7.4.2",
     "hono": "^4.7.0"
   }
 }
