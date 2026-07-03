@@ -24,7 +24,99 @@
       "rationale": "CLAUDE.md / DESIGN_PRINCIPLES priority 3「REST API と CLI コマンドは 1:1 対応」が明文の不変条件であり、SPEC §5 の CLI 表はドラフト (『次のステップで確定させる』) にすぎない。rename はエージェントのノート整理ユースケース (VISION target_users) に直結し、薄いラッパー 1 コマンドの追加コストは小さい。skill/SKILL.md と tests/acceptance/skill.spec.ts のコマンド一覧 (10→11) も追従更新する。"
     }
   ],
-  "implementation_decisions": [],
-  "review_decisions": [],
+  "implementation_decisions": [
+    {
+      "id": "I1",
+      "decision": "rename は POST /api/notes/{path}/rename、リクエストは {newPath} (フルの vault 相対パス)",
+      "rationale": "フォルダをまたぐ移動 (Obsidian のノート移動と同義) を同一エンドポイントで表現できる最も単純な形 (priority 5)。newPath は normalizeVaultPath を通し .md 補完・`..` 脱出検証を受ける (priority 2)。"
+    },
+    {
+      "id": "I2",
+      "decision": "リンク書き換えは「compute-then-apply」: 全ファイルを読み書き換えを計算し終えるまでディスクへ一切書かない。移動 → 参照元書き換えの順で適用し、途中失敗は rename_partial_failure (500) でどこまで適用したかを明示する",
+      "rationale": "priority 2 (失敗時の部分適用防止)。検証 (404/409/400) をすべて書き込み前に行うため、拒否ケースでは vault は完全に不変。マルチファイルの原子性は FS では得られないため、vault=Git 前提 (VISION) を復旧経路として応答に明示する。"
+    },
+    {
+      "id": "I3",
+      "decision": "書き換え対象は resolveLinkTarget(target, 全パス) === 旧パス のリンクのみ。同名 basename が別ノートへ解決される曖昧リンクは書き換えない",
+      "rationale": "priority 2: リンクの意味 (解決先) を変えないことが正。解決先が旧パスでないリンクを書き換えると参照先の付け替えになる。受け入れテストで固定。"
+    },
+    {
+      "id": "I4",
+      "decision": "書き換え後のリンク表記は preferredLinkTarget: 新 basename が一意に解決するなら basename、衝突するならフルパス (拡張子なし)。#見出し / #^block / |エイリアス / 埋め込み ! はバイト単位で保存",
+      "rationale": "Obsidian の「可能なら最短パス」慣行 (priority 4)。書いたリンクが必ず新パスへ解決することを機械的に保証する。オートコンプリートの挿入テキストにも同一関数を使い一貫させる。"
+    },
+    {
+      "id": "I5",
+      "decision": "リンク書き換えの走査はインデックスではなく listNoteFiles によるファイルシステム直接走査",
+      "rationale": "priority 6 (ファイルが正)。インデックスの鮮度に依存させず、rename 実行時点のディスク内容から計算する。個人 vault 規模で全走査は十分軽い。"
+    },
+    {
+      "id": "I6",
+      "decision": "CLI rename を追加し SKILL.md / skill.spec.ts を 10→11 コマンドに追従 (計画 P4 の実施)",
+      "rationale": "REST/CLI 1:1 不変条件 (CLAUDE.md / priority 3)。"
+    },
+    {
+      "id": "I7",
+      "decision": "オートコンプリートは @codemirror/autocomplete を採用し、filter:false + 自前の部分一致 (NFC・大文字小文字不区別、タイトル優先・パスも対象)。validFor は使わず 1 打鍵ごとにソース再実行",
+      "rationale": "AC-S6fbf45-1-1 の「部分一致で絞り込み」を fuzzy ではなく文字どおり実装する。validFor は filter:false と併用すると候補が絞り込まれなくなる (実測)。IME 対応・キーボード操作は CodeMirror 標準に任せる (priority 5)。"
+    },
+    {
+      "id": "I8",
+      "decision": "候補ポップアップの testid は addToOptions の自前 DOM (wl-option) + MutationObserver でコンテナに wikilink-autocomplete を付与。既定ラベルは CSS で非表示",
+      "rationale": "CodeMirror の tooltip DOM は属性注入 API を持たない。TESTIDS.md 契約 (data-note 特定・クリック挿入) を満たす最小の介入で、キーボード/クリック/仮想化などの標準挙動を壊さない。"
+    },
+    {
+      "id": "I9",
+      "decision": "「新規ノートを作成してリンク」の選択は [[名前]] 挿入 + create-only PUT (baseMtime:0) でノート作成し、ナビゲーションはしない。壊れリンクのクリックは作成して開く",
+      "rationale": "prototype の文言「作成してリンク」どおり。入力中の執筆を中断しない。作成は create-only なので既存ノートを上書きしない (priority 2)。既存 (409) はエラーにせず続行。"
+    },
+    {
+      "id": "I10",
+      "decision": "リンクのクリックは click ではなく mousedown (preventDefault) で処理し、プレーンクリックでも Cmd/Ctrl+クリックでも遷移する",
+      "rationale": "クリックでカーソルが行に入ると装飾がソース表示に差し替わり click イベントが widget に届かない (実測)。Obsidian Live Preview のプレーンクリック遷移に一致 (VISION design_references)。"
+    },
+    {
+      "id": "I11",
+      "decision": "wikilink の data-target は解決済み vault パスに変更 (壊れリンクは従来の記法+.md)。preview.e2e の期待値を追従更新",
+      "rationale": "S9ab6c3 decisions I8 が明示的に S6fbf45 へ先送りした結線。テストの weakening ではなく解決済みパスへの強化。TESTIDS.md に記録。"
+    },
+    {
+      "id": "I12",
+      "decision": "ノート一覧未ロード (取得失敗) 時はリンクを壊れ扱いにしない (中立表示)",
+      "rationale": "誤った赤表示はユーザーの信頼を壊す。判定不能は安全側 (非破壊表示) に倒す。mock テストで固定。"
+    },
+    {
+      "id": "I13",
+      "decision": "バックリンクパネルは (source, link) ペアごとに 1 項目表示し、件数バッジはリンク総数。ノート切替と保存成功 (refreshToken) で再取得",
+      "rationale": "AC-S6fbf45-2-1 の「参照元 + コンテキスト行」表示。タスク記述『ノート切替・保存で更新』どおり。取得失敗は backlink-error (additive testid) でパネル内に留めエディタを阻害しない。"
+    },
+    {
+      "id": "I14",
+      "decision": "installCatchAll に既定の空バックリンク応答を追加 (後勝ち登録で上書き可)",
+      "rationale": "パネルがノートを開くたびに GET /api/backlinks を発行するようになったため。既存 mock テストの意図 (予期しない呼び出し検出) を保ちながら定常呼び出しを許容する一点修正。"
+    },
+    {
+      "id": "I15",
+      "decision": "UI リネーム成功後、開いているノートがリネーム対象または書き換え対象なら api.getNote で開き直す",
+      "rationale": "エディタバッファとディスクの乖離を放置すると次回保存が 409 になり、上書きを選ぶと追従済みリンクを巻き戻してしまう (priority 2)。リネーム前に saveNow で未保存編集を反映してから実行する。"
+    }
+  ],
+  "review_decisions": [
+    {
+      "id": "R1",
+      "decision": "壊れリンク/オートコンプリートからのノート作成は .md / 拡張子なしターゲットに限定。[[image.png]] 等の非 Markdown ターゲットは app-error で拒否 (image.png.md の意図しない生成を防ぐ)",
+      "rationale": "Sprint レビュー (code-review 手順) で CONFIRMED。normalizeVaultPath の .md 補完により添付参照クリックが奇妙なノートを作る事故を防ぐ (priority 2)。mock テストで固定。"
+    },
+    {
+      "id": "R2",
+      "decision": "putNote テストヘルパーの 3 スペックファイル重複は許容 (統合しない)",
+      "rationale": "既存スペックも editorLine 等をファイル内に持つ自己完結スタイル。ハーネス共通化はテスト可読性との交換で見送り (priority 5)。"
+    },
+    {
+      "id": "R3",
+      "decision": "listNoteFiles と VaultIndex.build の walk 重複は許容",
+      "rationale": "build は NFD 実パスヒント付き読み込みという別責務を持つ。共通化は結合を増やすだけと判断 (priority 5)。"
+    }
+  ],
   "done_judgment": {}
 }

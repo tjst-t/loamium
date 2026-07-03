@@ -254,7 +254,13 @@ export function App(): JSX.Element {
     async (target: string, open: boolean): Promise<void> => {
       const t = target.trim().normalize('NFC');
       if (t.length === 0) return;
-      const rel = /\.[A-Za-z0-9]+$/.test(t) ? t : `${t}.md`;
+      if (/\.[A-Za-z0-9]+$/.test(t) && !/\.md$/i.test(t)) {
+        // [[image.png]] 等の非 Markdown ターゲットを "image.png.md" として
+        // 作成してしまわない (レビュー指摘 R1 — 添付参照はノート作成対象外)
+        setAppError(`ノート以外のファイルは [[リンク]] から作成できません — ${t}`);
+        return;
+      }
+      const rel = /\.md$/i.test(t) ? t : `${t}.md`;
       try {
         await api.putNote(rel, '', 0);
         setAppError(null);

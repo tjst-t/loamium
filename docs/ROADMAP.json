@@ -485,7 +485,7 @@
       "stories": {
         "S6fbf45-1": {
           "title": "[[リンク]] オートコンプリート",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、[[ と打ったら既存ノート名の候補から選んでリンクを張りたい。なぜなら、正確なノート名を思い出せなくてもリンクを素早く張れることがネットワーク形成の前提だから。",
@@ -513,18 +513,18 @@
             "S6fbf45-1-1": {
               "title": "オートコンプリート拡張",
               "description": "CodeMirror autocompletion。[[ トリガーでノート名一覧(API から取得・キャッシュ)を候補表示。",
-              "status": "pending"
+              "status": "done"
             },
             "S6fbf45-1-2": {
               "title": "リンクの解決・装飾・ナビゲーション",
               "description": "存在チェックによる壊れリンク装飾、クリックで開く/新規作成。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S6fbf45-2": {
           "title": "バックリンクパネル",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、開いているノートへのバックリンク一覧をパネルで見たい。なぜなら、そのノートがどんな文脈から参照されているかを辿ることで思考がつながるから。",
@@ -540,13 +540,13 @@
             "S6fbf45-2-1": {
               "title": "バックリンクパネル実装",
               "description": "GET /api/backlinks を表示するサイドパネル。ノート切替・保存で更新。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S6fbf45-3": {
           "title": "リネーム時のリンク追従",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、ノートをリネームしたら全ノートの [[旧名]] が自動で書き換わってほしい。なぜなら、リンク切れが蓄積するとノートネットワークの信頼性が崩壊するから。",
@@ -568,12 +568,12 @@
             "S6fbf45-3-1": {
               "title": "server: rename エンドポイント",
               "description": "ファイル移動 + 全ノートの [[旧名]] 書き換え(見出し・エイリアス形式含む)。コードフェンス内は書き換えない。受け入れテスト付き。",
-              "status": "pending"
+              "status": "done"
             },
             "S6fbf45-3-2": {
               "title": "UI リネーム統合",
               "description": "ツリーのリネームを rename API に接続。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }

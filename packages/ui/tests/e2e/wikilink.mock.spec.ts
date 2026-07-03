@@ -192,3 +192,18 @@ test('[MOCK] コードフェンス・インラインコード内の [[リンク]
   await expect(page.getByTestId('wikilink-broken')).toHaveCount(0);
   expect(unexpected).toEqual([]);
 });
+
+test('[MOCK] 非 Markdown ターゲット ([[image.png]]) の壊れリンクはクリックしてもノートを作成しない', async ({ page }) => {
+  const unexpected = await openApp(page, '添付 ![[image.png]] を参照。\n\nアンカー行。\n', 'アンカー行');
+
+  await editorLine(page, 'アンカー行').click();
+  const broken = page.getByTestId('wikilink-broken');
+  await expect(broken).toBeVisible();
+  await broken.click();
+
+  // PUT は飛ばず (installCatchAll が検出しない)、app-error で明示する
+  await expect(page.getByTestId('app-error')).toBeVisible();
+  await expect(page.getByTestId('app-error')).toContainText('作成できません');
+  await expect(page.locator('.breadcrumb .current')).toHaveText(DATE);
+  expect(unexpected).toEqual([]);
+});
