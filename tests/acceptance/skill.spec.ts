@@ -164,6 +164,8 @@ describe('[AC-S0c9a48-2-1] 記載コマンドが実 CLI と食い違わない', 
     for (const inv of extractLoamiumInvocations(raw)) {
       for (const token of inv.split(/\s+/)) {
         const flag = token.replace(/^\[/, '').replace(/\]$/, '');
+        // 裸の `--` は end-of-options 区切り (commander 標準) であってフラグではない
+        if (flag === '--') continue;
         if (flag.startsWith('--')) {
           expect(REAL_FLAGS.has(flag), `SKILL.md に実在しないフラグの例がある: ${inv} (${flag})`).toBe(
             true,
