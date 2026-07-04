@@ -1,0 +1,40 @@
+{
+  "milestone_summary": {
+    "stopped_at": "milestone_final_batch3 (Sprints Sf1a90a, S935867, Seac77a, S763a98)",
+    "compromises": [
+      {
+        "type": "type_safety_relaxed",
+        "severity": "low",
+        "story": "S935867-1",
+        "file": "packages/ui/src/components/SearchPage.tsx",
+        "rationale": "検索履歴の dedup キーを `${q}\\x00${tag}\\x00...` と NUL 区切りで組んでおり、git がファイル全体をバイナリ blob 扱いにしてレビュー不能になっていた(機能影響なし・dedup と React key のみ)。",
+        "diff_summary": "historyKey を JSON.stringify([q,tag,folder,sort]) に置換。NUL 除去でテキストファイルに復帰。",
+        "recommended_action": "対応済み(親 autopilot がマージ前に修正・lint+テスト pass)。再発防止に NUL バイト混入の CI ガードを検討。",
+        "adr_ref": "none",
+        "overlooked_by_autopilot": true
+      }
+    ],
+    "notes": [
+      "上記 1 件は verifier(独立)が検出し親 autopilot がマージ前に修正済み。§2.4 の他カテゴリ(テスト無効化・アサーション弱体化・エラー握りつぶし)は 0 件。",
+      "本バッチ 4 Sprint はサブエージェント環境に Agent(サブエージェント spawn)ツールが無く独立 verifier を起動できなかったため、全 4 Sprint とも親 autopilot が opus の read-only verifier を補完実行した(全て overall=pass)。"
+    ],
+    "user_review_items": [
+      {
+        "id": "warn-ptyEnv-regression",
+        "sprint": "Sf1a90a",
+        "summary": "既定 claude が起動できなかったバグ(ユーザー報告①)の修正(ptyEnv から CLAUDECODE 等を除去)に自動回帰テストが無い。E2E は bash で通るため env 修正を守れていない。",
+        "recommended_action": "ptyEnv を export してユニットテスト追加(次バッチ or sprint fix)。"
+      },
+      {
+        "id": "warn-note-folder-nav",
+        "sprint": "Seac77a",
+        "summary": "AC-Seac77a-1-3 の遷移経路2『サイドバーのツリーのフォルダクリック→/files』が未成立。Sf1a90a でサイドバーのフォルダツリーを撤去したため、クリック元が存在しない。『すべて表示』経路と /files 内のフォルダ横断閲覧は動作し、フォルダ横断でノートへ到達する中核価値は充足。",
+        "recommended_action": "フォルダ・ノートへの到達導線が十分か実機で確認。不足なら sprint fix でツリーのフォルダクリック→/files の導線を追加。"
+      }
+    ],
+    "blockers_encountered": [],
+    "scope_changes": [
+      "Seac77a のスコープを『アセット専用一覧』から『vault 全体のファイル/フォルダブラウザ(ノート含む)』に拡張(Sf1a90a のシェル刷新でノートのフォルダ閲覧手段が消えた分の受け皿とするため。verifier warn 起点でマージ前に ROADMAP を修正)。"
+    ]
+  }
+}

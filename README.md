@@ -162,13 +162,13 @@ make lint      # tsc --noEmit (全 workspace)
 make build     # ビルド
 ```
 
-テストは「ユーザーの入口から」が原則です — API は実 HTTP、CLI はサブプロセス起動、UI は実ブラウザ + 実サーバーの E2E で受け入れ条件を検証しています(2026-07 時点: Vitest 334 件 + Playwright 121 件)。
+テストは「ユーザーの入口から」が原則です — API は実 HTTP、CLI はサブプロセス起動、UI は実ブラウザ + 実サーバーの E2E で受け入れ条件を検証しています(2026-07 時点: Vitest 352 件 + Playwright 152 件)。
 
 開発の進め方・ロードマップは [`docs/ROADMAP.json`](docs/ROADMAP.json)、プロダクトの狙いは [`docs/VISION.json`](docs/VISION.json) を参照してください。
 
 ## ステータスと今後
 
-**ロードマップ 11 Sprint 完了**(2026-07): エディタ・ジャーナル・検索(Cmd+K)・バックリンク・リンク追従・記法拡張(embed / callout / highlight / dataview)・添付ファイルと埋め込みプレビュー・CLI/Skill 統合・アプリ内 Claude Code タブまで動作します。今後の候補(バックログ):
+**ロードマップ 15 Sprint 完了**(2026-07): エディタ・ジャーナル・検索(Cmd+K + 詳細検索ページ)・バックリンク・リンク追従・記法拡張(embed / callout / highlight / dataview)・添付ファイルと埋め込みプレビュー・ファイル/フォルダブラウザ・`/` スラッシュメニュー・ブラウザ的ルーティング(戻る/進む)・右サイドバーの Claude(ターミナル)・CLI/Skill 統合まで動作します。今後の候補(バックログ):
 
 - Cloudflare Tunnel + Access による外部公開手順
 - デスクトップ化(Tauri / Deno Desktop 再評価)
