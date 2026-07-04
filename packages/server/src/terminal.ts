@@ -85,13 +85,29 @@ export function isAllowedOrigin(origin: string | undefined, host: string | undef
   return LOOPBACK_HOSTS.has(url.hostname); // ローカル配信の UI
 }
 
-/** process.env から undefined を除いた pty 用 env を作る。 */
+/**
+ * Claude Code のネスト検出変数。既定コマンド claude を pty で起動するとき、
+ * サーバー自身が Claude Code 配下で動いていると子 claude が「Claude Code 内で
+ * 起動された」と誤認して挙動が変わる/即終了しうる (milestone review ① の切断バグ)。
+ * pty は独立した対話セッションなので、これらは継承せず落とす (AC-Sf1a90a-2-2)。
+ */
+const CLAUDE_NEST_ENV_KEYS = ['CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_SSE_PORT'];
+
+/**
+ * process.env から undefined を除いた pty 用 env を作る。
+ * 既定 claude が信頼プロンプトまで確実に到達するよう TERM/COLORTERM/ロケールを整える
+ * (AC-Sf1a90a-2-2)。cwd は呼び出し側で vaultRoot を渡す。
+ */
 function ptyEnv(): Record<string, string> {
   const env: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) {
     if (v !== undefined) env[k] = v;
   }
+  for (const k of CLAUDE_NEST_ENV_KEYS) delete env[k];
   env.TERM = 'xterm-256color';
+  env.COLORTERM = 'truecolor';
+  // CJK を含む vault 名/パスの表示崩れを避ける。既存指定があれば尊重する。
+  if (env.LANG === undefined || env.LANG === '') env.LANG = 'C.UTF-8';
   return env;
 }
 

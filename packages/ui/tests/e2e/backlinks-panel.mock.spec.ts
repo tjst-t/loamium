@@ -146,11 +146,12 @@ test('[MOCK] パネルの開閉トグルで折りたたみ・復帰できる', a
   const unexpected = await openApp(page, { backlinks: BACKLINKS });
 
   await expect(page.getByTestId('backlink-item')).toHaveCount(2);
-  await page.getByTestId('backlink-panel-toggle').click();
-  await expect(page.getByTestId('backlink-panel')).toHaveClass(/collapsed/);
+  // 右サイドバー自体の開閉トグル (Sf1a90a-2: right-sidebar-toggle)
+  await page.getByTestId('right-sidebar-toggle').click();
+  await expect(page.getByTestId('right-sidebar')).toHaveClass(/collapsed/);
   await expect(page.getByTestId('backlink-item')).toHaveCount(0);
-  await page.getByTestId('backlink-panel-toggle').click();
-  await expect(page.getByTestId('backlink-panel')).not.toHaveClass(/collapsed/);
+  await page.getByTestId('right-sidebar-toggle').click();
+  await expect(page.getByTestId('right-sidebar')).not.toHaveClass(/collapsed/);
   await expect(page.getByTestId('backlink-item')).toHaveCount(2);
   expect(unexpected).toEqual([]);
 });

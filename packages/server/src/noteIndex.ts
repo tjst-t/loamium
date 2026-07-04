@@ -224,7 +224,7 @@ export class VaultIndex {
       if (folderKey !== null) {
         if (!(folder === folderKey || folder.startsWith(`${folderKey}/`))) continue;
       }
-      out.push({ path: note.path, title: note.title, tags: note.tags, folder });
+      out.push({ path: note.path, title: note.title, tags: note.tags, folder, mtime: note.mtime });
     }
     out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
     return out;

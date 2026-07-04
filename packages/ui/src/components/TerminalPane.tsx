@@ -58,6 +58,9 @@ export function TerminalPane({
 }: TerminalPaneProps): JSX.Element {
   const [status, setStatusRaw] = useState<TerminalStatus>('loading');
   const [disabledReason, setDisabledReason] = useState<DisabledReason>('terminal_env_not_set');
+  /** 直前セッションの終了コード (切断バーに表示 — AC-Sf1a90a-2-3)。 */
+  const [exitCode, setExitCode] = useState<number | null>(null);
+  const exitCodeRef = useRef<number | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -127,6 +130,7 @@ export function TerminalPane({
       wsRef.current = null;
       old.close();
     }
+    exitCodeRef.current = null; // 新セッション: 前回の終了コードを持ち越さない
     const ws = new WebSocket(wsEndpoint());
     wsRef.current = ws;
     ws.onopen = () => {
@@ -149,12 +153,15 @@ export function TerminalPane({
       if (!parsed.success) return;
       if (parsed.data.type === 'output') {
         term.write(parsed.data.data);
+      } else {
+        // type 'exit': 終了コードを控えておき、直後の close で切断バーに出す
+        exitCodeRef.current = parsed.data.exitCode;
       }
-      // type 'exit' はサーバーが直後に close するため onclose 側で扱う
     };
     ws.onclose = () => {
       if (wsRef.current !== ws || disposedRef.current) return;
       wsRef.current = null;
+      setExitCode(exitCodeRef.current);
       term.write('\r\n\x1b[2m[接続が終了しました]\x1b[0m\r\n');
       setStatus('disconnected');
     };
@@ -224,8 +231,9 @@ export function TerminalPane({
 
   return (
     <div
-      className="terminal-wrap"
+      className="terminal-wrap claude-body"
       style={{ display: active ? 'flex' : 'none' }}
+      data-testid="claude-panel"
       data-terminal-status={status}
     >
       {status === 'disabled' && (
@@ -282,7 +290,9 @@ export function TerminalPane({
         <div className="reconnect-bar" data-testid="terminal-reconnect-bar">
           <WarnTriangleIcon />
           <span>
-            ターミナルとの接続が切断されました。セッションは終了しています(子プロセスは停止済み)。
+            セッションが終了しました
+            {exitCode !== null ? `(終了コード ${String(exitCode)})` : ''}
+            。子プロセスは停止済み(三重ガード + Origin 検証は維持)。
           </span>
           <button className="btn primary" data-testid="terminal-reconnect" onClick={reconnect}>
             再接続

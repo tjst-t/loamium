@@ -92,9 +92,9 @@ node packages/cli/bin/loamium.js journal-append "はじめてのメモ"
 
 全 11 コマンド: `read` / `write` / `append` / `patch` / `rename` / `journal` / `journal-append` / `search` / `backlinks` / `list` / `tags`。すべて `--json` で生 JSON 出力、失敗時は非 0 終了 + stderr に 1 行 JSON(`{"error","message"}`)を返すため、スクリプトやエージェントから扱いやすくなっています。内容が `-` で始まるとき(リスト・frontmatter)は `--` 区切りを使ってください: `loamium write note.md -- "---\ntags: [x]\n---"`。
 
-## アプリ内 Claude Code タブ(ターミナル)
+## 右サイドバーの Claude(ターミナル)
 
-UI の「ターミナル」タブで、vault を作業ディレクトリとした TUI(既定は [Claude Code](https://docs.anthropic.com/claude-code) の `claude`)をそのまま操作できます(xterm.js + WebSocket + node-pty)。
+UI の右サイドバーは **バックリンク ⇄ Claude** のトグルです。Claude タブに切り替えると、vault を作業ディレクトリとした TUI(既定は [Claude Code](https://docs.anthropic.com/claude-code) の `claude`)をそのまま操作できます(xterm.js + WebSocket + node-pty)。**メインのノートは見えたまま**なので、ノートを見ながら対話できます。バックリンクと Claude を切り替えても xterm セッションは維持されます。
 
 ターミナルは **vault 上で任意コマンドを実行できるため、デフォルト無効** です。次の 2 つを両方満たすときだけ有効になります(SPEC §6 の明示オプトイン):
 
@@ -107,10 +107,11 @@ LOAMIUM_TERMINAL=1 LOAMIUM_MODE=full LOAMIUM_VAULT="$PWD/dev-vault" PORT=3000 \
 LOAMIUM_TERMINAL_CMD=bash  # シェルなども指定可 (引数なしの単一コマンド)
 ```
 
-- **claude を使う場合の前提**: サーバーを動かすマシンで `claude` にログイン済みであること(認証はサーバー側のローカル環境に従います)。vault ルートに CLAUDE.md や Skill(`skill/`)を置いておくと、ノートを踏まえた対話ができます
-- read-only / append-only モードでは `LOAMIUM_TERMINAL=1` でも無効です(タブに理由と有効化手順が表示されます)
+- **claude を使う場合の前提**: サーバーを動かすマシンで `claude` にログイン済みであること(認証はサーバー側のローカル環境に従います)。初回起動時は「Do you trust this folder?(このフォルダを信頼しますか)」の信頼プロンプトが右サイドバーに表示されるので、`1`(Yes)を選んで Enter すると対話に入れます。vault ルートに CLAUDE.md や Skill(`skill/`)を置いておくと、ノートを踏まえた対話ができます
+- pty へ渡す環境変数は整えてあります: 既定 `claude` が確実に起動するよう、`TERM=xterm-256color` / `COLORTERM=truecolor` / `LANG`(未設定時 `C.UTF-8`)を設定し、Loamium サーバー自身を Claude Code 配下で動かしている場合に子 `claude` が誤動作しないよう `CLAUDECODE` / `CLAUDE_CODE_ENTRYPOINT` / `CLAUDE_CODE_SSE_PORT` を継承させません
+- read-only / append-only モードでは `LOAMIUM_TERMINAL=1` でも無効です(サイドバーに理由と有効化手順が表示されます)
 - セッションの開始・終了は監査ログ(`.loamium/audit.log`)に記録されます。**入力したコマンドの内容は記録されません**
-- 切断時(`exit` やサーバー再起動)は子プロセスを確実に終了し、タブの「再接続」ボタンで新しいセッションを開けます
+- 切断時(`exit` やサーバー再起動)は子プロセスを確実に終了し、サイドバーに **終了コード**と「再接続」ボタンが表示されます(三重ガード + Origin 検証は維持されます)
 - WS `/api/terminal` は Origin を検証し、遠隔サイト(あなたが訪れた別の Web ページ)からの cross-site WebSocket hijacking を拒否します。許可されるのはループバック配信の UI と 同一オリジンのみです
 - `LOAMIUM_TERMINAL=1` のまま LAN 公開(`HOST=0.0.0.0`)すると、ネットワーク上の誰でも vault でコマンド実行できてしまいます(LAN オリジンは Origin 検証でも弾かれますが、そもそも 公開しないのが安全)。**ターミナル有効時はローカルバインド(既定 127.0.0.1)のまま使うか、Cloudflare Access 等の認証層を必ず挟んでください**
 
