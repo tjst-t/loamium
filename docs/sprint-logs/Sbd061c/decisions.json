@@ -69,5 +69,21 @@
       "rationale": "GET /api/notes 失敗の表示が、後続の GET /api/search 成功 (setError(null)) で消され、ノート名セクションの欠落が黙殺されるバグをレビューで検出。表示は searchError ?? notesError。"
     }
   ],
-  "done_judgment": null
+  "done_judgment": [
+    {
+      "story_id": "Sbd061c-1",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      },
+      "notes": "guard1: user_review_required=false (review_reason=null)。guard2: nil-guard パターン 0 件。guard3: e2e はネットワークモック 0 件 (page.route/MSW/vi.mock grep clean)、実サーバー + 実 vault。MOCK=true/DRY_RUN/fake 0 件。guard4: priority_rule 9 例外の主張なし → n/a。guard5: パレット→GET /api/search→S31ba00 実 Fuse インデックス、GET /api/notes→実 listNotes の結合を e2e が実 round-trip (シード PUT→検索ヒット→該当行カーソル) で証明。guard6: 先送りコメント 0 件 (diff grep clean)。guard7: docs/DESIGN/ 不在 → n/a。guard8: data path (Go 定義ディレクトリ) 非該当 → n/a。"
+    }
+  ]
 }

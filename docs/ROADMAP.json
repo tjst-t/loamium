@@ -592,7 +592,7 @@
       "stories": {
         "Sbd061c-1": {
           "title": "グローバル検索パレット",
-          "status": "in_progress",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、Cmd/Ctrl+K で検索パレットを開きノート名・全文からノートへ移動したい。なぜなら、ツリーを辿らず数秒で目的のノートに到達できることがデイリー利用の前提だから。",
@@ -620,17 +620,17 @@
             "Sbd061c-1-1": {
               "title": "検索パレット UI",
               "description": "モーダルパレットコンポーネント(キーボードナビゲーション: ↑↓/Enter/Esc)。プロトタイプの data-testid 契約に追従。",
-              "status": "pending"
+              "status": "done"
             },
             "Sbd061c-1-2": {
               "title": "検索統合",
               "description": "GET /api/search + GET /api/notes をデバウンス付きで叩き、ノート名一致と全文ヒットをセクション分けして表示。該当行へのスクロール・カーソル移動。",
-              "status": "pending"
+              "status": "done"
             },
             "Sbd061c-1-3": {
               "title": "二層テスト",
               "description": "mock(エラー・空結果・デバウンス)+ E2E(実サーバーで AC 検証、[AC-] タグ付き)。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
