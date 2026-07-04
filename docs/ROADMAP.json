@@ -3,11 +3,11 @@
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
     "current_sprint": "Sbd061c",
-    "total": 10,
+    "total": 11,
     "done": 6,
     "in_progress": 0,
-    "remaining": 4,
-    "percentage": 60
+    "remaining": 5,
+    "percentage": 55
   },
   "execution_order": [
     "Sd63ad1",
@@ -18,6 +18,7 @@
     "S6fbf45",
     "Sbd061c",
     "S9e5ca4",
+    "Sf53ad6",
     "Sb1593c",
     "Sb7f458"
   ],
@@ -639,7 +640,7 @@
       "title": "記法拡張 — transclusion・画像・callout・highlight",
       "status": "pending",
       "description": "3 レジストリの上に Obsidian 互換記法を拡充する。![[embed]](ノート/見出し/画像)、> [!note] callout、==highlight==。画像表示のため読み取り専用のファイル配信エンドポイントを追加する。ファイル形式は一切変えない(ピュア Markdown 維持)。",
-      "milestone": true,
+      "milestone": false,
       "stories": {
         "S9e5ca4-1": {
           "title": "![[embed]] transclusion(ノート・見出し)",
@@ -923,6 +924,141 @@
           }
         }
       }
+    },
+    "Sf53ad6": {
+      "title": "ファイルアップロードと埋め込みプレビュー",
+      "status": "pending",
+      "description": "任意ファイルを vault にアップロードし(API/CLI/UI ドラッグ&ドロップ・ペースト)、ノートに ![[file]] で埋め込めるようにする。PDF・画像・テキスト・Markdown などプレビュー可能なファイルはブロックとして埋め込みプレビュー、それ以外はファイルカード表示。添付の置き場所は assets/ 配下を既定とする(DESIGN_PRINCIPLES)。",
+      "milestone": false,
+      "stories": {
+        "Sf53ad6-1": {
+          "title": "ファイルアップロード API + CLI",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "エージェントおよびノート利用者として、任意のファイルを API/CLI から vault にアップロードしたい。なぜなら、スクリーンショット・PDF・ログなどノートの文脈に属する資料を vault の外に散らかしたくないから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sf53ad6-1-1",
+              "description": "POST /api/files/{path} でファイルをアップロードできる(既存パスへは overwrite フラグなしなら 409)。書き込みは監査ログに記録され、read-only / append-only モードでは 403 になる",
+              "test": "[AC-Sf53ad6-1-1] in tests/acceptance/files-upload.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sf53ad6-1-2",
+              "description": "パス脱出・.loamium/ 配下・.md 拡張子(notes API へ誘導)・サイズ上限超過(LOAMIUM_MAX_UPLOAD、既定 50MB)は 4xx で拒否される",
+              "test": "[AC-Sf53ad6-1-2] in tests/acceptance/files-upload.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sf53ad6-1-3",
+              "description": "loamium upload <ローカルファイル> [vault内パス](省略時 assets/<ファイル名>)が API と 1:1 で動作する(--json 対応)",
+              "test": "[AC-Sf53ad6-1-3] in tests/acceptance/cli-upload.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sf53ad6-1-1": {
+              "title": "server: upload エンドポイント",
+              "description": "POST /api/files/{path}(raw body + Content-Type)。パス正規化ユーティリティ経由、サイズ上限、409/403/400 系、監査ログ。受け入れテスト付き。",
+              "status": "pending"
+            },
+            "Sf53ad6-1-2": {
+              "title": "CLI: upload コマンド",
+              "description": "loamium upload。デフォルト保存先 assets/。SKILL.md への用例追記と doc-drift テスト追従。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sf53ad6-2": {
+          "title": "UI アップロード(ドラッグ&ドロップ / ペースト)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、エディタへのドラッグ&ドロップやクリップボード貼り付けでファイルを添付したい。なぜなら、スクリーンショットを撮って Cmd+V するだけで画像入りノートが書ける体験がメモの速度を決めるから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sf53ad6-2-1",
+              "description": "エディタへのファイルのドラッグ&ドロップおよび画像のクリップボード貼り付けで assets/ にアップロードされ、カーソル位置に ![[パス]] が挿入される",
+              "test": "[AC-Sf53ad6-2-1] in packages/ui/tests/e2e/upload.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sf53ad6-2-2",
+              "description": "ファイル名衝突時は自動で連番リネームされ(例: image-1.png)、アップロード失敗(サイズ超過・権限)はエラートーストで通知される",
+              "test": "[AC-Sf53ad6-2-2] in packages/ui/tests/e2e/upload.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sf53ad6-2-3",
+              "description": "ファイルツリーに非 .md ファイルも表示され、クリックでプレビュー(削除・リネームも既存ツリー操作と同様に可能)",
+              "test": "[AC-Sf53ad6-2-3] in packages/ui/tests/e2e/upload.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sf53ad6-2-1": {
+              "title": "D&D / ペーストハンドラ",
+              "description": "CodeMirror の drop/paste イベントからアップロード → ![[]] 挿入。進行中インジケータ。",
+              "status": "pending"
+            },
+            "Sf53ad6-2-2": {
+              "title": "ツリーの添付ファイル対応",
+              "description": "非 .md の表示(アイコン区別)・選択時プレビュー・削除/リネーム(リネームは ![[リンク]] 追従を含む)。",
+              "status": "pending"
+            },
+            "Sf53ad6-2-3": {
+              "title": "二層テスト",
+              "description": "mock(サイズ超過・403・衝突)+ E2E(実アップロード → 実ファイル検証、[AC-] タグ)。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sf53ad6-3": {
+          "title": "埋め込みプレビューブロック",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、![[file.pdf]] のような添付参照がノート内でそのままプレビューされてほしい。なぜなら、資料を開き直さずノートの文脈の中で読めることが「知識が育つ場」の体験だから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sf53ad6-3-1",
+              "description": "![[file.pdf]] が PDF ビューアブロック(スクロール/ページ閲覧可能)として埋め込み表示される",
+              "test": "[AC-Sf53ad6-3-1] in packages/ui/tests/e2e/file-preview.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sf53ad6-3-2",
+              "description": "テキスト系ファイル(.txt / .log / .json / .csv / コード拡張子)は読み取り専用テキストブロック(コード系はシンタックスハイライト付き)で埋め込み表示される",
+              "test": "[AC-Sf53ad6-3-2] in packages/ui/tests/e2e/file-preview.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sf53ad6-3-3",
+              "description": "![[doc.md]] はノート transclusion(S9e5ca4-1)と同一の埋め込み表示になり、プレビュー不能な拡張子はファイルカード(名前・サイズ・ダウンロードリンク)で表示される",
+              "test": "[AC-Sf53ad6-3-3] in packages/ui/tests/e2e/file-preview.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sf53ad6-3-1": {
+              "title": "拡張子→プレビュー種別のディスパッチ",
+              "description": "embed block rule を拡張し、.md=transclusion / 画像 / pdf / テキスト系 / その他カードに振り分け。レジストリ登録で種別追加できる構造。",
+              "status": "pending"
+            },
+            "Sf53ad6-3-2": {
+              "title": "PDF / テキストプレビュー実装",
+              "description": "PDF はブラウザ内蔵ビューア(iframe/embed)を第一候補に(重い pdf.js 同梱は避ける)。テキストは /api/files から取得し Shiki 再利用。サイズの大きいテキストは先頭 N 行 + 「全体を開く」。",
+              "status": "pending"
+            },
+            "Sf53ad6-3-3": {
+              "title": "E2E",
+              "description": "実ファイル(小さな PDF・txt・png)を fixtures に置き実プレビューを検証。",
+              "status": "pending"
+            }
+          }
+        }
+      }
     }
   },
   "dependencies": {
@@ -981,6 +1117,12 @@
         "Sa704c3"
       ],
       "reason": "ターミナルタブは UI 基盤のタブ機構に載る"
+    },
+    "Sf53ad6": {
+      "depends_on": [
+        "S9e5ca4"
+      ],
+      "reason": "アップロードは S9e5ca4 のファイル配信(GET /api/files)と embed block rule の上に載る"
     }
   },
   "backlog": [
