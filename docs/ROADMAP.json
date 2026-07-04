@@ -5,8 +5,8 @@
     "current_sprint": "Sf53ad6",
     "total": 11,
     "done": 8,
-    "in_progress": 0,
-    "remaining": 3,
+    "in_progress": 1,
+    "remaining": 2,
     "percentage": 73
   },
   "execution_order": [
@@ -927,7 +927,7 @@
     },
     "Sf53ad6": {
       "title": "ファイルアップロードと埋め込みプレビュー",
-      "status": "pending",
+      "status": "in_progress",
       "description": "任意ファイルを vault にアップロードし(API/CLI/UI ドラッグ&ドロップ・ペースト)、ノートに ![[file]] で埋め込めるようにする。PDF・画像・テキスト・Markdown などプレビュー可能なファイルはブロックとして埋め込みプレビュー、それ以外はファイルカード表示。添付の置き場所は assets/ 配下を既定とする(DESIGN_PRINCIPLES)。",
       "milestone": false,
       "stories": {

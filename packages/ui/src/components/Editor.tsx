@@ -13,8 +13,9 @@ import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { syntaxHighlighting, HighlightStyle } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
-import type { NoteMeta } from '@loamium/shared';
+import type { FileMeta, NoteMeta } from '@loamium/shared';
 import { outlineExtension } from '../outline.js';
+import { uploadEnvFacet, uploadExtension, type UploadEnv } from '../upload.js';
 import { livePreviewExtension, notePathFacet } from '../live-preview.js';
 import {
   notesUpdatedAnnotation,
@@ -54,6 +55,8 @@ export interface EditorProps {
   seek?: { line: number; token: number } | null;
   /** ノート一覧 (オートコンプリート候補 + 壊れリンク判定)。null = 未ロード */
   notes: NoteMeta[] | null;
+  /** 添付ファイル一覧 (![[file]] プレビューの解決・サイズ表示)。null = 未ロード */
+  files: FileMeta[] | null;
   onChange: (text: string) => void;
   onSave: () => void;
   /** 解決済み [[リンク]] クリック — 対象ノートを開く */
@@ -62,6 +65,10 @@ export interface EditorProps {
   onCreateAndOpenNote: (target: string) => void;
   /** オートコンプリートの「作成してリンク」— ノートを作成する (移動しない) */
   onCreateNote: (target: string) => void;
+  /** D&D / ペーストのアップロード実体 (Sf53ad6-2)。保存された vault パスを返す */
+  onUploadFiles: (uploads: File[]) => Promise<string[]>;
+  /** ファイルドラッグ中のドロップオーバーレイ表示切替 */
+  onDragActive: (active: boolean) => void;
 }
 
 export function Editor({
@@ -70,11 +77,14 @@ export function Editor({
   resetToken,
   seek,
   notes,
+  files,
   onChange,
   onSave,
   onOpenNote,
   onCreateAndOpenNote,
   onCreateNote,
+  onUploadFiles,
+  onDragActive,
 }: EditorProps): JSX.Element {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -87,6 +97,8 @@ export function Editor({
   // [[リンク]] 環境: すべて ref 読みの安定オブジェクト (拡張の作り直し不要)
   const notesRef = useRef(notes);
   notesRef.current = notes;
+  const filesRef = useRef(files);
+  filesRef.current = files;
   const onOpenNoteRef = useRef(onOpenNote);
   const onCreateAndOpenNoteRef = useRef(onCreateAndOpenNote);
   const onCreateNoteRef = useRef(onCreateNote);
@@ -98,12 +110,23 @@ export function Editor({
     openNote: (path) => onOpenNoteRef.current(path),
     createAndOpenNote: (target) => onCreateAndOpenNoteRef.current(target),
     createNote: (target) => onCreateNoteRef.current(target),
+    getFiles: () => filesRef.current,
   });
 
-  // ノート一覧の変化を装飾へ伝える (壊れリンク⇄解決済みの切替)
+  // アップロード環境 (Sf53ad6-2): 実体は App、拡張は ref 読みの安定オブジェクト
+  const onUploadFilesRef = useRef(onUploadFiles);
+  const onDragActiveRef = useRef(onDragActive);
+  onUploadFilesRef.current = onUploadFiles;
+  onDragActiveRef.current = onDragActive;
+  const uploadEnvRef = useRef<UploadEnv>({
+    uploadFiles: (uploads) => onUploadFilesRef.current(uploads),
+    setDragActive: (active) => onDragActiveRef.current(active),
+  });
+
+  // ノート/添付一覧の変化を装飾へ伝える (壊れリンク⇄解決済み・![[file]] メタの切替)
   useEffect(() => {
     viewRef.current?.dispatch({ annotations: notesUpdatedAnnotation.of(true) });
-  }, [notes]);
+  }, [notes, files]);
 
   // ノートパスに依存する拡張があるため (notePathFacet)、setState での
   // ドキュメント差し替え時も同じビルダーで拡張を作り直す。
@@ -128,6 +151,8 @@ export function Editor({
     syntaxHighlighting(mdHighlight),
     notePathFacet.of(path),
     wikilinkEnvFacet.of(wikilinkEnvRef.current),
+    uploadEnvFacet.of(uploadEnvRef.current),
+    uploadExtension(),
     wikilinkAutocomplete(),
     outlineExtension(),
     livePreviewExtension(),

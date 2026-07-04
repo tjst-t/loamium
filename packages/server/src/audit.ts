@@ -32,6 +32,10 @@ export function deriveOp(method: string, reqPath: string): string {
       return 'note.unknown';
     }
   }
+  if (reqPath.startsWith('/api/files/')) {
+    if (method === 'POST') return reqPath.endsWith('/rename') ? 'file.rename' : 'file.write';
+    if (method === 'DELETE') return 'file.delete';
+  }
   return `${method.toLowerCase()}.unknown`;
 }
 

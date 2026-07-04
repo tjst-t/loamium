@@ -20,7 +20,7 @@ import {
   type CompletionContext,
   type CompletionResult,
 } from '@codemirror/autocomplete';
-import { preferredLinkTarget, type NoteMeta } from '@loamium/shared';
+import { preferredLinkTarget, type FileMeta, type NoteMeta } from '@loamium/shared';
 
 /** App から注入する [[リンク]] 環境。実装はすべて ref を読む安定関数にすること。 */
 export interface WikilinkEnv {
@@ -32,6 +32,11 @@ export interface WikilinkEnv {
   createAndOpenNote: (target: string) => void;
   /** オートコンプリートの「作成してリンク」— ノートを作成する (移動しない) */
   createNote: (target: string) => void;
+  /**
+   * 添付 (非 .md) ファイル一覧 (Sf53ad6 で追加 — additive)。null = 未ロード。
+   * ![[file]] プレビューの解決・サイズ表示が使う (live-preview の RenderEnv 経由)。
+   */
+  getFiles?: () => readonly FileMeta[] | null;
 }
 
 export const wikilinkEnvFacet = Facet.define<WikilinkEnv, WikilinkEnv | null>({

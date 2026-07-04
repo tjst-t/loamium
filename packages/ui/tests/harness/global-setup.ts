@@ -101,7 +101,15 @@ export default async function globalSetup(): Promise<void> {
 
   // ---- 実サーバー ----
   const serverProc = spawn(tsxBin, [serverEntry], {
-    env: { ...process.env, LOAMIUM_VAULT: vault, LOAMIUM_MODE: 'full', PORT: '0' },
+    // LOAMIUM_MAX_UPLOAD=5MB: サイズ超過エラーの実 E2E (upload.e2e) を、巨大ファイルを
+    // 作らずに検証するため上限を絞る (本番既定は 50MB — AC-Sf53ad6-1-2)
+    env: {
+      ...process.env,
+      LOAMIUM_VAULT: vault,
+      LOAMIUM_MODE: 'full',
+      PORT: '0',
+      LOAMIUM_MAX_UPLOAD: '5mb',
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
     detached: true,
   });

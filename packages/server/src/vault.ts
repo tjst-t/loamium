@@ -120,6 +120,125 @@ export async function listNoteFiles(vaultRoot: string): Promise<string[]> {
   return out;
 }
 
+export interface VaultFileStat {
+  size: number;
+  mtime: number;
+}
+
+/** 任意ファイルの stat (size + mtime)。存在しない / ディレクトリなら null。 */
+export async function statVaultFile(
+  vaultRoot: string,
+  relPath: string,
+): Promise<VaultFileStat | null> {
+  const abs = resolveVaultFile(vaultRoot, relPath);
+  try {
+    const st = await fs.stat(abs);
+    if (!st.isFile()) return null;
+    return { size: st.size, mtime: Math.trunc(st.mtimeMs) };
+  } catch (err) {
+    if (isErrnoException(err) && (err.code === 'ENOENT' || err.code === 'ENOTDIR')) return null;
+    throw err;
+  }
+}
+
+/** パスがディレクトリとして存在するか。 */
+export async function isVaultDirectory(vaultRoot: string, relPath: string): Promise<boolean> {
+  const abs = resolveVaultFile(vaultRoot, relPath);
+  try {
+    return (await fs.stat(abs)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * vault 内へ任意ファイルをバイト列で書く (Sf53ad6-1: アップロード)。
+ * 親ディレクトリ自動作成。バイト列は無加工で書く (改行変換もしない — 添付は正本のバイナリ)。
+ */
+export async function writeVaultFile(
+  vaultRoot: string,
+  relPath: string,
+  data: Buffer,
+): Promise<{ created: boolean; size: number; mtime: number }> {
+  const abs = resolveVaultFile(vaultRoot, relPath);
+  const existed = await fileExists(abs);
+  await fs.mkdir(path.dirname(abs), { recursive: true });
+  await fs.writeFile(abs, data);
+  const st = await fs.stat(abs);
+  return { created: !existed, size: st.size, mtime: Math.trunc(st.mtimeMs) };
+}
+
+/** 任意ファイルを削除する。存在しなければ false。 */
+export async function deleteVaultFile(vaultRoot: string, relPath: string): Promise<boolean> {
+  const abs = resolveVaultFile(vaultRoot, relPath);
+  try {
+    const st = await fs.stat(abs);
+    if (!st.isFile()) return false; // ディレクトリは対象外 (安全側)
+    await fs.unlink(abs);
+    return true;
+  } catch (err) {
+    if (isErrnoException(err) && (err.code === 'ENOENT' || err.code === 'ENOTDIR')) return false;
+    throw err;
+  }
+}
+
+/**
+ * 任意ファイルをディスク上で移動する (Sf53ad6-2: 添付リネーム)。
+ * バイト列・mtime を保存する fs.rename を使う。移動先の親は自動作成。
+ */
+export async function moveVaultFile(
+  vaultRoot: string,
+  oldRel: string,
+  newRel: string,
+): Promise<void> {
+  const oldAbs = resolveVaultFile(vaultRoot, oldRel);
+  const newAbs = resolveVaultFile(vaultRoot, newRel);
+  await fs.mkdir(path.dirname(newAbs), { recursive: true });
+  await fs.rename(oldAbs, newAbs);
+}
+
+/**
+ * vault 内の全「非 .md ファイル」(添付) の一覧を返す (パス昇順、NFC・"/" 区切り)。
+ * ドット始まりのセグメント (.loamium / .git / .obsidian) は除外。
+ * 添付ツリー表示・リネーム追従の候補集合に使う (ファイルが正 — priority 6)。
+ */
+export async function listVaultFiles(
+  vaultRoot: string,
+): Promise<{ path: string; size: number; mtime: number }[]> {
+  const root = path.resolve(vaultRoot);
+  const out: { path: string; size: number; mtime: number }[] = [];
+  const walk = async (dirAbs: string): Promise<void> => {
+    let entries;
+    try {
+      entries = await fs.readdir(dirAbs, { withFileTypes: true });
+    } catch {
+      return; // 消えたディレクトリ等は無視 (ファイルが正)
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue;
+      const abs = path.join(dirAbs, entry.name);
+      if (entry.isDirectory()) {
+        await walk(abs);
+      } else if (entry.isFile() && !entry.name.toLowerCase().endsWith('.md')) {
+        let st;
+        try {
+          st = await fs.stat(abs);
+        } catch {
+          continue; // 走査中に消えたファイル
+        }
+        out.push({
+          path: path.relative(root, abs).split(path.sep).join('/').normalize('NFC'),
+          size: st.size,
+          mtime: Math.trunc(st.mtimeMs),
+        });
+      }
+    }
+  };
+  await walk(root);
+  out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  return out;
+}
+
 /** ノートを削除する。存在しなければ false。 */
 export async function deleteNote(vaultRoot: string, relPath: string): Promise<boolean> {
   const abs = resolveVaultFile(vaultRoot, relPath);

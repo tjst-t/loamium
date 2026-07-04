@@ -56,6 +56,66 @@ export function resolveLinkTarget(target: string, vaultPaths: Iterable<string>):
 }
 
 /**
+ * リンクターゲットを vault 内の非 .md ファイル (添付) パスに解決する (Sf53ad6-2)。
+ *
+ * resolveLinkTarget との違い:
+ * - `.md` を補完しない (ターゲットは拡張子込みで書かれる: ![[image.png]])
+ * - 候補は添付ファイルのパス一覧 (listVaultFiles 等)
+ *
+ * それ以外の規則 (NFC・大小不区別・`/` 有無でパス一致 / basename 横断一致・
+ * 複数候補の決定的選択) は resolveLinkTarget と同一。
+ *
+ * @param target [[...]] の中身から heading/alias を除いた部分 (拡張子込み)
+ * @param filePaths vault 内の全添付ファイルの相対パス (`assets/a.png` 形式)
+ * @returns 解決された相対パス。見つからなければ null
+ */
+export function resolveFileLinkTarget(target: string, filePaths: Iterable<string>): string | null {
+  let t = target.normalize('NFC').trim();
+  if (t.length === 0) return null;
+  t = t.replace(/^\/+/, '');
+  if (t.length === 0) return null;
+  const key = comparableKey(t);
+
+  if (t.includes('/')) {
+    for (const p of filePaths) {
+      if (comparableKey(p) === key) return p;
+    }
+    return null;
+  }
+
+  const candidates: string[] = [];
+  for (const p of filePaths) {
+    const base = p.split('/').pop() ?? p;
+    if (comparableKey(base) === key) candidates.push(p);
+  }
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => {
+    const da = a.split('/').length;
+    const db = b.split('/').length;
+    if (da !== db) return da - db;
+    return a < b ? -1 : a > b ? 1 : 0;
+  });
+  return candidates[0] ?? null;
+}
+
+/**
+ * filePath (添付ファイル) を指す [[リンク]] に書くべき最短ターゲット表記を返す
+ * (拡張子は保持する — 添付参照は拡張子込みが正)。
+ *
+ * preferredLinkTarget の添付ファイル版: basename が一意に filePath へ解決するなら
+ * basename、同名衝突ならフルパス。リネーム追従の書き換え先に使う (Sf53ad6-2)。
+ *
+ * @param filePath リンク先ファイルの vault 相対パス (`assets/a.png`)
+ * @param filePaths リンクが解決される時点の全添付ファイルパス (filePath を含むこと)
+ */
+export function preferredFileLinkTarget(filePath: string, filePaths: Iterable<string>): string {
+  const path = filePath.normalize('NFC');
+  const base = path.split('/').pop() ?? path;
+  if (resolveFileLinkTarget(base, filePaths) === path) return base;
+  return path;
+}
+
+/**
  * notePath を指す [[リンク]] に書くべき最短ターゲット表記 (拡張子なし) を返す。
  *
  * Obsidian の「可能なら最短パス」慣行に合わせる:

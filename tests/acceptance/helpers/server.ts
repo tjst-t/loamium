@@ -33,10 +33,13 @@ export async function makeTempVault(): Promise<string> {
 export async function startServer(options: {
   vault: string;
   mode?: 'full' | 'read-only' | 'append-only';
+  /** 追加の環境変数 (LOAMIUM_MAX_UPLOAD 等) */
+  env?: Record<string, string>;
 }): Promise<TestServer> {
   const proc = spawn(tsxBin, [serverEntry], {
     env: {
       ...process.env,
+      ...options.env,
       LOAMIUM_VAULT: options.vault,
       LOAMIUM_MODE: options.mode ?? 'full',
       PORT: '0',

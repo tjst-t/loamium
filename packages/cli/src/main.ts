@@ -12,6 +12,8 @@
  *   search <query>                       GET    /api/search?q=
  *   backlinks <path>                     GET    /api/backlinks?path=
  *   file <path>                          GET    /api/files/{path} (バイト列を stdout へ)
+ *   upload <local> [vault-path]          POST   /api/files/{path} (省略時 assets/<ファイル名>)
+ *   files                                GET    /api/files (添付ファイル一覧)
  *   list [--tag] [--folder]              GET    /api/notes[?tag=&folder=]
  *   tags                                 GET    /api/tags
  *
@@ -20,9 +22,13 @@
  * - 失敗: 非 0 exit、stderr に 1 行 JSON {"error","message"} (機械可読 + 人間可読 message)
  *   exit 1 = API / 接続エラー、exit 2 = 使い方エラー (引数不足・不明コマンド等)
  */
+import { readFile } from 'node:fs/promises';
+import { basename } from 'node:path';
 import { Command, CommanderError } from 'commander';
 import {
   backlinksResponseSchema,
+  fileListResponseSchema,
+  fileWriteResponseSchema,
   journalAppendResponseSchema,
   journalResponseSchema,
   noteListResponseSchema,
@@ -38,6 +44,7 @@ import {
   CliError,
   encodeFilePath,
   encodeNotePath,
+  postBytes,
   postJson,
   putJson,
   toVaultPath,
@@ -236,6 +243,42 @@ function buildProgram(): Command {
         });
       }),
   );
+
+  sub('upload', 'ローカルファイルを vault にアップロードする (POST /api/files/{path})')
+    .argument('<local-file>', 'アップロードするローカルファイルのパス')
+    .argument('[vault-path]', '保存先の vault 相対パス (省略時 assets/<ファイル名>)')
+    .option('--overwrite', '既存の同名ファイルを上書きする (なしなら 409 conflict)')
+    .action(async (localFile: string, vaultPath: string | undefined, opts: JsonOpt & { overwrite?: boolean }) => {
+      let bytes: Uint8Array;
+      try {
+        bytes = new Uint8Array(await readFile(localFile));
+      } catch (err) {
+        const code = err instanceof Error && 'code' in err && err.code === 'ENOENT'
+          ? 'local_file_not_found'
+          : 'local_read_error';
+        throw new CliError(code, `could not read local file: ${localFile}`);
+      }
+      const dest = vaultPath ?? `assets/${basename(localFile)}`;
+      const base = await resolveBaseUrl();
+      const qs = opts.overwrite === true ? '?overwrite=true' : '';
+      const result = await apiFetch(base, `/api/files/${encodeFilePath(dest)}${qs}`, postBytes(bytes));
+      output(opts, result, () => {
+        const res = parseAs(result, fileWriteResponseSchema, 'upload');
+        println(`${res.created ? 'uploaded' : 'overwrote'} ${res.path} (${String(res.size)} bytes)`);
+      });
+    });
+
+  sub('files', '添付 (非 .md) ファイル一覧を表示する (GET /api/files)')
+    .action(async (opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, '/api/files');
+      output(opts, result, () => {
+        const res = parseAs(result, fileListResponseSchema, 'files');
+        for (const f of res.files) {
+          println(`${f.path}\t${String(f.size)}`);
+        }
+      });
+    });
 
   sub('list', 'ノート一覧を表示する。--tag / --folder で絞り込み (GET /api/notes)')
     .option('--tag <tag>', 'タグで絞り込む (# なし)')

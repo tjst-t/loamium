@@ -153,16 +153,32 @@ test('[MOCK] 存在しない画像 (404) は壊れ表示になり、アプリは
   expect(unexpected).toEqual([]);
 });
 
-test('[MOCK] 未対応拡張子の ![[file.xyz]] はエラーカードで打ち切られる (レジストリ未登録)', async ({ page }) => {
+test('[MOCK] 未対応拡張子の ![[file.xyz]] はファイルカードになる (Sf53ad6-3 でエラーカードから変更)', async ({ page }) => {
   const unexpected = await openWithJournal(
     page,
     '![[data/バックアップ.xyz]]\n\nアンカー行。\n',
     'アンカー行',
     { list: [JOURNAL_PATH] },
   );
+  // 添付一覧に載っている → 名前・サイズ・ダウンロードリンクのカード (AC-Sf53ad6-3-3)
+  await page.route('**/api/files', (route) => {
+    void route.fulfill(
+      json({ files: [{ path: 'data/バックアップ.xyz', size: 2048, mtime: 1000 }] }),
+    );
+  });
+  await page.reload();
+  await expect(page.getByTestId('editor')).toContainText('アンカー行');
+  await editorLine(page, 'アンカー行').click();
 
-  const error = page.locator('[data-testid="embed-error"][data-target="data/バックアップ.xyz"]');
-  await expect(error).toBeVisible();
-  await expect(error).toContainText('未対応');
+  const card = page.locator(
+    '[data-testid="file-embed"][data-kind="card"][data-path="data/バックアップ.xyz"]',
+  );
+  await expect(card).toBeVisible();
+  await expect(card).toContainText('バックアップ.xyz');
+  await expect(card).toContainText('2.0 KB');
+  await expect(card.getByTestId('file-embed-download')).toHaveAttribute(
+    'href',
+    '/api/files/data/%E3%83%90%E3%83%83%E3%82%AF%E3%82%A2%E3%83%83%E3%83%97.xyz',
+  );
   expect(unexpected).toEqual([]);
 });

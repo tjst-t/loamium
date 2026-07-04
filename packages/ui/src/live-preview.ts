@@ -154,6 +154,7 @@ function buildBlockDecorations(state: EditorState): DecorationSet {
   const renderEnv: RenderEnv = {
     getNotePaths: () => notePathsOf(state),
     openNote: (path) => wlEnv?.openNote(path),
+    getFiles: () => wlEnv?.getFiles?.() ?? null,
   };
   const blockCtx: RenderContext = { notePath, env: renderEnv, embedChain: [notePath] };
   /** fence が占有した行 (block レジストリの走査から除外) */

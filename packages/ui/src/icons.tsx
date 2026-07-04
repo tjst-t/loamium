@@ -124,3 +124,70 @@ export function SearchIcon({ className }: IconProps): JSX.Element {
     </svg>
   );
 }
+
+// ---- 添付ファイル種別アイコン (Sf53ad6-2 — prototype/upload.html) ----
+
+export function ImageFileIcon({ className }: IconProps): JSX.Element {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3">
+      <rect x="2" y="3" width="12" height="10" rx="1.5" />
+      <circle cx="5.5" cy="6.5" r="1.2" />
+      <path d="M2 11l3.5-3 3 2.5L12 7l2 2" />
+    </svg>
+  );
+}
+
+export function PdfFileIcon({ className }: IconProps): JSX.Element {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3">
+      <path d="M4 1.8h5.2L12.2 4.8v9.4H4z" />
+      <path d="M9.2 1.8v3h3" />
+      <path d="M5.8 9.2h4.4M5.8 11.2h4.4" />
+    </svg>
+  );
+}
+
+export function DataFileIcon({ className }: IconProps): JSX.Element {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3">
+      <path d="M4 1.8h5.2L12.2 4.8v9.4H4z" />
+      <path d="M9.2 1.8v3h3" />
+      <path d="M5.8 8h4.4M5.8 10h4.4M5.8 12h2.4" />
+    </svg>
+  );
+}
+
+export function UploadIcon({ className }: IconProps): JSX.Element {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 10.5V2.5M4.8 5.7L8 2.5l3.2 3.2" />
+      <path d="M2.5 10.5v3h11v-3" />
+    </svg>
+  );
+}
+
+export function CheckCircleIcon({ className }: IconProps): JSX.Element {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8" cy="8" r="6.2" />
+      <path d="M5 8.3l2 2L11 6" />
+    </svg>
+  );
+}
+
+export function WarnTriangleIcon({ className }: IconProps): JSX.Element {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 2L1.8 13h12.4z" />
+      <path d="M8 6.5v3M8 11.5h.01" />
+    </svg>
+  );
+}
+
+export function CloseIcon({ className }: IconProps): JSX.Element {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <path d="M4 4l8 8M12 4l-8 8" />
+    </svg>
+  );
+}

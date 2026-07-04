@@ -7,17 +7,30 @@
  * - ファイルはピュア Markdown のまま (priority 1) — UI は content 文字列しか送らない。
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type MouseEvent } from 'react';
-import { isValidJournalDate, shiftJournalDate, type NoteMeta } from '@loamium/shared';
+import { isValidJournalDate, shiftJournalDate, type FileMeta, type NoteMeta } from '@loamium/shared';
 import { api, ApiError } from './api.js';
 import { buildTree } from './tree.js';
+import { formatSize } from './file-kind.js';
 import { Editor } from './components/Editor.js';
+import { FilePreview } from './components/FilePreview.js';
 import { FileTree } from './components/FileTree.js';
 import { JournalNav } from './components/JournalNav.js';
 import { BacklinkPanel } from './components/BacklinkPanel.js';
 import { ContextMenu } from './components/ContextMenu.js';
 import { ConflictDialog, DeleteDialog, NameDialog } from './components/dialogs.js';
 import { SearchPalette } from './components/SearchPalette.js';
-import { DocumentIcon, GearIcon, LinkIcon, NewFolderIcon, NewNoteIcon, SearchIcon } from './icons.js';
+import {
+  CheckCircleIcon,
+  CloseIcon,
+  DocumentIcon,
+  GearIcon,
+  LinkIcon,
+  NewFolderIcon,
+  NewNoteIcon,
+  SearchIcon,
+  UploadIcon,
+  WarnTriangleIcon,
+} from './icons.js';
 
 const AUTOSAVE_DEBOUNCE_MS = 1500;
 const JOURNAL_FILE_RE = /^journals\/(\d{4}-\d{2}-\d{2})\.md$/;
@@ -37,13 +50,23 @@ type DialogState =
   | { type: 'new-folder' }
   | { type: 'rename'; path: string }
   | { type: 'delete'; path: string }
+  | { type: 'rename-file'; path: string }
+  | { type: 'delete-file'; path: string }
   | null;
 
 interface MenuState {
   x: number;
   y: number;
   path: string;
-  isFolder: boolean;
+  kind: 'folder' | 'note' | 'attachment';
+}
+
+/** アップロードのトースト (Sf53ad6-2 — prototype/upload.html)。 */
+interface UploadToast {
+  id: number;
+  kind: 'progress' | 'renamed' | 'error';
+  title: string;
+  sub: string;
 }
 
 function journalDateOf(path: string): string | null {
@@ -116,6 +139,11 @@ export function App(): JSX.Element {
   const [notesError, setNotesError] = useState<string | null>(null);
   const [extraFolders, setExtraFolders] = useState<string[]>([]);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  // ---- 添付ファイル (Sf53ad6-2): ツリー表示・プレビュー・アップロード ----
+  const [files, setFiles] = useState<FileMeta[] | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [toasts, setToasts] = useState<UploadToast[]>([]);
 
   // ---- エディタ / 保存 ----
   const [doc, setDoc] = useState<OpenDoc | null>(null);
@@ -156,6 +184,38 @@ export function App(): JSX.Element {
       setNotesError(errMessage(err));
     }
   }, []);
+
+  const filesRef = useRef<FileMeta[] | null>(null);
+  filesRef.current = files;
+  const refreshFiles = useCallback(async (): Promise<void> => {
+    try {
+      const res = await api.listFiles();
+      setFiles(res.files);
+    } catch (err) {
+      // 添付一覧が取れなくてもノート編集は妨げない (ツリーはノートのみ表示)
+      console.error('[loamium] failed to load attachment list:', err);
+    }
+  }, []);
+
+  // ---- トースト (Sf53ad6-2) ----
+  const toastCounterRef = useRef(0);
+  const removeToast = useCallback((id: number): void => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+  const pushToast = useCallback(
+    (toast: Omit<UploadToast, 'id'>): number => {
+      toastCounterRef.current += 1;
+      const id = toastCounterRef.current;
+      setToasts((prev) => [...prev, { ...toast, id }]);
+      if (toast.kind !== 'progress') {
+        // 完了系は自動で消える (× でも消せる)。エラーは長めに残す
+        const ttl = toast.kind === 'error' ? 10_000 : 6_000;
+        setTimeout(() => removeToast(id), ttl);
+      }
+      return id;
+    },
+    [removeToast],
+  );
 
   const markSaved = useCallback((path: string, mtime: number): void => {
     setDoc((d) => (d !== null && d.path === path ? { ...d, mtime } : d));
@@ -241,10 +301,14 @@ export function App(): JSX.Element {
 
   const openNotePath = useCallback(
     async (path: string): Promise<void> => {
-      if (docRef.current?.path === path) return;
+      if (docRef.current?.path === path) {
+        setPreview(null); // プレビュー表示中に同じノートへ戻るケース
+        return;
+      }
       if (!(await saveNow())) return; // 競合/失敗中はノートを切り替えない
       try {
         const res = await api.getNote(path);
+        setPreview(null);
         setOpenDoc(res.path, res.content, res.mtime);
         setAppError(null);
       } catch (err) {
@@ -252,6 +316,21 @@ export function App(): JSX.Element {
       }
     },
     [saveNow, setOpenDoc],
+  );
+
+  /**
+   * 添付ファイルのプレビューを開く (Sf53ad6-2: ツリーの tree-file クリック)。
+   * 開いているノートは保存してから切り替える (エディタは一時アンマウントされる)。
+   */
+  const openFilePreview = useCallback(
+    async (path: string): Promise<void> => {
+      if (!(await saveNow())) return;
+      // エディタ再マウント時に最新の編集内容から復元できるよう text を同期する
+      setDoc((d) => (d !== null ? { ...d, text: contentRef.current } : d));
+      setPreview(path);
+      setAppError(null);
+    },
+    [saveNow],
   );
 
   /**
@@ -306,6 +385,7 @@ export function App(): JSX.Element {
       if (!(await saveNow())) return;
       try {
         const res = await api.getJournal(date);
+        setPreview(null);
         setOpenDoc(res.path, res.content, res.mtime);
         if (date === undefined) setToday(res.date);
         if (res.created) void refreshNotes();
@@ -324,6 +404,7 @@ export function App(): JSX.Element {
     if (didInitRef.current) return;
     didInitRef.current = true;
     void refreshNotes();
+    void refreshFiles();
     void openJournal();
     // 起動時に一度だけ
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -361,7 +442,10 @@ export function App(): JSX.Element {
   }, [saveNow]);
 
   // ---- ツリー操作 ----
-  const tree = useMemo(() => buildTree(notes ?? [], extraFolders), [notes, extraFolders]);
+  const tree = useMemo(
+    () => buildTree(notes ?? [], files ?? [], extraFolders),
+    [notes, files, extraFolders],
+  );
 
   const toggleFolder = useCallback((path: string): void => {
     setCollapsed((prev) => {
@@ -372,10 +456,13 @@ export function App(): JSX.Element {
     });
   }, []);
 
-  const onTreeContextMenu = useCallback((e: MouseEvent, path: string, isFolder: boolean): void => {
-    e.preventDefault();
-    setMenu({ x: e.clientX, y: e.clientY, path, isFolder });
-  }, []);
+  const onTreeContextMenu = useCallback(
+    (e: MouseEvent, path: string, kind: 'folder' | 'note' | 'attachment'): void => {
+      e.preventDefault();
+      setMenu({ x: e.clientX, y: e.clientY, path, kind });
+    },
+    [],
+  );
 
   const notePaths = useMemo(() => new Set((notes ?? []).map((n) => n.path)), [notes]);
 
@@ -477,6 +564,130 @@ export function App(): JSX.Element {
     setExtraFolders((prev) => (prev.includes(name) ? prev : [...prev, name]));
   }, []);
 
+  // ---- 添付ファイル: アップロード / リネーム / 削除 (Sf53ad6-2) ----
+
+  /** アップロード名のサニタイズ (パス区切り除去・NFC・隠しファイル名回避)。 */
+  const sanitizeUploadName = useCallback((raw: string, mime: string): string => {
+    let name = (raw.split(/[\\/]/).pop() ?? '').trim().normalize('NFC').replace(/^\.+/, '');
+    if (name === '') {
+      // クリップボード画像等の無名ファイルは MIME から補完 (prototype: image.png)
+      const sub = (mime.split('/')[1] ?? '').replace(/[^a-z0-9]/gi, '');
+      name = mime.startsWith('image/') ? `image.${sub === '' ? 'png' : sub}` : `file.${sub === '' ? 'bin' : sub}`;
+    }
+    return name;
+  }, []);
+
+  /**
+   * 1 ファイルを assets/ にアップロードする。名前衝突は連番リネーム
+   * (image.png → image-1.png — AC-Sf53ad6-2-2)。失敗はエラートーストで通知し null。
+   */
+  const uploadOne = useCallback(
+    async (file: File): Promise<string | null> => {
+      const name = sanitizeUploadName(file.name, file.type);
+      const progressId = pushToast({
+        kind: 'progress',
+        title: `アップロード中 — ${name}`,
+        sub: `assets/${name} · ${formatSize(file.size)}`,
+      });
+      try {
+        const known = new Set((filesRef.current ?? []).map((f) => f.path));
+        const dot = name.lastIndexOf('.');
+        const stem = dot > 0 ? name.slice(0, dot) : name;
+        const ext = dot > 0 ? name.slice(dot) : '';
+        for (let n = 0; n <= 99; n++) {
+          const candidate = n === 0 ? `assets/${name}` : `assets/${stem}-${String(n)}${ext}`;
+          if (known.has(candidate)) continue; // 既知の衝突は API を叩かず次候補へ
+          try {
+            const res = await api.uploadFile(candidate, file);
+            removeToast(progressId);
+            if (res.path !== `assets/${name}`) {
+              pushToast({
+                kind: 'renamed',
+                title: 'アップロード完了(リネーム)',
+                sub: `${name} は既に存在するため ${res.path.split('/').at(-1) ?? res.path} として保存しました`,
+              });
+            }
+            void refreshFiles();
+            return res.path;
+          } catch (err) {
+            if (err instanceof ApiError && err.status === 409) continue; // 衝突 → 連番リトライ
+            throw err;
+          }
+        }
+        throw new Error('空きファイル名が見つかりません (連番 -99 まで使用済み)');
+      } catch (err) {
+        removeToast(progressId);
+        pushToast({
+          kind: 'error',
+          title: 'アップロードに失敗しました',
+          sub: `${name} — ${errMessage(err)}`,
+        });
+        return null;
+      }
+    },
+    [pushToast, refreshFiles, removeToast, sanitizeUploadName],
+  );
+
+  /** D&D / ペーストのエントリポイント (Editor の uploadEnv から呼ばれる)。 */
+  const uploadFiles = useCallback(
+    async (uploads: File[]): Promise<string[]> => {
+      const out: string[] = [];
+      for (const f of uploads) {
+        const p = await uploadOne(f);
+        if (p !== null) out.push(p);
+      }
+      return out;
+    },
+    [uploadOne],
+  );
+
+  const filePathSet = useMemo(() => new Set((files ?? []).map((f) => f.path)), [files]);
+
+  const renameAttachment = useCallback(
+    async (oldPath: string, newName: string): Promise<void> => {
+      const folder = dirnameOf(oldPath);
+      const newPath = folder === '' ? newName : `${folder}/${newName}`;
+      setDialog(null);
+      if (newPath === oldPath) return;
+      try {
+        const res = await api.renameFile(oldPath, newPath);
+        await refreshFiles();
+        if (preview === oldPath) setPreview(res.path);
+        // 開いているノートがリンク書き換え対象なら最新をディスクから読み直す
+        const openPath = docRef.current?.path;
+        if (openPath !== undefined && res.updatedNotes.some((u) => u.path === openPath)) {
+          const note = await api.getNote(openPath);
+          setOpenDoc(note.path, note.content, note.mtime);
+        }
+        setBacklinksToken((v) => v + 1);
+        setAppError(null);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 409) {
+          setAppError(`リネーム先に同名のファイルが既に存在します — ${newPath}`);
+        } else {
+          setAppError(`リネームできませんでした — ${errMessage(err)}`);
+        }
+        void refreshFiles();
+      }
+    },
+    [preview, refreshFiles, setOpenDoc],
+  );
+
+  const deleteAttachment = useCallback(
+    async (path: string): Promise<void> => {
+      setDialog(null);
+      try {
+        await api.deleteFile(path);
+        await refreshFiles();
+        if (preview === path) setPreview(null);
+        setAppError(null);
+      } catch (err) {
+        setAppError(`削除できませんでした — ${errMessage(err)}`);
+      }
+    },
+    [preview, refreshFiles],
+  );
+
   // ---- ジャーナルナビゲーション ----
   const journalEntries = useMemo(
     () =>
@@ -511,12 +722,13 @@ export function App(): JSX.Element {
 
   // ---- パンくず ----
   const breadcrumb = useMemo(() => {
-    if (doc === null) return null;
-    const segs = doc.path.split('/');
-    const file = segs.at(-1) ?? doc.path;
-    const name = file.endsWith('.md') ? file.slice(0, -3) : file;
+    const target = preview ?? doc?.path ?? null;
+    if (target === null) return null;
+    const segs = target.split('/');
+    const file = segs.at(-1) ?? target;
+    const name = preview === null && file.endsWith('.md') ? file.slice(0, -3) : file;
     return { folders: segs.slice(0, -1), name };
-  }, [doc]);
+  }, [doc, preview]);
 
   return (
     <div className="app">
@@ -590,6 +802,7 @@ export function App(): JSX.Element {
           loaded={notes !== null}
           onToggleFolder={toggleFolder}
           onOpenNote={(path) => void openNotePath(path)}
+          onOpenFile={(path) => void openFilePreview(path)}
           onContextMenu={onTreeContextMenu}
         />
       </aside>
@@ -617,7 +830,7 @@ export function App(): JSX.Element {
               {appError}
             </div>
           )}
-          {doc !== null && (
+          {doc !== null && preview === null && (
             <div className="save-status" data-testid="save-status" data-state={dirty ? 'dirty' : 'saved'}>
               <span className="dot" />
               <span>{dirty ? '未保存' : '保存済み'}</span>
@@ -625,18 +838,23 @@ export function App(): JSX.Element {
           )}
         </div>
 
-        {doc !== null ? (
+        {preview !== null ? (
+          <FilePreview path={preview} files={files} />
+        ) : doc !== null ? (
           <Editor
             docPath={doc.path}
             content={doc.text}
             resetToken={doc.resetToken}
             seek={seek}
             notes={notes}
+            files={files}
             onChange={onEditorChange}
             onSave={() => void saveNow()}
             onOpenNote={(path) => void openNotePath(path)}
             onCreateAndOpenNote={(target) => void createNoteFromLink(target, true)}
             onCreateNote={(target) => void createNoteFromLink(target, false)}
+            onUploadFiles={uploadFiles}
+            onDragActive={setDragActive}
           />
         ) : (
           <div className="empty-state" data-testid="editor-empty-state">
@@ -673,6 +891,21 @@ export function App(): JSX.Element {
             </div>
           </div>
         )}
+
+        {/* D&D 中のドロップオーバーレイ (Sf53ad6-2 — prototype/upload.html) */}
+        {dragActive && preview === null && doc !== null && (
+          <div className="drop-overlay" data-testid="drop-overlay">
+            <div className="drop-overlay-inner">
+              <div className="glyph">
+                <UploadIcon />
+              </div>
+              <h3>ドロップしてアップロード</h3>
+              <p>
+                <code>assets/</code> に保存し、カーソル位置に <code>![[パス]]</code> を挿入します
+              </p>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* ================= 右: バックリンクパネル ================= */}
@@ -698,22 +931,32 @@ export function App(): JSX.Element {
           x={menu.x}
           y={menu.y}
           path={menu.path}
-          isFolder={menu.isFolder}
+          isFolder={menu.kind === 'folder'}
           onOpen={() => {
             setMenu(null);
-            void openNotePath(menu.path);
+            if (menu.kind === 'attachment') void openFilePreview(menu.path);
+            else void openNotePath(menu.path);
           }}
           onNewNote={() => {
             setMenu(null);
-            setDialog({ type: 'new-note', folder: menu.isFolder ? menu.path : dirnameOf(menu.path) });
+            setDialog({
+              type: 'new-note',
+              folder: menu.kind === 'folder' ? menu.path : dirnameOf(menu.path),
+            });
           }}
           onRename={() => {
             setMenu(null);
-            setDialog({ type: 'rename', path: menu.path });
+            setDialog({
+              type: menu.kind === 'attachment' ? 'rename-file' : 'rename',
+              path: menu.path,
+            });
           }}
           onDelete={() => {
             setMenu(null);
-            setDialog({ type: 'delete', path: menu.path });
+            setDialog({
+              type: menu.kind === 'attachment' ? 'delete-file' : 'delete',
+              path: menu.path,
+            });
           }}
           onClose={() => setMenu(null)}
         />
@@ -769,10 +1012,52 @@ export function App(): JSX.Element {
         />
       )}
 
+      {dialog?.type === 'rename-file' && (
+        <NameDialog
+          title="ファイルをリネーム"
+          sub={dialog.path}
+          initial={dialog.path.split('/').at(-1) ?? ''}
+          confirmLabel="リネームしてリンクを更新"
+          testids={{ dialog: 'rename-dialog', input: 'rename-input', confirm: 'rename-confirm', cancel: 'rename-cancel' }}
+          extra={
+            <div className="link-update-note" data-testid="rename-link-note">
+              <LinkIcon />
+              <span>
+                このファイルを参照する <code>![[リンク]]</code> は vault
+                全体で自動更新されます。コードフェンス内は変更されません。
+              </span>
+            </div>
+          }
+          validate={(name) => {
+            const current = dialog.path.split('/').at(-1) ?? '';
+            if (name === current) return null; // 同名は no-op
+            if (name === '') return 'ファイル名を入力してください';
+            if (name.includes('/')) return 'ファイル名に / は使えません';
+            if (name.startsWith('.')) return 'ドット始まりのファイル名は使えません';
+            if (name.toLowerCase().endsWith('.md')) return '.md はノートとして作成してください';
+            const folder = dirnameOf(dialog.path);
+            const newPath = folder === '' ? name : `${folder}/${name}`;
+            if (filePathSet.has(newPath.normalize('NFC'))) return '同名のファイルが既にあります';
+            return null;
+          }}
+          onConfirm={(name) => void renameAttachment(dialog.path, name)}
+          onCancel={() => setDialog(null)}
+        />
+      )}
+
       {dialog?.type === 'delete' && (
         <DeleteDialog
           path={dialog.path}
           onConfirm={() => void deleteNote(dialog.path)}
+          onCancel={() => setDialog(null)}
+        />
+      )}
+
+      {dialog?.type === 'delete-file' && (
+        <DeleteDialog
+          path={dialog.path}
+          kind="file"
+          onConfirm={() => void deleteAttachment(dialog.path)}
           onCancel={() => setDialog(null)}
         />
       )}
@@ -783,6 +1068,42 @@ export function App(): JSX.Element {
           onOverwrite={resolveConflictOverwrite}
           onReload={() => void resolveConflictReload()}
         />
+      )}
+
+      {/* ---- アップロードのトースト (Sf53ad6-2 — prototype/upload.html) ---- */}
+      {toasts.length > 0 && (
+        <div className="toast-stack">
+          {toasts.map((t) => (
+            <div
+              key={t.id}
+              className={`toast${t.kind === 'renamed' ? ' success' : t.kind === 'error' ? ' error' : ''}`}
+              data-testid="upload-toast"
+              data-kind={t.kind}
+            >
+              <span className="t-ico">
+                {t.kind === 'error' ? (
+                  <WarnTriangleIcon />
+                ) : t.kind === 'renamed' ? (
+                  <CheckCircleIcon />
+                ) : (
+                  <UploadIcon />
+                )}
+              </span>
+              <div className="t-main">
+                <div className="t-title">{t.title}</div>
+                <div className="t-sub">{t.sub}</div>
+                {t.kind === 'progress' && (
+                  <div className="progress">
+                    <i />
+                  </div>
+                )}
+              </div>
+              <button className="t-close" title="閉じる" onClick={() => removeToast(t.id)}>
+                <CloseIcon />
+              </button>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

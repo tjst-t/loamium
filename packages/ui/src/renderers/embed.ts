@@ -10,10 +10,18 @@
  * 新しいファイル種別 (PDF・テキスト等) は登録だけで追加できる (3 レジストリと同じ流儀)。
  * すべて表示層のみ — ファイル (ピュア Markdown) は一切変更しない (priority 1)。
  */
-import { extractSection, resolveLinkTarget } from '@loamium/shared';
+import { extractSection, resolveFileLinkTarget, resolveLinkTarget } from '@loamium/shared';
 import { api } from '../api.js';
 import { registerBlockRule, type RenderContext } from '../registries.js';
+import { IMAGE_EXTENSIONS } from '../file-kind.js';
 import { EMBED_LINE_RE, renderMarkdownInto } from './mini-md.js';
+import {
+  PDF_EXTENSIONS,
+  renderFileCard,
+  renderPdfEmbed,
+  renderTextEmbed,
+  TEXT_PREVIEW_EXTENSIONS,
+} from './file-preview.js';
 
 /** embed チェーンの最大深さ (ルートノートを含む)。prototype の注記と一致。 */
 export const MAX_EMBED_DEPTH = 5;
@@ -95,17 +103,18 @@ export function getEmbedFileRenderer(ext: string): EmbedFileRenderer | undefined
   return fileRenderers.get(ext.toLowerCase());
 }
 
-export const IMAGE_EXTENSIONS = [
-  'png',
-  'jpg',
-  'jpeg',
-  'gif',
-  'svg',
-  'webp',
-  'avif',
-  'bmp',
-  'ico',
-] as const;
+export { IMAGE_EXTENSIONS };
+
+/**
+ * ![[file]] のファイルターゲットを添付一覧に対して解決する (Sf53ad6-3)。
+ * basename だけの参照 (![[image.png]] — Obsidian 慣行) を実パスに解決し、
+ * 一覧が未ロード・不在なら書かれたとおりのパスを使う (従来挙動を保存)。
+ */
+export function resolveEmbedFilePath(target: string, ctx: RenderContext): string {
+  const files = ctx.env?.getFiles?.() ?? null;
+  if (files === null) return target;
+  return resolveFileLinkTarget(target, files.map((f) => f.path)) ?? target;
+}
 
 // ---- DOM 構築 -----------------------------------------------------------------
 
@@ -193,12 +202,15 @@ export function renderEmbed(rawTarget: string, ctx: RenderContext): HTMLElement 
     return renderEmbedError(rawTarget, '埋め込み先を解決できません', `![[${rawTarget}]]`);
   }
 
-  // 画像などファイル種別のディスパッチ (vault ルート相対 — 添付は assets/ 慣行)
+  // ファイル種別のディスパッチ (Sf53ad6-3): basename は添付一覧で実パスへ解決し、
+  // 拡張子でレンダラー (画像 / PDF / テキスト) を選ぶ。未登録拡張子は
+  // ファイルカード (名前・サイズ・DL リンク — AC-Sf53ad6-3-3)
   const ext = embedExtensionOf(target);
   if (ext !== null) {
+    const resolved = resolveEmbedFilePath(target, ctx);
     const renderer = getEmbedFileRenderer(ext);
-    if (renderer !== undefined) return renderer.render(target, alias ?? section ?? '', ctx);
-    return renderEmbedError(target, 'このファイル形式の埋め込みプレビューには未対応です', `![[${rawTarget}]]`);
+    if (renderer !== undefined) return renderer.render(resolved, alias ?? section ?? '', ctx);
+    return renderFileCard(resolved, ctx);
   }
 
   // ノート embed: 既存リンク解決 (shared) を再利用
@@ -304,13 +316,31 @@ export function renderEmbed(rawTarget: string, ctx: RenderContext): HTMLElement 
 /** embed ブロックルールを登録する (renderers/index.ts から呼ぶ)。 */
 export function registerEmbedRenderers(): void {
   registerEmbedFileRenderer(imageRenderer);
+  // PDF / テキストのプレビューレンダラー (Sf53ad6-3 — レジストリ登録だけで追加)
+  registerEmbedFileRenderer({
+    extensions: PDF_EXTENSIONS,
+    render: (path, _alt, ctx) => renderPdfEmbed(path, ctx),
+  });
+  registerEmbedFileRenderer({
+    extensions: TEXT_PREVIEW_EXTENSIONS,
+    render: (path, _alt, ctx) => renderTextEmbed(path, ctx),
+  });
   registerBlockRule({
     match: (line) => EMBED_LINE_RE.test(line),
     identity(lines, ctx) {
       // リンク解決の状態 (未ロード / 壊れ / 解決先) が変わったら再描画する
       const m = EMBED_LINE_RE.exec(lines[0] ?? '');
       const { target } = parseEmbedTarget(m?.[1] ?? '');
-      if (embedExtensionOf(target) !== null) return `file:${target}`;
+      if (embedExtensionOf(target) !== null) {
+        // 添付一覧の到着・更新 (アップロード / リネーム) で解決先やサイズ表示が
+        // 変わるため、解決パス + メタ署名を同一性キーに含める (Sf53ad6-3)
+        const resolved = resolveEmbedFilePath(target, ctx);
+        const files = ctx.env?.getFiles?.() ?? null;
+        const meta = files?.find((f) => f.path === resolved) ?? null;
+        const sig =
+          files === null ? 'unloaded' : meta === null ? 'missing' : `${String(meta.size)}:${String(meta.mtime)}`;
+        return `file:${resolved}:${sig}`;
+      }
       const paths = ctx.env?.getNotePaths() ?? null;
       if (paths === null) return 'unloaded';
       return resolveLinkTarget(target, paths) ?? 'broken';

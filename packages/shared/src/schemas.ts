@@ -192,6 +192,56 @@ export const backlinksResponseSchema = z.object({
 });
 export type BacklinksResponse = z.infer<typeof backlinksResponseSchema>;
 
+// ---- files (添付ファイル — Sf53ad6) ----
+
+export const fileMetaSchema = z.object({
+  /** vault 相対パス (`assets/a.png` 形式、NFC) */
+  path: z.string(),
+  /** バイト数 */
+  size: z.number().int().nonnegative(),
+  /** ファイルの mtime (ms epoch) */
+  mtime: z.number(),
+});
+export type FileMeta = z.infer<typeof fileMetaSchema>;
+
+export const fileListResponseSchema = z.object({
+  files: z.array(fileMetaSchema),
+});
+export type FileListResponse = z.infer<typeof fileListResponseSchema>;
+
+export const fileWriteResponseSchema = z.object({
+  path: z.string(),
+  created: z.boolean(),
+  /** 書き込んだバイト数 */
+  size: z.number().int().nonnegative(),
+  /** 書き込み後のファイル mtime (ms epoch) */
+  mtime: z.number(),
+});
+export type FileWriteResponse = z.infer<typeof fileWriteResponseSchema>;
+
+export const fileDeleteResponseSchema = z.object({
+  path: z.string(),
+  deleted: z.boolean(),
+});
+export type FileDeleteResponse = z.infer<typeof fileDeleteResponseSchema>;
+
+export const fileRenameRequestSchema = z.object({
+  /** リネーム先の vault 相対パス (拡張子込み。例: "assets/photo-1.png") */
+  newPath: z.string().min(1, 'newPath must not be empty'),
+});
+export type FileRenameRequest = z.infer<typeof fileRenameRequestSchema>;
+
+export const fileRenameResponseSchema = z.object({
+  oldPath: z.string(),
+  path: z.string(),
+  /** リネーム後ファイルの mtime (ms epoch) */
+  mtime: z.number(),
+  /** ![[リンク]] を書き換えたノートの内訳 */
+  updatedNotes: z.array(renameUpdatedNoteSchema),
+  updatedLinks: z.number(),
+});
+export type FileRenameResponse = z.infer<typeof fileRenameResponseSchema>;
+
 export const errorResponseSchema = z.object({
   error: z.string(),
   message: z.string(),

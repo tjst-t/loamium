@@ -17,6 +17,11 @@ export interface RenderEnv {
   getNotePaths(): readonly string[] | null;
   /** ノートを開く (embed カードのヘッダクリック等) */
   openNote(path: string): void;
+  /**
+   * vault 内の添付 (非 .md) ファイル一覧 (Sf53ad6-3 で追加 — additive)。
+   * null = 一覧未ロード。![[file]] の basename 解決・サイズ表示・存在判定に使う。
+   */
+  getFiles?(): readonly { path: string; size: number; mtime: number }[] | null;
 }
 
 export interface RenderContext {

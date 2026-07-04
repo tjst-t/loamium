@@ -31,5 +31,10 @@ export async function installCatchAll(page: Page): Promise<string[]> {
     const url = new URL(route.request().url());
     void route.fulfill(json({ path: url.searchParams.get('path') ?? '', backlinks: [] }));
   });
+  // GET /api/files (添付一覧) も起動時の定常呼び出し (Sf53ad6-2 ツリー)。既定は空。
+  // 末尾スラッシュ無しの一覧 URL のみ対象 (/api/files/{path} 配信には効かない)。
+  await page.route('**/api/files', (route) => {
+    void route.fulfill(json({ files: [] }));
+  });
   return unexpected;
 }

@@ -87,16 +87,21 @@ describe('[AC-S9e5ca4-2-1] GET /api/files/{path} — 読み取り専用配信', 
     expect(dir.status).toBe(404);
   });
 
-  it('書き込み系 (PUT/POST/DELETE) は存在せず、ファイルは変更されない', async () => {
-    for (const method of ['PUT', 'POST', 'DELETE']) {
-      const init: RequestInit = { method };
-      if (method !== 'DELETE') {
-        init.headers = { 'content-type': 'application/json' };
-        init.body = JSON.stringify({ content: 'x' });
-      }
-      const res = await fetch(`${server.baseUrl}/api/files/assets/pixel.png`, init);
-      expect(res.status, `${method} must not be handled`).toBe(404);
-    }
+  it('既存ファイルは黙って書き換えられない (PUT はハンドラなし 404 / POST は overwrite なし 409)', async () => {
+    // Sf53ad6 で POST (アップロード) / DELETE が追加された。上書き保護は
+    // tests/acceptance/files-upload.spec.ts が本検証する。ここでは
+    // 「配信エンドポイントの GET 対象が黙って変わらない」ことを守る。
+    const put = await fetch(`${server.baseUrl}/api/files/assets/pixel.png`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ content: 'x' }),
+    });
+    expect(put.status, 'PUT must not be handled').toBe(404);
+    const post = await fetch(`${server.baseUrl}/api/files/assets/pixel.png`, {
+      method: 'POST',
+      body: 'overwrite attempt',
+    });
+    expect(post.status, 'POST without overwrite must be rejected').toBe(409);
     const onDisk = await readFile(path.join(server.vault, 'assets/pixel.png'));
     expect(onDisk.equals(PIXEL_PNG)).toBe(true);
   });

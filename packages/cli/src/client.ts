@@ -137,6 +137,15 @@ export function encodeFilePath(raw: string): string {
     .join('/');
 }
 
+/** raw バイト列の POST (アップロード用 — POST /api/files/{path})。 */
+export function postBytes(body: Uint8Array): RequestInit {
+  return {
+    method: 'POST',
+    headers: { 'content-type': 'application/octet-stream' },
+    body,
+  };
+}
+
 export function postJson(body: unknown): RequestInit {
   return {
     method: 'POST',
