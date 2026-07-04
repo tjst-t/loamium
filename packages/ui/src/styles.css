@@ -1646,3 +1646,111 @@ button.callout-title { cursor: pointer; }
   font-family: var(--font-mono);
   font-size: 12px;
 }
+
+/* ==========================================================================
+   Sf1a90a — UI シェル刷新 (ルーティングヘッダ / 直近ファイル / 右サイドバートグル)
+   ========================================================================== */
+
+/* ---- ルーティングヘッダ(戻る/進む + ルート表示) (Sf1a90a-1) --------------- */
+.nav-group { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.nav-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+.nav-btn:hover { background: var(--bg-hover); color: var(--text); }
+.nav-btn:disabled { color: var(--text-faint); opacity: 0.4; cursor: default; }
+.nav-btn:disabled:hover { background: none; }
+.nav-btn svg { width: 15px; height: 15px; }
+
+.route-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.route-crumbs .route-token {
+  font-family: var(--font-mono, monospace);
+  font-size: 11.5px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 6px;
+  padding: 1px 7px;
+  flex-shrink: 0;
+}
+.route-crumbs .sep { color: var(--text-faint); }
+.route-crumbs .current {
+  color: var(--text);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.route-crumbs .current.faint { color: var(--text-faint); font-weight: 500; }
+
+/* ---- サイドバー: 直近ファイル + すべて表示 (Sf1a90a-3) --------------------- */
+.tree-section-title.show-all-row {
+  margin-top: 6px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.tree-section-title .show-all {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  padding: 1px 7px;
+  border-radius: 6px;
+}
+.tree-section-title .show-all:hover { background: var(--accent-soft); }
+.recent-hint {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* ---- 右サイドバー トグル(バックリンク | Claude) (Sf1a90a-2) --------------- */
+.seg-toggle {
+  display: inline-flex;
+  background: var(--bg-hover);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+.seg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 11px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.seg-btn svg { width: 13px; height: 13px; }
+.seg-btn:hover { color: var(--text); }
+.seg-btn[aria-selected="true"] {
+  background: var(--bg-editor);
+  color: var(--accent);
+  box-shadow: 0 1px 2px rgba(20, 20, 35, 0.08);
+}
+.seg-btn .live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ok);
+}
+.seg-btn .live-dot.off { background: var(--text-faint); }
+
+/* 右サイドバー内 Claude(ターミナル)の寸法調整 */
+.claude-body { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.panel .terminal-pane { padding: 12px 14px; font-size: 12px; }
+.panel .reconnect-bar { font-size: 11.5px; padding: 7px 12px; }
+.panel .setup-code { min-width: 0; font-size: 11px; padding: 12px 14px; }

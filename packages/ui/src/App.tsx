@@ -1,41 +1,59 @@
 /**
- * Loamium UI ルート。3 ペイン (サイドバー / エディタ / バックリンクパネル)。
+ * Loamium UI ルート (Sf1a90a で刷新)。
  *
- * - 起動時に GET /api/journal で今日のジャーナルを開く (DESIGN_PRINCIPLES ui_ux)。
- * - 保存は Cmd/Ctrl+S + デバウンス自動保存。PUT には baseMtime を添え、
- *   409 conflict は警告ダイアログ (上書き / 再読込) を出す (SPEC §9 高-1)。
+ * シェル: 左サイドバー (直近ファイル) / 中央メイン 1 画面 / 右サイドバー
+ * (バックリンク ⇄ Claude トグル)。タブは廃止し、ブラウザ的ルーティング
+ * (History API — router.ts) に統一した。ノート=/n/{path}、アセット一覧=/files。
+ *
+ * - 起動時は URL に従って着地 (未指定は今日のジャーナル — DESIGN_PRINCIPLES ui_ux)。
+ * - ノート/検索結果/[[リンク]]/バックリンク/embed の遷移はすべて履歴に積まれ、
+ *   ブラウザおよびヘッダの戻る/進むで辿れる。開いているノートは URL に反映され、
+ *   リロードで復帰する。
+ * - 保存は Cmd/Ctrl+S + デバウンス自動保存。遷移前に flush、リロード/離脱は
+ *   未保存があれば beforeunload で警告する。
  * - ファイルはピュア Markdown のまま (priority 1) — UI は content 文字列しか送らない。
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type MouseEvent } from 'react';
-import { isValidJournalDate, shiftJournalDate, type FileMeta, type NoteMeta } from '@loamium/shared';
+import {
+  isValidJournalDate,
+  journalPath,
+  shiftJournalDate,
+  todayJournalDate,
+  type FileMeta,
+  type NoteMeta,
+} from '@loamium/shared';
 import { api, ApiError } from './api.js';
-import { buildTree } from './tree.js';
 import { formatSize } from './file-kind.js';
+import { parseLocation, routeToPath, type Route } from './router.js';
 import { Editor } from './components/Editor.js';
 import { FilePreview } from './components/FilePreview.js';
-import { TerminalPane, type TerminalStatus } from './components/TerminalPane.js';
-import { FileTree } from './components/FileTree.js';
+import { FilesPage } from './components/FilesPage.js';
+import { RecentFiles, type RecentEntry } from './components/RecentFiles.js';
 import { JournalNav } from './components/JournalNav.js';
-import { BacklinkPanel } from './components/BacklinkPanel.js';
+import { RightSidebar } from './components/RightSidebar.js';
 import { ContextMenu } from './components/ContextMenu.js';
 import { ConflictDialog, DeleteDialog, NameDialog } from './components/dialogs.js';
 import { SearchPalette } from './components/SearchPalette.js';
 import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
   CheckCircleIcon,
   CloseIcon,
   DocumentIcon,
   GearIcon,
   LinkIcon,
-  NewFolderIcon,
   NewNoteIcon,
   SearchIcon,
-  TerminalIcon,
   UploadIcon,
   WarnTriangleIcon,
 } from './icons.js';
 
 const AUTOSAVE_DEBOUNCE_MS = 1500;
 const JOURNAL_FILE_RE = /^journals\/(\d{4}-\d{2}-\d{2})\.md$/;
+/** サイドバーの直近ファイル表示件数 (Sf1a90a-3)。 */
+const RECENT_LIMIT = 10;
+
+type HistoryMode = 'push' | 'replace' | 'none';
 
 interface OpenDoc {
   path: string;
@@ -49,7 +67,6 @@ interface OpenDoc {
 
 type DialogState =
   | { type: 'new-note'; folder: string }
-  | { type: 'new-folder' }
   | { type: 'rename'; path: string }
   | { type: 'delete'; path: string }
   | { type: 'rename-file'; path: string }
@@ -60,7 +77,7 @@ interface MenuState {
   x: number;
   y: number;
   path: string;
-  kind: 'folder' | 'note' | 'attachment';
+  kind: 'note' | 'attachment';
 }
 
 /** アップロードのトースト (Sf53ad6-2 — prototype/upload.html)。 */
@@ -81,10 +98,23 @@ function dirnameOf(path: string): string {
   return path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
 }
 
+function basenameOf(path: string): string {
+  return path.split('/').at(-1) ?? path;
+}
+
 function errMessage(err: unknown): string {
   if (err instanceof ApiError) return `${err.code}: ${err.message}`;
   if (err instanceof Error) return err.message;
   return String(err);
+}
+
+/** history.state に載せた履歴インデックスを安全に読む (any を経由しない)。 */
+function historyIndexOf(state: unknown): number {
+  if (typeof state === 'object' && state !== null && 'index' in state) {
+    const idx = (state as { index: unknown }).index;
+    if (typeof idx === 'number') return idx;
+  }
+  return 0;
 }
 
 /**
@@ -136,12 +166,9 @@ function RenameLinkNote({ path }: { path: string }): JSX.Element {
 }
 
 export function App(): JSX.Element {
-  // ---- サイドバー: ノート一覧とツリー ----
+  // ---- サイドバー: ノート一覧と添付 ----
   const [notes, setNotes] = useState<NoteMeta[] | null>(null);
   const [notesError, setNotesError] = useState<string | null>(null);
-  const [extraFolders, setExtraFolders] = useState<string[]>([]);
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
-  // ---- 添付ファイル (Sf53ad6-2): ツリー表示・プレビュー・アップロード ----
   const [files, setFiles] = useState<FileMeta[] | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -153,6 +180,15 @@ export function App(): JSX.Element {
   const [appError, setAppError] = useState<string | null>(null);
   const [conflictPath, setConflictPath] = useState<string | null>(null);
 
+  // ---- ルーティング (Sf1a90a-1) ----
+  const [route, setRoute] = useState<Route>({ kind: 'home' });
+  const routeRef = useRef<Route>(route);
+  routeRef.current = route;
+  const histIndexRef = useRef(0);
+  const histMaxRef = useRef(0);
+  const [canBack, setCanBack] = useState(false);
+  const [canForward, setCanForward] = useState(false);
+
   // ---- ジャーナル ----
   const [today, setToday] = useState<string | null>(null);
   const [journalListOpen, setJournalListOpen] = useState(false);
@@ -160,29 +196,22 @@ export function App(): JSX.Element {
   // ---- ポップアップ ----
   const [dialog, setDialog] = useState<DialogState>(null);
   const [menu, setMenu] = useState<MenuState | null>(null);
-  const [panelCollapsed, setPanelCollapsed] = useState(false);
-  // ---- 検索パレット (Sbd061c-1) ----
   const [paletteOpen, setPaletteOpen] = useState(false);
   /** 全文ヒット確定時のカーソル移動指示 (Editor の seek prop へ) */
   const [seek, setSeek] = useState<{ line: number; token: number } | null>(null);
   const seekCounterRef = useRef(0);
-  /** 保存成功のたびに増える — バックリンクパネルの再取得トリガー (S6fbf45-2) */
+  /** 保存成功のたびに増える — 右サイドバーのバックリンク再取得トリガー (S6fbf45-2) */
   const [backlinksToken, setBacklinksToken] = useState(0);
 
-  // ---- ターミナルタブ (Sb7f458-2 — prototype/terminal.html) ----
-  const [workspaceTab, setWorkspaceTab] = useState<'editor' | 'terminal'>('editor');
-  /** 一度開いたら unmount しない (タブ切替でセッションを切らない) */
-  const [terminalMounted, setTerminalMounted] = useState(false);
-  const [terminalStatus, setTerminalStatus] = useState<TerminalStatus>('loading');
-  const [terminalCmd, setTerminalCmd] = useState<string | null>(null);
-
   const docRef = useRef<OpenDoc | null>(null);
+  const previewRef = useRef<string | null>(null);
   const contentRef = useRef('');
   const dirtyRef = useRef(false);
   const savingRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resetCounterRef = useRef(0);
   docRef.current = doc;
+  previewRef.current = preview;
 
   const refreshNotes = useCallback(async (): Promise<void> => {
     try {
@@ -201,7 +230,7 @@ export function App(): JSX.Element {
       const res = await api.listFiles();
       setFiles(res.files);
     } catch (err) {
-      // 添付一覧が取れなくてもノート編集は妨げない (ツリーはノートのみ表示)
+      // 添付一覧が取れなくてもノート編集は妨げない
       console.error('[loamium] failed to load attachment list:', err);
     }
   }, []);
@@ -217,7 +246,6 @@ export function App(): JSX.Element {
       const id = toastCounterRef.current;
       setToasts((prev) => [...prev, { ...toast, id }]);
       if (toast.kind !== 'progress') {
-        // 完了系は自動で消える (× でも消せる)。エラーは長めに残す
         const ttl = toast.kind === 'error' ? 10_000 : 6_000;
         setTimeout(() => removeToast(id), ttl);
       }
@@ -258,7 +286,7 @@ export function App(): JSX.Element {
         setConflictPath(null);
         setAppError(null);
         if (res.created) void refreshNotes();
-        setBacklinksToken((v) => v + 1); // 保存でバックリンクパネルを更新
+        setBacklinksToken((v) => v + 1);
         return true;
       } catch (err) {
         if (err instanceof ApiError && err.status === 409) {
@@ -302,32 +330,118 @@ export function App(): JSX.Element {
     docRef.current = next;
     setDoc(next);
     setDirty(false);
-    // ドキュメントを開き直すたびにカーソル移動指示をリセットする。Editor の
-    // 再マウント時に古い seek が再適用されるのを防ぐ (レビュー R1)。
-    // openNoteAtLine は setOpenDoc の後に setSeek するため、全文ヒットでは上書きされる。
     setSeek(null);
-    // ターミナル表示中にノートを開いたらエディタタブへ戻す (Sb7f458-2)
-    setWorkspaceTab('editor');
   }, []);
 
-  const openNotePath = useCallback(
-    async (path: string): Promise<void> => {
-      if (docRef.current?.path === path) {
-        setPreview(null); // プレビュー表示中に同じノートへ戻るケース
-        return;
+  // ---- 履歴同期 ----
+  const syncNavFlags = useCallback((): void => {
+    setCanBack(histIndexRef.current > 0);
+    setCanForward(histIndexRef.current < histMaxRef.current);
+  }, []);
+
+  /** Route を URL/履歴へ反映する (push=新規履歴 / replace=現在を差替 / none=履歴不変)。 */
+  const applyHistory = useCallback(
+    (r: Route, mode: HistoryMode): void => {
+      if (mode === 'push') {
+        histIndexRef.current += 1;
+        histMaxRef.current = histIndexRef.current;
+        window.history.pushState({ index: histIndexRef.current }, '', routeToPath(r));
+      } else if (mode === 'replace') {
+        window.history.replaceState({ index: histIndexRef.current }, '', routeToPath(r));
       }
-      if (!(await saveNow())) return; // 競合/失敗中はノートを切り替えない
+      routeRef.current = r;
+      setRoute(r);
+      syncNavFlags();
+    },
+    [syncNavFlags],
+  );
+
+  // ---- ノート/ジャーナルの読み込み (履歴は呼び出し側で反映) ----
+  const loadNote = useCallback(
+    async (path: string): Promise<string | null> => {
+      if (docRef.current?.path === path && previewRef.current === null) return path;
+      if (!(await saveNow())) return null;
       try {
         const res = await api.getNote(path);
         setPreview(null);
         setOpenDoc(res.path, res.content, res.mtime);
         setAppError(null);
+        return res.path;
       } catch (err) {
         setAppError(`ノートを開けませんでした — ${errMessage(err)}`);
+        return null;
       }
     },
     [saveNow, setOpenDoc],
   );
+
+  const loadJournal = useCallback(
+    async (date?: string): Promise<{ path: string; date: string } | null> => {
+      if (!(await saveNow())) return null;
+      try {
+        const res = await api.getJournal(date);
+        setPreview(null);
+        setOpenDoc(res.path, res.content, res.mtime);
+        if (date === undefined) setToday(res.date);
+        if (res.created) void refreshNotes();
+        setAppError(null);
+        return { path: res.path, date: res.date };
+      } catch (err) {
+        setAppError(`ジャーナルを開けませんでした — ${errMessage(err)}`);
+        return null;
+      }
+    },
+    [refreshNotes, saveNow, setOpenDoc],
+  );
+
+  /** ノートルートへ遷移する (ジャーナルは getJournal で materialize)。 */
+  const applyNote = useCallback(
+    async (path: string, mode: HistoryMode): Promise<boolean> => {
+      const jd = journalDateOf(path);
+      const loadedPath = jd !== null ? ((await loadJournal(jd))?.path ?? null) : await loadNote(path);
+      if (loadedPath === null) return false;
+      applyHistory({ kind: 'note', path: loadedPath }, mode);
+      return true;
+    },
+    [applyHistory, loadJournal, loadNote],
+  );
+
+  /** [[リンク]]/バックリンク/検索/embed/ツリーからノートを開く (履歴に積む)。 */
+  const openNotePath = useCallback(
+    async (path: string): Promise<void> => {
+      await applyNote(path, 'push');
+    },
+    [applyNote],
+  );
+
+  /** 全文検索ヒットの確定: ノートを開き、該当行へカーソルを移動する。 */
+  const openNoteAtLine = useCallback(
+    async (path: string, line: number): Promise<void> => {
+      if (!(await applyNote(path, 'push'))) return;
+      seekCounterRef.current += 1;
+      setSeek({ line, token: seekCounterRef.current });
+    },
+    [applyNote],
+  );
+
+  /** ジャーナル日付ナビ (前日/翌日/今日/一覧選択)。履歴に積む。 */
+  const openJournalNav = useCallback(
+    async (date?: string): Promise<void> => {
+      const res = await loadJournal(date);
+      if (res === null) return;
+      applyHistory({ kind: 'note', path: res.path }, 'push');
+    },
+    [applyHistory, loadJournal],
+  );
+
+  /** アセット/ファイル一覧ページ (/files) へ遷移 (Sf1a90a-3「すべて表示」)。 */
+  const showFiles = useCallback((): void => {
+    void saveNow();
+    // エディタ再マウント時に最新の編集内容から復元できるよう text を同期する
+    setDoc((d) => (d !== null ? { ...d, text: contentRef.current } : d));
+    setPreview(null);
+    applyHistory({ kind: 'files' }, 'push');
+  }, [applyHistory, saveNow]);
 
   /**
    * 添付ファイルのプレビューを開く (Sf53ad6-2: ツリーの tree-file クリック)。
@@ -336,19 +450,19 @@ export function App(): JSX.Element {
   const openFilePreview = useCallback(
     async (path: string): Promise<void> => {
       if (!(await saveNow())) return;
-      // エディタ再マウント時に最新の編集内容から復元できるよう text を同期する
       setDoc((d) => (d !== null ? { ...d, text: contentRef.current } : d));
+      // /files ページ表示中に添付を選んだらノート領域 (プレビュー) へ戻す
+      if (routeRef.current.kind !== 'note' && docRef.current !== null) {
+        applyHistory({ kind: 'note', path: docRef.current.path }, 'push');
+      }
       setPreview(path);
       setAppError(null);
-      setWorkspaceTab('editor');
     },
-    [saveNow],
+    [applyHistory, saveNow],
   );
 
   /**
    * [[リンク]] からのノート作成 (S6fbf45-1)。
-   * - 壊れリンクのクリック: open=true (作成して開く)
-   * - オートコンプリートの「作成してリンク」: open=false (作成のみ、執筆を中断しない)
    * baseMtime: 0 の create-only PUT なので既存ノートを上書きしない (priority 2)。
    */
   const createNoteFromLink = useCallback(
@@ -356,8 +470,6 @@ export function App(): JSX.Element {
       const t = target.trim().normalize('NFC');
       if (t.length === 0) return;
       if (/\.[A-Za-z0-9]+$/.test(t) && !/\.md$/i.test(t)) {
-        // [[image.png]] 等の非 Markdown ターゲットを "image.png.md" として
-        // 作成してしまわない (レビュー指摘 R1 — 添付参照はノート作成対象外)
         setAppError(`ノート以外のファイルは [[リンク]] から作成できません — ${t}`);
         return;
       }
@@ -370,7 +482,6 @@ export function App(): JSX.Element {
           setAppError(`ノートを作成できませんでした — ${errMessage(err)}`);
           return;
         }
-        // 409 = 既に存在 (外部で作成済み等)。リンク先はあるので続行してよい
       }
       void refreshNotes();
       if (open) await openNotePath(rel);
@@ -378,51 +489,70 @@ export function App(): JSX.Element {
     [openNotePath, refreshNotes],
   );
 
-  /**
-   * 全文検索ヒットの確定 (Sbd061c-1): ノートを開き、該当行へカーソルを移動する。
-   * openNotePath が失敗 (競合・404 等) した場合はカーソル移動しない。
-   */
-  const openNoteAtLine = useCallback(
-    async (path: string, line: number): Promise<void> => {
-      await openNotePath(path);
-      if (docRef.current?.path !== path) return; // 開けなかった (保存競合・エラー)
-      seekCounterRef.current += 1;
-      setSeek({ line, token: seekCounterRef.current });
-    },
-    [openNotePath],
-  );
-
-  const openJournal = useCallback(
-    async (date?: string): Promise<void> => {
-      if (!(await saveNow())) return;
-      try {
-        const res = await api.getJournal(date);
-        setPreview(null);
-        setOpenDoc(res.path, res.content, res.mtime);
-        if (date === undefined) setToday(res.date);
-        if (res.created) void refreshNotes();
-        setAppError(null);
-      } catch (err) {
-        setAppError(`ジャーナルを開けませんでした — ${errMessage(err)}`);
-      }
-    },
-    [refreshNotes, saveNow, setOpenDoc],
-  );
-
-  // ---- 起動: ツリー読み込み + 今日のジャーナルへ着地 ----
+  // ---- 起動: URL に従って着地 (Sf1a90a-1) ----
   const didInitRef = useRef(false);
   useEffect(() => {
-    // StrictMode の二重マウントでも起動処理は一度だけ (ジャーナル二重取得を防ぐ)
     if (didInitRef.current) return;
     didInitRef.current = true;
     void refreshNotes();
     void refreshFiles();
-    void openJournal();
-    // 起動時に一度だけ
+    // ジャーナル日付ナビ用の today (server 応答があれば上書きされる)
+    setToday(todayJournalDate());
+    // 現在のエントリに履歴インデックスを刻む
+    window.history.replaceState({ index: 0 }, '', window.location.pathname);
+    const r0 = parseLocation(window.location.pathname);
+    if (r0.kind === 'note') {
+      void applyNote(r0.path, 'replace').then((ok) => {
+        if (ok) return;
+        // 対象ノートが無い等 → 今日のジャーナルへフォールバック
+        void loadJournal().then((res) => {
+          if (res !== null) applyHistory({ kind: 'note', path: res.path }, 'replace');
+        });
+      });
+    } else if (r0.kind === 'files') {
+      applyHistory({ kind: 'files' }, 'replace');
+    } else {
+      void loadJournal().then((res) => {
+        if (res !== null) applyHistory({ kind: 'note', path: res.path }, 'replace');
+      });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---- グローバルキー: Cmd/Ctrl+S (保存) / Cmd/Ctrl+K (検索パレット) / F2 (リネーム) ----
+  // ---- ブラウザの戻る/進む (popstate) ----
+  useEffect(() => {
+    const onPop = (e: PopStateEvent): void => {
+      histIndexRef.current = historyIndexOf(e.state);
+      syncNavFlags();
+      const r = parseLocation(window.location.pathname);
+      if (r.kind === 'files') {
+        setPreview(null);
+        applyHistory(r, 'none');
+      } else if (r.kind === 'note') {
+        void applyNote(r.path, 'none');
+      } else {
+        void loadJournal().then((res) => {
+          if (res !== null) applyHistory({ kind: 'note', path: res.path }, 'none');
+        });
+      }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [applyHistory, applyNote, loadJournal, syncNavFlags]);
+
+  // ---- 未保存変更の離脱ガード (リロード/タブ閉じ) ----
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent): void => {
+      if (dirtyRef.current) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, []);
+
+  // ---- グローバルキー: Cmd/Ctrl+S (保存) / Cmd/Ctrl+K (検索) / F2 (リネーム) ----
   const modalOpenRef = useRef(false);
   modalOpenRef.current = dialog !== null || conflictPath !== null || menu !== null;
   const paletteOpenRef = useRef(false);
@@ -433,7 +563,6 @@ export function App(): JSX.Element {
         e.preventDefault();
         void saveNow();
       } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        // ダイアログ・メニュー表示中は奪わない。表示中の再押下は SearchPalette 側が処理
         if (!modalOpenRef.current) {
           e.preventDefault();
           setPaletteOpen(true);
@@ -444,7 +573,6 @@ export function App(): JSX.Element {
         !modalOpenRef.current &&
         !paletteOpenRef.current
       ) {
-        // ダイアログ・メニュー・パレット表示中は F2 で状態を奪わない
         e.preventDefault();
         setDialog({ type: 'rename', path: docRef.current.path });
       }
@@ -453,23 +581,33 @@ export function App(): JSX.Element {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [saveNow]);
 
-  // ---- ツリー操作 ----
-  const tree = useMemo(
-    () => buildTree(notes ?? [], files ?? [], extraFolders),
-    [notes, files, extraFolders],
-  );
-
-  const toggleFolder = useCallback((path: string): void => {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(path)) next.delete(path);
-      else next.add(path);
-      return next;
-    });
-  }, []);
+  // ---- 直近ファイル (mtime 降順の直近 N 件 — Sf1a90a-3) ----
+  const activeSidebarPath = preview ?? doc?.path ?? null;
+  const recentEntries = useMemo<RecentEntry[]>(() => {
+    const noteEntries = (notes ?? []).map((n) => ({
+      path: n.path,
+      name: n.title,
+      kind: 'note' as const,
+      mtime: n.mtime ?? 0,
+    }));
+    const fileEntries = (files ?? []).map((f) => ({
+      path: f.path,
+      name: basenameOf(f.path),
+      kind: 'attachment' as const,
+      mtime: f.mtime,
+    }));
+    const sorted = [...noteEntries, ...fileEntries].sort((a, b) => b.mtime - a.mtime);
+    const top = sorted.slice(0, RECENT_LIMIT);
+    // 開いているノート/添付が直近から漏れても必ず出す (操作対象を見失わない)。
+    if (activeSidebarPath !== null && !top.some((e) => e.path === activeSidebarPath)) {
+      const active = sorted.find((e) => e.path === activeSidebarPath);
+      if (active !== undefined) top.push(active);
+    }
+    return top.map(({ path, name, kind }) => ({ path, name, kind }));
+  }, [notes, files, activeSidebarPath]);
 
   const onTreeContextMenu = useCallback(
-    (e: MouseEvent, path: string, kind: 'folder' | 'note' | 'attachment'): void => {
+    (e: MouseEvent, path: string, kind: 'note' | 'attachment'): void => {
       e.preventDefault();
       setMenu({ x: e.clientX, y: e.clientY, path, kind });
     },
@@ -495,11 +633,10 @@ export function App(): JSX.Element {
       const path = folder === '' ? `${name}.md` : `${folder}/${name}.md`;
       setDialog(null);
       try {
-        // baseMtime: 0 = create-only。ツリーが古く、同名ノートが外部 (エージェント等) で
-        // 既に作られていた場合は 409 になり、黙って上書きしない (データ安全性 priority 2)。
         const res = await api.putNote(path, '', 0);
         await refreshNotes();
         setOpenDoc(res.path, '', res.mtime);
+        applyHistory({ kind: 'note', path: res.path }, 'push');
         setAppError(null);
       } catch (err) {
         if (err instanceof ApiError && err.status === 409) {
@@ -510,7 +647,7 @@ export function App(): JSX.Element {
         }
       }
     },
-    [refreshNotes, setOpenDoc],
+    [applyHistory, refreshNotes, setOpenDoc],
   );
 
   const renameNote = useCallback(
@@ -520,19 +657,16 @@ export function App(): JSX.Element {
       setDialog(null);
       if (newPath === oldPath) return;
       try {
-        // 未保存編集を先に反映してから rename API に任せる:
-        // vault 全体の [[旧名]] 追従・監査ログ・409 保護はサーバー側 (S6fbf45-3)
         if (!(await saveNow())) return;
         const res = await api.renameNote(oldPath, newPath);
         await refreshNotes();
         const openPath = docRef.current?.path;
         if (openPath === oldPath) {
-          // 開いているノート自身のリネーム: 新パスで開き直す (自己リンク書き換えも反映)
           const note = await api.getNote(res.path);
           setOpenDoc(note.path, note.content, note.mtime);
+          // 開いているノート自身のリネーム → URL を新パスへ差替 (履歴は増やさない)
+          applyHistory({ kind: 'note', path: note.path }, 'replace');
         } else if (openPath !== undefined && res.updatedNotes.some((u) => u.path === openPath)) {
-          // 開いているノートがリンク書き換え対象: ディスクの新内容を読み直す
-          // (保存済みなので編集は失われない。放置すると次回保存が 409 になる)
           const note = await api.getNote(openPath);
           setOpenDoc(note.path, note.content, note.mtime);
         }
@@ -547,7 +681,7 @@ export function App(): JSX.Element {
         void refreshNotes();
       }
     },
-    [refreshNotes, saveNow, setOpenDoc],
+    [applyHistory, refreshNotes, saveNow, setOpenDoc],
   );
 
   const deleteNote = useCallback(
@@ -571,28 +705,18 @@ export function App(): JSX.Element {
     [refreshNotes],
   );
 
-  const createFolder = useCallback((name: string): void => {
-    setDialog(null);
-    setExtraFolders((prev) => (prev.includes(name) ? prev : [...prev, name]));
-  }, []);
-
   // ---- 添付ファイル: アップロード / リネーム / 削除 (Sf53ad6-2) ----
-
-  /** アップロード名のサニタイズ (パス区切り除去・NFC・隠しファイル名回避)。 */
   const sanitizeUploadName = useCallback((raw: string, mime: string): string => {
     let name = (raw.split(/[\\/]/).pop() ?? '').trim().normalize('NFC').replace(/^\.+/, '');
     if (name === '') {
-      // クリップボード画像等の無名ファイルは MIME から補完 (prototype: image.png)
       const sub = (mime.split('/')[1] ?? '').replace(/[^a-z0-9]/gi, '');
-      name = mime.startsWith('image/') ? `image.${sub === '' ? 'png' : sub}` : `file.${sub === '' ? 'bin' : sub}`;
+      name = mime.startsWith('image/')
+        ? `image.${sub === '' ? 'png' : sub}`
+        : `file.${sub === '' ? 'bin' : sub}`;
     }
     return name;
   }, []);
 
-  /**
-   * 1 ファイルを assets/ にアップロードする。名前衝突は連番リネーム
-   * (image.png → image-1.png — AC-Sf53ad6-2-2)。失敗はエラートーストで通知し null。
-   */
   const uploadOne = useCallback(
     async (file: File): Promise<string | null> => {
       const name = sanitizeUploadName(file.name, file.type);
@@ -608,7 +732,7 @@ export function App(): JSX.Element {
         const ext = dot > 0 ? name.slice(dot) : '';
         for (let n = 0; n <= 99; n++) {
           const candidate = n === 0 ? `assets/${name}` : `assets/${stem}-${String(n)}${ext}`;
-          if (known.has(candidate)) continue; // 既知の衝突は API を叩かず次候補へ
+          if (known.has(candidate)) continue;
           try {
             const res = await api.uploadFile(candidate, file);
             removeToast(progressId);
@@ -622,7 +746,7 @@ export function App(): JSX.Element {
             void refreshFiles();
             return res.path;
           } catch (err) {
-            if (err instanceof ApiError && err.status === 409) continue; // 衝突 → 連番リトライ
+            if (err instanceof ApiError && err.status === 409) continue;
             throw err;
           }
         }
@@ -640,7 +764,6 @@ export function App(): JSX.Element {
     [pushToast, refreshFiles, removeToast, sanitizeUploadName],
   );
 
-  /** D&D / ペーストのエントリポイント (Editor の uploadEnv から呼ばれる)。 */
   const uploadFiles = useCallback(
     async (uploads: File[]): Promise<string[]> => {
       const out: string[] = [];
@@ -665,7 +788,6 @@ export function App(): JSX.Element {
         const res = await api.renameFile(oldPath, newPath);
         await refreshFiles();
         if (preview === oldPath) setPreview(res.path);
-        // 開いているノートがリンク書き換え対象なら最新をディスクから読み直す
         const openPath = docRef.current?.path;
         if (openPath !== undefined && res.updatedNotes.some((u) => u.path === openPath)) {
           const note = await api.getNote(openPath);
@@ -732,7 +854,7 @@ export function App(): JSX.Element {
     }
   }, [setOpenDoc]);
 
-  // ---- パンくず ----
+  // ---- 現在ルート表示 (route-display) 用のパンくず ----
   const breadcrumb = useMemo(() => {
     const target = preview ?? doc?.path ?? null;
     if (target === null) return null;
@@ -744,7 +866,7 @@ export function App(): JSX.Element {
 
   return (
     <div className="app">
-      {/* ================= 左: サイドバー ================= */}
+      {/* ================= 左: サイドバー (直近ファイル) ================= */}
       <aside className="sidebar" data-testid="sidebar">
         <div className="sidebar-header">
           <div className="vault-badge">L</div>
@@ -768,24 +890,26 @@ export function App(): JSX.Element {
           entries={journalEntries}
           listOpen={journalListOpen}
           onPrev={() => {
-            if (journalBaseDate !== null) void openJournal(shiftJournalDate(journalBaseDate, -1));
+            if (journalBaseDate !== null) void openJournalNav(shiftJournalDate(journalBaseDate, -1));
           }}
           onNext={() => {
-            if (journalBaseDate !== null) void openJournal(shiftJournalDate(journalBaseDate, 1));
+            if (journalBaseDate !== null) void openJournalNav(shiftJournalDate(journalBaseDate, 1));
           }}
           onToday={() => {
             setJournalListOpen(false);
-            void openJournal();
+            void openJournalNav();
           }}
           onToggleList={() => setJournalListOpen((v) => !v)}
           onSelectDate={(date) => {
             setJournalListOpen(false);
-            void openJournal(date);
+            void openJournalNav(date);
           }}
         />
 
         <div className="tree-section-title">
-          <span>ノート</span>
+          <span>
+            直近のファイル <span className="recent-hint">{RECENT_LIMIT} 件</span>
+          </span>
           <span className="actions">
             <button
               className="icon-btn"
@@ -795,72 +919,64 @@ export function App(): JSX.Element {
             >
               <NewNoteIcon />
             </button>
-            <button
-              className="icon-btn"
-              data-testid="sidebar-new-folder"
-              title="新規フォルダ"
-              onClick={() => setDialog({ type: 'new-folder' })}
-            >
-              <NewFolderIcon />
-            </button>
           </span>
         </div>
 
-        <FileTree
-          nodes={tree}
-          activePath={doc?.path ?? null}
-          collapsed={collapsed}
+        <RecentFiles
+          entries={recentEntries}
+          activePath={preview ?? doc?.path ?? null}
           error={notesError}
           loaded={notes !== null}
-          onToggleFolder={toggleFolder}
           onOpenNote={(path) => void openNotePath(path)}
           onOpenFile={(path) => void openFilePreview(path)}
           onContextMenu={onTreeContextMenu}
         />
-      </aside>
 
-      {/* ================= 中央: エディタ / ターミナル ================= */}
-      <main className="workspace">
-        {/* エディタ / ターミナルのタブ切替 (Sb7f458-2 — prototype/terminal.html) */}
-        <div className="workspace-tabs" data-testid="workspace-tabs">
+        <div className="tree-section-title show-all-row">
+          <span />
           <button
-            className={`wtab${workspaceTab === 'editor' ? ' active' : ''}`}
-            data-testid="tab-editor"
-            aria-selected={workspaceTab === 'editor'}
-            onClick={() => setWorkspaceTab('editor')}
+            className="show-all"
+            data-testid="sidebar-show-all"
+            onClick={showFiles}
           >
-            <DocumentIcon />
-            {breadcrumb?.name ?? 'エディタ'}
-          </button>
-          <button
-            className={`wtab${workspaceTab === 'terminal' ? ' active' : ''}`}
-            data-testid="tab-terminal"
-            aria-selected={workspaceTab === 'terminal'}
-            onClick={() => {
-              setTerminalMounted(true);
-              setWorkspaceTab('terminal');
-            }}
-          >
-            <TerminalIcon />
-            {terminalCmd !== null ? `ターミナル — ${terminalCmd}` : 'ターミナル'}
-            {terminalMounted && (
-              <span className={`live-dot${terminalStatus === 'connected' ? '' : ' off'}`} />
-            )}
+            すべてのファイルを表示 →
           </button>
         </div>
+      </aside>
 
-        <div
-          className="workspace-editor"
-          style={{ display: workspaceTab === 'editor' ? 'flex' : 'none' }}
-        >
+      {/* ================= 中央: メイン 1 画面 ================= */}
+      <main className="workspace">
         <div className="editor-header">
-          <div className="breadcrumb">
-            {breadcrumb !== null ? (
+          <div className="nav-group">
+            <button
+              className="nav-btn"
+              data-testid="nav-back"
+              title="戻る (履歴を1つ戻る)"
+              disabled={!canBack}
+              onClick={() => window.history.back()}
+            >
+              <ChevronLeftIcon />
+            </button>
+            <button
+              className="nav-btn"
+              data-testid="nav-forward"
+              title="進む (履歴を1つ進む)"
+              disabled={!canForward}
+              onClick={() => window.history.forward()}
+            >
+              <ChevronRightIcon />
+            </button>
+          </div>
+          <nav className="route-crumbs breadcrumb" data-testid="route-display" aria-label="現在のルート">
+            {route.kind === 'files' ? (
+              <span className="route-token">/files</span>
+            ) : breadcrumb !== null ? (
               <>
+                <span className="route-token">/n/</span>
                 {breadcrumb.folders.map((f, i) => (
                   <span key={`${f}-${String(i)}`}>
                     <span>{f}</span>
-                    <span className="sep"> / </span>
+                    <span className="sep">/</span>
                   </span>
                 ))}
                 <span className="current">{breadcrumb.name}</span>
@@ -868,13 +984,13 @@ export function App(): JSX.Element {
             ) : (
               <span className="current faint">ノートが開かれていません</span>
             )}
-          </div>
+          </nav>
           {appError !== null && (
             <div className="app-error" data-testid="app-error" title={appError}>
               {appError}
             </div>
           )}
-          {doc !== null && preview === null && (
+          {route.kind === 'note' && doc !== null && preview === null && (
             <div className="save-status" data-testid="save-status" data-state={dirty ? 'dirty' : 'saved'}>
               <span className="dot" />
               <span>{dirty ? '未保存' : '保存済み'}</span>
@@ -882,7 +998,9 @@ export function App(): JSX.Element {
           )}
         </div>
 
-        {preview !== null ? (
+        {route.kind === 'files' ? (
+          <FilesPage />
+        ) : preview !== null ? (
           <FilePreview path={preview} files={files} />
         ) : doc !== null ? (
           <Editor
@@ -912,7 +1030,11 @@ export function App(): JSX.Element {
               ファイルはすべてピュアな Markdown として vault に保存されます。
             </p>
             <div className="empty-actions">
-              <button className="btn primary" data-testid="empty-open-journal" onClick={() => void openJournal()}>
+              <button
+                className="btn primary"
+                data-testid="empty-open-journal"
+                onClick={() => void openJournalNav()}
+              >
                 今日のジャーナルを開始
               </button>
               <button
@@ -938,7 +1060,7 @@ export function App(): JSX.Element {
         )}
 
         {/* D&D 中のドロップオーバーレイ (Sf53ad6-2 — prototype/upload.html) */}
-        {dragActive && preview === null && doc !== null && (
+        {dragActive && route.kind === 'note' && preview === null && doc !== null && (
           <div className="drop-overlay" data-testid="drop-overlay">
             <div className="drop-overlay-inner">
               <div className="glyph">
@@ -951,23 +1073,11 @@ export function App(): JSX.Element {
             </div>
           </div>
         )}
-        </div>
-
-        {/* ターミナル (一度開いたらタブ切替でも unmount しない — セッション維持) */}
-        {terminalMounted && (
-          <TerminalPane
-            active={workspaceTab === 'terminal'}
-            onStatusChange={setTerminalStatus}
-            onCmdDetected={setTerminalCmd}
-          />
-        )}
       </main>
 
-      {/* ================= 右: バックリンクパネル ================= */}
-      <BacklinkPanel
-        collapsed={panelCollapsed}
-        onToggle={() => setPanelCollapsed((v) => !v)}
-        notePath={doc?.path ?? null}
+      {/* ================= 右: サイドバー (バックリンク | Claude) ================= */}
+      <RightSidebar
+        notePath={route.kind === 'note' ? (doc?.path ?? null) : null}
         refreshToken={backlinksToken}
         onOpenNote={(path) => void openNotePath(path)}
       />
@@ -986,7 +1096,7 @@ export function App(): JSX.Element {
           x={menu.x}
           y={menu.y}
           path={menu.path}
-          isFolder={menu.kind === 'folder'}
+          isFolder={false}
           onOpen={() => {
             setMenu(null);
             if (menu.kind === 'attachment') void openFilePreview(menu.path);
@@ -994,10 +1104,7 @@ export function App(): JSX.Element {
           }}
           onNewNote={() => {
             setMenu(null);
-            setDialog({
-              type: 'new-note',
-              folder: menu.kind === 'folder' ? menu.path : dirnameOf(menu.path),
-            });
+            setDialog({ type: 'new-note', folder: dirnameOf(menu.path) });
           }}
           onRename={() => {
             setMenu(null);
@@ -1031,24 +1138,6 @@ export function App(): JSX.Element {
         />
       )}
 
-      {dialog?.type === 'new-folder' && (
-        <NameDialog
-          title="新規フォルダ"
-          sub="フォルダは最初のノートを作成した時点でディスクに反映されます"
-          initial=""
-          placeholder="フォルダ名"
-          confirmLabel="作成"
-          testids={{ dialog: 'new-folder-dialog', input: 'new-folder-input', confirm: 'new-folder-confirm', cancel: 'new-folder-cancel' }}
-          validate={(name) => {
-            if (name === '') return 'フォルダ名を入力してください';
-            if (name.startsWith('/') || name.endsWith('/')) return 'フォルダ名の先頭・末尾に / は使えません';
-            return null;
-          }}
-          onConfirm={createFolder}
-          onCancel={() => setDialog(null)}
-        />
-      )}
-
       {dialog?.type === 'rename' && (
         <NameDialog
           title="ノートをリネーム"
@@ -1059,7 +1148,7 @@ export function App(): JSX.Element {
           extra={<RenameLinkNote path={dialog.path} />}
           validate={(name) => {
             const current = (dialog.path.split('/').at(-1) ?? '').replace(/\.md$/, '');
-            if (name === current) return null; // 同名は no-op
+            if (name === current) return null;
             return validateNoteName(dirnameOf(dialog.path))(name);
           }}
           onConfirm={(name) => void renameNote(dialog.path, name)}
@@ -1085,7 +1174,7 @@ export function App(): JSX.Element {
           }
           validate={(name) => {
             const current = dialog.path.split('/').at(-1) ?? '';
-            if (name === current) return null; // 同名は no-op
+            if (name === current) return null;
             if (name === '') return 'ファイル名を入力してください';
             if (name.includes('/')) return 'ファイル名に / は使えません';
             if (name.startsWith('.')) return 'ドット始まりのファイル名は使えません';

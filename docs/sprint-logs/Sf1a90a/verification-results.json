@@ -1,0 +1,180 @@
+{
+  "sprint": "Sf1a90a",
+  "run_at": "2026-07-04T00:00:00Z",
+  "server_command": "make test-ui (Playwright harness: 実サーバー + 実 Vite, 一時 vault) / make test / make lint",
+  "machine_verdict": "docs/sprint-logs/Sf1a90a/verify-run.json (overall=pass)",
+  "summary": {
+    "total": 471,
+    "pass": 471,
+    "fail": 0,
+    "skip": 0,
+    "note": "vitest 343 (unit+acceptance) + Playwright 128 (mock 78 + e2e 50)"
+  },
+  "tests": [
+    {
+      "name": "[AC-Sf1a90a-1-1] ノート遷移が履歴に積まれ、ブラウザおよび UI の戻る/進むで移動できる",
+      "file": "packages/ui/tests/e2e/routing.e2e.spec.ts",
+      "story": "Sf1a90a-1",
+      "acceptance_criteria": ["AC-Sf1a90a-1-1"],
+      "status": "pass"
+    },
+    {
+      "name": "[AC-Sf1a90a-1-2] メインは 1 画面 (タブなし)。開いているノートが URL に反映されリロードで復帰する",
+      "file": "packages/ui/tests/e2e/routing.e2e.spec.ts",
+      "story": "Sf1a90a-1",
+      "acceptance_criteria": ["AC-Sf1a90a-1-2"],
+      "status": "pass"
+    },
+    {
+      "name": "[AC-Sf1a90a-1-3] [[リンク]] / embed / バックリンク / 検索結果からの遷移が履歴に積まれ、戻るで直前のノートに戻れる (4 テスト)",
+      "file": "packages/ui/tests/e2e/routing.e2e.spec.ts",
+      "story": "Sf1a90a-1",
+      "acceptance_criteria": ["AC-Sf1a90a-1-3"],
+      "status": "pass"
+    },
+    {
+      "name": "router.ts URL↔Route 相互変換ユニット (9 テスト)",
+      "file": "packages/ui/tests/unit/router.spec.ts",
+      "story": "Sf1a90a-1",
+      "acceptance_criteria": ["AC-Sf1a90a-1-1", "AC-Sf1a90a-1-2"],
+      "status": "pass"
+    },
+    {
+      "name": "[AC-Sf1a90a-2-1] Claude を右で開いてもメインのノートが見えたまま実シェルと対話できる / トグルでセッション維持 / リサイズ追従",
+      "file": "packages/ui/tests/e2e/claude-sidebar.e2e.spec.ts",
+      "story": "Sf1a90a-2",
+      "acceptance_criteria": ["AC-Sf1a90a-2-1"],
+      "status": "pass"
+    },
+    {
+      "name": "[AC-Sf1a90a-2-2] サーバー無効時に理由と有効化手順を表示 (実サーバー) + 既定 claude 実起動 smoke (信頼プロンプト到達, 手動)",
+      "file": "packages/ui/tests/e2e/claude-sidebar.e2e.spec.ts + 手動 WS smoke",
+      "story": "Sf1a90a-2",
+      "acceptance_criteria": ["AC-Sf1a90a-2-2"],
+      "status": "pass"
+    },
+    {
+      "name": "[AC-Sf1a90a-2-3] シェル終了で終了コードと再接続導線が出て再接続で新セッション + mock 終了コード表示",
+      "file": "packages/ui/tests/e2e/claude-sidebar.e2e.spec.ts, claude-sidebar.mock.spec.ts",
+      "story": "Sf1a90a-2",
+      "acceptance_criteria": ["AC-Sf1a90a-2-3"],
+      "status": "pass"
+    },
+    {
+      "name": "[AC-Sf1a90a-3-1] サイドバーは直近 10 件に絞られ、「すべて表示」で /files へ遷移する",
+      "file": "packages/ui/tests/e2e/sidebar-recent.e2e.spec.ts",
+      "story": "Sf1a90a-3",
+      "acceptance_criteria": ["AC-Sf1a90a-3-1"],
+      "status": "pass"
+    }
+  ],
+  "manual_smoke": {
+    "target": "既定コマンド claude (LOAMIUM_TERMINAL_CMD 未指定) を LOAMIUM_TERMINAL=1 + LOAMIUM_MODE=full の実サーバーで起動",
+    "mode": "production (実サーバー + node-pty, MOCK/fake なし)",
+    "result": "WS /api/terminal 接続で claude が『Is this a project you created or one you trust?』信頼プロンプト (❯ 1. Yes, I trust this folder / 2. No, exit) まで到達し、exitCode=null (対話継続) を確認。AC-Sf1a90a-2-2 の『信頼プロンプト等の初期表示まで到達』を満たす。env 見直し (CLAUDECODE/CLAUDE_CODE_* 除去 + TERM/COLORTERM/LANG) が Claude Code 配下での即終了を防いだ。"
+  },
+  "diff_coverage": {
+    "surfaces": [
+      {
+        "type": "ui-route",
+        "identifier": "/n/{path} ノートルート + History back/forward + nav-back/nav-forward",
+        "introduced_in_files": ["packages/ui/src/router.ts", "packages/ui/src/App.tsx"],
+        "resolution": "covered",
+        "test": "[AC-Sf1a90a-1-1] routing.e2e.spec.ts + router.spec.ts"
+      },
+      {
+        "type": "ui-route",
+        "identifier": "/files ルート (placeholder) + sidebar-show-all",
+        "introduced_in_files": ["packages/ui/src/components/FilesPage.tsx", "packages/ui/src/App.tsx"],
+        "resolution": "covered",
+        "test": "[AC-Sf1a90a-3-1] sidebar-recent.e2e.spec.ts + [AC-Sf1a90a-1-1] routing.e2e.spec.ts"
+      },
+      {
+        "type": "ui-component",
+        "identifier": "right-sidebar backlinks/Claude トグル (right-tab-backlinks/right-tab-claude/right-sidebar-toggle/claude-panel)",
+        "introduced_in_files": ["packages/ui/src/components/RightSidebar.tsx", "packages/ui/src/components/TerminalPane.tsx"],
+        "resolution": "covered",
+        "test": "[AC-Sf1a90a-2-1] claude-sidebar.e2e.spec.ts + claude-sidebar.mock.spec.ts + editor.mock (right-sidebar-toggle)"
+      },
+      {
+        "type": "ui-component",
+        "identifier": "直近ファイル一覧 (RecentFiles, mtime 降順 N=10 + active 常時表示)",
+        "introduced_in_files": ["packages/ui/src/components/RecentFiles.tsx", "packages/ui/src/App.tsx"],
+        "resolution": "covered",
+        "test": "[AC-Sf1a90a-3-1] sidebar-recent.e2e.spec.ts"
+      },
+      {
+        "type": "api-field",
+        "identifier": "GET /api/notes 応答に mtime を追加 (noteMetaSchema optional)",
+        "introduced_in_files": ["packages/shared/src/schemas.ts", "packages/server/src/noteIndex.ts"],
+        "resolution": "covered",
+        "test": "[AC-Sf1a90a-3-1] sidebar-recent.e2e.spec.ts (実サーバーの mtime 順で並ぶ) + notes-crud acceptance"
+      },
+      {
+        "type": "server-env",
+        "identifier": "node-pty env 見直し (CLAUDECODE/CLAUDE_CODE_* 除去, COLORTERM, LANG)",
+        "introduced_in_files": ["packages/server/src/terminal.ts"],
+        "resolution": "covered",
+        "test": "[AC-Sf1a90a-2-1] bash 双方向 I/O E2E + 手動 claude smoke (production)"
+      },
+      {
+        "type": "ui-behavior",
+        "identifier": "切断バーの終了コード表示 (TerminalPane exitCode)",
+        "introduced_in_files": ["packages/ui/src/components/TerminalPane.tsx"],
+        "resolution": "covered",
+        "test": "[AC-Sf1a90a-2-3] claude-sidebar.e2e (exit 0) + claude-sidebar.mock (exit 3)"
+      },
+      {
+        "type": "ui-behavior",
+        "identifier": "未保存変更の離脱ガード (beforeunload) + 遷移前 flush save",
+        "introduced_in_files": ["packages/ui/src/App.tsx"],
+        "resolution": "covered",
+        "test": "[AC-Sf1a90a-1-2] routing.e2e (reload restore) + editor.e2e (save/reload)"
+      }
+    ]
+  },
+  "done_judgment": [
+    {
+      "story_id": "Sf1a90a-1",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "n/a",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    },
+    {
+      "story_id": "Sf1a90a-2",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "n/a",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    },
+    {
+      "story_id": "Sf1a90a-3",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "n/a",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    }
+  ]
+}

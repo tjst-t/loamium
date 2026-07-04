@@ -79,7 +79,8 @@ async function openWithJournal(
     }
     void route.fulfill(json(note(rel, body)));
   });
-  await page.route('**/api/journal', (route) => {
+  // reload 後は URL が /n/journals/{date} になり ?date= 付きで再取得される (Sf1a90a-1)
+  await page.route('**/api/journal*', (route) => {
     void route.fulfill(json(journal(content)));
   });
   await page.goto(readHarnessState().uiUrl);

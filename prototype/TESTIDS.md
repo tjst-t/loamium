@@ -322,3 +322,20 @@ Sprint Sf1a90a / S935867 / Seac77a / S763a98 の実装と E2E はこの表に追
 - `data-command` の値: `table` / `callout` / `code` / `mermaid` / `dataview` / `checkbox` / `heading` / `date`。
 - 挿入結果はすべて標準 Markdown(ブロック ID・独自記法なし)。カーソルは編集開始位置に置く (AC-S763a98-1-2)。
 - コードフェンス内・インラインコード内では `slash-menu` は開かない (AC-S763a98-1-3)。
+
+### Sf1a90a で実装済 (2026-07-04) — UI シェル刷新 (ルーティング / 右サイドバー / 直近ファイル)
+
+- `nav-back` / `nav-forward` / `route-display` — Sf1a90a-1(History API ルーティング。ノート=`/n/{path}`、
+  アセット=`/files`。戻れない/進めないとき `disabled`。URL から `.md` は除く)
+- `sidebar-show-all` — Sf1a90a-3(「すべてのファイルを表示」→ `/files` ルート。ページ本体は Seac77a)
+- `right-sidebar` / `right-tab-backlinks` / `right-tab-claude` / `right-sidebar-toggle` / `claude-panel`
+  — Sf1a90a-2(バックリンク ⇄ Claude トグル。`claude-panel` は `data-terminal-status`。折りたたみは
+  `right-sidebar` に `collapsed` クラス)
+- `files-page-placeholder` — 実装時 additive。`/files` ルートのプレースホルダ(本体は Seac77a)
+- 旧 `workspace-tabs` / `tab-editor` / `tab-terminal`(Sb7f458)は撤去。`backlink-panel` /
+  `backlink-count` / `backlink-item` / `backlink-empty` / `backlink-error` は `right-sidebar` 内で存続
+  (`backlink-panel-toggle` は `right-sidebar-toggle` に置換)。`terminal` / `terminal-disabled` /
+  `terminal-reconnect-bar` / `terminal-reconnect` は `claude-panel` 内へ移設して再利用。
+- サイドバーは mtime 順の直近 N=10 件フラット一覧(`file-tree` / `tree-item` / `tree-file` を流用)。
+  開いているノート/添付は直近から漏れても必ず表示。フォルダツリー閲覧・`sidebar-new-folder` は
+  ファイル一覧ページ (Seac77a) へ移設のため撤去(フォルダ内新規は `context-new-note` で存続)。

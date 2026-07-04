@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "Sf1a90a",
+    "current_sprint": "S935867",
     "total": 15,
-    "done": 11,
+    "done": 12,
     "in_progress": 0,
-    "remaining": 4,
-    "percentage": 73
+    "remaining": 3,
+    "percentage": 80
   },
   "execution_order": [
     "Sd63ad1",
@@ -1066,13 +1066,13 @@
     },
     "Sf1a90a": {
       "title": "UI シェル刷新 — ルーティングと右サイドバー",
-      "status": "pending",
+      "status": "done",
       "description": "タブ方式を廃止し、ブラウザ的ルーティング(戻る/進む対応)に作り替える。メインは常に 1 画面で、ノート/検索/アセット等をルートとして遷移する。Claude(ターミナル)は右サイドバーのトグル機能へ移設し、旧タブ実装(Sb7f458)を置換する。既定 claude が対話可能な状態まで到達しないバグ(milestone review ①)もここで解消する。",
       "milestone": false,
       "stories": {
         "Sf1a90a-1": {
           "title": "ルーティングと戻る/進む",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、ノート・検索・アセット等の画面をブラウザの戻る/進むで行き来したい。なぜなら、タブを開きすぎずに、見て回った経路を自然に辿れることが日常操作の快適さを決めるから。",
@@ -1081,37 +1081,37 @@
               "id": "AC-Sf1a90a-1-1",
               "description": "ノートを開く/検索/アセット等の画面遷移が履歴(History API)に積まれ、ブラウザおよび UI の戻る/進むボタンで前後に移動できる",
               "test": "[AC-Sf1a90a-1-1] in packages/ui/tests/e2e/routing.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sf1a90a-1-2",
               "description": "メインビューは常に 1 画面(タブなし)で、開いているノートがルート(URL)に反映され、リロードしても同じノートに戻る",
               "test": "[AC-Sf1a90a-1-2] in packages/ui/tests/e2e/routing.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sf1a90a-1-3",
               "description": "[[リンク]]・バックリンク・検索結果・embed からの遷移がすべて履歴に積まれ、戻るで直前のノートに戻れる",
               "test": "[AC-Sf1a90a-1-3] in packages/ui/tests/e2e/routing.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sf1a90a-1-1": {
               "title": "ルーター導入",
               "description": "History API ベースの軽量ルーティング(ノート=/n/{path}、検索・アセット等のルート)。既存のノート遷移をすべてルーター経由に統一。",
-              "status": "pending"
+              "status": "done"
             },
             "Sf1a90a-1-2": {
               "title": "戻る/進む UI とタブ撤去",
               "description": "ヘッダに戻る/進むボタン。旧タブ UI を撤去し 1 画面化。未保存変更の遷移ガード。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sf1a90a-2": {
           "title": "Claude を右サイドバーのトグルへ移設(+ 既定コマンド修正)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、ノートを見ながら右サイドバーで Claude と対話したい。なぜなら、ターミナルを別タブにすると 1 画面しか見られず、ノートと対話を往復できないから。",
@@ -1120,42 +1120,42 @@
               "id": "AC-Sf1a90a-2-1",
               "description": "右サイドバーがバックリンクと Claude(ターミナル)をトグルで切り替えられ、Claude 表示中もメインのノートが見える",
               "test": "[AC-Sf1a90a-2-1] in packages/ui/tests/e2e/claude-sidebar.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sf1a90a-2-2",
               "description": "LOAMIUM_TERMINAL=1 + full モードのとき、右サイドバーの Claude で既定コマンド(claude)が対話可能な状態(信頼プロンプト等の初期表示を含む)まで到達し、実シェル指定では入出力が双方向に流れる。無効時は理由と有効化手順を表示",
               "test": "[AC-Sf1a90a-2-2] in packages/ui/tests/e2e/claude-sidebar.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sf1a90a-2-3",
               "description": "起動失敗・即終了時はサイドバー内に終了コードと再接続導線が表示され、既存の三重ガード+Origin 検証は維持される",
               "test": "[AC-Sf1a90a-2-3] in packages/ui/tests/e2e/claude-sidebar.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sf1a90a-2-1": {
               "title": "右サイドバー統合",
               "description": "バックリンクパネルと Claude を同じ右サイドバーのトグルに。旧ターミナルタブ(Sb7f458-2)を置換。xterm セッションはサイドバー開閉で維持。",
-              "status": "pending"
+              "status": "done"
             },
             "Sf1a90a-2-2": {
               "title": "既定 claude 起動の修正",
               "description": "node-pty 起動時の env/TERM/cwd を見直し、既定 claude が到達可能に(信頼プロンプト応答 or 起動失敗の明示表示)。実サーバーで手動 smoke。",
-              "status": "pending"
+              "status": "done"
             },
             "Sf1a90a-2-3": {
               "title": "二層テスト",
               "description": "mock(無効状態・切断・spawn 失敗)+ E2E(実シェルで双方向 I/O、[AC-] タグ)。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sf1a90a-3": {
           "title": "サイドバーツリーの直近ファイル表示",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、サイドバーには最近使ったファイルだけを出し、全部は別ページで見たい。なぜなら、ファイルが増えるとサイドバーに全件出るのは破綻するから。",
@@ -1164,14 +1164,14 @@
               "id": "AC-Sf1a90a-3-1",
               "description": "サイドバーのファイル一覧は直近更新の N 件(既定 10)に絞られ、「すべて表示」からアセット/ファイル一覧ページ(Seac77a で実装)に遷移できる",
               "test": "[AC-Sf1a90a-3-1] in packages/ui/tests/e2e/sidebar-recent.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sf1a90a-3-1": {
               "title": "直近 N 件表示",
               "description": "ツリー/一覧を mtime 順の直近 N 件に。フォルダ展開時の挙動と「すべて表示」導線。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }

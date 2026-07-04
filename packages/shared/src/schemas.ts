@@ -147,6 +147,11 @@ export const noteMetaSchema = z.object({
   tags: z.array(z.string()),
   /** vault 相対の親フォルダ ("" = ルート直下) */
   folder: z.string(),
+  /**
+   * ファイル mtime (ms epoch)。サイドバーの直近 N 件ソート (Sf1a90a-3) に使う。
+   * server は常に付与するが、既存 mock との後方互換のため optional。
+   */
+  mtime: z.number().optional(),
 });
 export type NoteMeta = z.infer<typeof noteMetaSchema>;
 
