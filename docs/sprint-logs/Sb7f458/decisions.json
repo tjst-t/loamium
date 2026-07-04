@@ -1,0 +1,66 @@
+{
+  "sprint": "Sb7f458",
+  "mode": "auto (autopilot, --with-verifier)",
+  "base_sha": "2958ce94435497db4109907ef288dcab8f2713a4",
+  "planning_decisions": [
+    {
+      "id": "P1",
+      "decision": "Story 2 本を単線シーケンシャル実行 (Sb7f458-1 pty ブリッジ → Sb7f458-2 ターミナルタブ UI)。worktree 並列・実装サブエージェントは使わない",
+      "rationale": "Story 2 (UI) が Story 1 の WS /api/terminal と /api/health 拡張に完全依存する直列構造。本セッションに Agent tool が無い点も過去 Sprint (Sb1593c 等) と同条件 (DESIGN_PRINCIPLES priority 5: シンプルさ優先)。"
+    },
+    {
+      "id": "P2",
+      "decision": "ユーザーストーリー・AC は ROADMAP のまま採用 (書き換え・分割不要)",
+      "rationale": "両 Story とも「{役割}として、{やりたいこと}。なぜなら {理由}」形式を満たし、AC は全てユーザー可観測 (WS 接続可否 / 実対話 / タブ表示)。"
+    },
+    {
+      "id": "P3",
+      "decision": "GUI spec は autonomous mode で導出。ビジュアルの正は prototype/terminal.html + TESTIDS.md「Sprint 7-11 追加分」の terminal 系 7 testid 契約 (接続中/切断/無効の 3 状態)。Sb7f458-1 は api (実 WS クライアント受け入れテスト)、Sb7f458-2 は gui (mock + E2E 二層)",
+      "rationale": "エントリポイント (tab-terminal クリック)・3 状態・testid はプロトタイプから一意に導出できる。"
+    },
+    {
+      "id": "P4",
+      "decision": "WS は @hono/node-ws (createNodeWebSocket + injectWebSocket) で既存 Hono/@hono/node-server 構成に統合。pty は node-pty (ネイティブ)。フロントは @xterm/xterm + @xterm/addon-fit を npm 同梱 (CDN 不使用)",
+      "rationale": "Sprint 指示どおり。@hono/node-ws は既存 serve() 構成に injectWebSocket を足すだけで自然に載る (tech_constraints: Hono)。SPEC §6 も node-pty + xterm.js を明記。"
+    },
+    {
+      "id": "P5",
+      "decision": "三重ガードの実装点: (1) config.terminal.enabled = (LOAMIUM_TERMINAL==='1' && mode==='full') を configFromEnv で確定、(2) 無効時は /api/terminal を upgrade せず 403 (有効化手順つき) を返す通常ハンドラを登録、(3) バインドは既存の LOAMIUM_HOST 既定 127.0.0.1 を変更しない",
+      "rationale": "pty はブラウザから任意コマンド実行に等しい (priority 2: データ安全性 > 開発速度)。ガードは接続時ではなく起動時に確定し、テストは未設定/read-only/append-only の拒否を実 WS クライアントで検証する。"
+    },
+    {
+      "id": "P6",
+      "decision": "WS プロトコルは JSON 単一形: クライアント→サーバー {type:'input', data} | {type:'resize', cols, rows}、サーバー→クライアント {type:'output', data} | {type:'exit', exitCode}。バイナリフレームは使わない",
+      "rationale": "TUI (claude / bash) の出力は UTF-8 テキストで十分。単一 JSON 形は判別が単純で zod 検証とも揃う (priority 5)。"
+    },
+    {
+      "id": "P7",
+      "decision": "GET /api/health を additive に拡張: {status, mode, terminal: {enabled, reason?}}。reason は無効理由の機械可読コード ('terminal_env_not_set' | 'mode_not_full')",
+      "rationale": "AC-Sb7f458-2-2 の機能フラグ検出。既存フィールドは不変 (priority 3: API 後方互換)。"
+    },
+    {
+      "id": "P8",
+      "decision": "切断時の子プロセス終了は SIGTERM → 3 秒後に未終了なら SIGKILL。onExit で二重 kill を抑止。監査ログは terminal.session_start / terminal.session_end の 2 イベントのみを既存 AuditEntry 形 (JSONL) で直接 append し、入出力・コマンド内容は一切記録しない",
+      "rationale": "AC-Sb7f458-1-2 (確実な終了) + Story タスク Sb7f458-1-2 (コマンド内容は記録しない — vault に機微情報がありうる、priority 2)。HTTP 監査ミドルウェアは upgrade 応答と相性が悪いためセッションライフサイクルから直接書く。"
+    },
+    {
+      "id": "P9",
+      "decision": "受け入れテスト (tests/acceptance/terminal.spec.ts) は LOAMIUM_TERMINAL_CMD=/bin/bash の実シェルで echo/pwd/stty/PID 追跡まで実対話を検証。claude CLI 本体の起動はログイン前提の外部依存のため AC 外とし、README に利用手順を記載",
+      "rationale": "Sprint 指示どおり (二層テスト + 実シェル E2E)。テストクライアントは ws パッケージ (devDependency) — Node 20 にはまだ安定版グローバル WebSocket が無い。"
+    },
+    {
+      "id": "P10",
+      "decision": "UI E2E: 共有ハーネス (global-setup) のサーバーを LOAMIUM_TERMINAL=1 + LOAMIUM_TERMINAL_CMD=/bin/bash で起動し、接続/対話/リサイズ/exit→再接続を実ブラウザで検証。無効状態 (AC-Sb7f458-2-2 前半) は spec 内で LOAMIUM_TERMINAL 未設定の第 2 実サーバー + 第 2 Vite を起動して実検証 (page.route による health モックは e2e では使わない)",
+      "rationale": "test-discipline Rule 2/4 (GUI E2E は実バックエンド)。1 つのサーバーでは有効/無効を同時に表現できないため、無効状態も実サーバーで観測する。mock 層 (terminal.mock.spec.ts) では page.route + routeWebSocket でエッジケース (health 失敗・切断) を補完する。"
+    },
+    {
+      "id": "P11",
+      "decision": "タブ切替はエディタ/ターミナルの表示切替 (display 切替) で実装し、ターミナルタブから離れても WS セッションは維持する。ダークテーマは xterm ターミナルペインのみ (プロトタイプ準拠、アプリ全体は既存ライトテーマ)",
+      "rationale": "prototype/terminal.html の見た目と AC の自然な解釈。xterm を unmount すると対話中の claude セッションが切れてしまい UX を損なう。"
+    }
+  ],
+  "implementation_decisions": [],
+  "review_decisions": [],
+  "verifier": {},
+  "done_judgment": {}
+}

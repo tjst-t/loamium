@@ -853,7 +853,7 @@
     },
     "Sb7f458": {
       "title": "アプリ内 Claude Code タブ",
-      "status": "pending",
+      "status": "in_progress",
       "description": "UI のタブ内で TUI 版 Claude Code(等の CLI)を動かす。サーバーに WebSocket + node-pty ブリッジ、フロントに xterm.js。pty は任意コマンド実行になるため、デフォルト無効・LOAMIUM_TERMINAL=1 かつ full モード時のみ有効という明示オプトイン(SPEC §6)。",
       "milestone": true,
       "stories": {
