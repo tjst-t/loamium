@@ -73,6 +73,24 @@ export async function writeNote(
 }
 
 /**
+ * vault 内の任意ファイルをバイト列で読む (S9e5ca4-2: files 配信用)。
+ * 存在しない / ディレクトリなら null。読み取り専用 — 書き込み系は提供しない。
+ */
+export async function readVaultFile(vaultRoot: string, relPath: string): Promise<Buffer | null> {
+  const abs = resolveVaultFile(vaultRoot, relPath);
+  try {
+    const st = await fs.stat(abs);
+    if (!st.isFile()) return null;
+    return await fs.readFile(abs);
+  } catch (err) {
+    if (isErrnoException(err) && (err.code === 'ENOENT' || err.code === 'EISDIR')) {
+      return null;
+    }
+    throw err;
+  }
+}
+
+/**
  * vault 内の全ノート (.md) の相対パス一覧を返す (NFC 正規化・"/" 区切り・パス昇順)。
  * ドット始まりのセグメント (.loamium / .git / .obsidian) は除外。
  * リネーム追従の「ファイルが正」走査に使う (インデックスの鮮度に依存しない)。

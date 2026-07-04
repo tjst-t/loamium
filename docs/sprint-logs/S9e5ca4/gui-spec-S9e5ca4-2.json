@@ -1,0 +1,38 @@
+{
+  "$file": "gui-spec-S9e5ca4-2.json",
+  "sprint": "S9e5ca4",
+  "story": "S9e5ca4-2",
+  "story_type": "mixed (gui 部分。api/cli 部分は scenario-S9e5ca4-2.json)",
+  "visual_reference": "prototype/embed-preview.html「ラック写真」ブロック (+ prototype/TESTIDS.md embed-image)",
+  "state_diagram": "stateDiagram-v2\n    [*] --> Source: カーソル行の ![[image.png]] / ![](path) はソース表示\n    Source --> Image: カーソルが離れる → embed-image (img src=/api/files/{path})\n    Image --> BrokenImage: 404 (存在しない画像) → 壊れ表示 (embed-image に data-error)\n    Image --> Source: カーソルを行へ置く → ソース記法",
+  "scenarios": {
+    "entry_point": "ブラウザで UI を開き、![[assets/pixel.png]] または ![](assets/pixel.png) を含むノートを開く",
+    "happy_path": "画像が embed-image (data-path 付き) として /api/files/{path} から表示される。キャプションにパスが出る",
+    "data_states": {
+      "error": "画像が存在しない場合は壊れ画像表示 (アプリは壊れない)"
+    },
+    "edge_cases": [
+      "![[image.png]] のターゲットは vault ルート相対で解決する (添付は assets/ 配下の慣行 — DESIGN_PRINCIPLES architecture)",
+      "![](https://...) の外部 URL はそのまま src に使う (/api/files を経由しない)",
+      "コードフェンス・インラインコード内の記法は装飾しない",
+      "拡張子→プレビュー種別のディスパッチはレジストリ形式で、Sf53ad6 が pdf/text を追加登録できる"
+    ],
+    "success_feedback": "embed-image 内の img が実サーバーから読み込まれる (naturalWidth > 0)",
+    "failure_feedback": "壊れ画像スタイル。エディタ操作は継続可能"
+  },
+  "endpoint_contracts": [
+    {
+      "path": "/api/files/{path}",
+      "method": "GET",
+      "registered": false,
+      "note": "この Story で新設 (読み取り専用配信)",
+      "request_fields": {},
+      "response_fields": { "body": "raw bytes", "content-type": "拡張子から推定" }
+    }
+  ],
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/embed.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/embed.mock.spec.ts"
+  },
+  "linked_ac": ["AC-S9e5ca4-2-2"]
+}

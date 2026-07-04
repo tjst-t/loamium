@@ -1,0 +1,46 @@
+{
+  "$file": "scenario-S9e5ca4-2.json",
+  "sprint": "S9e5ca4",
+  "story": "S9e5ca4-2",
+  "story_type": "mixed",
+  "entry_points": ["api", "cli", "gui"],
+  "scenarios": [
+    {
+      "id": "S9e5ca4-2-api",
+      "entry_point": "api",
+      "title": "エージェント/UI が vault 内のファイルを読み取り専用で取得する",
+      "linked_ac": ["AC-S9e5ca4-2-1"],
+      "steps": [
+        { "action": "一時 vault に画像 (assets/pixel.png) とノート・.loamium/audit.log を配置し実サーバーを起動する", "expected": "GET /api/health が 200" },
+        { "action": "実 HTTP クライアントで GET /api/files/assets/pixel.png", "expected": "200、Content-Type: image/png、ボディのバイト列がディスク上のファイルと一致" },
+        { "action": "GET /api/files/notes/hello.md (Markdown ファイル)", "expected": "200、テキストが一致" },
+        { "action": "GET /api/files/..%2Foutside.txt (percent-encoded traversal)", "expected": "400 invalid_path (vault 脱出拒否)" },
+        { "action": "GET /api/files/.loamium/audit.log および .git/config", "expected": "404 (隠しセグメントは存在自体を隠す)" },
+        { "action": "GET /api/files/no-such-file.png", "expected": "404 not_found" },
+        { "action": "PUT / POST / DELETE /api/files/assets/pixel.png", "expected": "書き込み系ハンドラは存在せず 404 (ファイルは変更されない)" },
+        { "action": "LOAMIUM_MODE=read-only で起動したサーバーに GET /api/files/assets/pixel.png", "expected": "200 (読むだけなので read-only モードでも配信される)" }
+      ]
+    },
+    {
+      "id": "S9e5ca4-2-cli",
+      "entry_point": "cli",
+      "title": "CLI からファイルを取得する (REST 1:1 対応)",
+      "linked_ac": ["AC-S9e5ca4-2-1"],
+      "steps": [
+        { "action": "実 bin (packages/cli/bin/loamium.js) を subprocess で `loamium file assets/pixel.png` 実行", "expected": "exit 0、stdout のバイト列がディスク上のファイルと一致" },
+        { "action": "`loamium file no-such.png`", "expected": "exit 1、stderr に {\"error\":\"not_found\",...} の 1 行 JSON" },
+        { "action": "`loamium file ../escape.png`", "expected": "exit 1、stderr に invalid_path (クライアント側で正規化拒否)" }
+      ]
+    },
+    {
+      "id": "S9e5ca4-2-gui",
+      "entry_point": "gui",
+      "title": "画像がエディタ内に表示される (gui-spec-S9e5ca4-2.json 参照)",
+      "linked_ac": ["AC-S9e5ca4-2-2"],
+      "steps": [
+        { "action": "vault に画像を置き、![[assets/pixel.png]] を含むノートを開く", "expected": "embed-image (data-path) が /api/files 経由で表示され naturalWidth > 0" },
+        { "action": "![](assets/pixel.png) 標準 Markdown 記法を含む行をカーソル外にする", "expected": "同様に画像が表示される" }
+      ]
+    }
+  ]
+}

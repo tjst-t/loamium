@@ -638,7 +638,7 @@
     },
     "S9e5ca4": {
       "title": "記法拡張 — transclusion・画像・callout・highlight",
-      "status": "pending",
+      "status": "in_progress",
       "description": "3 レジストリの上に Obsidian 互換記法を拡充する。![[embed]](ノート/見出し/画像)、> [!note] callout、==highlight==。画像表示のため読み取り専用のファイル配信エンドポイントを追加する。ファイル形式は一切変えない(ピュア Markdown 維持)。",
       "milestone": false,
       "stories": {

@@ -1,4 +1,11 @@
-export { normalizeVaultPath, isValidVaultPath, VaultPathError } from './path.js';
+export {
+  normalizeVaultPath,
+  normalizeVaultFilePath,
+  isValidVaultPath,
+  VaultPathError,
+  HiddenVaultPathError,
+} from './path.js';
+export { extractSection } from './sections.js';
 export { parseNote, type ParsedNote } from './markdown.js';
 export {
   extractTags,

@@ -1,0 +1,30 @@
+{
+  "sprint": "S9e5ca4",
+  "mode": "auto (autopilot, --with-verifier)",
+  "base_sha": "cf250ffdabecb0ca711df6b8766cfa3118dc9028",
+  "planning_decisions": [
+    {
+      "id": "P1",
+      "decision": "Story 4 本を単線シーケンシャル実行 (S9e5ca4-2 サーバー部 → S9e5ca4-1 embed → S9e5ca4-2 UI 画像 → S9e5ca4-3 callout → S9e5ca4-4 highlight)。worktree 並列・実装サブエージェントは使わない",
+      "rationale": "過去 Sprint (S9ab6c3 / S6fbf45 / Sbd061c) と同じく本セッションにサブエージェント起動ツールが無い。変更が packages/ui/src/renderers と live-preview.ts に集中し、embed が files エンドポイント (画像) と registries 拡張を共有するため、依存順の単線実行が最短・最安全 (DESIGN_PRINCIPLES priority 5: シンプルさ)。"
+    },
+    {
+      "id": "P2",
+      "decision": "ユーザーストーリー・AC は ROADMAP のまま採用 (書き換え・分割不要)",
+      "rationale": "全 Story が「{役割}として、{やりたいこと}。なぜなら {理由}」形式を満たし、1 Story = 1 ユーザー可観測記法で粒度も適切。AC は全てユーザー可観測 (embed カード / 画像表示 / callout ボックス / highlight)。"
+    },
+    {
+      "id": "P3",
+      "decision": "GUI spec は autonomous mode で導出。S9e5ca4-1/3/4 は gui、S9e5ca4-2 は mixed (api: GET /api/files + CLI, gui: 画像表示)。ビジュアルの正は prototype/embed-preview.html + prototype/callout-highlight.html + TESTIDS.md「Sprint 7-11 追加分」の embed-card / embed-card-open / embed-error / embed-image / callout / callout-fold / highlight 契約",
+      "rationale": "エントリポイント・状態・testid はプロトタイプ 2 枚から一意に導出できる。S9e5ca4-2 はサーバーエンドポイントが AC-2-1 として独立に定義されているため mixed とし、api 部は tests/acceptance/files.spec.ts (実 HTTP)、gui 部は embed.e2e.spec.ts で検証する。"
+    },
+    {
+      "id": "P4",
+      "decision": "GET /api/files/{path} に対応する CLI コマンド `loamium file <path>` を追加する (バイト列を stdout へ)",
+      "rationale": "CLAUDE.md / DESIGN_PRINCIPLES architecture「REST API と CLI コマンドは 1:1 対応」は強い不変条件で、S6fbf45 の /api/backlinks も CLI backlinks を同時追加している。追加面は tests/acceptance/files.spec.ts の CLI ブロックで実バイナリ subprocess 検証する (test-discipline Rule 2/6)。"
+    }
+  ],
+  "implementation_decisions": [],
+  "review_decisions": [],
+  "done_judgment": []
+}
