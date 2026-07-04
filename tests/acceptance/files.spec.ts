@@ -89,11 +89,12 @@ describe('[AC-S9e5ca4-2-1] GET /api/files/{path} — 読み取り専用配信', 
 
   it('書き込み系 (PUT/POST/DELETE) は存在せず、ファイルは変更されない', async () => {
     for (const method of ['PUT', 'POST', 'DELETE']) {
-      const res = await fetch(`${server.baseUrl}/api/files/assets/pixel.png`, {
-        method,
-        headers: { 'content-type': 'application/json' },
-        body: method === 'DELETE' ? undefined : JSON.stringify({ content: 'x' }),
-      });
+      const init: RequestInit = { method };
+      if (method !== 'DELETE') {
+        init.headers = { 'content-type': 'application/json' };
+        init.body = JSON.stringify({ content: 'x' });
+      }
+      const res = await fetch(`${server.baseUrl}/api/files/assets/pixel.png`, init);
       expect(res.status, `${method} must not be handled`).toBe(404);
     }
     const onDisk = await readFile(path.join(server.vault, 'assets/pixel.png'));

@@ -38,7 +38,9 @@ import {
   getInlineRules,
   type FenceRenderer,
   type RenderContext,
+  type RenderEnv,
 } from './registries.js';
+import { renderImageEmbed } from './renderers/embed.js';
 
 /** 開いているノートの vault 相対パス (RenderContext 用) */
 export const notePathFacet = Facet.define<string, string>({
@@ -108,14 +110,17 @@ class BlockRuleWidget extends WidgetType {
   constructor(
     readonly lines: string[],
     readonly render: (lines: string[], ctx: RenderContext) => HTMLElement,
-    readonly notePath: string,
+    readonly ctx: RenderContext,
+    /** ルールの identity() 由来の追加キー (リンク解決状態など外部依存の変化を検知) */
+    readonly identity: string,
   ) {
     super();
   }
 
   override eq(other: BlockRuleWidget): boolean {
     return (
-      other.notePath === this.notePath &&
+      other.ctx.notePath === this.ctx.notePath &&
+      other.identity === this.identity &&
       other.lines.length === this.lines.length &&
       other.lines.every((l, i) => l === this.lines[i])
     );
@@ -124,7 +129,7 @@ class BlockRuleWidget extends WidgetType {
   override toDOM(view: EditorView): HTMLElement {
     let el: HTMLElement;
     try {
-      el = this.render(this.lines, { notePath: this.notePath });
+      el = this.render(this.lines, this.ctx);
     } catch (err: unknown) {
       el = document.createElement('div');
       el.className = 'fence-render-error';
@@ -144,6 +149,13 @@ function buildBlockDecorations(state: EditorState): DecorationSet {
   const active = activeLines(state);
   const notePath = state.facet(notePathFacet);
   const doc = state.doc;
+  // block ルール (embed 等) へ渡すエディタ環境 — 既存の wikilink 環境を再利用する
+  const wlEnv = state.facet(wikilinkEnvFacet);
+  const renderEnv: RenderEnv = {
+    getNotePaths: () => notePathsOf(state),
+    openNote: (path) => wlEnv?.openNote(path),
+  };
+  const blockCtx: RenderContext = { notePath, env: renderEnv, embedChain: [notePath] };
   /** fence が占有した行 (block レジストリの走査から除外) */
   const claimedLines = new Set<number>();
 
@@ -188,7 +200,15 @@ function buildBlockDecorations(state: EditorState): DecorationSet {
       for (const rule of rules) {
         if (!rule.match(line.text)) continue;
         let endLineNo: number | null = null;
-        if (rule.matchEnd === undefined) {
+        if (rule.matchWhile !== undefined) {
+          // 継続型ブロック (callout 等): 述語が続く限り含める。開始行のみでも成立
+          endLineNo = n;
+          for (let m = n + 1; m <= doc.lines; m++) {
+            if (claimedLines.has(m)) break; // fence にぶつかったら打ち切り
+            if (!rule.matchWhile(doc.line(m).text, m - n)) break;
+            endLineNo = m;
+          }
+        } else if (rule.matchEnd === undefined) {
           endLineNo = n;
         } else {
           for (let m = n; m <= doc.lines; m++) {
@@ -203,9 +223,10 @@ function buildBlockDecorations(state: EditorState): DecorationSet {
         if (!intersectsActive(n, endLineNo)) {
           const lines: string[] = [];
           for (let m = n; m <= endLineNo; m++) lines.push(doc.line(m).text);
+          const identity = rule.identity?.(lines, blockCtx) ?? '';
           decos.push(
             Decoration.replace({
-              widget: new BlockRuleWidget(lines, rule.render.bind(rule), notePath),
+              widget: new BlockRuleWidget(lines, rule.render.bind(rule), blockCtx, identity),
               block: true,
             }).range(line.from, doc.line(endLineNo).to),
           );
@@ -223,7 +244,14 @@ function buildBlockDecorations(state: EditorState): DecorationSet {
 const blockDecoField = StateField.define<DecorationSet>({
   create: buildBlockDecorations,
   update(value, tr) {
-    if (tr.docChanged || tr.selection !== undefined) return buildBlockDecorations(tr.state);
+    if (
+      tr.docChanged ||
+      tr.selection !== undefined ||
+      // ノート一覧の変化 (作成・削除・リネーム) で embed の解決をやり直す (S9e5ca4-1)
+      tr.annotation(notesUpdatedAnnotation) === true
+    ) {
+      return buildBlockDecorations(tr.state);
+    }
     return value;
   },
   provide: (f) => EditorView.decorations.from(f),
@@ -388,6 +416,27 @@ function buildInlineDecorations(view: EditorView): DecorationSet {
               decos.push(Decoration.replace({}).range(mark.from, mark.to));
             }
             return;
+          }
+          case 'Image': {
+            // 標準 Markdown 画像 ![alt](path) を /api/files 経由で表示 (S9e5ca4-2)。
+            // URL の無い参照形式 (行中の ![[wikilink]] が該当) は請求せず、
+            // 従来どおり子ノード走査 → wikilink 処理に任せる
+            const urlNode = node.node.getChild('URL');
+            if (urlNode === null) return;
+            codeClaims.push({ from: node.from, to: node.to });
+            claimed.push({ from: node.from, to: node.to });
+            if (active.has(lineNo)) return false;
+            const url = doc.sliceString(urlNode.from, urlNode.to).trim();
+            if (url.length === 0) return false;
+            const src = doc.sliceString(node.from, node.to);
+            const altMatch = /^!\[([^\]]*)\]/.exec(src);
+            const alt = altMatch?.[1] ?? '';
+            decos.push(
+              Decoration.replace({
+                widget: new InlineRuleWidget(src, () => renderImageEmbed(url, alt)),
+              }).range(node.from, node.to),
+            );
+            return false;
           }
           case 'Autolink':
           case 'URL':

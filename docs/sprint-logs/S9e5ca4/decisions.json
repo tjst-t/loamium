@@ -24,7 +24,58 @@
       "rationale": "CLAUDE.md / DESIGN_PRINCIPLES architecture「REST API と CLI コマンドは 1:1 対応」は強い不変条件で、S6fbf45 の /api/backlinks も CLI backlinks を同時追加している。追加面は tests/acceptance/files.spec.ts の CLI ブロックで実バイナリ subprocess 検証する (test-discipline Rule 2/6)。"
     }
   ],
-  "implementation_decisions": [],
+  "implementation_decisions": [
+    {
+      "id": "I1",
+      "decision": "files API のパス検証は shared に normalizeVaultFilePath を新設 (.md 非補完)。隠しセグメントは HiddenVaultPathError (VaultPathError の部分型) に分け、ルートで 404 に写像 (存在自体を隠す)。traversal 等は 400",
+      "rationale": "CLAUDE.md「vault 内パスは必ず shared のパス正規化を経由」。AC-S9e5ca4-2-1 は『パス脱出 400 / .loamium 404』を要求しており、エラー型で区別するのが最も単純 (priority 5) かつ audit.log 等の存在を漏らさない (priority 2)。"
+    },
+    {
+      "id": "I2",
+      "decision": "Content-Type は拡張子の最小マップで推定し、未知は application/octet-stream。.html/.htm は text/plain で返し、常に X-Content-Type-Options: nosniff を付ける",
+      "rationale": "vault 内の任意 HTML を同一オリジンで実行させない (priority 2: データ安全性 — API は無認証ローカルで、将来 Cloudflare Access 公開もある)。画像表示という Story の目的には影響しない。"
+    },
+    {
+      "id": "I3",
+      "decision": "registries は additive に拡張: RenderContext に env (getNotePaths/openNote) と embedChain、BlockRule に matchWhile (継続型ブロック) と identity (外部状態依存の再描画キー)",
+      "rationale": "3 レジストリ構造 (VISION tech_constraints) を保ったまま、embed のリンク解決 (S6fbf45 の wikilinkEnvFacet を再利用)・callout の「> が続く限り」ブロック・ノート一覧到着後の壊れ→解決の再描画を実現する最小 API。既存レンダラー (KaTeX 等) は無変更で動く。"
+    },
+    {
+      "id": "I4",
+      "decision": "embed の本文は読み取り専用のミニ Markdown レンダラー (renderers/mini-md.ts) で描画。DOM は textContent ベースで組み立て innerHTML には固定 SVG リテラル以外を通さない。ネスト embed は embedChain を伝搬して再帰、循環・深さ (最大 5) は checkEmbedChain (純関数・ユニットテスト付き) で判定",
+      "rationale": "CodeMirror インスタンスをカード内に入れ子生成するより大幅に単純 (priority 5)。XSS 面は textContent 構築で塞ぐ (priority 2)。最大深さ 5 は prototype の注記どおり。"
+    },
+    {
+      "id": "I5",
+      "decision": "拡張子→プレビュー種別は embed 内のレジストリ (registerEmbedFileRenderer)。既定は画像 (png/jpg/jpeg/gif/svg/webp/avif/bmp/ico → embed-image)、未登録拡張子はエラーカード (未対応表示)。画像ターゲットは書かれたとおりの vault ルート相対パスとして解決",
+      "rationale": "後続のファイルプレビュー拡張が『レジストリ登録だけ』で種別を足せる構造 (Sprint 指示の拡張性要件)。画像はノート一覧に載らないため basename 横断解決はできず、添付は assets/ 配下慣行 (DESIGN_PRINCIPLES architecture) に従いパス直指定が最も予測可能。"
+    },
+    {
+      "id": "I6",
+      "decision": "標準 Markdown 画像 ![](path) は inline レジストリではなく live-preview の構文木走査 (lezer の Image ノード) で処理し、embed と同じ renderImageEmbed を使う。URL の無い参照形式 (![[wikilink]] が該当) は請求せず従来の壊れリンク処理に委ねる。http(s) URL はそのまま src に使う",
+      "rationale": "lezer は ![](path) の URL を既に URL ノードとして請求するため、inline レジストリでは到達できない (HeaderMark 等と同じ『標準記法はエンジン側』の整理)。![[...]] は Image (URL なし) と誤請求される regression をフルスイートで検出し、URL 有無で分岐した。"
+    },
+    {
+      "id": "I7",
+      "decision": "embed カードヘッダと callout 折りたたみは mousedown で処理し click を stopPropagation。カード本文クリックは従来どおりソース編集へ戻る",
+      "rationale": "クリックでカーソルが行に入ると装飾がソースに差し替わり click が届かない WikilinkWidget と同じ理由 + BlockRuleWidget ルートの「ソースへ戻る」click と干渉させない。"
+    },
+    {
+      "id": "I8",
+      "decision": "blockDecoField を notesUpdatedAnnotation でも再構築し、embed ブロックの identity にリンク解決状態 (unloaded/broken/解決先) を含める",
+      "rationale": "ノート一覧の到着・作成・リネームで壊れ embed が解決済みに変わる必要がある。widget の eq がソース行のみだと DOM が再生成されず古い状態が残るため。カーソル移動ごとの再フェッチは widget eq (行+identity 同一で DOM 再利用) が防ぐ。"
+    },
+    {
+      "id": "I9",
+      "decision": "ContextMenu をビューポート内にクランプする補正を追加 (useLayoutEffect で実寸補正)",
+      "rationale": "ノート数が増えるとツリー下部の項目で右クリックメニューが画面外に描画され操作不能になる実バグを、本 Sprint のフルスイート (rename.e2e) が検出した。テストを弱めるのではなく製品側を修正 (test-discipline)。"
+    },
+    {
+      "id": "I10",
+      "decision": "E2E の画像シードは一時 vault への直接書き込み (fs) で行う",
+      "rationale": "画像を置く書き込み API はまだ存在しない (アップロードは別 Sprint 予定のロードマップ項目)。AC-S9e5ca4-2-2 の検証対象は『表示』であり、シードはテストの前提条件準備。ノートのシードは従来どおり実 PUT API。"
+    }
+  ],
   "review_decisions": [],
   "done_judgment": []
 }
