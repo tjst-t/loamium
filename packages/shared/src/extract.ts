@@ -176,6 +176,47 @@ export function extractLinks(content: string): WikiLink[] {
   return out;
 }
 
+// ---- タスク抽出 (Sb1593c-1) ------------------------------------------------------
+
+export interface NoteTask {
+  /** content 全体における 1 始まりの行番号 */
+  line: number;
+  /** チェックボックス以降のテキスト (trim 済み、無加工の表示用) */
+  text: string;
+  /** - [x] / - [X] なら true */
+  checked: boolean;
+  /** 行頭インデントの文字数 (ネスト判定用 — 4 スペース = 1 段が既定) */
+  indent: number;
+}
+
+// Obsidian 互換タスク: リストマーカー (- * + / 1. / 1)) + [ ] / [x]。
+// チェック文字は半角スペースか x/X のみ (プラグイン拡張の [-] 等は対象外)
+const TASK_RE = /^(\s*)(?:[-*+]|\d+[.)])\s+\[( |x|X)\]\s?(.*)$/;
+
+/**
+ * ノートからタスク行 (- [ ] / - [x]) を抽出する。
+ * frontmatter・コードフェンス内は対象外 (タグ・リンク抽出と同じ走査規則)。
+ * 正本は変更しない読み取り専用ビュー — インデックス (TASK クエリ) の入力を作る。
+ */
+export function extractTasks(content: string): NoteTask[] {
+  const lines = content.split('\n');
+  const scannable = scannableLines(content);
+  const out: NoteTask[] = [];
+  for (let i = 0; i < scannable.length; i++) {
+    if (scannable[i] === null || scannable[i] === undefined) continue; // frontmatter / フェンス内
+    // マッチはフェンス判定済みの原文行に対して行う (インラインコード空白化の影響を受けない)
+    const m = TASK_RE.exec(lines[i] ?? '');
+    if (m === null) continue;
+    out.push({
+      line: i + 1,
+      text: (m[3] ?? '').trim(),
+      checked: (m[2] ?? ' ').toLowerCase() === 'x',
+      indent: (m[1] ?? '').length,
+    });
+  }
+  return out;
+}
+
 /** ノートのタイトル (パスの basename から .md を除いたもの、NFC 正規化) */
 export function noteTitle(relPath: string): string {
   const base = relPath.split('/').pop() ?? relPath;

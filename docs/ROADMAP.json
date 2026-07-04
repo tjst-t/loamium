@@ -5,8 +5,8 @@
     "current_sprint": "Sb1593c",
     "total": 11,
     "done": 9,
-    "in_progress": 0,
-    "remaining": 2,
+    "in_progress": 1,
+    "remaining": 1,
     "percentage": 82
   },
   "execution_order": [
@@ -762,7 +762,7 @@
     },
     "Sb1593c": {
       "title": "dataview 風クエリ",
-      "status": "pending",
+      "status": "in_progress",
       "description": "Obsidian dataview DQL の簡易サブセット(LIST / TABLE / TASK + from / where / sort)を実装する。クエリエンジンはサーバー側(POST /api/query)に置き、CLI に loamium query を 1:1 で追加。タスク(- [ ])のインデックス化もここで行い、vault 横断のタスク一覧を実現する。",
       "milestone": false,
       "stories": {

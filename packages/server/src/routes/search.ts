@@ -5,17 +5,26 @@
  * - GET /api/notes?tag=&folder= ノート一覧 (タグ / フォルダで絞り込み)
  * - GET /api/tags               タグ一覧 (件数付き)
  * - GET /api/backlinks?path=    対象ノートへのバックリンク一覧
+ * - POST /api/query             DQL 簡易サブセット (LIST / TABLE / TASK — Sb1593c-1)。
+ *   POST だがファイルを一切書かない純読み取り (permissions で read 分類)。
+ *   構文エラーは 400 {error:'query_syntax', message, line, column, length}
  */
 import { Hono } from 'hono';
 import {
+  DqlParseError,
   normalizeVaultPath,
+  parseQuery,
+  executeQuery,
+  queryRequestSchema,
   VaultPathError,
   type BacklinksResponse,
   type NoteListResponse,
+  type QueryErrorResponse,
+  type QueryResponse,
   type SearchResponse,
   type TagsResponse,
 } from '@loamium/shared';
-import { errorJson, type AppEnv } from '../http.js';
+import { errorJson, parseBody, type AppEnv } from '../http.js';
 import type { VaultIndex } from '../noteIndex.js';
 
 export function searchRoutes(index: VaultIndex): Hono<AppEnv> {
@@ -42,6 +51,29 @@ export function searchRoutes(index: VaultIndex): Hono<AppEnv> {
 
   app.get('/api/tags', (c) => {
     const res: TagsResponse = { tags: index.tags() };
+    return c.json(res);
+  });
+
+  app.post('/api/query', async (c) => {
+    const body = await parseBody(c, queryRequestSchema);
+    if (!body.ok) return body.response;
+    let res: QueryResponse;
+    try {
+      res = executeQuery(parseQuery(body.data.query), index.queryNotes());
+    } catch (err) {
+      if (err instanceof DqlParseError) {
+        // {error,message} 互換形 + 位置情報 (additive — AC-Sb1593c-1-1)
+        const errorBody: QueryErrorResponse = {
+          error: 'query_syntax',
+          message: err.message,
+          line: err.line,
+          column: err.column,
+          length: err.length,
+        };
+        return c.json(errorBody, 400);
+      }
+      throw err;
+    }
     return c.json(res);
   });
 

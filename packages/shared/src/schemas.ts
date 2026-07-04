@@ -242,6 +242,80 @@ export const fileRenameResponseSchema = z.object({
 });
 export type FileRenameResponse = z.infer<typeof fileRenameResponseSchema>;
 
+// ---- クエリ (dataview 風 DQL — Sb1593c) ----
+
+export const queryRequestSchema = z.object({
+  /** DQL クエリ文字列 (例: 'TABLE status from "projects" where status != "done"') */
+  query: z.string().min(1, 'query must not be empty'),
+});
+export type QueryRequest = z.infer<typeof queryRequestSchema>;
+
+export const listQueryRowSchema = z.object({
+  path: z.string(),
+  title: z.string(),
+  /** vault 相対の親フォルダ ("" = ルート直下) */
+  folder: z.string(),
+});
+export type ListQueryRow = z.infer<typeof listQueryRowSchema>;
+
+/** TABLE セル値 (frontmatter 由来。配列は tags 等の文字列配列、欠損は null) */
+export const tableCellValueSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.array(z.string()),
+  z.null(),
+]);
+export type TableCellValue = z.infer<typeof tableCellValueSchema>;
+
+export const tableQueryRowSchema = z.object({
+  path: z.string(),
+  title: z.string(),
+  folder: z.string(),
+  /** fields と同順のセル値 */
+  values: z.array(tableCellValueSchema),
+});
+export type TableQueryRow = z.infer<typeof tableQueryRowSchema>;
+
+export const taskQueryRowSchema = z.object({
+  path: z.string(),
+  title: z.string(),
+  /** ノート内の 1 始まり行番号 */
+  line: z.number().int().positive(),
+  /** チェックボックス以降のテキスト */
+  text: z.string(),
+  checked: z.boolean(),
+  /** 行頭インデント文字数 (ネスト表示用) */
+  indent: z.number().int().nonnegative(),
+});
+export type TaskQueryRow = z.infer<typeof taskQueryRowSchema>;
+
+export const queryResponseSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('list'), results: z.array(listQueryRowSchema) }),
+  z.object({
+    type: z.literal('table'),
+    /** TABLE で指定した列フィールド名 (表示順) */
+    fields: z.array(z.string()),
+    results: z.array(tableQueryRowSchema),
+  }),
+  z.object({ type: z.literal('task'), results: z.array(taskQueryRowSchema) }),
+]);
+export type QueryResponse = z.infer<typeof queryResponseSchema>;
+
+/**
+ * クエリ構文エラーのレスポンス (400)。{error,message} の互換形に
+ * 位置情報 (1 始まり行・列 + トークン長) を additive に足したもの。
+ */
+export const queryErrorResponseSchema = z.object({
+  error: z.literal('query_syntax'),
+  /** 位置情報込みの人間可読メッセージ ("N 行 M 列: ...") */
+  message: z.string(),
+  line: z.number().int().positive(),
+  column: z.number().int().positive(),
+  length: z.number().int().positive(),
+});
+export type QueryErrorResponse = z.infer<typeof queryErrorResponseSchema>;
+
 export const errorResponseSchema = z.object({
   error: z.string(),
   message: z.string(),

@@ -10,12 +10,25 @@ export { parseNote, type ParsedNote } from './markdown.js';
 export {
   extractTags,
   extractLinks,
+  extractTasks,
   frontmatterTags,
   noteTitle,
   rewriteLinks,
+  type NoteTask,
   type RewriteResult,
   type WikiLink,
 } from './extract.js';
+export {
+  parseQuery,
+  executeQuery,
+  runQuery,
+  DqlParseError,
+  type DqlQuery,
+  type DqlCondition,
+  type DqlComparisonOp,
+  type DqlSource,
+  type QueryableNote,
+} from './dql.js';
 export {
   resolveLinkTarget,
   preferredLinkTarget,

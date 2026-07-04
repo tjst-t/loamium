@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { extractLinks, extractTags, frontmatterTags, noteTitle, rewriteLinks } from './extract.js';
+import {
+  extractLinks,
+  extractTags,
+  extractTasks,
+  frontmatterTags,
+  noteTitle,
+  rewriteLinks,
+} from './extract.js';
 
 describe('extractTags', () => {
   it('extracts inline #tags from the body', () => {
@@ -219,5 +226,46 @@ describe('rewriteLinks (リネーム追従の書き換え)', () => {
   it('rewrites multiple links on the same line at correct offsets', () => {
     const res = rewriteLinks('a [[旧名]] b `x` c [[旧名|エイリアス]] d', renameOld);
     expect(res.content).toBe('a [[新名]] b `x` c [[新名|エイリアス]] d');
+  });
+});
+
+describe('extractTasks (Sb1593c-1)', () => {
+  it('extracts unchecked and checked tasks with 1-based line numbers', () => {
+    const content = '# タイトル\n\n- [ ] 未完了タスク\n- [x] 完了タスク\n- ただのリスト行\n';
+    expect(extractTasks(content)).toEqual([
+      { line: 3, text: '未完了タスク', checked: false, indent: 0 },
+      { line: 4, text: '完了タスク', checked: true, indent: 0 },
+    ]);
+  });
+
+  it('records indent for nested tasks and accepts [X] as checked', () => {
+    const content = '- [ ] 親タスク\n    - [X] 子タスク\n\t- [ ] タブ子\n';
+    expect(extractTasks(content)).toEqual([
+      { line: 1, text: '親タスク', checked: false, indent: 0 },
+      { line: 2, text: '子タスク', checked: true, indent: 4 },
+      { line: 3, text: 'タブ子', checked: false, indent: 1 },
+    ]);
+  });
+
+  it('accepts *, + and ordered list markers (Obsidian 互換)', () => {
+    const content = '* [ ] star\n+ [x] plus\n1. [ ] ordered\n2) [ ] paren\n';
+    expect(extractTasks(content).map((t) => t.text)).toEqual(['star', 'plus', 'ordered', 'paren']);
+  });
+
+  it('ignores tasks inside code fences and frontmatter', () => {
+    const content = '---\ntitle: x\n---\n- [ ] 本物\n```\n- [ ] フェンス内は無視\n```\n';
+    const tasks = extractTasks(content);
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0]).toEqual({ line: 4, text: '本物', checked: false, indent: 0 });
+  });
+
+  it('does not match non-task syntax ([y] や checkbox なしのリンク行)', () => {
+    const content = '- [y] 不正なチェック文字\n- [link](url)\n[ ] リストマーカーなし\n';
+    expect(extractTasks(content)).toEqual([]);
+  });
+
+  it('keeps inline code and tags in the task text verbatim', () => {
+    const content = '- [ ] `code` を含む #tag タスク\n';
+    expect(extractTasks(content)[0]?.text).toBe('`code` を含む #tag タスク');
   });
 });

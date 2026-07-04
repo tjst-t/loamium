@@ -1,0 +1,41 @@
+{
+  "$file": "scenario-Sb1593c-1.json",
+  "sprint": "Sb1593c",
+  "story": "Sb1593c-1",
+  "story_type": "api+cli",
+  "entry_points": ["api", "cli"],
+  "scenarios": [
+    {
+      "id": "Sb1593c-1-api",
+      "entry_point": "api",
+      "title": "エージェントが構造化クエリでノート・タスクを横断抽出する",
+      "linked_ac": ["AC-Sb1593c-1-1", "AC-Sb1593c-1-2"],
+      "steps": [
+        { "action": "タグ・frontmatter・タスク入りのノートをシードした実サーバーへ POST /api/query {query:\"LIST from #project\"}", "expected": "200 {type:'list', results:[{path,title,folder}]} — タグ付きノートのみ (ネストタグ・frontmatter tags も対象)" },
+        { "action": "POST /api/query {query:\"TABLE status, updated from \\\"projects\\\" where status != \\\"done\\\" sort updated desc\"}", "expected": "200 {type:'table', fields:['status','updated'], results} — フォルダ絞り込み・frontmatter 比較・降順ソートが効いている" },
+        { "action": "POST /api/query {query:\"TASK where !completed\"}", "expected": "200 {type:'task', results:[{path,title,line,text,checked,indent}]} — 未完了タスクのみ、行番号・ネスト (indent) 付き" },
+        { "action": "where の組み込みフィールド (file.name / file.folder / file.mtime) と演算子 (= != > < >= <= contains) を各々クエリ", "expected": "それぞれ正しい絞り込み結果" },
+        { "action": "構文エラー (LIST form #x) を POST", "expected": "400 {error:'query_syntax', message:'1 行 6 列: …', line, column} — 位置情報付き" },
+        { "action": "対応外の構文 (OR 等) を POST", "expected": "400 query_syntax の明確なエラー (silent に無視しない)" },
+        { "action": "LOAMIUM_MODE=read-only で POST /api/query", "expected": "200 (クエリは読み取り専用操作)" },
+        { "action": "API 経由 (PUT) でタスク行を追加 → 直後に TASK クエリ", "expected": "write-through (indexSyncMiddleware) で新タスクが即座に結果へ反映" },
+        { "action": "API を経由せず fs 直書きでタスク行を追加 → TASK クエリをポーリング", "expected": "chokidar 追従でタスクが結果へ反映 (外部編集追従)" }
+      ],
+      "test_file": "tests/acceptance/query.spec.ts"
+    },
+    {
+      "id": "Sb1593c-1-cli",
+      "entry_point": "cli",
+      "title": "loamium query で API と 1:1 のクエリを実行する",
+      "linked_ac": ["AC-Sb1593c-1-3"],
+      "steps": [
+        { "action": "実 bin subprocess で `loamium query \"LIST from #project\"`", "expected": "exit 0、対象ノートのパスが stdout に 1 行ずつ出る" },
+        { "action": "`loamium query \"TABLE status from ...\" --json`", "expected": "exit 0、stdout に API レスポンスの生 JSON (schema 適合)" },
+        { "action": "`loamium query \"TASK where !completed\"`", "expected": "exit 0、`path:line: [ ] text` 形式で未完了タスク一覧" },
+        { "action": "構文エラー `loamium query \"LIST form #x\"`", "expected": "非 0 exit (1)、stderr に 1 行 JSON {error:'query_syntax', message:位置情報付き}" },
+        { "action": "引数なし `loamium query`", "expected": "exit 2、stderr に usage エラー JSON" }
+      ],
+      "test_file": "tests/acceptance/cli-query.spec.ts"
+    }
+  ]
+}

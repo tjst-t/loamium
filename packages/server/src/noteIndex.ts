@@ -12,10 +12,14 @@ import Fuse, { type IFuseOptions } from 'fuse.js';
 import {
   extractLinks,
   extractTags,
+  extractTasks,
   noteTitle,
+  parseNote,
   resolveLinkTarget,
   type BacklinkSource,
   type NoteMeta,
+  type NoteTask,
+  type QueryableNote,
   type SearchResult,
   type TagCount,
   type WikiLink,
@@ -29,6 +33,12 @@ export interface IndexedNote {
   content: string;
   tags: string[];
   links: WikiLink[];
+  /** タスク行 (- [ ] / - [x] — Sb1593c-1)。TASK クエリの入力 */
+  tasks: NoteTask[];
+  /** パース済み frontmatter (クエリの where 対象)。無ければ null */
+  frontmatter: Record<string, unknown> | null;
+  /** ファイル mtime (ms epoch — file.mtime クエリ用) */
+  mtime: number;
 }
 
 const FUSE_OPTIONS: IFuseOptions<IndexedNote> = {
@@ -107,8 +117,10 @@ export class VaultIndex {
       }
     }
     let content: string;
+    let mtime: number;
     try {
       content = await fs.readFile(abs, 'utf8');
+      mtime = Math.floor((await fs.stat(abs)).mtimeMs);
     } catch {
       this.removeFile(rel);
       return;
@@ -119,6 +131,9 @@ export class VaultIndex {
       content,
       tags: extractTags(content),
       links: extractLinks(content),
+      tasks: extractTasks(content),
+      frontmatter: parseNote(content).frontmatter,
+      mtime,
     });
     this.fuseDirty = true;
   }
@@ -212,6 +227,26 @@ export class VaultIndex {
       out.push({ path: note.path, title: note.title, tags: note.tags, folder });
     }
     out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+    return out;
+  }
+
+  /**
+   * DQL クエリ (POST /api/query) 用の読み取り専用ビュー (Sb1593c-1)。
+   * 評価器 (shared executeQuery) は純関数なので、インデックスの現在値を渡すだけ。
+   */
+  queryNotes(): QueryableNote[] {
+    const out: QueryableNote[] = [];
+    for (const note of this.notes.values()) {
+      out.push({
+        path: note.path,
+        title: note.title,
+        folder: note.path.includes('/') ? note.path.slice(0, note.path.lastIndexOf('/')) : '',
+        mtime: note.mtime,
+        tags: note.tags,
+        frontmatter: note.frontmatter,
+        tasks: note.tasks,
+      });
+    }
     return out;
   }
 

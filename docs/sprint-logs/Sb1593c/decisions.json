@@ -1,0 +1,45 @@
+{
+  "sprint": "Sb1593c",
+  "mode": "auto (autopilot, --with-verifier)",
+  "base_sha": "a9e5b6712eb75b4627fec07b8bbbb30dc4c660f3",
+  "planning_decisions": [
+    {
+      "id": "P1",
+      "decision": "Story 2 本を単線シーケンシャル実行 (Sb1593c-1 クエリエンジン API/CLI → Sb1593c-2 dataview フェンス描画)。worktree 並列・実装サブエージェントは使わない",
+      "rationale": "Story 2 が Story 1 の POST /api/query に完全依存する直列構造。過去 Sprint (Sf53ad6 / S9e5ca4) と同じ判断 (DESIGN_PRINCIPLES priority 5: シンプルさ優先)。"
+    },
+    {
+      "id": "P2",
+      "decision": "ユーザーストーリー・AC は ROADMAP のまま採用 (書き換え・分割不要)",
+      "rationale": "両 Story とも「{役割}として、{やりたいこと}。なぜなら {理由}」形式を満たし、AC は全てユーザー可観測 (API レスポンス / CLI 出力 / フェンス描画)。"
+    },
+    {
+      "id": "P3",
+      "decision": "GUI spec は autonomous mode で導出。ビジュアルの正は prototype/dataview.html + TESTIDS.md「Sprint 7-11 追加分」の dataview-widget / dataview-item / dataview-task / dataview-error 契約",
+      "rationale": "エントリポイント (```dataview フェンスを含むノートを開く)・状態 (list/table/task/error)・testid はプロトタイプから一意に導出できる。Sb1593c-1 は api+cli、Sb1593c-2 は gui (mock + E2E 二層)。"
+    },
+    {
+      "id": "P4",
+      "decision": "DQL サブセットの範囲: LIST / TABLE f1, f2 / TASK + FROM #tag|\"folder\" + WHERE cond (AND ...) + SORT field [ASC|DESC]。キーワードは大文字小文字両対応。演算子 = != > < >= <= contains + bare/否定 truthy (completed / !completed)。OR・関数・複数 SORT キーは対応外で位置情報付き構文エラー",
+      "rationale": "Sprint 指示「Obsidian dataview 互換の構文に寄せる。独自の別構文を発明しない」「対応外は明確なエラー」。prototype/dataview.html の全クエリ例 (LIST from #project / TABLE status, updated from \"projects\" where status != \"done\" sort updated desc / TASK from \"projects\" where !completed) がこの範囲で表現できる (priority 5)。"
+    },
+    {
+      "id": "P5",
+      "decision": "クエリエンジンの分割: パーサー + 評価器 (executeQuery) を packages/shared/src/dql.ts に純関数で置き、server はインデックス (VaultIndex) から QueryableNote[] を供給するだけにする",
+      "rationale": "coding_conventions「Markdown パース系には必ずユニットテスト」— 純関数化で パーサー・評価器の両方をユニットテストできる。CLI/UI と型 (zod スキーマ) を共有する既存構造とも一致。"
+    },
+    {
+      "id": "P6",
+      "decision": "POST /api/query は permissions の classifyOp で 'read' に分類する (read-only モードでも実行可)",
+      "rationale": "クエリは純読み取り (ファイル書き込みなし)。POST なのは クエリ文字列を body で送るためだけ。read-only モードのエージェントが検索を代替できることは priority 3 (エージェント操作性) に沿う。受け入れテストで read-only モードの 200 を検証する。"
+    },
+    {
+      "id": "P7",
+      "decision": "構文エラーのレスポンスは 400 {error:'query_syntax', message, line, column, length}。message 自体に「N 行 M 列:」の位置情報を含める (additive — errorResponseSchema {error,message} の互換は維持)",
+      "rationale": "AC-1-1「400 + 位置情報付きメッセージ」。CLI は message 透過だけで位置情報が伝わり、UI はフィールドからプロトタイプどおりのキャレット表示を組み立てられる。"
+    }
+  ],
+  "implementation_decisions": [],
+  "review_decisions": [],
+  "done_judgment": {}
+}

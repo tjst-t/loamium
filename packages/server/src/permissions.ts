@@ -18,6 +18,9 @@ export type OpKind = 'read' | 'append' | 'mutate';
 export function classifyOp(method: string, reqPath: string): OpKind {
   if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return 'read';
   if (method === 'POST') {
+    // クエリは純読み取り (POST なのはクエリ文字列を body で送るためだけ — Sb1593c-1)。
+    // read-only モードのエージェントでも検索代替として使える (priority 3)
+    if (reqPath === '/api/query') return 'read';
     if (reqPath === '/api/journal/append') return 'append';
     if (reqPath.startsWith('/api/notes/') && reqPath.endsWith('/append')) return 'append';
     return 'mutate';
