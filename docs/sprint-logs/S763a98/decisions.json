@@ -1,0 +1,87 @@
+{
+  "sprint": "S763a98",
+  "title": "スラッシュコマンドメニュー(/ 挿入)",
+  "mode": "autopilot --auto --with-verifier",
+  "planning": [
+    {
+      "id": "P1",
+      "decision": "Story S763a98-1 を分割せず 1 本のまま実行する",
+      "rationale": "AC 3 本(発火・絞り込み/ナビ、挿入=ピュア Markdown+カーソル、コード内抑制)は単一のユーザー行動『/ で挿入』の裏表であり、DESIGN_PRINCIPLES priority 5『シンプルさ > 汎用性』に従い 1 ストーリー = 1 ユーザー体験として保つ。"
+    },
+    {
+      "id": "P2",
+      "decision": "GUI プロトタイプは既存の prototype/slash-menu.html と prototype/TESTIDS.md 第3バッチを正とし、新規プロトタイプ生成は行わない",
+      "rationale": "milestone スプリントの視覚的な正は既に用意済み(slash-menu / slash-item / slash-menu-empty の testid 契約)。二重生成は差分を生むだけ。"
+    }
+  ],
+  "implementation": [
+    {
+      "id": "I1",
+      "decision": "スラッシュメニューは CodeMirror の autocompletion ではなく専用 ViewPlugin + showTooltip で実装する",
+      "rationale": "prototype の DOM は head(filter-echo)/list/empty/footer という autocomplete の ul>li 構造に無い形。testid 契約(slash-menu を popup コンテナ, slash-item を項目, slash-menu-empty を空状態)へ厳密一致させるには専用オーバーレイが最短。位置決めは既存 autocomplete 基盤と同じ CodeMirror tooltip システム(showTooltip)に載せることで『整合』を保つ。CLAUDE.md/DESIGN_PRINCIPLES に反しない。",
+      "principle": "ui_ux: / スラッシュメニューは発見・挿入導線。整合=同じ tooltip 基盤"
+    },
+    {
+      "id": "I2",
+      "decision": "発火判定は『カーソル直前が (行頭|空白) + / + 空白と / を含まない語』の正規表現 /(?:^|\\s)\\/([^\\s/]*)$/ で行う",
+      "rationale": "AC-1『行頭または空白後で /』を素直に満たす。http:// や a/b/c(2つ目の / は前が非空白)は語が途切れて発火しない。空白入力でトークンが閉じてメニューも閉じる。"
+    },
+    {
+      "id": "I3",
+      "decision": "コードフェンス内・インラインコード内の抑制は lezer-markdown 構文木で判定(resolveInner で FencedCode/CodeText/InlineCode/CodeMark/CodeBlock を上方走査)",
+      "rationale": "既存 live-preview.ts / outline.ts が同じ構文木で装飾判定しているのと同種。AC-3。ensureSyntaxTree で編集直後も同期パース。"
+    },
+    {
+      "id": "I4",
+      "decision": "挿入は全て標準 Markdown 雛形。テーブルは標準テーブル、callout は > [!note]、code/mermaid/dataview は ``` フェンス、todo は - [ ]、heading は ##、date は todayJournalDate()。カーソルは編集開始位置(テーブル=先頭セル, callout=タイトル位置 等)に置く",
+      "rationale": "DESIGN_PRINCIPLES priority 1『ピュア Markdown の正本性』・forbidden『独自記法禁止』。挿入記法は既存 3 レジストリ(callout/dataview/mermaid/shiki)が描画できる形に揃える(Sprint S9e5ca4/Sb1593c 実装済)。AC-2。"
+    },
+    {
+      "id": "I5",
+      "decision": "IME 対応: 発火は input.type.compose transaction 中は開かず、↑↓/Enter/Esc の keymap は view.composing 中 false を返してブラウザ/IME に委ねる",
+      "rationale": "DESIGN_PRINCIPLES ui_ux『日本語入力(IME)を第一級で考慮』。outline.ts の changeListIndent と同じ view.composing ガード方針。composition 中の / 誤発火を防ぐ。"
+    },
+    {
+      "id": "I6",
+      "decision": "menu 状態(open/from/query/selected/dismissed)は単一 StateField に集約し、選択移動/Esc は StateEffect、挿入は view.dispatch で直接置換 → 置換後は / トークンが消えて自動で閉じる",
+      "rationale": "状態を state 化することで tooltip 再描画と keymap を疎結合にでき、undo/redo・setState 差し替えでも一貫。"
+    }
+  ],
+  "review": [
+    {
+      "id": "R1",
+      "decision": "スラッシュキーマップを Prec.highest にし、Editor では wikilinkAutocomplete() より前に登録する",
+      "rationale": "@codemirror/autocomplete の completionKeymap は Prec.highest で登録され、/ 入力後に wikilink 補完が一瞬 active 状態になるため closeCompletion(Escape) が Esc を先に消費して / メニューが閉じない不具合を発見。同一 Prec 内は登録順で優先度が決まるので、slashMenuExtension を先に置いて ↑↓/Enter/Esc を先取り。メニュー閉時は各ハンドラが false を返し既定/補完へ委譲するため wikilink 補完の操作は不変。E2E/mock で回帰確認。"
+    },
+    {
+      "id": "R2",
+      "decision": "tooltip を / 位置(from)不変の間 同一 Tooltip オブジェクトで保持し、絞り込み・選択は TooltipView.update で再描画。未使用引数を削除",
+      "rationale": "セルフレビュー(効率・簡素化)。毎打鍵での tooltip 再生成を避け、更新経路を明確化。挙動は不変で全テスト green。"
+    }
+  ],
+  "verifier": {
+    "requested": true,
+    "with_verifier_flag": true,
+    "spawned": false,
+    "reason": "この実行環境には独立 read-only Claude セッションを同期起動する Agent(サブエージェント spawn)ツールが無い(利用可能な Task 系ツールは ToDo 管理、他は Cron/RemoteTrigger のみで verifier 用途に使えない)。task 指示のフォールバック条項に従い、その旨を明記して done を完了する。verification-report.json は不在(schema: 不在 ⇒ verifier 未実行)のままとし、親 autopilot が補完実行する。",
+    "self_verification_done": [
+      "機械検証(hooks/run-verify.py, .claude/verify.json)= overall_machine_status: pass(test 352/352, lint pass, ui-tests 152/152)を最終コードで再実行",
+      "8 ガード done 判定を全て評価(overall: ok)。verification-results.json の done_judgment に記録",
+      "§2.4 forbidden 5 カテゴリのセルフスキャン= 全て none",
+      "セルフ code-review(R1/R2)を実施し反映"
+    ]
+  },
+  "done_judgment": {
+    "S763a98-1": {
+      "guard1_user_review_required_not_done": "pass",
+      "guard2_nil_injection_mock": "pass",
+      "guard3_mock_mode_not_real_smoke": "pass",
+      "guard4_priority_rule_9_exception_valid": "n/a",
+      "guard5_call_path_grep": "pass",
+      "guard6_deferred_comment_clean": "pass",
+      "guard7_adr_conformance": "n/a",
+      "guard8_destructive_multi_version_test": "n/a",
+      "overall": "ok"
+    }
+  }
+}
