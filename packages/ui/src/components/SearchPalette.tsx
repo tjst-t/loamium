@@ -35,6 +35,8 @@ export interface SearchPaletteProps {
   onOpenNote: (path: string) => void;
   /** 全文ヒットの候補確定 — 対象ノートを開き該当行 (1 始まり) へカーソル移動 */
   onOpenNoteAtLine: (path: string, line: number) => void;
+  /** 詳細検索ページ (/search) を現在の入力を引き継いで開く (S935867-1 — 2 モード共存) */
+  onOpenAdvanced: (query: string) => void;
 }
 
 interface FulltextHit extends SearchResult {
@@ -81,6 +83,7 @@ export function SearchPalette({
   onClose,
   onOpenNote,
   onOpenNoteAtLine,
+  onOpenAdvanced,
 }: SearchPaletteProps): JSX.Element {
   const [query, setQuery] = useState('');
   const [notes, setNotes] = useState<NoteMeta[]>([]);
@@ -366,6 +369,16 @@ export function SearchPalette({
         </div>
 
         <div className="palette-footer">
+          <button
+            type="button"
+            className="palette-advanced"
+            data-testid="search-open-advanced"
+            onClick={() => onOpenAdvanced(query)}
+            title="条件を変えながら一覧を保って探せる詳細検索ページを開く"
+          >
+            <SearchIcon />
+            詳細検索を開く
+          </button>
           <span>
             <kbd>↑</kbd>
             <kbd>↓</kbd> 移動

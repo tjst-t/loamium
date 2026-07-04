@@ -24,7 +24,13 @@ import {
 } from '@loamium/shared';
 import { api, ApiError } from './api.js';
 import { formatSize } from './file-kind.js';
-import { parseLocation, routeToPath, type Route } from './router.js';
+import {
+  parseLocation,
+  routeToPath,
+  searchParamsToQuery,
+  type Route,
+  type SearchParams,
+} from './router.js';
 import { Editor } from './components/Editor.js';
 import { FilePreview } from './components/FilePreview.js';
 import { FilesPage } from './components/FilesPage.js';
@@ -34,6 +40,7 @@ import { RightSidebar } from './components/RightSidebar.js';
 import { ContextMenu } from './components/ContextMenu.js';
 import { ConflictDialog, DeleteDialog, NameDialog } from './components/dialogs.js';
 import { SearchPalette } from './components/SearchPalette.js';
+import { SearchPage } from './components/SearchPage.js';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -444,6 +451,20 @@ export function App(): JSX.Element {
   }, [applyHistory, saveNow]);
 
   /**
+   * 詳細検索ページ (/search?…) へ遷移 (S935867-1)。条件は URL クエリに同期する。
+   * Cmd+K パレットの「詳細検索を開く」導線・検索フォーム送信・履歴クリックから呼ばれる。
+   */
+  const openSearch = useCallback(
+    (params: SearchParams): void => {
+      void saveNow();
+      setDoc((d) => (d !== null ? { ...d, text: contentRef.current } : d));
+      setPreview(null);
+      applyHistory({ kind: 'search', params }, 'push');
+    },
+    [applyHistory, saveNow],
+  );
+
+  /**
    * 添付ファイルのプレビューを開く (Sf53ad6-2: ツリーの tree-file クリック)。
    * 開いているノートは保存してから切り替える (エディタは一時アンマウントされる)。
    */
@@ -499,8 +520,8 @@ export function App(): JSX.Element {
     // ジャーナル日付ナビ用の today (server 応答があれば上書きされる)
     setToday(todayJournalDate());
     // 現在のエントリに履歴インデックスを刻む
-    window.history.replaceState({ index: 0 }, '', window.location.pathname);
-    const r0 = parseLocation(window.location.pathname);
+    window.history.replaceState({ index: 0 }, '', window.location.pathname + window.location.search);
+    const r0 = parseLocation(window.location.pathname, window.location.search);
     if (r0.kind === 'note') {
       void applyNote(r0.path, 'replace').then((ok) => {
         if (ok) return;
@@ -511,6 +532,8 @@ export function App(): JSX.Element {
       });
     } else if (r0.kind === 'files') {
       applyHistory({ kind: 'files' }, 'replace');
+    } else if (r0.kind === 'search') {
+      applyHistory({ kind: 'search', params: r0.params }, 'replace');
     } else {
       void loadJournal().then((res) => {
         if (res !== null) applyHistory({ kind: 'note', path: res.path }, 'replace');
@@ -524,8 +547,11 @@ export function App(): JSX.Element {
     const onPop = (e: PopStateEvent): void => {
       histIndexRef.current = historyIndexOf(e.state);
       syncNavFlags();
-      const r = parseLocation(window.location.pathname);
+      const r = parseLocation(window.location.pathname, window.location.search);
       if (r.kind === 'files') {
+        setPreview(null);
+        applyHistory(r, 'none');
+      } else if (r.kind === 'search') {
         setPreview(null);
         applyHistory(r, 'none');
       } else if (r.kind === 'note') {
@@ -970,6 +996,16 @@ export function App(): JSX.Element {
           <nav className="route-crumbs breadcrumb" data-testid="route-display" aria-label="現在のルート">
             {route.kind === 'files' ? (
               <span className="route-token">/files</span>
+            ) : route.kind === 'search' ? (
+              <>
+                <span className="route-token">/search</span>
+                {searchParamsToQuery(route.params) !== '' && (
+                  <>
+                    <span className="sep">?</span>
+                    <span className="current">{searchParamsToQuery(route.params)}</span>
+                  </>
+                )}
+              </>
             ) : breadcrumb !== null ? (
               <>
                 <span className="route-token">/n/</span>
@@ -998,7 +1034,13 @@ export function App(): JSX.Element {
           )}
         </div>
 
-        {route.kind === 'files' ? (
+        {route.kind === 'search' ? (
+          <SearchPage
+            params={route.params}
+            onNavigate={openSearch}
+            onOpenNoteInEditor={(path) => void openNotePath(path)}
+          />
+        ) : route.kind === 'files' ? (
           <FilesPage />
         ) : preview !== null ? (
           <FilePreview path={preview} files={files} />
@@ -1088,6 +1130,10 @@ export function App(): JSX.Element {
           onClose={() => setPaletteOpen(false)}
           onOpenNote={(path) => void openNotePath(path)}
           onOpenNoteAtLine={(path, line) => void openNoteAtLine(path, line)}
+          onOpenAdvanced={(q) => {
+            setPaletteOpen(false);
+            openSearch({ q: q.trim().normalize('NFC'), tag: '', folder: '', sort: 'updated' });
+          }}
         />
       )}
 
