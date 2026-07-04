@@ -13,6 +13,9 @@ Loamium は、[Obsidian](https://obsidian.md/) と [LogSeq](https://logseq.com/)
 ### ✍️ エディタ(React + CodeMirror 6)
 
 - **ライブプレビュー**: 見出し・太字・`[[リンク]]`・インラインコードはカーソル行以外で装飾表示され、カーソルを置いた行だけソースが見える(Obsidian Live Preview 相当)
+- **Obsidian 互換記法**: `![[embed]]` transclusion(ノート/見出し/画像、循環は安全に遮断)、`> [!note]` callout、`==highlight==`、```dataview フェンス(LIST / TABLE / TASK + FROM / WHERE / SORT の DQL サブセット)
+- **グローバル検索**: Cmd/Ctrl+K のパレットでノート名+全文からジャンプ(該当行へカーソル移動)
+- **添付ファイル**: ドラッグ&ドロップ / 画像ペーストで `assets/` にアップロードし `![[ファイル]]` を自動挿入。PDF・テキスト・CSV・コードはノート内で埋め込みプレビュー
 - **アウトライン操作はリスト行限定(C 方式)**: `-` / `1.` / `- [ ]` の行でのみ Tab / Shift+Tab のインデント(子要素追従)と折りたたみが効きます。見出しや段落は普通の Markdown のまま — 文章ノートが箇条書き地獄になりません
 - **図・数式・ハイライト**: Mermaid 図、KaTeX 数式(`$…$` / `$$…$$`)、Shiki コードハイライトをローカルバンドルで描画(オフライン動作)
 - **リンク機構**: `[[` でノート名オートコンプリート、壊れリンクの赤表示(クリックで新規作成)、バックリンクパネル、**リネーム時の全 `[[リンク]]` 自動追従**
@@ -158,18 +161,19 @@ make lint      # tsc --noEmit (全 workspace)
 make build     # ビルド
 ```
 
-テストは「ユーザーの入口から」が原則です — API は実 HTTP、CLI はサブプロセス起動、UI は実ブラウザ + 実サーバーの E2E で受け入れ条件を検証しています(2026-07 時点: Vitest 189 件 + Playwright 57 件)。
+テストは「ユーザーの入口から」が原則です — API は実 HTTP、CLI はサブプロセス起動、UI は実ブラウザ + 実サーバーの E2E で受け入れ条件を検証しています(2026-07 時点: Vitest 334 件 + Playwright 121 件)。
 
 開発の進め方・ロードマップは [`docs/ROADMAP.json`](docs/ROADMAP.json)、プロダクトの狙いは [`docs/VISION.json`](docs/VISION.json) を参照してください。
 
 ## ステータスと今後
 
-**MVP 完成**(2026-07): エディタ・ジャーナル・検索・バックリンク・リンク追従・CLI/Skill 統合・アプリ内 Claude Code タブ(ターミナル)まで動作します。今後の候補(バックログ):
+**ロードマップ 11 Sprint 完了**(2026-07): エディタ・ジャーナル・検索(Cmd+K)・バックリンク・リンク追従・記法拡張(embed / callout / highlight / dataview)・添付ファイルと埋め込みプレビュー・CLI/Skill 統合・アプリ内 Claude Code タブまで動作します。今後の候補(バックログ):
 
 - Cloudflare Tunnel + Access による外部公開手順
 - デスクトップ化(Tauri / Deno Desktop 再評価)
-- グラフビュー、`![[embed]]`(transclusion)、`> [!note]` callout、dataview 風クエリ
+- グラフビュー(D3.js)
 - 検索の SQLite FTS5 移行(大規模 vault 対応)
+- 添付ファイル削除・リネームの CLI コマンド化
 
 ## 名前の由来
 
