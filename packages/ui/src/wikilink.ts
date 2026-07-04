@@ -37,6 +37,11 @@ export interface WikilinkEnv {
    * ![[file]] プレビューの解決・サイズ表示が使う (live-preview の RenderEnv 経由)。
    */
   getFiles?: () => readonly FileMeta[] | null;
+  /**
+   * ノートを開いて指定行 (1 始まり) へカーソル移動 (Sb1593c-2 で追加 — additive)。
+   * dataview の TASK 結果クリックが使う (live-preview の RenderEnv 経由)。
+   */
+  openNoteAtLine?: (path: string, line: number) => void;
 }
 
 export const wikilinkEnvFacet = Facet.define<WikilinkEnv, WikilinkEnv | null>({

@@ -1,0 +1,34 @@
+{
+  "$file": "gui-spec-Sb1593c-2.json",
+  "sprint": "Sb1593c",
+  "story": "Sb1593c-2",
+  "story_type": "gui",
+  "visual_reference": "prototype/dataview.html + prototype/TESTIDS.md「Sprint 7-11 追加分」(dataview-widget / dataview-item / dataview-task / dataview-error)",
+  "state_diagram": "stateDiagram-v2\n    [*] --> Source: カーソル行の ```dataview フェンスはソース表示\n    Source --> List: LIST クエリ → dataview-widget[data-query-type=list]\n    Source --> Table: TABLE クエリ → dataview-widget[data-query-type=table]\n    Source --> Task: TASK クエリ → dataview-widget[data-query-type=task]\n    Source --> Error: 構文エラー → dataview-widget[data-query-type=error] + dataview-error\n    List --> Navigate: dataview-item クリック → 元ノートへ\n    Task --> NavigateLine: dataview-task クリック → 元ノートの該当行へ\n    List --> List: vault のファイル変更 → デバウンス再実行で結果更新\n    Error --> Source: フェンスクリックでソース編集 (エディタは常に編集可能)",
+  "scenarios": {
+    "entry_point": "```dataview フェンスを含むノートを開き、カーソルをフェンス外へ置く",
+    "happy_path": "LIST は dv-item のノート一覧、TABLE は ノート + fields 列の表、TASK はノート別グループのチェックボックス付き行として描画される (mode: replace)",
+    "data_states": {
+      "loading": "クエリ実行中はプレーンな実行中表示 (すぐに結果へ置換)",
+      "empty": "0 件は「0 件」の空表示 (widget 自体は出る)",
+      "error": "構文エラーは dataview-error (クエリ行 + キャレット + N 行 M 列 メッセージ)"
+    },
+    "edge_cases": [
+      "結果クリックはソース編集への切替 (fence-widget click) を発火させない (mousedown + stopPropagation)",
+      "TASK 行クリックは該当行へカーソル移動 (data-line)",
+      "vault のファイル変更 (別ノートの保存・外部編集) に追従して表示中の結果がデバウンス更新される",
+      "構文エラーでもエディタの他の行は通常どおり編集できる",
+      "カーソルがフェンス行に入るとソース表示に戻る (既存 fence 機構)"
+    ],
+    "success_feedback": "dataview-widget[data-query-type] と結果 DOM (dv-list / dv-table / dv-task-group)",
+    "failure_feedback": "dataview-error の位置情報付きメッセージ。エディタは操作可能なまま"
+  },
+  "endpoint_contracts": [
+    { "path": "/api/query", "method": "POST", "registered": true, "note": "Sb1593c-1 で追加。成功 {type, results...} / 構文エラー 400 {error:'query_syntax', message, line, column, length}" }
+  ],
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/dataview.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/dataview.mock.spec.ts"
+  },
+  "linked_ac": ["AC-Sb1593c-2-1", "AC-Sb1593c-2-2", "AC-Sb1593c-2-3"]
+}

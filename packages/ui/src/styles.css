@@ -1430,3 +1430,101 @@ button.callout-title { cursor: pointer; }
 .file-preview-pane .file-embed { margin: 0; max-width: 860px; }
 .file-preview-pane .pdf-frame { height: calc(100vh - 160px); min-height: 320px; }
 .file-preview-pane .embed-image-wrap { display: inline-block; }
+
+/* ------------------------------------------------------------------
+   Sb1593c — dataview フェンス (prototype/dataview.html 準拠)
+   ------------------------------------------------------------------ */
+
+.fence-widget .fence-body.dv-body { padding: 0; }
+
+.dv-list { padding: 4px 6px; }
+.dv-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 4px 10px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  font-size: 13.5px;
+  color: var(--link);
+  cursor: pointer;
+}
+.dv-item:hover { background: var(--bg-hover); text-decoration: underline; }
+.dv-item .dv-ico svg { width: 13px; height: 13px; color: var(--text-faint); flex-shrink: 0; display: block; }
+.dv-item .path { margin-left: auto; font-size: 11px; color: var(--text-faint); font-family: var(--font-mono); }
+
+.dv-table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--bg-editor); }
+.dv-table th {
+  text-align: left;
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  border-bottom: 1px solid var(--border-strong);
+  background: var(--bg-panel);
+  white-space: nowrap;
+}
+.dv-table td { padding: 6px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.dv-table tr:last-child td { border-bottom: none; }
+.dv-table tr:hover td { background: var(--bg-panel); }
+.dv-table .dv-note-link { color: var(--link); font-weight: 600; cursor: pointer; }
+.dv-table .dv-note-link:hover { text-decoration: underline; }
+.dv-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  border-radius: 9px;
+  padding: 0 8px;
+  margin-right: 4px;
+}
+
+.dv-tasks { padding: 2px 0 6px; }
+.dv-task-group { padding: 6px 10px 2px; }
+.dv-task-src {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 4px 2px 2px;
+}
+.dv-task-src .dv-ico svg { width: 12px; height: 12px; color: var(--text-faint); display: block; }
+.dv-task {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 3px 8px 3px 18px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  font-size: 13.5px;
+  color: var(--text);
+  cursor: pointer;
+}
+.dv-task:hover { background: var(--bg-hover); }
+.dv-task .task-checkbox { cursor: pointer; }
+.dv-task .task-done { text-decoration: line-through; color: var(--text-faint); }
+.dv-task .line-ref { margin-left: auto; font-size: 11px; color: var(--text-faint); font-family: var(--font-mono); flex-shrink: 0; }
+
+.dv-empty { padding: 10px 16px; font-size: 12.5px; color: var(--text-faint); }
+
+.dv-error {
+  margin: 0;
+  padding: 12px 16px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--danger);
+  background: var(--danger-soft);
+  white-space: pre-wrap;
+}

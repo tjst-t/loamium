@@ -1,0 +1,126 @@
+{
+  "sprint": "Sb1593c",
+  "mode": "auto (autopilot, --with-verifier)",
+  "base_sha": "a9e5b6712eb75b4627fec07b8bbbb30dc4c660f3",
+  "planning_decisions": [
+    {
+      "id": "P1",
+      "decision": "Story 2 本を単線シーケンシャル実行 (Sb1593c-1 クエリエンジン API/CLI → Sb1593c-2 dataview フェンス描画)。worktree 並列・実装サブエージェントは使わない",
+      "rationale": "Story 2 が Story 1 の POST /api/query に完全依存する直列構造。過去 Sprint (Sf53ad6 / S9e5ca4) と同じ判断 (DESIGN_PRINCIPLES priority 5: シンプルさ優先)。"
+    },
+    {
+      "id": "P2",
+      "decision": "ユーザーストーリー・AC は ROADMAP のまま採用 (書き換え・分割不要)",
+      "rationale": "両 Story とも「{役割}として、{やりたいこと}。なぜなら {理由}」形式を満たし、AC は全てユーザー可観測 (API レスポンス / CLI 出力 / フェンス描画)。"
+    },
+    {
+      "id": "P3",
+      "decision": "GUI spec は autonomous mode で導出。ビジュアルの正は prototype/dataview.html + TESTIDS.md「Sprint 7-11 追加分」の dataview-widget / dataview-item / dataview-task / dataview-error 契約",
+      "rationale": "エントリポイント (```dataview フェンスを含むノートを開く)・状態 (list/table/task/error)・testid はプロトタイプから一意に導出できる。Sb1593c-1 は api+cli、Sb1593c-2 は gui (mock + E2E 二層)。"
+    },
+    {
+      "id": "P4",
+      "decision": "DQL サブセットの範囲: LIST / TABLE f1, f2 / TASK + FROM #tag|\"folder\" + WHERE cond (AND ...) + SORT field [ASC|DESC]。キーワードは大文字小文字両対応。演算子 = != > < >= <= contains + bare/否定 truthy (completed / !completed)。OR・関数・複数 SORT キーは対応外で位置情報付き構文エラー",
+      "rationale": "Sprint 指示「Obsidian dataview 互換の構文に寄せる。独自の別構文を発明しない」「対応外は明確なエラー」。prototype/dataview.html の全クエリ例 (LIST from #project / TABLE status, updated from \"projects\" where status != \"done\" sort updated desc / TASK from \"projects\" where !completed) がこの範囲で表現できる (priority 5)。"
+    },
+    {
+      "id": "P5",
+      "decision": "クエリエンジンの分割: パーサー + 評価器 (executeQuery) を packages/shared/src/dql.ts に純関数で置き、server はインデックス (VaultIndex) から QueryableNote[] を供給するだけにする",
+      "rationale": "coding_conventions「Markdown パース系には必ずユニットテスト」— 純関数化で パーサー・評価器の両方をユニットテストできる。CLI/UI と型 (zod スキーマ) を共有する既存構造とも一致。"
+    },
+    {
+      "id": "P6",
+      "decision": "POST /api/query は permissions の classifyOp で 'read' に分類する (read-only モードでも実行可)",
+      "rationale": "クエリは純読み取り (ファイル書き込みなし)。POST なのは クエリ文字列を body で送るためだけ。read-only モードのエージェントが検索を代替できることは priority 3 (エージェント操作性) に沿う。受け入れテストで read-only モードの 200 を検証する。"
+    },
+    {
+      "id": "P7",
+      "decision": "構文エラーのレスポンスは 400 {error:'query_syntax', message, line, column, length}。message 自体に「N 行 M 列:」の位置情報を含める (additive — errorResponseSchema {error,message} の互換は維持)",
+      "rationale": "AC-1-1「400 + 位置情報付きメッセージ」。CLI は message 透過だけで位置情報が伝わり、UI はフィールドからプロトタイプどおりのキャレット表示を組み立てられる。"
+    }
+  ],
+  "implementation_decisions": [
+    {
+      "id": "I1",
+      "decision": "パーサーは自前の小型トークナイザ + 再帰なし手書きパーサー (外部パーサーライブラリ不使用)。トークンに 1 始まり line/column/length を保持し、DqlParseError の message は「N 行 M 列: …」形式 (prototype/dataview.html のエラー例と同形)",
+      "rationale": "文法が小さく (3 種 + 3 節)、依存追加より単純 (priority 5)。位置情報は AC-1-1 の要件。"
+    },
+    {
+      "id": "I2",
+      "decision": "評価器のフィールド解決: file.name/file.folder/file.path/file.mtime + tags (インデックスのマージ済みタグ) + frontmatter 任意キー。TASK コンテキストでは completed/checked/text/line を先に解決。欠損フィールドは = で false・!= で true・順序比較は false。file.mtime と日付文字列 (YYYY-MM-DD) の比較は文字列側を epoch へ変換",
+      "rationale": "Sprint 指示の「file.name / file.folder / file.mtime 相当 + frontmatter 任意キー」を最小限で満たす。dataview の欠損値挙動に寄せつつ複雑化を避ける (priority 5)。"
+    },
+    {
+      "id": "I3",
+      "decision": "タスク抽出はリストマーカー -/*/+/1./1) + [ ]/[x]/[X] のみ (Obsidian コア互換)。[-] 等のプラグイン拡張ステータスは対象外。indent は行頭空白の文字数",
+      "rationale": "priority 4 (Obsidian 互換 > 独自拡張)。ネストは indent から導出可能で正本を汚さない。"
+    },
+    {
+      "id": "I4",
+      "decision": "インデックス拡張は IndexedNote に tasks/frontmatter/mtime を追加し refreshFile 一点で更新。build (起動全走査)・indexSyncMiddleware (write-through)・chokidar の 3 経路すべてが同じ refreshFile を通るため追加コード不要",
+      "rationale": "AC-1-2 の「外部編集にも追従」を既存機構の再利用だけで満たす (ARCHITECTURE インデックスライフサイクル)。"
+    },
+    {
+      "id": "I5",
+      "decision": "dataview フェンスのファイル変更追従は「widget の DOM が生きている間だけの 2 秒ポーリング + 結果署名 (JSON) が変わったときのみ再描画」。SSE/WebSocket の push 基盤は導入しない",
+      "rationale": "UI にはサーバー push 基盤が無く、導入は本 Sprint スコープ外の大工事。ポーリングは連続変更を実質デバウンスし (AC-2-2 の「デバウンス」)、el.isConnected で自己停止するためリークしない (priority 5)。"
+    },
+    {
+      "id": "I6",
+      "decision": "fence レンダラーへ RenderContext.env (RenderEnv) を渡すよう FenceWidget を additive 拡張し、RenderEnv/WikilinkEnv に openNoteAtLine を optional 追加。TASK 結果クリックは既存の openNoteAtLine (検索パレットの seek 機構) を再利用",
+      "rationale": "embed (block レジストリ) と同じ環境注入パターンの一般化。mermaid/shiki は env を無視するため無影響 (additive)。"
+    },
+    {
+      "id": "I7",
+      "decision": "結果クリックのナビゲーションは mousedown + preventDefault/stopPropagation (click も stopPropagation)",
+      "rationale": "クリックでカーソルが行に入ると装飾がソース表示へ差し替わり click が届かない — WikilinkWidget / embed ヘッダで確立済みの規約。"
+    },
+    {
+      "id": "I8",
+      "decision": "dataview の描画結果 (dataview-widget) は fence-body 要素に data-testid/data-query-type を付与。件数・実行時間の dv-summary バー表示 (prototype の装飾) は省略し info は固定文言",
+      "rationale": "TESTIDS.md の契約 4 testid は全結線。fence-bar の動的サマリーは FenceRenderer.info が静的文字列のため大きな拡張が必要で、AC に含まれない装飾のみの差分 (priority 5)。"
+    }
+  ],
+  "review_decisions": [
+    {
+      "id": "R1",
+      "decision": "Story レベル (Sb1593c-1) + Sprint レベルの 2 段レビューを code-review プロトコル (7 角度 + 検証) のインライン実行で実施。CONFIRMED 所見ゼロ。禁止カテゴリ diff スキャン (skip/アサーション弱体化/catch{}/any/AC 変更) もヒットゼロ",
+      "rationale": "サブエージェント (Agent tool) が本セッションに無いためプロトコルを本体で実行。"
+    },
+    {
+      "id": "R2",
+      "decision": "PLAUSIBLE 所見 1 件は対応不要と判断: refreshFile の readFile→stat の間にファイルが差し替わると mtime と content が一瞬ずれ得るが、次の chokidar イベント / 再起動全走査で自己修復する (インデックスは使い捨て・ファイルが正 — priority 6)",
+      "rationale": "発生条件が極小で、既存の自己修復設計の範囲内。"
+    },
+    {
+      "id": "R3",
+      "decision": "効率観察: extractTags/extractLinks/extractTasks/parseNote が refreshFile で各々 parseNote を再実行する既存パターンを踏襲 (統合最適化しない)",
+      "rationale": "個人 vault 規模で計測可能な影響なし。統合は既存 3 関数の API 変更を伴い Sprint スコープ外。"
+    }
+  ],
+  "done_judgment": {
+    "Sb1593c-1": {
+      "guard1_user_review_required_not_done": "pass",
+      "guard2_nil_injection_mock": "pass",
+      "guard3_mock_mode_not_real_smoke": "pass",
+      "guard4_priority_rule_9_exception_valid": "n/a",
+      "guard5_call_path_grep": "pass",
+      "guard6_deferred_comment_clean": "pass",
+      "guard7_adr_conformance": "n/a",
+      "guard8_destructive_multi_version_test": "n/a",
+      "overall": "ok"
+    },
+    "Sb1593c-2": {
+      "guard1_user_review_required_not_done": "pass",
+      "guard2_nil_injection_mock": "pass",
+      "guard3_mock_mode_not_real_smoke": "pass",
+      "guard4_priority_rule_9_exception_valid": "n/a",
+      "guard5_call_path_grep": "pass",
+      "guard6_deferred_comment_clean": "pass",
+      "guard7_adr_conformance": "n/a",
+      "guard8_destructive_multi_version_test": "n/a",
+      "overall": "ok"
+    },
+    "note": "詳細根拠は verification-results.json の done_judgment / done_judgment_notes。独立 verifier (verification-report.json) は overall: pass・overlooked_count: 0 で self-report と不一致なし。機械判定 verify-run.json overall pass (test 323 / ui 111 / lint、fail・skip 0) — done ゲート成立"
+  }
+}

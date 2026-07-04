@@ -851,6 +851,7 @@ export function App(): JSX.Element {
             onChange={onEditorChange}
             onSave={() => void saveNow()}
             onOpenNote={(path) => void openNotePath(path)}
+            onOpenNoteAtLine={(path, line) => void openNoteAtLine(path, line)}
             onCreateAndOpenNote={(target) => void createNoteFromLink(target, true)}
             onCreateNote={(target) => void createNoteFromLink(target, false)}
             onUploadFiles={uploadFiles}

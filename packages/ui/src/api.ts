@@ -16,6 +16,8 @@ import {
   noteResponseSchema,
   noteWriteResponseSchema,
   errorResponseSchema,
+  queryErrorResponseSchema,
+  queryResponseSchema,
   searchResponseSchema,
   type BacklinksResponse,
   type FileDeleteResponse,
@@ -28,6 +30,7 @@ import {
   type NoteRenameResponse,
   type NoteResponse,
   type NoteWriteResponse,
+  type QueryResponse,
   type SearchResponse,
 } from '@loamium/shared';
 
@@ -40,6 +43,25 @@ export class ApiError extends Error {
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
+  }
+}
+
+/**
+ * DQL 構文エラー (POST /api/query の 400 query_syntax — Sb1593c-2)。
+ * 位置情報 (1 始まり行・列 + トークン長) を持ち、dataview フェンスの
+ * キャレット付きエラー表示が使う。
+ */
+export class QueryApiError extends ApiError {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    readonly line: number,
+    readonly column: number,
+    readonly length: number,
+  ) {
+    super(status, code, message);
+    this.name = 'QueryApiError';
   }
 }
 
@@ -114,6 +136,37 @@ export const api = {
 
   search(q: string): Promise<SearchResponse> {
     return request(searchResponseSchema, `/api/search?q=${encodeURIComponent(q)}`);
+  },
+
+  /**
+   * dataview 風 DQL クエリ (POST /api/query — Sb1593c)。
+   * 構文エラー (400 query_syntax) は位置情報付きの QueryApiError で送出する。
+   */
+  async query(dql: string): Promise<QueryResponse> {
+    const res = await fetch('/api/query', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ query: dql }),
+    });
+    if (!res.ok) {
+      let body: unknown = null;
+      try {
+        body = await res.json();
+      } catch (err) {
+        void err; // 非 JSON のエラーボディは既定メッセージのまま扱う
+      }
+      const positioned = queryErrorResponseSchema.safeParse(body);
+      if (positioned.success) {
+        const e = positioned.data;
+        throw new QueryApiError(res.status, e.error, e.message, e.line, e.column, e.length);
+      }
+      const parsed = errorResponseSchema.safeParse(body);
+      if (parsed.success) {
+        throw new ApiError(res.status, parsed.data.error, parsed.data.message);
+      }
+      throw new ApiError(res.status, 'http_error', `HTTP ${String(res.status)}`);
+    }
+    return queryResponseSchema.parse(await res.json());
   },
 
   renameNote(path: string, newPath: string): Promise<NoteRenameResponse> {

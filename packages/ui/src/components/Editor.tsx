@@ -61,6 +61,8 @@ export interface EditorProps {
   onSave: () => void;
   /** 解決済み [[リンク]] クリック — 対象ノートを開く */
   onOpenNote: (path: string) => void;
+  /** dataview TASK 結果クリック — 対象ノートを開いて該当行へ (Sb1593c-2) */
+  onOpenNoteAtLine: (path: string, line: number) => void;
   /** 壊れ [[リンク]] クリック — ノートを作成して開く */
   onCreateAndOpenNote: (target: string) => void;
   /** オートコンプリートの「作成してリンク」— ノートを作成する (移動しない) */
@@ -81,6 +83,7 @@ export function Editor({
   onChange,
   onSave,
   onOpenNote,
+  onOpenNoteAtLine,
   onCreateAndOpenNote,
   onCreateNote,
   onUploadFiles,
@@ -100,14 +103,17 @@ export function Editor({
   const filesRef = useRef(files);
   filesRef.current = files;
   const onOpenNoteRef = useRef(onOpenNote);
+  const onOpenNoteAtLineRef = useRef(onOpenNoteAtLine);
   const onCreateAndOpenNoteRef = useRef(onCreateAndOpenNote);
   const onCreateNoteRef = useRef(onCreateNote);
   onOpenNoteRef.current = onOpenNote;
+  onOpenNoteAtLineRef.current = onOpenNoteAtLine;
   onCreateAndOpenNoteRef.current = onCreateAndOpenNote;
   onCreateNoteRef.current = onCreateNote;
   const wikilinkEnvRef = useRef<WikilinkEnv>({
     getNotes: () => notesRef.current,
     openNote: (path) => onOpenNoteRef.current(path),
+    openNoteAtLine: (path, line) => onOpenNoteAtLineRef.current(path, line),
     createAndOpenNote: (target) => onCreateAndOpenNoteRef.current(target),
     createNote: (target) => onCreateNoteRef.current(target),
     getFiles: () => filesRef.current,

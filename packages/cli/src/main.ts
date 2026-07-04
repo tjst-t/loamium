@@ -10,6 +10,7 @@
  *   journal [date]                       GET    /api/journal[?date=]
  *   journal-append <content> [date]      POST   /api/journal/append
  *   search <query>                       GET    /api/search?q=
+ *   query <dql>                          POST   /api/query (dataview 風 DQL)
  *   backlinks <path>                     GET    /api/backlinks?path=
  *   file <path>                          GET    /api/files/{path} (バイト列を stdout へ)
  *   upload <local> [vault-path]          POST   /api/files/{path} (省略時 assets/<ファイル名>)
@@ -35,6 +36,7 @@ import {
   noteRenameResponseSchema,
   noteResponseSchema,
   noteWriteResponseSchema,
+  queryResponseSchema,
   searchResponseSchema,
   tagsResponseSchema,
 } from '@loamium/shared';
@@ -211,6 +213,31 @@ function buildProgram(): Command {
         const res = parseAs(result, searchResponseSchema, 'search');
         for (const r of res.results) {
           println(r.line === null ? `${r.path}: ${r.snippet}` : `${r.path}:${r.line}: ${r.snippet}`);
+        }
+      });
+    });
+
+  sub('query', 'dataview 風 DQL クエリを実行する (POST /api/query)')
+    .argument('<dql>', 'クエリ (例: \'TABLE status from "projects" where status != "done" sort updated desc\')')
+    .action(async (dql: string, opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, '/api/query', postJson({ query: dql }));
+      output(opts, result, () => {
+        const res = parseAs(result, queryResponseSchema, 'query');
+        if (res.type === 'list') {
+          for (const r of res.results) println(r.path);
+        } else if (res.type === 'table') {
+          println(['path', ...res.fields].join('\t'));
+          for (const r of res.results) {
+            const cells = r.values.map((v) =>
+              v === null ? '' : Array.isArray(v) ? v.join(',') : String(v),
+            );
+            println([r.path, ...cells].join('\t'));
+          }
+        } else {
+          for (const r of res.results) {
+            println(`${r.path}:${String(r.line)}: [${r.checked ? 'x' : ' '}] ${r.text}`);
+          }
         }
       });
     });
