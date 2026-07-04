@@ -129,3 +129,75 @@ Sa704c3 実装で追加した testid。既存行の変更はなし(契約は add
 - `fold-toggle` / `fold-pill` / `task-checkbox` — アウトライン操作 (S9ab6c3-1)
 - `wikilink` / `fence-widget` / `math-inline` / `math-block` — ライブプレビュー (S9ab6c3-2)。
   `wikilink` の `data-target` は現時点では記法どおりのターゲット + `.md` 補完 (パス解決・クリック遷移は S6fbf45-1)
+
+## Sprint 7-11 (第2バッチ) プロトタイプ追加分 (2026-07-04)
+
+Sprint Sbd061c / S9e5ca4 / Sf53ad6 / Sb1593c / Sb7f458 の実装と E2E はこの表に追従する。
+既存表の変更はなし(契約は additive にのみ拡張)。
+
+### グローバル検索パレット (Sbd061c-1)
+
+| data-testid | 画面 | 役割 |
+|---|---|---|
+| `sidebar-search` | 全画面 | サイドバーの検索ボタン(Cmd/Ctrl+K と同じくパレットを開く) |
+| `search-palette` | search-palette | 検索パレットのモーダルコンテナ |
+| `search-palette-backdrop` | search-palette | 背景(外側クリックで閉じる) |
+| `search-input` | search-palette | 検索入力欄(デバウンス付きインクリメンタル検索) |
+| `search-section-notes` | search-palette | ノート名一致セクションの見出し |
+| `search-section-fulltext` | search-palette | 全文検索ヒットセクションの見出し |
+| `search-result-note` | search-palette | ノート名一致の候補(Enter/クリックで開く)。`data-path` で特定。選択中は `aria-selected="true"` |
+| `search-result-fulltext` | search-palette | 全文ヒットの候補(該当行へカーソル移動)。`data-path` + `data-line` で特定 |
+
+### ![[embed]] transclusion・画像 (S9e5ca4-1/2)
+
+| data-testid | 画面 | 役割 |
+|---|---|---|
+| `embed-card` | embed-preview | ノート/セクション埋め込みカード。`data-target` で対象、セクション埋め込みは `data-section` 付き |
+| `embed-card-open` | embed-preview | 埋め込みカードのヘッダ(クリックで元ノートへ移動) |
+| `embed-error` | embed-preview | 循環・深さ超過・壊れ embed のエラーカード。`data-target` で対象 |
+| `embed-image` | embed-preview | `![[image.png]]` / `![](path)` の画像表示。`data-path` で対象 |
+
+### callout・highlight (S9e5ca4-3/4)
+
+| data-testid | 画面 | 役割 |
+|---|---|---|
+| `callout` | callout-highlight | callout ボックス。`data-type="note" \| "info" \| "tip" \| "warning" \| "danger"`(未知タイプは note)。折りたたみ中は `data-folded="true"` |
+| `callout-fold` | callout-highlight | 折りたたみ callout(`[!note]-`)のタイトル(クリックで開閉) |
+| `highlight` | callout-highlight | `==text==` のハイライト表示(カーソル行ではソース表示) |
+
+### アップロード UX (Sf53ad6-2)
+
+| data-testid | 画面 | 役割 |
+|---|---|---|
+| `drop-overlay` | upload | ファイルドラッグ中のドロップオーバーレイ(エディタ上) |
+| `upload-toast` | upload | アップロードのトースト。`data-kind="progress" \| "renamed" \| "error"` で状態特定 |
+| `tree-file` | upload, file-preview | ツリーの非 .md ファイル行(クリックでプレビュー)。`data-path` で特定。アイコン色で種別区別 |
+
+### 埋め込みプレビューブロック (Sf53ad6-3)
+
+| data-testid | 画面 | 役割 |
+|---|---|---|
+| `file-embed` | file-preview | `![[file]]` のプレビューブロック。`data-kind="pdf" \| "text" \| "card"` + `data-path` で特定(.md は `embed-card` と同一表示) |
+| `file-embed-open-full` | file-preview | テキストプレビューの「全体を開く」/ PDF の「新しいタブで開く」 |
+| `file-embed-download` | file-preview | プレビュー不能ファイルカードのダウンロードリンク |
+
+### dataview フェンス (Sb1593c-2)
+
+| data-testid | 画面 | 役割 |
+|---|---|---|
+| `dataview-widget` | dataview | ```dataview フェンスの描画結果。`data-query-type="list" \| "table" \| "task" \| "error"` |
+| `dataview-item` | dataview | LIST / TABLE の結果ノート(クリックで元ノートへ)。`data-path` で特定 |
+| `dataview-task` | dataview | TASK の結果行(チェックボックス付き、クリックで該当行へ)。`data-path` + `data-line` で特定 |
+| `dataview-error` | dataview | 構文エラーの表示(位置情報付きメッセージ) |
+
+### ターミナルタブ (Sb7f458-2)
+
+| data-testid | 画面 | 役割 |
+|---|---|---|
+| `workspace-tabs` | terminal | エディタ / ターミナルのタブバー |
+| `tab-editor` | terminal | エディタタブ(クリックでエディタ表示) |
+| `tab-terminal` | terminal | ターミナルタブ。選択中は `aria-selected="true"` |
+| `terminal` | terminal | xterm.js ターミナルのコンテナ(リサイズ追従) |
+| `terminal-disabled` | terminal | サーバー側で無効時の理由 + 有効化手順(LOAMIUM_TERMINAL=1)の表示 |
+| `terminal-reconnect-bar` | terminal | 切断時の通知バー |
+| `terminal-reconnect` | terminal | 再接続ボタン |

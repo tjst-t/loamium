@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Loamium — GUI プロトタイプ(Sa704c3 / S9ab6c3 / S6fbf45)</title>
+<title>Loamium — GUI プロトタイプ</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -23,8 +23,19 @@
       <span class="sprint-tag">Sa704c3 — UI 基盤(ツリー / エディタ / ジャーナル)</span>
       <span class="sprint-tag">S9ab6c3 — アウトライン操作とライブプレビュー</span>
       <span class="sprint-tag milestone">S6fbf45 — リンク機構 [MILESTONE]</span>
+      <span class="sprint-tag">Sbd061c — グローバル検索</span>
+      <span class="sprint-tag">S9e5ca4 — 記法拡張</span>
+      <span class="sprint-tag">Sf53ad6 — アップロードとプレビュー</span>
+      <span class="sprint-tag">Sb1593c — dataview 風クエリ</span>
+      <span class="sprint-tag milestone">Sb7f458 — Claude Code タブ [MILESTONE]</span>
     </div>
   </header>
+
+  <div class="index-section-title">
+    <span>Sprint 4-6(第1バッチ・実装済み)</span>
+    <span class="badge">old/ の承認済みデザイン</span>
+    <span class="line"></span>
+  </div>
 
   <div class="screen-grid">
     <a class="screen-card" href="old/Sa704c3/journal.html">
@@ -67,6 +78,63 @@
       <h3>空 vault — empty state</h3>
       <p>ノートがひとつもない初回起動状態。ツリー・エディタ・バックリンクパネルそれぞれの empty state と、「今日のジャーナルを開始」への導線。</p>
       <span class="stories">Sa704c3-1 / Sa704c3-2</span>
+    </a>
+  </div>
+
+  <div class="index-section-title">
+    <span>Sprint 7-11(第2バッチ)</span>
+    <span class="badge">sprint prototype</span>
+    <span class="line"></span>
+  </div>
+
+  <div class="screen-grid">
+    <a class="screen-card" href="search-palette.html">
+      <span class="num">7</span>
+      <h3>グローバル検索パレット (Cmd+K)</h3>
+      <p>「監査」入力中のコマンドパレット。ノート名一致と全文ヒット(スニペット・行番号・一致ハイライト)の 2 セクション、↑↓ 選択状態、Esc / 外側クリックで閉じるデモ付き。</p>
+      <span class="stories">Sbd061c-1</span>
+    </a>
+
+    <a class="screen-card" href="embed-preview.html">
+      <span class="num">8</span>
+      <h3>![[embed]] transclusion と画像</h3>
+      <p>ノート全体・見出しセクションの埋め込みカード(ヘッダクリックで元ノートへ)、循環埋め込みのエラーカード、![[image.png]] の画像表示。カーソル行では記法ソースが見える。</p>
+      <span class="stories">S9e5ca4-1 / S9e5ca4-2</span>
+    </a>
+
+    <a class="screen-card" href="callout-highlight.html">
+      <span class="num">9</span>
+      <h3>callout と ==highlight==</h3>
+      <p>[!note] / [!info] / [!tip] / [!warning] / [!danger] の色付きボックス、[!note]- 折りたたみ(開閉デモ付き)、==text== の黄色マーカー。カーソル行のソース表示例つき。</p>
+      <span class="stories">S9e5ca4-3 / S9e5ca4-4</span>
+    </a>
+
+    <a class="screen-card" href="upload.html">
+      <span class="num">10</span>
+      <h3>ファイルアップロード (D&amp;D / ペースト)</h3>
+      <p>ドラッグ中のドロップオーバーレイ、進行トースト、名前衝突の連番リネーム通知(image-1.png)、サイズ超過エラー。ツリーには非 .md ファイルを種別アイコンで表示。</p>
+      <span class="stories">Sf53ad6-2</span>
+    </a>
+
+    <a class="screen-card" href="file-preview.html">
+      <span class="num">11</span>
+      <h3>埋め込みプレビューブロック</h3>
+      <p>![[report.pdf]] の PDF ビューアブロック、![[server.log]] / ![[data.csv]] の先頭 N 行テキストプレビュー +「全体を開く」、プレビュー不能ファイルのカード(名前・サイズ・DL)。</p>
+      <span class="stories">Sf53ad6-3</span>
+    </a>
+
+    <a class="screen-card" href="dataview.html">
+      <span class="num">12</span>
+      <h3>dataview 風クエリの描画</h3>
+      <p>```dataview フェンスの LIST / TABLE / TASK 描画(結果クリックで元ノートへ、TASK はチェックボックス付き)と、位置情報付き構文エラー表示。</p>
+      <span class="stories">Sb1593c-2</span>
+    </a>
+
+    <a class="screen-card" href="terminal.html">
+      <span class="num">13</span>
+      <h3>アプリ内 Claude Code タブ</h3>
+      <p>エディタ / ターミナルのタブ切替、xterm.js 風ターミナル(Claude Code TUI のサンプル出力)、無効時の有効化手順(LOAMIUM_TERMINAL=1)、切断時の再接続バー。3 状態の切替デモ付き。</p>
+      <span class="stories">Sb7f458-2</span>
     </a>
   </div>
 
