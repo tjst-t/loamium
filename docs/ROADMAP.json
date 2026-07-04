@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": null,
-    "total": 6,
+    "current_sprint": "Sbd061c",
+    "total": 10,
     "done": 6,
     "in_progress": 0,
-    "remaining": 0,
-    "percentage": 100
+    "remaining": 4,
+    "percentage": 60
   },
   "execution_order": [
     "Sd63ad1",
@@ -15,7 +15,11 @@
     "S0c9a48",
     "Sa704c3",
     "S9ab6c3",
-    "S6fbf45"
+    "S6fbf45",
+    "Sbd061c",
+    "S9e5ca4",
+    "Sb1593c",
+    "Sb7f458"
   ],
   "sprints": {
     "Sd63ad1": {
@@ -578,6 +582,347 @@
           }
         }
       }
+    },
+    "Sbd061c": {
+      "title": "グローバル検索 (Cmd+K)",
+      "status": "pending",
+      "description": "UI にコマンドパレット型のグローバル検索を追加する。ノート名ジャンプと全文検索を 1 つのパレットに統合し、ツリーを辿らずに目的のノートへ到達できるようにする。サーバー変更なし(既存 /api/search と /api/notes を利用)。",
+      "milestone": false,
+      "stories": {
+        "Sbd061c-1": {
+          "title": "グローバル検索パレット",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、Cmd/Ctrl+K で検索パレットを開きノート名・全文からノートへ移動したい。なぜなら、ツリーを辿らず数秒で目的のノートに到達できることがデイリー利用の前提だから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sbd061c-1-1",
+              "description": "Cmd/Ctrl+K(およびサイドバーの検索ボタン)で検索パレットが開き、Esc・外側クリックで閉じる",
+              "test": "[AC-Sbd061c-1-1] in packages/ui/tests/e2e/search-palette.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sbd061c-1-2",
+              "description": "入力に応じてノート名一致と全文検索結果(スニペット・行番号付き)がインクリメンタルに表示される(デバウンス付き)",
+              "test": "[AC-Sbd061c-1-2] in packages/ui/tests/e2e/search-palette.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sbd061c-1-3",
+              "description": "候補の Enter・クリックで該当ノートが開き、全文ヒットの場合は該当行にカーソルが移動する",
+              "test": "[AC-Sbd061c-1-3] in packages/ui/tests/e2e/search-palette.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sbd061c-1-1": {
+              "title": "検索パレット UI",
+              "description": "モーダルパレットコンポーネント(キーボードナビゲーション: ↑↓/Enter/Esc)。プロトタイプの data-testid 契約に追従。",
+              "status": "pending"
+            },
+            "Sbd061c-1-2": {
+              "title": "検索統合",
+              "description": "GET /api/search + GET /api/notes をデバウンス付きで叩き、ノート名一致と全文ヒットをセクション分けして表示。該当行へのスクロール・カーソル移動。",
+              "status": "pending"
+            },
+            "Sbd061c-1-3": {
+              "title": "二層テスト",
+              "description": "mock(エラー・空結果・デバウンス)+ E2E(実サーバーで AC 検証、[AC-] タグ付き)。",
+              "status": "pending"
+            }
+          }
+        }
+      }
+    },
+    "S9e5ca4": {
+      "title": "記法拡張 — transclusion・画像・callout・highlight",
+      "status": "pending",
+      "description": "3 レジストリの上に Obsidian 互換記法を拡充する。![[embed]](ノート/見出し/画像)、> [!note] callout、==highlight==。画像表示のため読み取り専用のファイル配信エンドポイントを追加する。ファイル形式は一切変えない(ピュア Markdown 維持)。",
+      "milestone": true,
+      "stories": {
+        "S9e5ca4-1": {
+          "title": "![[embed]] transclusion(ノート・見出し)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、![[ノート名]] で他ノートの内容を本文中に埋め込み表示したい。なぜなら、内容をコピーせず 1 か所を正としたまま文脈に引用できるから(atomic note の運用が回る)。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S9e5ca4-1-1",
+              "description": "![[note]] が読み取り専用の埋め込みカードとして本文中に描画され、クリックで元ノートに移動できる",
+              "test": "[AC-S9e5ca4-1-1] in packages/ui/tests/e2e/embed.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S9e5ca4-1-2",
+              "description": "![[note#見出し]] でその見出しセクションのみが埋め込まれる",
+              "test": "[AC-S9e5ca4-1-2] in packages/ui/tests/e2e/embed.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S9e5ca4-1-3",
+              "description": "循環埋め込み(A→B→A)は深さ制限で安全に打ち切られエラー表示になる(UI がフリーズ・クラッシュしない)",
+              "test": "[AC-S9e5ca4-1-3] in packages/ui/tests/e2e/embed.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S9e5ca4-1-1": {
+              "title": "embed block rule",
+              "description": "block rule として ![[target]] を検出し、既存リンク解決(shared)でノート/セクションを取得して埋め込みウィジェット描画。壊れ embed は壊れリンク同様の表示。",
+              "status": "pending"
+            },
+            "S9e5ca4-1-2": {
+              "title": "循環検出と深さ制限",
+              "description": "embed チェーンのパス集合を伝搬し、再訪・深さ超過でエラーカード。ユニットテスト必須。",
+              "status": "pending"
+            }
+          }
+        },
+        "S9e5ca4-2": {
+          "title": "画像埋め込みとファイル配信",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、vault 内の画像を ![[image.png]] や ![](path) でノートに表示したい。なぜなら、スクリーンショットや図版を含むノートが画像なしでは成立しないから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S9e5ca4-2-1",
+              "description": "GET /api/files/{path} が vault 内のファイルを読み取り専用で配信する(書き込み系なし、パス脱出は 400、.loamium/ は 404)",
+              "test": "[AC-S9e5ca4-2-1] in tests/acceptance/files.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S9e5ca4-2-2",
+              "description": "![[image.png]] と標準 Markdown 画像記法 ![](path) がエディタ内で画像として表示される",
+              "test": "[AC-S9e5ca4-2-2] in packages/ui/tests/e2e/embed.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S9e5ca4-2-1": {
+              "title": "server: files エンドポイント",
+              "description": "読み取り専用 GET /api/files/{path}。Content-Type 推定、パス正規化ユーティリティ経由、read-only モードでも利用可(読むだけ)。受け入れテスト付き。",
+              "status": "pending"
+            },
+            "S9e5ca4-2-2": {
+              "title": "UI: 画像レンダラー",
+              "description": "![[img]](block rule)と ![](path)(既存 Markdown)の画像を /api/files 経由で表示。",
+              "status": "pending"
+            }
+          }
+        },
+        "S9e5ca4-3": {
+          "title": "callout(> [!note] 等)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、> [!note] / [!warning] 等の callout を色付きボックスで見たい。なぜなら、注意書き・補足を本文と視覚的に区別したいから(Obsidian 互換記法)。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S9e5ca4-3-1",
+              "description": "> [!note] / [!info] / [!tip] / [!warning] / [!danger] がタイトル付き色付きボックスで描画され、未知タイプは note スタイルにフォールバックする",
+              "test": "[AC-S9e5ca4-3-1] in packages/ui/tests/e2e/callout.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S9e5ca4-3-1": {
+              "title": "callout block rule",
+              "description": "blockquote 先頭行の [!type] を検出し装飾。折りたたみ記法 [!note]- は最低限(閉じた状態表示)対応。",
+              "status": "pending"
+            }
+          }
+        },
+        "S9e5ca4-4": {
+          "title": "==highlight==",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、==テキスト== をハイライト表示したい。なぜなら、読み返し時に重要箇所へ視線を誘導したいから(Obsidian 互換記法)。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S9e5ca4-4-1",
+              "description": "==text== がカーソル行以外でハイライト表示され、カーソルを置くとソースが見える(コードフェンス・インラインコード内は装飾されない)",
+              "test": "[AC-S9e5ca4-4-1] in packages/ui/tests/e2e/highlight.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S9e5ca4-4-1": {
+              "title": "highlight inline rule",
+              "description": "inline rule として ==…== を検出し <mark> 相当の装飾を適用。",
+              "status": "pending"
+            }
+          }
+        }
+      }
+    },
+    "Sb1593c": {
+      "title": "dataview 風クエリ",
+      "status": "pending",
+      "description": "Obsidian dataview DQL の簡易サブセット(LIST / TABLE / TASK + from / where / sort)を実装する。クエリエンジンはサーバー側(POST /api/query)に置き、CLI に loamium query を 1:1 で追加。タスク(- [ ])のインデックス化もここで行い、vault 横断のタスク一覧を実現する。",
+      "milestone": false,
+      "stories": {
+        "Sb1593c-1": {
+          "title": "クエリエンジン(API + CLI)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "エージェントおよびノート利用者として、構造化クエリでノートやタスクを横断抽出したい。なぜなら、タグ・frontmatter・タスク状態による動的な一覧が「絞り込み検索でクエリを代替する」という Loamium の方針の実現形だから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sb1593c-1-1",
+              "description": "POST /api/query が DQL 簡易サブセット(LIST / TABLE fields / TASK、from #tag・\"folder\"、where の frontmatter/組み込みフィールド比較、sort)を実行し構造化結果を返す。構文エラーは 400 + 位置情報付きメッセージ",
+              "test": "[AC-Sb1593c-1-1] in tests/acceptance/query.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sb1593c-1-2",
+              "description": "タスク(- [ ] / - [x])がインデックス化され、TASK クエリで vault 横断の未完了/完了タスクを抽出できる(外部編集にも追従)",
+              "test": "[AC-Sb1593c-1-2] in tests/acceptance/query.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sb1593c-1-3",
+              "description": "loamium query コマンドが API と 1:1 で動作する(--json 対応、構文エラーは非 0 終了 + stderr JSON)",
+              "test": "[AC-Sb1593c-1-3] in tests/acceptance/cli-query.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sb1593c-1-1": {
+              "title": "DQL サブセットパーサー",
+              "description": "shared にクエリ AST パーサー(LIST/TABLE/TASK, from, where, sort)。ユニットテスト必須。",
+              "status": "pending"
+            },
+            "Sb1593c-1-2": {
+              "title": "タスクインデックス",
+              "description": "parseNote にタスク抽出(- [ ]/- [x]、行番号・ネスト)を追加しインデックスへ。chokidar 追従は既存機構。",
+              "status": "pending"
+            },
+            "Sb1593c-1-3": {
+              "title": "query 実行器 + API + CLI",
+              "description": "インデックス上でクエリ実行。POST /api/query、loamium query。受け入れテスト付き。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sb1593c-2": {
+          "title": "dataview フェンス描画",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、ノート内の ```dataview フェンスにクエリを書くと動的な一覧・表・タスクリストが表示されてほしい。なぜなら、「今月のノート一覧」「未完了タスク」のようなハブページを手メンテせずに済むから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sb1593c-2-1",
+              "description": "```dataview フェンスが LIST/TABLE/TASK の結果として描画され、結果のノート/タスクをクリックすると元ノートへ移動する",
+              "test": "[AC-Sb1593c-2-1] in packages/ui/tests/e2e/dataview.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sb1593c-2-2",
+              "description": "vault のファイル変更に追従して表示中のクエリ結果が更新される",
+              "test": "[AC-Sb1593c-2-2] in packages/ui/tests/e2e/dataview.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sb1593c-2-3",
+              "description": "クエリの構文エラーはフェンス内にエラーメッセージとして表示され、エディタは通常どおり編集できる",
+              "test": "[AC-Sb1593c-2-3] in packages/ui/tests/e2e/dataview.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sb1593c-2-1": {
+              "title": "dataview fence レンダラー",
+              "description": "fence レジストリに dataview を登録し /api/query の結果を描画(mode: replace、カーソルでソース表示)。",
+              "status": "pending"
+            },
+            "Sb1593c-2-2": {
+              "title": "結果の更新とナビゲーション",
+              "description": "保存・外部変更での再実行(デバウンス)、結果クリックでノートへ移動。二層テスト。",
+              "status": "pending"
+            }
+          }
+        }
+      }
+    },
+    "Sb7f458": {
+      "title": "アプリ内 Claude Code タブ",
+      "status": "pending",
+      "description": "UI のタブ内で TUI 版 Claude Code(等の CLI)を動かす。サーバーに WebSocket + node-pty ブリッジ、フロントに xterm.js。pty は任意コマンド実行になるため、デフォルト無効・LOAMIUM_TERMINAL=1 かつ full モード時のみ有効という明示オプトイン(SPEC §6)。",
+      "milestone": true,
+      "stories": {
+        "Sb7f458-1": {
+          "title": "pty ブリッジ(WebSocket + node-pty)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "vault 所有者として、サーバー経由で vault を作業ディレクトリとするターミナルセッションを安全に開きたい。なぜなら、ノート内容を踏まえた Claude Code との対話を Loamium の中で完結させたいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sb7f458-1-1",
+              "description": "LOAMIUM_TERMINAL=1 かつ LOAMIUM_MODE=full のときだけ WS /api/terminal が有効になり、それ以外(未設定・read-only・append-only)では接続が拒否される",
+              "test": "[AC-Sb7f458-1-1] in tests/acceptance/terminal.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sb7f458-1-2",
+              "description": "WS 接続で vault を cwd とした pty(コマンドは LOAMIUM_TERMINAL_CMD、デフォルト claude)が起動し、入出力・リサイズが双方向に流れる。切断時に子プロセスが確実に終了する",
+              "test": "[AC-Sb7f458-1-2] in tests/acceptance/terminal.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sb7f458-1-1": {
+              "title": "WS + node-pty ブリッジ",
+              "description": "@hono/node-ws + node-pty。起動ガード(env + mode)、セッション管理、切断時 SIGTERM→SIGKILL。実シェル(bash)での受け入れテスト。",
+              "status": "pending"
+            },
+            "Sb7f458-1-2": {
+              "title": "監査ログ統合",
+              "description": "ターミナルセッションの開始・終了を audit.log に記録(コマンド内容は記録しない)。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sb7f458-2": {
+          "title": "ターミナルタブ UI(xterm.js)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、UI のタブでターミナル(Claude Code)を開いて対話したい。なぜなら、エディタとエージェントの往復をブラウザ 1 画面で完結させたいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sb7f458-2-1",
+              "description": "ターミナルタブを開くと xterm.js のターミナルで対話でき(実シェルで E2E)、ウィンドウリサイズに追従する",
+              "test": "[AC-Sb7f458-2-1] in packages/ui/tests/e2e/terminal.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sb7f458-2-2",
+              "description": "サーバー側でターミナルが無効(env 未設定等)の場合はタブに理由と有効化手順が表示される。切断時は再接続ボタンが出る",
+              "test": "[AC-Sb7f458-2-2] in packages/ui/tests/e2e/terminal.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sb7f458-2-1": {
+              "title": "ターミナルタブ",
+              "description": "エディタ/ターミナルのタブ切替 UI。xterm.js + fit addon、WS 接続、リサイズ伝搬。",
+              "status": "pending"
+            },
+            "Sb7f458-2-2": {
+              "title": "無効時・切断時 UX",
+              "description": "機能フラグ検出 API(GET /api/health 拡張)で無効理由表示。再接続。二層テスト。",
+              "status": "pending"
+            }
+          }
+        }
+      }
     }
   },
   "dependencies": {
@@ -611,6 +956,31 @@
         "S31ba00"
       ],
       "reason": "リンク UI はエディタ拡張基盤とバックリンクインデックスの両方を使う"
+    },
+    "Sbd061c": {
+      "depends_on": [
+        "Sa704c3",
+        "S31ba00"
+      ],
+      "reason": "検索パレットは UI 基盤と検索 API の上に載る"
+    },
+    "S9e5ca4": {
+      "depends_on": [
+        "S6fbf45"
+      ],
+      "reason": "embed はリンク解決基盤、callout/highlight は 3 レジストリを使う"
+    },
+    "Sb1593c": {
+      "depends_on": [
+        "S9ab6c3"
+      ],
+      "reason": "dataview フェンスは fence レジストリに登録する"
+    },
+    "Sb7f458": {
+      "depends_on": [
+        "Sa704c3"
+      ],
+      "reason": "ターミナルタブは UI 基盤のタブ機構に載る"
     }
   },
   "backlog": [
@@ -619,12 +989,6 @@
       "description": "cloudflared 設定 + OAuth 認証で外出先・スマホからアクセス。実アカウント・実ドメインが必要なため自律実行では検証不能。設定手順のドキュメント化を含む。",
       "added_in": "roadmap-generation",
       "reason": "外部サービスの実アカウントが必要で、ローカル開発の MVP と独立しているため"
-    },
-    {
-      "title": "アプリ内 Claude Code タブ",
-      "description": "node-pty + xterm.js + WebSocket で TUI 版 Claude Code をタブ内で動かす。SPEC.md §6 参照。",
-      "added_in": "roadmap-generation",
-      "reason": "SPEC で将来機能と明記。claude CLI の認証がサーバー側に必要"
     },
     {
       "title": "デスクトップ化(Tauri)",
@@ -645,22 +1009,10 @@
       "reason": "3 レジストリ構造があれば後付け可能。Docker 依存のため MVP から除外"
     },
     {
-      "title": "![[embed]] transclusion",
-      "description": "ノート/画像埋め込み。block rule として実装。リンク解決基盤(S6fbf45)の上に乗せる。",
-      "added_in": "roadmap-generation",
-      "reason": "SPEC で優先度高だが MVP スコープ(5 項目)に含まれないため次期"
-    },
-    {
       "title": "検索の SQLite FTS5 移行",
       "description": "数千ノート規模での全文検索性能対策。インデックス抽象の背後で差し替え。",
       "added_in": "roadmap-generation",
       "reason": "個人 vault の初期規模では Fuse.js で十分"
-    },
-    {
-      "title": "callout / ==highlight== / dataview 等の追加記法",
-      "description": "SPEC §8.4 の対応候補一覧。3 レジストリの上に順次追加。",
-      "added_in": "roadmap-generation",
-      "reason": "レジストリ実証(Mermaid/KaTeX/Shiki)後に個別追加できる"
     },
     {
       "title": "書き込み競合の楽観的検出 (mtime/hash)",
