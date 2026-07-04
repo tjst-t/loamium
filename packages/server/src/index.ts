@@ -1,7 +1,10 @@
 import { serve } from '@hono/node-server';
+import { createNodeWebSocket } from '@hono/node-ws';
+import type { Server } from 'node:http';
 import { createApp } from './app.js';
 import { configFromEnv } from './config.js';
 import { VaultIndex } from './noteIndex.js';
+import { registerTerminalRoute, killAllTerminalSessions } from './terminal.js';
 import { startWatcher } from './watcher.js';
 
 const config = configFromEnv();
@@ -20,17 +23,24 @@ await index.build();
 
 const app = createApp(config, index);
 
+// ターミナルブリッジ (Sb7f458-1)。WS upgrade は Node の http サーバーへ
+// injectWebSocket で結線する。無効時は 403 を返す通常ルートが登録される
+const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
+registerTerminalRoute(app, config, upgradeWebSocket);
+
 // API 外の変更 (外部エディタ・Git) にも追従する
 const watcher = startWatcher(config.vaultRoot, index);
 
 const server = serve({ fetch: app.fetch, port, hostname }, (info) => {
   // テスト/CLI がポートを検出できるよう、必ずこの 1 行を出す
   console.log(
-    `loamium server listening on http://${info.address}:${info.port} (vault=${config.vaultRoot}, mode=${config.mode}, indexed=${index.size} notes)`,
+    `loamium server listening on http://${info.address}:${info.port} (vault=${config.vaultRoot}, mode=${config.mode}, terminal=${config.terminal.enabled ? config.terminal.cmd : 'disabled'}, indexed=${index.size} notes)`,
   );
 });
+injectWebSocket(server as Server);
 
 const shutdown = (): void => {
+  killAllTerminalSessions();
   void watcher.close().finally(() => {
     server.close(() => process.exit(0));
     // クローズ待ちで固まらないよう保険

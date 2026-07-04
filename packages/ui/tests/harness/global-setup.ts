@@ -109,6 +109,9 @@ export default async function globalSetup(): Promise<void> {
       LOAMIUM_MODE: 'full',
       PORT: '0',
       LOAMIUM_MAX_UPLOAD: '5mb',
+      // ターミナル E2E (Sb7f458): 実シェルで有効化 (claude はログイン前提の外部依存)
+      LOAMIUM_TERMINAL: '1',
+      LOAMIUM_TERMINAL_CMD: '/bin/bash',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
     detached: true,

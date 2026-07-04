@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "Sb7f458",
+    "current_sprint": null,
     "total": 11,
-    "done": 10,
+    "done": 11,
     "in_progress": 0,
-    "remaining": 1,
-    "percentage": 91
+    "remaining": 0,
+    "percentage": 100
   },
   "execution_order": [
     "Sd63ad1",
@@ -853,13 +853,13 @@
     },
     "Sb7f458": {
       "title": "アプリ内 Claude Code タブ",
-      "status": "pending",
+      "status": "done",
       "description": "UI のタブ内で TUI 版 Claude Code(等の CLI)を動かす。サーバーに WebSocket + node-pty ブリッジ、フロントに xterm.js。pty は任意コマンド実行になるため、デフォルト無効・LOAMIUM_TERMINAL=1 かつ full モード時のみ有効という明示オプトイン(SPEC §6)。",
       "milestone": true,
       "stories": {
         "Sb7f458-1": {
           "title": "pty ブリッジ(WebSocket + node-pty)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "vault 所有者として、サーバー経由で vault を作業ディレクトリとするターミナルセッションを安全に開きたい。なぜなら、ノート内容を踏まえた Claude Code との対話を Loamium の中で完結させたいから。",
@@ -868,31 +868,31 @@
               "id": "AC-Sb7f458-1-1",
               "description": "LOAMIUM_TERMINAL=1 かつ LOAMIUM_MODE=full のときだけ WS /api/terminal が有効になり、それ以外(未設定・read-only・append-only)では接続が拒否される",
               "test": "[AC-Sb7f458-1-1] in tests/acceptance/terminal.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sb7f458-1-2",
               "description": "WS 接続で vault を cwd とした pty(コマンドは LOAMIUM_TERMINAL_CMD、デフォルト claude)が起動し、入出力・リサイズが双方向に流れる。切断時に子プロセスが確実に終了する",
               "test": "[AC-Sb7f458-1-2] in tests/acceptance/terminal.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sb7f458-1-1": {
               "title": "WS + node-pty ブリッジ",
               "description": "@hono/node-ws + node-pty。起動ガード(env + mode)、セッション管理、切断時 SIGTERM→SIGKILL。実シェル(bash)での受け入れテスト。",
-              "status": "pending"
+              "status": "done"
             },
             "Sb7f458-1-2": {
               "title": "監査ログ統合",
               "description": "ターミナルセッションの開始・終了を audit.log に記録(コマンド内容は記録しない)。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sb7f458-2": {
           "title": "ターミナルタブ UI(xterm.js)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、UI のタブでターミナル(Claude Code)を開いて対話したい。なぜなら、エディタとエージェントの往復をブラウザ 1 画面で完結させたいから。",
@@ -901,25 +901,25 @@
               "id": "AC-Sb7f458-2-1",
               "description": "ターミナルタブを開くと xterm.js のターミナルで対話でき(実シェルで E2E)、ウィンドウリサイズに追従する",
               "test": "[AC-Sb7f458-2-1] in packages/ui/tests/e2e/terminal.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sb7f458-2-2",
               "description": "サーバー側でターミナルが無効(env 未設定等)の場合はタブに理由と有効化手順が表示される。切断時は再接続ボタンが出る",
               "test": "[AC-Sb7f458-2-2] in packages/ui/tests/e2e/terminal.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sb7f458-2-1": {
               "title": "ターミナルタブ",
               "description": "エディタ/ターミナルのタブ切替 UI。xterm.js + fit addon、WS 接続、リサイズ伝搬。",
-              "status": "pending"
+              "status": "done"
             },
             "Sb7f458-2-2": {
               "title": "無効時・切断時 UX",
               "description": "機能フラグ検出 API(GET /api/health 拡張)で無効理由表示。再接続。二層テスト。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }

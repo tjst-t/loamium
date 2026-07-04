@@ -1,0 +1,38 @@
+{
+  "$file": "scenario-Sb7f458-1.json",
+  "sprint": "Sb7f458",
+  "story": "Sb7f458-1",
+  "story_type": "api",
+  "entry_points": ["api"],
+  "scenarios": [
+    {
+      "id": "Sb7f458-1-guard",
+      "entry_point": "api",
+      "title": "vault 所有者が明示オプトインしたときだけターミナルブリッジが有効になる(三重ガード)",
+      "linked_ac": ["AC-Sb7f458-1-1"],
+      "steps": [
+        { "action": "LOAMIUM_TERMINAL 未設定 (mode=full) で実サーバーを起動し、実 WS クライアントで ws://…/api/terminal へ接続", "expected": "WS 接続が確立しない (HTTP 403 で upgrade 拒否)。GET /api/health の terminal.enabled=false + reason" },
+        { "action": "LOAMIUM_TERMINAL=1 かつ LOAMIUM_MODE=read-only で起動し WS 接続", "expected": "接続拒否 (403)。health terminal.enabled=false (full モード必須)" },
+        { "action": "LOAMIUM_TERMINAL=1 かつ LOAMIUM_MODE=append-only で起動し WS 接続", "expected": "接続拒否 (403)。health terminal.enabled=false" },
+        { "action": "LOAMIUM_TERMINAL=1 かつ LOAMIUM_MODE=full で起動し WS 接続", "expected": "WS 接続が確立する。health terminal.enabled=true" },
+        { "action": "拒否ケースの HTTP GET /api/terminal (非 WS)", "expected": "403 {error:'forbidden', message に有効化手順 (LOAMIUM_TERMINAL=1 + full)}" }
+      ],
+      "test_file": "tests/acceptance/terminal.spec.ts"
+    },
+    {
+      "id": "Sb7f458-1-session",
+      "entry_point": "api",
+      "title": "実シェルとの双方向対話・リサイズ・切断時の子プロセス終了・監査ログ",
+      "linked_ac": ["AC-Sb7f458-1-2"],
+      "steps": [
+        { "action": "LOAMIUM_TERMINAL=1 LOAMIUM_MODE=full LOAMIUM_TERMINAL_CMD=/bin/bash で実サーバーを起動し WS 接続", "expected": "pty が vault を cwd として起動し、出力メッセージ ({type:'output'}) が流れてくる" },
+        { "action": "{type:'input', data:'echo terminal-ok-$((6*7))\\r'} を送信", "expected": "出力に 'terminal-ok-42' が現れる (実シェルでの実対話)" },
+        { "action": "{type:'input', data:'pwd\\r'} を送信", "expected": "出力に vault の実パスが現れる (cwd=vault)" },
+        { "action": "{type:'resize', cols:120, rows:40} を送信後 'stty size' を実行", "expected": "出力に '40 120' — リサイズが pty に伝わる" },
+        { "action": "'echo $$' で子プロセス PID を取得し、WS を切断してからプロセス存在をポーリング", "expected": "子プロセス (bash) が終了している (SIGTERM→SIGKILL エスカレーション)" },
+        { "action": "vault/.loamium/audit.log を読む", "expected": "terminal.session_start / terminal.session_end の JSONL が記録されている。入力したコマンド文字列 (echo 等) は audit.log に含まれない" }
+      ],
+      "test_file": "tests/acceptance/terminal.spec.ts"
+    }
+  ]
+}

@@ -19,6 +19,21 @@ import { getAudit, type AppEnv } from './http.js';
 
 const WRITE_METHODS = new Set(['PUT', 'POST', 'DELETE']);
 
+/**
+ * 監査ログへ 1 エントリを直接 append する。
+ * HTTP ミドルウェアを通らないイベント (WS ターミナルセッションの開始/終了 —
+ * Sb7f458-1-2) が使う。書き込み失敗は API/セッションを止めない (stderr のみ)。
+ */
+export async function writeAuditEntry(config: ServerConfig, entry: AuditEntry): Promise<void> {
+  const auditDir = path.join(config.vaultRoot, '.loamium');
+  try {
+    await mkdir(auditDir, { recursive: true });
+    await appendFile(path.join(auditDir, 'audit.log'), `${JSON.stringify(entry)}\n`, 'utf8');
+  } catch (err) {
+    console.error(`[loamium] failed to write audit log: ${String(err)}`);
+  }
+}
+
 /** ハンドラが実行されなかった場合 (403 拒否・400 パス不正) の op 推定。 */
 export function deriveOp(method: string, reqPath: string): string {
   if (reqPath === '/api/journal/append') return 'journal.append';
@@ -40,9 +55,6 @@ export function deriveOp(method: string, reqPath: string): string {
 }
 
 export function auditMiddleware(config: ServerConfig): MiddlewareHandler<AppEnv> {
-  const auditDir = path.join(config.vaultRoot, '.loamium');
-  const auditLog = path.join(auditDir, 'audit.log');
-
   return async (c, next) => {
     await next();
 
@@ -53,22 +65,15 @@ export function auditMiddleware(config: ServerConfig): MiddlewareHandler<AppEnv>
     }
 
     const status = c.res.status;
-    const entry: AuditEntry = {
+    // 監査ログが書けない場合でも API 応答は返す (ファイル正本は壊さない)。
+    // 失敗は writeAuditEntry が stderr に残す (無言では握りつぶさない)。
+    await writeAuditEntry(config, {
       ts: new Date().toISOString(),
       op: info?.op ?? deriveOp(c.req.method, c.req.path),
       path: info?.path ?? c.req.path,
       mode: config.mode,
       result: status < 400 ? 'ok' : status === 403 ? 'denied' : 'error',
       status,
-    };
-
-    try {
-      await mkdir(auditDir, { recursive: true });
-      await appendFile(auditLog, `${JSON.stringify(entry)}\n`, 'utf8');
-    } catch (err) {
-      // 監査ログが書けない場合でも API 応答は返す (ファイル正本は壊さない)。
-      // ただし無言では握りつぶさず stderr に残す。
-      console.error(`[loamium] failed to write audit log: ${String(err)}`);
-    }
+    });
   };
 }

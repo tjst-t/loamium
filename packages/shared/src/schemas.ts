@@ -322,11 +322,46 @@ export const errorResponseSchema = z.object({
 });
 export type ErrorResponse = z.infer<typeof errorResponseSchema>;
 
+/**
+ * ターミナル (WS /api/terminal) が無効な理由の機械可読コード (Sb7f458)。
+ * - terminal_env_not_set: LOAMIUM_TERMINAL=1 が未設定 (デフォルト無効 — SPEC §6)
+ * - mode_not_full:        LOAMIUM_MODE が full ではない (read-only / append-only)
+ */
+export const terminalDisabledReasonSchema = z.enum(['terminal_env_not_set', 'mode_not_full']);
+export type TerminalDisabledReason = z.infer<typeof terminalDisabledReasonSchema>;
+
 export const healthResponseSchema = z.object({
   status: z.literal('ok'),
   mode: permissionModeSchema,
+  /** ターミナル機能フラグ (Sb7f458-2 — UI が無効理由の表示に使う)。additive 拡張 */
+  terminal: z.object({
+    enabled: z.boolean(),
+    reason: terminalDisabledReasonSchema.nullable(),
+    /** 有効時のみ: pty で起動するコマンド (タブ表示用) */
+    cmd: z.string().optional(),
+  }),
 });
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
+
+// ---- ターミナル WS メッセージ (Sb7f458-1) ----
+
+/** クライアント → サーバー: キー入力 or 端末リサイズ */
+export const terminalClientMessageSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('input'), data: z.string() }),
+  z.object({
+    type: z.literal('resize'),
+    cols: z.number().int().min(1).max(1000),
+    rows: z.number().int().min(1).max(1000),
+  }),
+]);
+export type TerminalClientMessage = z.infer<typeof terminalClientMessageSchema>;
+
+/** サーバー → クライアント: pty 出力 or 子プロセス終了通知 */
+export const terminalServerMessageSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('output'), data: z.string() }),
+  z.object({ type: z.literal('exit'), exitCode: z.number() }),
+]);
+export type TerminalServerMessage = z.infer<typeof terminalServerMessageSchema>;
 
 // ---- 監査ログ (JSONL 1 行分) ----
 

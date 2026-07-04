@@ -13,6 +13,7 @@ import { buildTree } from './tree.js';
 import { formatSize } from './file-kind.js';
 import { Editor } from './components/Editor.js';
 import { FilePreview } from './components/FilePreview.js';
+import { TerminalPane, type TerminalStatus } from './components/TerminalPane.js';
 import { FileTree } from './components/FileTree.js';
 import { JournalNav } from './components/JournalNav.js';
 import { BacklinkPanel } from './components/BacklinkPanel.js';
@@ -28,6 +29,7 @@ import {
   NewFolderIcon,
   NewNoteIcon,
   SearchIcon,
+  TerminalIcon,
   UploadIcon,
   WarnTriangleIcon,
 } from './icons.js';
@@ -167,6 +169,13 @@ export function App(): JSX.Element {
   /** 保存成功のたびに増える — バックリンクパネルの再取得トリガー (S6fbf45-2) */
   const [backlinksToken, setBacklinksToken] = useState(0);
 
+  // ---- ターミナルタブ (Sb7f458-2 — prototype/terminal.html) ----
+  const [workspaceTab, setWorkspaceTab] = useState<'editor' | 'terminal'>('editor');
+  /** 一度開いたら unmount しない (タブ切替でセッションを切らない) */
+  const [terminalMounted, setTerminalMounted] = useState(false);
+  const [terminalStatus, setTerminalStatus] = useState<TerminalStatus>('loading');
+  const [terminalCmd, setTerminalCmd] = useState<string | null>(null);
+
   const docRef = useRef<OpenDoc | null>(null);
   const contentRef = useRef('');
   const dirtyRef = useRef(false);
@@ -297,6 +306,8 @@ export function App(): JSX.Element {
     // 再マウント時に古い seek が再適用されるのを防ぐ (レビュー R1)。
     // openNoteAtLine は setOpenDoc の後に setSeek するため、全文ヒットでは上書きされる。
     setSeek(null);
+    // ターミナル表示中にノートを開いたらエディタタブへ戻す (Sb7f458-2)
+    setWorkspaceTab('editor');
   }, []);
 
   const openNotePath = useCallback(
@@ -329,6 +340,7 @@ export function App(): JSX.Element {
       setDoc((d) => (d !== null ? { ...d, text: contentRef.current } : d));
       setPreview(path);
       setAppError(null);
+      setWorkspaceTab('editor');
     },
     [saveNow],
   );
@@ -807,8 +819,40 @@ export function App(): JSX.Element {
         />
       </aside>
 
-      {/* ================= 中央: エディタ ================= */}
+      {/* ================= 中央: エディタ / ターミナル ================= */}
       <main className="workspace">
+        {/* エディタ / ターミナルのタブ切替 (Sb7f458-2 — prototype/terminal.html) */}
+        <div className="workspace-tabs" data-testid="workspace-tabs">
+          <button
+            className={`wtab${workspaceTab === 'editor' ? ' active' : ''}`}
+            data-testid="tab-editor"
+            aria-selected={workspaceTab === 'editor'}
+            onClick={() => setWorkspaceTab('editor')}
+          >
+            <DocumentIcon />
+            {breadcrumb?.name ?? 'エディタ'}
+          </button>
+          <button
+            className={`wtab${workspaceTab === 'terminal' ? ' active' : ''}`}
+            data-testid="tab-terminal"
+            aria-selected={workspaceTab === 'terminal'}
+            onClick={() => {
+              setTerminalMounted(true);
+              setWorkspaceTab('terminal');
+            }}
+          >
+            <TerminalIcon />
+            {terminalCmd !== null ? `ターミナル — ${terminalCmd}` : 'ターミナル'}
+            {terminalMounted && (
+              <span className={`live-dot${terminalStatus === 'connected' ? '' : ' off'}`} />
+            )}
+          </button>
+        </div>
+
+        <div
+          className="workspace-editor"
+          style={{ display: workspaceTab === 'editor' ? 'flex' : 'none' }}
+        >
         <div className="editor-header">
           <div className="breadcrumb">
             {breadcrumb !== null ? (
@@ -906,6 +950,16 @@ export function App(): JSX.Element {
               </p>
             </div>
           </div>
+        )}
+        </div>
+
+        {/* ターミナル (一度開いたらタブ切替でも unmount しない — セッション維持) */}
+        {terminalMounted && (
+          <TerminalPane
+            active={workspaceTab === 'terminal'}
+            onStatusChange={setTerminalStatus}
+            onCmdDetected={setTerminalCmd}
+          />
         )}
       </main>
 
