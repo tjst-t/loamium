@@ -67,6 +67,11 @@
       "id": "R2",
       "decision": "SearchPalette のエラーを searchError / notesError に分離",
       "rationale": "GET /api/notes 失敗の表示が、後続の GET /api/search 成功 (setError(null)) で消され、ノート名セクションの欠落が黙殺されるバグをレビューで検出。表示は searchError ?? notesError。"
+    },
+    {
+      "id": "R3",
+      "decision": "verifier finding V7 (warn/overlooked) は compromises.json に記録した上で即時解消し、done_judgment.overall は ok を維持する",
+      "rationale": "V7 の内容は「sprint status / AC status が未更新」だが、これらの更新は sprint verify Phase 3 / sprint done の正規手順であり、verifier は done フェーズ前に走るため必然的に観測される順序アーティファクト。verifier 自身が『機能的問題ではなく ROADMAP 追跡の不整合のみ。実装・テスト品質に影響しない』と明記し、recommended_action は done フェーズの正規ミューテーションと同一。よって needs_user_review への降格は品質問題の誤報告になる。推奨アクションは done フェーズで全て適用済み。ac_failures=0 / forbidden_warnings=0 / adr_conflicts=0。"
     }
   ],
   "done_judgment": [
