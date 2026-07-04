@@ -39,7 +39,48 @@
       "rationale": "AC-1-1「400 + 位置情報付きメッセージ」。CLI は message 透過だけで位置情報が伝わり、UI はフィールドからプロトタイプどおりのキャレット表示を組み立てられる。"
     }
   ],
-  "implementation_decisions": [],
+  "implementation_decisions": [
+    {
+      "id": "I1",
+      "decision": "パーサーは自前の小型トークナイザ + 再帰なし手書きパーサー (外部パーサーライブラリ不使用)。トークンに 1 始まり line/column/length を保持し、DqlParseError の message は「N 行 M 列: …」形式 (prototype/dataview.html のエラー例と同形)",
+      "rationale": "文法が小さく (3 種 + 3 節)、依存追加より単純 (priority 5)。位置情報は AC-1-1 の要件。"
+    },
+    {
+      "id": "I2",
+      "decision": "評価器のフィールド解決: file.name/file.folder/file.path/file.mtime + tags (インデックスのマージ済みタグ) + frontmatter 任意キー。TASK コンテキストでは completed/checked/text/line を先に解決。欠損フィールドは = で false・!= で true・順序比較は false。file.mtime と日付文字列 (YYYY-MM-DD) の比較は文字列側を epoch へ変換",
+      "rationale": "Sprint 指示の「file.name / file.folder / file.mtime 相当 + frontmatter 任意キー」を最小限で満たす。dataview の欠損値挙動に寄せつつ複雑化を避ける (priority 5)。"
+    },
+    {
+      "id": "I3",
+      "decision": "タスク抽出はリストマーカー -/*/+/1./1) + [ ]/[x]/[X] のみ (Obsidian コア互換)。[-] 等のプラグイン拡張ステータスは対象外。indent は行頭空白の文字数",
+      "rationale": "priority 4 (Obsidian 互換 > 独自拡張)。ネストは indent から導出可能で正本を汚さない。"
+    },
+    {
+      "id": "I4",
+      "decision": "インデックス拡張は IndexedNote に tasks/frontmatter/mtime を追加し refreshFile 一点で更新。build (起動全走査)・indexSyncMiddleware (write-through)・chokidar の 3 経路すべてが同じ refreshFile を通るため追加コード不要",
+      "rationale": "AC-1-2 の「外部編集にも追従」を既存機構の再利用だけで満たす (ARCHITECTURE インデックスライフサイクル)。"
+    },
+    {
+      "id": "I5",
+      "decision": "dataview フェンスのファイル変更追従は「widget の DOM が生きている間だけの 2 秒ポーリング + 結果署名 (JSON) が変わったときのみ再描画」。SSE/WebSocket の push 基盤は導入しない",
+      "rationale": "UI にはサーバー push 基盤が無く、導入は本 Sprint スコープ外の大工事。ポーリングは連続変更を実質デバウンスし (AC-2-2 の「デバウンス」)、el.isConnected で自己停止するためリークしない (priority 5)。"
+    },
+    {
+      "id": "I6",
+      "decision": "fence レンダラーへ RenderContext.env (RenderEnv) を渡すよう FenceWidget を additive 拡張し、RenderEnv/WikilinkEnv に openNoteAtLine を optional 追加。TASK 結果クリックは既存の openNoteAtLine (検索パレットの seek 機構) を再利用",
+      "rationale": "embed (block レジストリ) と同じ環境注入パターンの一般化。mermaid/shiki は env を無視するため無影響 (additive)。"
+    },
+    {
+      "id": "I7",
+      "decision": "結果クリックのナビゲーションは mousedown + preventDefault/stopPropagation (click も stopPropagation)",
+      "rationale": "クリックでカーソルが行に入ると装飾がソース表示へ差し替わり click が届かない — WikilinkWidget / embed ヘッダで確立済みの規約。"
+    },
+    {
+      "id": "I8",
+      "decision": "dataview の描画結果 (dataview-widget) は fence-body 要素に data-testid/data-query-type を付与。件数・実行時間の dv-summary バー表示 (prototype の装飾) は省略し info は固定文言",
+      "rationale": "TESTIDS.md の契約 4 testid は全結線。fence-bar の動的サマリーは FenceRenderer.info が静的文字列のため大きな拡張が必要で、AC に含まれない装飾のみの差分 (priority 5)。"
+    }
+  ],
   "review_decisions": [],
   "done_judgment": {}
 }

@@ -18,6 +18,11 @@ export interface RenderEnv {
   /** ノートを開く (embed カードのヘッダクリック等) */
   openNote(path: string): void;
   /**
+   * ノートを開いて指定行 (1 始まり) へカーソルを移動する (Sb1593c-2 で追加 — additive)。
+   * dataview の TASK 結果クリックが使う。未注入時は openNote へフォールバックする。
+   */
+  openNoteAtLine?(path: string, line: number): void;
+  /**
    * vault 内の添付 (非 .md) ファイル一覧 (Sf53ad6-3 で追加 — additive)。
    * null = 一覧未ロード。![[file]] の basename 解決・サイズ表示・存在判定に使う。
    */

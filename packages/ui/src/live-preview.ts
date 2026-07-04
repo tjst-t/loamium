@@ -60,6 +60,9 @@ class FenceWidget extends WidgetType {
     readonly code: string,
     readonly renderer: FenceRenderer,
     readonly notePath: string,
+    /** エディタ環境 (Sb1593c-2 で追加 — dataview の結果クリックナビゲーション用)。
+     *  安定オブジェクト (実体は ref 読み) なので eq には含めない */
+    readonly env: RenderEnv | undefined,
   ) {
     super();
   }
@@ -96,6 +99,7 @@ class FenceWidget extends WidgetType {
     });
 
     const ctx: RenderContext = { notePath: this.notePath, lang: this.lang };
+    if (this.env !== undefined) ctx.env = this.env;
     void Promise.resolve()
       .then(() => this.renderer.render(this.code, body, ctx))
       .catch((err: unknown) => {
@@ -155,6 +159,14 @@ function buildBlockDecorations(state: EditorState): DecorationSet {
     getNotePaths: () => notePathsOf(state),
     openNote: (path) => wlEnv?.openNote(path),
     getFiles: () => wlEnv?.getFiles?.() ?? null,
+    // 行指定オープン (dataview TASK — Sb1593c-2)。未注入なら openNote へフォールバック
+    openNoteAtLine: (path, line) => {
+      if (wlEnv?.openNoteAtLine !== undefined) {
+        wlEnv.openNoteAtLine(path, line);
+      } else {
+        wlEnv?.openNote(path);
+      }
+    },
   };
   const blockCtx: RenderContext = { notePath, env: renderEnv, embedChain: [notePath] };
   /** fence が占有した行 (block レジストリの走査から除外) */
@@ -182,7 +194,7 @@ function buildBlockDecorations(state: EditorState): DecorationSet {
 
       const codeNode = node.node.getChild('CodeText');
       const code = codeNode === null ? '' : doc.sliceString(codeNode.from, codeNode.to);
-      const widget = new FenceWidget(lang, code, renderer, notePath);
+      const widget = new FenceWidget(lang, code, renderer, notePath, renderEnv);
       if (renderer.mode === 'replace') {
         decos.push(Decoration.replace({ widget, block: true }).range(node.from, node.to));
       } else {
