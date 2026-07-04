@@ -104,6 +104,16 @@
       "id": "I9",
       "decision": "タブラベルは health 取得後に「ターミナル — {cmd}」へ更新 (取得前は「ターミナル」)。live-dot は接続状態で on/off",
       "rationale": "prototype/terminal.html のラベル「ターミナル — claude」準拠。health の cmd は有効時のみ返すため無効サーバーの構成情報は漏れない (P7)。"
+    },
+    {
+      "id": "I10",
+      "decision": "独立 verifier が指摘した CSWSH (cross-site WebSocket hijacking) ギャップに対応: WS /api/terminal に Origin 検証を追加 (isAllowedOrigin)。Origin 無し (非ブラウザ) と same-origin とループバック hostname (localhost/127.0.0.1/::1) を許可し、遠隔サイトの Origin (例 evil.example) は pty を起動せず 1008 で即閉 + audit denied。受け入れテスト 'rejects a cross-origin browser connection (CSWSH)' を追加",
+      "rationale": "三重ガードは『ユーザー自身のブラウザで開いた遠隔ページが 127.0.0.1 へ WS を張る』攻撃を防げない (pty=任意コマンド実行 → ローカル RCE、priority 2)。Vite プロキシ経由の正規 UI は Origin=localhost:uiPort / Host=127.0.0.1:apiPort とポートが食い違うため、ループバック hostname を許可することで正規アクセスを壊さず遠隔オリジンだけ弾く。README/ARCHITECTURE に明記。"
+    },
+    {
+      "id": "I11",
+      "decision": "独立 verifier が指摘したテスト品質: resize E2E の縮小アサーションが if (beforeSize!==null) で条件化され parse 失敗時に黙って劣化していたのを、readPtyCols ヘルパーで pre-shrink 列数取得を必須化 (取得不能なら fail) し、colsNarrow < colsWide を無条件に検証",
+      "rationale": "test-discipline: 条件付きアサーションは silent degradation。列数取得を必須にして常にリサイズ追従を検証する。"
     }
   ],
   "review_decisions": [
@@ -123,6 +133,13 @@
       "rationale": "kill 対象が先に exit している競合は想定内で、握りつぶす以外の対処が無い (session_end は onExit が別途記録)。JSDoc にコメント済み。"
     }
   ],
-  "verifier": {},
+  "verifier": {
+    "ran": true,
+    "mode": "independent read-only claude CLI subprocess (separate session)",
+    "report": "docs/sprint-logs/Sb7f458/verification-report.json",
+    "initial_overall": "warn",
+    "findings_summary": "AC 4/4 pass、forbidden scan pass、ADR pass、machine reconciliation pass。warn 2 件 (いずれも overlooked_by_autopilot=true): (1) CSWSH Origin 未検証、(2) resize テストの条件付きアサーション",
+    "resolution": "両 warn を本 Sprint 内で修正 (I10/I11)。修正後に verify-run.json 再実行で overall pass を確認。verifier の warn は fail (immediate-stop) ではなく、修正により解消したため両 Story とも done_judgment.overall=ok を維持"
+  },
   "done_judgment": {}
 }

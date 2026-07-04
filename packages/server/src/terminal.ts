@@ -44,6 +44,47 @@ export function killAllTerminalSessions(): void {
   activeSessions.clear();
 }
 
+/**
+ * cross-site WebSocket hijacking (CSWSH) 対策の Origin 検査。
+ *
+ * ブラウザは WebSocket ハンドシェイクに same-origin ポリシーを強制しないため、
+ * ターミナル有効中にユーザーのブラウザで開いた任意のページが
+ * ws://127.0.0.1:<port>/api/terminal に接続してコマンドを実行できてしまう
+ * (127.0.0.1 バインドは localhost 到達を防げない → ローカル RCE)。
+ * pty = 任意コマンド実行なので、三重ガードに加えて Origin を検証する
+ * (DESIGN_PRINCIPLES priority 2: データ安全性 > 開発速度)。
+ *
+ * ターミナルの想定運用はループバック (既定 127.0.0.1 バインド、UI もローカル)。
+ * 実際の CSWSH 脅威は「ユーザーが訪れた *遠隔* サイト (例 evil.example) が
+ * 127.0.0.1 へ WS を張る」ケース。その Origin は遠隔ホストになるので弾ける。
+ * 一方、正規の UI は Vite 開発サーバー (localhost:<uiPort>) が /api をプロキシする
+ * ため、実サーバーから見た Origin は localhost だが Host は 127.0.0.1:<apiPort> と
+ * ポートが食い違う。そこで:
+ *
+ * - Origin ヘッダ無し (curl / CLI / ws テストクライアント等の非ブラウザ) は許可
+ * - Origin の host が Host と完全一致する same-origin は許可
+ * - Origin の hostname がループバック (localhost / 127.0.0.1 / ::1) なら許可
+ *   (ローカルで配信された UI / プロキシ経由の正規アクセス)
+ * - それ以外 (遠隔サイトの Origin) は拒否
+ *
+ * 注: LOAMIUM_HOST=0.0.0.0 で LAN 公開した場合、LAN の別オリジンからのアクセスは
+ * ループバックではないため拒否される。ターミナル有効時はループバック運用を推奨
+ * (README にも明記) で、LAN 公開は Cloudflare Access 等の認証層を前提とする。
+ */
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
+
+export function isAllowedOrigin(origin: string | undefined, host: string | undefined): boolean {
+  if (origin === undefined || origin === '') return true; // 非ブラウザクライアント
+  let url: URL;
+  try {
+    url = new URL(origin);
+  } catch {
+    return false; // 壊れた Origin は拒否
+  }
+  if (host !== undefined && url.host === host) return true; // 完全一致 same-origin
+  return LOOPBACK_HOSTS.has(url.hostname); // ローカル配信の UI
+}
+
 /** process.env から undefined を除いた pty 用 env を作る。 */
 function ptyEnv(): Record<string, string> {
   const env: Record<string, string> = {};
@@ -96,7 +137,10 @@ export function registerTerminalRoute(
 
   app.get(
     '/api/terminal',
-    upgradeWebSocket(() => {
+    upgradeWebSocket((c) => {
+      // CSWSH 対策: cross-origin のブラウザ接続はハンドシェイク時点で弾く。
+      // 非ブラウザ (Origin 無し) と same-origin のみ pty を起動する。
+      const originOk = isAllowedOrigin(c.req.header('origin'), c.req.header('host'));
       let proc: IPty | null = null;
       let exited = false;
 
@@ -114,6 +158,19 @@ export function registerTerminalRoute(
             if (ws.readyState !== 1 /* OPEN */) return;
             ws.send(JSON.stringify(msg));
           };
+          if (!originOk) {
+            // cross-origin は pty を起動せず即座に閉じ、監査に denied を残す
+            void writeAuditEntry(config, {
+              ts: new Date().toISOString(),
+              op: 'terminal.connect',
+              path: '/api/terminal',
+              mode: config.mode,
+              result: 'denied',
+              status: 403,
+            });
+            ws.close(1008, 'origin not allowed');
+            return;
+          }
           try {
             proc = spawn(config.terminal.cmd, [], {
               name: 'xterm-256color',

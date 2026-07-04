@@ -62,6 +62,56 @@ function tryConnect(
   });
 }
 
+/**
+ * 指定 Origin で接続し、結果を観測する。
+ * cross-origin は即座に close(1008) される。same-origin はセッションが張られたまま
+ * になるので、close が来なければ「開いたまま」として settle する。
+ */
+function connectWithOrigin(
+  url: string,
+  origin: string,
+): Promise<{ closeCode: number | null; gotOutput: boolean; stayedOpen: boolean }> {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(url, { headers: { origin } });
+    let gotOutput = false;
+    let opened = false;
+    // 接続確立後この時間 close が来なければ「開いたまま」と判定する
+    const openHold = setTimeout(() => {
+      if (opened) {
+        ws.close();
+        resolve({ closeCode: null, gotOutput, stayedOpen: true });
+      }
+    }, 1500);
+    const hardTimer = setTimeout(() => {
+      ws.terminate();
+      reject(new Error('connection did not settle within 10s'));
+    }, 10_000);
+    ws.on('open', () => {
+      opened = true;
+    });
+    ws.on('message', (data) => {
+      const msg = JSON.parse(String(data)) as { type: string };
+      if (msg.type === 'output') gotOutput = true;
+    });
+    ws.on('close', (code) => {
+      clearTimeout(openHold);
+      clearTimeout(hardTimer);
+      resolve({ closeCode: code, gotOutput, stayedOpen: false });
+    });
+    ws.on('unexpected-response', (_req, res) => {
+      clearTimeout(openHold);
+      clearTimeout(hardTimer);
+      ws.terminate();
+      resolve({ closeCode: res.statusCode ?? 0, gotOutput: false, stayedOpen: false });
+    });
+    ws.on('error', (err) => {
+      clearTimeout(openHold);
+      clearTimeout(hardTimer);
+      reject(err);
+    });
+  });
+}
+
 /** 接続済み WS のターミナルセッション操作ヘルパー。 */
 class TerminalSession {
   private output = '';
@@ -222,6 +272,37 @@ describe('[AC-Sb7f458-1-1] terminal is opt-in: LOAMIUM_TERMINAL=1 + LOAMIUM_MODE
       const res = await tryConnect(wsUrl(server));
       expect(res.opened).toBe(true);
       res.ws?.close();
+    } finally {
+      await server.stop();
+      await cleanupVault(vault);
+    }
+  });
+
+  it('rejects a cross-origin browser connection (CSWSH) without spawning a pty', async () => {
+    const vault = await makeTempVault();
+    const server = await startServer({
+      vault,
+      mode: 'full',
+      env: { LOAMIUM_TERMINAL: '1', LOAMIUM_TERMINAL_CMD: BASH },
+    });
+    try {
+      // 別サイト (Origin が Host と異なる) からの接続は pty を起動せず即座に閉じる
+      const foreign = await connectWithOrigin(wsUrl(server), 'http://evil.example');
+      expect(foreign.closeCode).toBe(1008);
+      expect(foreign.gotOutput).toBe(false);
+      expect(foreign.stayedOpen).toBe(false);
+
+      // same-origin (Origin host == server host) は許可され、セッションが張られる
+      const same = await connectWithOrigin(wsUrl(server), server.baseUrl);
+      expect(same.stayedOpen).toBe(true);
+      expect(same.closeCode).not.toBe(1008);
+
+      // cross-origin 拒否は監査ログに denied として残る
+      const entries = await readAuditLog(vault);
+      const denied = entries.find(
+        (e) => e.op === 'terminal.connect' && e.result === 'denied' && e.status === 403,
+      );
+      expect(denied).toBeDefined();
     } finally {
       await server.stop();
       await cleanupVault(vault);

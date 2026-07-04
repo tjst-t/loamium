@@ -55,31 +55,33 @@ test('[AC-Sb7f458-2-1] ターミナルタブで実シェルと対話できる (e
   });
 });
 
-test('[AC-Sb7f458-2-1] ウィンドウリサイズに追従する (stty size が変わる)', async ({ page }) => {
+/** ターミナルに `echo cols=$(tput cols)` を打ち込み、pty が認識している列数を読む。 */
+async function readPtyCols(page: Page, marker: string): Promise<number> {
+  await typeCommand(page, `echo ${marker}=$(tput cols)`);
+  const re = new RegExp(`${marker}=(\\d+)`);
+  await expect(page.getByTestId('terminal')).toContainText(re, { timeout: 10_000 });
+  const text = await page.getByTestId('terminal').innerText();
+  const m = re.exec(text);
+  // 取得できないなら resize 検証が成立しないので黙って劣化させずに fail させる
+  expect(m, `pty cols (${marker}) を読み取れませんでした`).not.toBeNull();
+  return Number(m?.[1]);
+}
+
+test('[AC-Sb7f458-2-1] ウィンドウリサイズに追従する (列数が縮小する)', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await openTerminal(page);
 
-  await typeCommand(page, 'stty size');
-  // "rows cols" 形式の出力を拾う (プロンプト行の再表示と区別するため正規表現で待つ)
-  await expect(page.getByTestId('terminal')).toContainText(/\d+ \d+/, { timeout: 10_000 });
-  const before = await page.getByTestId('terminal').innerText();
-  const beforeSize = /(\d+) (\d+)\s*$/m.exec(before.replace(/\$\s*$/m, ''));
+  // 広いビューポートでの列数 (pty が SIGWINCH 経由で認識している値) を必ず取得する
+  const colsWide = await readPtyCols(page, 'wide');
+  expect(colsWide).toBeGreaterThan(0);
 
-  await page.setViewportSize({ width: 800, height: 500 });
-  // fit addon → resize メッセージ → pty へ SIGWINCH。少し待ってから再取得
-  await typeCommand(page, 'echo cols=$(tput cols) rows=$(tput lines)');
-  await expect(page.getByTestId('terminal')).toContainText(/cols=\d+ rows=\d+/, {
-    timeout: 10_000,
-  });
-  const after = await page.getByTestId('terminal').innerText();
-  const m = /cols=(\d+) rows=(\d+)/.exec(after);
-  expect(m).not.toBeNull();
-  const colsAfter = Number(m?.[1]);
-  // ビューポートを狭めたので列数は初期 (1280px 時) より小さいはず
-  expect(colsAfter).toBeGreaterThan(0);
-  if (beforeSize !== null) {
-    expect(colsAfter).toBeLessThan(Number(beforeSize[2]));
-  }
+  // ビューポートを狭める → fit addon → resize メッセージ → pty へ SIGWINCH
+  await page.setViewportSize({ width: 720, height: 500 });
+  const colsNarrow = await readPtyCols(page, 'narrow');
+
+  // リサイズが pty に伝わっていれば列数は必ず縮小する (条件分岐なしで常に検証)
+  expect(colsNarrow).toBeGreaterThan(0);
+  expect(colsNarrow).toBeLessThan(colsWide);
 });
 
 test('[AC-Sb7f458-2-1] タブ切替してもセッションが維持される', async ({ page }) => {
