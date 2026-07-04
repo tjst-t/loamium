@@ -17,6 +17,7 @@ import type { FileMeta, NoteMeta } from '@loamium/shared';
 import { outlineExtension } from '../outline.js';
 import { uploadEnvFacet, uploadExtension, type UploadEnv } from '../upload.js';
 import { livePreviewExtension, notePathFacet } from '../live-preview.js';
+import { slashMenuExtension } from '../slash-menu.js';
 import {
   notesUpdatedAnnotation,
   wikilinkAutocomplete,
@@ -159,6 +160,10 @@ export function Editor({
     wikilinkEnvFacet.of(wikilinkEnvRef.current),
     uploadEnvFacet.of(uploadEnvRef.current),
     uploadExtension(),
+    // slashMenuExtension は wikilinkAutocomplete より前に置く: どちらも Prec.highest
+    // の keymap を持ち、同一 Prec 内では登録順が早いほうが優先される。/ メニューの
+    // ↑↓/Enter/Esc を補完キーマップより先に処理させるため。
+    slashMenuExtension(),
     wikilinkAutocomplete(),
     outlineExtension(),
     livePreviewExtension(),
