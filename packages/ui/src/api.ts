@@ -9,6 +9,7 @@ import {
   fileListResponseSchema,
   fileRenameResponseSchema,
   fileWriteResponseSchema,
+  healthResponseSchema,
   journalResponseSchema,
   noteDeleteResponseSchema,
   noteListResponseSchema,
@@ -24,6 +25,7 @@ import {
   type FileListResponse,
   type FileRenameResponse,
   type FileWriteResponse,
+  type HealthResponse,
   type JournalResponse,
   type NoteDeleteResponse,
   type NoteListResponse,
@@ -101,6 +103,11 @@ async function request<S extends z.ZodTypeAny>(
 }
 
 export const api = {
+  /** 機能フラグ検出 (Sb7f458-2 — ターミナルの有効/無効と理由)。 */
+  getHealth(): Promise<HealthResponse> {
+    return request(healthResponseSchema, '/api/health');
+  },
+
   listNotes(): Promise<NoteListResponse> {
     return request(noteListResponseSchema, '/api/notes');
   },

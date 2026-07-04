@@ -89,6 +89,27 @@ node packages/cli/bin/loamium.js journal-append "はじめてのメモ"
 
 全 11 コマンド: `read` / `write` / `append` / `patch` / `rename` / `journal` / `journal-append` / `search` / `backlinks` / `list` / `tags`。すべて `--json` で生 JSON 出力、失敗時は非 0 終了 + stderr に 1 行 JSON(`{"error","message"}`)を返すため、スクリプトやエージェントから扱いやすくなっています。内容が `-` で始まるとき(リスト・frontmatter)は `--` 区切りを使ってください: `loamium write note.md -- "---\ntags: [x]\n---"`。
 
+## アプリ内 Claude Code タブ(ターミナル)
+
+UI の「ターミナル」タブで、vault を作業ディレクトリとした TUI(既定は [Claude Code](https://docs.anthropic.com/claude-code) の `claude`)をそのまま操作できます(xterm.js + WebSocket + node-pty)。
+
+ターミナルは **vault 上で任意コマンドを実行できるため、デフォルト無効** です。次の 2 つを両方満たすときだけ有効になります(SPEC §6 の明示オプトイン):
+
+```sh
+# 明示オプトイン (full モード必須)。バインドは既定 127.0.0.1 のまま
+LOAMIUM_TERMINAL=1 LOAMIUM_MODE=full LOAMIUM_VAULT="$PWD/dev-vault" PORT=3000 \
+  npx tsx packages/server/src/index.ts
+
+# 起動コマンドを変える場合 (既定: claude)
+LOAMIUM_TERMINAL_CMD=bash  # シェルなども指定可 (引数なしの単一コマンド)
+```
+
+- **claude を使う場合の前提**: サーバーを動かすマシンで `claude` にログイン済みであること(認証はサーバー側のローカル環境に従います)。vault ルートに CLAUDE.md や Skill(`skill/`)を置いておくと、ノートを踏まえた対話ができます
+- read-only / append-only モードでは `LOAMIUM_TERMINAL=1` でも無効です(タブに理由と有効化手順が表示されます)
+- セッションの開始・終了は監査ログ(`.loamium/audit.log`)に記録されます。**入力したコマンドの内容は記録されません**
+- 切断時(`exit` やサーバー再起動)は子プロセスを確実に終了し、タブの「再接続」ボタンで新しいセッションを開けます
+- `LOAMIUM_TERMINAL=1` のまま LAN 公開(`HOST=0.0.0.0`)すると、ネットワーク上の誰でも vault でコマンド実行できてしまいます。**ターミナル有効時はローカルバインド(既定)のまま使うか、Cloudflare Access 等の認証層を必ず挟んでください**
+
 ## REST API 概要
 
 | エンドポイント | 機能 |
@@ -102,6 +123,7 @@ node packages/cli/bin/loamium.js journal-append "はじめてのメモ"
 | `GET /api/search?q=` | 全文検索(Fuse.js、スニペット付き) |
 | `GET /api/backlinks?path=` | バックリンク一覧(コンテキスト行付き) |
 | `GET /api/tags` | タグ一覧(`#tag` + frontmatter tags、件数付き) |
+| `WS /api/terminal` | アプリ内ターミナル(node-pty ブリッジ)。**デフォルト無効** — `LOAMIUM_TERMINAL=1` + `LOAMIUM_MODE=full` で明示オプトイン |
 
 外部エディタや Git でファイルを直接変更しても、ファイル監視(chokidar)がインデックスを自動更新します。
 
@@ -141,10 +163,9 @@ make build     # ビルド
 
 ## ステータスと今後
 
-**MVP 完成**(2026-07): エディタ・ジャーナル・検索・バックリンク・リンク追従・CLI/Skill 統合まで動作します。今後の候補(バックログ):
+**MVP 完成**(2026-07): エディタ・ジャーナル・検索・バックリンク・リンク追従・CLI/Skill 統合・アプリ内 Claude Code タブ(ターミナル)まで動作します。今後の候補(バックログ):
 
 - Cloudflare Tunnel + Access による外部公開手順
-- アプリ内 Claude Code タブ(node-pty + xterm.js)
 - デスクトップ化(Tauri / Deno Desktop 再評価)
 - グラフビュー、`![[embed]]`(transclusion)、`> [!note]` callout、dataview 風クエリ
 - 検索の SQLite FTS5 移行(大規模 vault 対応)

@@ -59,7 +59,53 @@
       "rationale": "prototype/terminal.html の見た目と AC の自然な解釈。xterm を unmount すると対話中の claude セッションが切れてしまい UX を損なう。"
     }
   ],
-  "implementation_decisions": [],
+  "implementation_decisions": [
+    {
+      "id": "I1",
+      "decision": "node-pty のネイティブビルドは nix-profile の g++ (glibc 2.42 リンク) では Node 実行時にロード不能だったため、システムツールチェーン (CC=/usr/bin/gcc CXX=/usr/bin/g++) で npm rebuild node-pty して解決。代替実装 (child_process + script) は不要になった",
+      "rationale": "Sprint 指示「ビルド失敗時は代替を検討する前に node-pty のリビルドを試すこと」に従った。この環境で fresh install する場合は同じ rebuild が必要 (README には環境依存の話は載せず、decisions に記録)。"
+    },
+    {
+      "id": "I2",
+      "decision": "WS 結線は index.ts で createNodeWebSocket({app}) → registerTerminalRoute(app, config, upgradeWebSocket) → serve() 後に injectWebSocket(server)。createApp のシグネチャは変えない",
+      "rationale": "createApp は Hono アプリの純粋な組み立てに保ち、Node http サーバー依存 (upgrade) は index.ts に局所化 (priority 5)。既存の受け入れテスト/ハーネスは index.ts をサブプロセス起動するため無修正で WS が有効。"
+    },
+    {
+      "id": "I3",
+      "decision": "無効時の 403 ハンドラでは setAudit(c, 'terminal.connect', ...) して監査ミドルウェアに denied として記録させる。有効時のセッション開始/終了は writeAuditEntry (audit.ts から新規 export) で直接 append (status 101)",
+      "rationale": "拒否も監査に残る (既存の 403 denied 記録と整合)。upgrade 応答は HTTP ミドルウェアの status 観測と相性が悪いため、セッションライフサイクル側から直接書く (P8)。"
+    },
+    {
+      "id": "I4",
+      "decision": "対話 bash は SIGTERM を無視するため、SIGTERM→3 秒→SIGKILL のエスカレーションが実際に必要だった (受け入れテストで子プロセス消滅を PID 追跡で検証)。サーバーの SIGTERM/SIGINT shutdown でも killAllTerminalSessions() で全セッションを終了",
+      "rationale": "AC-Sb7f458-1-2「切断時に子プロセスが確実に終了する」。孤児 pty プロセスを残さない (priority 2)。"
+    },
+    {
+      "id": "I5",
+      "decision": "既存テスト notes-crud.spec.ts の health toEqual を新契約 (terminal フィールド込み) に拡張更新。アサーションの弱体化ではなく期待値の完全一致を維持",
+      "rationale": "health レスポンスの additive 拡張に伴う正当な期待値更新 (禁止カテゴリ「アサーション弱体化」に該当しない — toEqual の厳密比較のまま)。"
+    },
+    {
+      "id": "I6",
+      "decision": "React StrictMode の二重 effect 実行で WS が二重接続される問題を、init 世代カウンタ (initGenRef) + connect() での旧ソケット close で解消 (mock テストが検出)",
+      "rationale": "セッション = pty プロセスなので二重接続は実害 (余分な子プロセス)。unmount cleanup とも整合。"
+    },
+    {
+      "id": "I7",
+      "decision": "TerminalPane は disabled 状態でも xterm ホスト div を DOM に残す (display:none)。ノートを開いたら workspace タブをエディタへ自動で戻す (setOpenDoc / openFilePreview)",
+      "rationale": "再試行→接続成功の遷移で xterm のマウント先が確実に存在するように。検索パレット等からのノートオープンがターミナルの裏で起きて見えない事故を防ぐ (UX)。"
+    },
+    {
+      "id": "I8",
+      "decision": "UI E2E の無効状態テストで第 2 Vite の起動待ちが Playwright の FORCE_COLOR による ANSI カラーで壊れたため、NO_COLOR=1 で無効化",
+      "rationale": "ハーネス (global-setup) は Playwright ワーカー外で色が付かないが、spec 内 spawn はワーカー環境を継承するため。"
+    },
+    {
+      "id": "I9",
+      "decision": "タブラベルは health 取得後に「ターミナル — {cmd}」へ更新 (取得前は「ターミナル」)。live-dot は接続状態で on/off",
+      "rationale": "prototype/terminal.html のラベル「ターミナル — claude」準拠。health の cmd は有効時のみ返すため無効サーバーの構成情報は漏れない (P7)。"
+    }
+  ],
   "review_decisions": [],
   "verifier": {},
   "done_judgment": {}

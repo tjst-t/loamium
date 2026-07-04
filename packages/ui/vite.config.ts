@@ -32,6 +32,8 @@ export default defineConfig({
       '/api': {
         target: apiTarget(),
         changeOrigin: true,
+        // WS /api/terminal (Sb7f458) も同じプロキシで通す
+        ws: true,
       },
     },
   },

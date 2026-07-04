@@ -859,7 +859,7 @@
       "stories": {
         "Sb7f458-1": {
           "title": "pty ブリッジ(WebSocket + node-pty)",
-          "status": "pending",
+          "status": "in_progress",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "vault 所有者として、サーバー経由で vault を作業ディレクトリとするターミナルセッションを安全に開きたい。なぜなら、ノート内容を踏まえた Claude Code との対話を Loamium の中で完結させたいから。",
@@ -881,18 +881,18 @@
             "Sb7f458-1-1": {
               "title": "WS + node-pty ブリッジ",
               "description": "@hono/node-ws + node-pty。起動ガード(env + mode)、セッション管理、切断時 SIGTERM→SIGKILL。実シェル(bash)での受け入れテスト。",
-              "status": "pending"
+              "status": "done"
             },
             "Sb7f458-1-2": {
               "title": "監査ログ統合",
               "description": "ターミナルセッションの開始・終了を audit.log に記録(コマンド内容は記録しない)。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sb7f458-2": {
           "title": "ターミナルタブ UI(xterm.js)",
-          "status": "pending",
+          "status": "in_progress",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、UI のタブでターミナル(Claude Code)を開いて対話したい。なぜなら、エディタとエージェントの往復をブラウザ 1 画面で完結させたいから。",
@@ -914,12 +914,12 @@
             "Sb7f458-2-1": {
               "title": "ターミナルタブ",
               "description": "エディタ/ターミナルのタブ切替 UI。xterm.js + fit addon、WS 接続、リサイズ伝搬。",
-              "status": "pending"
+              "status": "done"
             },
             "Sb7f458-2-2": {
               "title": "無効時・切断時 UX",
               "description": "機能フラグ検出 API(GET /api/health 拡張)で無効理由表示。再接続。二層テスト。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
