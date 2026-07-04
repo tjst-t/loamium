@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": null,
-    "total": 15,
+    "current_sprint": "S79c210",
+    "total": 16,
     "done": 15,
     "in_progress": 0,
-    "remaining": 0,
-    "percentage": 100
+    "remaining": 1,
+    "percentage": 94
   },
   "execution_order": [
     "Sd63ad1",
@@ -24,7 +24,8 @@
     "Sf1a90a",
     "S935867",
     "Seac77a",
-    "S763a98"
+    "S763a98",
+    "S79c210"
   ],
   "sprints": {
     "Sd63ad1": {
@@ -1173,7 +1174,15 @@
               "description": "ツリー/一覧を mtime 順の直近 N 件に。フォルダ展開時の挙動と「すべて表示」導線。",
               "status": "done"
             }
-          }
+          },
+          "corrections": [
+            {
+              "type": "superseded_by",
+              "ref": "S79c210-1",
+              "milestone": "final_batch3",
+              "note": "直近N件フラット表示はノートにも適用してしまった誤解釈。S79c210-1 でノートのフォルダツリーに戻し、直近N件の趣旨は非ノートファイル(asset)を /files に逃がす形で実現。"
+            }
+          ]
         }
       }
     },
@@ -1285,7 +1294,7 @@
       "title": "スラッシュコマンドメニュー(/ 挿入)",
       "status": "done",
       "description": "エディタで / を入力すると、対応機能を挿入できるコンテキストメニューを出す(LogSeq/Notion 風)。テーブル・callout・コードフェンス・mermaid・dataview・チェックボックス・日付など、標準 Markdown の挿入を機能を暗記せず行えるようにする。生成するのはすべてピュア Markdown。",
-      "milestone": true,
+      "milestone": false,
       "stories": {
         "S763a98-1": {
           "title": "スラッシュメニュー",
@@ -1328,6 +1337,150 @@
               "title": "二層テスト",
               "description": "mock + E2E([AC-] タグ)。",
               "status": "done"
+            }
+          }
+        }
+      }
+    },
+    "S79c210": {
+      "title": "レビュー修正 — サイドバーツリー/テーブル描画/ターミナルLAN/ルート表示",
+      "status": "pending",
+      "description": "マイルストーンレビュー第2ラウンドの修正バッチ。①サイドバーをノートのフォルダツリーに戻す(直近N件フラット化は誤解釈だった。asset=非ノートファイルだけはサイドバーに載せず /files へ)+フォルダ内フォルダ作成 ②Markdown テーブルのライブプレビュー描画 ③ターミナルの LOAMIUM_TERMINAL_ALLOWED_ORIGINS 対応 + Origin 拒否時の UI メッセージ修正 ④パンくずの /n/ 生表示をやめる。Sf1a90a-3 のフラット直近一覧はストーリー1で置換される。",
+      "milestone": true,
+      "stories": {
+        "S79c210-1": {
+          "title": "サイドバーをノートのフォルダツリーへ戻す(+フォルダ内フォルダ作成)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in_review": "final_batch3",
+          "user_story": "ノート利用者として、サイドバーでノートをフォルダ階層のまま辿りたい。なぜなら、直近N件のフラット表示ではフォルダ構造を見失い、増えたノートを整理して辿れないから。asset(画像・PDF 等の非ノートファイル)だけはサイドバーに出さず /files に集約したい。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S79c210-1-1",
+              "description": "サイドバーがノート(.md)のフォルダツリー(フォルダの展開/折りたたみ)で表示され、フォルダ横断で全ノートに辿れる(直近N件フラット表示ではない)",
+              "test": "[AC-S79c210-1-1] in packages/ui/tests/e2e/sidebar-tree.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S79c210-1-2",
+              "description": "非ノートファイル(画像・PDF 等の asset)はサイドバーツリーに表示されず、/files ページ側に集約される(サイドバーには /files への導線のみ)",
+              "test": "[AC-S79c210-1-2] in packages/ui/tests/e2e/sidebar-tree.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S79c210-1-3",
+              "description": "フォルダを右クリック等から、そのフォルダの中に新しいフォルダ・ノートを作成でき、ネスト(フォルダ内フォルダ)が作れる",
+              "test": "[AC-S79c210-1-3] in packages/ui/tests/e2e/sidebar-tree.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S79c210-1-1": {
+              "title": "フォルダツリー復帰",
+              "description": "Sf1a90a で撤去したノートのフォルダツリー(Sa704c3 の buildTree 系)をサイドバーに復帰。非 .md は除外。展開/折りたたみ状態保持。ルーティングは維持。",
+              "status": "pending"
+            },
+            "S79c210-1-2": {
+              "title": "ネストしたフォルダ/ノート作成",
+              "description": "フォルダのコンテキストメニューに『ここに新規フォルダ/ノート』。フォルダ内フォルダ作成(空フォルダ表現は .gitkeep 等でなく UI 状態 or 最初のノートで具現化 — ピュア Markdown 原則を壊さない方法を decisions に記録)。",
+              "status": "pending"
+            },
+            "S79c210-1-3": {
+              "title": "二層テスト",
+              "description": "mock + E2E([AC-] タグ、フォルダ横断閲覧・非ノート非表示・ネスト作成を実操作で検証)。",
+              "status": "pending"
+            }
+          }
+        },
+        "S79c210-2": {
+          "title": "Markdown テーブルのライブプレビュー描画",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in_review": "final_batch3",
+          "user_story": "ノート利用者として、| 見出し | 記法の Markdown テーブルが表として描画されてほしい。なぜなら、スラッシュメニューでテーブルを挿入しても生の | のままでは読めないから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S79c210-2-1",
+              "description": "標準 Markdown のテーブル(ヘッダ行 + 区切り行 + データ行)がカーソル行以外で HTML テーブルとして描画され、カーソルを置くとソースが見える",
+              "test": "[AC-S79c210-2-1] in packages/ui/tests/e2e/table-render.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S79c210-2-2",
+              "description": "スラッシュメニューの『テーブル』挿入結果が、挿入直後に表として描画される(セル編集でカーソル行のみソース表示)",
+              "test": "[AC-S79c210-2-2] in packages/ui/tests/e2e/table-render.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S79c210-2-1": {
+              "title": "テーブル block レンダラー",
+              "description": "3 レジストリの block rule として GFM テーブルを検出・描画(lezer-markdown の Table ノード利用)。カーソル行はソース表示。ピュア Markdown 維持。",
+              "status": "pending"
+            },
+            "S79c210-2-2": {
+              "title": "二層テスト",
+              "description": "mock + E2E([AC-] タグ、テーブル描画とカーソル時ソース表示を実操作で検証)。",
+              "status": "pending"
+            }
+          }
+        },
+        "S79c210-3": {
+          "title": "ターミナルの LAN オリジン許可 + Origin 拒否メッセージ修正",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in_review": "final_batch3",
+          "user_story": "vault 所有者として、指定した LAN オリジンからだけターミナルを使えるようにしたい。なぜなら、0.0.0.0 公開時に LAN の別デバイスから Claude を使いたいが、無条件に全オリジンへ開くのは危険だから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S79c210-3-1",
+              "description": "LOAMIUM_TERMINAL_ALLOWED_ORIGINS に列挙したオリジン(例 http://10.10.254.36:8203)からの WS /api/terminal 接続が許可され、列挙外の非ループバックオリジンは従来どおり 1008 で拒否される",
+              "test": "[AC-S79c210-3-1] in tests/acceptance/terminal.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S79c210-3-2",
+              "description": "Origin 拒否(1008)時、UI は『セッション終了/子プロセス停止』ではなく『このオリジンは許可されていません。localhost で開くか LOAMIUM_TERMINAL_ALLOWED_ORIGINS に追加してください』と正しく表示する",
+              "test": "[AC-S79c210-3-2] in packages/ui/tests/e2e/terminal-origin.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S79c210-3-1": {
+              "title": "許可オリジンリスト",
+              "description": "isAllowedOrigin を LOAMIUM_TERMINAL_ALLOWED_ORIGINS(カンマ区切り)対応に拡張。ループバック + same-origin + 許可リストを許可、それ以外は拒否。受け入れテスト。README/ARCHITECTURE に CSWSH 保護低下の警告付きで記載。",
+              "status": "pending"
+            },
+            "S79c210-3-2": {
+              "title": "UI メッセージ分岐",
+              "description": "WS close code 1008(policy 拒否)と正常 exit(1000/プロセス終了)を UI で区別し、それぞれ適切な文言を表示。二層テスト。",
+              "status": "pending"
+            }
+          }
+        },
+        "S79c210-4": {
+          "title": "パンくずの /n/ 生表示をやめる",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in_review": "final_batch3",
+          "user_story": "ノート利用者として、パンくずに /n/ のような内部ルート記号を見せられたくない。なぜなら、意味が分からず紛らわしいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S79c210-4-1",
+              "description": "ノート表示時のパンくずが内部ルート接頭辞 /n/ を露出せず、フォルダ階層 + ノート名(またはノートアイコン)で分かりやすく表示される",
+              "test": "[AC-S79c210-4-1] in packages/ui/tests/e2e/breadcrumb.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S79c210-4-1": {
+              "title": "パンくず表示修正",
+              "description": "/n/ トークンの生表示を除去し、フォルダ/ノート名でパンくずを構成。URL(/n/{path})自体は維持。二層テスト。",
+              "status": "pending"
             }
           }
         }
@@ -1423,6 +1576,12 @@
         "Sb1593c"
       ],
       "reason": "挿入する記法(callout/dataview 等)が実装済みであること"
+    },
+    "S79c210": {
+      "depends_on": [
+        "S763a98"
+      ],
+      "reason": "UI シェル(Sf1a90a)・スラッシュメニュー(S763a98)・ターミナル(Sf1a90a-2)の修正"
     }
   },
   "backlog": [
