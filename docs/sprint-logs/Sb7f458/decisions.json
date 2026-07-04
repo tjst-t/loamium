@@ -106,7 +106,23 @@
       "rationale": "prototype/terminal.html のラベル「ターミナル — claude」準拠。health の cmd は有効時のみ返すため無効サーバーの構成情報は漏れない (P7)。"
     }
   ],
-  "review_decisions": [],
+  "review_decisions": [
+    {
+      "id": "R1",
+      "decision": "Sprint レベル code-review (high effort, 7 角度) を本体でインライン実行。CONFIRMED バグ所見ゼロ。禁止カテゴリ diff スキャン (skip/アサーション弱体化/catch{}/any/AC 変更) もヒットゼロ",
+      "rationale": "サブエージェント (Agent tool) が本セッションに無いためプロトコルを本体で実行 (過去 Sprint と同方針)。"
+    },
+    {
+      "id": "R2",
+      "decision": "堅牢性所見 1 件を修正: pty の onData が WS クローズ開始後に発火した場合、閉じたソケットへの ws.send が throw しうるため send() に readyState===OPEN ガードを追加",
+      "rationale": "onExit → ws.close() の後や、クライアント切断後の残余出力で send が呼ばれる経路が実在する。低頻度だが未捕捉例外になりうるため防御 (priority 2)。テストは全 pass のまま。"
+    },
+    {
+      "id": "R3",
+      "decision": "空 catch {} が terminal.ts に 3 箇所あるが、いずれも p.kill('SIGTERM'/'SIGKILL') の『既に終了済みプロセスへの kill が ESRCH を投げる』ケースの意図的な無視。エラー握りつぶしではなく正常系",
+      "rationale": "kill 対象が先に exit している競合は想定内で、握りつぶす以外の対処が無い (session_end は onExit が別途記録)。JSDoc にコメント済み。"
+    }
+  ],
   "verifier": {},
   "done_judgment": {}
 }

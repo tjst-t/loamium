@@ -109,6 +109,9 @@ export function registerTerminalRoute(
       return {
         onOpen(_evt, ws) {
           const send = (msg: TerminalServerMessage): void => {
+            // pty の onData は WS が閉じ始めた後にも発火しうる。閉じた/閉じ中の
+            // ソケットへ送ると ws が throw するので readyState を確認する
+            if (ws.readyState !== 1 /* OPEN */) return;
             ws.send(JSON.stringify(msg));
           };
           try {
