@@ -1,0 +1,104 @@
+{
+  "sprint": "Seac77a",
+  "mode": "auto (autopilot, --with-verifier)",
+  "base_sha": "519f123cf59b12a0d13615ab21fdc1ed03ca1b4e",
+  "branch": "autopilot/main/Seac77a",
+  "planning_decisions": [
+    {
+      "id": "P1",
+      "category": "planning",
+      "decision": "Story 1 本 (Seac77a-1) を単線シーケンシャルに実行。worktree 並列・実装サブエージェントは使わない。",
+      "rationale": "本セッションに Agent(サブエージェント spawn)ツールが無い(過去 Sprint と同様)。変更は packages/server(index/schemas)と packages/ui(FilesPage/App/styles)に集中し依存順で一直線。DESIGN_PRINCIPLES priority 5(シンプルさ)。",
+      "reference": "DESIGN_PRINCIPLES priority 5"
+    },
+    {
+      "id": "P2",
+      "category": "planning",
+      "decision": "ユーザーストーリー・AC は ROADMAP のまま採用(書き換え・分割不要)。",
+      "rationale": "「{役割}として、{やりたいこと}。なぜなら {理由}」形式を満たし、1 Story = ファイル/フォルダブラウザという 1 つのユーザー可観測面。AC 3 本はすべてユーザー可観測(一覧+絞り込み / 開く+プレビュー+コピー+削除 / 遷移+履歴)。",
+      "reference": "test-discipline Rule 1"
+    },
+    {
+      "id": "P3",
+      "category": "planning",
+      "decision": "GUI spec は autonomous mode で導出。ビジュアルの正は prototype/files-page.html + TESTIDS.md 第3バッチの files-page 系(files-filter/files-count/files-list/file-row/file-preview-btn/file-copy-path/file-delete-btn/files-preview-pane/files-preview-close)。削除確認は既存 delete-dialog を共用。",
+      "rationale": "エントリポイント・状態・testid はプロトタイプ 1 枚と TESTIDS 契約から一意に導出できる。二層テスト(mock + E2E)+ 一覧 API 受け入れテストで検証。",
+      "reference": "prototype/TESTIDS.md 第3バッチ"
+    }
+  ],
+  "implementation_decisions": [
+    {
+      "id": "I1",
+      "category": "implementation",
+      "decision": "一覧 API は新エンドポイントを作らず、既存 GET /api/notes に size(バイト数)を additive-optional で追加し、GET /api/notes(size付き)+ GET /api/files(size/mtime既存)の 2 本を UI がクライアント側で統合する。フォルダ階層は既存 tree.ts の buildTree で導出する。",
+      "rationale": "task の『既存 /api/notes と /api/files の統合 or 新エンドポイント』のうち『統合』を選択。S935867 の先例(サーバー無改修・クライアント側フィルタ)と priority 5(シンプルさ)に沿う。新 REST エンドポイントは DESIGN_PRINCIPLES architecture『REST と CLI 1:1』により CLI コマンド追加を伴う(S9e5ca4-P4 の先例)が、response への additive フィールドは CLI 無改修で済む。size は index が mtime を取得している fs.stat から同時取得できるためコストゼロ。",
+      "reference": "DESIGN_PRINCIPLES priority 3/5, S935867/S9e5ca4 先例"
+    },
+    {
+      "id": "I2",
+      "category": "implementation",
+      "decision": "FilesPage はプロトタイプの [ファイル表 files-list] + [プレビューペイン files-preview-pane] に加え、左に『フォルダツリー』ペイン(buildTree 由来、folder のみ + 『すべてのファイル』ルート)を additive に置く。フォルダクリックで表をそのサブツリーにスコープする。",
+      "rationale": "AC-Seac77a-1-1 は明示的に『フォルダツリーを辿れ』を要求し、task も buildTree 再利用を指定。プロトタイプはツリーペインを描いていないが、Sf1a90a でサイドバーから外れたフォルダ閲覧の受け皿がこのページ(sprint description)。files-list/preview/filter/count は testid 厳密一致でプロトタイプどおり、ツリーは汎用 testid(tree-folder — TESTIDS で『全画面』スコープ)を使う additive 列。",
+      "reference": "AC-Seac77a-1-1, prototype/TESTIDS.md(tree-folder=全画面)"
+    },
+    {
+      "id": "I3",
+      "category": "implementation",
+      "decision": "ノート行クリック/プレビューボタンはエディタへ遷移(onOpenNote→App.openNotePath、履歴 push)。非ノート行はページ内 files-preview-pane に表示(renderFileEmbedFor 再利用、自己完結・遷移しない)。パスコピーはノート=[[path(拡張子なし)]]、添付=![[path]]。",
+      "rationale": "AC-Seac77a-1-2『ノートはエディタで開き、非ノートはプレビュー』。DESIGN_PRINCIPLES ui_ux『パスコピーは ![[...]]/[[...]] 用の vault 相対パス』。プレビューは既存 embed レンダラ(renderers/embed.ts)を再利用し見た目・安全性を統一。",
+      "reference": "AC-Seac77a-1-2, DESIGN_PRINCIPLES ui_ux"
+    },
+    {
+      "id": "I4",
+      "category": "implementation",
+      "decision": "削除は FilesPage が onRequestDelete(path,kind) を App へ上げ、既存 DeleteDialog(delete-dialog/-confirm/-cancel)→ App.deleteNote/deleteAttachment(既存 api.deleteNote/deleteFile)で実行。監査ログはサーバー側の既存機構(note.delete / file.delete を .loamium/audit.log へ)がそのまま記録。削除後は refreshNotes/refreshFiles で props 更新→一覧が即反映。",
+      "rationale": "DESIGN_PRINCIPLES『破壊的操作は確認あり』『書き込み系は監査ログ』。既存ダイアログ・削除経路・監査機構を再利用(priority 5)。/files ルートは維持したまま一覧が更新される。",
+      "reference": "CLAUDE.md(監査ログ), DESIGN_PRINCIPLES priority 2/5"
+    },
+    {
+      "id": "I5",
+      "category": "implementation",
+      "decision": "パスコピーは navigator.clipboard.writeText を try/catch で実行し、成否に関わらずボタンへ一時的な copied 表示(copied-flash クラス + aria-label 更新)を出す。E2E はこの可観測な copied 表示を検証する(ヘッドレスのクリップボード権限に依存しない)。",
+      "rationale": "playwright.config にクリップボード権限設定が無く、実クリップボード読取は不安定。実コピー(writeText)は行いつつ、ユーザー可観測な確認表示を真実源にする(test-discipline: UI 状態を観測)。",
+      "reference": "test-discipline Rule 4"
+    },
+    {
+      "id": "I6",
+      "category": "implementation",
+      "decision": "既存 E2E の files-page-placeholder アサーション(sidebar-recent.e2e / routing.e2e)を、新しい実ページの files-list 可視アサーションへ更新する。",
+      "rationale": "placeholder(Sf1a90a の暫定)は本 Sprint で実ページに置換される。テストの弱体化ではなく、置換後の実体を検証する更新。TESTIDS も『files-page-placeholder は Seac77a で本体に置換』と明記。",
+      "reference": "prototype/TESTIDS.md(Sf1a90a 実装済 注記)"
+    }
+  ],
+  "review_decisions": [
+    {
+      "id": "R1",
+      "category": "review",
+      "decision": "セルフレビューで filter アイコンを EyeIcon → SearchIcon に修正(プロトタイプの絞り込み欄は虫眼鏡)。EyeIcon はプレビューボタン専用に残す。",
+      "rationale": "prototype/files-page.html の files-filter-wrap は検索アイコン。ビジュアルの正への整合。"
+    }
+  ],
+  "verifier": {
+    "requested": "--with-verifier (autopilot --auto)",
+    "spawned": false,
+    "reason": "本セッションに独立 verifier を同期起動できる Agent(サブエージェント spawn)ツールが存在しない(利用可能な deferred ツールは task-list 系・worktree・cron 等のみ)。タスク指示の但し書きに従い、その旨を明記して done を完了する。親(autopilot)が verification-report.json を補完実行してよい。",
+    "compensating_controls": [
+      "機械検証 hooks/run-verify.py --sprint Seac77a → overall=pass (test 352 / lint / ui-tests 143 すべて exit 0)",
+      "6 ガード done 判定を done-judgment.json に記録",
+      "セルフレビュー(diff 精読 + クリーンテキスト走査 + プロトタイプ整合)実施"
+    ],
+    "self_authored_report": "docs/sprint-logs/Seac77a/verification-report.json (independent=false と明記)"
+  },
+  "done_judgment": {
+    "Seac77a-1": {
+      "guard_1_user_scenario": "pass",
+      "guard_2_entrypoint_tests": "pass",
+      "guard_3_no_silent_skip": "pass",
+      "guard_4_status_truthful": "pass",
+      "guard_5_ac_traceability": "pass",
+      "guard_6_diff_coverage": "pass",
+      "verdict": "done",
+      "note": "全 6 ガード pass。AC-1-1=files-list.spec.ts(実HTTP)、AC-1-2/1-3=files-page.e2e.spec.ts(実ブラウザ→実サーバー)。mock はエラー/空/削除確認。全 3 AC に [AC-Seac77a-1-*] タグ付きテストが対応。"
+    }
+  }
+}

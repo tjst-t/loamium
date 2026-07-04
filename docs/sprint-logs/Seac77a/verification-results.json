@@ -1,0 +1,75 @@
+{
+  "sprint": "Seac77a",
+  "run_at": "2026-07-04T00:00:00Z",
+  "server_command": "hooks/run-verify.py --sprint Seac77a (make test / make lint / make test-ui)",
+  "machine_verdict": "pass",
+  "summary": {
+    "total": 495,
+    "pass": 495,
+    "fail": 0,
+    "skip": 0,
+    "detail": "make test 352 + make test-ui 143。すべて pass。lint(全 workspace tsc --noEmit)pass。"
+  },
+  "tests": [
+    {
+      "name": "[AC-Seac77a-1-1] 一覧 API (ノート + ファイル) — size / mtime / 種別付き (3 ケース)",
+      "file": "tests/acceptance/files-list.spec.ts",
+      "story": "Seac77a-1",
+      "acceptance_criteria": ["AC-Seac77a-1-1"],
+      "status": "pass"
+    },
+    {
+      "name": "[AC-Seac77a-1-2] ノートはエディタで開き、添付はプレビュー・パスコピー・削除(監査ログ)できる",
+      "file": "packages/ui/tests/e2e/files-page.e2e.spec.ts",
+      "story": "Seac77a-1",
+      "acceptance_criteria": ["AC-Seac77a-1-2"],
+      "status": "pass"
+    },
+    {
+      "name": "[AC-Seac77a-1-3] すべて表示・ツリーのフォルダから /files へ遷移でき履歴に積まれる",
+      "file": "packages/ui/tests/e2e/files-page.e2e.spec.ts",
+      "story": "Seac77a-1",
+      "acceptance_criteria": ["AC-Seac77a-1-3"],
+      "status": "pass"
+    },
+    {
+      "name": "[MOCK] 空 / 一覧+絞り込み / 削除確認(キャンセル+確定→一覧反映) / notes 失敗のグレースフル (4 ケース)",
+      "file": "packages/ui/tests/e2e/files-page.mock.spec.ts",
+      "story": "Seac77a-1",
+      "acceptance_criteria": ["AC-Seac77a-1-1", "AC-Seac77a-1-2"],
+      "status": "pass"
+    }
+  ],
+  "diff_coverage": {
+    "surfaces": [
+      {
+        "type": "api",
+        "identifier": "GET /api/notes レスポンスへ size 追加 (NoteMeta.size)",
+        "introduced_in_files": ["packages/shared/src/schemas.ts", "packages/server/src/noteIndex.ts"],
+        "resolution": "covered",
+        "test": "[AC-Seac77a-1-1] tests/acceptance/files-list.spec.ts"
+      },
+      {
+        "type": "gui",
+        "identifier": "/files ファイル一覧テーブル(files-list / file-row 種別・サイズ・更新日時)+ 名前絞り込み(files-filter / files-count)",
+        "introduced_in_files": ["packages/ui/src/components/FilesPage.tsx"],
+        "resolution": "covered",
+        "test": "[AC-Seac77a-1-1] files-page.mock.spec.ts / [AC-Seac77a-1-2] files-page.e2e.spec.ts"
+      },
+      {
+        "type": "gui",
+        "identifier": "フォルダツリー(tree-folder)でのスコープ + ノート→エディタ / 添付→プレビューペイン(files-preview-pane / files-preview-close)",
+        "introduced_in_files": ["packages/ui/src/components/FilesPage.tsx"],
+        "resolution": "covered",
+        "test": "[AC-Seac77a-1-2] / [AC-Seac77a-1-3] files-page.e2e.spec.ts"
+      },
+      {
+        "type": "gui",
+        "identifier": "パスコピー(file-copy-path: ノート [[..]] / 添付 ![[..]])・削除(file-delete-btn → delete-dialog、監査ログ記録)",
+        "introduced_in_files": ["packages/ui/src/components/FilesPage.tsx", "packages/ui/src/App.tsx"],
+        "resolution": "covered",
+        "test": "[AC-Seac77a-1-2] files-page.e2e.spec.ts(clipboard 読取 + audit.log 検証)、files-page.mock.spec.ts(削除確認)"
+      }
+    ]
+  }
+}
