@@ -81,6 +81,46 @@
       "rationale": "TESTIDS.md の契約 4 testid は全結線。fence-bar の動的サマリーは FenceRenderer.info が静的文字列のため大きな拡張が必要で、AC に含まれない装飾のみの差分 (priority 5)。"
     }
   ],
-  "review_decisions": [],
-  "done_judgment": {}
+  "review_decisions": [
+    {
+      "id": "R1",
+      "decision": "Story レベル (Sb1593c-1) + Sprint レベルの 2 段レビューを code-review プロトコル (7 角度 + 検証) のインライン実行で実施。CONFIRMED 所見ゼロ。禁止カテゴリ diff スキャン (skip/アサーション弱体化/catch{}/any/AC 変更) もヒットゼロ",
+      "rationale": "サブエージェント (Agent tool) が本セッションに無いためプロトコルを本体で実行。"
+    },
+    {
+      "id": "R2",
+      "decision": "PLAUSIBLE 所見 1 件は対応不要と判断: refreshFile の readFile→stat の間にファイルが差し替わると mtime と content が一瞬ずれ得るが、次の chokidar イベント / 再起動全走査で自己修復する (インデックスは使い捨て・ファイルが正 — priority 6)",
+      "rationale": "発生条件が極小で、既存の自己修復設計の範囲内。"
+    },
+    {
+      "id": "R3",
+      "decision": "効率観察: extractTags/extractLinks/extractTasks/parseNote が refreshFile で各々 parseNote を再実行する既存パターンを踏襲 (統合最適化しない)",
+      "rationale": "個人 vault 規模で計測可能な影響なし。統合は既存 3 関数の API 変更を伴い Sprint スコープ外。"
+    }
+  ],
+  "done_judgment": {
+    "Sb1593c-1": {
+      "guard1_user_review_required_not_done": "pass",
+      "guard2_nil_injection_mock": "pass",
+      "guard3_mock_mode_not_real_smoke": "pass",
+      "guard4_priority_rule_9_exception_valid": "n/a",
+      "guard5_call_path_grep": "pass",
+      "guard6_deferred_comment_clean": "pass",
+      "guard7_adr_conformance": "n/a",
+      "guard8_destructive_multi_version_test": "n/a",
+      "overall": "ok"
+    },
+    "Sb1593c-2": {
+      "guard1_user_review_required_not_done": "pass",
+      "guard2_nil_injection_mock": "pass",
+      "guard3_mock_mode_not_real_smoke": "pass",
+      "guard4_priority_rule_9_exception_valid": "n/a",
+      "guard5_call_path_grep": "pass",
+      "guard6_deferred_comment_clean": "pass",
+      "guard7_adr_conformance": "n/a",
+      "guard8_destructive_multi_version_test": "n/a",
+      "overall": "ok"
+    },
+    "note": "詳細根拠は verification-results.json の done_judgment / done_judgment_notes。独立 verifier (verification-report.json) は overall: pass・overlooked_count: 0 で self-report と不一致なし。機械判定 verify-run.json overall pass (test 323 / ui 111 / lint、fail・skip 0) — done ゲート成立"
+  }
 }

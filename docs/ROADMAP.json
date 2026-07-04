@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "Sb1593c",
+    "current_sprint": "Sb7f458",
     "total": 11,
-    "done": 9,
-    "in_progress": 1,
+    "done": 10,
+    "in_progress": 0,
     "remaining": 1,
-    "percentage": 82
+    "percentage": 91
   },
   "execution_order": [
     "Sd63ad1",
@@ -762,13 +762,13 @@
     },
     "Sb1593c": {
       "title": "dataview 風クエリ",
-      "status": "in_progress",
+      "status": "done",
       "description": "Obsidian dataview DQL の簡易サブセット(LIST / TABLE / TASK + from / where / sort)を実装する。クエリエンジンはサーバー側(POST /api/query)に置き、CLI に loamium query を 1:1 で追加。タスク(- [ ])のインデックス化もここで行い、vault 横断のタスク一覧を実現する。",
       "milestone": false,
       "stories": {
         "Sb1593c-1": {
           "title": "クエリエンジン(API + CLI)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "エージェントおよびノート利用者として、構造化クエリでノートやタスクを横断抽出したい。なぜなら、タグ・frontmatter・タスク状態による動的な一覧が「絞り込み検索でクエリを代替する」という Loamium の方針の実現形だから。",
@@ -777,42 +777,42 @@
               "id": "AC-Sb1593c-1-1",
               "description": "POST /api/query が DQL 簡易サブセット(LIST / TABLE fields / TASK、from #tag・\"folder\"、where の frontmatter/組み込みフィールド比較、sort)を実行し構造化結果を返す。構文エラーは 400 + 位置情報付きメッセージ",
               "test": "[AC-Sb1593c-1-1] in tests/acceptance/query.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sb1593c-1-2",
               "description": "タスク(- [ ] / - [x])がインデックス化され、TASK クエリで vault 横断の未完了/完了タスクを抽出できる(外部編集にも追従)",
               "test": "[AC-Sb1593c-1-2] in tests/acceptance/query.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sb1593c-1-3",
               "description": "loamium query コマンドが API と 1:1 で動作する(--json 対応、構文エラーは非 0 終了 + stderr JSON)",
               "test": "[AC-Sb1593c-1-3] in tests/acceptance/cli-query.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sb1593c-1-1": {
               "title": "DQL サブセットパーサー",
               "description": "shared にクエリ AST パーサー(LIST/TABLE/TASK, from, where, sort)。ユニットテスト必須。",
-              "status": "pending"
+              "status": "done"
             },
             "Sb1593c-1-2": {
               "title": "タスクインデックス",
               "description": "parseNote にタスク抽出(- [ ]/- [x]、行番号・ネスト)を追加しインデックスへ。chokidar 追従は既存機構。",
-              "status": "pending"
+              "status": "done"
             },
             "Sb1593c-1-3": {
               "title": "query 実行器 + API + CLI",
               "description": "インデックス上でクエリ実行。POST /api/query、loamium query。受け入れテスト付き。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sb1593c-2": {
           "title": "dataview フェンス描画",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、ノート内の ```dataview フェンスにクエリを書くと動的な一覧・表・タスクリストが表示されてほしい。なぜなら、「今月のノート一覧」「未完了タスク」のようなハブページを手メンテせずに済むから。",
@@ -821,31 +821,31 @@
               "id": "AC-Sb1593c-2-1",
               "description": "```dataview フェンスが LIST/TABLE/TASK の結果として描画され、結果のノート/タスクをクリックすると元ノートへ移動する",
               "test": "[AC-Sb1593c-2-1] in packages/ui/tests/e2e/dataview.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sb1593c-2-2",
               "description": "vault のファイル変更に追従して表示中のクエリ結果が更新される",
               "test": "[AC-Sb1593c-2-2] in packages/ui/tests/e2e/dataview.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sb1593c-2-3",
               "description": "クエリの構文エラーはフェンス内にエラーメッセージとして表示され、エディタは通常どおり編集できる",
               "test": "[AC-Sb1593c-2-3] in packages/ui/tests/e2e/dataview.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sb1593c-2-1": {
               "title": "dataview fence レンダラー",
               "description": "fence レジストリに dataview を登録し /api/query の結果を描画(mode: replace、カーソルでソース表示)。",
-              "status": "pending"
+              "status": "done"
             },
             "Sb1593c-2-2": {
               "title": "結果の更新とナビゲーション",
               "description": "保存・外部変更での再実行(デバウンス)、結果クリックでノートへ移動。二層テスト。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
