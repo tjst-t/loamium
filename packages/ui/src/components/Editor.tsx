@@ -47,6 +47,11 @@ export interface EditorProps {
   content: string;
   /** 同一パスのまま外部内容で置き換えたいとき (競合の再読込等) に増やす */
   resetToken: number;
+  /**
+   * 全文検索ヒット等で該当行 (1 始まり) へカーソルを移動する (Sbd061c-1)。
+   * token が変わるたびに適用。行番号が本文の行数を超える場合は最終行へクランプ。
+   */
+  seek?: { line: number; token: number } | null;
   /** ノート一覧 (オートコンプリート候補 + 壊れリンク判定)。null = 未ロード */
   notes: NoteMeta[] | null;
   onChange: (text: string) => void;
@@ -63,6 +68,7 @@ export function Editor({
   docPath,
   content,
   resetToken,
+  seek,
   notes,
   onChange,
   onSave,
@@ -165,6 +171,24 @@ export function Editor({
     suppressRef.current = false;
     view.focus();
   }, [docPath, content, resetToken]);
+
+  // 全文検索ヒットの該当行へカーソル移動 (Sbd061c-1)。上のドキュメント差し替え
+  // effect より後に宣言されているため、ノート切替と同時でも新しい本文に適用される。
+  const seekAppliedRef = useRef(0);
+  useEffect(() => {
+    const view = viewRef.current;
+    if (view === null || seek === null || seek === undefined) return;
+    if (seekAppliedRef.current === seek.token) return;
+    seekAppliedRef.current = seek.token;
+    // インデックスとファイルがずれていても壊さない: 行番号は本文の範囲にクランプ
+    const lineNo = Math.min(Math.max(1, seek.line), view.state.doc.lines);
+    const pos = view.state.doc.line(lineNo).from;
+    view.dispatch({
+      selection: { anchor: pos },
+      effects: EditorView.scrollIntoView(pos, { y: 'center' }),
+    });
+    view.focus();
+  }, [seek]);
 
   return <div className="editor-host" data-testid="editor" ref={hostRef} />;
 }

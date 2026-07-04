@@ -887,3 +887,141 @@ code {
   line-height: 1.6;
 }
 .dialog .link-update-note svg { width: 15px; height: 15px; flex-shrink: 0; margin-top: 2px; }
+
+/* ==========================================================================
+   検索パレット (Sbd061c — prototype/search-palette.html 準拠)
+   ========================================================================== */
+
+.palette-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(25, 25, 40, 0.35);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 11vh;
+}
+.palette {
+  width: 620px;
+  max-width: calc(100vw - 32px);
+  background: var(--bg-editor);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.palette-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.palette-input-row .search-ico { width: 16px; height: 16px; color: var(--text-faint); flex-shrink: 0; }
+.palette-input-row kbd {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-faint);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.palette-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: none;
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--text);
+}
+.palette-input::placeholder { color: var(--text-faint); }
+.palette-results { max-height: 54vh; overflow-y: auto; padding: 6px; }
+.palette-section-label {
+  padding: 8px 10px 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-faint);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  display: flex;
+  justify-content: space-between;
+}
+.palette-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.palette-item:hover { background: var(--bg-hover); }
+.palette-item.selected { background: var(--bg-active); }
+.palette-item .file-ico { width: 14px; height: 14px; color: var(--text-faint); flex-shrink: 0; margin-top: 3px; }
+.palette-item.selected .file-ico { color: var(--accent); }
+.palette-item .p-main { flex: 1; min-width: 0; }
+.palette-item .p-title { font-size: 13.5px; font-weight: 600; display: block; }
+.palette-item .p-path { font-size: 11px; color: var(--text-faint); display: block; }
+.palette-item .p-snippet {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.55;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+.palette-item mark {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  border-radius: 3px;
+  padding: 0 2px;
+  font-weight: 700;
+}
+.palette-item .line-no {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-hover);
+  border-radius: 4px;
+  padding: 1px 7px;
+  margin-top: 3px;
+}
+.palette-item.selected .line-no { background: var(--bg-editor); }
+.palette-empty,
+.palette-error {
+  padding: 18px 14px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  text-align: center;
+}
+.palette-error { color: var(--danger); }
+.palette-footer {
+  display: flex;
+  gap: 16px;
+  padding: 8px 15px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px;
+  color: var(--text-faint);
+  background: var(--bg-panel);
+}
+.palette-footer span { display: inline-flex; align-items: center; gap: 5px; }
+.palette-footer kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 0 4px;
+}

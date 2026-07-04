@@ -1,0 +1,88 @@
+{
+  "$schema_note": "VERIFICATION_REPORT_SCHEMA",
+  "sprint": "Sbd061c",
+  "verifier": "independent read-only session",
+  "verified_at": "2026-07-04",
+  "base_sha": "4a593128bf40af3fbc46b70776a836f5af279847",
+  "head_sha": "98fbf90",
+  "verifier_model": "claude-sonnet-4-6",
+  "overall": "warn",
+  "findings": [
+    {
+      "id": "V1",
+      "category": "execution_log",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "全 3 run の __VERIFY_EXIT_CODE__ トレーラーを実ログで確認。verify-run-test.log 末尾: __VERIFY_EXIT_CODE__:test:0 (189/189 passed, skip 0) / verify-run-lint.log 末尾: __VERIFY_EXIT_CODE__:lint:0 / verify-run-ui-tests.log 末尾: __VERIFY_EXIT_CODE__:ui-tests:0 (66/66 passed). verify-run.json overall_machine_status=pass。JUnit 内の AC 3 件: search-palette.e2e.spec.ts.[AC-Sbd061c-1-1] status=pass / [AC-Sbd061c-1-2] status=pass / [AC-Sbd061c-1-3] status=pass — いずれも verify-run.json ui-tests.cases に実在する (行 1040-1049)。verification-results.json の pass 264 件 (test 189 + ui-tests 66 + lint exit 0) はすべてマシン実績がバックする。乖離なし (overlooked_by_autopilot: false)。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "V2",
+      "category": "acceptance_criteria",
+      "story": "Sbd061c-1",
+      "ac": "AC-Sbd061c-1-1",
+      "verdict": "pass",
+      "detail": "実装: App.tsx:528-535 — data-testid=sidebar-search の button に onClick={() => setPaletteOpen(true)}。App.tsx:337-360 — window keydown リスナーで Ctrl/Cmd+K かつ modalOpenRef.current=false のとき setPaletteOpen(true); パレット表示中の再押下は SearchPalette 側の window keydown (SearchPalette.tsx:249-259) が inputRef.current.focus()/select() を呼ぶ (decisions I5)。SearchPalette.tsx:278-281 — backdrop div に data-testid=search-palette-backdrop, onMouseDown で e.target===e.currentTarget なら onClose(); SearchPalette.tsx:238-241 — Escape キーで onClose()、SearchPalette.tsx:253-257 — window Esc でもパレット外フォーカス時に閉じる。SearchPalette.tsx:286-290 — data-testid=search-input, autoFocus 付き。E2E テスト search-palette.e2e.spec.ts:41-63 — 実ブラウザ→実Vite→実サーバー: Ctrl+K→palette visible + input focused, Esc→count 0, sidebar-search クリック→開く+focused, palette 内クリック→閉じない, backdrop (position x=10 y=10)→count 0 を assert。network mock 0 件。machine: [AC-Sbd061c-1-1] pass。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "V3",
+      "category": "acceptance_criteria",
+      "story": "Sbd061c-1",
+      "ac": "AC-Sbd061c-1-2",
+      "verdict": "pass",
+      "detail": "実装: SearchPalette.tsx:103-123 — useEffect([]) で api.listNotes() を呼び、res.notes で notes state を更新 (失敗時 notesError へ)。SearchPalette.tsx:125-163 — runSearch(q) が api.search(q) を呼び、res.results.filter(r => r.line !== null) で全文ヒットを更新; scheduleSearch は 200ms debounce (clearTimeout → setTimeout)、composingRef.current が true のとき呼ばれない (IME decisions I3)。SearchPalette.tsx:183-193 — onCompositionStart が composingRef=true, onCompositionEnd が composingRef=false + scheduleSearch(e.currentTarget.value)。SearchPalette.tsx:195 — noteMatches は useMemo([notes, query]) で打鍵ごとに即時再計算 (ローカルフィルタ、デバウンスなし)。api.ts:104-106 — api.search(q) は GET /api/search?q={encodeURIComponent(q)} に request() でzod検証付き呼び出し; api.ts には既存の listNotes() も存在。E2E テスト search-palette.e2e.spec.ts:65-101 — 「監査」入力→search-section-notes visible + mark='監査' + path 表示、fulltext セクション visible; 「ログ」追記→note 1件に絞り込まれ全文ヒット data-line=4 + スニペット '書き込み API は必ず監査ログへ追記する。' + L4 + mark='監査ログ' を assert (Enter 不要 = インクリメンタル)。network mock 0 件。machine: [AC-Sbd061c-1-2] pass。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "V4",
+      "category": "acceptance_criteria",
+      "story": "Sbd061c-1",
+      "ac": "AC-Sbd061c-1-3",
+      "verdict": "pass",
+      "detail": "実装: SearchPalette.tsx:215-222 — confirm(item) が onClose() を呼び、kind=note なら onOpenNote(path)、kind=fulltext なら onOpenNoteAtLine(hit.path, hit.line)。App.tsx:294-302 — openNoteAtLine: await openNotePath(path) → docRef.current?.path===path を確認 → seekCounterRef.current++ → setSeek({line, token})。App.tsx:242-255 — openNotePath: 同一パスなら早期 return (同ノート内の行移動も機能)。App.tsx:222-240 — setOpenDoc: resetCounterRef.current++ でEditorを再マウント、setSeek(null) で古い seek をリセット (decisions R1: 別ノート切替時の seek 誤適用防止); openNoteAtLine は setOpenDoc の後に setSeek するため正しく上書きされる。Editor.tsx:176-191 — seek effect: seek.token!==seekAppliedRef.current のとき doc.line(lineNo).from に dispatch (selection+anchor) + EditorView.scrollIntoView(pos, {y:'center'}) + focus; lineNo は Math.min(Math.max(1,seek.line),doc.lines) でクランプ。E2E テスト search-palette.e2e.spec.ts:103-151 — ↑↓でaria-selected移動、Enter でノート名一致が開く(breadcrumb='監査ログ設計')、全文ヒットクリックで実装方針L4が開き cm-activeLine='書き込み API は必ず監査ログへ追記する。'、同ノート内L5に再移動 cm-activeLine='read-only モードでは書き込みを拒否する。' まで assert。network mock 0 件。machine: [AC-Sbd061c-1-3] pass。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "V5",
+      "category": "forbidden_categories",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "§2 禁止カテゴリを diff 全体で走査。(1) test_skipped: grep 'it\\.skip|xit\\b|test\\.skip|\\.skip(' 対 diff → ヒットなし。(2) test_assertion_weakened: grep '^-.*expect|^-.*toEqual|^-.*toHave' 対 packages/ui/tests/ diff → ヒットなし。既存テストへのアサーション削除・弱体化は確認されない。新規 mock spec の expect(search.calls).toEqual([...]) はすべて具体値での assert。(3) error_swallowed: @ts-ignore なし。SearchPalette.tsx のエラーハンドリングは .then(success, error) パターン、catch コールバック内で setSearchError/setNotesError に具体メッセージを格納 (行 112-117, 134-139) — 空 catch なし。(4) type_safety_relaxed: grep '^\\+.*as any|^\\+.*: any' 対 packages/ui/src/ diff → ヒットなし。SearchPalette.tsx は err: unknown + instanceof ApiError 絞り込み。(5) AC_modified: ROADMAP.json diff は status/in_progress のみで AC description テキストに変更なし — AC-Sbd061c-1-{1,2,3} の description は手付かず。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "V6",
+      "category": "adr_conformance",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "docs/DESIGN/ ディレクトリ不在を ls で確認 (ADR チェックは DESIGN_PRINCIPLES.json forbidden リスト)。DESIGN_PRINCIPLES forbidden リスト照合: (1) ブロック ID をファイルに書き込むコードなし — diff はすべて packages/ui/src/* と packages/ui/tests/* の純 UI 変更、vault ファイル書き込みなし。(2) Obsidian 非互換記法の導入なし。(3) vault ルート外書き込みなし。(4) テスト無効化なし (66 件全件 active)。(5) AC 削除・緩和なし。Sprint 制約「サーバー変更なし」の照合: diff ファイル一覧に packages/server/ 配下変更なし。api.ts への追加は GET /api/search (S31ba00 既存エンドポイント) を呼ぶフロントエンドクライアントメソッドのみ — サーバーコード不変。priority 1 ピュア Markdown: diff に vault 書き込みパスなし。priority 5 シンプルさ: SearchPalette.tsx は 383 行の単独コンポーネント、外部依存なし (api + icons + @loamium/shared 型のみ)。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "V7",
+      "category": "compromises_completeness",
+      "story": "Sbd061c-1",
+      "ac": null,
+      "verdict": "warn",
+      "detail": "実装者は「コンプロマイズなし」と申告 (compromises.json 未作成)。以下 2 点がコンプロマイズとして記録されていない。\n\n[W1] ROADMAP.json sprint status の不整合: ROADMAP diff で Sbd061c sprint status が 'pending' → 'in_progress' に変更されているが、Sprint の唯一の Story (Sbd061c-1) が status='done' になっているにもかかわらず sprint status が 'done' に更新されていない。検証実行後の最終コミット (98fbf90 chore(sprint): Sbd061c verify artifacts) 時点でも 'in_progress' のまま。ROADMAP を参照するツールや将来の Sprint 計画ツールがこの状態を 'in_progress' として扱う可能性がある。\n\n[W2] 個別 AC status の不整合: docs/ROADMAP.json の AC-Sbd061c-1-{1,2,3} の status フィールドが 'done' に更新されていない (ROADMAP diff で AC status 変更なし — すべて 'pending' のまま)。Story status は 'done' だが AC status は 'pending' という矛盾した状態。decisions.json にも done_judgment にも記録なし。\n\nいずれも機能的問題ではなく ROADMAP 追跡の不整合のみ。実装・テスト品質に影響しない。",
+      "overlooked_by_autopilot": true,
+      "recommended_action": "docs/ROADMAP.json の Sbd061c sprint status を 'done' に、AC-Sbd061c-1-{1,2,3} の status を 'done' に更新することを推奨。"
+    }
+  ],
+  "summary": {
+    "ac_failures": 0,
+    "forbidden_warnings": 0,
+    "adr_conflicts": 0,
+    "overlooked_count": 1
+  }
+}

@@ -16,7 +16,8 @@ import { JournalNav } from './components/JournalNav.js';
 import { BacklinkPanel } from './components/BacklinkPanel.js';
 import { ContextMenu } from './components/ContextMenu.js';
 import { ConflictDialog, DeleteDialog, NameDialog } from './components/dialogs.js';
-import { DocumentIcon, GearIcon, LinkIcon, NewFolderIcon, NewNoteIcon } from './icons.js';
+import { SearchPalette } from './components/SearchPalette.js';
+import { DocumentIcon, GearIcon, LinkIcon, NewFolderIcon, NewNoteIcon, SearchIcon } from './icons.js';
 
 const AUTOSAVE_DEBOUNCE_MS = 1500;
 const JOURNAL_FILE_RE = /^journals\/(\d{4}-\d{2}-\d{2})\.md$/;
@@ -130,6 +131,11 @@ export function App(): JSX.Element {
   const [dialog, setDialog] = useState<DialogState>(null);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
+  // ---- 検索パレット (Sbd061c-1) ----
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  /** 全文ヒット確定時のカーソル移動指示 (Editor の seek prop へ) */
+  const [seek, setSeek] = useState<{ line: number; token: number } | null>(null);
+  const seekCounterRef = useRef(0);
   /** 保存成功のたびに増える — バックリンクパネルの再取得トリガー (S6fbf45-2) */
   const [backlinksToken, setBacklinksToken] = useState(0);
 
@@ -227,6 +233,10 @@ export function App(): JSX.Element {
     docRef.current = next;
     setDoc(next);
     setDirty(false);
+    // ドキュメントを開き直すたびにカーソル移動指示をリセットする。Editor の
+    // 再マウント時に古い seek が再適用されるのを防ぐ (レビュー R1)。
+    // openNoteAtLine は setOpenDoc の後に setSeek するため、全文ヒットでは上書きされる。
+    setSeek(null);
   }, []);
 
   const openNotePath = useCallback(
@@ -277,6 +287,20 @@ export function App(): JSX.Element {
     [openNotePath, refreshNotes],
   );
 
+  /**
+   * 全文検索ヒットの確定 (Sbd061c-1): ノートを開き、該当行へカーソルを移動する。
+   * openNotePath が失敗 (競合・404 等) した場合はカーソル移動しない。
+   */
+  const openNoteAtLine = useCallback(
+    async (path: string, line: number): Promise<void> => {
+      await openNotePath(path);
+      if (docRef.current?.path !== path) return; // 開けなかった (保存競合・エラー)
+      seekCounterRef.current += 1;
+      setSeek({ line, token: seekCounterRef.current });
+    },
+    [openNotePath],
+  );
+
   const openJournal = useCallback(
     async (date?: string): Promise<void> => {
       if (!(await saveNow())) return;
@@ -305,16 +329,29 @@ export function App(): JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---- グローバルキー: Cmd/Ctrl+S (エディタ外フォーカス時) と F2 (リネーム) ----
+  // ---- グローバルキー: Cmd/Ctrl+S (保存) / Cmd/Ctrl+K (検索パレット) / F2 (リネーム) ----
   const modalOpenRef = useRef(false);
   modalOpenRef.current = dialog !== null || conflictPath !== null || menu !== null;
+  const paletteOpenRef = useRef(false);
+  paletteOpenRef.current = paletteOpen;
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent): void => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         void saveNow();
-      } else if (e.key === 'F2' && docRef.current !== null && !modalOpenRef.current) {
-        // ダイアログ・メニュー表示中は F2 で状態を奪わない
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        // ダイアログ・メニュー表示中は奪わない。表示中の再押下は SearchPalette 側が処理
+        if (!modalOpenRef.current) {
+          e.preventDefault();
+          setPaletteOpen(true);
+        }
+      } else if (
+        e.key === 'F2' &&
+        docRef.current !== null &&
+        !modalOpenRef.current &&
+        !paletteOpenRef.current
+      ) {
+        // ダイアログ・メニュー・パレット表示中は F2 で状態を奪わない
         e.preventDefault();
         setDialog({ type: 'rename', path: docRef.current.path });
       }
@@ -488,6 +525,14 @@ export function App(): JSX.Element {
         <div className="sidebar-header">
           <div className="vault-badge">L</div>
           <div className="vault-name">Loamium</div>
+          <button
+            className="icon-btn"
+            data-testid="sidebar-search"
+            title="検索 (Ctrl+K)"
+            onClick={() => setPaletteOpen(true)}
+          >
+            <SearchIcon />
+          </button>
           <button className="icon-btn" data-testid="sidebar-settings" title="設定 (未実装)" disabled>
             <GearIcon />
           </button>
@@ -585,6 +630,7 @@ export function App(): JSX.Element {
             docPath={doc.path}
             content={doc.text}
             resetToken={doc.resetToken}
+            seek={seek}
             notes={notes}
             onChange={onEditorChange}
             onSave={() => void saveNow()}
@@ -639,6 +685,14 @@ export function App(): JSX.Element {
       />
 
       {/* ================= ポップアップ ================= */}
+      {paletteOpen && (
+        <SearchPalette
+          onClose={() => setPaletteOpen(false)}
+          onOpenNote={(path) => void openNotePath(path)}
+          onOpenNoteAtLine={(path, line) => void openNoteAtLine(path, line)}
+        />
+      )}
+
       {menu !== null && (
         <ContextMenu
           x={menu.x}

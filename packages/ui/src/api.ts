@@ -12,6 +12,7 @@ import {
   noteResponseSchema,
   noteWriteResponseSchema,
   errorResponseSchema,
+  searchResponseSchema,
   type BacklinksResponse,
   type JournalResponse,
   type NoteDeleteResponse,
@@ -19,6 +20,7 @@ import {
   type NoteRenameResponse,
   type NoteResponse,
   type NoteWriteResponse,
+  type SearchResponse,
 } from '@loamium/shared';
 
 export class ApiError extends Error {
@@ -100,6 +102,10 @@ export const api = {
 
   getBacklinks(path: string): Promise<BacklinksResponse> {
     return request(backlinksResponseSchema, `/api/backlinks?path=${encodeURIComponent(path)}`);
+  },
+
+  search(q: string): Promise<SearchResponse> {
+    return request(searchResponseSchema, `/api/search?q=${encodeURIComponent(q)}`);
   },
 
   renameNote(path: string, newPath: string): Promise<NoteRenameResponse> {
