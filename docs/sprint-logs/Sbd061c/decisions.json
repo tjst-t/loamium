@@ -57,6 +57,17 @@
       "rationale": "prototype の palette-footer (↑↓ 移動 / Enter 開く) と selected クラス + aria-selected 契約の最小実装。"
     }
   ],
-  "review_decisions": [],
+  "review_decisions": [
+    {
+      "id": "R1",
+      "decision": "setOpenDoc で seek を毎回リセットする",
+      "rationale": "Editor 再マウント時 (ノート削除→別ノートを開く等) に古い seek が seekAppliedRef=0 の新インスタンスで再適用され、無関係なノートで該当行へカーソルが飛ぶバグをレビューで検出。openNoteAtLine は setOpenDoc の後に setSeek するため全文ヒットの動作は不変。"
+    },
+    {
+      "id": "R2",
+      "decision": "SearchPalette のエラーを searchError / notesError に分離",
+      "rationale": "GET /api/notes 失敗の表示が、後続の GET /api/search 成功 (setError(null)) で消され、ノート名セクションの欠落が黙殺されるバグをレビューで検出。表示は searchError ?? notesError。"
+    }
+  ],
   "done_judgment": null
 }

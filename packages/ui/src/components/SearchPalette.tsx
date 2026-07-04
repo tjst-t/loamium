@@ -87,7 +87,10 @@ export function SearchPalette({
   const [fulltext, setFulltext] = useState<FulltextHit[]>([]);
   /** 全文検索を完了した最後のクエリ (空結果表示のゲート — デバウンス中のフリッカー防止) */
   const [searchedQuery, setSearchedQuery] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  /** GET /api/search の失敗。検索成功でクリアされる */
+  const [searchError, setSearchError] = useState<string | null>(null);
+  /** GET /api/notes (ノート名セクション) の失敗。検索成功では消さない (レビュー R2) */
+  const [notesError, setNotesError] = useState<string | null>(null);
   const [selected, setSelected] = useState(0);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -101,11 +104,14 @@ export function SearchPalette({
     let cancelled = false;
     api.listNotes().then(
       (res) => {
-        if (!cancelled) setNotes(res.notes);
+        if (!cancelled) {
+          setNotes(res.notes);
+          setNotesError(null);
+        }
       },
       (err: unknown) => {
         if (!cancelled) {
-          setError(
+          setNotesError(
             `ノート一覧を取得できませんでした — ${err instanceof ApiError ? err.message : String(err)}`,
           );
         }
@@ -123,13 +129,13 @@ export function SearchPalette({
         if (seq !== searchSeqRef.current) return; // 古い応答は捨てる
         setFulltext(res.results.filter((r): r is FulltextHit => r.line !== null));
         setSearchedQuery(q);
-        setError(null);
+        setSearchError(null);
       },
       (err: unknown) => {
         if (seq !== searchSeqRef.current) return;
         setFulltext([]);
         setSearchedQuery(q);
-        setError(
+        setSearchError(
           `全文検索に失敗しました — ${err instanceof ApiError ? err.message : String(err)}`,
         );
       },
@@ -145,7 +151,7 @@ export function SearchPalette({
         searchSeqRef.current += 1; // 入力途中の応答も無効化
         setFulltext([]);
         setSearchedQuery('');
-        setError(null);
+        setSearchError(null);
         return;
       }
       debounceRef.current = setTimeout(() => {
@@ -261,6 +267,7 @@ export function SearchPalette({
   );
 
   const trimmed = query.trim();
+  const error = searchError ?? notesError;
   const showEmpty =
     trimmed.length > 0 &&
     items.length === 0 &&

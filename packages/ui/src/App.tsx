@@ -233,6 +233,10 @@ export function App(): JSX.Element {
     docRef.current = next;
     setDoc(next);
     setDirty(false);
+    // ドキュメントを開き直すたびにカーソル移動指示をリセットする。Editor の
+    // 再マウント時に古い seek が再適用されるのを防ぐ (レビュー R1)。
+    // openNoteAtLine は setOpenDoc の後に setSeek するため、全文ヒットでは上書きされる。
+    setSeek(null);
   }, []);
 
   const openNotePath = useCallback(
