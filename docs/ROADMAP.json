@@ -1230,51 +1230,51 @@
       }
     },
     "Seac77a": {
-      "title": "アセット/ファイル一覧ページ",
+      "title": "ファイル/フォルダブラウザ(ノート・アセット一覧)",
       "status": "pending",
-      "description": "assets/ をはじめとする非ノートファイルを管理するページ(ルート)。一覧・検索・削除・パスコピー・プレビューができ、ノートから参照が消えて辿れなくなったファイルもここから到達できる。サイドバー(Sf1a90a-3)の『すべて表示』の遷移先。",
+      "description": "vault 全体を管理するページ(ルート)。フォルダツリーを辿ってノートも非ノートファイル(assets 等)も閲覧でき、一覧・検索・削除・パスコピー・プレビューができる。UI シェル刷新(Sf1a90a)でサイドバーが直近 N 件に絞られた分、フォルダ横断の閲覧はここが担う。サイドバー『すべて表示』の遷移先。",
       "milestone": false,
       "stories": {
         "Seac77a-1": {
-          "title": "ファイル管理ページ",
+          "title": "ファイル/フォルダブラウザページ",
           "status": "pending",
           "user_review_required": false,
           "review_reason": null,
-          "user_story": "ノート利用者として、アップロードしたファイルを一覧・検索・削除・パスコピーできるページが欲しい。なぜなら、ノートからリンクを消すと参照が辿れなくなり、増えたファイルを管理する場所が要るから。",
+          "user_story": "ノート利用者として、フォルダを辿ってノートもアップロードファイルも一覧・検索・削除・パスコピーできるページが欲しい。なぜなら、サイドバーは直近 N 件に絞られており、フォルダ横断で全ノート・全ファイルを見渡して管理する場所が要るから。",
           "acceptance_criteria": [
             {
               "id": "AC-Seac77a-1-1",
-              "description": "ファイル一覧ページで vault 内の非ノートファイル(assets 等)が名前・サイズ・更新日時付きで一覧表示され、名前で絞り込める",
+              "description": "ファイル/フォルダブラウザでフォルダツリーを辿れ、ノート(.md)と非ノートファイル(assets 等)の両方が名前・サイズ・更新日時付きで一覧表示され、名前で絞り込める",
               "test": "[AC-Seac77a-1-1] in tests/acceptance/files-list.spec.ts",
               "status": "pending"
             },
             {
               "id": "AC-Seac77a-1-2",
-              "description": "各ファイルをプレビューでき、vault 相対パス(![[...]] 用)をコピーでき、削除できる(削除は確認あり・監査ログ記録)",
+              "description": "ノートをクリックするとエディタで開き、非ノートファイルはプレビューでき、いずれも vault 相対パス(![[...]]/[[...]] 用)をコピーでき、削除できる(削除は確認あり・監査ログ記録)",
               "test": "[AC-Seac77a-1-2] in packages/ui/tests/e2e/files-page.e2e.spec.ts",
               "status": "pending"
             },
             {
               "id": "AC-Seac77a-1-3",
-              "description": "ツリーのアセットフォルダをクリックするとこのページに遷移する",
+              "description": "サイドバーの『すべて表示』およびツリーのフォルダクリックからこのページに遷移でき、履歴(戻る/進む)に積まれる",
               "test": "[AC-Seac77a-1-3] in packages/ui/tests/e2e/files-page.e2e.spec.ts",
               "status": "pending"
             }
           ],
           "tasks": {
             "Seac77a-1-1": {
-              "title": "一覧 API 拡張",
-              "description": "GET /api/files の一覧に size/mtime/種別を含める(必要なら)。非ノート抽出。受け入れテスト。",
+              "title": "一覧 API(ノート+ファイル)",
+              "description": "フォルダ単位で子(サブフォルダ・ノート・ファイル)を size/mtime/種別付きで返す。既存 /api/notes と /api/files を統合 or 新エンドポイント。受け入れテスト。",
               "status": "pending"
             },
             "Seac77a-1-2": {
-              "title": "ファイル管理ページ UI",
-              "description": "一覧・絞り込み・プレビュー・パスコピー・削除(確認ダイアログ)。Seac77a はルートとして遷移。",
+              "title": "ブラウザページ UI",
+              "description": "フォルダツリー + 一覧・絞り込み・プレビュー・パスコピー・削除(確認ダイアログ)。ノートはエディタへ、ファイルはプレビュー。ルートとして遷移し履歴に積む。",
               "status": "pending"
             },
             "Seac77a-1-3": {
               "title": "二層テスト",
-              "description": "mock(削除確認・空)+ E2E(実削除→一覧反映、[AC-] タグ)。",
+              "description": "mock(削除確認・空)+ E2E(フォルダ横断閲覧・実削除→一覧反映、[AC-] タグ)。",
               "status": "pending"
             }
           }
