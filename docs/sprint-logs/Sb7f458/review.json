@@ -1,0 +1,17 @@
+{
+  "milestone": "final (post Sb7f458)",
+  "reviewed_at": "2026-07-04",
+  "triggered_by": "milestone_review",
+  "requests": [
+    {"id":1,"summary":"ターミナル(既定 claude)がタブで動かない・即切断","class":"1_ac_violation","routed_to":"Sf1a90a-2(右サイドバー移設と併せて既定 claude 起動を修正)","note":"Sb7f458 のターミナルタブ実装は Sf1a90a で右サイドバーへ置換されるため、Sb7f458 の再オープンではなく新 Sprint で対応。診断: claude は node-pty 内で即死せず信頼プロンプトで待機する(再現確認済み)。切断は起動環境固有のため実サーバーで smoke して修正する。"},
+    {"id":2,"summary":"検索の2モード化(詳細検索ページ:条件変更・検索履歴・一覧保持)","class":"3_new_scope","routed_to":"S935867"},
+    {"id":3,"summary":"アセット/ファイル一覧ページ(検索・削除・パスコピー)+サイドバーは直近N件","class":"3_new_scope","routed_to":"Seac77a(一覧ページ)+ Sf1a90a-3(直近N件表示)"},
+    {"id":4,"summary":"/ スラッシュコマンドメニュー(テーブル等の挿入)","class":"3_new_scope","routed_to":"S763a98"},
+    {"id":5,"summary":"タブUI廃止+ブラウザ的な戻る/進む+Claudeを右サイドバー化","class":"4_direction_change","routed_to":"Sf1a90a(UIシェル刷新)+ DESIGN_PRINCIPLES ui_ux に新原則を追加","note":"DESIGN/ 不在のため sprint roadmap 相当の拡張。#1-#4 の実装形を規定する土台のため先頭に配置。"}
+  ],
+  "roadmap_changes": {
+    "added_sprints": ["Sf1a90a","S935867","Seac77a","S763a98"],
+    "milestone_moved_to": "S763a98",
+    "principles_updated": ["ui_ux: ブラウザ的ルーティング/タブ非採用","ui_ux: Claude は右サイドバー","ui_ux: スラッシュメニュー"]
+  }
+}

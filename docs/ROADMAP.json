@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": null,
-    "total": 11,
+    "current_sprint": "Sf1a90a",
+    "total": 15,
     "done": 11,
     "in_progress": 0,
-    "remaining": 0,
-    "percentage": 100
+    "remaining": 4,
+    "percentage": 73
   },
   "execution_order": [
     "Sd63ad1",
@@ -20,7 +20,11 @@
     "S9e5ca4",
     "Sf53ad6",
     "Sb1593c",
-    "Sb7f458"
+    "Sb7f458",
+    "Sf1a90a",
+    "S935867",
+    "Seac77a",
+    "S763a98"
   ],
   "sprints": {
     "Sd63ad1": {
@@ -246,7 +250,7 @@
       "title": "CLI と Skill — エージェント統合",
       "status": "done",
       "description": "REST API を叩く薄い CLI(loamium)と claude-skills 形式の Skill。エンドポイントとコマンドは 1:1。これで『エージェントからノートを操作する』という独自価値が完成する。",
-      "milestone": true,
+      "milestone": false,
       "stories": {
         "S0c9a48-1": {
           "title": "loamium CLI",
@@ -486,7 +490,7 @@
       "title": "リンク機構 — オートコンプリートとバックリンクパネル",
       "status": "done",
       "description": "[[リンク]] のオートコンプリート、バックリンクパネル、リネーム時のリンク追従。ノート間のネットワークを UI で完成させ、MVP スコープを締める。",
-      "milestone": true,
+      "milestone": false,
       "stories": {
         "S6fbf45-1": {
           "title": "[[リンク]] オートコンプリート",
@@ -855,7 +859,7 @@
       "title": "アプリ内 Claude Code タブ",
       "status": "done",
       "description": "UI のタブ内で TUI 版 Claude Code(等の CLI)を動かす。サーバーに WebSocket + node-pty ブリッジ、フロントに xterm.js。pty は任意コマンド実行になるため、デフォルト無効・LOAMIUM_TERMINAL=1 かつ full モード時のみ有効という明示オプトイン(SPEC §6)。",
-      "milestone": true,
+      "milestone": false,
       "stories": {
         "Sb7f458-1": {
           "title": "pty ブリッジ(WebSocket + node-pty)",
@@ -1059,6 +1063,275 @@
           }
         }
       }
+    },
+    "Sf1a90a": {
+      "title": "UI シェル刷新 — ルーティングと右サイドバー",
+      "status": "pending",
+      "description": "タブ方式を廃止し、ブラウザ的ルーティング(戻る/進む対応)に作り替える。メインは常に 1 画面で、ノート/検索/アセット等をルートとして遷移する。Claude(ターミナル)は右サイドバーのトグル機能へ移設し、旧タブ実装(Sb7f458)を置換する。既定 claude が対話可能な状態まで到達しないバグ(milestone review ①)もここで解消する。",
+      "milestone": false,
+      "stories": {
+        "Sf1a90a-1": {
+          "title": "ルーティングと戻る/進む",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、ノート・検索・アセット等の画面をブラウザの戻る/進むで行き来したい。なぜなら、タブを開きすぎずに、見て回った経路を自然に辿れることが日常操作の快適さを決めるから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sf1a90a-1-1",
+              "description": "ノートを開く/検索/アセット等の画面遷移が履歴(History API)に積まれ、ブラウザおよび UI の戻る/進むボタンで前後に移動できる",
+              "test": "[AC-Sf1a90a-1-1] in packages/ui/tests/e2e/routing.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sf1a90a-1-2",
+              "description": "メインビューは常に 1 画面(タブなし)で、開いているノートがルート(URL)に反映され、リロードしても同じノートに戻る",
+              "test": "[AC-Sf1a90a-1-2] in packages/ui/tests/e2e/routing.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sf1a90a-1-3",
+              "description": "[[リンク]]・バックリンク・検索結果・embed からの遷移がすべて履歴に積まれ、戻るで直前のノートに戻れる",
+              "test": "[AC-Sf1a90a-1-3] in packages/ui/tests/e2e/routing.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sf1a90a-1-1": {
+              "title": "ルーター導入",
+              "description": "History API ベースの軽量ルーティング(ノート=/n/{path}、検索・アセット等のルート)。既存のノート遷移をすべてルーター経由に統一。",
+              "status": "pending"
+            },
+            "Sf1a90a-1-2": {
+              "title": "戻る/進む UI とタブ撤去",
+              "description": "ヘッダに戻る/進むボタン。旧タブ UI を撤去し 1 画面化。未保存変更の遷移ガード。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sf1a90a-2": {
+          "title": "Claude を右サイドバーのトグルへ移設(+ 既定コマンド修正)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、ノートを見ながら右サイドバーで Claude と対話したい。なぜなら、ターミナルを別タブにすると 1 画面しか見られず、ノートと対話を往復できないから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sf1a90a-2-1",
+              "description": "右サイドバーがバックリンクと Claude(ターミナル)をトグルで切り替えられ、Claude 表示中もメインのノートが見える",
+              "test": "[AC-Sf1a90a-2-1] in packages/ui/tests/e2e/claude-sidebar.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sf1a90a-2-2",
+              "description": "LOAMIUM_TERMINAL=1 + full モードのとき、右サイドバーの Claude で既定コマンド(claude)が対話可能な状態(信頼プロンプト等の初期表示を含む)まで到達し、実シェル指定では入出力が双方向に流れる。無効時は理由と有効化手順を表示",
+              "test": "[AC-Sf1a90a-2-2] in packages/ui/tests/e2e/claude-sidebar.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sf1a90a-2-3",
+              "description": "起動失敗・即終了時はサイドバー内に終了コードと再接続導線が表示され、既存の三重ガード+Origin 検証は維持される",
+              "test": "[AC-Sf1a90a-2-3] in packages/ui/tests/e2e/claude-sidebar.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sf1a90a-2-1": {
+              "title": "右サイドバー統合",
+              "description": "バックリンクパネルと Claude を同じ右サイドバーのトグルに。旧ターミナルタブ(Sb7f458-2)を置換。xterm セッションはサイドバー開閉で維持。",
+              "status": "pending"
+            },
+            "Sf1a90a-2-2": {
+              "title": "既定 claude 起動の修正",
+              "description": "node-pty 起動時の env/TERM/cwd を見直し、既定 claude が到達可能に(信頼プロンプト応答 or 起動失敗の明示表示)。実サーバーで手動 smoke。",
+              "status": "pending"
+            },
+            "Sf1a90a-2-3": {
+              "title": "二層テスト",
+              "description": "mock(無効状態・切断・spawn 失敗)+ E2E(実シェルで双方向 I/O、[AC-] タグ)。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sf1a90a-3": {
+          "title": "サイドバーツリーの直近ファイル表示",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、サイドバーには最近使ったファイルだけを出し、全部は別ページで見たい。なぜなら、ファイルが増えるとサイドバーに全件出るのは破綻するから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sf1a90a-3-1",
+              "description": "サイドバーのファイル一覧は直近更新の N 件(既定 10)に絞られ、「すべて表示」からアセット/ファイル一覧ページ(Seac77a で実装)に遷移できる",
+              "test": "[AC-Sf1a90a-3-1] in packages/ui/tests/e2e/sidebar-recent.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sf1a90a-3-1": {
+              "title": "直近 N 件表示",
+              "description": "ツリー/一覧を mtime 順の直近 N 件に。フォルダ展開時の挙動と「すべて表示」導線。",
+              "status": "pending"
+            }
+          }
+        }
+      }
+    },
+    "S935867": {
+      "title": "検索の2モード化 — 詳細検索ページ",
+      "status": "pending",
+      "description": "現状の Cmd+K ポップアップ(素早いジャンプ用)は残しつつ、腰を据えて探し回るための詳細検索ページ(ルート)を追加する。検索条件(タグ・フォルダ・種別など)を変えられ、検索履歴が見られ、結果一覧から複数ノートを行き来できる。",
+      "milestone": false,
+      "stories": {
+        "S935867-1": {
+          "title": "詳細検索ページ",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、同じキーワードで複数ノートを見て回るとき、条件を変えながら結果一覧を保てる検索ページを使いたい。なぜなら、ポップアップは 1 件開くと閉じてしまい、探索的な調べ物には不便だから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S935867-1-1",
+              "description": "検索ルートで全文/タグ/フォルダ等の条件を指定して検索でき、結果一覧を開いたまま複数の結果を順に閲覧できる(ポップアップのように閉じない)",
+              "test": "[AC-S935867-1-1] in packages/ui/tests/e2e/search-page.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S935867-1-2",
+              "description": "検索条件がルート(URL)に反映され、戻る/進むとブックマークで同じ検索を再現できる",
+              "test": "[AC-S935867-1-2] in packages/ui/tests/e2e/search-page.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S935867-1-3",
+              "description": "最近の検索履歴が表示され、クリックで同じ検索を再実行できる",
+              "test": "[AC-S935867-1-3] in packages/ui/tests/e2e/search-page.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S935867-1-1": {
+              "title": "検索ページ UI",
+              "description": "結果一覧(閲覧中もリスト保持)+ 条件フォーム(全文・タグ・フォルダ・並び)。既存 /api/search・/api/notes を利用。",
+              "status": "pending"
+            },
+            "S935867-1-2": {
+              "title": "URL 同期と履歴",
+              "description": "検索条件を URL クエリに同期。検索履歴は localStorage に保持しクリックで再実行。",
+              "status": "pending"
+            },
+            "S935867-1-3": {
+              "title": "二層テスト",
+              "description": "mock + E2E([AC-] タグ)。Cmd+K ポップアップとの共存(ポップアップに『詳細検索を開く』導線)。",
+              "status": "pending"
+            }
+          }
+        }
+      }
+    },
+    "Seac77a": {
+      "title": "アセット/ファイル一覧ページ",
+      "status": "pending",
+      "description": "assets/ をはじめとする非ノートファイルを管理するページ(ルート)。一覧・検索・削除・パスコピー・プレビューができ、ノートから参照が消えて辿れなくなったファイルもここから到達できる。サイドバー(Sf1a90a-3)の『すべて表示』の遷移先。",
+      "milestone": false,
+      "stories": {
+        "Seac77a-1": {
+          "title": "ファイル管理ページ",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、アップロードしたファイルを一覧・検索・削除・パスコピーできるページが欲しい。なぜなら、ノートからリンクを消すと参照が辿れなくなり、増えたファイルを管理する場所が要るから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Seac77a-1-1",
+              "description": "ファイル一覧ページで vault 内の非ノートファイル(assets 等)が名前・サイズ・更新日時付きで一覧表示され、名前で絞り込める",
+              "test": "[AC-Seac77a-1-1] in tests/acceptance/files-list.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Seac77a-1-2",
+              "description": "各ファイルをプレビューでき、vault 相対パス(![[...]] 用)をコピーでき、削除できる(削除は確認あり・監査ログ記録)",
+              "test": "[AC-Seac77a-1-2] in packages/ui/tests/e2e/files-page.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-Seac77a-1-3",
+              "description": "ツリーのアセットフォルダをクリックするとこのページに遷移する",
+              "test": "[AC-Seac77a-1-3] in packages/ui/tests/e2e/files-page.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Seac77a-1-1": {
+              "title": "一覧 API 拡張",
+              "description": "GET /api/files の一覧に size/mtime/種別を含める(必要なら)。非ノート抽出。受け入れテスト。",
+              "status": "pending"
+            },
+            "Seac77a-1-2": {
+              "title": "ファイル管理ページ UI",
+              "description": "一覧・絞り込み・プレビュー・パスコピー・削除(確認ダイアログ)。Seac77a はルートとして遷移。",
+              "status": "pending"
+            },
+            "Seac77a-1-3": {
+              "title": "二層テスト",
+              "description": "mock(削除確認・空)+ E2E(実削除→一覧反映、[AC-] タグ)。",
+              "status": "pending"
+            }
+          }
+        }
+      }
+    },
+    "S763a98": {
+      "title": "スラッシュコマンドメニュー(/ 挿入)",
+      "status": "pending",
+      "description": "エディタで / を入力すると、対応機能を挿入できるコンテキストメニューを出す(LogSeq/Notion 風)。テーブル・callout・コードフェンス・mermaid・dataview・チェックボックス・日付など、標準 Markdown の挿入を機能を暗記せず行えるようにする。生成するのはすべてピュア Markdown。",
+      "milestone": true,
+      "stories": {
+        "S763a98-1": {
+          "title": "スラッシュメニュー",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、/ を打つだけで挿入できる機能の一覧から選びたい。なぜなら、テーブルや callout の記法を暗記していなくても素早く挿入できることが書く速度を決めるから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S763a98-1-1",
+              "description": "行頭または空白後で / を入力するとコマンドメニューが開き、入力で絞り込め、↑↓/Enter・クリックで選択できる(Esc で閉じる)",
+              "test": "[AC-S763a98-1-1] in packages/ui/tests/e2e/slash-menu.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S763a98-1-2",
+              "description": "テーブル・callout・コードフェンス・mermaid・dataview・チェックボックス・見出し・日付などが挿入でき、挿入結果は標準 Markdown で、カーソルが編集開始位置に置かれる",
+              "test": "[AC-S763a98-1-2] in packages/ui/tests/e2e/slash-menu.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S763a98-1-3",
+              "description": "コードフェンス内・インラインコード内では / メニューが発火しない",
+              "test": "[AC-S763a98-1-3] in packages/ui/tests/e2e/slash-menu.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S763a98-1-1": {
+              "title": "スラッシュメニュー拡張",
+              "description": "CodeMirror の / トリガーでメニュー表示(絞り込み・キーボードナビ)。コードフェンス/インラインコード内は抑制。",
+              "status": "pending"
+            },
+            "S763a98-1-2": {
+              "title": "挿入コマンド定義",
+              "description": "各コマンドのスニペット(テーブル雛形・callout・fence 各種・日付等)。挿入後のカーソル位置。既存の 3 レジストリ対応記法と整合。",
+              "status": "pending"
+            },
+            "S763a98-1-3": {
+              "title": "二層テスト",
+              "description": "mock + E2E([AC-] タグ)。",
+              "status": "pending"
+            }
+          }
+        }
+      }
     }
   },
   "dependencies": {
@@ -1123,6 +1396,33 @@
         "S9e5ca4"
       ],
       "reason": "アップロードは S9e5ca4 のファイル配信(GET /api/files)と embed block rule の上に載る"
+    },
+    "Sf1a90a": {
+      "depends_on": [
+        "Sb7f458"
+      ],
+      "reason": "ターミナルタブ(Sb7f458)を右サイドバーへ置換し、UI シェルを刷新する"
+    },
+    "S935867": {
+      "depends_on": [
+        "Sf1a90a",
+        "Sbd061c"
+      ],
+      "reason": "詳細検索ページはルーティング(Sf1a90a)と検索基盤(Sbd061c)の上に載る"
+    },
+    "Seac77a": {
+      "depends_on": [
+        "Sf1a90a",
+        "Sf53ad6"
+      ],
+      "reason": "ファイル管理ページはルーティングとアップロード/配信(Sf53ad6)を使う"
+    },
+    "S763a98": {
+      "depends_on": [
+        "S9e5ca4",
+        "Sb1593c"
+      ],
+      "reason": "挿入する記法(callout/dataview 等)が実装済みであること"
     }
   },
   "backlog": [
