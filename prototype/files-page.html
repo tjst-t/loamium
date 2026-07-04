@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loamium — アセット/ファイル一覧ページ</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- ================= 左: サイドバー ================= -->
+  <aside class="sidebar" data-testid="sidebar">
+    <div class="sidebar-header">
+      <div class="vault-badge">L</div>
+      <div class="vault-name">loamium-notes</div>
+      <button class="icon-btn" data-testid="sidebar-search" title="検索 (Ctrl+K)">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.4"/><path d="M10.4 10.4L14 14"/></svg>
+      </button>
+      <button class="icon-btn" data-testid="sidebar-settings" title="設定">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4"/></svg>
+      </button>
+    </div>
+
+    <nav class="journal-nav" data-testid="journal-nav" aria-label="ジャーナル日付ナビゲーション">
+      <div class="journal-nav-label">Daily Journal</div>
+      <div class="journal-nav-row">
+        <button class="icon-btn" data-testid="journal-prev" title="前日のジャーナルへ"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg></button>
+        <button class="journal-date-btn" data-testid="journal-today" title="今日のジャーナルを開く">2026-07-04<span class="dow">土</span></button>
+        <button class="icon-btn" data-testid="journal-next" title="翌日のジャーナルへ"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg></button>
+        <button class="icon-btn" data-testid="journal-open-list" title="ジャーナル一覧"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2.5 4h11M2.5 8h11M2.5 12h11"/></svg></button>
+      </div>
+    </nav>
+
+    <div class="tree-section-title">
+      <span>直近のファイル <span class="recent-hint">10 件</span></span>
+    </div>
+    <div class="tree" data-testid="file-tree">
+      <button class="tree-item" data-testid="tree-item" data-path="projects/Hydra 設計メモ.md">
+        <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+        <span class="name">Hydra 設計メモ</span>
+      </button>
+      <!-- ツリーの assets フォルダをクリックするとこのページへ (AC-Seac77a-1-3) -->
+      <button class="tree-item active" data-testid="tree-folder" data-path="assets" title="クリックでファイル一覧ページを開く">
+        <svg class="chev closed" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        <span class="name">assets</span>
+      </button>
+    </div>
+    <div class="tree-section-title" style="margin-top: 6px; border-top: 1px solid var(--border); padding-top: 12px;">
+      <span></span>
+      <a class="show-all" href="files-page.html" data-testid="sidebar-show-all" role="button">すべてのファイルを表示 →</a>
+    </div>
+  </aside>
+
+  <!-- ================= 中央: ファイル一覧ページ(ルート = /files) ================= -->
+  <main class="workspace">
+    <div class="editor-header">
+      <div class="nav-group">
+        <button class="nav-btn" data-testid="nav-back" title="戻る"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg></button>
+        <button class="nav-btn" data-testid="nav-forward" disabled title="進む"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg></button>
+      </div>
+      <nav class="route-crumbs" data-testid="route-display" aria-label="現在のルート">
+        <span class="route-token">/files</span>
+        <span class="sep">/</span><span class="current">アセット・ファイル一覧</span>
+      </nav>
+    </div>
+
+    <div class="files-page">
+      <div class="files-toolbar">
+        <div class="files-filter-wrap">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.4"/><path d="M10.4 10.4L14 14"/></svg>
+          <input type="text" data-testid="files-filter" placeholder="名前で絞り込み(例: .png, report)">
+        </div>
+        <span class="files-count" data-testid="files-count">6 件のファイル · 合計 27.4 MB</span>
+      </div>
+
+      <div class="files-main">
+        <div class="files-list-col">
+          <table class="files-table" data-testid="files-list">
+            <thead>
+              <tr>
+                <th>名前</th>
+                <th class="col-kind">種別</th>
+                <th class="col-size">サイズ</th>
+                <th class="col-mtime">更新日時</th>
+                <th style="text-align:right;">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="active" data-testid="file-row" data-path="assets/network-topology.png">
+                <td><div class="fn-cell"><span class="fn-ico ico-img"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.8" y="2.8" width="12.4" height="10.4" rx="1.5"/><circle cx="5.5" cy="6.2" r="1.3"/><path d="M2.5 11l3.5-3 3 2.5 2-1.8 2.5 2.3"/></svg></span><span class="fn-name">network-topology.png</span></div></td>
+                <td class="col-kind">PNG 画像</td>
+                <td class="col-size">1.2 MB</td>
+                <td class="col-mtime">2026-07-04 08:51</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="row-act-btn" data-testid="file-preview-btn" title="プレビュー"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 8s2.6-4.5 7-4.5S15 8 15 8s-2.6 4.5-7 4.5S1 8 1 8z"/><circle cx="8" cy="8" r="2"/></svg></button>
+                    <button class="row-act-btn" data-testid="file-copy-path" title="![[...]] 用パスをコピー"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M11 5V3.5A1.5 1.5 0 009.5 2H3.5A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5"/></svg></button>
+                    <button class="row-act-btn danger" data-testid="file-delete-btn" title="削除"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 4h10M6 4V2.8h4V4M4.5 4l.7 9h5.6l.7-9"/></svg></button>
+                  </div>
+                </td>
+              </tr>
+              <tr data-testid="file-row" data-path="assets/migration-plan.pdf">
+                <td><div class="fn-cell"><span class="fn-ico ico-pdf"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg></span><span class="fn-name">migration-plan.pdf</span></div></td>
+                <td class="col-kind">PDF 文書</td>
+                <td class="col-size">842 KB</td>
+                <td class="col-mtime">2026-07-03 22:10</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="row-act-btn" data-testid="file-preview-btn" title="プレビュー"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 8s2.6-4.5 7-4.5S15 8 15 8s-2.6 4.5-7 4.5S1 8 1 8z"/><circle cx="8" cy="8" r="2"/></svg></button>
+                    <button class="row-act-btn" data-testid="file-copy-path" title="![[...]] 用パスをコピー"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M11 5V3.5A1.5 1.5 0 009.5 2H3.5A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5"/></svg></button>
+                    <button class="row-act-btn danger" data-testid="file-delete-btn" title="削除"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 4h10M6 4V2.8h4V4M4.5 4l.7 9h5.6l.7-9"/></svg></button>
+                  </div>
+                </td>
+              </tr>
+              <tr data-testid="file-row" data-path="assets/capacity.csv">
+                <td><div class="fn-cell"><span class="fn-ico ico-data"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M2 6h12M6 6v7.5M10 2.5v11"/></svg></span><span class="fn-name">capacity.csv</span></div></td>
+                <td class="col-kind">CSV データ</td>
+                <td class="col-size">18 KB</td>
+                <td class="col-mtime">2026-07-03 15:33</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="row-act-btn" data-testid="file-preview-btn" title="プレビュー"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 8s2.6-4.5 7-4.5S15 8 15 8s-2.6 4.5-7 4.5S1 8 1 8z"/><circle cx="8" cy="8" r="2"/></svg></button>
+                    <button class="row-act-btn" data-testid="file-copy-path" title="![[...]] 用パスをコピー"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M11 5V3.5A1.5 1.5 0 009.5 2H3.5A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5"/></svg></button>
+                    <button class="row-act-btn danger" data-testid="file-delete-btn" title="削除"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 4h10M6 4V2.8h4V4M4.5 4l.7 9h5.6l.7-9"/></svg></button>
+                  </div>
+                </td>
+              </tr>
+              <tr data-testid="file-row" data-path="assets/backup.log">
+                <td><div class="fn-cell"><span class="fn-ico ico-data"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/><path d="M5.6 8h5M5.6 10.4h3.4"/></svg></span><span class="fn-name">backup.log</span></div></td>
+                <td class="col-kind">ログ</td>
+                <td class="col-size">204 KB</td>
+                <td class="col-mtime">2026-07-02 03:00</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="row-act-btn" data-testid="file-preview-btn" title="プレビュー"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 8s2.6-4.5 7-4.5S15 8 15 8s-2.6 4.5-7 4.5S1 8 1 8z"/><circle cx="8" cy="8" r="2"/></svg></button>
+                    <button class="row-act-btn" data-testid="file-copy-path" title="![[...]] 用パスをコピー"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M11 5V3.5A1.5 1.5 0 009.5 2H3.5A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5"/></svg></button>
+                    <button class="row-act-btn danger" data-testid="file-delete-btn" title="削除"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 4h10M6 4V2.8h4V4M4.5 4l.7 9h5.6l.7-9"/></svg></button>
+                  </div>
+                </td>
+              </tr>
+              <tr data-testid="file-row" data-path="assets/logo.svg">
+                <td><div class="fn-cell"><span class="fn-ico ico-img"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.8" y="2.8" width="12.4" height="10.4" rx="1.5"/><circle cx="5.5" cy="6.2" r="1.3"/><path d="M2.5 11l3.5-3 3 2.5 2-1.8 2.5 2.3"/></svg></span><span class="fn-name">logo.svg</span></div></td>
+                <td class="col-kind">SVG 画像</td>
+                <td class="col-size">6 KB</td>
+                <td class="col-mtime">2026-06-28 12:44</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="row-act-btn" data-testid="file-preview-btn" title="プレビュー"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 8s2.6-4.5 7-4.5S15 8 15 8s-2.6 4.5-7 4.5S1 8 1 8z"/><circle cx="8" cy="8" r="2"/></svg></button>
+                    <button class="row-act-btn" data-testid="file-copy-path" title="![[...]] 用パスをコピー"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M11 5V3.5A1.5 1.5 0 009.5 2H3.5A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5"/></svg></button>
+                    <button class="row-act-btn danger" data-testid="file-delete-btn" title="削除"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 4h10M6 4V2.8h4V4M4.5 4l.7 9h5.6l.7-9"/></svg></button>
+                  </div>
+                </td>
+              </tr>
+              <tr data-testid="file-row" data-path="assets/rack-photo.jpg">
+                <td><div class="fn-cell"><span class="fn-ico ico-img"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1.8" y="2.8" width="12.4" height="10.4" rx="1.5"/><circle cx="5.5" cy="6.2" r="1.3"/><path d="M2.5 11l3.5-3 3 2.5 2-1.8 2.5 2.3"/></svg></span><span class="fn-name">rack-photo.jpg</span></div></td>
+                <td class="col-kind">JPEG 画像</td>
+                <td class="col-size">25.1 MB</td>
+                <td class="col-mtime">2026-06-25 19:02</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="row-act-btn" data-testid="file-preview-btn" title="プレビュー"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 8s2.6-4.5 7-4.5S15 8 15 8s-2.6 4.5-7 4.5S1 8 1 8z"/><circle cx="8" cy="8" r="2"/></svg></button>
+                    <button class="row-act-btn" data-testid="file-copy-path" title="![[...]] 用パスをコピー"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M11 5V3.5A1.5 1.5 0 009.5 2H3.5A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5"/></svg></button>
+                    <button class="row-act-btn danger" data-testid="file-delete-btn" title="削除"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 4h10M6 4V2.8h4V4M4.5 4l.7 9h5.6l.7-9"/></svg></button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 選択ファイルのプレビューペイン -->
+        <aside class="files-preview-pane" data-testid="files-preview-pane">
+          <div class="files-preview-head">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" style="width:14px;height:14px;color:var(--text-faint);"><rect x="1.8" y="2.8" width="12.4" height="10.4" rx="1.5"/><circle cx="5.5" cy="6.2" r="1.3"/><path d="M2.5 11l3.5-3 3 2.5 2-1.8 2.5 2.3"/></svg>
+            network-topology.png
+            <button class="icon-btn fp-close" data-testid="files-preview-close" title="プレビューを閉じる"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
+          </div>
+          <div class="files-preview-body">
+            <ul class="fp-meta-list">
+              <li><span class="k">パス</span><span class="v">assets/network-topology.png</span></li>
+              <li><span class="k">サイズ</span><span class="v">1.2 MB (1,258,301 B)</span></li>
+              <li><span class="k">更新</span><span class="v">2026-07-04 08:51</span></li>
+              <li><span class="k">参照</span><span class="v">2 ノートから ![[...]]</span></li>
+            </ul>
+            <div class="embed-image-wrap" style="margin-left:0;">
+              <svg class="as-img" width="100%" height="180" viewBox="0 0 340 180" font-family="sans-serif" font-size="11">
+                <rect width="340" height="180" fill="#fbfbfd"/>
+                <rect x="120" y="14" width="100" height="28" rx="5" fill="#f0edfb" stroke="#6e56cf"/>
+                <text x="170" y="32" text-anchor="middle" fill="#23242b">Router</text>
+                <line x1="170" y1="42" x2="170" y2="66" stroke="#6f7078"/>
+                <rect x="115" y="68" width="110" height="28" rx="5" fill="#fff" stroke="#6e56cf" stroke-width="1.5"/>
+                <text x="170" y="86" text-anchor="middle" fill="#23242b" font-weight="bold">Hydra</text>
+                <line x1="140" y1="96" x2="70" y2="128" stroke="#6f7078"/>
+                <line x1="200" y1="96" x2="270" y2="128" stroke="#6f7078"/>
+                <rect x="20" y="130" width="100" height="26" rx="5" fill="#fff" stroke="#c9c9d4"/>
+                <text x="70" y="147" text-anchor="middle" fill="#23242b">VM: loamium</text>
+                <rect x="220" y="130" width="100" height="26" rx="5" fill="#fff" stroke="#c9c9d4"/>
+                <text x="270" y="147" text-anchor="middle" fill="#23242b">LXC: dns</text>
+              </svg>
+              <div class="embed-image-caption">assets/network-topology.png</div>
+            </div>
+            <div class="file-embed-footer" style="border-top:none; padding-top:12px;">
+              <button class="open-full-btn" data-testid="file-copy-path"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M11 5V3.5A1.5 1.5 0 009.5 2H3.5A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5"/></svg>![[assets/network-topology.png]] をコピー</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+</div>
+
+<!-- 削除確認ダイアログ(確認あり・監査ログ記録) -->
+<div class="dialog-backdrop" id="delete-backdrop" data-testid="delete-dialog" style="display:none;">
+  <div class="dialog">
+    <h2>ファイルを削除</h2>
+    <p class="dialog-sub"><code style="font-family:var(--font-mono);">assets/network-topology.png</code> を削除します。この操作は取り消せません。</p>
+    <div class="link-update-note" style="display:flex;gap:8px;">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 2L1.8 13h12.4z"/><path d="M8 6.5v3M8 11.5h.01"/></svg>
+      <span>2 ノートがこのファイルを ![[...]] で参照しています。削除すると壊れ埋め込みになります。削除は <code style="font-family:var(--font-mono);">.loamium/audit.log</code> に記録されます。</span>
+    </div>
+    <div class="dialog-actions">
+      <button class="btn" data-testid="delete-cancel" onclick="closeDelete()">キャンセル</button>
+      <button class="btn primary" data-testid="delete-confirm" style="background:var(--danger);border-color:var(--danger);" onclick="closeDelete()">削除する</button>
+    </div>
+  </div>
+</div>
+
+<div class="proto-note" style="position: fixed; left: 18px; bottom: 14px; z-index: 130; margin: 0; max-width: 520px;">
+  <span class="tag">PROTO</span>
+  GET /api/files に size/mtime/種別 (AC-Seac77a-1-1)。名前絞り込み・プレビュー・パスコピー・削除(確認+監査ログ) (AC-Seac77a-1-2)。ツリーの assets フォルダからこのページへ (AC-Seac77a-1-3)。
+</div>
+
+<a class="proto-chip" href="index.html">← プロトタイプ一覧</a>
+
+<script>
+  const backdrop = document.getElementById('delete-backdrop');
+  document.querySelectorAll('[data-testid="file-delete-btn"]').forEach(b => {
+    b.addEventListener('click', (e) => { e.stopPropagation(); backdrop.style.display = 'flex'; });
+  });
+  function closeDelete() { backdrop.style.display = 'none'; }
+
+  // パスコピー: 一瞬チェックに変える
+  document.querySelectorAll('[data-testid="file-copy-path"]').forEach(b => {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      b.classList.add('copied-flash');
+      setTimeout(() => b.classList.remove('copied-flash'), 900);
+    });
+  });
+
+  // 行クリック / プレビュー: 選択ハイライト
+  document.querySelectorAll('[data-testid="file-row"]').forEach(row => {
+    row.addEventListener('click', () => {
+      document.querySelectorAll('[data-testid="file-row"]').forEach(r => r.classList.remove('active'));
+      row.classList.add('active');
+    });
+  });
+  document.querySelector('[data-testid="nav-back"]').addEventListener('click', () => history.back());
+</script>
+</body>
+</html>

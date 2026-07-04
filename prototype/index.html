@@ -28,6 +28,10 @@
       <span class="sprint-tag">Sf53ad6 — アップロードとプレビュー</span>
       <span class="sprint-tag">Sb1593c — dataview 風クエリ</span>
       <span class="sprint-tag milestone">Sb7f458 — Claude Code タブ [MILESTONE]</span>
+      <span class="sprint-tag">Sf1a90a — UI シェル刷新(ルーティング)</span>
+      <span class="sprint-tag">S935867 — 詳細検索ページ</span>
+      <span class="sprint-tag">Seac77a — ファイル一覧ページ</span>
+      <span class="sprint-tag milestone">S763a98 — / スラッシュメニュー [MILESTONE]</span>
     </div>
   </header>
 
@@ -135,6 +139,49 @@
       <h3>アプリ内 Claude Code タブ</h3>
       <p>エディタ / ターミナルのタブ切替、xterm.js 風ターミナル(Claude Code TUI のサンプル出力)、無効時の有効化手順(LOAMIUM_TERMINAL=1)、切断時の再接続バー。3 状態の切替デモ付き。</p>
       <span class="stories">Sb7f458-2</span>
+    </a>
+  </div>
+
+  <div class="index-section-title">
+    <span>Sprint 12-15(第3バッチ・UI シェル刷新)</span>
+    <span class="badge">タブ廃止 → ルーティング + 右サイドバー</span>
+    <span class="line"></span>
+  </div>
+
+  <div class="screen-grid">
+    <a class="screen-card" href="shell-routing.html">
+      <span class="num">14</span>
+      <h3>新シェル — ルーティングと戻る/進む</h3>
+      <p>上部タブを廃止。ヘッダに戻る/進むボタン + 現在ルート表示(<code>/n/…</code>)。左は直近ファイル N 件 +「すべて表示」、中央はメイン 1 画面、右は [バックリンク|Claude] トグル。開いたノートは URL に反映されリロードで復元。</p>
+      <span class="stories">Sf1a90a-1 / Sf1a90a-3</span>
+    </a>
+
+    <a class="screen-card" href="claude-sidebar.html">
+      <span class="num">15</span>
+      <h3>右サイドバーで Claude と対話</h3>
+      <p>右サイドバーの Claude トグルを選んだ状態。ノートを左に見ながら右で claude TUI と対話。無効時(有効化手順)・切断時(終了コード + 再接続)の 3 状態切替デモつき。</p>
+      <span class="stories">Sf1a90a-2</span>
+    </a>
+
+    <a class="screen-card" href="search-page.html">
+      <span class="num">16</span>
+      <h3>詳細検索ページ(ルート)</h3>
+      <p>全文キーワード・タグ・フォルダ・並び順の条件フォーム + 結果一覧(開いても閉じず複数閲覧)+ 検索履歴(クリックで再実行)。条件は URL に同期。Cmd+K ジャンプ用パレットとの棲み分けを明示。</p>
+      <span class="stories">S935867-1</span>
+    </a>
+
+    <a class="screen-card" href="files-page.html">
+      <span class="num">17</span>
+      <h3>アセット/ファイル一覧ページ(ルート)</h3>
+      <p>非ノートファイルの一覧(名前・サイズ・更新日時・種別アイコン)+ 名前絞り込み。各行に [プレビュー][パスコピー][削除]、削除確認ダイアログ(監査ログ記録)、選択ファイルのプレビューペイン。</p>
+      <span class="stories">Seac77a-1</span>
+    </a>
+
+    <a class="screen-card" href="slash-menu.html">
+      <span class="num">18</span>
+      <h3>/ スラッシュコマンドメニュー</h3>
+      <p><code>/</code> 入力で開くコマンドメニュー(絞り込み・↑↓選択)。テーブル / callout / コードフェンス / mermaid / dataview / チェックボックス / 見出し / 日付。挿入結果はピュア Markdown 雛形で、カーソルが編集開始位置に入る状態も併記。</p>
+      <span class="stories">S763a98-1 [MILESTONE]</span>
     </a>
   </div>
 

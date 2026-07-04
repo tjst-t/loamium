@@ -1635,3 +1635,480 @@ kbd {
   border-radius: 10px;
   padding: 1px 9px;
 }
+
+/* ==========================================================================
+   Sprint 12-15 (第3バッチ) 追加コンポーネント
+   Sf1a90a / S935867 / Seac77a / S763a98
+   UI シェル刷新: タブ廃止 → ブラウザ的ルーティング + 右サイドバートグル
+   ========================================================================== */
+
+/* ---- ルーティングヘッダ(戻る/進む + ルート表示) (Sf1a90a-1) --------------- */
+
+.nav-group { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.nav-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+.nav-btn:hover { background: var(--bg-hover); color: var(--text); }
+.nav-btn:disabled { color: var(--text-faint); opacity: 0.4; cursor: default; }
+.nav-btn:disabled:hover { background: none; }
+.nav-btn svg { width: 15px; height: 15px; }
+
+.route-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.route-crumbs .route-token {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 6px;
+  padding: 1px 7px;
+  flex-shrink: 0;
+}
+.route-crumbs .sep { color: var(--text-faint); }
+.route-crumbs .current { color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- サイドバー: 直近ファイル + すべて表示 (Sf1a90a-3) --------------------- */
+
+.tree-section-title .show-all {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  padding: 1px 7px;
+  border-radius: 6px;
+}
+.tree-section-title .show-all:hover { background: var(--accent-soft); }
+.recent-hint {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* ---- 右サイドバー トグル(バックリンク | Claude) (Sf1a90a-2) --------------- */
+
+.seg-toggle {
+  display: inline-flex;
+  background: var(--bg-hover);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+.seg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 11px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.seg-btn svg { width: 13px; height: 13px; }
+.seg-btn:hover { color: var(--text); }
+.seg-btn[aria-selected="true"] {
+  background: var(--bg-editor);
+  color: var(--accent);
+  box-shadow: 0 1px 2px rgba(20,20,35,0.08);
+}
+.seg-btn .live-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ok);
+}
+.seg-btn .live-dot.off { background: var(--text-faint); }
+
+/* Claude をサイドバー幅で表示するときのターミナル調整 */
+.panel .terminal-pane {
+  border-radius: 0;
+  padding: 12px 14px;
+  font-size: 12px;
+}
+.panel .terminal-pane .term-line { white-space: pre-wrap; }
+.panel .reconnect-bar { font-size: 11.5px; padding: 7px 12px; }
+.panel .setup-code { min-width: 0; font-size: 11px; padding: 12px 14px; }
+.claude-body { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.claude-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel);
+  font-size: 12px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+.claude-input-row .prompt { color: var(--accent); font-family: var(--font-mono); }
+
+/* 右サイドバーを少し広めに(Claude 表示時) */
+.panel.wide { width: 380px; }
+
+/* ---- 検索ページ(ルート) (S935867-1) ------------------------------------- */
+
+.search-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-editor);
+}
+.search-form {
+  display: grid;
+  grid-template-columns: 1fr 200px;
+  gap: 10px 14px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+.search-form .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.search-form .field.wide { grid-column: 1 / -1; }
+.search-form .field label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+.search-form input[type="text"],
+.search-form select {
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg-editor);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 7px 11px;
+  outline: none;
+}
+.search-form input[type="text"]:focus,
+.search-form select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.search-form .form-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; }
+.search-form .form-actions .result-count { margin-left: auto; font-size: 12px; color: var(--text-faint); }
+
+.search-main { flex: 1; display: flex; min-height: 0; }
+.search-results-col { flex: 1; overflow-y: auto; padding: 8px 12px 24px; }
+.search-results-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 10px 12px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-faint);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.search-result-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 11px 14px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+}
+.search-result-row:hover { background: var(--bg-hover); }
+.search-result-row.active { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 25%, #fff); }
+.search-result-row .sr-top { display: flex; align-items: center; gap: 8px; }
+.search-result-row .sr-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.search-result-row.active .sr-title { color: var(--accent-hover); }
+.search-result-row .sr-path { font-size: 11px; color: var(--text-faint); font-family: var(--font-mono); margin-left: auto; }
+.search-result-row .sr-snippet {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-top: 4px;
+}
+.search-result-row .sr-snippet mark {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  border-radius: 3px;
+  padding: 0 2px;
+  font-weight: 700;
+}
+.search-result-row .sr-meta { display: flex; gap: 8px; margin-top: 6px; }
+.sr-badge {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-hover);
+  border-radius: 8px;
+  padding: 1px 8px;
+}
+.sr-badge.tag { color: var(--accent-hover); background: var(--accent-soft); }
+
+/* 検索履歴サイドカラム */
+.search-history-col {
+  width: 240px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--bg-panel);
+  overflow-y: auto;
+  padding: 8px;
+}
+.search-history-head {
+  padding: 10px 10px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-faint);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.history-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+.history-item:hover { background: var(--bg-hover); }
+.history-item .hi-query { font-size: 12.5px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 6px; }
+.history-item .hi-query svg { width: 12px; height: 12px; color: var(--text-faint); flex-shrink: 0; }
+.history-item .hi-meta { font-size: 11px; color: var(--text-faint); margin-top: 2px; padding-left: 18px; }
+
+.search-mode-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  background: var(--accent-soft);
+  border-radius: 8px;
+  padding: 6px 12px;
+}
+.search-mode-note svg { width: 14px; height: 14px; color: var(--accent); flex-shrink: 0; }
+
+/* ---- アセット/ファイル一覧ページ(ルート) (Seac77a-1) --------------------- */
+
+.files-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-editor);
+}
+.files-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+.files-filter-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  max-width: 340px;
+  background: var(--bg-editor);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 6px 11px;
+}
+.files-filter-wrap:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.files-filter-wrap svg { width: 15px; height: 15px; color: var(--text-faint); flex-shrink: 0; }
+.files-filter-wrap input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: none;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text);
+}
+.files-count { margin-left: auto; font-size: 12px; color: var(--text-faint); }
+
+.files-main { flex: 1; display: flex; min-height: 0; }
+.files-list-col { flex: 1; overflow-y: auto; }
+
+.files-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.files-table thead th {
+  position: sticky;
+  top: 0;
+  text-align: left;
+  padding: 8px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  border-bottom: 1px solid var(--border-strong);
+  background: var(--bg-panel);
+  white-space: nowrap;
+}
+.files-table td { padding: 9px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.files-table tbody tr:hover td { background: var(--bg-panel); }
+.files-table tbody tr.active td { background: var(--accent-soft); }
+.files-table .fn-cell { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.files-table .fn-ico {
+  width: 28px; height: 28px;
+  border-radius: 7px;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+}
+.files-table .fn-ico svg { width: 15px; height: 15px; }
+.files-table .fn-ico.ico-img { background: #e6f4ec; color: #2f9e63; }
+.files-table .fn-ico.ico-pdf { background: #fbe9e9; color: #d64545; }
+.files-table .fn-ico.ico-data { background: #fcf3e2; color: #b7791f; }
+.files-table .fn-name { font-weight: 600; font-family: var(--font-mono); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.files-table .col-size, .files-table .col-mtime { color: var(--text-muted); font-size: 12px; white-space: nowrap; }
+.files-table .col-kind { color: var(--text-faint); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.03em; }
+.files-table .row-actions { display: flex; gap: 4px; justify-content: flex-end; opacity: 0; }
+.files-table tbody tr:hover .row-actions,
+.files-table tbody tr.active .row-actions { opacity: 1; }
+.row-act-btn {
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-muted);
+}
+.row-act-btn:hover { background: var(--bg-hover); color: var(--text); }
+.row-act-btn.danger:hover { background: var(--danger-soft); color: var(--danger); }
+.row-act-btn svg { width: 14px; height: 14px; }
+.copied-flash { color: var(--ok) !important; }
+
+/* ファイルプレビューペイン(右) */
+.files-preview-pane {
+  width: 380px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--bg-panel);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.files-preview-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.files-preview-head .fp-close { margin-left: auto; }
+.files-preview-body { padding: 14px 16px; }
+.files-preview-body .fp-meta-list { list-style: none; margin: 0 0 14px; padding: 0; font-size: 12px; }
+.files-preview-body .fp-meta-list li { display: flex; padding: 4px 0; border-bottom: 1px solid var(--border); }
+.files-preview-body .fp-meta-list .k { width: 84px; color: var(--text-faint); flex-shrink: 0; }
+.files-preview-body .fp-meta-list .v { color: var(--text); font-family: var(--font-mono); font-size: 11.5px; word-break: break-all; }
+.files-preview-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--text-faint);
+  padding: 40px 24px;
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+.files-preview-empty svg { width: 30px; height: 30px; margin-bottom: 10px; color: var(--border-strong); }
+
+/* ---- スラッシュコマンドメニュー (S763a98-1) ------------------------------ */
+
+.slash-menu {
+  position: absolute;
+  z-index: 60;
+  width: 320px;
+  background: var(--bg-editor);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  padding: 6px;
+}
+.slash-menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-faint);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.slash-menu-head .filter-echo { font-family: var(--font-mono); color: var(--accent); text-transform: none; letter-spacing: 0; }
+.slash-list { max-height: 320px; overflow-y: auto; }
+.slash-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 8px;
+}
+.slash-item:hover { background: var(--bg-hover); }
+.slash-item.selected { background: var(--bg-active); }
+.slash-ico {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.slash-ico svg { width: 16px; height: 16px; }
+.slash-main { flex: 1; min-width: 0; }
+.slash-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.slash-title mark { background: var(--accent-soft); color: var(--accent-hover); border-radius: 3px; padding: 0 1px; font-weight: 700; }
+.slash-desc { font-size: 11.5px; color: var(--text-faint); }
+.slash-kbd {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-faint);
+  background: var(--bg-hover);
+  border-radius: 5px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+.slash-empty { padding: 16px 12px; text-align: center; font-size: 12px; color: var(--text-faint); }
+.slash-footer {
+  display: flex;
+  gap: 14px;
+  padding: 7px 11px 4px;
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.slash-footer span { display: inline-flex; align-items: center; gap: 5px; }
+.slash-footer kbd {
+  font-family: var(--font-mono);
+  background: var(--bg-hover);
+  border-radius: 4px;
+  padding: 0 5px;
+  font-size: 10.5px;
+}
+
+/* テーブル雛形挿入後のセル選択ハイライト */
+.md-table {
+  border-collapse: collapse;
+  font-size: 13px;
+  margin: 4px 0;
+}
+.md-table th, .md-table td {
+  border: 1px solid var(--border-strong);
+  padding: 5px 12px;
+  text-align: left;
+}
+.md-table th { background: var(--bg-panel); font-weight: 700; }
+.md-table td.cell-cursor { background: var(--accent-soft); outline: 1.5px solid var(--accent); }

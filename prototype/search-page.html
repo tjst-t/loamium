@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loamium — 詳細検索ページ</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- ================= 左: サイドバー ================= -->
+  <aside class="sidebar" data-testid="sidebar">
+    <div class="sidebar-header">
+      <div class="vault-badge">L</div>
+      <div class="vault-name">loamium-notes</div>
+      <button class="icon-btn" data-testid="sidebar-search" title="検索 (Ctrl+K)">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.4"/><path d="M10.4 10.4L14 14"/></svg>
+      </button>
+      <button class="icon-btn" data-testid="sidebar-settings" title="設定">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4"/></svg>
+      </button>
+    </div>
+
+    <nav class="journal-nav" data-testid="journal-nav" aria-label="ジャーナル日付ナビゲーション">
+      <div class="journal-nav-label">Daily Journal</div>
+      <div class="journal-nav-row">
+        <button class="icon-btn" data-testid="journal-prev" title="前日のジャーナルへ"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg></button>
+        <button class="journal-date-btn" data-testid="journal-today" title="今日のジャーナルを開く">2026-07-04<span class="dow">土</span></button>
+        <button class="icon-btn" data-testid="journal-next" title="翌日のジャーナルへ"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg></button>
+        <button class="icon-btn" data-testid="journal-open-list" title="ジャーナル一覧"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2.5 4h11M2.5 8h11M2.5 12h11"/></svg></button>
+      </div>
+    </nav>
+
+    <div class="tree-section-title">
+      <span>直近のファイル <span class="recent-hint">10 件</span></span>
+    </div>
+    <div class="tree" data-testid="file-tree">
+      <button class="tree-item" data-testid="tree-item" data-path="projects/Hydra 設計メモ.md">
+        <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+        <span class="name">Hydra 設計メモ</span>
+      </button>
+      <button class="tree-item" data-testid="tree-item" data-path="週次レビュー.md">
+        <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+        <span class="name">週次レビュー</span>
+      </button>
+    </div>
+    <div class="tree-section-title" style="margin-top: 6px; border-top: 1px solid var(--border); padding-top: 12px;">
+      <span></span>
+      <a class="show-all" href="files-page.html" data-testid="sidebar-show-all" role="button">すべてのファイルを表示 →</a>
+    </div>
+  </aside>
+
+  <!-- ================= 中央: 検索ページ(ルート = /search?…) ================= -->
+  <main class="workspace">
+    <div class="editor-header">
+      <div class="nav-group">
+        <button class="nav-btn" data-testid="nav-back" title="戻る"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg></button>
+        <button class="nav-btn" data-testid="nav-forward" disabled title="進む"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg></button>
+      </div>
+      <nav class="route-crumbs" data-testid="route-display" aria-label="現在のルート">
+        <span class="route-token">/search</span>
+        <span class="sep">?</span><span class="current">q=バックアップ&amp;tag=infra&amp;sort=updated</span>
+      </nav>
+    </div>
+
+    <div class="search-page">
+      <!-- 条件フォーム(URL に反映される) -->
+      <form class="search-form" data-testid="search-form" onsubmit="return false;">
+        <div class="field wide">
+          <label for="q">全文キーワード</label>
+          <input type="text" id="q" data-testid="search-field-fulltext" value="バックアップ" placeholder="本文・見出しを全文検索">
+        </div>
+        <div class="field">
+          <label for="tag">タグ</label>
+          <input type="text" id="tag" data-testid="search-field-tag" value="#infra" placeholder="#tag(空白区切りで AND)">
+        </div>
+        <div class="field">
+          <label for="folder">フォルダ</label>
+          <select id="folder" data-testid="search-field-folder">
+            <option>すべてのフォルダ</option>
+            <option selected>projects/</option>
+            <option>journals/</option>
+            <option>reading/</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="sort">並び順</label>
+          <select id="sort" data-testid="search-field-sort">
+            <option selected>更新日時(新しい順)</option>
+            <option>関連度スコア</option>
+            <option>ファイル名(昇順)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>&nbsp;</label>
+          <div class="search-mode-note">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6.2"/><path d="M8 5v3.5M8 11h.01"/></svg>
+            <span>Cmd+K は 1 件開くと閉じる<strong>ジャンプ用</strong>。ここは開いても閉じない<strong>探索用</strong>。</span>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn primary" data-testid="search-submit">検索</button>
+          <button class="btn" type="reset">条件をクリア</button>
+          <span class="result-count">12 件ヒット</span>
+        </div>
+      </form>
+
+      <div class="search-main">
+        <!-- 結果一覧(開いても閉じない・複数閲覧) -->
+        <div class="search-results-col" data-testid="search-results">
+          <div class="search-results-head">結果 <span style="text-transform:none;letter-spacing:0;color:var(--text-muted);font-weight:500;">— クリックで左に開いてもこの一覧は残ります</span></div>
+
+          <button class="search-result-row active" data-testid="search-result-item" data-path="projects/Hydra 設計メモ.md">
+            <div class="sr-top">
+              <span class="sr-title">Hydra 設計メモ</span>
+              <span class="sr-path">projects/Hydra 設計メモ.md</span>
+            </div>
+            <div class="sr-snippet">- <mark>バックアップ</mark>は 3-2-1 ルール(必須)を守る。NAS への日次スナップショット…</div>
+            <div class="sr-meta"><span class="sr-badge tag">#infra</span><span class="sr-badge">更新 7/04 09:12</span><span class="sr-badge">3 ヒット</span></div>
+          </button>
+
+          <button class="search-result-row" data-testid="search-result-item" data-path="projects/自宅サーバー構成.md">
+            <div class="sr-top">
+              <span class="sr-title">自宅サーバー構成</span>
+              <span class="sr-path">projects/自宅サーバー構成.md</span>
+            </div>
+            <div class="sr-snippet">…Backblaze B2 への <mark>バックアップ</mark> は週次。復元手順は別途…</div>
+            <div class="sr-meta"><span class="sr-badge tag">#infra</span><span class="sr-badge">更新 7/02 21:40</span><span class="sr-badge">2 ヒット</span></div>
+          </button>
+
+          <button class="search-result-row" data-testid="search-result-item" data-path="週次レビュー.md">
+            <div class="sr-top">
+              <span class="sr-title">週次レビュー</span>
+              <span class="sr-path">週次レビュー.md</span>
+            </div>
+            <div class="sr-snippet">…先週の <mark>バックアップ</mark> ジョブ失敗を調査。btrfs send のタイムアウトが原因…</div>
+            <div class="sr-meta"><span class="sr-badge tag">#infra</span><span class="sr-badge">更新 6/30 18:05</span><span class="sr-badge">1 ヒット</span></div>
+          </button>
+
+          <button class="search-result-row" data-testid="search-result-item" data-path="projects/Loamium 開発ログ.md">
+            <div class="sr-top">
+              <span class="sr-title">Loamium 開発ログ</span>
+              <span class="sr-path">projects/Loamium 開発ログ.md</span>
+            </div>
+            <div class="sr-snippet">…vault の <mark>バックアップ</mark> を .loamium/audit.log 込みで取る方針を検討…</div>
+            <div class="sr-meta"><span class="sr-badge tag">#infra</span><span class="sr-badge">更新 6/29 11:20</span><span class="sr-badge">2 ヒット</span></div>
+          </button>
+        </div>
+
+        <!-- 検索履歴(クリックで再実行) -->
+        <aside class="search-history-col" data-testid="search-history">
+          <div class="search-history-head">最近の検索</div>
+          <button class="history-item" data-testid="search-history-item" data-query="q=バックアップ&amp;tag=infra">
+            <div class="hi-query"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 4v4l2.5 1.5"/><circle cx="8" cy="8" r="6.2"/></svg>バックアップ</div>
+            <div class="hi-meta">#infra · projects/ · 12 件</div>
+          </button>
+          <button class="history-item" data-testid="search-history-item" data-query="q=CodeMirror">
+            <div class="hi-query"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 4v4l2.5 1.5"/><circle cx="8" cy="8" r="6.2"/></svg>CodeMirror</div>
+            <div class="hi-meta">全フォルダ · 5 件</div>
+          </button>
+          <button class="history-item" data-testid="search-history-item" data-query="q=DNS TTL&amp;folder=journals">
+            <div class="hi-query"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 4v4l2.5 1.5"/><circle cx="8" cy="8" r="6.2"/></svg>DNS TTL</div>
+            <div class="hi-meta">journals/ · 3 件</div>
+          </button>
+          <button class="history-item" data-testid="search-history-item" data-query="tag=reading">
+            <div class="hi-query"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 4v4l2.5 1.5"/><circle cx="8" cy="8" r="6.2"/></svg>#reading</div>
+            <div class="hi-meta">タグのみ · 8 件</div>
+          </button>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+</div>
+
+<div class="proto-note" style="position: fixed; left: 18px; bottom: 14px; z-index: 130; margin: 0; max-width: 520px;">
+  <span class="tag">PROTO</span>
+  検索条件は URL クエリに同期し戻る/進む・ブックマークで再現 (AC-S935867-1-2)。履歴は localStorage、クリックで再実行 (AC-S935867-1-3)。結果を開いても一覧は保持 (AC-S935867-1-1)。
+</div>
+
+<a class="proto-chip" href="index.html">← プロトタイプ一覧</a>
+
+<script>
+  // 結果クリック: 左でノートを開く想定。一覧は閉じずに選択だけ移す
+  document.querySelectorAll('[data-testid="search-result-item"]').forEach(row => {
+    row.addEventListener('click', () => {
+      document.querySelectorAll('[data-testid="search-result-item"]').forEach(r => r.classList.remove('active'));
+      row.classList.add('active');
+    });
+  });
+  document.querySelector('[data-testid="nav-back"]').addEventListener('click', () => history.back());
+</script>
+</body>
+</html>
