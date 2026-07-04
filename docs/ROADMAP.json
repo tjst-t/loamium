@@ -586,13 +586,13 @@
     },
     "Sbd061c": {
       "title": "グローバル検索 (Cmd+K)",
-      "status": "pending",
+      "status": "in_progress",
       "description": "UI にコマンドパレット型のグローバル検索を追加する。ノート名ジャンプと全文検索を 1 つのパレットに統合し、ツリーを辿らずに目的のノートへ到達できるようにする。サーバー変更なし(既存 /api/search と /api/notes を利用)。",
       "milestone": false,
       "stories": {
         "Sbd061c-1": {
           "title": "グローバル検索パレット",
-          "status": "pending",
+          "status": "in_progress",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、Cmd/Ctrl+K で検索パレットを開きノート名・全文からノートへ移動したい。なぜなら、ツリーを辿らず数秒で目的のノートに到達できることがデイリー利用の前提だから。",
