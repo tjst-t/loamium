@@ -6,7 +6,12 @@
  *   接続不能は server_unreachable とする (AC-S0c9a48-1-2)。
  * - 成功時は「生のレスポンステキスト」も保持する (--json は API レスポンスを 1:1 でそのまま出す)。
  */
-import { errorResponseSchema, normalizeVaultPath, VaultPathError } from '@loamium/shared';
+import {
+  errorResponseSchema,
+  normalizeVaultFilePath,
+  normalizeVaultPath,
+  VaultPathError,
+} from '@loamium/shared';
 
 /** CLI の失敗を表すエラー。stderr への 1 行 JSON と終了コードに変換される。 */
 export class CliError extends Error {
@@ -56,6 +61,38 @@ export async function apiFetch(baseUrl: string, path: string, init?: RequestInit
 }
 
 /**
+ * バイナリ配信エンドポイント (GET /api/files) 用の fetch。
+ * 成功時はレスポンスボディのバイト列を返す。失敗の正規化は apiFetch と同じ。
+ */
+export async function apiFetchBytes(baseUrl: string, path: string): Promise<Uint8Array> {
+  const url = `${baseUrl}${path}`;
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch {
+    throw new CliError(
+      'server_unreachable',
+      `could not reach loamium server at ${baseUrl} — is it running? (start it with \`make serve\` or set LOAMIUM_URL)`,
+    );
+  }
+  if (!res.ok) {
+    const raw = await res.text();
+    let data: unknown = null;
+    try {
+      data = JSON.parse(raw) as unknown;
+    } catch {
+      // JSON でないエラーボディはそのまま http_error 扱い
+    }
+    const parsed = errorResponseSchema.safeParse(data);
+    if (parsed.success) {
+      throw new CliError(parsed.data.error, parsed.data.message);
+    }
+    throw new CliError('http_error', `HTTP ${res.status} from ${url}: ${raw.slice(0, 200)}`);
+  }
+  return new Uint8Array(await res.arrayBuffer());
+}
+
+/**
  * ユーザー入力のパスを vault 相対に正規化してエンドポイント用に percent-encode する。
  * CLAUDE.md: vault 内パスは必ず shared のパス正規化 (`..` 脱出検証込み) を経由する。
  * サーバー側でも再度正規化されるが、CLI で先に検証することで `..` などの不正パスが
@@ -78,6 +115,26 @@ export function toVaultPath(raw: string): string {
     }
     throw err;
   }
+}
+
+/**
+ * 任意ファイル (画像・添付) のパスを正規化して percent-encode する
+ * (GET /api/files 用 — .md を補完しない)。
+ */
+export function encodeFilePath(raw: string): string {
+  let rel: string;
+  try {
+    rel = normalizeVaultFilePath(raw);
+  } catch (err) {
+    if (err instanceof VaultPathError) {
+      throw new CliError('invalid_path', err.message);
+    }
+    throw err;
+  }
+  return rel
+    .split('/')
+    .map((seg) => encodeURIComponent(seg))
+    .join('/');
 }
 
 export function postJson(body: unknown): RequestInit {

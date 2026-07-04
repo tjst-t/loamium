@@ -7,6 +7,18 @@
  * すべての拡張は標準 Markdown 記法の上に乗り、ファイルを汚さない (priority 1)。
  */
 
+/**
+ * レンダラーがエディタ環境 (ノート一覧・ナビゲーション) へアクセスするための
+ * 注入点 (S9e5ca4-1 で追加 — additive)。embed カードのリンク解決とヘッダクリック
+ * ナビゲーションが使う。単体テストや環境なしのレンダリングでは省略される。
+ */
+export interface RenderEnv {
+  /** vault 内の全ノートパス。null = 一覧未ロード (壊れ扱いにしない) */
+  getNotePaths(): readonly string[] | null;
+  /** ノートを開く (embed カードのヘッダクリック等) */
+  openNote(path: string): void;
+}
+
 export interface RenderContext {
   /** レンダリング対象ノートの vault 相対パス */
   notePath: string;
@@ -15,6 +27,14 @@ export interface RenderContext {
    * 複数言語を 1 レンダラーで受ける場合 (Shiki 等) に render 側で参照する。
    */
   lang?: string;
+  /** エディタ環境 (S9e5ca4-1 で追加 — additive)。省略時は装飾のみ */
+  env?: RenderEnv;
+  /**
+   * embed の再帰チェーン (S9e5ca4-1 で追加 — additive)。
+   * 先頭がルートノートで、ネストした embed が自分の解決先を積んで伝搬する。
+   * 循環 (再訪) と深さ制限の判定に使う。省略時は [notePath] 相当。
+   */
+  embedChain?: readonly string[];
 }
 
 export interface FenceRenderer {
@@ -48,6 +68,19 @@ export interface BlockRule {
    * (閉じられていない $$ 等はソース表示のまま)。
    */
   matchEnd?(line: string, offsetFromStart: number): boolean;
+  /**
+   * 連続ブロックの継続判定 (S9e5ca4-3 で追加 — additive)。
+   * matchEnd と排他で使う: 開始行の次から、この述語が true を返し続ける限り
+   * ブロックに含める (最後に true を返した行が終端。開始行のみでも成立する)。
+   * callout (> が続く限り) のような「終端記号がない」ブロック用。
+   */
+  matchWhile?(line: string, offsetFromStart: number): boolean;
+  /**
+   * 装飾の同一性キー (S9e5ca4-1 で追加 — additive)。
+   * ソース行が同じでも描画結果が外部状態に依存する場合 (embed のリンク解決先等) に
+   * 返す。値が変わると widget が再生成される。省略時はソース行のみで同一視。
+   */
+  identity?(lines: string[], ctx: RenderContext): string;
   render(lines: string[], ctx: RenderContext): HTMLElement;
 }
 

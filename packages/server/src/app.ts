@@ -5,6 +5,7 @@ import type { AppEnv } from './http.js';
 import { notesRoutes } from './routes/notes.js';
 import { journalRoutes } from './routes/journal.js';
 import { searchRoutes } from './routes/search.js';
+import { filesRoutes } from './routes/files.js';
 import { auditMiddleware } from './audit.js';
 import { permissionMiddleware } from './permissions.js';
 import { indexSyncMiddleware } from './indexSync.js';
@@ -29,6 +30,8 @@ export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv>
   app.route('/', searchRoutes(index));
   app.route('/', journalRoutes(config));
   app.route('/', notesRoutes(config, index));
+  // files は GET のみ登録 (読み取り専用配信 — S9e5ca4-2)。書き込み系は 404
+  app.route('/', filesRoutes(config));
 
   return app;
 }

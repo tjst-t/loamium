@@ -1,0 +1,30 @@
+{
+  "$file": "gui-spec-S9e5ca4-3.json",
+  "sprint": "S9e5ca4",
+  "story": "S9e5ca4-3",
+  "story_type": "gui",
+  "visual_reference": "prototype/callout-highlight.html (+ prototype/TESTIDS.md callout / callout-fold)",
+  "state_diagram": "stateDiagram-v2\n    [*] --> Source: カーソル行の > [!type] はソース表示\n    Source --> Callout: カーソルが離れる → 色付きボックス (callout, data-type)\n    Callout --> NoteFallback: 未知タイプ ([!hoge]) → data-type=note で描画\n    Callout --> FoldedClosed: > [!note]- は data-folded=true (閉状態) で描画\n    FoldedClosed --> FoldedOpen: callout-fold クリックで開閉 (aria-expanded)\n    Callout --> Source: カーソルをブロック内へ置く → ソース記法",
+  "scenarios": {
+    "entry_point": "ブラウザで UI を開き、> [!note] 等の callout ブロックを含むノートを開く",
+    "happy_path": "> [!note] / [!info] / [!tip] / [!warning] / [!danger] がタイトル付き色付きボックスで描画される。タイトル省略時はタイプ既定タイトル、カスタムタイトルはそのまま表示",
+    "data_states": {
+      "unknown_type": "> [!hoge] は note スタイル (data-type=note) にフォールバック",
+      "folded": "> [!note]- は閉じた状態 (data-folded=true) で描画され、タイトルクリック (callout-fold) で開閉"
+    },
+    "edge_cases": [
+      "連続する > 行が 1 つの callout 本文になる。次の > [!type] 行からは新しい callout",
+      "callout でない通常の > 引用は従来どおり (装飾変更なし)",
+      "コードフェンス内の > [!note] は装飾しない",
+      "カーソルをブロック行へ置くとソースが見える"
+    ],
+    "success_feedback": "callout ボックスの色・アイコン・タイトルがタイプに応じて変わる",
+    "failure_feedback": "N/A (API 呼び出しなし。パース不能な行はソース表示のまま)"
+  },
+  "endpoint_contracts": [],
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/callout.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/callout.mock.spec.ts"
+  },
+  "linked_ac": ["AC-S9e5ca4-3-1"]
+}

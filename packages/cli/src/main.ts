@@ -11,6 +11,7 @@
  *   journal-append <content> [date]      POST   /api/journal/append
  *   search <query>                       GET    /api/search?q=
  *   backlinks <path>                     GET    /api/backlinks?path=
+ *   file <path>                          GET    /api/files/{path} (バイト列を stdout へ)
  *   list [--tag] [--folder]              GET    /api/notes[?tag=&folder=]
  *   tags                                 GET    /api/tags
  *
@@ -31,7 +32,17 @@ import {
   searchResponseSchema,
   tagsResponseSchema,
 } from '@loamium/shared';
-import { apiFetch, CliError, encodeNotePath, postJson, putJson, toVaultPath, type ApiResult } from './client.js';
+import {
+  apiFetch,
+  apiFetchBytes,
+  CliError,
+  encodeFilePath,
+  encodeNotePath,
+  postJson,
+  putJson,
+  toVaultPath,
+  type ApiResult,
+} from './client.js';
 import { resolveBaseUrl } from './url.js';
 
 /** 失敗を stderr の 1 行 JSON + 非 0 exit code に変換する。 */
@@ -211,6 +222,20 @@ function buildProgram(): Command {
         }
       });
     });
+
+  // file はバイナリを stdout に流すため --json を持たない (sub() を使わない)
+  program.addCommand(
+    new Command('file')
+      .description('vault 内のファイルを取得してバイト列を stdout へ出す (GET /api/files/{path})')
+      .argument('<path>', 'vault 相対パス (例: assets/figure.png)')
+      .action(async (path: string) => {
+        const base = await resolveBaseUrl();
+        const bytes = await apiFetchBytes(base, `/api/files/${encodeFilePath(path)}`);
+        await new Promise<void>((resolve, reject) => {
+          process.stdout.write(bytes, (err) => (err ? reject(err) : resolve()));
+        });
+      }),
+  );
 
   sub('list', 'ノート一覧を表示する。--tag / --folder で絞り込み (GET /api/notes)')
     .option('--tag <tag>', 'タグで絞り込む (# なし)')
