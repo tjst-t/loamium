@@ -7,7 +7,7 @@
  */
 import { useEffect, useRef, type JSX } from 'react';
 import type { FileMeta } from '@loamium/shared';
-import { renderEmbed } from '../renderers/embed.js';
+import { renderFileEmbedFor } from '../renderers/embed.js';
 
 export interface FilePreviewProps {
   /** vault 相対のファイルパス */
@@ -24,7 +24,7 @@ export function FilePreview({ path, files }: FilePreviewProps): JSX.Element {
   useEffect(() => {
     const host = hostRef.current;
     if (host === null) return;
-    const el = renderEmbed(path, {
+    const el = renderFileEmbedFor(path, {
       notePath: path,
       env: {
         getNotePaths: () => null,

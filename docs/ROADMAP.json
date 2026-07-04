@@ -1162,6 +1162,13 @@
       "added_in": "Sd63ad1 verify",
       "reason": "Sprint レベルレビューで発見 (現スプリントのスコープ外、ARCHITECTURE 既定路線)",
       "status": "pending"
+    },
+    {
+      "title": "CLI: 添付ファイルの削除・リネームコマンド",
+      "description": "DELETE /api/files/{path} と POST /api/files/{path}/rename の 1:1 CLI ラッパー (例: loamium file-rm / file-mv)。Sf53ad6 で UI 用にサーバー側のみ実装した端点の CLI 化。SKILL.md 用例と doc-drift テスト追従を含む。",
+      "added_in": "Sf53ad6",
+      "reason": "AC 外のスコープ制御 (decisions.json P4)。REST/CLI 1:1 原則の完全化",
+      "status": "pending"
     }
   ]
 }

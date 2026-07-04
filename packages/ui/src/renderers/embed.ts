@@ -13,7 +13,7 @@
 import { extractSection, resolveFileLinkTarget, resolveLinkTarget } from '@loamium/shared';
 import { api } from '../api.js';
 import { registerBlockRule, type RenderContext } from '../registries.js';
-import { IMAGE_EXTENSIONS } from '../file-kind.js';
+import { extensionOf, filesUrlOf, IMAGE_EXTENSIONS } from '../file-kind.js';
 import { EMBED_LINE_RE, renderMarkdownInto } from './mini-md.js';
 import {
   PDF_EXTENSIONS,
@@ -116,14 +116,19 @@ export function resolveEmbedFilePath(target: string, ctx: RenderContext): string
   return resolveFileLinkTarget(target, files.map((f) => f.path)) ?? target;
 }
 
-// ---- DOM 構築 -----------------------------------------------------------------
-
-function encodeFilesUrl(rel: string): string {
-  return `/api/files/${rel
-    .split('/')
-    .map((seg) => encodeURIComponent(seg))
-    .join('/')}`;
+/**
+ * 確定済みの vault パスをプレビュー種別へ直接ディスパッチする (Sf53ad6-2)。
+ * ![[...]] の記法解釈 (#セクション / |エイリアス の分離) を通さないため、
+ * `#` や `|` を含むファイル名でも正しくプレビューできる (FilePreview ペイン用)。
+ */
+export function renderFileEmbedFor(path: string, ctx: RenderContext): HTMLElement {
+  const ext = extensionOf(path);
+  const renderer = ext === null ? undefined : getEmbedFileRenderer(ext);
+  if (renderer !== undefined) return renderer.render(path, '', ctx);
+  return renderFileCard(path, ctx);
 }
+
+// ---- DOM 構築 -----------------------------------------------------------------
 
 /** ノートタイトル表示 (basename から .md を除く)。 */
 function titleOf(path: string): string {
@@ -175,7 +180,7 @@ export function renderImageEmbed(pathOrUrl: string, alt: string): HTMLElement {
   caption.textContent = pathOrUrl;
   const img = document.createElement('img');
   const external = /^https?:\/\//.test(pathOrUrl);
-  img.src = external ? pathOrUrl : encodeFilesUrl(pathOrUrl);
+  img.src = external ? pathOrUrl : filesUrlOf(pathOrUrl);
   img.alt = alt.length > 0 ? alt : pathOrUrl;
   img.addEventListener('error', () => {
     wrap.setAttribute('data-error', 'true');

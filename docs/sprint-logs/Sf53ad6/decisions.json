@@ -1,0 +1,136 @@
+{
+  "sprint": "Sf53ad6",
+  "mode": "auto (autopilot, --with-verifier)",
+  "base_sha": "de341977594974da8a5330be659bb0c621b8ce15",
+  "planning_decisions": [
+    {
+      "id": "P1",
+      "decision": "Story 3 本を単線シーケンシャル実行 (Sf53ad6-1 API/CLI → Sf53ad6-2 UI アップロード/ツリー → Sf53ad6-3 埋め込みプレビュー)。worktree 並列・実装サブエージェントは使わない",
+      "rationale": "過去 Sprint (S9e5ca4 等) と同じく本セッションにサブエージェント起動ツールが無い。Story 2/3 が Story 1 の POST /api/files と GET /api/files (一覧) に依存し、変更が packages/ui/src の embed 系に集中するため、依存順の単線実行が最短・最安全 (DESIGN_PRINCIPLES priority 5)。"
+    },
+    {
+      "id": "P2",
+      "decision": "ユーザーストーリー・AC は ROADMAP のまま採用 (書き換え・分割不要)",
+      "rationale": "全 Story が「{役割}として、{やりたいこと}。なぜなら {理由}」形式を満たし、AC は全てユーザー可観測 (アップロード結果・トースト・ツリー・プレビューブロック)。"
+    },
+    {
+      "id": "P3",
+      "decision": "GUI spec は autonomous mode で導出。ビジュアルの正は prototype/upload.html + prototype/file-preview.html + TESTIDS.md「Sprint 7-11 追加分」の drop-overlay / upload-toast / tree-file / file-embed / file-embed-open-full / file-embed-download 契約",
+      "rationale": "エントリポイント・状態・testid はプロトタイプ 2 枚から一意に導出できる。Sf53ad6-1 は api+cli、Sf53ad6-2/3 は gui (mock + E2E 二層)。"
+    },
+    {
+      "id": "P4",
+      "decision": "UI の添付ツリー表示・削除・リネーム (AC-Sf53ad6-2-3) のために GET /api/files (一覧)・DELETE /api/files/{path}・POST /api/files/{path}/rename をサーバーへ追加する。CLI は upload と files (一覧) を追加し、削除・リネームの CLI ラッパーは backlog へ回す",
+      "rationale": "AC-2-3 の削除・リネーム (リンク追従込み) はサーバー実装なしに成立しない。notes API は normalizeVaultPath が .md を補完する不変条件のため非 .md を扱えず、files API 側に write 系を置くのが唯一の整合的な設計 (priority 2/5)。CLI 1:1 原則のうち最重要のアップロードと一覧は同時追加し (AC-1-3)、UI 専用操作 (添付の削除・リネーム) の CLI 化は GET /api/health 同様の未ラップ端点として backlog に記録 (本 Sprint の AC 外・エージェントの主要ユースケースでない)。"
+    }
+  ],
+  "implementation_decisions": [
+    {
+      "id": "I1",
+      "decision": "アップロードの上書きフラグはクエリパラメータ ?overwrite=true。既存パスはフラグなしで 409 conflict、既存がディレクトリ・親セグメントが既存ファイルの場合も 409",
+      "rationale": "raw body の POST に JSON フラグを混ぜられないため URL クエリが最も単純。409 は notes API の conflict 規約と同語彙 (priority 3: API の一貫性)。"
+    },
+    {
+      "id": "I2",
+      "decision": "LOAMIUM_MAX_UPLOAD はバイト整数に加えて 50mb / 512kb / 1gb の単位付き表記を受け付ける (既定 50MB)。Content-Length で先に 413 を返し、実バイト数でも再検証する",
+      "rationale": "運用時の設定ミスを減らす最小限の親切。二段検証は Content-Length 偽装への防御 (priority 2)。"
+    },
+    {
+      "id": "I3",
+      "decision": "書き込み系 (POST/DELETE) の隠しセグメント (.loamium 等) は 400 invalid_path。GET の 404 (存在隠蔽) とは意図的に非対称",
+      "rationale": "GET の 404 は audit.log 等の内容・存在の漏えい防止が目的。書き込み拒否では隠す情報がなく、エージェントに機械可読な拒否理由を返す方が復旧可能性が高い (priority 3)。"
+    },
+    {
+      "id": "I4",
+      "decision": ".md への POST/DELETE/rename は 400 use_notes_api で notes API へ誘導。添付→.md へのリネームも拒否",
+      "rationale": "AC-Sf53ad6-1-2 の明示要求。notes API の監査・インデックス・LF 正規化・競合検出を迂回して .md を書く抜け道を作らない (priority 1/2)。"
+    },
+    {
+      "id": "I5",
+      "decision": "添付リネームのリンク追従は notes rename (S6fbf45) と同じ compute-then-apply。shared に resolveFileLinkTarget / preferredFileLinkTarget (.md 非補完・拡張子込み) を新設し、解決先が旧パスの [[リンク]]/![[リンク]] のみ最短一意表記へ書き換える。フェンス内・曖昧リンクは不変",
+      "rationale": "resolveLinkTarget は .md を補完するため添付に流用できない。既存の rewriteLinks (フェンス除外・ターゲットのみ置換) を共有することで書き換え安全性の実績を引き継ぐ (priority 2)。ファイル移動は fs.rename でバイト列・mtime を保存。"
+    },
+    {
+      "id": "I6",
+      "decision": "アップロードのリクエストは POST /api/files/{path} の raw body + application/octet-stream。パス末尾 /rename をアクションとして解釈するため、'rename' という名前のファイルをディレクトリ直下にアップロードする場合はフルパス末尾が /rename にならない名前が必要 (notes API の /append|/patch|/rename と同じトレードオフ)",
+      "rationale": "notes API と同じ URL 設計 (priority 3: API の一貫性)。multipart は単一ファイル API には過剰 (priority 5)。"
+    },
+    {
+      "id": "I7",
+      "decision": "UI の名前衝突処理はクライアント側の連番リトライ (既知一覧をスキップ → POST → 409 なら -1, -2, … 最大 -99)。サーバーに自動リネームは置かない",
+      "rationale": "サーバー API は「上書きか 409 か」の決定的な契約を保ち (エージェントが誤って別名保存に気づかない事故を防ぐ — priority 2/3)、UX 都合の連番リネームは UI 層の責務にする。prototype/upload.html の renamed トースト仕様どおり。"
+    },
+    {
+      "id": "I8",
+      "decision": "![[file]] のファイルターゲットは GET /api/files の添付一覧に対して basename 解決 (resolveFileLinkTarget) し、未ロード・不在時は書かれたとおりのパスで従来挙動 (画像の 404 壊れ表示等) を保存する",
+      "rationale": "Obsidian では ![[image.png]] (basename) が通用する (priority 4)。リネーム追従が書く最短表記 (basename) を UI が解決できないと自家撞着になるため必須。"
+    },
+    {
+      "id": "I9",
+      "decision": "PDF プレビューはブラウザ内蔵ビューア (iframe src=/api/files/...)。pdf.js は同梱しない。テキストプレビューは先頭 30 行 + 「全体を開く」(インライン展開)、コード拡張子は Shiki (github-light) を再利用、2MB 超は取得せず新しいタブへ誘導。プロトタイプの pdf-toolbar (ページ送り UI) はブラウザビューア内蔵のコントロールに委ね実装しない",
+      "rationale": "Sprint 指示 (pdf.js 同梱回避) と priority 5。自前ツールバーは内蔵ビューアと二重になるだけでプロトタイプ注記の意図 (ビューアブロック) は iframe で満たす。2MB ガードは巨大ログで UI を固めない安全弁 (priority 2)。"
+    },
+    {
+      "id": "I10",
+      "decision": "未対応拡張子の ![[file]] は S9e5ca4 のエラーカードからファイルカード (名前・サイズ・DL リンク) へ挙動変更し、既存 mock テスト 1 件を新仕様に書き換えた。添付一覧に存在しない場合のみ「ファイルが見つかりません」のエラー扱い (data-error)",
+      "rationale": "AC-Sf53ad6-3-3 が明示するロードマップ上の仕様変更 (テスト弱体化ではなく仕様置換)。画像は従来どおり一覧に無くても描画を試みる (既存 AC-S9e5ca4-2-2 の壊れ表示挙動を保存)。"
+    },
+    {
+      "id": "I11",
+      "decision": "ツリーの添付クリックは workspace を FilePreview ペイン (file-preview-pane) に切り替え、描画は ![[file]] と同一の拡張子ディスパッチを再利用。プレビュー表示前に開いているノートを保存する",
+      "rationale": "プレビューの見た目・testid (file-embed / embed-image) を埋め込みと単一実装に保つ (priority 5)。保存してから切り替えるのは編集消失防止 (priority 2)。"
+    },
+    {
+      "id": "I12",
+      "decision": "クリップボード無名ファイルは MIME から image.png 等に補完。ファイル名はパス区切り除去 + NFC + 先頭ドット除去。進行トーストは不定形プログレスバー (fetch にアップロード進捗イベントがないため %表示はしない)",
+      "rationale": "prototype の progress トーストの意図 (進行中の可視化) を、XMLHttpRequest への退行なしに満たす最小実装 (priority 5)。"
+    },
+    {
+      "id": "I13",
+      "decision": "GET /api/files (一覧) の失敗は console.error に留め、ツリーはノートのみで動作継続。mock テストのハーネス (installCatchAll) には backlinks 同様の既定応答 (files: []) を追加",
+      "rationale": "添付一覧はノート編集の必須依存ではなく、起動をブロックしない方がデータ安全 (priority 2/3)。握りつぶしではなく stderr 相当への記録あり。"
+    }
+  ],
+  "review_decisions": [
+    {
+      "id": "R1",
+      "decision": "Sprint レベルレビュー (code-review high 相当) は本セッション内で 7 観点 (diff 精読 / 削除挙動 / 呼び出し追跡 / 再利用 / 単純化 / 効率 / 高度) を直接実施 (サブエージェント起動ツールなし)。指摘 3 件を修正",
+      "rationale": "レビュー観点は code-review スキルの手順に従い、確認できた指摘のみ修正した。"
+    },
+    {
+      "id": "R2",
+      "decision": "修正 1: 添付一覧に存在しない PDF の ![[embed]] は iframe (生 404 JSON が見える) を作らず、card / text と同じブロック内エラー (data-error) にする",
+      "rationale": "失敗表示の規約を種別間で統一 (prototype の失敗フィードバックの意図)。"
+    },
+    {
+      "id": "R3",
+      "decision": "修正 2: FilePreview ペインは renderEmbed (記法解釈) を通さず renderFileEmbedFor (直接ディスパッチ) を使う",
+      "rationale": "`#` や `|` を含むファイル名が parseEmbedTarget でセクション/エイリアスとして誤分解されるバグの除去。"
+    },
+    {
+      "id": "R4",
+      "decision": "修正 3: /api/files URL 組み立て (encodeFilesUrl / filesUrlOf) の重複を file-kind.ts の filesUrlOf に一本化",
+      "rationale": "再利用観点の重複除去 (priority 5)。"
+    }
+  ],
+  "backlog_added": [
+    "CLI: 添付ファイルの削除・リネーム用サブコマンド (DELETE /api/files, POST /api/files/{path}/rename の 1:1 ラッパー)"
+  ],
+  "test_updates": [
+    {
+      "file": "tests/acceptance/files.spec.ts",
+      "change": "『書き込み系 (PUT/POST/DELETE) は存在せず 404』→『PUT は 404 / POST は overwrite なし 409 でファイル不変』に更新",
+      "reason": "Sf53ad6 が POST/DELETE を正式追加したため。ファイルが黙って変わらないという保護目的のアサーションは維持・強化"
+    },
+    {
+      "file": "packages/ui/tests/e2e/embed.mock.spec.ts",
+      "change": "未対応拡張子のエラーカード検証をファイルカード (サイズ・DL リンク) 検証に書き換え",
+      "reason": "AC-Sf53ad6-3-3 による仕様置換 (I10)"
+    },
+    {
+      "file": "tests/acceptance/skill.spec.ts",
+      "change": "REAL_COMMANDS に file/upload/files、REAL_FLAGS に --overwrite を追加 (doc-drift 追従)",
+      "reason": "AC-Sf53ad6-1-3 の SKILL.md 用例追記に伴う契約更新"
+    }
+  ]
+}

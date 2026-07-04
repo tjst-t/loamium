@@ -83,6 +83,14 @@ export function fileCategoryOf(path: string): FileCategory {
   return 'other';
 }
 
+/** vault 相対パス → GET /api/files URL (セグメント単位 percent-encode)。 */
+export function filesUrlOf(rel: string): string {
+  return `/api/files/${rel
+    .split('/')
+    .map((seg) => encodeURIComponent(seg))
+    .join('/')}`;
+}
+
 /** バイト数の人間可読表記 (prototype の "1.2 MB" 相当)。 */
 export function formatSize(bytes: number): string {
   if (bytes < 1024) return `${String(bytes)} B`;

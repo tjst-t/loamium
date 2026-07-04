@@ -11,21 +11,13 @@
  * すべて表示層のみ — ファイル (ピュア Markdown) は変更しない (priority 1)。
  */
 import type { RenderContext } from '../registries.js';
-import { extensionOf, formatSize, TEXT_PREVIEW_EXTENSIONS } from '../file-kind.js';
+import { extensionOf, filesUrlOf, formatSize, TEXT_PREVIEW_EXTENSIONS } from '../file-kind.js';
 import { SHIKI_LANGS } from './shiki.js';
 
 /** 先頭に表示する行数 (プロトタイプの「先頭 N 行 + 全体を開く」)。 */
 export const TEXT_PREVIEW_LINES = 30;
 /** これを超えるテキストはプレビュー取得せず「新しいタブで開く」誘導にする。 */
 export const TEXT_PREVIEW_MAX_BYTES = 2 * 1024 * 1024;
-
-/** vault 相対パス → GET /api/files URL (セグメント単位 percent-encode)。 */
-export function filesUrlOf(rel: string): string {
-  return `/api/files/${rel
-    .split('/')
-    .map((seg) => encodeURIComponent(seg))
-    .join('/')}`;
-}
 
 /** コード拡張子 → Shiki 言語 (対応が無ければ null = プレーン表示)。 */
 export function shikiLangOf(ext: string): string | null {
@@ -133,6 +125,18 @@ export function renderPdfEmbed(path: string, ctx: RenderContext): HTMLElement {
     meta !== null ? `${formatSize(meta.size)} · PDF` : 'PDF',
   );
   el.append(bar);
+
+  // 添付一覧に存在しない PDF は iframe (生の 404 JSON が見える) を作らず
+  // ブロック内エラーに留める (card / text と同じ失敗表示の規約)
+  const files = ctx.env?.getFiles?.() ?? null;
+  if (files !== null && meta === null) {
+    const body = document.createElement('div');
+    body.className = 'file-embed-body embed-body-error';
+    body.textContent = `ファイルが見つかりません: ${path}`;
+    el.setAttribute('data-error', 'true');
+    el.append(body);
+    return el;
+  }
 
   const url = filesUrlOf(path);
   // ブラウザ内蔵の PDF ビューア (スクロール・ページ操作はビューア側が提供する)。
