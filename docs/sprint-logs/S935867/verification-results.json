@@ -1,0 +1,75 @@
+{
+  "sprint": "S935867",
+  "title": "検索の2モード化 — 詳細検索ページ",
+  "verified_at": "2026-07-04",
+  "machine_verdict": {
+    "source": "hooks/run-verify.py (.claude/verify.json)",
+    "overall": "pass",
+    "runs": [
+      { "name": "test", "command": "make test", "exit_code": 0, "machine_status": "pass", "junit": { "total": 349, "passed": 349, "failed": 0 } },
+      { "name": "lint", "command": "make lint", "exit_code": 0, "machine_status": "pass" },
+      { "name": "ui-tests", "command": "make test-ui", "exit_code": 0, "machine_status": "pass", "playwright": { "total": 137, "passed": 137, "failed": 0 } }
+    ],
+    "baseline_before": { "unit": 343, "ui": 128 },
+    "delta": { "unit": "+6 (router.spec 検索ルート)", "ui": "+9 (search-page mock 6 + e2e 3)" }
+  },
+  "ac_traceability": [
+    {
+      "id": "AC-S935867-1-1",
+      "description": "検索ルートで条件を指定して検索でき、結果一覧を開いたまま複数の結果を順に閲覧できる",
+      "test": "[AC-S935867-1-1] packages/ui/tests/e2e/search-page.e2e.spec.ts",
+      "supporting_mock": "[MOCK] AC-1-1 packages/ui/tests/e2e/search-page.mock.spec.ts",
+      "status": "pass"
+    },
+    {
+      "id": "AC-S935867-1-2",
+      "description": "検索条件が URL に反映され、戻る/進むとブックマークで同じ検索を再現できる",
+      "test": "[AC-S935867-1-2] packages/ui/tests/e2e/search-page.e2e.spec.ts",
+      "supporting_unit": "packages/ui/tests/unit/router.spec.ts (search ルート往復)",
+      "status": "pass"
+    },
+    {
+      "id": "AC-S935867-1-3",
+      "description": "最近の検索履歴が表示されクリックで再実行できる",
+      "test": "[AC-S935867-1-3] packages/ui/tests/e2e/search-page.e2e.spec.ts",
+      "supporting_mock": "[MOCK] AC-1-3 packages/ui/tests/e2e/search-page.mock.spec.ts",
+      "status": "pass"
+    }
+  ],
+  "self_review": {
+    "reviewer": "sprint run agent (self-review; 独立 verifier は spawn ツール不在のため未起動 — 下記 independent_verifier 参照)",
+    "findings": [
+      "ピュア Markdown 正本性: 検索/プレビューは読み取りのみ。書き込み・独自記法なし (priority 1) — OK",
+      "データ安全性: プレビューは mini-md の textContent ベース描画で innerHTML 不使用 (priority 2) — OK",
+      "API 安定性: サーバー無改修。GET /api/search・/api/notes・GET /api/notes/{path} のみ利用。複数タグ AND とスニペット強調はクライアント合成 (priority 3) — OK",
+      "ルーティング準拠: /search を History API ルート化。タブ非採用・戻る/進む・ブックマーク・リロードで再現 (DESIGN_PRINCIPLES ui_ux) — OK",
+      "2 モード共存: Cmd+K パレット (Sbd061c) 存続 + footer に search-open-advanced 導線 — OK",
+      "testid 契約: prototype/TESTIDS.md 第3バッチ search-page 系 (search-form/field-*/submit/results/result-item/history/history-item) を厳密実装。additive: search-empty/search-error/search-preview-pane/search-preview-open-editor/search-preview-close/search-open-advanced (契約は additive 拡張のみ) — OK",
+      "テスト規律: mock=エラー/空/履歴/絞り込み(サーバー呼ばない検証)、e2e=実サーバーで AC 実操作。無効化・握りつぶし・any なし — OK"
+    ]
+  },
+  "done_judgment": {
+    "story_id": "S935867-1",
+    "guard1_user_review_required_not_done": "pass",
+    "guard2_nil_injection_mock": "n/a",
+    "guard3_mock_mode_not_real_smoke": "pass",
+    "guard4_priority_rule_9_exception_valid": "n/a",
+    "guard5_call_path_grep": "pass",
+    "guard6_deferred_comment_clean": "pass",
+    "guard7_adr_conformance": "n/a",
+    "guard8_destructive_multi_version_test": "n/a",
+    "overall": "ok",
+    "notes": {
+      "guard1": "S935867-1.user_review_required=false",
+      "guard2_4_7_8": "Hydra (Go/devvm/ADR/data-path) 固有ガード。本プロジェクトは TypeScript UI で該当構造・docs/DESIGN/ADR 無し → n/a",
+      "guard3": "E2E は実サーバー + 実 Vite (MOCK/fake なし)。mock 層は *.mock.spec.ts に分離",
+      "guard5": "api.search / api.listNotes / api.getNote の呼出経路が SearchPage に存在し、実サーバー e2e で pass 済",
+      "guard6": "git diff 上に TODO Phase / Sprint N で実装 等の先送りコメント無し (scan: NONE)"
+    }
+  },
+  "independent_verifier": {
+    "launched": false,
+    "reason": "サブエージェント spawn (Agent/Task ディスパッチ) ツールが本実行環境で利用不可 (利用可能な Task* は todo リスト管理ツールのみ)。sprint auto の指示に従い、その旨を記録して done を完了する。親 autopilot が verification-report.json を補完実行する想定。",
+    "expected_report_path": "docs/sprint-logs/S935867/verification-report.json"
+  }
+}

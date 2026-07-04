@@ -294,6 +294,23 @@ Sprint Sf1a90a / S935867 / Seac77a / S763a98 の実装と E2E はこの表に追
 - Cmd+K パレット(`search-palette`)はジャンプ用として存続。パレット側に詳細検索ページへの導線を足す想定。
 - 実装時 additive: 0 件時の `search-empty`、API 失敗時の `search-error` を追加してよい。
 
+### S935867 で実装済 (2026-07-04) — 詳細検索ページ全結線完了
+
+- `search-page` — 検索ページのルートコンテナ (実装時 additive)。ルートは `/search?q=&tag=&folder=&sort=`。
+- `search-form` / `search-field-fulltext` / `search-field-tag` / `search-field-folder` / `search-field-sort` /
+  `search-submit` — 条件フォーム。送信で URL クエリに同期 (AC-S935867-1-2)。既定 sort (updated) と空値は URL から省略。
+- `search-results` / `search-result-item` (`data-path`, 閲覧中は `active`) — 結果一覧。クリックで
+  右カラムのプレビューに開き、一覧は保持される (AC-S935867-1-1)。
+- `search-history` / `search-history-item` (`data-query`) — localStorage 履歴。クリックで再実行 (AC-S935867-1-3)。
+- 契約どおり全 testid を実装。additive な追加:
+  - `search-empty` — 0 件 / 条件未指定時の表示。
+  - `search-error` — GET /api/notes・/api/search 失敗時のページ内エラー (app-error には漏らさない)。
+  - `search-preview-pane` (`data-path`) / `search-preview-open-editor` / `search-preview-close`
+    — 結果を開いたまま順に閲覧するための read-only プレビュー (mini-md 再利用)。エディタ (/n/…) へも遷移可。
+  - `search-open-advanced` — Cmd+K パレット footer の「詳細検索を開く」導線 (2 モード共存)。
+- サーバー無改修: 全文は GET /api/search?q=、タグ (空白区切り AND) / フォルダ絞り込みは GET /api/notes の
+  メタ (tags/folder/mtime) でクライアント側フィルタ。並び順は updated / score / name。
+
 ### アセット/ファイル一覧ページ (Seac77a-1)
 
 | data-testid | 画面 | 役割 |

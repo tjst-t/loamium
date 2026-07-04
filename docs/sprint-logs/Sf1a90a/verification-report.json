@@ -1,0 +1,95 @@
+{
+  "sprint": "Sf1a90a",
+  "verified_at": "2026-07-04T00:00:00Z",
+  "verifier_model": "claude-opus-4-8 (read-only, separate session)",
+  "overall": "pass",
+  "findings": [
+    {
+      "category": "machine_verification",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "verify-run.json overall_machine_status=pass。3 run すべて exit 0 (__VERIFY_EXIT_CODE__ トレーラー確認): lint:0 / test:0 (vitest 343 pass) / ui-tests:0 (Playwright 128 pass = mock 78 + e2e 50)。独立再実行でも一致: `make test` 28 files 343 passed、`make test-ui` 128 passed (1.9m)。verification-results.json の全 pass 申告は機械 pass に裏付けられている。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "Sf1a90a-1",
+      "ac": "AC-Sf1a90a-1-1 / 1-2 / 1-3",
+      "verdict": "pass",
+      "detail": "router.ts は History API ベース (routeToPath/parseLocation/sameRoute, /n/{path}・/files・home)。App.tsx が applyHistory(push/replace/none)+popstate ハンドラ+histIndex 追跡でノート遷移を全経路ルーター経由に統一。routing.e2e.spec.ts は実ブラウザで page.goBack()/goForward() と UI nav-back/nav-forward の双方を実操作し、URL (toHaveURL /\\/n\\/…$/) とエディタ本文の両方を検証。[[リンク]]・embed・バックリンク・検索・ツリー・/files の 6 経路すべてが履歴に積まれ戻れることを個別テストで確認。リロード復帰 (page.reload → 同ノート) も検証。タブ廃止は AC-1-2 で workspace-tabs/tab-editor/tab-terminal を toHaveCount(0) で明示検証済みで、旧 App.tsx の workspace-tabs 実装はコードから完全撤去されている。router.spec.ts が URL↔Route 相互変換 9 件を単体検証。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "Sf1a90a-2",
+      "ac": "AC-Sf1a90a-2-1 / 2-3",
+      "verdict": "pass",
+      "detail": "RightSidebar.tsx が right-tab-backlinks⇄right-tab-claude の seg-toggle。TerminalPane は claudeMounted 後 display 切替のみで unmount せずセッション維持。claude-sidebar.e2e.spec.ts は実 bash で双方向 I/O を検証 (echo ui-e2e-$((6*7))→42、pwd→vault basename、トグル往復後も keep-alive 出力残存+続行対話、リサイズで tput lines 縮小追従)。Claude 表示中も editor が toBeVisible。AC-2-3: exit→terminal-reconnect-bar に「終了コード 0」「三重ガード」表示、再接続で新セッション。mock は exitCode:3 を注入し「終了コード 3」表示を検証。terminal.ts の三重ガード (LOAMIUM_TERMINAL=1 + LOAMIUM_MODE=full + 403) と isAllowedOrigin (CSWSH) は diff 上不変で維持。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "Sf1a90a-2",
+      "ac": "AC-Sf1a90a-2-2",
+      "verdict": "warn",
+      "detail": "AC-2-2 は『既定コマンド(claude)が信頼プロンプト等の初期表示まで到達』を要求するが、この到達性と core の env 修正 (ptyEnv の CLAUDECODE/CLAUDE_CODE_ENTRYPOINT/CLAUDE_CODE_SSE_PORT 除去+COLORTERM+LANG) は自動テストで守られていない。E2E は実 bash を使うため CLAUDECODE 除去の有無に関わらず pass し、milestone review ① の切断バグ再発を回帰検知できない。ptyEnv は非 export・単体テストゼロ。実際の claude 到達は手動 smoke (WS で信頼プロンプト『Is this a project you created or one you trust?』到達, exitCode=null 確認) のみ。無効時の理由/有効化手順表示 (AC-2-2 後半) は第 2 実サーバー E2E + mock で実検証済み。env 修正自体はコード上実在し diff で確認できるため実装は成立しているが、回帰保護がない点は coverage gap。decisions.json / verification-results.json の manual_smoke で透明に開示済み (overlooked ではない)。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "ptyEnv を export して『CLAUDE_NEST_ENV_KEYS が env から除去され TERM/COLORTERM/LANG が設定される』ことを検証する単体テストを追加すれば、外部要件 (claude ログイン) に依存せず AC-2-2 の core 修正を回帰保護できる。"
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "Sf1a90a-3",
+      "ac": "AC-Sf1a90a-3-1",
+      "verdict": "pass",
+      "detail": "RecentFiles.tsx (フラット直近一覧) + App.tsx recentEntries が notes+files を mtime 降順 sort し RECENT_LIMIT=10 で slice、active パスは 10 件から漏れても常時表示。sidebar-recent.e2e.spec.ts は 13 ノートを 6ms 間隔で実作成し実サーバーの mtime 順で並ぶことを検証: file-tree の button[data-path] を toHaveCount(10)、最古 recent-01/02/03 を toHaveCount(0)、sidebar-show-all クリックで /files 遷移+files-page-placeholder 表示。server noteIndex.ts は mtime を listNotes 応答へ付与、schemas.ts は additive な optional 追加 (実サーバー常時付与、E2E は本番データで順序担保)。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "test_migration",
+      "story": "Sf1a90a-3",
+      "ac": "AC-Sa704c3-1-1",
+      "verdict": "warn",
+      "detail": "旧 Sa704c3 のフォルダツリー機能 (FileTree.tsx / tree-folder / フォルダ展開トグル / sidebar-new-folder) がサイドバーから撤去され、AC-Sa704c3-1-1 の E2E テストが同じ AC id のまま『フォルダ構造表示+開閉トグル』検証から『直近一覧にノートが現れクリックで開く』検証へ書き換えられた (editor.e2e.spec.ts)。すなわち Sa704c3 が保証していたフォルダ構造閲覧の受け入れ挙動は現在アプリから消え、代替の /files ページ (Seac77a) は placeholder のため folder 閲覧は次 Sprint まで利用不能。ただしこれは (1) 新 DESIGN_PRINCIPLES ui_ux『タブ非採用/1画面/ブラウザ的ルーティング/直近ファイル』に沿った意図的なシェル刷新、(2) ROADMAP が Seac77a を後続に明示配置、(3) decisions.json で『AC 弱体化ではなく意図的刷新』と明記開示、の 3 点で正当化されており silent な劣化ではない。フォルダ内新規作成は右クリック context-new-note で維持。overlooked ではないが、フォルダ閲覧機能の transient gap と AC id 流用は記録に値する。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "Seac77a (/files ページ) 完了までフォルダ構造閲覧が不可である点を milestone user review で明示すること。将来的には旧 AC-Sa704c3-1-1 のフォルダ表示保証を Seac77a の新 AC へ正式に移管し、id 流用を解消するのが望ましい。"
+    },
+    {
+      "category": "forbidden_scan",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "diff 全体を test_skipped / test_assertion_weakened / error_swallowed / type_safety_relaxed / acceptance_criteria_modified の観点で精査。skip/only なし、any/@ts-ignore 追加なし (lint tsc --noEmit 全 workspace pass)。terminal.mock→claude-sidebar.mock、backlinks-panel-toggle→right-sidebar-toggle 等の testid 移行はすべて実アサーション (exit code 3 表示・disabled 理由・aria-selected 同期・collapsed クラス) を伴い弱体化なし。mtime optional 化は additive で実サーバー常時付与+E2E 本番順序検証により実質カバレッジ維持。フォルダツリー系サブテスト削除は上記 test_migration finding として個別記録。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "design_principles",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "DESIGN_PRINCIPLES ui_ux の新原則に完全適合: 『ブラウザ的ルーティングで統一・メインは常に 1 画面・タブを増やす UI は採らない』→ router.ts + workspace-tabs 撤去 + E2E タブ不在検証で満たす。『Claude は右サイドバーのトグル・ノートを見ながら対話』→ RightSidebar トグル + Claude 表示中 editor 可視の E2E 検証で満たす。タブ UI 残置なし。違反なし。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "self_report_completeness",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "decisions.json の 9 決定と diff を突合。フォルダツリー撤去・test 移行・mtime optional・claude 移設・env 修正・claude smoke・未使用 tree.ts 残置・独立 verifier 起動不可 (capability gap) がすべて開示され diff と整合。申告漏れ (overlooked_by_autopilot=true) は検出されず。注記: autopilot は独立 verifier を spawn するツールを欠き親へ委譲したと記録しており、本レポートがその独立検証を代替。verification-results.json の done ガードは全 ok で妥当。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    }
+  ],
+  "summary": {
+    "ac_failures": 0,
+    "forbidden_warnings": 0,
+    "adr_conflicts": 0,
+    "overlooked_count": 0
+  }
+}
