@@ -76,6 +76,17 @@
       "rationale": "画像を置く書き込み API はまだ存在しない (アップロードは別 Sprint 予定のロードマップ項目)。AC-S9e5ca4-2-2 の検証対象は『表示』であり、シードはテストの前提条件準備。ノートのシードは従来どおり実 PUT API。"
     }
   ],
-  "review_decisions": [],
+  "review_decisions": [
+    {
+      "id": "R1",
+      "decision": "parseEmbedTarget に |エイリアス の除外を追加 (![[img.png|300]] / ![[note#見出し|表示名]])。画像では alias を alt に使う",
+      "rationale": "レビュー (line-by-line 走査) で検出: alias 付きターゲットが image.png|300 のまま拡張子判定に入り「未対応」エラーカードになる Obsidian 互換バグ (priority 4)。ユニットテスト追加済み。"
+    },
+    {
+      "id": "R2",
+      "decision": "files.ts の decodeURIComponent は notes.ts と同一規約 (二重デコードの懸念は既存規約と同挙動) — 変更しない",
+      "rationale": "レビュー候補として検討したが、日本語パスの実 HTTP/CLI テストが通っており、notes API と同じ経路・同じ挙動。挙動を分けるほうがリスク。"
+    }
+  ],
   "done_judgment": []
 }

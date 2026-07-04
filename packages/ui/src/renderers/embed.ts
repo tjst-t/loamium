@@ -25,18 +25,24 @@ export interface EmbedTarget {
   target: string;
   /** #見出し 部分 (無ければ null)。^block 参照は対象外 (読み取り互換のみ) */
   section: string | null;
+  /** |エイリアス 部分 (Obsidian の表示名 / 画像幅指定)。無ければ null */
+  alias: string | null;
 }
 
-/** ![[target#見出し]] の中身を分解する。 */
+/** ![[target#見出し|エイリアス]] の中身を分解する。 */
 export function parseEmbedTarget(raw: string): EmbedTarget {
   const nfc = raw.normalize('NFC').trim();
-  const hash = nfc.indexOf('#');
-  if (hash === -1) return { target: nfc, section: null };
-  const target = nfc.slice(0, hash).trim();
-  const sub = nfc.slice(hash + 1).trim();
+  // |エイリアス は解決に使わない (Obsidian: ![[img.png|300]] / ![[note|表示名]])
+  const pipe = nfc.indexOf('|');
+  const alias = pipe === -1 ? null : nfc.slice(pipe + 1).trim() || null;
+  const noAlias = (pipe === -1 ? nfc : nfc.slice(0, pipe)).trim();
+  const hash = noAlias.indexOf('#');
+  if (hash === -1) return { target: noAlias, section: null, alias };
+  const target = noAlias.slice(0, hash).trim();
+  const sub = noAlias.slice(hash + 1).trim();
   // ^block 参照は見出しセクションではない (生成もしない — VISION out_of_scope)
   const section = sub.length > 0 && !sub.startsWith('^') ? sub : null;
-  return { target, section };
+  return { target, section, alias };
 }
 
 /** ターゲットの拡張子 (小文字)。ノート (.md / 拡張子なし) は null。 */
@@ -180,7 +186,7 @@ const imageRenderer: EmbedFileRenderer = {
  * (ctx.embedChain で循環・深さを判定する)。
  */
 export function renderEmbed(rawTarget: string, ctx: RenderContext): HTMLElement {
-  const { target, section } = parseEmbedTarget(rawTarget);
+  const { target, section, alias } = parseEmbedTarget(rawTarget);
   const chain = ctx.embedChain ?? [ctx.notePath];
 
   if (target.length === 0) {
@@ -191,7 +197,7 @@ export function renderEmbed(rawTarget: string, ctx: RenderContext): HTMLElement 
   const ext = embedExtensionOf(target);
   if (ext !== null) {
     const renderer = getEmbedFileRenderer(ext);
-    if (renderer !== undefined) return renderer.render(target, section ?? '', ctx);
+    if (renderer !== undefined) return renderer.render(target, alias ?? section ?? '', ctx);
     return renderEmbedError(target, 'このファイル形式の埋め込みプレビューには未対応です', `![[${rawTarget}]]`);
   }
 

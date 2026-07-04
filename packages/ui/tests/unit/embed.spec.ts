@@ -16,20 +16,39 @@ import {
 
 describe('parseEmbedTarget', () => {
   it('![[note]] はターゲットのみ', () => {
-    expect(parseEmbedTarget('自宅サーバー構成')).toEqual({ target: '自宅サーバー構成', section: null });
+    expect(parseEmbedTarget('自宅サーバー構成')).toEqual({
+      target: '自宅サーバー構成',
+      section: null,
+      alias: null,
+    });
   });
 
   it('![[note#見出し]] はセクション付き (trim + NFC)', () => {
     expect(parseEmbedTarget(' バックリンク実装方針 # インデックス更新 ')).toEqual({
       target: 'バックリンク実装方針',
       section: 'インデックス更新',
+      alias: null,
     });
     const nfd = 'ガ'.normalize('NFD');
     expect(parseEmbedTarget(`${nfd}行`).target).toBe('ガ行');
   });
 
   it('^block 参照は見出しセクションとして扱わない (読み取り互換のみ)', () => {
-    expect(parseEmbedTarget('note#^abc123')).toEqual({ target: 'note', section: null });
+    expect(parseEmbedTarget('note#^abc123')).toEqual({ target: 'note', section: null, alias: null });
+  });
+
+  it('|エイリアス (表示名・画像幅) はターゲット解決から除外する (Obsidian 互換)', () => {
+    expect(parseEmbedTarget('image.png|300')).toEqual({
+      target: 'image.png',
+      section: null,
+      alias: '300',
+    });
+    expect(parseEmbedTarget('note#見出し|表示名')).toEqual({
+      target: 'note',
+      section: '見出し',
+      alias: '表示名',
+    });
+    expect(parseEmbedTarget('note|')).toEqual({ target: 'note', section: null, alias: null });
   });
 });
 
