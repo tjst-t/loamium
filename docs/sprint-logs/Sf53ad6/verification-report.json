@@ -1,0 +1,140 @@
+{
+  "sprint": "Sf53ad6",
+  "verified_at": "2026-07-04",
+  "verifier_model": "claude-sonnet-4-6 (read-only adversarial verifier, separate session)",
+  "overall": "pass",
+  "findings": [
+    {
+      "category": "machine_log_reconciliation",
+      "verdict": "pass",
+      "detail": "verify-run.json + 各 verify-run-*.log の __VERIFY_EXIT_CODE__ トレーラーが ground truth。test:0 / lint:0 / ui-tests:0。junit は test 267/267 pass・0 skip、ui-tests 103/103 pass・0 skip。verification-results.json の summary (370 pass / 0 fail / 0 skip = 267+103+1(lint)) と machine_verdict は verify-run.json と完全一致。全 pass 申告が機械 pass に裏付けられている。ui-tests ログで e2e プロジェクトの 96〜100 番 (upload + file-preview AC) が実ブラウザで 600ms〜1.1s で通過していることを目視確認した。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "category": "AC-Sf53ad6-1-1",
+      "story": "Sf53ad6-1",
+      "ac": "AC-Sf53ad6-1-1",
+      "verdict": "pass",
+      "detail": "packages/server/src/routes/files.ts の uploadHandler() が POST /api/files/{path} を実装。既存パスは ?overwrite=true なしで 409 conflict を返し、ファイルは変更されない。setAudit(c, 'file.write', rel) で audit.ts のミドルウェアが .loamium/audit.log へ JSONL 記録。read-only は auditMiddleware の権限チェックで 403 + denied ログ、append-only も同様 (ファイルアップロードは追記でなく上書きとして扱う)。tests/acceptance/files-upload.spec.ts [AC-Sf53ad6-1-1] 14 テスト (2 describe) が実サーバー + 実 HTTP + 実 FS 往復で全項目を検証。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "category": "AC-Sf53ad6-1-2",
+      "story": "Sf53ad6-1",
+      "ac": "AC-Sf53ad6-1-2",
+      "verdict": "pass",
+      "detail": "filePathFrom() が normalizeVaultFilePath を経由し VaultPathError / HiddenVaultPathError を 400 invalid_path へ写像。.md 拡張子は rel.toLowerCase().endsWith('.md') で 400 use_notes_api。サイズ上限は Content-Length で先行判定 + body.byteLength で二段検証、両者とも config.maxUploadBytes (LOAMIUM_MAX_UPLOAD) を超えると 413。config.ts parseMaxUpload は '50mb'/'512kb'/'1gb' を受け付ける。files-upload.spec.ts [AC-Sf53ad6-1-2] 6 テスト: traversal・.loamium・.md・2KB > 1KB 上限 (413)・境界 1024B (201)・親セグメント衝突 (409) を実証。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "category": "AC-Sf53ad6-1-3",
+      "story": "Sf53ad6-1",
+      "ac": "AC-Sf53ad6-1-3",
+      "verdict": "pass",
+      "detail": "packages/cli/src/main.ts に sub('upload', ...) と sub('files', ...) を追加。upload は readFile でローカルバイト列読み込み → apiFetch POST /api/files/${encodeFilePath(dest)} → --json は生 JSON、省略時は人間可読メッセージ。デフォルト保存先 assets/${basename(localFile)}。files は GET /api/files の一覧を表示。cli-upload.spec.ts [AC-Sf53ad6-1-3] 8 テスト: 実 bin subprocess で省略パス・明示パス・conflict/--overwrite・local_file_not_found/invalid_path/use_notes_api/loamium files 一覧/loamium file 往復を全て実 HTTP で検証。skill.spec.ts の doc-drift テストは REAL_COMMANDS に file/upload/files・REAL_FLAGS に --overwrite を追加し 14 コマンドを継続監視。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "category": "AC-Sf53ad6-2-1",
+      "story": "Sf53ad6-2",
+      "ac": "AC-Sf53ad6-2-1",
+      "verdict": "pass",
+      "detail": "packages/ui/src/upload.ts が drop/paste DOM イベントハンドラを実装。drop は posAtCoords でドロップ座標をドキュメント位置に変換、paste はカーソル head を使用。両者とも uploadAndInsert() → env.uploadFiles(files) → 返却パスを '![[path]]' テキストとしてディスパッチ挿入。App.tsx の uploadOne() が assets/${name} をデフォルト保存先とし api.uploadFile() を呼ぶ。upload.e2e.spec.ts [AC-Sf53ad6-2-1] 2 e2e テスト: ペーストでカーソル位置マーカー直後に ![[assets/e2e-shot.png]] が出て vault の PIXEL_PNG バイト列一致・ツリーに ico-img アイコン。ドロップで ![[assets/e2e-dropped.txt]] + 実内容一致を確認。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "category": "AC-Sf53ad6-2-2",
+      "story": "Sf53ad6-2",
+      "ac": "AC-Sf53ad6-2-2",
+      "verdict": "pass",
+      "detail": "uploadOne() が既知の filesRef 一覧で n=0〜99 の候補を事前スキップし、409 なら連番インクリメントでリトライ。リネーム成功時 pushToast({kind:'renamed',...}) で renamed トースト。403/413 等の非 409 エラーは pushToast({kind:'error',...}) でエラートースト、path を返さず ![[]] 挿入もしない。upload.e2e.spec.ts [AC-Sf53ad6-2-2] 2 e2e テスト: 事前アップロード済みの e2e-collide.png に貼り付け → e2e-collide-1.png として保存 + renamed トースト + 実ファイル確認。6MB 貼り付け → 実サーバー 413 → error トースト + エディタにパス挿入なし + ファイル未作成。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "category": "AC-Sf53ad6-2-3",
+      "story": "Sf53ad6-2",
+      "ac": "AC-Sf53ad6-2-3",
+      "verdict": "pass",
+      "detail": "packages/ui/src/tree.ts buildTree() が FileMeta[] を受け取り TreeAttachmentNode (kind:'attachment') を生成。FileTree.tsx が data-testid='tree-file' で非 .md を描画し、onClick で props.onOpenFile() を呼ぶ。App.tsx openFilePreview() が saveNow() 後に setPreview(path) → FilePreview コンポーネントが renderFileEmbedFor() を直接呼ぶ (parseEmbedTarget 経由でないため # や | を含むファイル名も安全)。削除は api.deleteFile() + setPreview(null)、リネームは api.renameFile() + vault 内 ![[リンク]] 追従。upload.e2e.spec.ts [AC-Sf53ad6-2-3] 1 e2e テスト: tree-file クリック → file-preview-pane の img.naturalWidth=1 確認、右クリックリネームで ![[e2e-manage.png]]/![[assets/e2e-manage.png]] 双方がディスク上で書き換わり実体も移動、削除ダイアログ経由でツリーと FS から消滅。API 単体の DELETE / rename は files-manage.spec.ts 7 テストが補完。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "category": "AC-Sf53ad6-3-1",
+      "story": "Sf53ad6-3",
+      "ac": "AC-Sf53ad6-3-1",
+      "verdict": "pass",
+      "detail": "packages/ui/src/renderers/embed.ts の registerEmbedFileRenderer で PDF_EXTENSIONS=['pdf'] を renderPdfEmbed に登録。renderPdfEmbed は file-embed[data-kind=pdf] + iframe.pdf-frame (src=/api/files/{path}) を生成。添付一覧に存在しない PDF は iframe を作らず data-error + 「ファイルが見つかりません」テキスト (review 修正 R2)。file-preview.e2e.spec.ts [AC-Sf53ad6-3-1] 1 e2e テスト: xref オフセット計算済みの実 PDF を実アップロード後、file-embed[data-kind=pdf] が出て iframe.src=/api/files/assets/e2e-bench.pdf を検証、実サーバーから application/pdf + %PDF- ヘッダで配信されることを fetch で確認。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "category": "AC-Sf53ad6-3-2",
+      "story": "Sf53ad6-3",
+      "ac": "AC-Sf53ad6-3-2",
+      "verdict": "pass",
+      "detail": "TEXT_PREVIEW_EXTENSIONS (txt/log/json/csv/yaml 等) が renderTextEmbed に登録。fillTextPreview() が fetch → テキストを取得し、TEXT_PREVIEW_LINES=30 行を超える場合は先頭 30 行 + buildFooterButton('全体を開く') を追加。shikiLangOf(ext) が Shiki 言語を返す拡張子はコードハイライト、TEXT_PREVIEW_MAX_BYTES=2MB 超は取得せず「新しいタブで開く」誘導。file-preview.e2e.spec.ts [AC-Sf53ad6-3-2] 1 e2e テスト: 42 行の .log → 先頭 30 行 + 展開ボタン → 展開後 42 行目表示、.csv 全 3 行、.json は pre.shiki ハイライト、本文クリックはソース記法へ戻る (読み取り専用)。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "category": "AC-Sf53ad6-3-3",
+      "story": "Sf53ad6-3",
+      "ac": "AC-Sf53ad6-3-3",
+      "verdict": "pass",
+      "detail": "renderEmbed() が embedExtensionOf で拡張子を取り出し、null (無拡張子/.md) はノート transclusion パスへ。未登録拡張子は renderFileCard() → file-embed[data-kind=card] + 名前・サイズ (一覧あり) / 「ファイルが見つかりません」+data-error (一覧にないとき) + file-embed-download アンカー。.md は resolveLinkTarget でノートを解決し embed-card (S9e5ca4-1 と同一)。file-preview.e2e.spec.ts [AC-Sf53ad6-3-3] 1 e2e テスト: .tar.zst が file-embed[data-kind=card] + 12B サイズ + download href 確認、.md が embed-card + ヘッダ遷移を確認。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "category": "test_update_files_spec",
+      "story": "Sf53ad6-1",
+      "verdict": "pass",
+      "detail": "tests/acceptance/files.spec.ts の変更: 旧「PUT/POST/DELETE は全て 404」→ 新「PUT は 404 / POST は overwrite なし 409 で onDisk.equals(PIXEL_PNG) が保たれる」。決定記録 decisions.json test_updates[0] に記録済み。POST が正式追加されたので旧アサーション (POST→404) が obsolete になったことが理由であり、上書き保護の検証は files-upload.spec.ts が完全に引き継いでいる。DELETE は files-manage.spec.ts で代替検証あり (7 テスト)。ファイル改ざん防止のアサーションは維持・強化されている。spec 置換と判定。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "category": "test_update_embed_mock_spec",
+      "story": "Sf53ad6-3",
+      "verdict": "pass",
+      "detail": "packages/ui/tests/e2e/embed.mock.spec.ts の変更: 旧「未対応拡張子はエラーカード (embed-error)」→ 新「ファイルカード (file-embed[data-kind=card] + サイズ + DL リンク)」。decisions.json I10 / test_updates[1] に記録済み。AC-Sf53ad6-3-3 の仕様として「プレビュー不能な拡張子はファイルカード」が明示されており、旧エラーカード挙動は本 Sprint で正式に置換された。新テストはサイズ・ダウンロードリンクのアサーションを追加しており、旧テストより網羅性が高い。「添付一覧に無いファイルはカードに『見つかりません』」の別ケースも file-preview.mock.spec.ts に追加されており、不在ケースの退行もない。spec 置換と判定。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "category": "adr_conformance",
+      "verdict": "pass",
+      "detail": "ピュア Markdown 絶対 (priority 1): アップロードは raw bytes の書き込みのみ、embed レンダラーは表示層のみ (ファイル変更ゼロ)、リンク追従は ![[...]] テキストの書き換えのみでブロック ID 等の独自記法は注入しない。vault 脱出防止: normalizeVaultFilePath を全パスで通過し traversal → 400。監査ログ: file.write/delete/rename の 3 オペレーションが audit.ts に登録済みで各テストが記録を検証。docs/DESIGN_PRINCIPLES.json に変更なし。テスト無効化なし。AC テキスト変更なし。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "category": "scope_deferral_p4",
+      "verdict": "warn",
+      "detail": "CLI の 1:1 原則 (CLAUDE.md) に対し、DELETE /api/files/{path} と POST /api/files/{path}/rename の CLI ラッパー (例: loamium file-rm / file-mv) が本 Sprint では未実装。decisions.json P4 / backlog_added にスコープ判断が記録されており、ROADMAP.json のバックログにも追加済み。AC-Sf53ad6-1-3 は upload と files (一覧) のみを明示要求しており、未実装は AC 外スコープ。ただし DELETE と rename は UI 専用でなくエージェントからも有用な操作であるため、早期バックログ消化が望ましい。実装上の欠陥ではない。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "backlog で優先度を検討。file-rm / file-mv の SKILL.md 用例追記と doc-drift テスト更新を同時に行うこと。"
+    },
+    {
+      "category": "roadmap_status_not_done",
+      "verdict": "warn",
+      "detail": "ROADMAP.json の sprint status が 'in_progress'、全 story・AC の status が 'pending' のまま。これは sprint done ステップ (autopilot が走る) を本 verifier 実行前に完了させていないためであり、機能的な欠陥ではない。verification-report.json 書き込み後に sprint done を実行すれば ROADMAP が 'done' に更新される。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "sprint done を実行して ROADMAP の status を更新すること。"
+    }
+  ],
+  "summary": {
+    "ac_failures": 0,
+    "forbidden_warnings": 0,
+    "adr_conflicts": 0,
+    "overlooked_count": 0,
+    "notes": "全 9 AC について実装コードパスを確認し、実サーバー + 実ブラウザ経由でユーザー入口から到達可能であることを確認した。テスト更新 3 件 (files.spec.ts / embed.mock.spec.ts / skill.spec.ts) はいずれも仕様置換または doc-drift 追従であり、弱体化はない。warn 2 件はいずれも実装上の欠陥ではなくプロセス上の記録事項。"
+  }
+}

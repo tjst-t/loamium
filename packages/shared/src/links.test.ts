@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { preferredLinkTarget, resolveLinkTarget } from './links.js';
+import { preferredFileLinkTarget, preferredLinkTarget, resolveFileLinkTarget, resolveLinkTarget } from './links.js';
 
 const vault = [
   'hydra.md',
@@ -75,5 +75,66 @@ describe('preferredLinkTarget', () => {
   it('NFC-normalizes the note path', () => {
     const nfd = 'ユニーク.md'.normalize('NFD');
     expect(preferredLinkTarget(nfd, vault)).toBe('ユニーク');
+  });
+});
+
+// ---- 添付ファイル (非 .md) のリンク解決 — Sf53ad6-2 ----
+
+const files = [
+  'assets/image.png',
+  'assets/image-1.png',
+  'assets/report.pdf',
+  'projects/img/image.png',
+  'assets/写真.png',
+  'assets/data.csv',
+];
+
+describe('resolveFileLinkTarget', () => {
+  it('resolves a bare filename across folders (shortest path wins)', () => {
+    expect(resolveFileLinkTarget('image.png', files)).toBe('assets/image.png');
+    expect(resolveFileLinkTarget('report.pdf', files)).toBe('assets/report.pdf');
+  });
+
+  it('resolves a path-qualified target from the vault root', () => {
+    expect(resolveFileLinkTarget('projects/img/image.png', files)).toBe('projects/img/image.png');
+  });
+
+  it('does not append .md (attachment targets keep their extension)', () => {
+    // "image" というファイルは存在しない — image.png には解決しない
+    expect(resolveFileLinkTarget('image', files)).toBeNull();
+  });
+
+  it('resolves case-insensitively and NFC-normalized', () => {
+    expect(resolveFileLinkTarget('IMAGE.PNG', files)).toBe('assets/image.png');
+    expect(resolveFileLinkTarget('写真.png'.normalize('NFD'), files)).toBe('assets/写真.png');
+  });
+
+  it('strips a leading slash (vault-root explicit form)', () => {
+    expect(resolveFileLinkTarget('/assets/data.csv', files)).toBe('assets/data.csv');
+  });
+
+  it('returns null for unknown or empty targets', () => {
+    expect(resolveFileLinkTarget('missing.png', files)).toBeNull();
+    expect(resolveFileLinkTarget('', files)).toBeNull();
+    expect(resolveFileLinkTarget('   ', files)).toBeNull();
+  });
+});
+
+describe('preferredFileLinkTarget', () => {
+  it('returns the basename (with extension) when it resolves uniquely', () => {
+    expect(preferredFileLinkTarget('assets/report.pdf', files)).toBe('report.pdf');
+    expect(preferredFileLinkTarget('assets/image-1.png', files)).toBe('image-1.png');
+  });
+
+  it('returns the full path when the basename resolves to a different file', () => {
+    // image.png は浅いパス優先で assets/image.png に解決する
+    expect(preferredFileLinkTarget('projects/img/image.png', files)).toBe(
+      'projects/img/image.png',
+    );
+    expect(preferredFileLinkTarget('assets/image.png', files)).toBe('image.png');
+  });
+
+  it('NFC-normalizes the file path', () => {
+    expect(preferredFileLinkTarget('assets/写真.png'.normalize('NFD'), files)).toBe('写真.png');
   });
 });

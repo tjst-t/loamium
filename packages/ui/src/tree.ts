@@ -3,7 +3,7 @@
  * フォルダは .md ファイルのパスから導出する (空フォルダは vault に存在しないため、
  * UI 上の一時フォルダ extraFolders として合成する — decisions.json 参照)。
  */
-import type { NoteMeta } from '@loamium/shared';
+import type { FileMeta, NoteMeta } from '@loamium/shared';
 
 export interface TreeFolderNode {
   kind: 'folder';
@@ -22,7 +22,16 @@ export interface TreeFileNode {
   path: string;
 }
 
-export type TreeNode = TreeFolderNode | TreeFileNode;
+/** 非 .md の添付ファイル行 (Sf53ad6-2 — prototype/upload.html の tree-file)。 */
+export interface TreeAttachmentNode {
+  kind: 'attachment';
+  /** 表示名 (拡張子込みのファイル名) */
+  name: string;
+  /** vault 相対のファイルパス */
+  path: string;
+}
+
+export type TreeNode = TreeFolderNode | TreeFileNode | TreeAttachmentNode;
 
 function displayName(path: string): string {
   const base = path.split('/').at(-1) ?? path;
@@ -34,12 +43,17 @@ const collator = new Intl.Collator('ja');
 
 function sortNodes(nodes: TreeNode[]): TreeNode[] {
   return [...nodes].sort((a, b) => {
-    if (a.kind !== b.kind) return a.kind === 'folder' ? -1 : 1;
+    // フォルダ先頭。ノートと添付は名前順で混在させる (Obsidian のツリーと同じ)
+    if ((a.kind === 'folder') !== (b.kind === 'folder')) return a.kind === 'folder' ? -1 : 1;
     return collator.compare(a.name, b.name);
   });
 }
 
-export function buildTree(notes: NoteMeta[], extraFolders: string[]): TreeNode[] {
+export function buildTree(
+  notes: NoteMeta[],
+  files: FileMeta[],
+  extraFolders: string[],
+): TreeNode[] {
   const folders = new Map<string, TreeFolderNode>();
 
   const ensureFolder = (folderPath: string): TreeFolderNode => {
@@ -75,6 +89,21 @@ export function buildTree(notes: NoteMeta[], extraFolders: string[]): TreeNode[]
       roots.push(file);
     } else {
       ensureFolder(note.folder).children.push(file);
+    }
+  }
+
+  // 非 .md の添付ファイル (Sf53ad6-2): 拡張子込みの名前で表示する
+  for (const f of files) {
+    const folder = f.path.includes('/') ? f.path.slice(0, f.path.lastIndexOf('/')) : '';
+    const node: TreeAttachmentNode = {
+      kind: 'attachment',
+      name: f.path.split('/').at(-1) ?? f.path,
+      path: f.path,
+    };
+    if (folder === '') {
+      roots.push(node);
+    } else {
+      ensureFolder(folder).children.push(node);
     }
   }
 

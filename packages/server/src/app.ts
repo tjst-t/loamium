@@ -30,8 +30,8 @@ export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv>
   app.route('/', searchRoutes(index));
   app.route('/', journalRoutes(config));
   app.route('/', notesRoutes(config, index));
-  // files は GET のみ登録 (読み取り専用配信 — S9e5ca4-2)。書き込み系は 404
-  app.route('/', filesRoutes(config));
+  // files: GET 配信/一覧 (S9e5ca4-2, Sf53ad6) + POST アップロード/リネーム + DELETE (Sf53ad6)
+  app.route('/', filesRoutes(config, index));
 
   return app;
 }

@@ -1181,3 +1181,252 @@ button.callout-title { cursor: pointer; }
   padding: 0 2px;
   box-decoration-break: clone;
 }
+
+/* ---- アップロード UX (Sf53ad6-2 — prototype/upload.html) ------------------ */
+
+.workspace { position: relative; }
+
+.drop-overlay {
+  position: absolute;
+  inset: 8px;
+  z-index: 80;
+  background: rgba(110, 86, 207, 0.07);
+  border: 2px dashed var(--accent);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none; /* ドロップはオーバーレイ越しにエディタへ届く */
+}
+.drop-overlay-inner {
+  background: var(--bg-editor);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  padding: 24px 36px;
+  text-align: center;
+}
+.drop-overlay-inner .glyph {
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+}
+.drop-overlay-inner .glyph svg { width: 22px; height: 22px; }
+.drop-overlay-inner h3 { margin: 0 0 4px; font-size: 15px; }
+.drop-overlay-inner p { margin: 0; font-size: 12.5px; color: var(--text-muted); }
+.drop-overlay-inner code {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  background: var(--code-bg);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.toast-stack {
+  position: fixed;
+  right: 18px;
+  bottom: 52px;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 340px;
+}
+.toast {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: var(--bg-editor);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  padding: 10px 12px;
+}
+.toast .t-ico { width: 17px; height: 17px; flex-shrink: 0; margin-top: 1px; color: var(--accent); }
+.toast .t-ico svg { width: 17px; height: 17px; display: block; }
+.toast.success .t-ico { color: var(--ok); }
+.toast.error { border-left: 3px solid var(--danger); }
+.toast.error .t-ico { color: var(--danger); }
+.toast .t-main { flex: 1; min-width: 0; }
+.toast .t-title { font-size: 12.5px; font-weight: 600; }
+.toast .t-sub { font-size: 12px; color: var(--text-muted); line-height: 1.55; overflow-wrap: anywhere; }
+.toast .t-close { width: 20px; height: 20px; border-radius: 5px; color: var(--text-faint); flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
+.toast .t-close:hover { background: var(--bg-hover); color: var(--text); }
+.toast .t-close svg { width: 11px; height: 11px; }
+.progress {
+  height: 4px;
+  background: var(--bg-hover);
+  border-radius: 2px;
+  margin-top: 7px;
+  overflow: hidden;
+}
+.progress > i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transform-origin: left;
+  animation: upload-progress 1.2s ease-in-out infinite;
+}
+@keyframes upload-progress {
+  0% { transform: scaleX(0.1); }
+  50% { transform: scaleX(0.8); }
+  100% { transform: scaleX(0.1); }
+}
+
+/* 非 .md ファイルのツリーアイコン色 (画像=緑 / PDF=赤 / データ=琥珀) */
+.tree-item .file-ico.ico-img { color: #2f9e63; }
+.tree-item .file-ico.ico-pdf { color: #d64545; }
+.tree-item .file-ico.ico-data { color: #b7791f; }
+.tree-item.active .file-ico.ico-img,
+.tree-item.active .file-ico.ico-pdf,
+.tree-item.active .file-ico.ico-data { color: var(--accent); }
+
+/* ---- 埋め込みプレビューブロック (Sf53ad6-3 — prototype/file-preview.html) --- */
+
+.file-embed {
+  margin: 6px 0 6px 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-panel);
+}
+.file-embed-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  font-size: 11px;
+  color: var(--text-faint);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-editor);
+  font-family: var(--font-mono);
+}
+.file-embed-bar .fname { font-weight: 600; color: var(--text-muted); display: inline-flex; align-items: center; gap: 6px; }
+.file-embed-bar .fname svg { width: 12px; height: 12px; }
+.file-embed-bar .meta { margin-left: auto; }
+.file-embed .embed-ico-wrap { display: inline-flex; }
+.file-embed .embed-ico-wrap svg { width: 12px; height: 12px; display: block; }
+
+/* PDF: ブラウザ内蔵ビューア (iframe) */
+.file-embed .pdf-frame {
+  display: block;
+  width: 100%;
+  height: 420px;
+  border: 0;
+  background: #55555f;
+}
+
+/* テキストプレビュー */
+.file-embed-body { background: var(--bg-editor); }
+.file-embed-body.embed-body-error {
+  padding: 10px 14px;
+  font-size: 12.5px;
+  color: var(--danger);
+}
+.file-embed-body.file-embed-note {
+  padding: 10px 14px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.text-preview {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  background: var(--bg-editor);
+  overflow-x: auto;
+  padding: 8px 0;
+}
+.text-preview .t-row { display: flex; white-space: pre; }
+.text-preview .ln {
+  width: 42px;
+  flex-shrink: 0;
+  text-align: right;
+  padding-right: 12px;
+  color: var(--text-faint);
+  user-select: none;
+}
+.text-preview .t-row:hover { background: var(--bg-panel); }
+.text-preview.truncated { position: relative; }
+.text-preview.truncated::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 34px;
+  background: linear-gradient(transparent, var(--bg-editor));
+  pointer-events: none;
+}
+.text-preview.code-block { padding: 8px 12px; }
+.text-preview.code-block pre { margin: 0; background: transparent !important; }
+.file-embed-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-editor);
+}
+.open-full-btn {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  padding: 3px 12px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.open-full-btn:hover { background: var(--accent-soft); }
+.open-full-btn svg { width: 12px; height: 12px; }
+
+/* プレビュー不能ファイルのカード */
+.file-card { display: flex; align-items: center; gap: 13px; padding: 12px 16px; background: var(--bg-editor); }
+.file-card .big-ico {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.file-card .big-ico svg { width: 18px; height: 18px; }
+.file-card .fc-main { flex: 1; min-width: 0; }
+.file-card .fc-name { font-size: 13.5px; font-weight: 600; font-family: var(--font-mono); overflow-wrap: anywhere; }
+.file-card .fc-meta { font-size: 11.5px; color: var(--text-faint); }
+.file-card .dl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 5px 12px;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+.file-card .dl-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
+.file-card .dl-btn svg { width: 13px; height: 13px; }
+.file-embed[data-error="true"] .fc-meta { color: var(--danger); }
+
+/* 添付ファイルのプレビューペイン (ツリーの tree-file クリック) */
+.file-preview-pane {
+  flex: 1;
+  overflow: auto;
+  padding: 24px 28px;
+  background: var(--bg-editor);
+}
+.file-preview-pane .file-embed { margin: 0; max-width: 860px; }
+.file-preview-pane .pdf-frame { height: calc(100vh - 160px); min-height: 320px; }
+.file-preview-pane .embed-image-wrap { display: inline-block; }

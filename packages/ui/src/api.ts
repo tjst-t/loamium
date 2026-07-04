@@ -5,6 +5,10 @@
 import { z } from 'zod';
 import {
   backlinksResponseSchema,
+  fileDeleteResponseSchema,
+  fileListResponseSchema,
+  fileRenameResponseSchema,
+  fileWriteResponseSchema,
   journalResponseSchema,
   noteDeleteResponseSchema,
   noteListResponseSchema,
@@ -14,6 +18,10 @@ import {
   errorResponseSchema,
   searchResponseSchema,
   type BacklinksResponse,
+  type FileDeleteResponse,
+  type FileListResponse,
+  type FileRenameResponse,
+  type FileWriteResponse,
   type JournalResponse,
   type NoteDeleteResponse,
   type NoteListResponse,
@@ -110,6 +118,35 @@ export const api = {
 
   renameNote(path: string, newPath: string): Promise<NoteRenameResponse> {
     return request(noteRenameResponseSchema, `/api/notes/${encodeNotePath(path)}/rename`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ newPath }),
+    });
+  },
+
+  // ---- 添付ファイル (Sf53ad6) ----
+
+  listFiles(): Promise<FileListResponse> {
+    return request(fileListResponseSchema, '/api/files');
+  },
+
+  uploadFile(path: string, data: Blob | ArrayBuffer, overwrite = false): Promise<FileWriteResponse> {
+    const qs = overwrite ? '?overwrite=true' : '';
+    return request(fileWriteResponseSchema, `/api/files/${encodeNotePath(path)}${qs}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/octet-stream' },
+      body: data,
+    });
+  },
+
+  deleteFile(path: string): Promise<FileDeleteResponse> {
+    return request(fileDeleteResponseSchema, `/api/files/${encodeNotePath(path)}`, {
+      method: 'DELETE',
+    });
+  },
+
+  renameFile(path: string, newPath: string): Promise<FileRenameResponse> {
+    return request(fileRenameResponseSchema, `/api/files/${encodeNotePath(path)}/rename`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ newPath }),

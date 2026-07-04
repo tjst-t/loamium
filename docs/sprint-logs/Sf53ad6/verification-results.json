@@ -1,0 +1,210 @@
+{
+  "$comment": "status は docs/sprint-logs/Sf53ad6/verify-run.json (機械判定) から複写。evidence のみ本セッションが記述。",
+  "sprint": "Sf53ad6",
+  "run_at": "2026-07-04",
+  "server_command": "テストハーネスが実サーバー (tsx packages/server/src/index.ts, PORT=0) と Vite dev server を一時 vault で自動起動",
+  "machine_verdict": {
+    "source": "docs/sprint-logs/Sf53ad6/verify-run.json",
+    "overall_machine_status": "pass",
+    "runs": [
+      {
+        "name": "test",
+        "exit_code": 0,
+        "junit": {
+          "tests": 267,
+          "failed": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "name": "lint",
+        "exit_code": 0
+      },
+      {
+        "name": "ui-tests",
+        "exit_code": 0,
+        "junit": {
+          "tests": 103,
+          "failed": 0,
+          "skipped": 0
+        }
+      }
+    ]
+  },
+  "summary": {
+    "total": 370,
+    "pass": 370,
+    "fail": 0,
+    "skip": 0
+  },
+  "tests": [
+    {
+      "name": "[AC-Sf53ad6-1-1] POST /api/files/{path} — アップロード・上書き保護・監査ログ / read-only・append-only 403",
+      "file": "tests/acceptance/files-upload.spec.ts",
+      "story": "Sf53ad6-1",
+      "acceptance_criteria": [
+        "AC-Sf53ad6-1-1"
+      ],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json test.junit: files-upload.spec.ts の [AC-Sf53ad6-1-1] 2 describe (8 tests) 全 pass。実サーバー + 実 HTTP。201 のバイト列一致・overwrite なし 409 でファイル不変・?overwrite=true 上書き・GET /api/files 一覧・audit.log の file.write (ok/error)・read-only/append-only 403 + denied 記録 + ファイル未作成まで検証"
+    },
+    {
+      "name": "[AC-Sf53ad6-1-2] 不正パス・.loamium・.md・サイズ超過は 4xx",
+      "file": "tests/acceptance/files-upload.spec.ts",
+      "story": "Sf53ad6-1",
+      "acceptance_criteria": [
+        "AC-Sf53ad6-1-2"
+      ],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json test.junit: [AC-Sf53ad6-1-2] describe (6 tests) 全 pass。traversal 400 invalid_path・.loamium/.git/.obsidian 400・.md 400 use_notes_api (メッセージに /api/notes)・LOAMIUM_MAX_UPLOAD=1kb で 2KB → 413 too_large + ファイル未作成・境界 1024B は 201・ディレクトリ/親ファイル衝突 409"
+    },
+    {
+      "name": "[AC-Sf53ad6-1-3] loamium upload <ローカル> [vault内パス] (--json / --overwrite / files / file 往復)",
+      "file": "tests/acceptance/cli-upload.spec.ts",
+      "story": "Sf53ad6-1",
+      "acceptance_criteria": [
+        "AC-Sf53ad6-1-3"
+      ],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json test.junit: cli-upload.spec.ts (8 tests) 全 pass。実 bin subprocess。省略時 assets/<ファイル名>・明示パス + --json 生 JSON・conflict → --overwrite・local_file_not_found / invalid_path / use_notes_api の stderr 1 行 JSON・loamium files 一覧・loamium file での往復取得。SKILL.md 用例は skill.spec.ts (doc-drift、12 tests) が REAL_COMMANDS=14 で検証"
+    },
+    {
+      "name": "[AC-Sf53ad6-2-1] D&D / 画像ペーストで assets/ にアップロード + カーソル位置に ![[パス]] 挿入",
+      "file": "packages/ui/tests/e2e/upload.e2e.spec.ts",
+      "story": "Sf53ad6-2",
+      "acceptance_criteria": [
+        "AC-Sf53ad6-2-1"
+      ],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests.junit: upload.e2e の [AC-Sf53ad6-2-1] 2 tests pass。実ブラウザ→実 Vite→実サーバー→実 FS。ペーストはカーソル位置マーカー直後に ![[assets/e2e-shot.png]]、vault のバイト列一致、tree-file (ico-img) 出現。ドロップは ![[assets/e2e-dropped.txt]] + 実ファイル内容一致。mock 側で POST ボディの実バイト列・進行トーストも検証"
+    },
+    {
+      "name": "[AC-Sf53ad6-2-2] 名前衝突の連番リネーム (image-1.png) とアップロード失敗のエラートースト",
+      "file": "packages/ui/tests/e2e/upload.e2e.spec.ts",
+      "story": "Sf53ad6-2",
+      "acceptance_criteria": [
+        "AC-Sf53ad6-2-2"
+      ],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests.junit: [AC-Sf53ad6-2-2] 2 tests pass。実サーバーの 409 → e2e-collide-1.png へ連番リネーム + renamed トースト + 実ファイル検証。実サーバーの 413 (ハーネス LOAMIUM_MAX_UPLOAD=5mb、6MB 貼り付け) → error トースト・挿入なし・ファイル未作成。mock 側で 403 forbidden も error トースト + 非リトライを検証"
+    },
+    {
+      "name": "[AC-Sf53ad6-2-3] ツリーの非 .md 表示・クリックでプレビュー・削除/リネーム (リンク追従)",
+      "file": "packages/ui/tests/e2e/upload.e2e.spec.ts",
+      "story": "Sf53ad6-2",
+      "acceptance_criteria": [
+        "AC-Sf53ad6-2-3"
+      ],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests.junit: [AC-Sf53ad6-2-3] 1 test pass。tree-file クリック → file-preview-pane の実画像デコード (naturalWidth=1)。リネームで ![[e2e-manage.png]] / ![[assets/e2e-manage.png]] 両参照がディスク上で書き換わり、実体移動・再オープンで埋め込み解決を確認。削除は確認ダイアログ経由でツリーと実 FS から消滅。API 単体の削除/リネーム保護は tests/acceptance/files-manage.spec.ts (7 tests) が検証"
+    },
+    {
+      "name": "[AC-Sf53ad6-3-1] ![[file.pdf]] の PDF ビューアブロック (ブラウザ内蔵ビューア)",
+      "file": "packages/ui/tests/e2e/file-preview.e2e.spec.ts",
+      "story": "Sf53ad6-3",
+      "acceptance_criteria": [
+        "AC-Sf53ad6-3-1"
+      ],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests.junit: [AC-Sf53ad6-3-1] pass。実アップロードした最小の実 PDF (xref 計算済み) を file-embed[data-kind=pdf] の iframe (src=/api/files/...) で表示し、実サーバーが application/pdf + %PDF- ヘッダで配信することを確認。「新しいタブで開く」は mock 側で popup URL まで検証"
+    },
+    {
+      "name": "[AC-Sf53ad6-3-2] テキスト系の読み取り専用ブロック (Shiki / 先頭 N 行 + 全体を開く)",
+      "file": "packages/ui/tests/e2e/file-preview.e2e.spec.ts",
+      "story": "Sf53ad6-3",
+      "acceptance_criteria": [
+        "AC-Sf53ad6-3-2"
+      ],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests.junit: [AC-Sf53ad6-3-2] pass。42 行の実 .log → 先頭 30 行 + 「全体を開く(残り)」→ 展開で 42 行目表示。.csv 全 3 行 (行番号付き)。.json は pre.shiki (実 Shiki ハイライト)。本文クリックはソース記法へ戻る (読み取り専用)。取得失敗 (500)・巨大ファイルガードは mock 側で検証"
+    },
+    {
+      "name": "[AC-Sf53ad6-3-3] ![[doc.md]] は transclusion と同一、プレビュー不能はファイルカード",
+      "file": "packages/ui/tests/e2e/file-preview.e2e.spec.ts",
+      "story": "Sf53ad6-3",
+      "acceptance_criteria": [
+        "AC-Sf53ad6-3-3"
+      ],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests.junit: [AC-Sf53ad6-3-3] pass。![[e2e-埋め込み元]] が S9e5ca4 と同一の embed-card (本文 + ヘッダ遷移)。.tar.zst は file-embed[data-kind=card] に名前・実サイズ (12 B)・file-embed-download (href + download 属性) が出て、実サーバーから実バイト列を返す。一覧に無いファイルのカード/PDF は mock 側で data-error を検証"
+    }
+  ],
+  "diff_coverage": [
+    {
+      "surface": "POST/GET/DELETE /api/files + rename (server)",
+      "tests": "tests/acceptance/files-upload.spec.ts / files-manage.spec.ts / files.spec.ts (更新)"
+    },
+    {
+      "surface": "shared resolveFileLinkTarget / preferredFileLinkTarget",
+      "tests": "packages/shared/src/links.test.ts (+22 tests)"
+    },
+    {
+      "surface": "CLI upload / files",
+      "tests": "tests/acceptance/cli-upload.spec.ts + skill.spec.ts (doc-drift)"
+    },
+    {
+      "surface": "UI D&D/ペースト・トースト・ツリー添付・プレビューペイン",
+      "tests": "upload.mock.spec.ts (6) + upload.e2e.spec.ts (5)"
+    },
+    {
+      "surface": "![[file]] 拡張子ディスパッチ (pdf/text/card)",
+      "tests": "file-preview.mock.spec.ts (5) + file-preview.e2e.spec.ts (3) + tests/unit/file-preview.spec.ts + embed.mock.spec.ts (更新)"
+    }
+  ],
+  "done_judgment": [
+    {
+      "story_id": "Sf53ad6-1",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      },
+      "notes": "guard1: user_review_required=false。guard2: nil-guard 型 mock 0 件 (TS、実 FS 直書き)。guard3: 受け入れは実サーバー subprocess + 実 HTTP、MOCK/fake/DRY_RUN 0 件。guard5: CLI→apiFetch POST /api/files→writeVaultFile の経路を実 subprocess 往復で証明。guard6: 先送りコメント 0 件。guard7: docs/DESIGN/ 不在。guard8: データ移行なし。"
+    },
+    {
+      "story_id": "Sf53ad6-2",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      },
+      "notes": "guard1: false。guard2: 0 件。guard3: e2e はネットワークモック 0 件・実サーバー本番モード (LOAMIUM_MAX_UPLOAD=5mb は本番と同じ設定機構)。guard5: paste/drop→uploadEnv→api.uploadFile→実 POST を e2e が実ファイル生成で証明。リネーム追従は実ディスクのノート書き換えで証明。guard6: 0 件。guard7/8: n/a。"
+    },
+    {
+      "story_id": "Sf53ad6-3",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      },
+      "notes": "guard1: false。guard2: 0 件。guard3: e2e は実 PDF/txt/csv/json/バイナリを実アップロードして実プレビュー検証。guard5: embed→GET /api/files (fetch/iframe/img) の経路を実配信 (content-type/バイト列) で証明。guard6: 0 件。guard7/8: n/a。"
+    }
+  ]
+}

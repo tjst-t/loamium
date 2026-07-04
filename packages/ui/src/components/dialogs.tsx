@@ -84,25 +84,28 @@ export function NameDialog(props: NameDialogProps): JSX.Element {
 
 export interface DeleteDialogProps {
   path: string;
+  /** 削除対象の種別 (Sf53ad6-2: 添付ファイルは "file")。既定はノート */
+  kind?: 'note' | 'file';
   onConfirm: () => void;
   onCancel: () => void;
 }
 
 export function DeleteDialog(props: DeleteDialogProps): JSX.Element {
+  const label = props.kind === 'file' ? 'ファイル' : 'ノート';
   return (
     <div className="dialog-backdrop" onClick={props.onCancel}>
       <div
         className="dialog"
         data-testid="delete-dialog"
         role="dialog"
-        aria-label="ノートを削除"
+        aria-label={`${label}を削除`}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2>ノートを削除</h2>
+        <h2>{label}を削除</h2>
         <p className="dialog-sub">{props.path}</p>
         <div className="dialog-warn">
           <span>
-            このノートをディスクから削除します。vault が Git 管理されていれば履歴から復元できます。
+            この{label}をディスクから削除します。vault が Git 管理されていれば履歴から復元できます。
           </span>
         </div>
         <div className="dialog-actions">
