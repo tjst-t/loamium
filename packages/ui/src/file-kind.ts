@@ -91,6 +91,52 @@ export function filesUrlOf(rel: string): string {
     .join('/')}`;
 }
 
+/**
+ * ファイル種別の日本語ラベル (ファイル/フォルダブラウザの「種別」列 — Seac77a-1)。
+ * prototype/files-page.html の "PNG 画像" / "PDF 文書" / "CSV データ" / "ログ" に一致。
+ */
+const KIND_LABELS: Readonly<Record<string, string>> = {
+  png: 'PNG 画像',
+  jpg: 'JPEG 画像',
+  jpeg: 'JPEG 画像',
+  gif: 'GIF 画像',
+  svg: 'SVG 画像',
+  webp: 'WebP 画像',
+  avif: 'AVIF 画像',
+  bmp: 'BMP 画像',
+  ico: 'アイコン',
+  pdf: 'PDF 文書',
+  csv: 'CSV データ',
+  tsv: 'TSV データ',
+  json: 'JSON データ',
+  log: 'ログ',
+  txt: 'テキスト',
+  md: 'Markdown ノート',
+};
+
+/** vault 相対パスと種別 (ノート/添付) から「種別」ラベルを返す。 */
+export function kindLabelOf(path: string, kind: 'note' | 'attachment'): string {
+  if (kind === 'note') return 'Markdown ノート';
+  const ext = extensionOf(path);
+  if (ext === null) return 'ファイル';
+  return KIND_LABELS[ext] ?? `${ext.toUpperCase()} ファイル`;
+}
+
+/**
+ * mtime (ms epoch) を "YYYY-MM-DD HH:mm" 表記へ (prototype の更新日時列に一致)。
+ * mtime <= 0 は空文字 (mock の未設定値対策)。
+ */
+export function formatDateTime(mtime: number): string {
+  if (mtime <= 0) return '';
+  const d = new Date(mtime);
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, '0');
+  const da = String(d.getDate()).padStart(2, '0');
+  const h = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${String(y)}-${mo}-${da} ${h}:${mi}`;
+}
+
 /** バイト数の人間可読表記 (prototype の "1.2 MB" 相当)。 */
 export function formatSize(bytes: number): string {
   if (bytes < 1024) return `${String(bytes)} B`;

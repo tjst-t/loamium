@@ -152,6 +152,11 @@ export const noteMetaSchema = z.object({
    * server は常に付与するが、既存 mock との後方互換のため optional。
    */
   mtime: z.number().optional(),
+  /**
+   * ファイルのバイト数。ファイル/フォルダブラウザ (Seac77a-1) の
+   * サイズ表示に使う。server は常に付与するが後方互換のため optional。
+   */
+  size: z.number().int().nonnegative().optional(),
 });
 export type NoteMeta = z.infer<typeof noteMetaSchema>;
 

@@ -39,6 +39,8 @@ export interface IndexedNote {
   frontmatter: Record<string, unknown> | null;
   /** ファイル mtime (ms epoch — file.mtime クエリ用) */
   mtime: number;
+  /** ファイルのバイト数 (ファイル/フォルダブラウザのサイズ表示 — Seac77a-1) */
+  size: number;
 }
 
 const FUSE_OPTIONS: IFuseOptions<IndexedNote> = {
@@ -118,9 +120,12 @@ export class VaultIndex {
     }
     let content: string;
     let mtime: number;
+    let size: number;
     try {
       content = await fs.readFile(abs, 'utf8');
-      mtime = Math.floor((await fs.stat(abs)).mtimeMs);
+      const st = await fs.stat(abs);
+      mtime = Math.floor(st.mtimeMs);
+      size = st.size;
     } catch {
       this.removeFile(rel);
       return;
@@ -134,6 +139,7 @@ export class VaultIndex {
       tasks: extractTasks(content),
       frontmatter: parseNote(content).frontmatter,
       mtime,
+      size,
     });
     this.fuseDirty = true;
   }
@@ -224,7 +230,14 @@ export class VaultIndex {
       if (folderKey !== null) {
         if (!(folder === folderKey || folder.startsWith(`${folderKey}/`))) continue;
       }
-      out.push({ path: note.path, title: note.title, tags: note.tags, folder, mtime: note.mtime });
+      out.push({
+        path: note.path,
+        title: note.title,
+        tags: note.tags,
+        folder,
+        mtime: note.mtime,
+        size: note.size,
+      });
     }
     out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
     return out;

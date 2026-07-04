@@ -60,7 +60,7 @@ test('[AC-Sf1a90a-1-1] ノート遷移が履歴に積まれ、ブラウザおよ
 
   // アセット一覧 (/files) への遷移も履歴に積まれる
   await page.getByTestId('sidebar-show-all').click();
-  await expect(page.getByTestId('files-page-placeholder')).toBeVisible();
+  await expect(page.getByTestId('files-list')).toBeVisible();
   await expect(page).toHaveURL(/\/files$/);
   await page.getByTestId('nav-back').click();
   await expect(page.getByTestId('editor')).toContainText('本文B');

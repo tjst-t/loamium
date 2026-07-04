@@ -1,0 +1,37 @@
+{
+  "sprint": "Seac77a",
+  "judged_at": "2026-07-04T00:00:00Z",
+  "machine_verdict": "pass",
+  "stories": {
+    "Seac77a-1": {
+      "title": "ファイル/フォルダブラウザページ",
+      "guards": {
+        "guard_1_every_story_has_user_scenario": {
+          "status": "pass",
+          "evidence": "user_story あり。AC 3 本すべてユーザー可観測(一覧+絞り込み / 開く+プレビュー+コピー+削除 / 遷移+履歴)。"
+        },
+        "guard_2_tests_drive_user_entrypoint": {
+          "status": "pass",
+          "evidence": "API は実サーバー+実 fetch(files-list.spec.ts)、UI は実ブラウザ Playwright→実 Vite→実サーバー(files-page.e2e.spec.ts)。ハンドラ直呼び無し。"
+        },
+        "guard_3_no_silent_skip": {
+          "status": "pass",
+          "evidence": "skip 無し。test/lint/ui-tests すべて exit 0(verify-run.json)。無効化・アサーション弱体化なし。"
+        },
+        "guard_4_status_reflects_reality": {
+          "status": "pass",
+          "evidence": "machine-authored verify-run.json overall=pass を採用。test 352 / ui 143 全 pass。"
+        },
+        "guard_5_ac_traceability": {
+          "status": "pass",
+          "evidence": "AC-Seac77a-1-1 → files-list.spec.ts、AC-Seac77a-1-2 / AC-Seac77a-1-3 → files-page.e2e.spec.ts。全 AC に対応テスト存在。"
+        },
+        "guard_6_diff_coverage": {
+          "status": "pass",
+          "evidence": "本 Sprint の可観測面(GET /api/notes の size 追加、FilesPage の一覧/絞り込み/ツリー/プレビュー/コピー/削除)はすべて対応テストで検証(下記 diff_coverage)。"
+        }
+      },
+      "verdict": "done"
+    }
+  }
+}

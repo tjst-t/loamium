@@ -1041,7 +1041,14 @@ export function App(): JSX.Element {
             onOpenNoteInEditor={(path) => void openNotePath(path)}
           />
         ) : route.kind === 'files' ? (
-          <FilesPage />
+          <FilesPage
+            notes={notes}
+            files={files}
+            onOpenNote={(path) => void openNotePath(path)}
+            onRequestDelete={(path, kind) =>
+              setDialog({ type: kind === 'note' ? 'delete' : 'delete-file', path })
+            }
+          />
         ) : preview !== null ? (
           <FilePreview path={preview} files={files} />
         ) : doc !== null ? (
