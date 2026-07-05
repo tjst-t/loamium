@@ -311,6 +311,71 @@ describe('[AC-Sb7f458-1-1] terminal is opt-in: LOAMIUM_TERMINAL=1 + LOAMIUM_MODE
 });
 
 // ---------------------------------------------------------------------------
+// AC-S79c210-3-1: LOAMIUM_TERMINAL_ALLOWED_ORIGINS の列挙オリジンは許可、
+// 列挙外の非ループバックオリジンは従来どおり 1008 で拒否
+// ---------------------------------------------------------------------------
+
+describe('[AC-S79c210-3-1] LOAMIUM_TERMINAL_ALLOWED_ORIGINS allows listed LAN origins', () => {
+  const LAN_ORIGIN = 'http://10.10.254.36:8203';
+
+  it('accepts a listed LAN origin and still rejects an unlisted cross-origin (1008)', async () => {
+    const vault = await makeTempVault();
+    const server = await startServer({
+      vault,
+      mode: 'full',
+      env: {
+        LOAMIUM_TERMINAL: '1',
+        LOAMIUM_TERMINAL_CMD: BASH,
+        LOAMIUM_TERMINAL_ALLOWED_ORIGINS: `${LAN_ORIGIN}, https://notes.lan`,
+      },
+    });
+    try {
+      // 列挙した LAN オリジンは許可され、セッションが張られたまま (1008 で閉じない)
+      const allowed = await connectWithOrigin(wsUrl(server), LAN_ORIGIN);
+      expect(allowed.stayedOpen).toBe(true);
+      expect(allowed.closeCode).not.toBe(1008);
+
+      // 2 番目の列挙オリジンも許可される
+      const allowed2 = await connectWithOrigin(wsUrl(server), 'https://notes.lan');
+      expect(allowed2.stayedOpen).toBe(true);
+      expect(allowed2.closeCode).not.toBe(1008);
+
+      // 列挙外の非ループバックオリジンは従来どおり 1008 で拒否
+      const denied = await connectWithOrigin(wsUrl(server), 'http://10.10.254.99:9999');
+      expect(denied.closeCode).toBe(1008);
+      expect(denied.gotOutput).toBe(false);
+
+      // 拒否は監査ログに denied として残る
+      const entries = await readAuditLog(vault);
+      const deniedAudit = entries.find(
+        (e) => e.op === 'terminal.connect' && e.result === 'denied' && e.status === 403,
+      );
+      expect(deniedAudit).toBeDefined();
+    } finally {
+      await server.stop();
+      await cleanupVault(vault);
+    }
+  });
+
+  it('keeps rejecting all non-loopback origins when the allow-list is empty (default)', async () => {
+    const vault = await makeTempVault();
+    const server = await startServer({
+      vault,
+      mode: 'full',
+      env: { LOAMIUM_TERMINAL: '1', LOAMIUM_TERMINAL_CMD: BASH },
+    });
+    try {
+      const denied = await connectWithOrigin(wsUrl(server), 'http://10.10.254.36:8203');
+      expect(denied.closeCode).toBe(1008);
+      expect(denied.gotOutput).toBe(false);
+    } finally {
+      await server.stop();
+      await cleanupVault(vault);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // AC-Sb7f458-1-2: 実シェルとの双方向対話・リサイズ・切断時の子プロセス終了
 // ---------------------------------------------------------------------------
 

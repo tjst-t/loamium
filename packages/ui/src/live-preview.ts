@@ -41,6 +41,7 @@ import {
   type RenderEnv,
 } from './registries.js';
 import { renderImageEmbed } from './renderers/embed.js';
+import { renderMarkdownTable } from './renderers/table.js';
 
 /** 開いているノートの vault 相対パス (RenderContext 用) */
 export const notePathFacet = Facet.define<string, string>({
@@ -148,6 +149,45 @@ class BlockRuleWidget extends WidgetType {
   }
 }
 
+/**
+ * GFM テーブル (lezer-markdown の Table ノード) を HTML テーブルへ置換する widget
+ * (S79c210-2)。カーソル非接触行のみ描画し、カーソル行はソース表示に戻る。
+ */
+class TableWidget extends WidgetType {
+  constructor(
+    readonly lines: string[],
+    readonly notePath: string,
+  ) {
+    super();
+  }
+
+  override eq(other: TableWidget): boolean {
+    return (
+      other.notePath === this.notePath &&
+      other.lines.length === this.lines.length &&
+      other.lines.every((l, i) => l === this.lines[i])
+    );
+  }
+
+  override toDOM(view: EditorView): HTMLElement {
+    let el: HTMLElement;
+    try {
+      el = renderMarkdownTable(this.lines);
+    } catch (err: unknown) {
+      el = document.createElement('div');
+      el.className = 'fence-render-error';
+      el.textContent = `テーブルの描画に失敗しました: ${err instanceof Error ? err.message : String(err)}`;
+    }
+    // クリックでカーソルをテーブルへ移し、ソース編集に戻す (他 widget と同じ挙動)
+    el.addEventListener('click', () => {
+      const pos = view.posAtDOM(el);
+      view.dispatch({ selection: { anchor: pos }, scrollIntoView: true });
+      view.focus();
+    });
+    return el;
+  }
+}
+
 function buildBlockDecorations(state: EditorState): DecorationSet {
   const decos: Range<Decoration>[] = [];
   const active = activeLines(state);
@@ -177,9 +217,28 @@ function buildBlockDecorations(state: EditorState): DecorationSet {
     return false;
   };
 
-  // ---- fence レジストリ (構文木の FencedCode) ----
+  // ---- fence レジストリ (構文木の FencedCode) + GFM テーブル (Table) ----
   treeOf(state).iterate({
     enter(node) {
+      if (node.name === 'Table') {
+        // GFM テーブル (S79c210-2)。fence 内に食い込む行は既に claim 済みなので回避
+        const startLine = doc.lineAt(node.from).number;
+        const endLine = doc.lineAt(node.to).number;
+        for (let n = startLine; n <= endLine; n++) {
+          if (claimedLines.has(n)) return false;
+        }
+        for (let n = startLine; n <= endLine; n++) claimedLines.add(n);
+        if (intersectsActive(startLine, endLine)) return false; // カーソル行はソース表示
+        const lines: string[] = [];
+        for (let n = startLine; n <= endLine; n++) lines.push(doc.line(n).text);
+        decos.push(
+          Decoration.replace({ widget: new TableWidget(lines, notePath), block: true }).range(
+            doc.line(startLine).from,
+            doc.line(endLine).to,
+          ),
+        );
+        return false;
+      }
       if (node.name !== 'FencedCode') return;
       const startLine = doc.lineAt(node.from).number;
       const endLine = doc.lineAt(node.to).number;
