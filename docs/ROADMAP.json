@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": null,
-    "total": 17,
+    "current_sprint": "Sa629e2",
+    "total": 18,
     "done": 17,
     "in_progress": 0,
-    "remaining": 0,
-    "percentage": 100
+    "remaining": 1,
+    "percentage": 94
   },
   "execution_order": [
     "Sd63ad1",
@@ -26,7 +26,8 @@
     "Seac77a",
     "S763a98",
     "S79c210",
-    "Sd40b63"
+    "Sd40b63",
+    "Sa629e2"
   ],
   "sprints": {
     "Sd63ad1": {
@@ -1491,7 +1492,7 @@
       "title": "テーブル WYSIWYG 編集 + スラッシュメニュー改善",
       "status": "done",
       "description": "レビュー第3ラウンド。①Markdown テーブルをライブプレビュー上で WYSIWYG 編集(セル直接編集・行/列の追加削除)し、保存時は標準 Markdown テーブルへ直列化(ピュア Markdown 維持)②スラッシュメニューのテーブル挿入で列数・行数を指定(Notion 風グリッドピッカー)③スラッシュメニューのキーボード選択時にアクティブ項目へスクロール追従。S79c210-2 の読み取り専用テーブル描画を対話編集に発展させる。",
-      "milestone": true,
+      "milestone": false,
       "stories": {
         "Sd40b63-1": {
           "title": "テーブルの WYSIWYG 編集(セル編集・行/列の追加削除)",
@@ -1569,6 +1570,144 @@
               "title": "キーボードスクロール追従修正",
               "description": "アクティブ項目変更時に scrollIntoView({block:'nearest'})。mock + E2E([AC-] タグ、下端の項目が選択時に可視になることを検証)。",
               "status": "done"
+            }
+          }
+        }
+      }
+    },
+    "Sa629e2": {
+      "title": "レビュー修正R4 — テーブルUX仕上げ / サンプルページ / 検索画面スリム化",
+      "status": "pending",
+      "description": "レビュー第4ラウンド。①テーブル WYSIWYG の仕上げ(行/列追加コントロールをテーブル幅に収める・セルクリック編集の信頼性修正・ソース編集への明示切替・Tab/Enter のセル移動)②全機能のサンプルノート集(dataview の使い方を筆頭に)を vault へ簡単に投入できる形で同梱 ③検索ページのスリム化(条件フォームのコンパクト化・説明文削除・結果行の密度改善・右サイドバー非表示)。",
+      "milestone": true,
+      "stories": {
+        "Sa629e2-1": {
+          "title": "テーブル WYSIWYG の UX 仕上げ",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in_review": "review_r4",
+          "user_story": "ノート利用者として、テーブル編集の操作(セル編集・行/列追加・セル移動)が表計算のように自然であってほしい。なぜなら、コントロールがはみ出したりクリックが効かなかったりすると、せっかくの WYSIWYG が使い物にならないから。",
+          "acceptance_criteria": [
+            {
+              "id": "Sa629e2-1-AC1",
+              "description": "行追加・列追加のコントロールがテーブルの幅/高さに収まって表示される(エディタ幅いっぱいにはみ出さない。ホバー時表示等の控えめな形)",
+              "test": "[AC-Sa629e2-1-1] in packages/ui/tests/e2e/table-ux.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "Sa629e2-1-AC2",
+              "description": "セルをクリックすると確実に編集状態になる(1クリックで input にフォーカスが入り、即入力できる)",
+              "test": "[AC-Sa629e2-1-2] in packages/ui/tests/e2e/table-ux.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "Sa629e2-1-AC3",
+              "description": "セル編集中に Tab で右の(行末では次行先頭の)セルへ、Shift+Tab で左へ、Enter で下のセルへ移動できる(Excel 風。最終セルの Tab は行を追加)",
+              "test": "[AC-Sa629e2-1-3] in packages/ui/tests/e2e/table-ux.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "Sa629e2-1-AC4",
+              "description": "テーブルウィジェットから素の Markdown 編集へ明示的に切り替えられる(ソース編集ボタン等。切替後はテーブル行がソース表示になりカーソルが入る)",
+              "test": "[AC-Sa629e2-1-4] in packages/ui/tests/e2e/table-ux.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sa629e2-1-1": {
+              "title": "追加コントロールのレイアウト修正",
+              "description": "行追加バーをテーブル幅に、列追加をテーブル高さに合わせる(ホバー時のみ表示の控えめな + に)。プロトタイプ相当の見た目に整える。",
+              "status": "pending"
+            },
+            "Sa629e2-1-2": {
+              "title": "セルクリック編集の信頼性修正",
+              "description": "1クリックで input フォーカスが入らない事象を特定・修正(CodeMirror のイベント横取り/フォーカス競合を精査。mousedown 処理・preventDefault の見直し)。",
+              "status": "pending"
+            },
+            "Sa629e2-1-3": {
+              "title": "Tab/Enter セルナビゲーション",
+              "description": "編集中の Tab/Shift+Tab/Enter でセル間移動(コミットしてから移動)。最終セル Tab で行追加。CodeMirror 側の Tab(インデント)を奪わないようウィジェット内のみで処理。",
+              "status": "pending"
+            },
+            "Sa629e2-1-4": {
+              "title": "ソース編集切替とテスト",
+              "description": "ウィジェットに『ソースを編集』ボタン。クリックでテーブル先頭へカーソル移動(=ソース表示)。mock + E2E([AC-] タグ)。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sa629e2-2": {
+          "title": "機能サンプルノート集",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in_review": "review_r4",
+          "user_story": "ノート利用者として、dataview をはじめ追加された機能の使い方が分かるサンプルノート一式が欲しい。なぜなら、記法やクエリは実例を見ながらでないと書けないから。",
+          "acceptance_criteria": [
+            {
+              "id": "Sa629e2-2-AC1",
+              "description": "リポジトリに samples/ のサンプルノート集があり、dataview(LIST/TABLE/TASK・FROM・WHERE・SORT の実例と結果の説明)、テーブル、embed/transclusion、callout、highlight、数式、mermaid、コードフェンス、タスク、wikilink、スラッシュメニュー、添付/アップロードの使い方を網羅している",
+              "test": "[AC-Sa629e2-2-1] in tests/acceptance/samples.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "Sa629e2-2-AC2",
+              "description": "make samples(または同等の1コマンド)でサンプルが vault に投入され、UI で開くと dataview クエリ等が実際に動作する(サンプル自身が実データとして機能する)",
+              "test": "[AC-Sa629e2-2-2] in tests/acceptance/samples.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sa629e2-2-1": {
+              "title": "サンプルノート執筆",
+              "description": "samples/ に日本語のサンプル vault(index + 機能別ノート + dataview が拾う実データノート数枚 + サンプル画像)。dataview は書き方→結果の対応が分かる構成に。",
+              "status": "pending"
+            },
+            "Sa629e2-2-2": {
+              "title": "投入コマンドとテスト",
+              "description": "make samples で LOAMIUM_VAULT(既定 dev-vault)へコピー(既存ファイルは上書きしない)。受け入れテストでサンプルの dataview クエリが /api/query で実行でき結果が返ることを検証。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sa629e2-3": {
+          "title": "検索ページのスリム化",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in_review": "review_r4",
+          "user_story": "ノート利用者として、検索ページは条件も結果もコンパクトで、画面が結果で埋まっていてほしい。なぜなら、探索中は1画面に見える情報量が効率を決めるから。",
+          "acceptance_criteria": [
+            {
+              "id": "Sa629e2-3-AC1",
+              "description": "検索条件がコンパクトな1行(キーワード+タグ+フォルダ+並び順のインライン配置。折返し可)にまとまり、Cmd+K との違いを説明するメッセージは表示されない",
+              "test": "[AC-Sa629e2-3-1] in packages/ui/tests/e2e/search-slim.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "Sa629e2-3-AC2",
+              "description": "検索結果の各行がコンパクト(1〜2行の密度。タイトル・パス・スニペット・更新日時を詰めた配置)で表示される",
+              "test": "[AC-Sa629e2-3-2] in packages/ui/tests/e2e/search-slim.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "Sa629e2-3-AC3",
+              "description": "検索ページ(/search)では右サイドバー(バックリンク/Claude)が表示されない(ノート表示に戻ると再表示)",
+              "test": "[AC-Sa629e2-3-3] in packages/ui/tests/e2e/search-slim.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sa629e2-3-1": {
+              "title": "条件フォームのインライン化",
+              "description": "縦積みフォームを1行のインラインバーに(検索ボタンは Enter 兼用)。説明メッセージ削除。検索履歴は控えめな位置へ。",
+              "status": "pending"
+            },
+            "Sa629e2-3-2": {
+              "title": "結果行の密度改善と右サイドバー非表示",
+              "description": "結果行を密なリスト行に再設計。/search ルートで右サイドバーを非表示(ノートルートで復帰)。mock + E2E([AC-] タグ)。",
+              "status": "pending"
             }
           }
         }
@@ -1677,6 +1816,12 @@
         "S763a98"
       ],
       "reason": "S79c210-2 のテーブル描画と S763a98 のスラッシュメニューを強化"
+    },
+    "Sa629e2": {
+      "depends_on": [
+        "Sd40b63"
+      ],
+      "reason": "Sd40b63 のテーブル WYSIWYG と S935867 の検索ページを仕上げる"
     }
   },
   "backlog": [
