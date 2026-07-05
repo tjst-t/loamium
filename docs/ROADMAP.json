@@ -5,8 +5,8 @@
     "current_sprint": "S9df823",
     "total": 19,
     "done": 18,
-    "in_progress": 0,
-    "remaining": 1,
+    "in_progress": 1,
+    "remaining": 0,
     "percentage": 95
   },
   "execution_order": [
@@ -1716,13 +1716,13 @@
     },
     "S9df823": {
       "title": "frontmatter のプロパティ UI(Obsidian Properties 風)",
-      "status": "pending",
+      "status": "in_progress",
       "description": "レビュー第5ラウンド。ノート冒頭の YAML frontmatter を、生 YAML ではなく GUI に溶け込むプロパティブロックとして表示・編集する(Obsidian の Properties 相当)。tags はチップ、値はその場で編集、プロパティの追加・削除。ファイルは常に標準 YAML frontmatter のまま(ピュア Markdown 維持)。テーブル WYSIWYG(Sd40b63/Sa629e2)で確立した『表示層でリッチ・ファイルは標準記法』パターンを適用する。",
       "milestone": true,
       "stories": {
         "S9df823-1": {
           "title": "プロパティブロック表示と編集",
-          "status": "pending",
+          "status": "in_progress",
           "user_review_required": false,
           "review_reason": null,
           "added_in_review": "review_r5",

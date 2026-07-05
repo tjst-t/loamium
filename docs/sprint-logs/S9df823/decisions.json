@@ -1,0 +1,144 @@
+{
+  "sprint": "S9df823",
+  "branch": "autopilot/main/S9df823",
+  "base_sha": "9d415e7eacf175924752df62bc194de69df11fa0",
+  "environment_notes": [
+    {
+      "id": "ENV-1",
+      "decision": "実装・レビュー・検証をすべてこのセッション内で実施 (sub-agent / worktree 分割なし)",
+      "rationale": "本環境ではサブエージェント spawn が不可 (親 autopilot からの指示で明記)。Story は 1 本のみで並列化の利点もない。独立 verifier (Phase 1.8) も同理由で spawn できないため、親が opus の read-only verifier を補完実行する。機械検証 (run-verify.py)・6/8 ガード・セルフレビューは本セッションで完全実施する。"
+    }
+  ],
+  "planning": [
+    {
+      "id": "P-1",
+      "decision": "YAML 直列化ユーティリティは packages/shared (frontmatter.ts) に置き、UI は @loamium/shared 経由で使う",
+      "rationale": "CLAUDE.md『型は packages/shared で共有』/ VISION coding_conventions『Markdown パーサーには必ずユニットテスト』。parseNote と同じ yaml パッケージ (同一パーサー) で直列化→読み戻しの round-trip をユニットテストで保証できる。"
+    },
+    {
+      "id": "P-2",
+      "decision": "WYSIWYG 編集可能なのはスカラー (文字列・数値・真偽・null・日付らしき文字列) とフラットなスカラー配列のみ。ネスト・複数行文字列・非有限数・引用符付きキー等は complex として原文行を verbatim 保持し読み取り専用表示",
+      "rationale": "AC4『壊さないことが最優先』。complex エントリは編集不可なので原文バイトをそのまま再出力でき、round-trip が定義上成立する。DESIGN_PRINCIPLES priority 1 (ピュア Markdown) / priority 4 (Obsidian 互換)。"
+    },
+    {
+      "id": "P-3",
+      "decision": "未編集エントリは元のソース行を verbatim 保持し、編集したエントリだけ yaml.stringify (lineWidth: 0) で再直列化する",
+      "rationale": "テーブル WYSIWYG の toEditable/toSource と同じ思想 (未編集セルを勝手に書き換えない)。flow 配列 `tags: [a, b]` のスタイルも触らない限り保たれ、diff が最小になる (vault は Git 管理 — VISION)。"
+    },
+    {
+      "id": "P-4",
+      "decision": "parsePropertiesModel は防御的にフォールバックする: YAML が壊れている / トップレベルが非オブジェクト / 行セグメンテーションと parseYaml のキー集合が一致しない / 再直列化の読み戻しが元データと deep-equal でない場合は null を返し、widget を出さず生ソース表示のまま",
+      "rationale": "priority 2 (データ安全性 > 開発速度)。widget を諦めてもファイルは壊れない。parseNote が frontmatter: null を返すケースと整合。"
+    },
+    {
+      "id": "P-5",
+      "decision": "コミット UX はテーブル WYSIWYG と同一パターン: input 差し替え + commit-on-blur (relatedTarget が widget 内なら保留) + 構造変更 (チップ追加/削除・プロパティ追加/削除・真偽切替) は即コミット + コミット後のフォーカス復元は DOM 位置ベースの CustomEvent",
+      "rationale": "親指示『テーブル WYSIWYG で確立したパターンを必ず参照し再利用』。実績のある再入・blur 順序対策 (Sa629e2-1 のコメント参照) をそのまま引き継ぐ。"
+    },
+    {
+      "id": "P-6",
+      "decision": "スラッシュメニュー『プロパティ』は /query を除去し、文書冒頭に `---\\ntags: []\\n---` を挿入する (カーソルは元の本文位置に留まり widget が即描画される)。既に frontmatter があるノートでは /query の除去のみ行い二重挿入しない",
+      "rationale": "frontmatter は文書冒頭のみ有効 (Obsidian 互換)。starter を tags にするのは DESIGN_PRINCIPLES architecture『frontmatter は第一級市民 (tags, aliases, created, status を緩く定義)』の筆頭が tags のため。空の `---\\n---` は parseNote が null を返し widget が出ないので starter が必要。"
+    },
+    {
+      "id": "P-7",
+      "decision": "全キー付きエントリを削除したら frontmatter ブロック全体 (--- ... --- と直後の改行 1 つ) を除去する。コメント行しか残らない場合もブロックごと除去",
+      "rationale": "AC3 の明示要件。コメントのみの frontmatter は parseNote 上 frontmatter: null と等価で、残す価値よりも『空の --- 殻』が残る混乱の方が大きい (priority 5: シンプルさ)。"
+    },
+    {
+      "id": "P-8",
+      "decision": "値の型解釈は素朴に: 入力文字列 'true'/'false'→真偽、/^-?\\d+(\\.\\d+)?$/→数値、空→null、その他→文字列。日付らしき文字列 (YYYY-MM-DD) は input[type=date] で編集するが値は文字列のまま。チップ (配列要素) は常に文字列として追加",
+      "rationale": "親指示『値の型は素朴に』。YAML 1.2 core schema (yaml パッケージ既定) では日付は文字列なので型を増やさない。タグは概念上文字列 (extract.ts の frontmatterTags と整合)。"
+    },
+    {
+      "id": "P-9",
+      "decision": "文字列のクオートは yaml.stringify に委ねる (`: ` や `#`、'true'、'5' など曖昧な文字列は自動で引用される)。null は `key:` (値省略) へ整形",
+      "rationale": "自前のクオート判定は必ず漏れる。parseNote と同じライブラリに任せれば round-trip が構造的に保証され、ユニットテストで検証する。`key:` は Obsidian が空値に使う形式。"
+    },
+    {
+      "id": "P-10",
+      "decision": "tags のチップ編集はタグインデックス (/api/tags) と直接連動させない (書き戻せばファイル監視でインデックスが追従する)",
+      "rationale": "親指示で明示。DESIGN_PRINCIPLES priority 6 (インデックスは使い捨て、ファイルが正)。"
+    }
+  ],
+  "implementation": [
+    {
+      "id": "I-1",
+      "decision": "ノートを開いたときの初期カーソルを本文先頭 (frontmatter の直後) に置く (Editor.tsx initialAnchor)",
+      "rationale": "従来は pos 0 (frontmatter 1 行目) にカーソルが置かれ、開いた直後は必ず生 YAML が見えてしまう。ユーザー要望の動機 (『生表示を GUI に溶け込ませたい』) に反するため、AC1 の体験として開いた直後からプロパティブロックが見えるようにした。frontmatter 無しノートは従来どおり pos 0。"
+    },
+    {
+      "id": "I-2",
+      "decision": "チップの追加 (Enter) は DOM 増分更新 + コミット遅延 (widget からフォーカスが離れたとき) にした",
+      "rationale": "Enter ごとに commit すると widget が再構築されて入力フォーカスが落ち、連続追加できない (mock テストで実証)。テーブルの requestFocus 再配送よりも『コミットしない』方が単純で確実 (priority 5)。モデルは widget 内に保持し、focusout / 構造操作で必ずコミットされる。"
+    },
+    {
+      "id": "I-3",
+      "decision": "既存スラッシュメニューテスト 3 箇所のコマンド数アサーション (8→9) と契約リストに properties を追記",
+      "rationale": "『プロパティ』コマンド追加による正当な additive 契約変更。アサーションの弱体化ではなく新しい真実への追従 (toHaveCount の具体値は維持)。TESTIDS.md の data-command 一覧も同時に更新。"
+    },
+    {
+      "id": "I-4",
+      "decision": "lezer が frontmatter 内部を FencedCode と誤認するケースに備え、fence 走査で claim 済み行をスキップするガードを追加",
+      "rationale": "ブロック置換 Decoration の重複は CodeMirror が例外を投げる。frontmatter (2 スペースインデントの block scalar 内 ``` 等) との重複を構造的に防ぐ。"
+    },
+    {
+      "id": "I-5",
+      "decision": "頻出テストヘルパー (openWithJournal 等) は table-ux.mock.spec.ts のものを複製した (共通化しない)",
+      "rationale": "既存の全 mock テストが同じ複製パターンで書かれており、テストの独立性・可読性を優先する既存慣行に合わせた。共通化は別途リファクタ課題。"
+    }
+  ],
+  "review": [],
+  "verifier": {
+    "note": "独立 verifier サブエージェントは本環境で spawn 不可のため未実行。親 autopilot が opus read-only verifier を補完実行する前提で done 処理を進める (ENV-1)。"
+  },
+  "user_observable_additions": [
+    {
+      "type": "gui-component",
+      "identifier": "properties-widget (+ properties-row/key/value/value-body/value-input/bool/value-readonly/chip/chip-remove/chip-input/del/add/new-key/new-value/edit-source)",
+      "introduced_in_files": [
+        "packages/ui/src/renderers/properties.ts",
+        "packages/ui/src/live-preview.ts",
+        "packages/ui/src/styles.css"
+      ],
+      "tested_by": [
+        "properties.mock.spec.ts",
+        "properties.e2e.spec.ts [AC-S9df823-1-1..4]"
+      ]
+    },
+    {
+      "type": "gui-component",
+      "identifier": "slash-item data-command=properties (スラッシュメニュー『プロパティ』)",
+      "introduced_in_files": [
+        "packages/ui/src/slash-menu.ts"
+      ],
+      "tested_by": [
+        "properties.mock.spec.ts (挿入/二重挿入防止)",
+        "properties.e2e.spec.ts [AC-S9df823-1-3]",
+        "slash-menu.mock.spec.ts (9 コマンド契約)"
+      ]
+    },
+    {
+      "type": "library-export",
+      "identifier": "@loamium/shared: parsePropertiesModel / serializeProperties / serializeFrontmatterBlock / hasKeyedProperties / parsePropInput / isDateLike / PropEntry / PropScalar",
+      "introduced_in_files": [
+        "packages/shared/src/frontmatter.ts",
+        "packages/shared/src/index.ts"
+      ],
+      "tested_by": [
+        "packages/shared/src/frontmatter.test.ts (20 tests)"
+      ]
+    },
+    {
+      "type": "gui-behavior",
+      "identifier": "ノートを開いた初期カーソルが本文先頭 (frontmatter 直後) になる",
+      "introduced_in_files": [
+        "packages/ui/src/components/Editor.tsx"
+      ],
+      "tested_by": [
+        "properties.mock.spec.ts (開いた直後に widget 表示)",
+        "properties.e2e.spec.ts [AC-S9df823-1-1]"
+      ]
+    }
+  ]
+}

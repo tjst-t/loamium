@@ -92,7 +92,16 @@ const ICON = {
   heading:
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 3v10M12 3v10M4 8h8"/></svg>',
   date: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><rect x="2" y="3" width="12" height="11" rx="1.5"/><path d="M2 6.5h12M5 2v2.5M11 2v2.5"/></svg>',
+  properties:
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 5h12M2 11h12"/><circle cx="6" cy="5" r="1.7"/><circle cx="10" cy="11" r="1.7"/></svg>',
 };
+
+/**
+ * スラッシュメニュー『プロパティ』が挿入する frontmatter 雛形 (S9df823-1)。
+ * 標準 YAML frontmatter のみ (ピュア Markdown — priority 1)。starter は tags
+ * (DESIGN_PRINCIPLES architecture: frontmatter 第一級市民の筆頭が tags)。
+ */
+export const FRONTMATTER_SNIPPET = '---\ntags: []\n---\n';
 
 /** 挿入コマンド一覧 (prototype/slash-menu.html の並び順・data-command に一致)。 */
 export const SLASH_COMMANDS: readonly SlashCommand[] = [
@@ -162,6 +171,17 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     keywords: ['heading', 'h1', 'h2', 'h3', '見出し', 'section'],
     icon: ICON.heading,
     build: () => ({ text: '## ', cursor: 3 }),
+  },
+  {
+    command: 'properties',
+    title: 'プロパティ',
+    desc: 'properties · frontmatter を追加',
+    kbd: '/props',
+    keywords: ['properties', 'props', 'property', 'プロパティ', 'frontmatter', 'メタデータ', 'tags', 'タグ'],
+    icon: ICON.properties,
+    // プロパティは文書冒頭へ frontmatter を生成する (applyCommand で特別扱い)。
+    // build は雛形のフォールバック (通常は insertFrontmatterProperties 経由)。
+    build: () => ({ text: FRONTMATTER_SNIPPET, cursor: FRONTMATTER_SNIPPET.length }),
   },
   {
     command: 'date',
@@ -396,13 +416,52 @@ function insertSnippet(view: EditorView, from: number, snippet: SlashSnippet): v
   view.focus();
 }
 
+/** 文書冒頭に frontmatter (--- ... ---) が既に存在するか (parseNote と同条件)。 */
+function hasFrontmatterBlock(state: EditorState): boolean {
+  const doc = state.doc;
+  if (doc.lines < 2) return false;
+  if (doc.line(1).text.replace(/\r$/, '') !== '---') return false;
+  for (let n = 2; n <= doc.lines; n++) {
+    if (doc.line(n).text.replace(/\r$/, '') === '---') return true;
+  }
+  return false;
+}
+
 /**
- * 選択中コマンドを実行する。table はサイズピッカーを開き、それ以外は即挿入する。
+ * 『プロパティ』(S9df823-1): /query を除去し、文書冒頭へ標準 YAML frontmatter を
+ * 生成する。既に frontmatter があるノートでは二重挿入せず /query の除去のみ
+ * (frontmatter は文書冒頭に 1 つだけ — Obsidian 互換)。
+ * カーソルは元の本文位置に留まる → frontmatter 外なのでプロパティブロックが即描画される。
+ */
+function insertFrontmatterProperties(view: EditorView, from: number): void {
+  const to = view.state.selection.main.head; // /query の直後 (= カーソル)
+  if (hasFrontmatterBlock(view.state)) {
+    view.dispatch({ changes: { from, to }, userEvent: 'delete' });
+    view.focus();
+    return;
+  }
+  view.dispatch({
+    changes: [
+      { from, to, insert: '' },
+      { from: 0, to: 0, insert: FRONTMATTER_SNIPPET },
+    ],
+    userEvent: 'input.complete',
+  });
+  view.focus();
+}
+
+/**
+ * 選択中コマンドを実行する。table はサイズピッカーを開き、properties は文書冒頭へ
+ * frontmatter を生成、それ以外は即挿入する。
  */
 function applyCommand(view: EditorView, s: SlashMenuState, cmd: SlashCommand): void {
   if (cmd.command === 'table') {
     view.dispatch({ effects: openPicker.of(null) });
     view.focus();
+    return;
+  }
+  if (cmd.command === 'properties') {
+    insertFrontmatterProperties(view, s.from);
     return;
   }
   insertSnippet(view, s.from, cmd.build());

@@ -48,7 +48,7 @@ test('[AC-S763a98-1-1] 行頭で / を入力するとメニューが開き、入
   await page.keyboard.type('\n/');
   const menu = page.getByTestId('slash-menu');
   await expect(menu).toBeVisible();
-  await expect(page.getByTestId('slash-item')).toHaveCount(8);
+  await expect(page.getByTestId('slash-item')).toHaveCount(9);
 
   // 入力で絞り込み: "call" → callout のみ (タイトル一致で mark)
   await page.keyboard.type('call');

@@ -49,16 +49,16 @@ async function openMenu(page: Page): Promise<void> {
   await expect(page.getByTestId('slash-menu')).toBeVisible();
 }
 
-test('[MOCK] 行頭で / を打つとメニューが開き、8 コマンドが並び、Esc で閉じる', async ({ page }) => {
+test('[MOCK] 行頭で / を打つとメニューが開き、9 コマンドが並び、Esc で閉じる', async ({ page }) => {
   const unexpected = await openApp(page, 'メモ。\n\nアンカー行。\n', 'アンカー行');
   await openMenu(page);
 
   const menu = page.getByTestId('slash-menu');
-  await expect(page.getByTestId('slash-item')).toHaveCount(8);
+  await expect(page.getByTestId('slash-item')).toHaveCount(9);
   // filter-echo が現在のクエリ (/) を表示
   await expect(menu.locator('.filter-echo')).toHaveText('/');
   // 契約された data-command が揃っている
-  for (const cmd of ['table', 'callout', 'code', 'mermaid', 'dataview', 'checkbox', 'heading', 'date']) {
+  for (const cmd of ['table', 'callout', 'code', 'mermaid', 'dataview', 'checkbox', 'heading', 'properties', 'date']) {
     await expect(page.locator(`[data-testid="slash-item"][data-command="${cmd}"]`)).toBeVisible();
   }
   // 先頭が選択済み

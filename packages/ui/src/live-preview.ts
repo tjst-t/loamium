@@ -23,7 +23,7 @@ import {
   type ViewUpdate,
 } from '@codemirror/view';
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
-import { resolveLinkTarget } from '@loamium/shared';
+import { parsePropertiesModel, resolveLinkTarget } from '@loamium/shared';
 import { activeLines } from './outline.js';
 import {
   notesUpdatedAnnotation,
@@ -42,6 +42,11 @@ import {
 } from './registries.js';
 import { renderImageEmbed } from './renderers/embed.js';
 import { renderMarkdownTable, TABLE_CELL_FOCUS_EVENT } from './renderers/table.js';
+import {
+  PROPS_FOCUS_EVENT,
+  renderProperties,
+  type PropsFocusTarget,
+} from './renderers/properties.js';
 
 /** 開いているノートの vault 相対パス (RenderContext 用) */
 export const notePathFacet = Facet.define<string, string>({
@@ -265,6 +270,121 @@ class TableWidget extends WidgetType {
   }
 }
 
+/**
+ * 文書冒頭の YAML frontmatter (--- ... ---) を Obsidian Properties 風の
+ * プロパティブロックへ置換する widget (S9df823-1)。
+ * カーソルが frontmatter 外のときのみ描画し、カーソルが入ると生 YAML 表示に戻る。
+ * 編集結果は標準 YAML frontmatter として元の行範囲へ書き戻す (priority 1 / 4)。
+ */
+class PropertiesBlockWidget extends WidgetType {
+  constructor(readonly lines: string[]) {
+    super();
+  }
+
+  override eq(other: PropertiesBlockWidget): boolean {
+    return (
+      other.lines.length === this.lines.length && other.lines.every((l, i) => l === this.lines[i])
+    );
+  }
+
+  // widget 内の入力・クリックは CodeMirror に処理させない (インライン編集は自前で管理)。
+  override ignoreEvent(): boolean {
+    return true;
+  }
+
+  override toDOM(view: EditorView): HTMLElement {
+    const lineCount = this.lines.length;
+    const holder: { el: HTMLElement | null } = { el: null };
+    /** widget が現在占める行範囲 (コミット時に posAtDOM から算出 — table と同じ)。 */
+    const rangeOf = (): { from: number; to: number } | null => {
+      // widget 差し替え後の遅延 blur からのコミットは無視する (detached DOM)
+      if (holder.el === null || !holder.el.isConnected) return null;
+      const start = view.posAtDOM(holder.el);
+      const doc = view.state.doc;
+      const startLine = doc.lineAt(start).number;
+      const endLine = Math.min(startLine + lineCount - 1, doc.lines);
+      return { from: doc.line(startLine).from, to: doc.line(endLine).to };
+    };
+
+    const commit = (newBlock: string | null): void => {
+      const r = rangeOf();
+      if (r === null) return;
+      const doc = view.state.doc;
+      if (newBlock === null) {
+        // 全プロパティ削除 → frontmatter ブロックごと除去 (直後の改行 1 つも含む)
+        const to = r.to < doc.length ? r.to + 1 : r.to;
+        view.dispatch({ changes: { from: r.from, to }, userEvent: 'delete' });
+        return;
+      }
+      if (doc.sliceString(r.from, r.to) === newBlock) return; // 変化なし
+      view.dispatch({
+        changes: { from: r.from, to: r.to, insert: newBlock },
+        // カーソルは frontmatter 外に置いたまま (ここへ移すとソース表示になるため)
+        userEvent: 'input',
+      });
+    };
+
+    let el: HTMLElement;
+    try {
+      el = renderProperties(this.lines, {
+        commit,
+        /**
+         * コミット後に再構築された widget へフォーカス復元を配送する。
+         * ドキュメント位置で widget DOM を特定する (テーブルの requestFocus と同型)。
+         */
+        requestFocus: (target: PropsFocusTarget) => {
+          if (holder.el === null || !holder.el.isConnected) return;
+          const pos = view.posAtDOM(holder.el);
+          const deliver = (attempt: number): void => {
+            for (const w of Array.from(
+              view.contentDOM.querySelectorAll('[data-testid="properties-widget"]'),
+            )) {
+              let p: number;
+              try {
+                p = view.posAtDOM(w);
+              } catch {
+                continue; // 差し替え途中の detached ノードはスキップ
+              }
+              if (p === pos) {
+                w.dispatchEvent(new CustomEvent(PROPS_FOCUS_EVENT, { detail: target }));
+                return;
+              }
+            }
+            if (attempt < 5) requestAnimationFrame(() => deliver(attempt + 1));
+          };
+          queueMicrotask(() => deliver(0));
+        },
+        // 『ソースを編集』(AC4): 未コミットの編集を書き戻しつつカーソルを
+        // frontmatter の先頭キー行 (2 行目) へ移す (1 トランザクション)。
+        editSource: (currentBlock) => {
+          const r = rangeOf();
+          if (r === null) return;
+          const doc = view.state.doc;
+          // `---\n` の直後 = 最初の YAML 行の先頭
+          const anchor = r.from + 4;
+          if (doc.sliceString(r.from, r.to) !== currentBlock) {
+            view.dispatch({
+              changes: { from: r.from, to: r.to, insert: currentBlock },
+              selection: { anchor },
+              scrollIntoView: true,
+              userEvent: 'input',
+            });
+          } else {
+            view.dispatch({ selection: { anchor }, scrollIntoView: true });
+          }
+          view.focus();
+        },
+      });
+    } catch (err: unknown) {
+      el = document.createElement('div');
+      el.className = 'fence-render-error';
+      el.textContent = `プロパティの描画に失敗しました: ${err instanceof Error ? err.message : String(err)}`;
+    }
+    holder.el = el;
+    return el;
+  }
+}
+
 function buildBlockDecorations(state: EditorState): DecorationSet {
   const decos: Range<Decoration>[] = [];
   const active = activeLines(state);
@@ -294,6 +414,39 @@ function buildBlockDecorations(state: EditorState): DecorationSet {
     return false;
   };
 
+  // ---- frontmatter プロパティブロック (S9df823-1) ----
+  // 文書冒頭の --- ... --- のみを frontmatter とみなす (shared の parseNote と同条件)。
+  // プロパティモデルへ分解できる場合だけ widget 化し、できないもの (壊れた YAML 等) は
+  // 生ソース表示のまま (ファイルを壊さない — priority 2)。
+  if (doc.lines >= 2 && doc.line(1).text.replace(/\r$/, '') === '---') {
+    let closeLine = -1;
+    for (let n = 2; n <= doc.lines; n++) {
+      if (doc.line(n).text.replace(/\r$/, '') === '---') {
+        closeLine = n;
+        break;
+      }
+    }
+    if (closeLine !== -1) {
+      const fmLines: string[] = [];
+      for (let n = 1; n <= closeLine; n++) fmLines.push(doc.line(n).text);
+      const inner = fmLines
+        .slice(1, -1)
+        .map((l) => l.replace(/\r$/, ''))
+        .join('\n');
+      if (parsePropertiesModel(inner) !== null) {
+        for (let n = 1; n <= closeLine; n++) claimedLines.add(n);
+        if (!intersectsActive(1, closeLine)) {
+          decos.push(
+            Decoration.replace({ widget: new PropertiesBlockWidget(fmLines), block: true }).range(
+              doc.line(1).from,
+              doc.line(closeLine).to,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   // ---- fence レジストリ (構文木の FencedCode) + GFM テーブル (Table) ----
   treeOf(state).iterate({
     enter(node) {
@@ -319,6 +472,11 @@ function buildBlockDecorations(state: EditorState): DecorationSet {
       if (node.name !== 'FencedCode') return;
       const startLine = doc.lineAt(node.from).number;
       const endLine = doc.lineAt(node.to).number;
+      // frontmatter プロパティブロックが claim 済みの行に食い込む fence は無視する
+      // (置換 Decoration の重複を防ぐ — S9df823-1)
+      for (let n = startLine; n <= endLine; n++) {
+        if (claimedLines.has(n)) return false;
+      }
       for (let n = startLine; n <= endLine; n++) claimedLines.add(n);
 
       const infoNode = node.node.getChild('CodeInfo');

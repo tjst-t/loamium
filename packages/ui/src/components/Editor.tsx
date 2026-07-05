@@ -13,7 +13,7 @@ import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { syntaxHighlighting, HighlightStyle } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
-import type { FileMeta, NoteMeta } from '@loamium/shared';
+import { parseNote, type FileMeta, type NoteMeta } from '@loamium/shared';
 import { outlineExtension } from '../outline.js';
 import { uploadEnvFacet, uploadExtension, type UploadEnv } from '../upload.js';
 import { livePreviewExtension, notePathFacet } from '../live-preview.js';
@@ -24,6 +24,17 @@ import {
   wikilinkEnvFacet,
   type WikilinkEnv,
 } from '../wikilink.js';
+
+/**
+ * ノートを開いたときの初期カーソル位置 (S9df823-1)。
+ * frontmatter 付きノートで先頭 (pos 0) にカーソルを置くと frontmatter が
+ * ソース表示になってしまうため、本文の先頭 (frontmatter の直後) に置く。
+ */
+function initialAnchor(content: string): number {
+  const parsed = parseNote(content);
+  if (parsed.frontmatter === null) return 0;
+  return content.length - parsed.body.length;
+}
 
 const mdHighlight = HighlightStyle.define([
   { tag: tags.heading1, class: 'cm-md-heading cm-md-h1' },
@@ -179,7 +190,11 @@ export function Editor({
     if (host === null) return;
 
     const view = new EditorView({
-      state: EditorState.create({ doc: content, extensions: buildExtensionsRef.current(docPath) }),
+      state: EditorState.create({
+        doc: content,
+        selection: { anchor: initialAnchor(content) },
+        extensions: buildExtensionsRef.current(docPath),
+      }),
       parent: host,
     });
     viewRef.current = view;
@@ -203,7 +218,13 @@ export function Editor({
     // setState で undo 履歴ごと差し替える: ノート切替後の Ctrl+Z で
     // 前ノートの本文が復活して誤保存される事故を防ぐ (データ安全性)。
     suppressRef.current = true;
-    view.setState(EditorState.create({ doc: content, extensions: buildExtensionsRef.current(docPath) }));
+    view.setState(
+      EditorState.create({
+        doc: content,
+        selection: { anchor: initialAnchor(content) },
+        extensions: buildExtensionsRef.current(docPath),
+      }),
+    );
     suppressRef.current = false;
     view.focus();
   }, [docPath, content, resetToken]);
