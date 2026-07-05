@@ -19,7 +19,28 @@ type Align = 'left' | 'center' | 'right' | null;
 export interface TableEditHandlers {
   /** 変更後の標準 Markdown テーブル (\n 区切りの複数行文字列) をコミットする。 */
   commit(newSource: string): void;
+  /**
+   * コミット直後に再構築される widget で (r, c) セルの編集を再開したい (Sa629e2-1)。
+   * commit がドキュメントを変更すると widget が作り直されるため、
+   * Tab/Enter ナビゲーションの「コミットしてから移動」はこの経路で実現する。
+   */
+  requestFocus?(r: number, c: number): void;
+  /**
+   * 『ソースを編集』— カーソルをテーブル行へ移してソース表示に切り替える (Sa629e2-1)。
+   * currentSource は編集中セルを flush した最新の直列化結果。呼び出し側は
+   * 「内容の書き戻し + 選択移動」を 1 トランザクションで dispatch する
+   * (別々に dispatch すると 1 回目で widget が再構築され位置が取れなくなるため)。
+   */
+  editSource?(currentSource: string): void;
 }
+
+/**
+ * コミット後に再構築された table-widget でセル編集を再開させる CustomEvent 名
+ * (Sa629e2-1)。detail: { r, c }。widget の DOM インスタンスは CodeMirror の描画都合で
+ * 作り直されるため、requestFocus の実装側はドキュメント位置から現在の widget DOM を
+ * 探してこのイベントを送る (インスタンス同一性に依存しない)。
+ */
+export const TABLE_CELL_FOCUS_EVENT = 'loamium:table-cell-focus';
 
 /** テーブルの編集モデル。セル文字列はすべて「編集用 (パイプ非エスケープ)」形式で保持する。 */
 export interface TableModel {
@@ -176,6 +197,8 @@ const ICON_TIMES =
   '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
 const ICON_PLUS =
   '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>';
+const ICON_CODE =
+  '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 4.5 2 8l3.5 3.5M10.5 4.5 14 8l-3.5 3.5"/></svg>';
 
 // ---- 描画 -------------------------------------------------------------------
 
@@ -183,6 +206,10 @@ const ICON_PLUS =
  * テーブルのソース行配列を <table> 要素へ描画する。
  * handlers を渡すとセル編集・行/列操作が有効になる (エディタ内)。
  * 省略時は読み取り専用 (ユニットテスト等)。
+ *
+ * 編集時のレイアウト (Sa629e2-1): wrap は CSS grid (width: max-content)。
+ * 行追加バーはテーブルの真下 (テーブル幅)、列追加バーはテーブルの右
+ * (テーブル高さ) に収まり、ホバー時のみ表示される控えめなコントロールになる。
  */
 export function renderMarkdownTable(lines: string[], handlers?: TableEditHandlers): HTMLElement {
   const model = parseTableModel(lines);
@@ -192,9 +219,6 @@ export function renderMarkdownTable(lines: string[], handlers?: TableEditHandler
   wrap.className = editable ? 'md-table-wrap editable' : 'md-table-wrap';
   wrap.setAttribute('data-testid', 'table-widget');
   if (editable) wrap.setAttribute('data-editable', 'true');
-
-  const main = document.createElement('div');
-  main.className = 'md-table-main';
 
   const table = document.createElement('table');
   table.className = 'md-table';
@@ -276,43 +300,94 @@ export function renderMarkdownTable(lines: string[], handlers?: TableEditHandler
     // focusout が blur より先に来ても編集値を失わないよう flush を登録
     flushActive = () => setCell(r, c, input.value);
 
+    // 注意: フォーカス中の input を removeChild すると blur が「同期的に再入」する
+    // (Chrome は blur ハンドラ実行中に外側の removeChild が失敗し DOMException)。
+    // 先に editing フラグを畳んでから DOM を触り、再入した finish/cancel を no-op にする。
     const finish = (): void => {
       if (span.dataset.editing !== '1') return;
+      span.dataset.editing = '';
       setCell(r, c, input.value);
       flushActive = null;
       if (input.parentElement !== null) input.parentElement.removeChild(input);
       span.style.display = '';
       renderCellBody(span, r, c);
-      span.dataset.editing = '';
     };
     const cancel = (): void => {
       if (span.dataset.editing !== '1') return;
+      span.dataset.editing = '';
       flushActive = null;
       if (input.parentElement !== null) input.parentElement.removeChild(input);
       span.style.display = '';
-      span.dataset.editing = '';
+    };
+
+    /**
+     * 「コミットしてから移動」(AC-Sa629e2-1-3)。編集値をモデルへ反映し、
+     * ドキュメントが変わる場合は requestFocus で移動先を予約してからコミットする
+     * (コミットで widget が再構築され既存 DOM は破棄されるため、直接 focusCell
+     * できない)。変化が無ければそのまま移動先セルの編集を開く。
+     *
+     * requestFocus は finish() より前に呼ぶ: finish() の removeChild が blur を
+     * 同期再入させ、blur 側の commitFinal が先にコミット (dispatch) することがある。
+     * その時点で widget は差し替え済みになり、以後 posAtDOM で位置が取れないため。
+     */
+    const moveTo = (nr: number, nc: number): void => {
+      setCell(r, c, input.value);
+      const changed = serializeTableModel(model) !== lastCommitted;
+      if (changed) handlers?.requestFocus?.(nr, nc);
+      finish();
+      if (changed) {
+        commitFinal(); // blur 再入で既にコミット済みなら no-op
+      } else {
+        focusCell(nr, nc);
+      }
     };
 
     input.addEventListener('keydown', (e) => {
       e.stopPropagation();
       if (e.isComposing) return; // IME 変換中はブラウザに委ねる
       if (e.key === 'Enter') {
+        // Excel 風: 下のセルへ (ヘッダ行からは先頭データ行へ)。下が無ければ編集終了。
         e.preventDefault();
-        finish();
-        commitFinal();
+        const below: [number, number] | null =
+          r < 0
+            ? model.rows.length > 0
+              ? [0, c]
+              : null
+            : r + 1 < model.rows.length
+              ? [r + 1, c]
+              : null;
+        if (below !== null) {
+          moveTo(below[0], below[1]);
+        } else {
+          finish();
+          commitFinal();
+        }
       } else if (e.key === 'Escape') {
         e.preventDefault();
         cancel();
       } else if (e.key === 'Tab') {
+        // Excel 風: 右へ (行末は次行先頭へ)、Shift+Tab は左へ。
+        // CodeMirror のインデント Tab は奪わない (stopPropagation 済み・widget 内のみ)。
         e.preventDefault();
-        setCell(r, c, input.value);
         const order = cellOrder();
         const idx = order.findIndex(([rr, cc]) => rr === r && cc === c);
         const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
         const next = order[nextIdx];
-        finish();
-        if (next !== undefined) focusCell(next[0], next[1]);
-        else commitFinal();
+        if (next !== undefined) {
+          moveTo(next[0], next[1]);
+        } else if (!e.shiftKey) {
+          // 最終セルの Tab: 行を追加して新しい行の先頭セルの編集を続ける。
+          // モデル変更と requestFocus は finish() より前に済ませる (moveTo と同じ理由 —
+          // finish() の blur 再入で先にコミットされても追加行ごと反映されるように)。
+          setCell(r, c, input.value);
+          addRow(model);
+          handlers?.requestFocus?.(model.rows.length - 1, 0);
+          finish();
+          structuralCommit(); // blur 再入で既にコミット済みなら live-preview 側で無視される
+        } else {
+          finish();
+          commitFinal();
+        }
       }
     });
     // beforeinput / input は CodeMirror の DOM 監視へ伝播させない (誤同期防止)
@@ -338,9 +413,18 @@ export function renderMarkdownTable(lines: string[], handlers?: TableEditHandler
     el.append(span);
     if (editable) {
       bodyByCoord.set(key(r, c), span);
-      // クリックで CM のキャレットを奪わずにインライン編集へ入る
-      span.addEventListener('mousedown', (e) => {
+      // クリックで CM のキャレットを奪わずにインライン編集へ入る。
+      // ハンドラはセル (td/th) 全体に付ける — テキスト span だけだと
+      // パディング領域や空セルのクリックが編集にならない (AC-Sa629e2-1-2 の根本修正)。
+      el.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return;
+        const t = e.target;
+        // SVG アイコン (SVGElement) も対象になるため HTMLElement ではなく Element で判定する
+        if (t instanceof Element) {
+          // 行/列削除ボタンは編集を開かない。編集中 input 内は既定のキャレット操作に委ねる
+          if (t.closest('button') !== null) return;
+          if (t.closest('input') !== null) return;
+        }
         e.preventDefault();
         e.stopPropagation();
         beginEdit(span, r, c);
@@ -407,9 +491,29 @@ export function renderMarkdownTable(lines: string[], handlers?: TableEditHandler
     tbody.append(tr);
   }
   table.append(tbody);
-  main.append(table);
+  wrap.append(table);
 
-  if (editable) {
+  if (editable && handlers !== undefined) {
+    // 『ソースを編集』(AC-Sa629e2-1-4) — テーブル右上・ホバー表示の明示切替
+    if (handlers.editSource !== undefined) {
+      const editSource = handlers.editSource.bind(handlers);
+      const srcBtn = document.createElement('button');
+      srcBtn.type = 'button';
+      srcBtn.className = 'md-table-edit-source';
+      srcBtn.setAttribute('data-testid', 'table-edit-source');
+      srcBtn.title = 'テーブルを Markdown ソースとして編集';
+      srcBtn.innerHTML = `${ICON_CODE}<span>ソースを編集</span>`;
+      srcBtn.addEventListener('mousedown', (e) => e.preventDefault());
+      srcBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (flushActive !== null) flushActive();
+        editSource(serializeTableModel(model));
+      });
+      wrap.append(srcBtn);
+    }
+
+    // 列を追加 — テーブルの右、テーブル高さに収まるスリムバー (AC-Sa629e2-1-1)
     const addCol = document.createElement('button');
     addCol.type = 'button';
     addCol.className = 'md-table-add-col';
@@ -423,12 +527,9 @@ export function renderMarkdownTable(lines: string[], handlers?: TableEditHandler
       addColumn(model);
       structuralCommit();
     });
-    main.append(addCol);
-  }
+    wrap.append(addCol);
 
-  wrap.append(main);
-
-  if (editable) {
+    // 行を追加 — テーブルの下、テーブル幅に収まるスリムバー (AC-Sa629e2-1-1)
     const addRowBtn = document.createElement('button');
     addRowBtn.type = 'button';
     addRowBtn.className = 'md-table-add-row';
@@ -449,6 +550,16 @@ export function renderMarkdownTable(lines: string[], handlers?: TableEditHandler
       const rt = e.relatedTarget;
       if (rt instanceof Node && wrap.contains(rt)) return;
       commitFinal();
+    });
+
+    // コミット後の編集再開 (requestFocus → ドキュメント位置で特定した widget DOM へ配送)
+    wrap.addEventListener(TABLE_CELL_FOCUS_EVENT, (e: Event) => {
+      if (!(e instanceof CustomEvent)) return;
+      const d: unknown = e.detail;
+      if (typeof d !== 'object' || d === null) return;
+      const { r, c } = d as { r?: unknown; c?: unknown };
+      if (typeof r !== 'number' || typeof c !== 'number') return;
+      focusCell(r, c);
     });
   }
 

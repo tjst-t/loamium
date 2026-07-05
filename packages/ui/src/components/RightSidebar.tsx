@@ -23,6 +23,11 @@ export interface RightSidebarProps {
   refreshToken: number;
   /** 参照元クリックでそのノートを開く */
   onOpenNote: (path: string) => void;
+  /**
+   * true のときサイドバー全体を非表示にする (Sa629e2-3: /search ルート)。
+   * unmount ではなく display:none — Claude (xterm) のセッションは維持される。
+   */
+  hidden?: boolean;
 }
 
 /** コンテキスト行中のリンク原文 (raw) を <mark> で強調する。 */
@@ -38,7 +43,12 @@ function contextWithMark(context: string, raw: string): JSX.Element {
   );
 }
 
-export function RightSidebar({ notePath, refreshToken, onOpenNote }: RightSidebarProps): JSX.Element {
+export function RightSidebar({
+  notePath,
+  refreshToken,
+  onOpenNote,
+  hidden = false,
+}: RightSidebarProps): JSX.Element {
   const [tab, setTab] = useState<RightTab>('backlinks');
   const [collapsed, setCollapsed] = useState(false);
   /** 一度 Claude を開いたら unmount しない (トグルでセッションを切らない) */
@@ -80,9 +90,12 @@ export function RightSidebar({ notePath, refreshToken, onOpenNote }: RightSideba
     setTab('claude');
   };
 
+  // /search では表示しない (display:none — マウントは維持し xterm セッションを守る)
+  const hiddenStyle = hidden ? ({ display: 'none' } as const) : undefined;
+
   if (collapsed) {
     return (
-      <aside className="panel collapsed" data-testid="right-sidebar">
+      <aside className="panel collapsed" data-testid="right-sidebar" style={hiddenStyle}>
         <div className="panel-header">
           <button
             className="icon-btn"
@@ -98,7 +111,7 @@ export function RightSidebar({ notePath, refreshToken, onOpenNote }: RightSideba
   }
 
   return (
-    <aside className="panel" data-testid="right-sidebar">
+    <aside className="panel" data-testid="right-sidebar" style={hiddenStyle}>
       <div className="panel-header">
         <div className="seg-toggle" role="tablist" aria-label="右サイドバー切替">
           <button

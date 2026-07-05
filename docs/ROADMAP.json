@@ -5,8 +5,8 @@
     "current_sprint": "Sa629e2",
     "total": 18,
     "done": 17,
-    "in_progress": 0,
-    "remaining": 1,
+    "in_progress": 1,
+    "remaining": 0,
     "percentage": 94
   },
   "execution_order": [
@@ -1577,13 +1577,13 @@
     },
     "Sa629e2": {
       "title": "レビュー修正R4 — テーブルUX仕上げ / サンプルページ / 検索画面スリム化",
-      "status": "pending",
+      "status": "in_progress",
       "description": "レビュー第4ラウンド。①テーブル WYSIWYG の仕上げ(行/列追加コントロールをテーブル幅に収める・セルクリック編集の信頼性修正・ソース編集への明示切替・Tab/Enter のセル移動)②全機能のサンプルノート集(dataview の使い方を筆頭に)を vault へ簡単に投入できる形で同梱 ③検索ページのスリム化(条件フォームのコンパクト化・説明文削除・結果行の密度改善・右サイドバー非表示)。",
       "milestone": true,
       "stories": {
         "Sa629e2-1": {
           "title": "テーブル WYSIWYG の UX 仕上げ",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "added_in_review": "review_r4",
@@ -1618,28 +1618,28 @@
             "Sa629e2-1-1": {
               "title": "追加コントロールのレイアウト修正",
               "description": "行追加バーをテーブル幅に、列追加をテーブル高さに合わせる(ホバー時のみ表示の控えめな + に)。プロトタイプ相当の見た目に整える。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa629e2-1-2": {
               "title": "セルクリック編集の信頼性修正",
               "description": "1クリックで input フォーカスが入らない事象を特定・修正(CodeMirror のイベント横取り/フォーカス競合を精査。mousedown 処理・preventDefault の見直し)。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa629e2-1-3": {
               "title": "Tab/Enter セルナビゲーション",
               "description": "編集中の Tab/Shift+Tab/Enter でセル間移動(コミットしてから移動)。最終セル Tab で行追加。CodeMirror 側の Tab(インデント)を奪わないようウィジェット内のみで処理。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa629e2-1-4": {
               "title": "ソース編集切替とテスト",
               "description": "ウィジェットに『ソースを編集』ボタン。クリックでテーブル先頭へカーソル移動(=ソース表示)。mock + E2E([AC-] タグ)。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sa629e2-2": {
           "title": "機能サンプルノート集",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "added_in_review": "review_r4",
@@ -1662,18 +1662,18 @@
             "Sa629e2-2-1": {
               "title": "サンプルノート執筆",
               "description": "samples/ に日本語のサンプル vault(index + 機能別ノート + dataview が拾う実データノート数枚 + サンプル画像)。dataview は書き方→結果の対応が分かる構成に。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa629e2-2-2": {
               "title": "投入コマンドとテスト",
               "description": "make samples で LOAMIUM_VAULT(既定 dev-vault)へコピー(既存ファイルは上書きしない)。受け入れテストでサンプルの dataview クエリが /api/query で実行でき結果が返ることを検証。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sa629e2-3": {
           "title": "検索ページのスリム化",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "added_in_review": "review_r4",
@@ -1702,12 +1702,12 @@
             "Sa629e2-3-1": {
               "title": "条件フォームのインライン化",
               "description": "縦積みフォームを1行のインラインバーに(検索ボタンは Enter 兼用)。説明メッセージ削除。検索履歴は控えめな位置へ。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa629e2-3-2": {
               "title": "結果行の密度改善と右サイドバー非表示",
               "description": "結果行を密なリスト行に再設計。/search ルートで右サイドバーを非表示(ノートルートで復帰)。mock + E2E([AC-] タグ)。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }

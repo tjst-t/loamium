@@ -41,7 +41,7 @@ import {
   type RenderEnv,
 } from './registries.js';
 import { renderImageEmbed } from './renderers/embed.js';
-import { renderMarkdownTable } from './renderers/table.js';
+import { renderMarkdownTable, TABLE_CELL_FOCUS_EVENT } from './renderers/table.js';
 
 /** 開いているノートの vault 相対パス (RenderContext 用) */
 export const notePathFacet = Facet.define<string, string>({
@@ -181,7 +181,9 @@ class TableWidget extends WidgetType {
     // 元ソース行範囲へ書き戻す。範囲はコミット時に posAtDOM から算出する
     // (編集中は CM ドキュメントを一切変えないため位置は安定している)。
     const commit = (newSource: string): void => {
-      if (holder.el === null) return;
+      // widget が既に差し替えられた後 (editSource 等の dispatch 後) の遅延 blur からの
+      // コミットは無視する — detached DOM では位置が取れず、内容も反映済み (Sa629e2-1)
+      if (holder.el === null || !holder.el.isConnected) return;
       const start = view.posAtDOM(holder.el);
       const doc = view.state.doc;
       const startLine = doc.lineAt(start).number;
@@ -198,7 +200,61 @@ class TableWidget extends WidgetType {
 
     let el: HTMLElement;
     try {
-      el = renderMarkdownTable(this.lines, { commit });
+      el = renderMarkdownTable(this.lines, {
+        commit,
+        /**
+         * 「コミットしてから移動」(Sa629e2-1): コミットで widget が再構築されるため、
+         * 元のテーブル開始位置 (doc 位置) を控えておき、dispatch 完了後に同じ位置の
+         * table-widget DOM を探して CustomEvent でセル編集を再開させる。
+         * widget インスタンスの同一性 (toDOM が何度呼ばれるか) に依存しない。
+         */
+        requestFocus: (r, c) => {
+          if (holder.el === null || !holder.el.isConnected) return;
+          const target = view.posAtDOM(holder.el);
+          const deliver = (attempt: number): void => {
+            for (const w of Array.from(
+              view.contentDOM.querySelectorAll('[data-testid="table-widget"]'),
+            )) {
+              let pos: number;
+              try {
+                pos = view.posAtDOM(w);
+              } catch {
+                continue; // 差し替え途中の detached ノードはスキップ
+              }
+              if (pos === target) {
+                w.dispatchEvent(new CustomEvent(TABLE_CELL_FOCUS_EVENT, { detail: { r, c } }));
+                return;
+              }
+            }
+            // 再描画のタイミング次第で見つからないことがある — 数フレーム再試行
+            if (attempt < 5) requestAnimationFrame(() => deliver(attempt + 1));
+          };
+          queueMicrotask(() => deliver(0));
+        },
+        // 『ソースを編集』(AC-Sa629e2-1-4): 未コミットの編集を書き戻しつつ
+        // カーソルをテーブル先頭行へ移す (1 トランザクション)。activeLines が
+        // テーブルに触れることで widget が外れ、ソース表示に切り替わる
+        editSource: (currentSource) => {
+          if (holder.el === null || !holder.el.isConnected) return;
+          const start = view.posAtDOM(holder.el);
+          const doc = view.state.doc;
+          const startLine = doc.lineAt(start).number;
+          const endLine = Math.min(startLine + lineCount - 1, doc.lines);
+          const from = doc.line(startLine).from;
+          const to = doc.line(endLine).to;
+          if (doc.sliceString(from, to) !== currentSource) {
+            view.dispatch({
+              changes: { from, to, insert: currentSource },
+              selection: { anchor: from },
+              scrollIntoView: true,
+              userEvent: 'input',
+            });
+          } else {
+            view.dispatch({ selection: { anchor: from }, scrollIntoView: true });
+          }
+          view.focus();
+        },
+      });
     } catch (err: unknown) {
       el = document.createElement('div');
       el.className = 'fence-render-error';
