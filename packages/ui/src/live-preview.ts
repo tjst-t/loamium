@@ -169,21 +169,42 @@ class TableWidget extends WidgetType {
     );
   }
 
+  // widget 内の入力・クリックは CodeMirror に処理させない (インライン編集は自前で管理)。
+  override ignoreEvent(): boolean {
+    return true;
+  }
+
   override toDOM(view: EditorView): HTMLElement {
+    const lineCount = this.lines.length;
+    const holder: { el: HTMLElement | null } = { el: null };
+    // WYSIWYG 編集: セル編集・行/列操作の結果 (標準 Markdown テーブル文字列) を
+    // 元ソース行範囲へ書き戻す。範囲はコミット時に posAtDOM から算出する
+    // (編集中は CM ドキュメントを一切変えないため位置は安定している)。
+    const commit = (newSource: string): void => {
+      if (holder.el === null) return;
+      const start = view.posAtDOM(holder.el);
+      const doc = view.state.doc;
+      const startLine = doc.lineAt(start).number;
+      const endLine = Math.min(startLine + lineCount - 1, doc.lines);
+      const from = doc.line(startLine).from;
+      const to = doc.line(endLine).to;
+      if (doc.sliceString(from, to) === newSource) return; // 変化なし
+      view.dispatch({
+        changes: { from, to, insert: newSource },
+        // カーソルはテーブル外に置いたまま (ここへ移すと再びソース表示になるため)
+        userEvent: 'input',
+      });
+    };
+
     let el: HTMLElement;
     try {
-      el = renderMarkdownTable(this.lines);
+      el = renderMarkdownTable(this.lines, { commit });
     } catch (err: unknown) {
       el = document.createElement('div');
       el.className = 'fence-render-error';
       el.textContent = `テーブルの描画に失敗しました: ${err instanceof Error ? err.message : String(err)}`;
     }
-    // クリックでカーソルをテーブルへ移し、ソース編集に戻す (他 widget と同じ挙動)
-    el.addEventListener('click', () => {
-      const pos = view.posAtDOM(el);
-      view.dispatch({ selection: { anchor: pos }, scrollIntoView: true });
-      view.focus();
-    });
+    holder.el = el;
     return el;
   }
 }

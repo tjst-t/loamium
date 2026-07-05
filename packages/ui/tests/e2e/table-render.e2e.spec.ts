@@ -66,13 +66,17 @@ test('[AC-S79c210-2-1] テーブルはカーソル行以外で HTML テーブル
   // 生のパイプ記法はテーブル描画中は本文に出ない
   await expect(page.locator('[data-testid="editor"]')).not.toContainText('| 商品 | 個数 |');
 
-  // テーブルをクリックするとカーソルが入り、ソース (パイプ記法) が見える
-  await tableWidget.click();
-  await expect(editorLine(page, '| 商品 | 個数 | 状態 |')).toBeVisible();
+  // セルをクリックするとインライン編集の input が開き、そのセルのソースが見える
+  // (WYSIWYG 編集: カーソルを置いたセルはソース、外すと再描画 — Sd40b63-1 で発展)
+  await tableWidget.locator('tbody tr').first().locator('td').nth(2).locator('.cell-body').click();
+  const cellInput = page.getByTestId('table-cell-input');
+  await expect(cellInput).toBeVisible();
+  await expect(cellInput).toHaveValue('**在庫**');
 
-  // カーソルを外へ戻すと再びテーブル描画に戻る
+  // フォーカスを外へ戻すと再びテーブル描画 (太字レンダリング) に戻る
   await editorLine(page, 'アンカー行').click();
   await expect(page.getByTestId('table-widget')).toBeVisible();
+  await expect(tableWidget.locator('tbody tr').first().locator('td strong')).toHaveText('在庫');
 });
 
 test('[AC-S79c210-2-2] スラッシュメニューの「テーブル」挿入結果が直後に表として描画される', async ({
@@ -91,6 +95,9 @@ test('[AC-S79c210-2-2] スラッシュメニューの「テーブル」挿入結
   await page.keyboard.type('/table');
   await expect(page.getByTestId('slash-menu')).toBeVisible();
   await page.locator('[data-testid="slash-item"][data-command="table"]').click();
+  // サイズピッカーで 3×3 を選んで挿入
+  await expect(page.getByTestId('slash-table-picker')).toBeVisible();
+  await page.locator('[data-testid="slash-table-picker-cell"][data-cols="3"][data-rows="3"]').click();
 
   // 挿入直後、カーソルは先頭セルにあるためテーブル行はソース表示。
   // カーソルをテーブル外へ移すと表として描画される (セル編集でカーソル行のみソース)。
