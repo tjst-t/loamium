@@ -8,6 +8,16 @@ export {
 export { extractSection } from './sections.js';
 export { parseNote, type ParsedNote } from './markdown.js';
 export {
+  parsePropertiesModel,
+  serializeProperties,
+  serializeFrontmatterBlock,
+  hasKeyedProperties,
+  parsePropInput,
+  isDateLike,
+  type PropEntry,
+  type PropScalar,
+} from './frontmatter.js';
+export {
   extractTags,
   extractLinks,
   extractTasks,

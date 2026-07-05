@@ -1,0 +1,78 @@
+{
+  "sprint": "S9df823",
+  "verified_at": "2026-07-05T00:00:00Z",
+  "verifier_model": "claude-opus-4-8 (read-only, separate session)",
+  "overall": "pass",
+  "findings": [
+    {
+      "id": "F-1",
+      "category": "machine_verdict_reconciliation",
+      "status": "pass",
+      "ac": null,
+      "summary": "verify-run.json (machine-authored) の runs (test exit 0 / junit 412 pass 0 fail 0 skip、lint exit 0、ui-tests exit 0 / 207 pass) を独立に再実行して再現。`make test` → Test Files 34 passed, Tests 412 passed, EXIT 0。`make test-ui` → 207 passed (3.1m), EXIT 0。`make lint` → tsc --noEmit 全 workspace + tests で EXIT 0。verification-results.json の自己申告 (test 412 / ui 207 / lint pass) と完全一致。既知 flaky (terminal.spec / wikilink.mock) は本再実行では顕在化せず全緑。緑チェックは機械 pass に裏付けられている。",
+      "evidence": "independent `make test` -> 412 passed EXIT 0; `make test-ui` -> 207 passed EXIT 0; `make lint` -> EXIT 0"
+    },
+    {
+      "id": "F-2",
+      "category": "AC-S9df823-1-1",
+      "status": "pass",
+      "ac": "S9df823-1-AC1",
+      "summary": "実描画の経路が実在し到達可能。live-preview.ts buildBlockDecorations が文書冒頭 --- ... --- を検出 → parsePropertiesModel が非 null のときのみ block:true の Decoration.replace で PropertiesBlockWidget を挿入 → toDOM が renderProperties を呼ぶ。この経路は blockDecoField → livePreviewExtension → Editor に組み込まれ、ユーザーのノート表示エントリから到達する。Editor.tsx initialAnchor(content) が frontmatter 付きノートの初期カーソルを本文先頭 (content.length - parsedBody.length = frontmatter 外) に置くため、開いた直後から widget が見える。カーソルが frontmatter 行に触れると intersectsActive(1,closeLine) で widget を出さず生 YAML 表示に戻る。properties.e2e AC1 (:56) が実ブラウザ→実 Vite→実サーバーで widget 可視・row 数 4・status『進行中』・priority『1』・tags 2 チップ・生 YAML テキストが本文に出ないこと・ソース編集⇄widget 往復までアサートし、独立再実行で pass。ユーザー観測点で検証されている。",
+      "evidence": "live-preview.ts:421-448 PropertiesBlockWidget 挿入; Editor.tsx initialAnchor; properties.e2e.spec.ts:56-101 (rerun pass 163)"
+    },
+    {
+      "id": "F-3",
+      "category": "AC-S9df823-1-2",
+      "status": "pass",
+      "ac": "S9df823-1-AC2",
+      "summary": "書き戻しが標準 YAML として実ファイルへ到達する経路と round-trip 同値を確認。renderProperties の commit(newBlock) は live-preview.ts PropertiesBlockWidget.commit → view.dispatch({changes:{from,to,insert:newBlock}}) で CodeMirror ドキュメント (正本 Markdown 1 本) の frontmatter 行範囲を置換し、Ctrl+S で実ファイルへ保存される。frontmatter.ts の serializeProperties は未編集エントリを source verbatim、編集済みのみ yaml.stringify で再直列化 → parseNote と同一 yaml パッケージで parsePropertiesModel 内の自己検証 (再直列化→読戻し deep-equal) が構造的に round-trip を保証。frontmatter.test.ts が (a) round-trip 同値、(b) クオート必要文字列 x:y / #tag / 'true' / '5' / '- listish' / '' を yaml.stringify に委ねて正しく引用、(c) 制御文字非混入、(d) serializeFrontmatterBlock→parseNote 整合を精読の上でカバー。properties.e2e AC2 (:103) が実編集 (日本語値 status→完了、tags チップ gamma 追加 / alpha 削除) 後の実ファイルを readFile し status: 完了 / - beta / - gamma / not alpha / priority:1 未編集保持 / 本文無傷 / expectCleanMarkdown をアサート、独立再実行で pass。さらに R-1 回帰 (無変更で開閉した code: \"5\" が型化けせず原文維持) が apply() の input.value===initialText 早期 return で担保され e2e が実ファイルで検証。",
+      "evidence": "live-preview.ts:309-325 commit dispatch; frontmatter.ts:180-212 serializeProperties + self-check 169-175; frontmatter.test.ts:102-207; properties.e2e.spec.ts:103-171 (rerun pass 164)"
+    },
+    {
+      "id": "F-4",
+      "category": "AC-S9df823-1-3",
+      "status": "pass",
+      "ac": "S9df823-1-AC3",
+      "summary": "追加・削除・生成・スラッシュメニュー・ブロック除去すべて実装され到達可能。プロパティ追加は properties.ts の追加フォーム→applyAdd→entries.push→structuralCommit。行削除は properties-del→removeEntry→structuralCommit。全キー付きエントリ削除で serializeFrontmatterBlock が null を返し commit(null)→PropertiesBlockWidget.commit が frontmatter ブロック + 直後改行 1 つを dispatch delete。スラッシュメニュー『プロパティ』は slash-menu.ts SLASH_COMMANDS に追加され applyCommand の特別分岐 insertFrontmatterProperties が /query を除去し pos 0 へ FRONTMATTER_SNIPPET (---\\ntags: []\\n---\\n) を挿入 (既存 frontmatter は hasFrontmatterBlock で二重挿入防止)。properties.e2e AC3 (:173) が rating:5 追加→実ファイル確認、全削除→file が --- を含まないこと・本文残存を確認、frontmatter 無しノートへ /prop→properties 項目クリック→file2 が ---\\ntags: []\\n---\\n で始まり /prop トークンが消えることまでアサート、独立再実行で pass。既存 slash-menu テスト 3 箇所の 8→9 変更は additive (I-3 で明示宣言)、data-command 具体値リストは維持され弱体化ではない。",
+      "evidence": "properties.ts:531-611 追加フォーム / :504-520 削除; slash-menu.ts:434-455 insertFrontmatterProperties; properties.e2e.spec.ts:173-222 (rerun pass 165)"
+    },
+    {
+      "id": "F-5",
+      "category": "AC-S9df823-1-4",
+      "status": "pass",
+      "ac": "S9df823-1-AC4",
+      "summary": "『ソースを編集』切替と複雑値の verbatim 保持を確認。editSource は live-preview.ts で未コミット編集を flush・書戻し後カーソルを frontmatter 先頭キー行 (r.from+4 = ---\\n 直後) へ 1 トランザクションで移し、activeLine が frontmatter に触れることで widget が外れ生 YAML 表示になる。複雑値 (ネストオブジェクト・block scalar・アンカー/エイリアス・引用符付きキー・非有限数・複数行文字列) は parsePropertiesModel が kind:'complex' として source を verbatim 保持し読み取り専用表示 + クリックでソース誘導 (編集させない)。R-2 のアンカー/エイリアス相互参照破壊は hasAnchorOrAlias で complex に落として回避、frontmatter.test.ts が complex 分類と serializeProperties が原文と一致 (`${src}\\n`) することを検証。properties.e2e AC4 (:224) が meta: ネストを properties-value-readonly 表示、ソース編集で author: tjst 生 YAML 表示 + activeLine が status: 進行中、生 YAML への reviewed:true 追記が実ファイル反映、widget 復帰後 status 編集しても meta:\\n  author: tjst\\n  depth: 2 がバイト単位保持、file 冒頭 ---\\n・expectCleanMarkdown をアサート、独立再実行で pass。ファイルはピュア Markdown (^blockid / id:: / 制御文字なし) を e2e と unit の両方で検証。",
+      "evidence": "live-preview.ts:359-376 editSource; frontmatter.ts:70-74,152-164 complex 分類; frontmatter.test.ts:48-99; properties.e2e.spec.ts:224-280 (rerun pass 166)"
+    },
+    {
+      "id": "F-6",
+      "category": "forbidden_category_scan",
+      "status": "pass",
+      "ac": null,
+      "summary": "diff 全体を .only/.skip/.todo/xit/xdescribe/@ts-ignore/@ts-nocheck/as any/: any/空 catch でスキャン — 該当なし (唯一のマッチは styles.css の overflow-wrap:anywhere で偽陽性)。ROADMAP.json の acceptance_criteria description は不変 (変更は status フラグ・progress のみ = acceptance_criteria_modified なし)。既存テスト改変は slash-menu.e2e / slash-menu.mock / slash-table.e2e の 3 箇所のみで、いずれも『properties』コマンド追加に伴う 8→9 の additive 更新 (toHaveCount の具体値と data-command 具体値リストは維持) であり test_assertion_weakened ではない。新規テストは frontmatter.test.ts / properties.e2e / properties.mock。error_swallowed: renderProperties/toDOM の catch はエラーを握り潰さず fence-render-error 要素として可視化 (無言化なし)。parsePropertiesModel の try/catch は壊れ YAML 時に null を返し widget を出さず生ソース表示にする明示的セーフフォールバック。type_safety_relaxed なし (unknown+絞り込みを一貫使用)。",
+      "evidence": "git diff grep 禁止パターン -> styles.css 偽陽性のみ; slash-menu tests 8->9 additive; live-preview.ts:378-382/properties.ts:109 例外可視化"
+    },
+    {
+      "id": "F-7",
+      "category": "clean_text_and_design_principles",
+      "status": "pass",
+      "ac": null,
+      "summary": "クリーンテキスト: diff 対象ファイルに NUL 等の制御文字なし (grep -P \\x00 該当 0)。serializeProperties は制御文字非混入を unit で、実ファイルは e2e expectCleanMarkdown (制御文字 / ^blockid / id:: 不在) で検証。DESIGN_PRINCIPLES 適合: (1) ピュア Markdown — 正本は常に CodeMirror ドキュメント文字列 1 本、widget は表示層のみ、ブロック ID・独自記法・不可視文字を書き込まない。(2) frontmatter 第一級市民 — 標準 YAML frontmatter として往復。(3) round-trip 保全が厳格 — 未編集エントリは source verbatim (flow 配列 tags:[a,b] のスタイル・キー順序・コメント (raw) を保持)、編集エントリのみ再直列化、diff 最小化。parsePropertiesModel の 3 段フォールバック (壊れ YAML / 非オブジェクト / 行セグメンテーションとキー集合不一致 / 再直列化 deep-equal 不成立 → null) により、少しでも解釈に自信が無い frontmatter は widget 化せずファイルを一切変えない。ユーザーが書いた frontmatter が意図せず変形するリスクは構造的に抑止されている。",
+      "evidence": "frontmatter.test.ts:159-166 制御文字; properties.e2e expectCleanMarkdown:48-54; frontmatter.ts:104-178 3 段フォールバック + verbatim 保持"
+    },
+    {
+      "id": "F-8",
+      "category": "compromise_completeness",
+      "status": "pass",
+      "ac": null,
+      "summary": "decisions.json (planning P-1..P-10 / implementation I-1..I-5 / review R-1..R-3 / user_observable_additions) と diff を突合。申告漏れなし。主要判断 (shared frontmatter.ts への直列化集約, WYSIWYG 対象をスカラー+フラット配列に限定し complex は verbatim, 未編集 verbatim・編集済みのみ再直列化, 防御的 null フォールバック, テーブル WYSIWYG の commit-on-blur / CustomEvent フォーカス復元再利用, スラッシュ properties の pos0 挿入と二重挿入防止, 素朴型解釈, yaml.stringify へのクオート委譲, 初期カーソル本文先頭 I-1, チップ連続追加のコミット遅延 I-2, slash テスト 8→9 additive I-3, fence 重複回避ガード I-4) はすべて記録済みで diff と整合。ENV-1 (サブエージェント spawn 不可のため親が opus read-only verifier を補完) は本セッションの独立再検証で充足。R-1 (型化け) / R-2 (アンカー参照破壊) の 2 レビュー検出は修正済みでコード (apply 早期 return / hasAnchorOrAlias) と回帰テストを確認。overlooked_by_autopilot な項目は検出されず。",
+      "evidence": "decisions.json 全 25 項目が diff と一致; R-1 properties.ts:239 / R-2 frontmatter.ts:72-74 修正実在 + 回帰テスト frontmatter.test.ts:91-99, properties.e2e:123-127,168"
+    }
+  ],
+  "summary": {
+    "ac_failures": 0,
+    "forbidden_warnings": 0,
+    "adr_conflicts": 0,
+    "overlooked_count": 0
+  }
+}
