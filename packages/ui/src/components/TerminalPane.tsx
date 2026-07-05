@@ -24,7 +24,12 @@ export type TerminalStatus =
   | 'disabled'
   | 'connecting'
   | 'connected'
-  | 'disconnected';
+  | 'disconnected'
+  /** WS が policy code 1008 で閉じられた (Origin 拒否 — S79c210-3) */
+  | 'origin-denied';
+
+/** WebSocket policy violation。CSWSH Origin 検査で拒否されたときのクローズコード。 */
+const WS_POLICY_VIOLATION = 1008;
 
 interface TerminalPaneProps {
   /** タブで表示中か (非表示中もセッションは維持する) */
@@ -158,9 +163,16 @@ export function TerminalPane({
         exitCodeRef.current = parsed.data.exitCode;
       }
     };
-    ws.onclose = () => {
+    ws.onclose = (evt: CloseEvent) => {
       if (wsRef.current !== ws || disposedRef.current) return;
       wsRef.current = null;
+      // policy 拒否 (1008) は「セッション終了/子プロセス停止」ではなく Origin 拒否。
+      // 正常 exit (1000 / プロセス終了) とは別文言で案内する (AC-S79c210-3-2)。
+      if (evt.code === WS_POLICY_VIOLATION) {
+        term.write('\r\n\x1b[2m[このオリジンは許可されていません]\x1b[0m\r\n');
+        setStatus('origin-denied');
+        return;
+      }
       setExitCode(exitCodeRef.current);
       term.write('\r\n\x1b[2m[接続が終了しました]\x1b[0m\r\n');
       setStatus('disconnected');
@@ -293,6 +305,18 @@ export function TerminalPane({
             セッションが終了しました
             {exitCode !== null ? `(終了コード ${String(exitCode)})` : ''}
             。子プロセスは停止済み(三重ガード + Origin 検証は維持)。
+          </span>
+          <button className="btn primary" data-testid="terminal-reconnect" onClick={reconnect}>
+            再接続
+          </button>
+        </div>
+      )}
+      {status === 'origin-denied' && (
+        <div className="reconnect-bar origin-denied" data-testid="terminal-origin-denied">
+          <WarnTriangleIcon />
+          <span>
+            このオリジンは許可されていません。localhost で開くか{' '}
+            <code>LOAMIUM_TERMINAL_ALLOWED_ORIGINS</code> に追加してください。
           </span>
           <button className="btn primary" data-testid="terminal-reconnect" onClick={reconnect}>
             再接続

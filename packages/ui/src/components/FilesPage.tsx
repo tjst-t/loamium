@@ -30,6 +30,7 @@ import {
   FolderIcon,
   ImageFileIcon,
   PdfFileIcon,
+  PencilIcon,
   SearchIcon,
   TrashIcon,
 } from '../icons.js';
@@ -43,6 +44,11 @@ export interface FilesPageProps {
   onOpenNote: (path: string) => void;
   /** 削除確認ダイアログを開く (App の DeleteDialog を共用。監査ログはサーバーが記録)。 */
   onRequestDelete: (path: string, kind: 'note' | 'file') => void;
+  /**
+   * リネームダイアログを開く (App の NameDialog を共用。![[リンク]]/[[リンク]] 追従つき)。
+   * 添付のリネーム UI はサイドバー撤去 (S79c210-1) に伴いここへ集約する。
+   */
+  onRequestRename: (path: string, kind: 'note' | 'file') => void;
 }
 
 interface Entry {
@@ -114,7 +120,13 @@ function KindIcon({ entry }: { entry: Entry }): JSX.Element {
   }
 }
 
-export function FilesPage({ notes, files, onOpenNote, onRequestDelete }: FilesPageProps): JSX.Element {
+export function FilesPage({
+  notes,
+  files,
+  onOpenNote,
+  onRequestDelete,
+  onRequestRename,
+}: FilesPageProps): JSX.Element {
   const [selectedFolder, setSelectedFolder] = useState('');
   const [filter, setFilter] = useState('');
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
@@ -349,6 +361,17 @@ export function FilesPage({ notes, files, onOpenNote, onRequestDelete }: FilesPa
                         }}
                       >
                         <CopyIcon />
+                      </button>
+                      <button
+                        className="row-act-btn"
+                        data-testid="file-rename-btn"
+                        title="リネーム(リンク追従)"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRequestRename(entry.path, entry.kind === 'note' ? 'note' : 'file');
+                        }}
+                      >
+                        <PencilIcon />
                       </button>
                       <button
                         className="row-act-btn danger"

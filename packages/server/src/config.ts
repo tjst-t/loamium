@@ -15,6 +15,13 @@ export interface TerminalConfig {
   reason: TerminalDisabledReason | null;
   /** pty で起動するコマンド (LOAMIUM_TERMINAL_CMD、既定 "claude")。シェル分解はしない */
   cmd: string;
+  /**
+   * CSWSH Origin 検査で追加許可するオリジン (LOAMIUM_TERMINAL_ALLOWED_ORIGINS、
+   * カンマ区切り)。ループバック + same-origin に加えて、ここに列挙した Origin
+   * (例: http://10.10.254.36:8203) からの WS 接続を許可する。既定は空 (従来どおり
+   * ループバック運用のみ)。各要素は URL.origin へ正規化済み (scheme://host[:port])。
+   */
+  allowedOrigins: string[];
 }
 
 export interface ServerConfig {
@@ -31,6 +38,26 @@ export interface ServerConfig {
 export const DEFAULT_TERMINAL_CMD = 'claude';
 
 /**
+ * LOAMIUM_TERMINAL_ALLOWED_ORIGINS (カンマ区切り) を URL.origin の配列へ正規化する。
+ * 空要素・空白は捨て、パース不能な値も捨てる (壊れた設定でガードを緩めない)。
+ * 例: "http://10.10.254.36:8203, https://notes.lan" → ["http://10.10.254.36:8203", "https://notes.lan"]
+ */
+export function parseAllowedOrigins(raw: string | undefined): string[] {
+  if (raw === undefined || raw.trim() === '') return [];
+  const out: string[] = [];
+  for (const part of raw.split(',')) {
+    const trimmed = part.trim();
+    if (trimmed === '') continue;
+    try {
+      out.push(new URL(trimmed).origin);
+    } catch {
+      // パース不能なオリジンは無視 (許可リストに載せない)
+    }
+  }
+  return out;
+}
+
+/**
  * 三重ガードのうち 2 枚 (env フラグ + full モード) を起動時に確定する。
  * (3 枚目はバインド先 — index.ts の LOAMIUM_HOST 既定 127.0.0.1)
  */
@@ -42,13 +69,14 @@ export function terminalConfigFromEnv(
     env.LOAMIUM_TERMINAL_CMD !== undefined && env.LOAMIUM_TERMINAL_CMD !== ''
       ? env.LOAMIUM_TERMINAL_CMD
       : DEFAULT_TERMINAL_CMD;
+  const allowedOrigins = parseAllowedOrigins(env.LOAMIUM_TERMINAL_ALLOWED_ORIGINS);
   if (env.LOAMIUM_TERMINAL !== '1') {
-    return { enabled: false, reason: 'terminal_env_not_set', cmd };
+    return { enabled: false, reason: 'terminal_env_not_set', cmd, allowedOrigins };
   }
   if (mode !== 'full') {
-    return { enabled: false, reason: 'mode_not_full', cmd };
+    return { enabled: false, reason: 'mode_not_full', cmd, allowedOrigins };
   }
-  return { enabled: true, reason: null, cmd };
+  return { enabled: true, reason: null, cmd, allowedOrigins };
 }
 
 export const DEFAULT_MAX_UPLOAD_BYTES = 50 * 1024 * 1024;

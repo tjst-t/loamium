@@ -65,15 +65,22 @@ export function killAllTerminalSessions(): void {
  * - Origin の host が Host と完全一致する same-origin は許可
  * - Origin の hostname がループバック (localhost / 127.0.0.1 / ::1) なら許可
  *   (ローカルで配信された UI / プロキシ経由の正規アクセス)
+ * - LOAMIUM_TERMINAL_ALLOWED_ORIGINS に列挙した Origin と一致すれば許可 (S79c210-3)
  * - それ以外 (遠隔サイトの Origin) は拒否
  *
  * 注: LOAMIUM_HOST=0.0.0.0 で LAN 公開した場合、LAN の別オリジンからのアクセスは
- * ループバックではないため拒否される。ターミナル有効時はループバック運用を推奨
- * (README にも明記) で、LAN 公開は Cloudflare Access 等の認証層を前提とする。
+ * ループバックではないため既定では拒否される。LAN の別デバイスから使いたい場合は
+ * LOAMIUM_TERMINAL_ALLOWED_ORIGINS にそのオリジンを明示列挙する (CSWSH 保護は
+ * 列挙分だけ低下する — README / ARCHITECTURE に警告付きで記載)。それ以外の LAN 公開は
+ * Cloudflare Access 等の認証層を前提とする。
  */
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 
-export function isAllowedOrigin(origin: string | undefined, host: string | undefined): boolean {
+export function isAllowedOrigin(
+  origin: string | undefined,
+  host: string | undefined,
+  allowedOrigins: readonly string[] = [],
+): boolean {
   if (origin === undefined || origin === '') return true; // 非ブラウザクライアント
   let url: URL;
   try {
@@ -82,7 +89,8 @@ export function isAllowedOrigin(origin: string | undefined, host: string | undef
     return false; // 壊れた Origin は拒否
   }
   if (host !== undefined && url.host === host) return true; // 完全一致 same-origin
-  return LOOPBACK_HOSTS.has(url.hostname); // ローカル配信の UI
+  if (LOOPBACK_HOSTS.has(url.hostname)) return true; // ローカル配信の UI
+  return allowedOrigins.includes(url.origin); // 明示許可リスト (LAN オリジン等)
 }
 
 /**
@@ -156,7 +164,11 @@ export function registerTerminalRoute(
     upgradeWebSocket((c) => {
       // CSWSH 対策: cross-origin のブラウザ接続はハンドシェイク時点で弾く。
       // 非ブラウザ (Origin 無し) と same-origin のみ pty を起動する。
-      const originOk = isAllowedOrigin(c.req.header('origin'), c.req.header('host'));
+      const originOk = isAllowedOrigin(
+        c.req.header('origin'),
+        c.req.header('host'),
+        config.terminal.allowedOrigins,
+      );
       let proc: IPty | null = null;
       let exited = false;
 

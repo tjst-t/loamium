@@ -1,0 +1,29 @@
+{
+  "sprint": "S79c210",
+  "verifier": "independent-read-only-claude",
+  "spawned": false,
+  "overall": "not_spawned",
+  "reason": "この実行環境にはサブエージェント(独立 read-only Claude セッション)を同期起動する Agent/Task-run ツールが存在しない(利用可能な deferred ツールは EnterWorktree / Task*(タスクリスト)/ Web* 等のみ)。sprint-auto/verifier-agent が要求する独立 verifier を spawn できないため、本レポートは overall=not_spawned とする。タスク指示の fallback 条項に従い decisions.json(PD-1)に明記のうえ done を完了する。親 autopilot が opus の read-only verifier を補完実行する前提。",
+  "compensating_controls": [
+    "機械検証 hooks/run-verify.py: overall=pass(make test 373 / make lint / make test-ui 165、全て実 process exit=0 + JUnit)",
+    "6/8 ガード評価を verification-results.json.done_judgment に記録(全 Story overall=ok)",
+    "セルフ code-review(verification-results.json.self_review)を実施",
+    "二層テスト(mock + E2E、[AC-] タグ、実サーバー・実ブラウザ)+ ターミナルはサーバー側受け入れテストで実 WS 許可/拒否を本番モード検証"
+  ],
+  "ac_recheck": [
+    { "ac": "AC-S79c210-1-1", "verdict": "pass", "evidence": "sidebar-tree.e2e/mock: フォルダツリー展開/折りたたみでフォルダ横断にノート到達" },
+    { "ac": "AC-S79c210-1-2", "verdict": "pass", "evidence": "asset は file-tree に count 0、/files の file-row に集約" },
+    { "ac": "AC-S79c210-1-3", "verdict": "pass", "evidence": "context-new-folder→ネストフォルダ生成→context-new-note→ネストノート生成 (URL /n/.../inner)" },
+    { "ac": "AC-S79c210-2-1", "verdict": "pass", "evidence": "table-widget が thead/tbody で描画、セル内 **bold**→strong、クリックでソース行復帰" },
+    { "ac": "AC-S79c210-2-2", "verdict": "pass", "evidence": "slash-item[table] 挿入後カーソルを外すと table-widget 描画(見出し1)" },
+    { "ac": "AC-S79c210-3-1", "verdict": "pass", "evidence": "terminal.spec: LOAMIUM_TERMINAL_ALLOWED_ORIGINS 列挙は stayedOpen、列挙外は closeCode 1008、既定空は 1008" },
+    { "ac": "AC-S79c210-3-2", "verdict": "pass", "evidence": "terminal-origin.mock: 1008→terminal-origin-denied 文言、1000→terminal-reconnect-bar、相互に非表示" },
+    { "ac": "AC-S79c210-4-1", "verdict": "pass", "evidence": "breadcrumb.e2e/mock: route-display に /n/ 非出現、フォルダ階層+ノート名。URL は /n/{path} 維持" }
+  ],
+  "forbidden_categories_check": {
+    "test_disable": "none",
+    "assertion_weakening": "none (既存 upload/files-page テストは挙動が /files へ設計変更された箇所の等価置換。削除した sidebar-recent は前提消滅による置換)",
+    "error_swallow": "none",
+    "any_cast": "none (tsc strict 通過、any 未使用)"
+  }
+}

@@ -34,7 +34,7 @@ import {
 import { Editor } from './components/Editor.js';
 import { FilePreview } from './components/FilePreview.js';
 import { FilesPage } from './components/FilesPage.js';
-import { RecentFiles, type RecentEntry } from './components/RecentFiles.js';
+import { FileTree } from './components/FileTree.js';
 import { JournalNav } from './components/JournalNav.js';
 import { RightSidebar } from './components/RightSidebar.js';
 import { ContextMenu } from './components/ContextMenu.js';
@@ -50,6 +50,7 @@ import {
   GearIcon,
   LinkIcon,
   NewNoteIcon,
+  NewFolderIcon,
   SearchIcon,
   UploadIcon,
   WarnTriangleIcon,
@@ -57,8 +58,6 @@ import {
 
 const AUTOSAVE_DEBOUNCE_MS = 1500;
 const JOURNAL_FILE_RE = /^journals\/(\d{4}-\d{2}-\d{2})\.md$/;
-/** サイドバーの直近ファイル表示件数 (Sf1a90a-3)。 */
-const RECENT_LIMIT = 10;
 
 type HistoryMode = 'push' | 'replace' | 'none';
 
@@ -74,6 +73,7 @@ interface OpenDoc {
 
 type DialogState =
   | { type: 'new-note'; folder: string }
+  | { type: 'new-folder'; parent: string }
   | { type: 'rename'; path: string }
   | { type: 'delete'; path: string }
   | { type: 'rename-file'; path: string }
@@ -84,7 +84,7 @@ interface MenuState {
   x: number;
   y: number;
   path: string;
-  kind: 'note' | 'attachment';
+  kind: 'note' | 'attachment' | 'folder';
 }
 
 /** アップロードのトースト (Sf53ad6-2 — prototype/upload.html)。 */
@@ -103,10 +103,6 @@ function journalDateOf(path: string): string | null {
 
 function dirnameOf(path: string): string {
   return path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
-}
-
-function basenameOf(path: string): string {
-  return path.split('/').at(-1) ?? path;
 }
 
 function errMessage(err: unknown): string {
@@ -180,6 +176,11 @@ export function App(): JSX.Element {
   const [preview, setPreview] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [toasts, setToasts] = useState<UploadToast[]>([]);
+  // フォルダツリーの折りたたみ状態 (S79c210-1)。既定は全展開 (集合が空)。
+  const [collapsedFolders, setCollapsedFolders] = useState<ReadonlySet<string>>(new Set());
+  // UI 状態としてのみ存在する空フォルダ (フォルダ内フォルダの新規作成)。
+  // vault にファイルは書かず、最初のノート作成で実体化する (priority 1)。
+  const [extraFolders, setExtraFolders] = useState<string[]>([]);
 
   // ---- エディタ / 保存 ----
   const [doc, setDoc] = useState<OpenDoc | null>(null);
@@ -607,40 +608,84 @@ export function App(): JSX.Element {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [saveNow]);
 
-  // ---- 直近ファイル (mtime 降順の直近 N 件 — Sf1a90a-3) ----
+  // ---- フォルダツリー (S79c210-1) ----
   const activeSidebarPath = preview ?? doc?.path ?? null;
-  const recentEntries = useMemo<RecentEntry[]>(() => {
-    const noteEntries = (notes ?? []).map((n) => ({
-      path: n.path,
-      name: n.title,
-      kind: 'note' as const,
-      mtime: n.mtime ?? 0,
-    }));
-    const fileEntries = (files ?? []).map((f) => ({
-      path: f.path,
-      name: basenameOf(f.path),
-      kind: 'attachment' as const,
-      mtime: f.mtime,
-    }));
-    const sorted = [...noteEntries, ...fileEntries].sort((a, b) => b.mtime - a.mtime);
-    const top = sorted.slice(0, RECENT_LIMIT);
-    // 開いているノート/添付が直近から漏れても必ず出す (操作対象を見失わない)。
-    if (activeSidebarPath !== null && !top.some((e) => e.path === activeSidebarPath)) {
-      const active = sorted.find((e) => e.path === activeSidebarPath);
-      if (active !== undefined) top.push(active);
-    }
-    return top.map(({ path, name, kind }) => ({ path, name, kind }));
-  }, [notes, files, activeSidebarPath]);
 
-  const onTreeContextMenu = useCallback(
-    (e: MouseEvent, path: string, kind: 'note' | 'attachment'): void => {
-      e.preventDefault();
-      setMenu({ x: e.clientX, y: e.clientY, path, kind });
-    },
-    [],
-  );
+  const toggleFolder = useCallback((path: string): void => {
+    setCollapsedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }, []);
+
+  /** path の全祖先フォルダを展開する (新規作成したフォルダ/ノートを見失わない)。 */
+  const expandAncestors = useCallback((folder: string): void => {
+    if (folder === '') return;
+    const parts = folder.split('/');
+    const ancestors: string[] = [];
+    for (let i = 1; i <= parts.length; i++) ancestors.push(parts.slice(0, i).join('/'));
+    setCollapsedFolders((prev) => {
+      if (ancestors.every((a) => !prev.has(a))) return prev;
+      const next = new Set(prev);
+      for (const a of ancestors) next.delete(a);
+      return next;
+    });
+  }, []);
+
+  const onContextMenuNote = useCallback((e: MouseEvent, path: string): void => {
+    e.preventDefault();
+    setMenu({ x: e.clientX, y: e.clientY, path, kind: 'note' });
+  }, []);
+
+  const onContextMenuFolder = useCallback((e: MouseEvent, path: string): void => {
+    e.preventDefault();
+    setMenu({ x: e.clientX, y: e.clientY, path, kind: 'folder' });
+  }, []);
 
   const notePaths = useMemo(() => new Set((notes ?? []).map((n) => n.path)), [notes]);
+
+  /** ツリー上に存在するフォルダパス集合 (ノート由来 + UI 合成の空フォルダ)。 */
+  const folderPaths = useMemo(() => {
+    const set = new Set<string>();
+    for (const n of notes ?? []) {
+      const parts = n.path.split('/');
+      for (let i = 1; i < parts.length; i++) set.add(parts.slice(0, i).join('/'));
+    }
+    for (const f of extraFolders) if (f !== '') set.add(f);
+    return set;
+  }, [notes, extraFolders]);
+
+  const validateFolderName = useCallback(
+    (parent: string) =>
+      (name: string): string | null => {
+        const trimmed = name.trim();
+        if (trimmed === '') return 'フォルダ名を入力してください';
+        if (trimmed.includes('/')) return 'フォルダ名に / は使えません';
+        if (trimmed === '.' || trimmed === '..') return '使用できないフォルダ名です';
+        const path = (parent === '' ? trimmed : `${parent}/${trimmed}`).normalize('NFC');
+        if (folderPaths.has(path)) return '同名のフォルダが既にあります';
+        return null;
+      },
+    [folderPaths],
+  );
+
+  /**
+   * フォルダ内フォルダの新規作成 (S79c210-1)。空フォルダは vault にファイルを書かず
+   * UI 状態 extraFolders として保持し、最初のノート作成で実体化する (priority 1)。
+   */
+  const createFolder = useCallback(
+    (parent: string, name: string): void => {
+      const trimmed = name.trim().normalize('NFC');
+      const path = parent === '' ? trimmed : `${parent}/${trimmed}`;
+      setDialog(null);
+      setExtraFolders((prev) => (prev.includes(path) ? prev : [...prev, path]));
+      // 親フォルダを展開して、作成したフォルダが見えるようにする
+      expandAncestors(parent);
+    },
+    [expandAncestors],
+  );
 
   const validateNoteName = useCallback(
     (folder: string) =>
@@ -661,6 +706,8 @@ export function App(): JSX.Element {
       try {
         const res = await api.putNote(path, '', 0);
         await refreshNotes();
+        // 作成先フォルダ (と祖先) を展開してツリー上で見えるようにする
+        expandAncestors(dirnameOf(res.path));
         setOpenDoc(res.path, '', res.mtime);
         applyHistory({ kind: 'note', path: res.path }, 'push');
         setAppError(null);
@@ -673,7 +720,7 @@ export function App(): JSX.Element {
         }
       }
     },
-    [applyHistory, refreshNotes, setOpenDoc],
+    [applyHistory, expandAncestors, refreshNotes, setOpenDoc],
   );
 
   const renameNote = useCallback(
@@ -933,9 +980,7 @@ export function App(): JSX.Element {
         />
 
         <div className="tree-section-title">
-          <span>
-            直近のファイル <span className="recent-hint">{RECENT_LIMIT} 件</span>
-          </span>
+          <span>ノート</span>
           <span className="actions">
             <button
               className="icon-btn"
@@ -945,21 +990,31 @@ export function App(): JSX.Element {
             >
               <NewNoteIcon />
             </button>
+            <button
+              className="icon-btn"
+              data-testid="sidebar-new-folder"
+              title="新規フォルダ"
+              onClick={() => setDialog({ type: 'new-folder', parent: '' })}
+            >
+              <NewFolderIcon />
+            </button>
           </span>
         </div>
 
-        <RecentFiles
-          entries={recentEntries}
-          activePath={preview ?? doc?.path ?? null}
+        <FileTree
+          notes={notes}
+          extraFolders={extraFolders}
+          activePath={activeSidebarPath}
+          collapsed={collapsedFolders}
           error={notesError}
-          loaded={notes !== null}
+          onToggleFolder={toggleFolder}
           onOpenNote={(path) => void openNotePath(path)}
-          onOpenFile={(path) => void openFilePreview(path)}
-          onContextMenu={onTreeContextMenu}
+          onContextMenuNote={onContextMenuNote}
+          onContextMenuFolder={onContextMenuFolder}
         />
 
         <div className="tree-section-title show-all-row">
-          <span />
+          <span className="recent-hint">画像・PDF 等の添付はこちら</span>
           <button
             className="show-all"
             data-testid="sidebar-show-all"
@@ -1007,8 +1062,12 @@ export function App(): JSX.Element {
                 )}
               </>
             ) : breadcrumb !== null ? (
+              // 内部ルート接頭辞 /n/ は露出しない (S79c210-4)。ノートアイコン +
+              // フォルダ階層 + ノート名で構成する (URL 自体は /n/{path} のまま維持)。
               <>
-                <span className="route-token">/n/</span>
+                <span className="route-crumb-icon" aria-hidden="true">
+                  <DocumentIcon />
+                </span>
                 {breadcrumb.folders.map((f, i) => (
                   <span key={`${f}-${String(i)}`}>
                     <span>{f}</span>
@@ -1047,6 +1106,9 @@ export function App(): JSX.Element {
             onOpenNote={(path) => void openNotePath(path)}
             onRequestDelete={(path, kind) =>
               setDialog({ type: kind === 'note' ? 'delete' : 'delete-file', path })
+            }
+            onRequestRename={(path, kind) =>
+              setDialog({ type: kind === 'note' ? 'rename' : 'rename-file', path })
             }
           />
         ) : preview !== null ? (
@@ -1149,7 +1211,7 @@ export function App(): JSX.Element {
           x={menu.x}
           y={menu.y}
           path={menu.path}
-          isFolder={false}
+          isFolder={menu.kind === 'folder'}
           onOpen={() => {
             setMenu(null);
             if (menu.kind === 'attachment') void openFilePreview(menu.path);
@@ -1157,7 +1219,13 @@ export function App(): JSX.Element {
           }}
           onNewNote={() => {
             setMenu(null);
-            setDialog({ type: 'new-note', folder: dirnameOf(menu.path) });
+            // フォルダ対象ならそのフォルダ内、ノート対象なら同じフォルダに作る
+            const folder = menu.kind === 'folder' ? menu.path : dirnameOf(menu.path);
+            setDialog({ type: 'new-note', folder });
+          }}
+          onNewFolder={() => {
+            setMenu(null);
+            setDialog({ type: 'new-folder', parent: menu.path });
           }}
           onRename={() => {
             setMenu(null);
@@ -1187,6 +1255,29 @@ export function App(): JSX.Element {
           testids={{ dialog: 'new-note-dialog', input: 'new-note-input', confirm: 'new-note-confirm', cancel: 'new-note-cancel' }}
           validate={validateNoteName(dialog.folder)}
           onConfirm={(name) => void createNote(dialog.folder, name)}
+          onCancel={() => setDialog(null)}
+        />
+      )}
+
+      {dialog?.type === 'new-folder' && (
+        <NameDialog
+          title="新規フォルダ"
+          sub={dialog.parent === '' ? 'vault ルートに作成' : `${dialog.parent}/ に作成`}
+          initial=""
+          placeholder="フォルダ名"
+          confirmLabel="作成"
+          testids={{ dialog: 'new-folder-dialog', input: 'new-folder-input', confirm: 'new-folder-confirm', cancel: 'new-folder-cancel' }}
+          extra={
+            <div className="link-update-note">
+              <span>
+                空のフォルダはファイルに書き込まれません(ピュア Markdown
+                を保つため)。中に最初のノートを作成すると vault
+                に実体化します。
+              </span>
+            </div>
+          }
+          validate={validateFolderName(dialog.parent)}
+          onConfirm={(name) => createFolder(dialog.parent, name)}
           onCancel={() => setDialog(null)}
         />
       )}

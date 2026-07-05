@@ -356,3 +356,44 @@ Sprint Sf1a90a / S935867 / Seac77a / S763a98 の実装と E2E はこの表に追
 - サイドバーは mtime 順の直近 N=10 件フラット一覧(`file-tree` / `tree-item` / `tree-file` を流用)。
   開いているノート/添付は直近から漏れても必ず表示。フォルダツリー閲覧・`sidebar-new-folder` は
   ファイル一覧ページ (Seac77a) へ移設のため撤去(フォルダ内新規は `context-new-note` で存続)。
+
+## Sprint S79c210 (レビュー修正・第2ラウンド) 追加分 (2026-07-04)
+
+Sprint S79c210 は Sf1a90a-3 の直近フラット一覧を**ノートのフォルダツリーへ戻す**修正。
+既存表の変更はなし(契約は additive にのみ拡張)。
+
+### サイドバー: ノート フォルダツリーへ復帰 (S79c210-1)
+
+- `file-tree` / `tree-folder`(`data-path` + `aria-expanded`)/ `tree-item`(`data-path`)/
+  `tree-empty` / `tree-error` — Sa704c3 のフォルダツリーへ復帰。ノート(.md)のみを階層表示し、
+  展開/折りたたみでフォルダ横断に全ノートへ辿れる(直近フラット一覧ではない)。
+  非ノート asset(画像・PDF 等)はツリーに出さず `sidebar-show-all` → `/files` に集約。
+- `sidebar-new-folder` — ルートに新規フォルダ(ダイアログは既存 `new-folder-dialog` /
+  `new-folder-input` / `new-folder-confirm` / `new-folder-cancel`)。空フォルダは vault に
+  ファイルを書かず UI 状態として表示し、最初のノート作成で実体化(ピュア Markdown 維持)。
+- `tree-context-menu` はフォルダ対象時に `context-new-note`(このフォルダに新規ノート)と
+  **`context-new-folder`**(このフォルダに新規フォルダ — 本 Sprint の additive 追加)を表示。
+  ノート対象時は従来どおり `context-open` / `context-rename` / `context-delete`。
+- 旧 `sidebar-recent.e2e`([AC-Sf1a90a-3-1] 直近フラット)は本 Story で置換され、
+  `sidebar-tree.e2e` / `sidebar-tree.mock` に移行。
+- `file-rename-btn` — /files ページの行操作に additive 追加。添付のリネーム UI は
+  サイドバー撤去に伴いここへ集約(既存 `rename-dialog` / `rename-input` /
+  `rename-confirm` を共用、![[リンク]] 追従つき)。preview=`file-preview-btn` /
+  copy=`file-copy-path` / delete=`file-delete-btn` は従来どおり。
+
+### テーブルのライブプレビュー (S79c210-2)
+
+- `table-widget` — GFM テーブル(ヘッダ + 区切り + データ行)の HTML `<table>` 描画。
+  lezer-markdown の Table ノードを block 装飾で置換。カーソル行(テーブル内)はソース表示。
+
+### ターミナル Origin 拒否メッセージ (S79c210-3)
+
+- `terminal-origin-denied` — WS close code 1008(Origin 拒否)時の案内バー
+  (「このオリジンは許可されていません。localhost で開くか LOAMIUM_TERMINAL_ALLOWED_ORIGINS
+  に追加してください」)。`claude-panel` の `data-terminal-status` に `origin-denied` を additive 追加。
+  正常 exit(1000)は従来どおり `terminal-reconnect-bar`(「セッションが終了しました」)。
+
+### パンくずの /n/ 除去 (S79c210-4)
+
+- `route-display` のノート表示は内部ルート接頭辞 `/n/` を露出せず、ノートアイコン
+  (`.route-crumb-icon`)+ フォルダ階層 + ノート名で構成(URL の `/n/{path}` 自体は維持)。

@@ -1,11 +1,12 @@
 /**
  * ツリー項目の右クリックメニュー (tree-rename.html プロトタイプ準拠)。
- * フォルダ対象のときは「新規ノート」のみ表示する。
+ * フォルダ対象のときは「このフォルダに新規ノート/新規フォルダ」を表示する
+ * (S79c210-1 ネスト作成)。ノート対象のときは開く/リネーム/削除も表示する。
  * 画面下端・右端の項目ではメニューがビューポート外にはみ出さないよう位置を
  * 補正する (ノート数が増えるとツリー下部の項目で操作不能になるバグの修正)。
  */
 import { useLayoutEffect, useRef, type JSX } from 'react';
-import { FileIcon, PencilIcon, PlusIcon, TrashIcon } from '../icons.js';
+import { FileIcon, NewFolderIcon, PencilIcon, PlusIcon, TrashIcon } from '../icons.js';
 
 export interface ContextMenuProps {
   x: number;
@@ -14,6 +15,8 @@ export interface ContextMenuProps {
   isFolder: boolean;
   onOpen: () => void;
   onNewNote: () => void;
+  /** フォルダ対象時のみ: このフォルダに新規フォルダを作る (S79c210-1) */
+  onNewFolder?: () => void;
   onRename: () => void;
   onDelete: () => void;
   onClose: () => void;
@@ -57,8 +60,14 @@ export function ContextMenu(props: ContextMenuProps): JSX.Element {
         )}
         <button className="menu-item" data-testid="context-new-note" onClick={props.onNewNote}>
           <PlusIcon />
-          同じフォルダに新規ノート
+          {props.isFolder ? 'このフォルダに新規ノート' : '同じフォルダに新規ノート'}
         </button>
+        {props.isFolder && props.onNewFolder !== undefined && (
+          <button className="menu-item" data-testid="context-new-folder" onClick={props.onNewFolder}>
+            <NewFolderIcon />
+            このフォルダに新規フォルダ
+          </button>
+        )}
         {!props.isFolder && (
           <>
             <div className="menu-sep" />
