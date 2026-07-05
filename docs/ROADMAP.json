@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": null,
-    "total": 16,
+    "current_sprint": "Sd40b63",
+    "total": 17,
     "done": 16,
     "in_progress": 0,
-    "remaining": 0,
-    "percentage": 100
+    "remaining": 1,
+    "percentage": 94
   },
   "execution_order": [
     "Sd63ad1",
@@ -25,7 +25,8 @@
     "S935867",
     "Seac77a",
     "S763a98",
-    "S79c210"
+    "S79c210",
+    "Sd40b63"
   ],
   "sprints": {
     "Sd63ad1": {
@@ -1346,7 +1347,7 @@
       "title": "レビュー修正 — サイドバーツリー/テーブル描画/ターミナルLAN/ルート表示",
       "status": "done",
       "description": "マイルストーンレビュー第2ラウンドの修正バッチ。①サイドバーをノートのフォルダツリーに戻す(直近N件フラット化は誤解釈だった。asset=非ノートファイルだけはサイドバーに載せず /files へ)+フォルダ内フォルダ作成 ②Markdown テーブルのライブプレビュー描画 ③ターミナルの LOAMIUM_TERMINAL_ALLOWED_ORIGINS 対応 + Origin 拒否時の UI メッセージ修正 ④パンくずの /n/ 生表示をやめる。Sf1a90a-3 のフラット直近一覧はストーリー1で置換される。",
-      "milestone": true,
+      "milestone": false,
       "stories": {
         "S79c210-1": {
           "title": "サイドバーをノートのフォルダツリーへ戻す(+フォルダ内フォルダ作成)",
@@ -1485,6 +1486,93 @@
           }
         }
       }
+    },
+    "Sd40b63": {
+      "title": "テーブル WYSIWYG 編集 + スラッシュメニュー改善",
+      "status": "pending",
+      "description": "レビュー第3ラウンド。①Markdown テーブルをライブプレビュー上で WYSIWYG 編集(セル直接編集・行/列の追加削除)し、保存時は標準 Markdown テーブルへ直列化(ピュア Markdown 維持)②スラッシュメニューのテーブル挿入で列数・行数を指定(Notion 風グリッドピッカー)③スラッシュメニューのキーボード選択時にアクティブ項目へスクロール追従。S79c210-2 の読み取り専用テーブル描画を対話編集に発展させる。",
+      "milestone": true,
+      "stories": {
+        "Sd40b63-1": {
+          "title": "テーブルの WYSIWYG 編集(セル編集・行/列の追加削除)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in_review": "review_r3",
+          "user_story": "ノート利用者として、表示されたテーブルのセルを直接クリックして編集し、行や列を追加・削除したい。なぜなら、生の | 記法を手で揃えるのは面倒で、表計算のように直接編集したいから。",
+          "acceptance_criteria": [
+            {
+              "id": "Sd40b63-1-AC1",
+              "description": "描画されたテーブルのセルをクリックして直接編集でき、編集内容がドキュメントの標準 Markdown テーブルに反映される(フォーカスを外すと表として再描画)",
+              "test": "[AC-Sd40b63-1-1] in packages/ui/tests/e2e/table-edit.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "Sd40b63-1-AC2",
+              "description": "テーブルの行を末尾/指定位置に追加・削除でき、列を追加・削除できる。結果は標準 Markdown テーブル(ヘッダ + 区切り行 + データ行)として保存される",
+              "test": "[AC-Sd40b63-1-2] in packages/ui/tests/e2e/table-edit.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "Sd40b63-1-AC3",
+              "description": "WYSIWYG 編集後もファイルはピュア Markdown のまま(独自記法・不可視文字を混入しない)で、Obsidian 等で開いても壊れない",
+              "test": "[AC-Sd40b63-1-3] in packages/ui/tests/e2e/table-edit.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sd40b63-1-1": {
+              "title": "編集可能テーブルウィジェット",
+              "description": "live-preview のテーブル描画を contenteditable セル(または input)を持つ編集可能ウィジェットに拡張。セル編集を CodeMirror トランザクションで元の Markdown 行へ書き戻す。パイプ・改行のエスケープを安全に処理。",
+              "status": "pending"
+            },
+            "Sd40b63-1-2": {
+              "title": "行/列の追加削除 UI",
+              "description": "行末尾/列末尾の + ボタン、行/列のホバー時の削除・挿入操作。区切り行(---)を維持したまま Markdown を再生成。",
+              "status": "pending"
+            },
+            "Sd40b63-1-3": {
+              "title": "直列化とテスト",
+              "description": "セル→Markdown の直列化(列幅パディングは最小限、パイプは \\| エスケープ)。mock + E2E([AC-] タグ、編集→保存→ファイル内容が標準 Markdown を実検証)。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sd40b63-2": {
+          "title": "スラッシュメニューのテーブルサイズ指定とスクロール追従",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in_review": "review_r3",
+          "user_story": "ノート利用者として、/ でテーブルを挿入するとき列数・行数を選び、メニューをキーボードで辿るときに選択項目が常に見えていてほしい。なぜなら、固定サイズの雛形は使いにくく、選択項目が画面外に隠れると操作しづらいから。",
+          "acceptance_criteria": [
+            {
+              "id": "Sd40b63-2-AC1",
+              "description": "スラッシュメニューで『テーブル』を選ぶと列数×行数を指定するグリッドピッカー(ホバー/キーで N×M を選択)が出て、選んだサイズの標準 Markdown テーブルが挿入される",
+              "test": "[AC-Sd40b63-2-1] in packages/ui/tests/e2e/slash-table.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "Sd40b63-2-AC2",
+              "description": "スラッシュメニューを ↑↓ でキーボード選択したとき、アクティブ項目が常に表示範囲に入るようスクロールが追従する(画面外に隠れない)",
+              "test": "[AC-Sd40b63-2-2] in packages/ui/tests/e2e/slash-table.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sd40b63-2-1": {
+              "title": "テーブルサイズピッカー",
+              "description": "スラッシュメニューのテーブル項目を選ぶとサイズ選択(グリッドピッカー、既定 3×3、最大 例 8×8+任意入力)。選択で標準 Markdown テーブルを挿入しカーソルを先頭セルへ。",
+              "status": "pending"
+            },
+            "Sd40b63-2-2": {
+              "title": "キーボードスクロール追従修正",
+              "description": "アクティブ項目変更時に scrollIntoView({block:'nearest'})。mock + E2E([AC-] タグ、下端の項目が選択時に可視になることを検証)。",
+              "status": "pending"
+            }
+          }
+        }
+      }
     }
   },
   "dependencies": {
@@ -1582,6 +1670,13 @@
         "S763a98"
       ],
       "reason": "UI シェル(Sf1a90a)・スラッシュメニュー(S763a98)・ターミナル(Sf1a90a-2)の修正"
+    },
+    "Sd40b63": {
+      "depends_on": [
+        "S79c210",
+        "S763a98"
+      ],
+      "reason": "S79c210-2 のテーブル描画と S763a98 のスラッシュメニューを強化"
     }
   },
   "backlog": [
