@@ -39,6 +39,27 @@ export interface SlashSnippet {
   cursor: number;
 }
 
+/** テーブルのサイズピッカー上限 (グリッドの最大 列数/行数)。 */
+export const TABLE_PICKER_MAX = 8;
+/** 既定サイズ (列数 × 行数)。 */
+export const TABLE_PICKER_DEFAULT = { cols: 3, rows: 3 };
+
+/**
+ * cols 列 × rows データ行の標準 Markdown テーブル雛形を生成する。
+ * ヘッダ (見出し1..N) + 区切り行 (---) + 空データ行から成る (ピュア Markdown)。
+ * カーソルは先頭セル (`| ` の直後 = offset 2)。
+ */
+export function buildTableSnippet(cols: number, rows: number): SlashSnippet {
+  const c = Math.max(1, Math.min(TABLE_PICKER_MAX, Math.floor(cols)));
+  const r = Math.max(0, Math.min(TABLE_PICKER_MAX, Math.floor(rows)));
+  const headers = Array.from({ length: c }, (_, i) => `見出し${i + 1}`);
+  const headerLine = `| ${headers.join(' | ')} |`;
+  const delimLine = `| ${Array.from({ length: c }, () => '---').join(' | ')} |`;
+  const emptyRow = `| ${Array.from({ length: c }, () => '').join(' | ')} |`;
+  const dataLines = Array.from({ length: r }, () => emptyRow);
+  return { text: [headerLine, delimLine, ...dataLines].join('\n'), cursor: 2 };
+}
+
 export interface SlashCommand {
   /** data-command 値 (testid 契約) */
   command: string;
@@ -82,11 +103,9 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     kbd: '/table',
     keywords: ['table', 'テーブル', '表'],
     icon: ICON.table,
-    // 標準 Markdown テーブル雛形。カーソルは先頭セル (編集開始位置)。
-    build: () => ({
-      text: '| 見出し1 | 見出し2 | 見出し3 |\n| --- | --- | --- |\n|  |  |  |',
-      cursor: 2,
-    }),
+    // テーブルはサイズピッカー (グリッド) を経由して挿入する (Sd40b63-2)。
+    // build は既定サイズ (3×3) のフォールバック雛形。
+    build: () => buildTableSnippet(TABLE_PICKER_DEFAULT.cols, TABLE_PICKER_DEFAULT.rows),
   },
   {
     command: 'callout',
@@ -224,6 +243,12 @@ export function detectSlashTrigger(state: EditorState): { from: number; query: s
 
 // ---- 状態 (StateField + StateEffect) ----------------------------------------
 
+/** テーブルサイズピッカーの選択状態 (列数 × 行数)。 */
+export interface PickerSize {
+  cols: number;
+  rows: number;
+}
+
 interface SlashMenuState {
   /** メニュー表示中か */
   open: boolean;
@@ -235,6 +260,8 @@ interface SlashMenuState {
   selected: number;
   /** Esc で閉じた `/` 位置。同じ位置では再オープンしない (null = 抑制なし) */
   dismissedFrom: number | null;
+  /** テーブルサイズピッカー表示中のサイズ (null = ピッカー非表示、通常のリスト) */
+  picker: PickerSize | null;
 }
 
 const CLOSED: SlashMenuState = {
@@ -243,12 +270,27 @@ const CLOSED: SlashMenuState = {
   query: '',
   selected: 0,
   dismissedFrom: null,
+  picker: null,
 };
 
 /** 選択を上下に動かす (+1 / -1)。ラップアラウンド。 */
 const moveSelection = StateEffect.define<number>();
 /** メニューを明示的に閉じる (Esc)。 */
 const dismissMenu = StateEffect.define<null>();
+/** テーブルサイズピッカーを開く (既定サイズ)。 */
+const openPicker = StateEffect.define<null>();
+/** ピッカーを閉じてコマンドリストへ戻る。 */
+const closePicker = StateEffect.define<null>();
+/** ピッカーのサイズを絶対指定する (ホバー等)。 */
+const setPickerSize = StateEffect.define<PickerSize>();
+/** ピッカーのサイズを相対移動する (キー操作、1..MAX でクランプ)。 */
+const movePicker = StateEffect.define<{ dc: number; dr: number }>();
+
+function clampSize(cols: number, rows: number): PickerSize {
+  const c = Math.max(1, Math.min(TABLE_PICKER_MAX, cols));
+  const r = Math.max(1, Math.min(TABLE_PICKER_MAX, rows));
+  return { cols: c, rows: r };
+}
 
 function wrap(index: number, len: number): number {
   if (len === 0) return 0;
@@ -265,6 +307,30 @@ const slashMenuField = StateField.define<SlashMenuState>({
     // Esc: 現在の from を抑制対象にして閉じる
     if (tr.effects.some((e) => e.is(dismissMenu))) {
       return { ...CLOSED, dismissedFrom: value.open ? value.from : dismissed };
+    }
+
+    // ---- テーブルサイズピッカー関連のエフェクト ----
+    if (tr.effects.some((e) => e.is(openPicker)) && value.open) {
+      return { ...value, picker: { ...TABLE_PICKER_DEFAULT } };
+    }
+    if (tr.effects.some((e) => e.is(closePicker))) {
+      return { ...value, picker: null };
+    }
+    for (const e of tr.effects) {
+      if (e.is(setPickerSize)) return { ...value, picker: clampSize(e.value.cols, e.value.rows) };
+      if (e.is(movePicker) && value.picker !== null) {
+        return {
+          ...value,
+          picker: clampSize(value.picker.cols + e.value.dc, value.picker.rows + e.value.dr),
+        };
+      }
+    }
+
+    // ピッカー表示中は絞り込み・選択の派生を止め、トリガーが消えたときのみ閉じる。
+    if (value.picker !== null && value.open) {
+      const det = detectSlashTrigger(tr.state);
+      if (det === null) return { ...CLOSED, dismissedFrom: null };
+      return { ...value, from: det.from, query: det.query };
     }
 
     // 選択移動 (open 中のみ意味を持つ。派生後に適用するため差分を集計)
@@ -313,22 +379,38 @@ function deriveState(
   const keep = prev.open && prev.from === det.from && prev.query === det.query;
   const base = keep ? prev.selected : 0;
   const selected = wrap(base + move, items.length);
-  return { open: true, from: det.from, query: det.query, selected, dismissedFrom: null };
+  return { open: true, from: det.from, query: det.query, selected, dismissedFrom: null, picker: null };
 }
 
 // ---- 挿入 -------------------------------------------------------------------
 
-/** 選択中コマンドを挿入する。/query を雛形で置換し、カーソルを編集開始位置へ。 */
-function applyCommand(view: EditorView, s: SlashMenuState, cmd: SlashCommand): void {
-  const snippet = cmd.build();
+/** /query を雛形で置換し、カーソルを編集開始位置 (snippet.cursor) へ置く。 */
+function insertSnippet(view: EditorView, from: number, snippet: SlashSnippet): void {
   const to = view.state.selection.main.head; // /query の直後 (= カーソル)
   view.dispatch({
-    changes: { from: s.from, to, insert: snippet.text },
-    selection: { anchor: s.from + snippet.cursor },
+    changes: { from, to, insert: snippet.text },
+    selection: { anchor: from + snippet.cursor },
     scrollIntoView: true,
     userEvent: 'input.complete',
   });
   view.focus();
+}
+
+/**
+ * 選択中コマンドを実行する。table はサイズピッカーを開き、それ以外は即挿入する。
+ */
+function applyCommand(view: EditorView, s: SlashMenuState, cmd: SlashCommand): void {
+  if (cmd.command === 'table') {
+    view.dispatch({ effects: openPicker.of(null) });
+    view.focus();
+    return;
+  }
+  insertSnippet(view, s.from, cmd.build());
+}
+
+/** ピッカーで確定した cols×rows の標準 Markdown テーブルを挿入する。 */
+function applyTableSize(view: EditorView, from: number, size: PickerSize): void {
+  insertSnippet(view, from, buildTableSnippet(size.cols, size.rows));
 }
 
 // ---- tooltip DOM ------------------------------------------------------------
@@ -342,6 +424,69 @@ function menuTooltip(from: number): Tooltip {
     arrow: false,
     create: (view) => renderMenu(view),
   };
+}
+
+/** テーブルサイズピッカー (グリッド) の DOM を組み立てる。 */
+function buildPicker(
+  view: EditorView,
+  getFrom: () => number,
+): {
+  el: HTMLElement;
+  update: (size: PickerSize) => void;
+} {
+  const el = document.createElement('div');
+  el.className = 'slash-picker';
+  el.setAttribute('data-testid', 'slash-table-picker');
+
+  const label = document.createElement('div');
+  label.className = 'slash-picker-label';
+  label.setAttribute('data-testid', 'slash-table-picker-label');
+
+  const grid = document.createElement('div');
+  grid.className = 'slash-picker-grid';
+  grid.style.gridTemplateColumns = `repeat(${TABLE_PICKER_MAX}, 1fr)`;
+
+  const cells: HTMLButtonElement[] = [];
+  for (let r = 1; r <= TABLE_PICKER_MAX; r++) {
+    for (let c = 1; c <= TABLE_PICKER_MAX; c++) {
+      const cell = document.createElement('button');
+      cell.type = 'button';
+      cell.className = 'slash-picker-cell';
+      cell.setAttribute('data-testid', 'slash-table-picker-cell');
+      cell.setAttribute('data-cols', String(c));
+      cell.setAttribute('data-rows', String(r));
+      // ホバーでサイズ更新 (キャレットは奪わない)
+      cell.addEventListener('mouseenter', () => {
+        view.dispatch({ effects: setPickerSize.of({ cols: c, rows: r }) });
+      });
+      // mousedown で確定挿入 (エディタのフォーカス/キャレットを保つ)
+      cell.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        applyTableSize(view, getFrom(), { cols: c, rows: r });
+      });
+      grid.append(cell);
+      cells.push(cell);
+    }
+  }
+
+  const hint = document.createElement('div');
+  hint.className = 'slash-picker-hint';
+  hint.innerHTML =
+    '<span><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> サイズ</span><span><kbd>Enter</kbd> 挿入</span><span><kbd>Esc</kbd> 戻る</span>';
+
+  el.append(label, grid, hint);
+
+  const update = (size: PickerSize): void => {
+    label.textContent = `${size.cols} 列 × ${size.rows} 行`;
+    for (const cell of cells) {
+      const c = Number(cell.dataset.cols);
+      const r = Number(cell.dataset.rows);
+      cell.classList.toggle('on', c <= size.cols && r <= size.rows);
+    }
+  };
+
+  return { el, update };
 }
 
 function renderMenu(view: EditorView): TooltipView {
@@ -370,12 +515,33 @@ function renderMenu(view: EditorView): TooltipView {
   footer.innerHTML =
     '<span><kbd>↑</kbd><kbd>↓</kbd> 選択</span><span><kbd>Enter</kbd> 挿入</span><span><kbd>Esc</kbd> 閉じる</span>';
 
-  dom.append(head, list, empty, footer);
+  // ピッカー (テーブルサイズ) — from は描画時点で最新の state から読む
+  let curFrom = view.state.field(slashMenuField).from;
+  const picker = buildPicker(view, () => curFrom);
+
+  dom.append(head, list, empty, picker.el, footer);
 
   const render = (state: EditorState): void => {
     const s = state.field(slashMenuField);
     if (!s.open) return;
+    curFrom = s.from;
     echo.textContent = `/${s.query}`;
+
+    // ピッカー表示中: グリッドのみ見せ、リスト/empty を隠す
+    if (s.picker !== null) {
+      list.style.display = 'none';
+      empty.style.display = 'none';
+      footer.style.display = 'none';
+      picker.el.style.display = 'block';
+      headLabel.textContent = 'テーブルのサイズ';
+      picker.update(s.picker);
+      return;
+    }
+    list.style.display = '';
+    footer.style.display = '';
+    picker.el.style.display = 'none';
+    headLabel.textContent = '挿入するブロック';
+
     const items = filterSlashCommands(s.query);
     empty.style.display = items.length === 0 ? 'block' : 'none';
     list.replaceChildren();
@@ -421,6 +587,13 @@ function renderMenu(view: EditorView): TooltipView {
       });
       list.append(btn);
     });
+
+    // キーボード選択時に、選択項目が常に表示範囲に入るようスクロール追従する
+    // (Sd40b63-2-AC2 — 下端の項目が画面外に隠れるバグの修正)。
+    const selectedBtn = list.children[s.selected];
+    if (selectedBtn instanceof HTMLElement) {
+      selectedBtn.scrollIntoView({ block: 'nearest' });
+    }
   };
 
   render(view.state);
@@ -440,16 +613,41 @@ const slashKeymap = keymap.of([
   {
     key: 'ArrowDown',
     run: (view) => {
-      if (view.composing || !view.state.field(slashMenuField).open) return false;
-      view.dispatch({ effects: moveSelection.of(1) });
+      if (view.composing) return false;
+      const s = view.state.field(slashMenuField);
+      if (!s.open) return false;
+      // ピッカー中は行数を増やす
+      view.dispatch({ effects: s.picker !== null ? movePicker.of({ dc: 0, dr: 1 }) : moveSelection.of(1) });
       return true;
     },
   },
   {
     key: 'ArrowUp',
     run: (view) => {
-      if (view.composing || !view.state.field(slashMenuField).open) return false;
-      view.dispatch({ effects: moveSelection.of(-1) });
+      if (view.composing) return false;
+      const s = view.state.field(slashMenuField);
+      if (!s.open) return false;
+      view.dispatch({ effects: s.picker !== null ? movePicker.of({ dc: 0, dr: -1 }) : moveSelection.of(-1) });
+      return true;
+    },
+  },
+  {
+    key: 'ArrowRight',
+    run: (view) => {
+      if (view.composing) return false;
+      const s = view.state.field(slashMenuField);
+      if (!s.open || s.picker === null) return false; // ピッカー中のみ列数を操作
+      view.dispatch({ effects: movePicker.of({ dc: 1, dr: 0 }) });
+      return true;
+    },
+  },
+  {
+    key: 'ArrowLeft',
+    run: (view) => {
+      if (view.composing) return false;
+      const s = view.state.field(slashMenuField);
+      if (!s.open || s.picker === null) return false;
+      view.dispatch({ effects: movePicker.of({ dc: -1, dr: 0 }) });
       return true;
     },
   },
@@ -459,6 +657,11 @@ const slashKeymap = keymap.of([
       if (view.composing) return false;
       const s = view.state.field(slashMenuField);
       if (!s.open) return false;
+      // ピッカー中: 現在サイズのテーブルを挿入
+      if (s.picker !== null) {
+        applyTableSize(view, s.from, s.picker);
+        return true;
+      }
       const items = filterSlashCommands(s.query);
       const chosen = items[s.selected];
       if (chosen === undefined) return false; // 一致 0 件: 通常の改行に委ねる
@@ -469,8 +672,10 @@ const slashKeymap = keymap.of([
   {
     key: 'Escape',
     run: (view) => {
-      if (!view.state.field(slashMenuField).open) return false;
-      view.dispatch({ effects: dismissMenu.of(null) });
+      const s = view.state.field(slashMenuField);
+      if (!s.open) return false;
+      // ピッカー中の Esc はコマンドリストへ戻る (メニューは閉じない)
+      view.dispatch({ effects: s.picker !== null ? closePicker.of(null) : dismissMenu.of(null) });
       return true;
     },
   },

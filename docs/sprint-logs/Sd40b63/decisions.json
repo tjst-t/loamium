@@ -1,0 +1,95 @@
+{
+  "sprint": "Sd40b63",
+  "title": "テーブル WYSIWYG 編集 + スラッシュメニュー改善",
+  "mode": "autopilot --auto --with-verifier",
+  "base_sha": "32e4990b5854d7123f068aa4b71ad6faadfee1a6",
+  "branch": "autopilot/main/Sd40b63",
+  "planning_decisions": [
+    {
+      "id": "plan-1",
+      "decision": "Story を 2 本 (Sd40b63-1 テーブル WYSIWYG 編集 / Sd40b63-2 スラッシュサイズピッカー+スクロール追従) のまま実行。分割せず。",
+      "rationale": "ROADMAP 既定の粒度が 1 Story = 1 ユーザー観測可能挙動に合致。DESIGN_PRINCIPLES priority 5 (シンプルさ)。"
+    }
+  ],
+  "implementation_decisions": [
+    {
+      "id": "impl-1",
+      "decision": "編集は『セルクリックで input 差し替え、フォーカスを外すと再レンダリング』方式 (Live Preview のソース⇄描画メタファに一致)。contenteditable ではなく <input> を採用。",
+      "rationale": "<input> は CodeMirror の DOM 監視/選択管理と干渉しない独立フォーカスコンテキスト。contenteditable を widget 内に置くと CM の selectionchange がキャレットを奪う既知リスクがある。IME もネイティブに機能。DESIGN_PRINCIPLES ui_ux『IME を第一級』。"
+    },
+    {
+      "id": "impl-2",
+      "decision": "パイプのエスケープのみ往復変換 (toEditable: \\| → | / toSource: | → \\|)。バックスラッシュ等その他の文字は一切触らない。",
+      "rationale": "priority 1 (ピュア Markdown 正本性) / priority 4 (Obsidian 互換)。完全な逆変換にすることで未編集セルを勝手に書き換えず、Obsidian で開いて壊れない。GFM でエスケープが必須なのはセル区切りのパイプのみ。unit テストで往復不変性を担保。"
+    },
+    {
+      "id": "impl-3",
+      "decision": "列幅パディングは最小 (| a | b | 形式、空セルは |  |)。整形しすぎない。",
+      "rationale": "ユーザー要望『列幅パディングは最小(整形しすぎない)』。既存スラッシュ雛形と同一フォーマット。"
+    },
+    {
+      "id": "impl-4",
+      "decision": "編集値コミットは input の blur (relatedTarget 判定) で行い、focusout は冪等なバックアップとして残す。セル間 Tab 移動時 (relatedTarget が同一テーブル内) はコミットせずモデル更新のみ。",
+      "rationale": "実機で focusout が input の blur より先に発火し、コミット前にモデル未反映となる順序問題を発見 (E2E で再現)。blur の relatedTarget は発火順に依存せず確実。lastCommitted ガードで二重 dispatch を防止。"
+    },
+    {
+      "id": "impl-5",
+      "decision": "テーブル挿入は即挿入からグリッドピッカー経由へ変更 (既定 3×3、最大 8×8、↑↓←→/ホバー/クリックで選択、Enter で挿入、Esc でリストへ戻る)。数値入力欄は入れず 8×8 グリッド + キーボードで代替。",
+      "rationale": "AC-Sd40b63-2-1『列数×行数を指定するグリッドピッカー(ホバー/キーで N×M)』。数値入力欄はエディタからフォーカスを奪い CM tooltip の維持が不確実になるため、フォーカスを保つグリッド+キーボードで AC を満たす。任意入力(数値)は将来拡張として見送り。"
+    },
+    {
+      "id": "impl-6",
+      "decision": "行/列の削除ボタンはセル (th / 最終列 td) の絶対配置子要素として配置し、<table> の thead th / tbody tr / td 構造を汚さない。",
+      "rationale": "既存 S79c210 テーブルテスト (thead th カウント等) を壊さないため。テキストは SVG アイコンで textContent を汚さない。契約 testid は additive (TESTIDS.md に追記)。"
+    },
+    {
+      "id": "impl-7",
+      "decision": "既存の『テーブルをクリック→フル行ソース表示』挙動を『セルクリック→当該セルのソースを input 編集』へ発展させ、S79c210-2 / S763a98-1-2 の既存 E2E/mock を新挙動へ更新。",
+      "rationale": "テーブルが読み取り専用から編集可能へ進化する本 Sprint の意図的な挙動変更。AC の趣旨 (カーソル行はソース、外すと再描画 / 標準 Markdown 挿入・先頭セルにカーソル) は保持。アサーション弱体化ではなく挙動更新。ROADMAP の AC は一切削除・緩和していない。"
+    }
+  ],
+  "behavior_changes_to_existing_tests": [
+    "table-render.e2e [AC-S79c210-2-1]: クリック→フル行ソース の断片を『セルクリック→ input に当該セルのソース(**在庫**)』へ更新。表描画アサーションは維持。",
+    "table-render.e2e [AC-S79c210-2-2] / .mock: スラッシュ table 挿入をサイズピッカー経由 (3×3 選択) へ更新。表描画アサーションは維持。",
+    "table-render.mock: クリック→ソース を セル input へ更新。",
+    "slash-menu.e2e [AC-S763a98-1-2]: /table Enter → ピッカー → Enter 確定 の 2 段へ更新。挿入結果(標準 Markdown・先頭セルカーソル)は維持。",
+    "slash-menu.mock クリック挿入: table 項目 → ピッカー → セルクリック挿入へ更新。"
+  ],
+  "verifier": {
+    "spawned": false,
+    "reason": "本ハーネスには独立 Agent (サブエージェント spawn) ツールが存在しない (deferred tools に Task/Agent spawn は無く、TaskCreate 系は todo リスト用)。指示どおり本 decisions.json に明記し done を完了する。親 (opus read-only verifier) が verification-report.json を補完実行する想定。",
+    "self_review_performed": true,
+    "self_review_note": "code-review スキルを高 effort で起動したが Agent finder は使えないため、diff を手動でライン単位 + クロスファイル追跡でレビュー。correctness バグなし。focusout と blur の二重コミットは lastCommitted で冪等 (意図的な防御)。"
+  },
+  "done_judgment": {
+    "Sd40b63-1": {
+      "guard1_user_review_required_not_done": "pass",
+      "guard2_nil_injection_mock": "n/a",
+      "guard3_mock_mode_not_real_smoke": "pass",
+      "guard4_priority_rule_9_exception_valid": "n/a",
+      "guard5_call_path_grep": "pass",
+      "guard6_deferred_comment_clean": "pass",
+      "guard7_adr_conformance": "n/a",
+      "guard8_destructive_multi_version_test": "n/a",
+      "overall": "ok"
+    },
+    "Sd40b63-2": {
+      "guard1_user_review_required_not_done": "pass",
+      "guard2_nil_injection_mock": "n/a",
+      "guard3_mock_mode_not_real_smoke": "pass",
+      "guard4_priority_rule_9_exception_valid": "n/a",
+      "guard5_call_path_grep": "pass",
+      "guard6_deferred_comment_clean": "pass",
+      "guard7_adr_conformance": "n/a",
+      "guard8_destructive_multi_version_test": "n/a",
+      "overall": "ok"
+    }
+  },
+  "guard_notes": {
+    "guard2": "UI/TypeScript のフロントエンド Sprint。Go の nil-guard anti-pattern は該当なし。",
+    "guard4": "priority_rule 9 (dev VM 実機 smoke) 例外条項の主張なし。障害シナリオ Story ではない。",
+    "guard7": "docs/DESIGN/ ディレクトリは本プロジェクトに存在せず、Accepted ADR machine_check なし。触れた ADR なし。",
+    "guard8": "data path (internal/server 等の Go データパス) を一切 touch しない UI Story。guard8_rationale: テーブル/スラッシュメニューの表示・編集層のみで production data path 実装なし → n/a。",
+    "guard3": "実機検証は本番モード。make test-ui は一時 vault で実サーバー + 実 Vite + 実ブラウザ (Playwright) を起動し、MOCK/fake フラグ不使用。ファイル書込は実ファイルシステムで検証。"
+  }
+}

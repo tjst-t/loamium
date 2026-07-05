@@ -119,11 +119,16 @@ test('[MOCK] ↑↓ で選択が動き、Enter で選択中コマンドが標準
   expect(unexpected).toEqual([]);
 });
 
-test('[MOCK] クリックで項目を選ぶとテーブル雛形 (標準 Markdown) が挿入される', async ({ page }) => {
+test('[MOCK] テーブル項目 → サイズピッカー → セルクリックで標準 Markdown テーブルが挿入される', async ({ page }) => {
   const unexpected = await openApp(page, 'メモ。\n\nアンカー行。\n', 'アンカー行');
   await openMenu(page);
 
+  // テーブル項目クリックでサイズピッカーが開く (即挿入ではない)
   await page.locator('[data-testid="slash-item"][data-command="table"]').click();
+  const picker = page.getByTestId('slash-table-picker');
+  await expect(picker).toBeVisible();
+  // 3 列 × 3 行 のセルをクリック → そのサイズの標準 Markdown テーブルを挿入
+  await page.locator('[data-testid="slash-table-picker-cell"][data-cols="3"][data-rows="3"]').click();
   await expect(page.getByTestId('slash-menu')).toHaveCount(0);
   // ブロック ID も独自記法もない標準 Markdown テーブル雛形
   await expect(editorLine(page, '見出し1')).toContainText('| 見出し1 | 見出し2 | 見出し3 |');
