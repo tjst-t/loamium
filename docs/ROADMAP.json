@@ -1757,17 +1757,17 @@
             "S9df823-1-1": {
               "title": "プロパティウィジェット",
               "description": "live-preview の frontmatter 範囲(文書冒頭の --- ... ---)をブロックウィジェットに置換。キー・値の一覧(tags/配列はチップ、真偽/数値/日付/テキストの素朴な型表示)。テーブルと同じ input 差し替え + commit-on-blur + CustomEvent フォーカス復元パターンを再利用。",
-              "status": "pending"
+              "status": "done"
             },
             "S9df823-1-2": {
               "title": "YAML 直列化",
               "description": "値編集・チップ追加削除・プロパティ追加削除を標準 YAML(shared の parseNote と往復可能な範囲: スカラー・文字列・フラット配列)へ直列化して書き戻す。ネスト・複雑値は round-trip 不能なのでウィジェット内で該当キーを読み取り専用表示にし、編集はソースへ誘導。既存 frontmatter 無しノートへの生成、全プロパティ削除時の frontmatter 除去。",
-              "status": "pending"
+              "status": "done"
             },
             "S9df823-1-3": {
               "title": "ソース切替・スラッシュメニュー・テスト",
               "description": "『ソースを編集』ボタン(テーブルと同 UX)。スラッシュメニューに『プロパティ』(frontmatter 追加)。mock + E2E([AC-] タグ、編集→実ファイルが標準 YAML であることを検証、Tab/IME 考慮)。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }

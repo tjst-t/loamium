@@ -230,11 +230,14 @@ export function renderProperties(lines: string[], handlers?: PropertiesEditHandl
         // input 種別によっては失敗しうる。キャレット位置は無視して継続。
       }
     }
+    const initialText = input.value;
     const apply = (): void => {
       const prev = ref.entry;
       if (prev.kind !== 'scalar') return;
+      // テキストが実際に変わったときだけ再解釈する。無変更の blur で素朴な型解釈を
+      // 通すと、引用符付き文字列 ("5" / "true") が数値/真偽へ化けてしまうため。
+      if (input.value === initialText) return;
       const next = parsePropInput(input.value);
-      if (next === prev.value && prev.source !== undefined) return; // 無変更
       const updated: PropEntry = { kind: 'scalar', key: prev.key, value: next };
       replaceEntry(prev, updated);
       ref.entry = updated;

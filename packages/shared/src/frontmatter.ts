@@ -62,6 +62,17 @@ function deepEqual(a: unknown, b: unknown): boolean {
  */
 const KEY_LINE_RE = /^("(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^\s:#'"-][^:]*?)\s*:(?=\s|$)/;
 
+/**
+ * YAML アンカー (&name) / エイリアス (*name) を値に含むエントリの検出。
+ * 別エントリを参照し合うため、片方だけ再直列化すると壊れる → complex (読み取り専用)
+ * に落とす。有効な YAML では plain scalar が & / * で始まることはないので誤検出しない。
+ */
+const ANCHOR_ALIAS_RE = /(?::\s+|-\s+)[&*]\S|^[&*]\S/;
+
+function hasAnchorOrAlias(source: string[]): boolean {
+  return source.some((l) => ANCHOR_ALIAS_RE.test(l.trim()) || ANCHOR_ALIAS_RE.test(l));
+}
+
 /** 引用符付きキーのトークンを実キー名へ解決する。解決不能なら null。 */
 function resolveKeyToken(token: string): string | null {
   if (token.startsWith('"')) {
@@ -141,8 +152,8 @@ export function parsePropertiesModel(yamlText: string): PropEntry[] | null {
 
     const quotedKey = token.startsWith('"') || token.startsWith("'");
     const v = obj[key];
-    if (quotedKey) {
-      // 引用符付きキーは再直列化の等値性が担保しづらいため complex (読み取り専用)
+    if (quotedKey || hasAnchorOrAlias(source)) {
+      // 引用符付きキー / アンカー・エイリアス入りは complex (読み取り専用・原文保持)
       entries.push({ kind: 'complex', key, source });
     } else if (isEditableScalar(v)) {
       entries.push({ kind: 'scalar', key, value: v, source });

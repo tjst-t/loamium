@@ -87,6 +87,16 @@ describe('parsePropertiesModel', () => {
     expect(model?.[0]).toEqual({ kind: 'complex', key: 'a:b', source: ['"a:b": 1'] });
     expect(model?.[1]?.kind).toBe('scalar');
   });
+
+  it('アンカー/エイリアスを含むエントリは complex (読み取り専用) になる', () => {
+    // 片方だけ再直列化するとエイリアス参照が壊れるため、両方とも原文保持にする
+    const src = 'base: &b 共通値\nref: *b\nplain: 1';
+    const model = parsePropertiesModel(src);
+    expect(model?.[0]?.kind).toBe('complex');
+    expect(model?.[1]?.kind).toBe('complex');
+    expect(model?.[2]?.kind).toBe('scalar');
+    expect(serializeProperties(model ?? [])).toBe(`${src}\n`);
+  });
 });
 
 describe('serializeProperties — round-trip 保証', () => {

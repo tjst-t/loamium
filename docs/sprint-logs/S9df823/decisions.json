@@ -88,7 +88,23 @@
       "rationale": "既存の全 mock テストが同じ複製パターンで書かれており、テストの独立性・可読性を優先する既存慣行に合わせた。共通化は別途リファクタ課題。"
     }
   ],
-  "review": [],
+  "review": [
+    {
+      "id": "R-1",
+      "finding": "CONFIRMED: スカラー値を無変更で開閉すると素朴な型解釈が走り、引用符付き文字列 (\"5\"/\"true\") が数値/真偽へ化ける",
+      "resolution": "入力テキストが初期値から変わったときだけ再解釈するよう修正 (properties.ts apply)。回帰テスト: properties.e2e AC2 に code: \"5\" の無変更開閉 → ファイル原文維持を追加。"
+    },
+    {
+      "id": "R-2",
+      "finding": "PLAUSIBLE: YAML アンカー/エイリアスがエントリ間で参照し合う場合、アンカー定義側だけを再直列化すると参照が壊れる",
+      "resolution": "アンカー/エイリアスを含むエントリを complex (読み取り専用・原文 verbatim) に分類 (frontmatter.ts hasAnchorOrAlias)。有効な YAML の plain scalar は &/* で始まれないため誤検出しない。ユニットテスト追加。"
+    },
+    {
+      "id": "R-3",
+      "finding": "レビュー体制の注記: /review (code-review skill) のサブエージェント fan-out は本環境で spawn 不可のため、7 角度 (行単位・削除挙動・クロスファイル・再利用・単純化・効率・アルティチュード) をセッション内で実施",
+      "resolution": "検出 2 件はいずれも修正済み。他に REFUTED 済み候補: hasFrontmatterBlock の重複 (parseNote では『壊れた YAML だがブロックは在る』を判定できず意味が異なるため重複は正当)、chipFlushes の蓄積 (widget 寿命に有界)。"
+    }
+  ],
   "verifier": {
     "note": "独立 verifier サブエージェントは本環境で spawn 不可のため未実行。親 autopilot が opus read-only verifier を補完実行する前提で done 処理を進める (ENV-1)。"
   },
