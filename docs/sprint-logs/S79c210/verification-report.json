@@ -1,29 +1,97 @@
 {
   "sprint": "S79c210",
-  "verifier": "independent-read-only-claude",
-  "spawned": false,
-  "overall": "not_spawned",
-  "reason": "この実行環境にはサブエージェント(独立 read-only Claude セッション)を同期起動する Agent/Task-run ツールが存在しない(利用可能な deferred ツールは EnterWorktree / Task*(タスクリスト)/ Web* 等のみ)。sprint-auto/verifier-agent が要求する独立 verifier を spawn できないため、本レポートは overall=not_spawned とする。タスク指示の fallback 条項に従い decisions.json(PD-1)に明記のうえ done を完了する。親 autopilot が opus の read-only verifier を補完実行する前提。",
-  "compensating_controls": [
-    "機械検証 hooks/run-verify.py: overall=pass(make test 373 / make lint / make test-ui 165、全て実 process exit=0 + JUnit)",
-    "6/8 ガード評価を verification-results.json.done_judgment に記録(全 Story overall=ok)",
-    "セルフ code-review(verification-results.json.self_review)を実施",
-    "二層テスト(mock + E2E、[AC-] タグ、実サーバー・実ブラウザ)+ ターミナルはサーバー側受け入れテストで実 WS 許可/拒否を本番モード検証"
+  "verified_at": "2026-07-05",
+  "verifier_model": "claude-opus-4-8 (read-only, separate session)",
+  "overall": "pass",
+  "findings": [
+    {
+      "id": "F-run-1",
+      "category": "execution_log_reconciliation",
+      "severity": "info",
+      "verdict": "pass",
+      "detail": "verify-run.json / verify-run-*.log の機械 verdict を独立再実行で照合。`make test` を再実行し 373/373 pass (config.test 6, terminal.test 7, ui table.spec 6 を含む)。`make test-ui` を再実行し 165/165 pass (S79c210 の sidebar-tree e2e3, table-render e2e2, breadcrumb e2e1, terminal-origin mock2 を含む全 [AC-] タグ緑)。lint exit=0。verification-results.json の全 pass は機械 pass に裏付けられている。"
+    },
+    {
+      "id": "F-1-1",
+      "category": "ac_verification",
+      "ac": "AC-S79c210-1-1 / 1-2 / 1-3",
+      "severity": "info",
+      "verdict": "pass",
+      "detail": "FileTree.tsx は buildTree(notes, [], extraFolders) でノート(.md)のみをフォルダ階層描画し asset を除外。sidebar-tree.e2e は実ブラウザ→実 Vite→実サーバー→実 FS でフォルダ横断到達・折りたたみ(aria-expanded/toBeHidden)・asset 非表示(file-tree 内 count 0 → /files の file-row 集約)・ネスト作成(context-new-folder→空フォルダ→context-new-note→ /n/.../inner)を実操作検証。ピュア Markdown: 空フォルダは App.tsx extraFolders(UI 状態)で保持し vault にファイルを書かず、最初のノート putNote で実体化(.gitkeep 等の独自メタファイル書き込みなし — DESIGN priority 1 遵守)。"
+    },
+    {
+      "id": "F-2-1",
+      "category": "ac_verification",
+      "ac": "AC-S79c210-2-1 / 2-2",
+      "severity": "info",
+      "verdict": "pass",
+      "detail": "renderers/table.ts は DOM API のみで <table> を構築(innerHTML 不使用 — priority 2)、正本は | 記法のまま(表示層のみ)。live-preview.ts の TableWidget は lezer-markdown の Table ノードを block replace し、claimedLines で fence と非重複、intersectsActive でカーソル行はソース表示に戻す。table-render.e2e は実ブラウザで HTML テーブル(thead th x3 / tbody tr x2)描画・セル内 **bold**→strong・生パイプ非表示・クリックでソース行復帰を検証。スラッシュ挿入(2-2)も slash-item[table]→カーソル外移動で table-widget 描画を実操作検証。挿入『直後』はカーソルが先頭セルにあるためソース表示になる仕様で、ROADMAP AC 記述(セル編集でカーソル行のみソース)と整合。"
+    },
+    {
+      "id": "F-3-1",
+      "category": "ac_verification/security",
+      "ac": "AC-S79c210-3-1",
+      "severity": "info",
+      "verdict": "pass",
+      "detail": "isAllowedOrigin: (a) Origin 無し=非ブラウザ許可 (b) url.host===host の same-origin 許可 (c) loopback hostname 許可 (d) allowedOrigins に url.origin 完全一致で許可 (e) それ以外拒否。既定 allowedOrigins=[] で従来の loopback+same-origin のみ許可を維持しセキュリティ後退なし。parseAllowedOrigins は new URL().origin へ正規化する完全一致で、ワイルドカード・パース不能値・空要素を捨てる(緩すぎない)。tests/acceptance/terminal.spec.ts が本番モード実 WS で: 列挙 LAN オリジン2件は stayedOpen、列挙外非ループバックは closeCode 1008、既定空リストでも 1008、denied は audit.log に result:denied/status:403 で記録、を検証。config.test.ts が parse の緩さ回帰を単体で固定。"
+    },
+    {
+      "id": "F-3-2",
+      "category": "ac_verification",
+      "ac": "AC-S79c210-3-2",
+      "severity": "info",
+      "verdict": "pass",
+      "detail": "TerminalPane.tsx の ws.onclose(evt.code) が 1008(WS_POLICY_VIOLATION)を origin-denied 状態へ、それ以外(1000/exit)を disconnected へ分岐。origin-denied は terminal-origin-denied バーで『このオリジンは許可されていません。localhost で開くか LOAMIUM_TERMINAL_ALLOWED_ORIGINS に追加してください』を表示、disconnected は terminal-reconnect-bar『セッションが終了しました』を表示し相互排他。terminal-origin.mock は routeWebSocket で 1008/1000 を出し分け両文言と data-terminal-status・非表示側を検証。"
+    },
+    {
+      "id": "F-3-3",
+      "category": "acceptance_criteria_modified",
+      "ac": "AC-S79c210-3-2",
+      "severity": "warn",
+      "verdict": "warn",
+      "detail": "ROADMAP の AC-3-2 test ポインタが base(937f945)の `terminal-origin.e2e.spec.ts` から `terminal-origin.mock.spec.ts` へ変更されている。技術的には AC の test-binding 変更(mock への格下げ)に該当するが: (1) compromises C-1 で明示開示済み (2) AC の description は不変 (3) git log --all に e2e 版は一度も存在せず(計画ポインタのみで実カバレッジ喪失なし) (4) 実ブラウザは常に same-origin(loopback=許可)を送るため CSWSH 1008 を forge 不能という原理的制約が根拠として妥当 (5) 許可/拒否の実挙動は AC-3-1 の実 WS 受け入れテストが本番モードで担保。正当な適応と判断し overall は pass。監査目的で warn として記録。"
+    },
+    {
+      "id": "F-4-1",
+      "category": "ac_verification",
+      "ac": "AC-S79c210-4-1",
+      "severity": "info",
+      "verdict": "pass",
+      "detail": "App.tsx は breadcrumb の route-token /n/ span を削除し DocumentIcon + フォルダ階層 + ノート名で構成。URL は /n/{path} を維持(applyHistory 不変)。breadcrumb.e2e は /n/ 直開き着地→URL は /n/ 維持→route-display に /n/ 非出現・フォルダ名/ノート名出現を検証。"
+    },
+    {
+      "id": "F-forbidden-1",
+      "category": "forbidden_scan",
+      "severity": "info",
+      "verdict": "pass",
+      "detail": "diff 全体で test_skipped(.only/.skip/xit/xdescribe なし)・test_assertion_weakened・error_swallowed・type_safety_relaxed(any/@ts-ignore/@ts-expect-error なし、tsc strict 通過)を検出せず。申告済み適応の精査結果: upload/files-page テストの /files 位置への適応は、添付のプレビュー/リネーム(![[リンク]]追従)/削除機能がサイドバー撤去に伴い /files(file-preview-btn/file-rename-btn/file-delete-btn)へ設計移設された箇所の等価置換でカバレッジ喪失なし(リンク追従・ディスク反映アサートは維持)。sidebar-recent.e2e の削除は直近フラット一覧が Story1 でツリーへ置換され前提消滅したための正当削除。files-page.e2e の tree-folder スコープは files-tree に限定しただけ。"
+    },
+    {
+      "id": "F-clean-1",
+      "category": "clean_text",
+      "severity": "info",
+      "verdict": "pass",
+      "detail": "diff 変更ファイル全体を NUL/制御文字で機械スキャンし混入なし。前々 Sprint の制御文字再発なし。"
+    },
+    {
+      "id": "F-design-1",
+      "category": "design_principles",
+      "severity": "info",
+      "verdict": "pass",
+      "detail": "ピュア Markdown: 空フォルダを UI 状態(extraFolders)で表現しメタファイル(.gitkeep 等)を書かない(decisions ID-1 記録)。ルーティング維持(/n/{path} URL 不変)。ターミナル安全性: 三重ガード + Origin 検証を保持し、許可リストは既定空で後退なし・完全一致で緩みなし。README/ARCHITECTURE に LOAMIUM_TERMINAL_ALLOWED_ORIGINS の CSWSH 保護低下警告とワイルドカード不可を明記(task 3-1 要件充足)。"
+    },
+    {
+      "id": "F-compromise-1",
+      "category": "compromise_completeness",
+      "severity": "info",
+      "verdict": "pass",
+      "detail": "自己申告 C-1(AC-3-2 の e2e→mock)は上記 F-3-3 のとおり実態と一致し overlooked なし。self_review の4項目(テーブル claimedLines / 空フォルダ UI 状態 / isAllowedOrigin 既定維持 / 添付リネーム UI の /files 集約による regression 回避)はいずれも diff と整合。申告漏れ(overlooked_by_autopilot)は検出せず。"
+    }
   ],
-  "ac_recheck": [
-    { "ac": "AC-S79c210-1-1", "verdict": "pass", "evidence": "sidebar-tree.e2e/mock: フォルダツリー展開/折りたたみでフォルダ横断にノート到達" },
-    { "ac": "AC-S79c210-1-2", "verdict": "pass", "evidence": "asset は file-tree に count 0、/files の file-row に集約" },
-    { "ac": "AC-S79c210-1-3", "verdict": "pass", "evidence": "context-new-folder→ネストフォルダ生成→context-new-note→ネストノート生成 (URL /n/.../inner)" },
-    { "ac": "AC-S79c210-2-1", "verdict": "pass", "evidence": "table-widget が thead/tbody で描画、セル内 **bold**→strong、クリックでソース行復帰" },
-    { "ac": "AC-S79c210-2-2", "verdict": "pass", "evidence": "slash-item[table] 挿入後カーソルを外すと table-widget 描画(見出し1)" },
-    { "ac": "AC-S79c210-3-1", "verdict": "pass", "evidence": "terminal.spec: LOAMIUM_TERMINAL_ALLOWED_ORIGINS 列挙は stayedOpen、列挙外は closeCode 1008、既定空は 1008" },
-    { "ac": "AC-S79c210-3-2", "verdict": "pass", "evidence": "terminal-origin.mock: 1008→terminal-origin-denied 文言、1000→terminal-reconnect-bar、相互に非表示" },
-    { "ac": "AC-S79c210-4-1", "verdict": "pass", "evidence": "breadcrumb.e2e/mock: route-display に /n/ 非出現、フォルダ階層+ノート名。URL は /n/{path} 維持" }
-  ],
-  "forbidden_categories_check": {
-    "test_disable": "none",
-    "assertion_weakening": "none (既存 upload/files-page テストは挙動が /files へ設計変更された箇所の等価置換。削除した sidebar-recent は前提消滅による置換)",
-    "error_swallow": "none",
-    "any_cast": "none (tsc strict 通過、any 未使用)"
+  "summary": {
+    "ac_failures": 0,
+    "forbidden_warnings": 1,
+    "adr_conflicts": 0,
+    "overlooked_count": 0
   }
 }
