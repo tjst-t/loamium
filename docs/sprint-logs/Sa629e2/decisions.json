@@ -141,7 +141,36 @@
       "rationale": "サンプルが腐る (実データと乖離する) ことを継続的に防ぐ。ガイドの本文には各クエリの期待結果 (『下の例は…が出ます』) を明記。"
     }
   ],
-  "review_decisions": [],
-  "behavior_changes_to_existing_tests": [],
-  "done_judgment": {}
+  "review_decisions": [
+    {
+      "id": "R1",
+      "topic": "Sprint レベルセルフレビュー",
+      "decision": "diff 全体 (2c71b5f..HEAD) を精査。指摘事項: (a) table.ts の handlers.editSource.bind は不要だが無害 — 可読性維持のため残置。(b) live-preview requestFocus の catch→continue はコメント付きの意図的スキップで許容。(c) SearchPage の未使用 import なし (tsc + eslint で機械確認)。アーキテクチャ影響なし。",
+      "rationale": "/review 相当のセルフレビュー (サブエージェント spawn 不可のため本セッションで実施)。"
+    }
+  ],
+  "behavior_changes_to_existing_tests": [
+    {
+      "note": "既存テストの変更なし。テーブルレイアウト変更 (md-table-main 撤去 → grid) と検索ページ再設計は既存の testid 契約・挙動 (table-edit / table-render / slash-table / search-page / search-palette / claude-sidebar) を全て満たすため、既存アサーションはそのまま全件 pass (ui-tests 191/191)。"
+    }
+  ],
+  "done_judgment": {},
+  "verification_notes": [
+    {
+      "id": "V1",
+      "topic": "既知 flaky: tests/acceptance/terminal.spec.ts",
+      "observation": "機械検証 1 回目 (make test 全 391 件並列) で [AC-S79c210-3-1] terminal Origin テストが 1 件 fail (既知の並列時 timing flaky — autopilot 引き継ぎ事項)。単独再実行 `npx vitest run tests/acceptance/terminal.spec.ts` で 13/13 pass を確認。テストの無効化・変更は行わず、hooks/run-verify.py を再実行して機械判定を取り直す。",
+      "action": "run-verify.py 再実行 (最終 verify-run.json が正)"
+    },
+    {
+      "id": "V2",
+      "topic": "既知タイプの flaky: packages/ui/tests/e2e/wikilink.mock.spec.ts",
+      "observation": "機械検証 2 回目で make test は 391/391 pass、make test-ui で wikilink.mock の 1 件 (キー入力タイミング系。1 回目の実行では pass、本 Sprint の変更範囲外) が fail。単独再実行 `npx playwright test wikilink.mock --project=mock` で 8/8 pass を確認。テストの無効化・変更は行わず run-verify.py を再々実行する。",
+      "action": "run-verify.py 再実行 (最終 verify-run.json が正)"
+    }
+  ],
+  "verifier": {
+    "independent_verifier": "not_run_in_this_session",
+    "reason": "本環境にはサブエージェント (別セッション) を spawn するツールが存在しないため、Phase 1.8 の read-only 独立 verifier を本セッションから起動できない。親 (autopilot) が opus の read-only verifier を補完実行する前提。実行時の入力: sprint=Sa629e2, base_sha=2c71b5f2b76895ecdab451dc072e0c575d5ba7a4, branch=autopilot/main/Sa629e2。本セッション側では機械検証 (verify-run.json: overall pass)・8 ガード・禁止カテゴリ diff スキャン・Rule 6 diff coverage・Sprint レベルのセルフレビューを実施済み (verification-results.json)。"
+  }
 }

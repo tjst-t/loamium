@@ -70,6 +70,7 @@ loamium/
 │   ├── cli/       # loamium CLI (APIの薄いラッパー)
 │   └── ui/        # React + CodeMirror 6
 ├── skill/         # claude-skills 形式の Skill 定義
+├── samples/       # 機能サンプル vault (make samples で LOAMIUM_VAULT へ no-clobber コピー — Sa629e2)
 ├── dev-vault/     # 開発用 vault (git管理外)
 └── docs/          # ドキュメント・ROADMAP
 ```
