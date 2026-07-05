@@ -1,0 +1,37 @@
+{
+  "story": "Sa629e2-2",
+  "title": "機能サンプルノート集",
+  "story_type": "mixed",
+  "entry_points": ["cli (make samples)", "api (POST /api/query)"],
+  "scenarios": [
+    {
+      "name": "make samples で一時 vault へ投入し、全機能トピックが揃っている",
+      "entry_point": "cli",
+      "linked_ac": ["Sa629e2-2-AC1"],
+      "steps": [
+        {"action": "空の一時 vault を作り、LOAMIUM_VAULT を指して `make samples` をサブプロセス実行する", "expected": "exit code 0"},
+        {"action": "vault/samples/ を走査する", "expected": "index ノートと機能別ノートが存在し、dataview (```dataview + LIST/TABLE/TASK + FROM #tag + FROM \"folder\" + WHERE + SORT の実例と結果説明)・テーブル・embed/transclusion・callout・highlight・数式・mermaid・コードフェンス・タスク・wikilink・スラッシュメニュー・添付/アップロードのトピックを網羅している"},
+        {"action": "サンプル画像を確認する", "expected": "samples/assets/ に PNG 画像が 1 枚以上あり、PNG マジックバイトを持つ"}
+      ]
+    },
+    {
+      "name": "投入したサンプルの dataview クエリが実際に動く",
+      "entry_point": "api",
+      "linked_ac": ["Sa629e2-2-AC2"],
+      "steps": [
+        {"action": "投入済み一時 vault で実サーバーを起動する", "expected": "healthy"},
+        {"action": "サンプルノート内の ```dataview フェンスを全て抽出し、それぞれ POST /api/query する", "expected": "全クエリが 200 + queryResponseSchema 適合 (構文エラーなし)"},
+        {"action": "LIST / TABLE / TASK の各クエリ結果を確認する", "expected": "各タイプで 1 件以上の結果 (サンプル自身が実データとして拾われる)"}
+      ]
+    },
+    {
+      "name": "既存ファイルを上書きしない",
+      "entry_point": "cli",
+      "linked_ac": ["Sa629e2-2-AC2"],
+      "steps": [
+        {"action": "vault/samples/index.md をユーザー編集済みの内容 (sentinel) に書き換えてから `make samples` を再実行する", "expected": "exit code 0 かつ index.md の内容が sentinel のまま (no-clobber)"}
+      ]
+    }
+  ],
+  "test_file": "tests/acceptance/samples.spec.ts"
+}

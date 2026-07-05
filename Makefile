@@ -3,7 +3,7 @@ DEV_VAULT ?= $(CURDIR)/dev-vault
 # デフォルトはローカルのみ。LAN からアクセスするなら `make serve HOST=0.0.0.0` (無認証なので注意)
 HOST ?= 127.0.0.1
 
-.PHONY: serve serve-ui stop test test-ui build lint verify clean
+.PHONY: serve serve-ui stop test test-ui build lint verify clean samples
 
 # ポートは portman が管理する (ハードコード禁止 — CLAUDE.md)。
 # `portman lease` は同一プロジェクト・同一 name なら冪等に同じポートを返す。
@@ -48,6 +48,14 @@ test-ui:
 	cd packages/ui && npx playwright test
 
 verify: test
+
+# 機能サンプルノート集を vault へ投入する (Sa629e2-2)。
+# 送り先は LOAMIUM_VAULT (未設定なら dev-vault)。cp -n なので既存ファイルは上書きしない。
+samples:
+	@DEST="$${LOAMIUM_VAULT:-$(DEV_VAULT)}"; \
+	mkdir -p "$$DEST"; \
+	cp -R --update=none samples "$$DEST/" 2>/dev/null || cp -R -n samples "$$DEST/"; \
+	echo "サンプルを $$DEST/samples/ へ投入しました (既存ファイルは上書きしていません)"
 
 build:
 	npm run build --workspaces --if-present

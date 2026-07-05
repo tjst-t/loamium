@@ -1,0 +1,66 @@
+{
+  "story": "Sa629e2-1",
+  "title": "テーブル WYSIWYG の UX 仕上げ",
+  "story_type": "gui",
+  "entry_point": "ノート (/n/{path}) を開き、GFM テーブルを含む行からカーソルを外すと table-widget が描画される (既存 Sd40b63-1 の導線)。",
+  "state_diagram": "stateDiagram-v2\n    [*] --> Rendered: カーソルがテーブル外 (table-widget 描画)\n    Rendered --> CellEditing: セル (td/th) を 1 クリック\n    CellEditing --> CellEditing: Tab / Shift+Tab / Enter で隣接セルへ (コミットしてから移動)\n    CellEditing --> Rendered: Esc / テーブル外クリック (blur でコミット)\n    Rendered --> RowAdded: 行追加バー (ホバー表示・テーブル幅) をクリック\n    Rendered --> ColAdded: 列追加バー (ホバー表示・テーブル高さ) をクリック\n    CellEditing --> RowAdded: 最終セルで Tab (行追加 + 新行先頭セル編集)\n    Rendered --> SourceMode: 『ソースを編集』ボタン (ホバー表示)\n    SourceMode --> Rendered: カーソルをテーブル行の外へ移動\n",
+  "scenarios": [
+    {
+      "name": "追加コントロールがテーブル寸法に収まる",
+      "linked_ac": ["Sa629e2-1-AC1"],
+      "steps": [
+        {"action": "テーブル入りノートを開き、カーソルをテーブル外の行へ置く", "expected": "table-widget が描画される"},
+        {"action": "table-widget にホバーする", "expected": "行追加バー (table-add-row) と列追加バー (table-add-col) が表示される"},
+        {"action": "バウンディングボックスを比較する", "expected": "table-add-row の幅はテーブル幅以下 (エディタ幅ではない)。table-add-col の高さはテーブル高さ以下。widget 全体の幅はエディタ幅より十分小さい (幅の狭いテーブルで検証)"}
+      ]
+    },
+    {
+      "name": "1 クリックでセル編集",
+      "linked_ac": ["Sa629e2-1-AC2"],
+      "steps": [
+        {"action": "td のパディング領域 (セル右端寄り) を 1 回クリックする", "expected": "table-cell-input が開き、フォーカスが input にある"},
+        {"action": "そのまま文字を入力する", "expected": "クリック後の追加操作なしで入力が反映される"}
+      ]
+    },
+    {
+      "name": "Excel 風セル移動",
+      "linked_ac": ["Sa629e2-1-AC3"],
+      "steps": [
+        {"action": "先頭セルを編集して Tab", "expected": "値がコミットされ右のセルの編集 input が開く"},
+        {"action": "行末セルで Tab", "expected": "次行の先頭セルへ移動する"},
+        {"action": "Shift+Tab", "expected": "左 (前) のセルへ戻る"},
+        {"action": "Enter", "expected": "直下のセルへ移動する"},
+        {"action": "最終セルで Tab", "expected": "行が追加され、新行の先頭セルの編集が始まる。保存後のファイルは標準 Markdown テーブル"}
+      ]
+    },
+    {
+      "name": "ソースを編集への明示切替",
+      "linked_ac": ["Sa629e2-1-AC4"],
+      "steps": [
+        {"action": "table-widget にホバーし『ソースを編集』(table-edit-source) をクリックする", "expected": "table-widget が消えテーブル行がソース (| 記法) 表示になり、カーソル (cm-activeLine) がテーブル行内にある"}
+      ]
+    }
+  ],
+  "data_states": {
+    "empty": "既存 (S79c210-2/Sd40b63-1) の挙動を変更しない — 本 Story は編集 UX のみ",
+    "error": "描画失敗時は既存の fence-render-error フォールバック (変更なし)"
+  },
+  "endpoint_contracts": [
+    {
+      "path": "/api/notes/{path}",
+      "method": "PUT",
+      "registered": true,
+      "request_fields": {"content": "string", "baseMtime": "number?"},
+      "response_fields": {"path": "string", "mtime": "number", "created": "boolean"},
+      "note": "テーブル編集は既存の保存経路を使う。新規エンドポイントなし"
+    }
+  ],
+  "testids": {
+    "existing": ["table-widget", "table-cell-input", "table-add-row", "table-add-col", "table-del-row", "table-del-col"],
+    "added": ["table-edit-source"]
+  },
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/table-ux.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/table-ux.mock.spec.ts"
+  }
+}

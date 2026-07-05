@@ -1,0 +1,176 @@
+{
+  "sprint": "Sa629e2",
+  "title": "レビュー修正R4 — テーブルUX仕上げ / サンプルページ / 検索画面スリム化",
+  "mode": "auto (autopilot --auto, sprint auto Sa629e2 --auto --with-verifier)",
+  "branch": "autopilot/main/Sa629e2",
+  "base_sha": "2c71b5f2b76895ecdab451dc072e0c575d5ba7a4",
+  "touched_adrs": [],
+  "environment_notes": [
+    "本環境にはサブエージェント spawn 用の Agent/Task ツールが存在しないため、Story 実装・Story レビュー・独立 verifier をサブエージェントとして起動できない。実装/レビュー/セルフ検証は本セッションが直列で実施し、独立 verifier (Phase 1.8) は『別セッションによる read-only 検証』として親 (autopilot) が opus read-only verifier を補完実行する前提で、verification-report.json は本セッションでは生成しない。機械検証 (hooks/run-verify.py)・6/8 ガード・セルフレビュー (/review 相当の diff レビュー) は必ず実施する。"
+  ],
+  "planning_decisions": [
+    {
+      "id": "P1",
+      "topic": "Story 構成の維持",
+      "decision": "ROADMAP の 3 Story (テーブルUX / サンプルノート集 / 検索スリム化) をそのまま採用。全 Story がユーザーストーリー形式・適切な粒度で記述済みのため書き換え・分割なし。",
+      "rationale": "レビュー修正 Sprint であり、各 Story は独立した 1 つのユーザー可視挙動に対応している (DESIGN_PRINCIPLES: シンプルさ > 汎用性)。"
+    },
+    {
+      "id": "P2",
+      "topic": "Story 分類",
+      "decision": "Sa629e2-1 = GUI (エディタ内テーブルウィジェット)、Sa629e2-3 = GUI (検索ページ)、Sa629e2-2 = mixed (cli: make samples サブプロセス + api: /api/query 実 HTTP)。",
+      "rationale": "gui-spec.md Phase 1 のプロジェクトレベルシグナル (React frontend) に従い、ブラウザで観測できる Story は GUI。サンプル投入はブラウザ UI を追加しない (既存 UI が描画する) ため、ユーザー入口は make samples (CLI) と /api/query (API)。UI 側の描画は既存 dataview.e2e が担保済みで、新規 GUI サーフェスは増えない。"
+    },
+    {
+      "id": "P3",
+      "topic": "テーブル追加コントロールのレイアウト方式 (AC-1-1)",
+      "decision": "table-widget のラッパーを width:max-content にし、行追加バーはテーブル下端 (absolute, テーブル幅)、列追加はテーブル右端 (absolute, テーブル高さ) のスリムなホバー表示バーにする。既定は透明 (opacity 0)、wrap ホバーで表示。",
+      "rationale": "ユーザーフィードバック『エディタ幅いっぱいに伸びて不格好』への最小修正。DOM 上は常在させ (Playwright のホバー→クリックで操作可能)、表示だけをホバー制御にする。既存 testid (table-add-row / table-add-col) は維持 (TESTIDS 契約は additive)。"
+    },
+    {
+      "id": "P4",
+      "topic": "セルクリック編集の信頼性 (AC-1-2) の根本原因と修正",
+      "decision": "mousedown ハンドラを .cell-body (インライン span) から td/th 要素全体へ移す。セルのパディング領域や空セルの余白をクリックしたときに編集が始まらないのが不発の根本原因。widget の ignoreEvent は現状どおり true (CM はウィジェット内イベントを扱わない)。",
+      "rationale": "span はテキスト幅しかないため『セルをクリックしたのに反応しない』が構造的に発生する。td 全体で受ければ 1 クリックで必ず input フォーカスに入る。CodeMirror 側との競合は preventDefault + stopPropagation + ignoreEvent で遮断済み。"
+    },
+    {
+      "id": "P5",
+      "topic": "Tab/Enter セルナビゲーション (AC-1-3) とコミット後のフォーカス復元",
+      "decision": "input keydown で Tab=次セル / Shift+Tab=前セル / Enter=直下セルへ移動。移動前に必ずモデルへ反映し、ドキュメントが変わる場合はコミット (dispatch) してから、再構築された widget 側で編集を再開する。このため live-preview に『pending focus』(notePath 一致で次の TableWidget.toDOM が消費) を導入し、renderMarkdownTable に focusCell オプションを追加する。最終セルの Tab は行を追加して新行の先頭セルへ。Enter で直下が無い場合はコミットして編集終了。",
+      "rationale": "コミット (doc change) で widget が再構築され既存 DOM が破棄されるため、フォーカス復元機構なしでは『コミットしてから移動』が成立しない。CodeMirror 本体の Tab (インデント) は input 内で stopPropagation しているため奪わない (AC の制約どおり)。"
+    },
+    {
+      "id": "P6",
+      "topic": "ソース編集への明示切替 (AC-1-4)",
+      "decision": "table-widget 右上にホバー表示の『ソースを編集』ボタン (data-testid=table-edit-source, additive) を置く。クリックで view.posAtDOM(widget) へ選択を移して view.focus() → カーソルがテーブル行に入りソース表示へ戻る。",
+      "rationale": "既存の fence-widget が同じ『クリックでソース編集』パターンを持つ (一貫性)。テーブルはセルクリック=セル編集に割り当て済みのため、明示ボタンが必要。"
+    },
+    {
+      "id": "P7",
+      "topic": "検索ページのスリム化の形 (AC-3-1/3-2)",
+      "decision": "条件フォームをラベル無しの 1 行インラインバー (キーワード / タグ / フォルダ / 並び順 / 検索ボタン / 件数) に置換 (折返し可)。『Cmd+K は…』の説明ボックスと『結果 — クリックで開いても…』の説明文は削除。結果行は 1〜2 行の密なリスト (1 行目: タイトル + パス + 更新日時、2 行目: スニペット 1 行 ellipsis)。検索履歴は結果カラムを占有する右カラムから、バー直下の細いチップ列 (data-testid=search-history 維持) へ移す。プレビューカラム (search-preview-pane) は従来どおり結果クリックで開く。",
+      "rationale": "ユーザーフィードバック『条件部が場所を取りすぎ・説明文が邪魔・結果行が緩い』への直接対応。既存 testid 契約 (search-form / search-field-* / search-submit / search-results / search-result-item / search-history / search-history-item / search-empty / search-error / search-preview-*) は全て維持し、既存 search-page テストのアサーションを弱めない。"
+    },
+    {
+      "id": "P8",
+      "topic": "/search での右サイドバー非表示 (AC-3-3)",
+      "decision": "App から RightSidebar に hidden prop (route.kind === 'search') を渡し、RightSidebar はマウントを維持したまま display:none にする。xterm (TerminalPane) は unmount しないためセッションは破棄されない。",
+      "rationale": "AC の明示要件『Claude の xterm セッションは破棄しない — 非表示は表示層のみで』。既存の claude-panel マウント維持設計 (Sf1a90a-2) をそのまま流用する最小変更。"
+    },
+    {
+      "id": "P9",
+      "topic": "サンプル vault の配置と投入コマンド (AC-2-1/2-2)",
+      "decision": "リポジトリ samples/ に vault 相対の内容 (index + 機能ガイド/ + データ/ + assets/サンプル画像) を置き、make samples で ${LOAMIUM_VAULT:-dev-vault}/samples/ へ cp -R -n コピー (既存ファイルは上書きしない)。サンプルは全て日本語・ピュア Markdown。dataview ガイドのクエリは同梱の samples/データ/ 実データノート (ASCII タグ sample-book / sample-project 等 + frontmatter status/rating) を実際に拾う。",
+      "rationale": "『1 コマンドで投入・既存を壊さない』(priority 2: データ安全性 — no-clobber) と『サンプル自身が実データとして機能する』の両立。FROM #tag のタグは DQL トークナイザとの相性が確実な ASCII とし、フォルダ・本文は日本語。"
+    },
+    {
+      "id": "P10",
+      "topic": "サンプルの受け入れテスト形",
+      "decision": "tests/acceptance/samples.spec.ts。AC-2-1: make samples を一時 vault へサブプロセス実行し、投入後の vault に index + 全機能トピック (dataview LIST/TABLE/TASK・FROM #/\"folder\"・WHERE・SORT / テーブル / embed / callout / highlight / 数式 / mermaid / コードフェンス / タスク / wikilink / スラッシュメニュー / 添付) と PNG 画像が存在することを検証。AC-2-2: その vault で実サーバーを起動し、サンプルノートから ```dataview フェンスを抽出して全件 POST /api/query → 200 + スキーマ適合、かつ LIST/TABLE/TASK それぞれ 1 件以上の結果が返ることを検証。さらに既存ファイル (改変済み index.md) が make samples 再実行で上書きされないことを検証。",
+      "rationale": "test-discipline Rule 2: cli は make サブプロセス、api は実 HTTP。サンプルの正しさを『実際に投入して実際にクエリが動く』ことで担保する。"
+    },
+    {
+      "id": "P11",
+      "topic": "サブエージェント並列実行の代替",
+      "decision": "Story 実装は Sa629e2-1 → Sa629e2-3 → Sa629e2-2 の順に本セッションが直列実施 (worktree 分離なし、ブランチ autopilot/main/Sa629e2 上)。Story ごとに mock テストを完了ゲートとし、セルフレビューを行う。",
+      "rationale": "environment_notes のとおり Agent spawn ツールが無い。3 Story は触るファイルがほぼ独立しており、直列実行でも競合リスクはない。"
+    }
+  ],
+  "implementation_decisions": [
+    {
+      "id": "I1",
+      "story": "Sa629e2-1",
+      "topic": "セルクリック不発の根本原因 (2 件)",
+      "decision": "(1) mousedown ハンドラが .cell-body span のみに付いておりパディング/空白領域のクリックが編集にならなかった → td/th 全体で受ける。(2) ガードの target 判定を HTMLElement instanceof で行うと削除ボタン内の SVG (SVGElement) がすり抜け、ボタンクリックが誤ってセル編集を開いていた → Element + closest('button'/'input') 判定に修正。",
+      "rationale": "実測 (document capture でイベントターゲットを記録) により特定。既存 table-edit.mock の行/列削除テストの一時的な赤で (2) を検出し、テストを弱めず実装側を修正した。"
+    },
+    {
+      "id": "I2",
+      "story": "Sa629e2-1",
+      "topic": "finish() の blur 同期再入バグ",
+      "decision": "フォーカス中 input の removeChild が blur を同期再入させ DOMException (removeChild 二重実行) を起こしていた。editing フラグを先に畳んでから DOM を操作する再入安全な形へ修正。moveTo/最終セル Tab では requestFocus とモデル変更を finish() より前に行う (blur 側 commitFinal が先に dispatch しても行追加・移動先が失われないように)。",
+      "rationale": "Sd40b63 由来の潜在バグ (旧 Tab 実装も同経路)。ユーザー報告『クリックしても編集にならないことがある』の一因。pageerror の実測で特定。"
+    },
+    {
+      "id": "I3",
+      "story": "Sa629e2-1",
+      "topic": "コミット後のフォーカス復元機構",
+      "decision": "widget インスタンスの同一性 (toDOM の呼び出し回数) に依存しない方式を採用: requestFocus はコミット前にテーブルの doc 位置を控え、microtask 後に view.contentDOM から同位置の table-widget DOM を探して CustomEvent (loamium:table-cell-focus) で編集再開を配送する。見つからなければ最大 5 フレーム再試行。",
+      "rationale": "pendingFocus を toDOM で消費する初版は CodeMirror の再描画タイミングで喪失した (実測)。DOM 位置ベースなら再描画が何度起きても最終的に attach された instance に届く。"
+    },
+    {
+      "id": "I4",
+      "story": "Sa629e2-1",
+      "topic": "追加コントロールのレイアウト実装",
+      "decision": "absolute 配置ではなく CSS grid (columns: max-content 14px / rows: 18px max-content 14px) を採用。行追加バー=grid 幅 100% (=テーブル幅)、列追加バー=行高 100% (=テーブル高さ)、ソース編集ボタン=上段右寄せ。既定 opacity 0、wrap:hover で表示。",
+      "rationale": "grid ならテーブル寸法との一致が計算なしで正確に取れ、overflow-x auto とも干渉しない。P3 の absolute 案から実装時に変更 (機能は同一、より単純)。"
+    },
+    {
+      "id": "I5",
+      "story": "Sa629e2-3",
+      "topic": "検索履歴の配置",
+      "decision": "右カラム占有型の履歴リストを、検索バー直下の 1 行チップ列 (search-history / search-history-item の testid・data-query 契約は維持) に変更。履歴 0 件時は行ごと非表示。",
+      "rationale": "『右サイドバー不要・結果を最大化』の要望に沿い、プレビューの有無に関わらず履歴へアクセス可能になる。既存テスト (search-page e2e/mock) はアサーションを弱めずそのまま通る。"
+    },
+    {
+      "id": "I6",
+      "story": "Sa629e2-3",
+      "topic": "右サイドバー非表示の実装",
+      "decision": "App → RightSidebar に hidden prop (route.kind==='search') を渡し、aside に display:none を適用。コンポーネントは unmount しない。",
+      "rationale": "AC の明示要件 (xterm セッション破棄禁止)。E2E で実 bash の出力残存により検証。"
+    },
+    {
+      "id": "I7",
+      "story": "Sa629e2-3",
+      "topic": "タグバッジの表示位置",
+      "decision": "結果行のタグバッジは 3 行目 (sr-meta) を廃止し、1 行目のタイトル横へ移動 (密度優先)。",
+      "rationale": "1〜2 行の密度要件。バッジは flex-shrink:0 + タイトル/パスは ellipsis で崩れを防ぐ。"
+    },
+    {
+      "id": "I8",
+      "story": "Sa629e2-2",
+      "topic": "サンプル構成の確定",
+      "decision": "samples/ = vault 相対の内容 (index.md + 機能ガイド/×11 + データ/×4 + assets/サンプル画像.png)。make samples は cp -R --update=none (非対応 cp では -n へフォールバック) で ${LOAMIUM_VAULT:-dev-vault}/samples/ へ投入。",
+      "rationale": "P9 のとおり。--update=none は GNU coreutils 9.3+ の -n 非推奨警告を避けるため。サンプル画像は依存ライブラリなしの Python (zlib/struct) で生成した実 PNG (160x100)。"
+    },
+    {
+      "id": "I9",
+      "story": "Sa629e2-2",
+      "topic": "dataview ガイドの整合性",
+      "decision": "ガイド内の全 ```dataview フェンスは同梱データノートで必ず 1 件以上ヒットするクエリのみを載せ、受け入れテストが『全フェンス抽出 → POST /api/query → 200 + 結果非空 + LIST/TABLE/TASK 全タイプ網羅』を機械検証する。タグは DQL トークナイザと確実に整合する ASCII (sample-book / sample-project)。",
+      "rationale": "サンプルが腐る (実データと乖離する) ことを継続的に防ぐ。ガイドの本文には各クエリの期待結果 (『下の例は…が出ます』) を明記。"
+    }
+  ],
+  "review_decisions": [
+    {
+      "id": "R1",
+      "topic": "Sprint レベルセルフレビュー",
+      "decision": "diff 全体 (2c71b5f..HEAD) を精査。指摘事項: (a) table.ts の handlers.editSource.bind は不要だが無害 — 可読性維持のため残置。(b) live-preview requestFocus の catch→continue はコメント付きの意図的スキップで許容。(c) SearchPage の未使用 import なし (tsc + eslint で機械確認)。アーキテクチャ影響なし。",
+      "rationale": "/review 相当のセルフレビュー (サブエージェント spawn 不可のため本セッションで実施)。"
+    }
+  ],
+  "behavior_changes_to_existing_tests": [
+    {
+      "note": "既存テストの変更なし。テーブルレイアウト変更 (md-table-main 撤去 → grid) と検索ページ再設計は既存の testid 契約・挙動 (table-edit / table-render / slash-table / search-page / search-palette / claude-sidebar) を全て満たすため、既存アサーションはそのまま全件 pass (ui-tests 191/191)。"
+    }
+  ],
+  "done_judgment": {},
+  "verification_notes": [
+    {
+      "id": "V1",
+      "topic": "既知 flaky: tests/acceptance/terminal.spec.ts",
+      "observation": "機械検証 1 回目 (make test 全 391 件並列) で [AC-S79c210-3-1] terminal Origin テストが 1 件 fail (既知の並列時 timing flaky — autopilot 引き継ぎ事項)。単独再実行 `npx vitest run tests/acceptance/terminal.spec.ts` で 13/13 pass を確認。テストの無効化・変更は行わず、hooks/run-verify.py を再実行して機械判定を取り直す。",
+      "action": "run-verify.py 再実行 (最終 verify-run.json が正)"
+    },
+    {
+      "id": "V2",
+      "topic": "既知タイプの flaky: packages/ui/tests/e2e/wikilink.mock.spec.ts",
+      "observation": "機械検証 2 回目で make test は 391/391 pass、make test-ui で wikilink.mock の 1 件 (キー入力タイミング系。1 回目の実行では pass、本 Sprint の変更範囲外) が fail。単独再実行 `npx playwright test wikilink.mock --project=mock` で 8/8 pass を確認。テストの無効化・変更は行わず run-verify.py を再々実行する。",
+      "action": "run-verify.py 再実行 (最終 verify-run.json が正)"
+    }
+  ],
+  "verifier": {
+    "independent_verifier": "not_run_in_this_session",
+    "reason": "本環境にはサブエージェント (別セッション) を spawn するツールが存在しないため、Phase 1.8 の read-only 独立 verifier を本セッションから起動できない。親 (autopilot) が opus の read-only verifier を補完実行する前提。実行時の入力: sprint=Sa629e2, base_sha=2c71b5f2b76895ecdab451dc072e0c575d5ba7a4, branch=autopilot/main/Sa629e2。本セッション側では機械検証 (verify-run.json: overall pass)・8 ガード・禁止カテゴリ diff スキャン・Rule 6 diff coverage・Sprint レベルのセルフレビューを実施済み (verification-results.json)。"
+  }
+}

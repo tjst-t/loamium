@@ -1,10 +1,14 @@
 /**
- * 詳細検索ページ (S935867-1 / prototype/search-page.html)。
+ * 詳細検索ページ (S935867-1 → Sa629e2-3 でスリム化)。
  *
  * Cmd+K パレット (Sbd061c) が「1 件開くと閉じるジャンプ用」なのに対し、こちらは
  * 「開いても閉じない探索用」。結果一覧 (search-results) は常時マウントされ、結果を
  * クリックすると右カラムの読み取り専用プレビューにノートを表示する。一覧は保持され、
  * 複数の結果を順に閲覧できる (AC-S935867-1-1)。
+ *
+ * Sa629e2-3: 条件は 1 行のインラインバー (Enter で検索)、検索履歴はバー直下の
+ * 控えめなチップ列、結果は 1〜2 行の密なリスト。説明文の類は置かない。
+ * /search では App が右サイドバーを非表示にする (表示層のみ — セッション維持)。
  *
  * - 条件 (全文 q / タグ tag / フォルダ folder / 並び sort) は URL クエリに同期する。
  *   実行の真実源は URL (params prop)。フォームは下書きで、送信で URL に commit する
@@ -373,99 +377,100 @@ export function SearchPage({
 
   return (
     <div className="search-page" data-testid="search-page">
-      <form className="search-form" data-testid="search-form" onSubmit={onSubmit} onReset={onReset}>
-        <div className="field wide">
-          <label htmlFor="search-q">全文キーワード</label>
+      {/* 条件はコンパクトな 1 行インラインバー (AC-Sa629e2-3-1)。Enter (submit) で検索 */}
+      <form className="search-bar" data-testid="search-form" onSubmit={onSubmit} onReset={onReset}>
+        <div className="sb-kw">
+          <SearchIcon />
           <input
             id="search-q"
             type="text"
             data-testid="search-field-fulltext"
             value={draftQ}
-            placeholder="本文・見出しを全文検索"
+            placeholder="全文キーワード"
+            title="全文キーワード (本文・見出し)"
             onChange={(e: ChangeEvent<HTMLInputElement>) => setDraftQ(e.currentTarget.value)}
           />
         </div>
-        <div className="field">
-          <label htmlFor="search-tag">タグ</label>
-          <input
-            id="search-tag"
-            type="text"
-            data-testid="search-field-tag"
-            value={draftTag}
-            placeholder="#tag(空白区切りで AND)"
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setDraftTag(e.currentTarget.value)}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="search-folder">フォルダ</label>
-          <select
-            id="search-folder"
-            data-testid="search-field-folder"
-            value={draftFolder}
-            onChange={(e: ChangeEvent<HTMLSelectElement>) => setDraftFolder(e.currentTarget.value)}
-          >
-            <option value="">すべてのフォルダ</option>
-            {folderOptions.map((f) => (
-              <option key={f} value={f}>
-                {f}/
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="field">
-          <label htmlFor="search-sort">並び順</label>
-          <select
-            id="search-sort"
-            data-testid="search-field-sort"
-            value={draftSort}
-            onChange={(e: ChangeEvent<HTMLSelectElement>) => {
-              const v = e.currentTarget.value;
-              if (isSearchSort(v)) setDraftSort(v);
-            }}
-          >
-            <option value="updated">{SORT_LABELS.updated}</option>
-            <option value="score">{SORT_LABELS.score}</option>
-            <option value="name">{SORT_LABELS.name}</option>
-          </select>
-        </div>
-        <div className="field">
-          <label>&nbsp;</label>
-          <div className="search-mode-note">
-            <SearchIcon />
-            <span>
-              Cmd+K は 1 件開くと閉じる<strong>ジャンプ用</strong>。ここは開いても閉じない
-              <strong>探索用</strong>。
-            </span>
-          </div>
-        </div>
-        <div className="form-actions">
-          <button className="btn primary" type="submit" data-testid="search-submit">
-            検索
-          </button>
-          <button className="btn" type="reset">
-            条件をクリア
-          </button>
-          <span className="result-count">
-            {hasCriteria && loaded ? `${String(rows.length)} 件ヒット` : ''}
-          </span>
-        </div>
+        <input
+          id="search-tag"
+          type="text"
+          className="sb-tag"
+          data-testid="search-field-tag"
+          value={draftTag}
+          placeholder="#tag(空白で AND)"
+          title="タグ絞り込み (空白区切りで AND)"
+          onChange={(e: ChangeEvent<HTMLInputElement>) => setDraftTag(e.currentTarget.value)}
+        />
+        <select
+          id="search-folder"
+          data-testid="search-field-folder"
+          value={draftFolder}
+          title="フォルダ絞り込み"
+          onChange={(e: ChangeEvent<HTMLSelectElement>) => setDraftFolder(e.currentTarget.value)}
+        >
+          <option value="">すべてのフォルダ</option>
+          {folderOptions.map((f) => (
+            <option key={f} value={f}>
+              {f}/
+            </option>
+          ))}
+        </select>
+        <select
+          id="search-sort"
+          data-testid="search-field-sort"
+          value={draftSort}
+          title="並び順"
+          onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+            const v = e.currentTarget.value;
+            if (isSearchSort(v)) setDraftSort(v);
+          }}
+        >
+          <option value="updated">{SORT_LABELS.updated}</option>
+          <option value="score">{SORT_LABELS.score}</option>
+          <option value="name">{SORT_LABELS.name}</option>
+        </select>
+        <button className="btn primary" type="submit" data-testid="search-submit">
+          検索
+        </button>
+        <button className="btn" type="reset" title="条件をクリア">
+          クリア
+        </button>
+        <span className="result-count">
+          {hasCriteria && loaded ? `${String(rows.length)} 件` : ''}
+        </span>
       </form>
+
+      {/* 検索履歴: バー直下の控えめなチップ列 (クリックで同じ検索を再実行) */}
+      {history.length > 0 && (
+        <div className="search-history-strip" data-testid="search-history">
+          <span className="shs-label">最近:</span>
+          {history.map((h) => (
+            <button
+              key={historyKey(h)}
+              type="button"
+              className="history-chip"
+              data-testid="search-history-item"
+              data-query={historyQueryAttr(h)}
+              title={historyMeta(h)}
+              onClick={() => replayHistory(h)}
+            >
+              <FileIcon />
+              <span className="hc-label">{historyLabel(h)}</span>
+              <span className="hc-count">{h.count}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="search-main">
         <div className="search-results-col" data-testid="search-results">
-          <div className="search-results-head">
-            結果{' '}
-            <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--text-muted)', fontWeight: 500 }}>
-              — クリックで開いてもこの一覧は残ります
-            </span>
-          </div>
-
           {error !== null && (
             <div className="search-error" data-testid="search-error">
               {error}
             </div>
           )}
 
+          {/* 密な結果リスト: タイトル・パス・更新日時 + スニペット 1 行 (AC-Sa629e2-3-2) */}
           {rows.map((r) => (
             <button
               key={r.path}
@@ -477,19 +482,19 @@ export function SearchPage({
             >
               <div className="sr-top">
                 <span className="sr-title">{r.title}</span>
-                <span className="sr-path">{r.path}</span>
-              </div>
-              {r.snippet !== '' && (
-                <div className="sr-snippet">{highlight(r.snippet, params.q)}</div>
-              )}
-              <div className="sr-meta">
                 {r.tags.map((t) => (
                   <span key={t} className="sr-badge tag">
                     #{t}
                   </span>
                 ))}
-                {formatMtime(r.mtime) !== '' && <span className="sr-badge">{formatMtime(r.mtime)}</span>}
+                <span className="sr-path">{r.path}</span>
+                {formatMtime(r.mtime) !== '' && (
+                  <span className="sr-mtime">{formatMtime(r.mtime)}</span>
+                )}
               </div>
+              {r.snippet !== '' && (
+                <div className="sr-snippet">{highlight(r.snippet, params.q)}</div>
+              )}
             </button>
           ))}
 
@@ -505,7 +510,7 @@ export function SearchPage({
           )}
         </div>
 
-        {previewPath !== null ? (
+        {previewPath !== null && (
           <aside className="search-preview-col" data-testid="search-preview-pane" data-path={previewPath}>
             <div className="search-preview-head">
               <div className="spv-title">
@@ -541,30 +546,6 @@ export function SearchPage({
               <div className="search-preview-status">ノートを読み込めませんでした。</div>
             ) : (
               <div className="search-preview-body md-preview" ref={previewBodyRef} />
-            )}
-          </aside>
-        ) : (
-          <aside className="search-history-col" data-testid="search-history">
-            <div className="search-history-head">最近の検索</div>
-            {history.length === 0 ? (
-              <div className="search-history-empty">まだ検索履歴はありません。</div>
-            ) : (
-              history.map((h) => (
-                <button
-                  key={historyKey(h)}
-                  type="button"
-                  className="history-item"
-                  data-testid="search-history-item"
-                  data-query={historyQueryAttr(h)}
-                  onClick={() => replayHistory(h)}
-                >
-                  <div className="hi-query">
-                    <FileIcon />
-                    {historyLabel(h)}
-                  </div>
-                  <div className="hi-meta">{historyMeta(h)}</div>
-                </button>
-              ))
             )}
           </aside>
         )}

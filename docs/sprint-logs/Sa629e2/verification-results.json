@@ -1,0 +1,203 @@
+{
+  "sprint": "Sa629e2",
+  "verified_at": "2026-07-05T04:55:00Z",
+  "machine_verdict_source": "docs/sprint-logs/Sa629e2/verify-run.json (hooks/run-verify.py, 3rd run — overall_machine_status: pass)",
+  "machine_verdict_note": "1回目: tests/acceptance/terminal.spec.ts の既知並列 flaky 1 件 fail (単独 13/13 pass 確認)。2回目: wikilink.mock のキー入力タイミング flaky 1 件 fail (単独 8/8 pass 確認)。どちらも本 Sprint の変更範囲外・テストは無効化せず、3回目のフル実行で test 391/391・ui-tests 191/191・lint 全て machine pass。詳細は decisions.json verification_notes V1/V2。",
+  "summary": { "pass": 15, "fail": 0, "skip": 0 },
+  "tests": [
+    {
+      "name": "[AC-Sa629e2-1-1] 行/列追加コントロールがテーブルの幅/高さに収まって表示される (エディタ幅にはみ出さない)",
+      "file": "packages/ui/tests/e2e/table-ux.e2e.spec.ts",
+      "story": "Sa629e2-1",
+      "acceptance_criteria": ["Sa629e2-1-AC1"],
+      "status": "pass",
+      "evidence": "verify-run-ui-tests.log: ✓ 180 [e2e] › tests/e2e/table-ux.e2e.spec.ts:42:1 › [AC-Sa629e2-1-1] ... (908ms)"
+    },
+    {
+      "name": "[AC-Sa629e2-1-2] セル (パディング領域含む) を 1 クリックで確実に編集状態になり、即入力できる",
+      "file": "packages/ui/tests/e2e/table-ux.e2e.spec.ts",
+      "story": "Sa629e2-1",
+      "acceptance_criteria": ["Sa629e2-1-AC2"],
+      "status": "pass",
+      "evidence": "verify-run-ui-tests.log: ✓ 181 [e2e] › tests/e2e/table-ux.e2e.spec.ts:75:1 › [AC-Sa629e2-1-2] ... (892ms)"
+    },
+    {
+      "name": "[AC-Sa629e2-1-3] Tab/Shift+Tab/Enter で Excel 風にセル移動でき、最終セルの Tab は行を追加する",
+      "file": "packages/ui/tests/e2e/table-ux.e2e.spec.ts",
+      "story": "Sa629e2-1",
+      "acceptance_criteria": ["Sa629e2-1-AC3"],
+      "status": "pass",
+      "evidence": "verify-run-ui-tests.log: ✓ 182 [e2e] › tests/e2e/table-ux.e2e.spec.ts:113:1 › [AC-Sa629e2-1-3] ... (960ms)"
+    },
+    {
+      "name": "[AC-Sa629e2-1-4] 『ソースを編集』でテーブル行のソース表示へ明示切替でき、カーソルがテーブルに入る",
+      "file": "packages/ui/tests/e2e/table-ux.e2e.spec.ts",
+      "story": "Sa629e2-1",
+      "acceptance_criteria": ["Sa629e2-1-AC4"],
+      "status": "pass",
+      "evidence": "verify-run-ui-tests.log: ✓ 183 [e2e] › tests/e2e/table-ux.e2e.spec.ts:173:1 › [AC-Sa629e2-1-4] ... (906ms)"
+    },
+    {
+      "name": "table-ux.mock.spec.ts (5 件: 寸法 / パディングクリック / Tab・Enter 移動 / 最終セル Tab 行追加 / ソース編集)",
+      "file": "packages/ui/tests/e2e/table-ux.mock.spec.ts",
+      "story": "Sa629e2-1",
+      "acceptance_criteria": ["Sa629e2-1-AC1", "Sa629e2-1-AC2", "Sa629e2-1-AC3", "Sa629e2-1-AC4"],
+      "status": "pass",
+      "evidence": "verify-run-ui-tests.log: mock project 内で 5 件 pass (191 passed の一部)"
+    },
+    {
+      "name": "make samples が成功し、index + 機能別ノート + 実データ + 画像が vault に入る",
+      "file": "tests/acceptance/samples.spec.ts",
+      "story": "Sa629e2-2",
+      "acceptance_criteria": ["Sa629e2-2-AC1"],
+      "status": "pass",
+      "evidence": "verify-run-test.log: ✓ tests/acceptance/samples.spec.ts (3 tests) 805ms / Tests 391 passed (391)"
+    },
+    {
+      "name": "既存ファイルは上書きしない (no-clobber)",
+      "file": "tests/acceptance/samples.spec.ts",
+      "story": "Sa629e2-2",
+      "acceptance_criteria": ["Sa629e2-2-AC2"],
+      "status": "pass",
+      "evidence": "verify-run-test.log: ✓ tests/acceptance/samples.spec.ts (3 tests) 805ms"
+    },
+    {
+      "name": "サンプル内の全 dataview クエリが /api/query で構文エラーなく実行でき、LIST/TABLE/TASK とも結果が返る",
+      "file": "tests/acceptance/samples.spec.ts",
+      "story": "Sa629e2-2",
+      "acceptance_criteria": ["Sa629e2-2-AC2"],
+      "status": "pass",
+      "evidence": "verify-run-test.log: ✓ tests/acceptance/samples.spec.ts (3 tests) 805ms (実サーバー + 実 HTTP、make samples はサブプロセス)"
+    },
+    {
+      "name": "[AC-Sa629e2-3-1] 条件がコンパクトな 1 行インラインバーにまとまり、Cmd+K の説明は出ない。Enter で検索できる",
+      "file": "packages/ui/tests/e2e/search-slim.e2e.spec.ts",
+      "story": "Sa629e2-3",
+      "acceptance_criteria": ["Sa629e2-3-AC1"],
+      "status": "pass",
+      "evidence": "verify-run-ui-tests.log: ✓ 164 [e2e] › tests/e2e/search-slim.e2e.spec.ts:36:1 › [AC-Sa629e2-3-1] ... (721ms)"
+    },
+    {
+      "name": "[AC-Sa629e2-3-2] 結果行が密なリスト (タイトル・パス・スニペット・更新日時を 1〜2 行に詰めた配置)",
+      "file": "packages/ui/tests/e2e/search-slim.e2e.spec.ts",
+      "story": "Sa629e2-3",
+      "acceptance_criteria": ["Sa629e2-3-AC2"],
+      "status": "pass",
+      "evidence": "verify-run-ui-tests.log: ✓ 165 [e2e] › tests/e2e/search-slim.e2e.spec.ts:79:1 › [AC-Sa629e2-3-2] ... (682ms)"
+    },
+    {
+      "name": "[AC-Sa629e2-3-3] /search では右サイドバーが表示されず、ノートに戻ると復帰する (Claude セッションは破棄されない)",
+      "file": "packages/ui/tests/e2e/search-slim.e2e.spec.ts",
+      "story": "Sa629e2-3",
+      "acceptance_criteria": ["Sa629e2-3-AC3"],
+      "status": "pass",
+      "evidence": "verify-run-ui-tests.log: ✓ 166 [e2e] › tests/e2e/search-slim.e2e.spec.ts:115:1 › [AC-Sa629e2-3-3] ... (1.7s) — 実 bash 出力 (slim-e2e-42) の残存で xterm セッション維持を確認"
+    },
+    {
+      "name": "search-slim.mock.spec.ts (4 件: 1 行バー / Enter 検索 / 密な結果行 / 右サイドバー非表示+マウント維持)",
+      "file": "packages/ui/tests/e2e/search-slim.mock.spec.ts",
+      "story": "Sa629e2-3",
+      "acceptance_criteria": ["Sa629e2-3-AC1", "Sa629e2-3-AC2", "Sa629e2-3-AC3"],
+      "status": "pass",
+      "evidence": "verify-run-ui-tests.log: mock project 内で 4 件 pass (191 passed の一部)"
+    },
+    {
+      "name": "既存回帰: table-edit / table-render / slash-table / search-page / search-palette / claude-sidebar ほか全既存スイート",
+      "file": "packages/ui/tests/e2e/*.spec.ts",
+      "story": "Sa629e2-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "evidence": "verify-run-ui-tests.log: 191 passed (2.9m) — 前 Sprint 比 +16 件 (table-ux 9 + search-slim 7)、既存 175 件は全て維持"
+    },
+    {
+      "name": "既存回帰: サーバー/CLI/共有パッケージのユニット + 受け入れテスト",
+      "file": "tests/acceptance/*.spec.ts, packages/*",
+      "story": "Sa629e2-2",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "evidence": "verify-run-test.log: Test Files 33 passed (33) / Tests 391 passed (391) — 前 Sprint 比 +3 件 (samples 3)"
+    },
+    {
+      "name": "lint (型チェック + eslint、tests 含む)",
+      "file": "make lint",
+      "story": "Sa629e2-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "evidence": "verify-run-lint.log: __VERIFY_EXIT_CODE__:lint:0"
+    }
+  ],
+  "diff_coverage": [
+    { "type": "gui", "identifier": "table-edit-source ボタン (エディタ内 table-widget)", "introduced_in_files": ["packages/ui/src/renderers/table.ts", "packages/ui/src/live-preview.ts"], "resolution": "covered", "test": "[AC-Sa629e2-1-4] table-ux.e2e / table-ux.mock" },
+    { "type": "gui", "identifier": "セル編集 input の Tab/Shift+Tab/Enter ナビゲーション + 最終セル Tab 行追加", "introduced_in_files": ["packages/ui/src/renderers/table.ts"], "resolution": "covered", "test": "[AC-Sa629e2-1-3] table-ux.e2e / table-ux.mock" },
+    { "type": "gui", "identifier": "td/th 全体でのセルクリック編集 (パディング領域含む)", "introduced_in_files": ["packages/ui/src/renderers/table.ts"], "resolution": "covered", "test": "[AC-Sa629e2-1-2] table-ux.e2e / table-ux.mock" },
+    { "type": "gui", "identifier": "テーブル寸法内のホバー表示 行/列追加バー (レイアウト変更)", "introduced_in_files": ["packages/ui/src/renderers/table.ts", "packages/ui/src/styles.css"], "resolution": "covered", "test": "[AC-Sa629e2-1-1] table-ux.e2e + 既存 table-edit.e2e (クリック動作の回帰)" },
+    { "type": "gui", "identifier": "検索条件の 1 行インラインバー (search-bar)", "introduced_in_files": ["packages/ui/src/components/SearchPage.tsx", "packages/ui/src/styles.css"], "resolution": "covered", "test": "[AC-Sa629e2-3-1] search-slim.e2e + 既存 search-page.e2e (URL 同期の回帰)" },
+    { "type": "gui", "identifier": "検索履歴チップ列 (search-history-strip、testid 契約は既存のまま)", "introduced_in_files": ["packages/ui/src/components/SearchPage.tsx"], "resolution": "covered", "test": "既存 [AC-S935867-1-3] search-page.e2e (履歴クリックで再実行) + search-page.mock" },
+    { "type": "gui", "identifier": "密な検索結果行 (1〜2 行レイアウト)", "introduced_in_files": ["packages/ui/src/components/SearchPage.tsx", "packages/ui/src/styles.css"], "resolution": "covered", "test": "[AC-Sa629e2-3-2] search-slim.e2e" },
+    { "type": "gui", "identifier": "/search での right-sidebar 非表示 (hidden prop, display:none)", "introduced_in_files": ["packages/ui/src/App.tsx", "packages/ui/src/components/RightSidebar.tsx"], "resolution": "covered", "test": "[AC-Sa629e2-3-3] search-slim.e2e (実 bash セッション維持含む) / search-slim.mock" },
+    { "type": "cli", "identifier": "make samples (LOAMIUM_VAULT への no-clobber 投入)", "introduced_in_files": ["Makefile"], "resolution": "covered", "test": "tests/acceptance/samples.spec.ts (サブプロセスで make samples を実行)" },
+    { "type": "content", "identifier": "samples/ サンプル vault (17 ファイル)", "introduced_in_files": ["samples/**"], "resolution": "covered", "test": "tests/acceptance/samples.spec.ts (トピック網羅 + 全 dataview クエリの実行)" }
+  ],
+  "forbidden_degradation_scan": {
+    "test_skipped": "clean (diff 中に it.skip / xit / test.skip / expect(true) なし)",
+    "assertion_weakened": "clean (既存テストのアサーション削除・緩和なし。search-slim/table-ux の title 期待値修正は新規テスト自身の誤りの修正)",
+    "error_swallowed": "live-preview.ts requestFocus 内の try/catch→continue は detached DOM ノードのスキップ (コメント付きの意図的な制御フロー)。新規 @ts-ignore / 空 catch なし",
+    "type_safety_relaxed": "clean (新規 any / as any なし)",
+    "acceptance_criteria_modified": "clean (ROADMAP の AC description は無変更 — status 更新のみ)"
+  },
+  "done_judgment": [
+    {
+      "story_id": "Sa629e2-1",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    },
+    {
+      "story_id": "Sa629e2-2",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    },
+    {
+      "story_id": "Sa629e2-3",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    }
+  ],
+  "guard_notes": {
+    "guard1": "全 Story user_review_required: false (ROADMAP 確認)",
+    "guard2": "Go の nil-guard パターンは TS プロジェクトに不出現 (diff grep 0 件)",
+    "guard3": "tests/acceptance/devvm/ 相当なし。E2E は実サーバー (tsx) + 実ブラウザ + 実 bash (LOAMIUM_TERMINAL=1) — MOCK=true / --fake-* / DRY_RUN=1 / InMemoryStore 不使用。mock プロジェクトは補助カバレッジで AC の本検証は e2e 側",
+    "guard4": "priority_rule 9 例外条項の主張なし",
+    "guard5": "AC の結合: テーブル編集→PUT /api/notes (実ファイル読取で検証)、samples→POST /api/query (実 HTTP で検証)、/search→右サイドバー (実 bash セッションで検証) — いずれも E2E が実経路を通す",
+    "guard6": "diff 中に先送りコメント (TODO Phase / Sprint N で実装) の新規追加なし",
+    "guard7": "docs/DESIGN/ 不存在のため n/a。DESIGN_PRINCIPLES (ピュア Markdown / ルーティング / IME) は table-ux.e2e の実ファイル検証 (制御文字・ブロック ID 不混入) と isComposing ガード維持で担保",
+    "guard8": "data path (Go サービス群) はこのプロジェクトに存在しない — n/a",
+    "toBeDefined_note": "samples.spec.ts の toBeDefined() は新規テストの前段ガードで、直後に PNG マジックバイトの具体一致 (toEqual) を検証しており弱いアサーションではない"
+  }
+}

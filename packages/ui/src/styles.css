@@ -748,16 +748,20 @@ code {
   font-size: 12.5px;
 }
 
-/* ---- テーブル WYSIWYG 編集 (Sd40b63-1) -------------------------------------- */
+/* ---- テーブル WYSIWYG 編集 (Sd40b63-1 → Sa629e2-1) --------------------------- */
+/* grid でテーブル寸法に揃える: 行追加バー=テーブル幅 / 列追加バー=テーブル高さ。
+   コントロールはホバー時のみ表示 (控えめな +)。エディタ幅いっぱいには広がらない。 */
 .md-table-wrap.editable {
   cursor: default;
-  padding: 2px 2px 2px 2px;
+  display: grid;
+  grid-template-columns: max-content 14px;
+  grid-template-rows: 18px max-content 14px;
+  gap: 2px;
+  width: max-content;
+  max-width: 100%;
+  padding: 0;
 }
-.md-table-main {
-  display: flex;
-  align-items: flex-start;
-  gap: 4px;
-}
+.md-table-wrap.editable > .md-table { grid-area: 2 / 1 / 3 / 2; }
 .md-table-wrap.editable .md-table th,
 .md-table-wrap.editable .md-table td {
   position: relative;
@@ -811,29 +815,60 @@ code {
 }
 .md-col-del svg,
 .md-row-del svg { width: 11px; height: 11px; }
+/* 追加コントロール: テーブルの幅/高さに収まるスリムバー。ホバー時のみ表示 (Sa629e2-1) */
 .md-table-add-col,
 .md-table-add-row {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
+  padding: 0;
   border: 1px dashed var(--border);
-  border-radius: 6px;
+  border-radius: 5px;
   background: transparent;
   color: var(--text-faint);
   cursor: pointer;
-  font-size: 11.5px;
-  opacity: 0.55;
+  font-size: 10.5px;
+  opacity: 0;
   transition: opacity 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
-.md-table-add-col { align-self: stretch; width: 22px; }
-.md-table-add-row { width: 100%; margin-top: 4px; padding: 3px 0; }
+.md-table-add-col { grid-area: 2 / 2 / 3 / 3; width: 14px; height: 100%; }
+.md-table-add-row { grid-area: 3 / 1 / 4 / 2; width: 100%; height: 14px; }
 .md-table-add-col svg,
-.md-table-add-row svg { width: 13px; height: 13px; }
+.md-table-add-row svg { width: 11px; height: 11px; flex: none; }
+.md-table-add-row span { display: none; }
+.md-table-add-row:hover span { display: inline; }
 .md-table-wrap.editable:hover .md-table-add-col,
-.md-table-wrap.editable:hover .md-table-add-row { opacity: 0.85; }
+.md-table-wrap.editable:hover .md-table-add-row { opacity: 0.6; }
 .md-table-add-col:hover,
 .md-table-add-row:hover {
+  opacity: 1;
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* 『ソースを編集』— テーブル右上・ホバー時のみ表示 (AC-Sa629e2-1-4) */
+.md-table-edit-source {
+  grid-area: 1 / 1 / 2 / 3;
+  justify-self: end;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-hover);
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 10.5px;
+  line-height: 1.3;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.md-table-edit-source svg { width: 11px; height: 11px; flex: none; }
+.md-table-wrap.editable:hover .md-table-edit-source { opacity: 0.7; }
+.md-table-edit-source:hover {
   opacity: 1;
   color: var(--accent);
   border-color: var(--accent);
@@ -1908,72 +1943,100 @@ button.callout-title { cursor: pointer; }
   min-height: 0;
   background: var(--bg-editor);
 }
-.search-form {
-  display: grid;
-  grid-template-columns: 1fr 200px;
-  gap: 10px 14px;
-  padding: 16px 24px;
+/* 条件バー: 1 行インライン (折返し可) — Sa629e2-3 スリム化 */
+.search-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-panel);
 }
-.search-form .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.search-form .field.wide { grid-column: 1 / -1; }
-.search-form .field label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  letter-spacing: 0.02em;
+.search-bar .sb-kw {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 220px;
+  min-width: 180px;
 }
-.search-form input[type="text"],
-.search-form select {
+.search-bar .sb-kw svg { width: 14px; height: 14px; color: var(--text-faint); flex-shrink: 0; }
+.search-bar .sb-kw input { flex: 1; min-width: 0; }
+.search-bar .sb-tag { width: 170px; }
+.search-bar input[type="text"],
+.search-bar select {
   font-family: inherit;
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--text);
   background: var(--bg-editor);
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  padding: 7px 11px;
+  border-radius: 7px;
+  padding: 4px 9px;
   outline: none;
 }
-.search-form input[type="text"]:focus,
-.search-form select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
-.search-form .form-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; }
-.search-form .form-actions .result-count { margin-left: auto; font-size: 12px; color: var(--text-faint); }
+.search-bar select { max-width: 180px; }
+.search-bar input[type="text"]:focus,
+.search-bar select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.search-bar .btn { padding: 4px 12px; font-size: 12.5px; }
+.search-bar .result-count { margin-left: auto; font-size: 12px; color: var(--text-faint); white-space: nowrap; }
+
+/* 検索履歴: バー直下の控えめなチップ列 */
+.search-history-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+.search-history-strip .shs-label { font-size: 11px; color: var(--text-faint); flex-shrink: 0; }
+.history-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  background: var(--bg-hover);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  max-width: 220px;
+}
+.history-chip:hover { border-color: var(--border-strong); color: var(--text); }
+.history-chip svg { width: 11px; height: 11px; color: var(--text-faint); flex-shrink: 0; }
+.history-chip .hc-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-chip .hc-count { font-size: 10px; color: var(--text-faint); }
 
 .search-main { flex: 1; display: flex; min-height: 0; }
-.search-results-col { flex: 1; overflow-y: auto; padding: 8px 12px 24px; min-width: 0; }
-.search-results-head {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 10px 12px 6px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-faint);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
+.search-results-col { flex: 1; overflow-y: auto; padding: 6px 10px 24px; min-width: 0; }
+/* 密な結果行 (1〜2 行) — Sa629e2-3 スリム化 */
 .search-result-row {
   display: block;
   width: 100%;
   text-align: left;
-  padding: 11px 14px;
-  border-radius: 10px;
+  padding: 4px 10px;
+  border-radius: 7px;
   border: 1px solid transparent;
   background: none;
   cursor: pointer;
 }
 .search-result-row:hover { background: var(--bg-hover); }
 .search-result-row.active { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 25%, #fff); }
-.search-result-row .sr-top { display: flex; align-items: center; gap: 8px; }
-.search-result-row .sr-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.search-result-row .sr-top { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.search-result-row .sr-title { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; }
 .search-result-row.active .sr-title { color: var(--accent-hover); }
-.search-result-row .sr-path { font-size: 11px; color: var(--text-faint); font-family: var(--font-mono); margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-result-row .sr-path { font-size: 10.5px; color: var(--text-faint); font-family: var(--font-mono); margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 2; }
+.search-result-row .sr-mtime { font-size: 10.5px; color: var(--text-faint); white-space: nowrap; flex-shrink: 0; }
 .search-result-row .sr-snippet {
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--text-muted);
-  line-height: 1.6;
-  margin-top: 4px;
+  line-height: 1.5;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .search-result-row .sr-snippet mark {
   background: var(--accent-soft);
@@ -1982,63 +2045,20 @@ button.callout-title { cursor: pointer; }
   padding: 0 2px;
   font-weight: 700;
 }
-.search-result-row .sr-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 .sr-badge {
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--text-muted);
   background: var(--bg-hover);
   border-radius: 8px;
-  padding: 1px 8px;
+  padding: 0 7px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .sr-badge.tag { color: var(--accent-hover); background: var(--accent-soft); }
 
 .search-empty, .search-error { padding: 14px; font-size: 13px; color: var(--text-muted); }
 .search-error { color: var(--danger); }
-
-/* 検索履歴サイドカラム */
-.search-history-col {
-  width: 240px;
-  flex-shrink: 0;
-  border-left: 1px solid var(--border);
-  background: var(--bg-panel);
-  overflow-y: auto;
-  padding: 8px;
-}
-.search-history-head {
-  padding: 10px 10px 6px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-faint);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-.search-history-empty { padding: 8px 10px; font-size: 12px; color: var(--text-faint); }
-.history-item {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: none;
-  cursor: pointer;
-}
-.history-item:hover { background: var(--bg-hover); }
-.history-item .hi-query { font-size: 12.5px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 6px; }
-.history-item .hi-query svg { width: 12px; height: 12px; color: var(--text-faint); flex-shrink: 0; }
-.history-item .hi-meta { font-size: 11px; color: var(--text-faint); margin-top: 2px; padding-left: 18px; }
-
-.search-mode-note {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11.5px;
-  color: var(--text-muted);
-  background: var(--accent-soft);
-  border-radius: 8px;
-  padding: 6px 12px;
-}
-.search-mode-note svg { width: 14px; height: 14px; color: var(--accent); flex-shrink: 0; }
 
 /* 検索結果プレビュー(結果一覧を保ったまま順に閲覧 — AC-S935867-1-1) */
 .search-preview-col {

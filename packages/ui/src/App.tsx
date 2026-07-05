@@ -1187,10 +1187,12 @@ export function App(): JSX.Element {
       </main>
 
       {/* ================= 右: サイドバー (バックリンク | Claude) ================= */}
+      {/* /search では非表示 (AC-Sa629e2-3-3)。unmount しない — xterm セッション維持 */}
       <RightSidebar
         notePath={route.kind === 'note' ? (doc?.path ?? null) : null}
         refreshToken={backlinksToken}
         onOpenNote={(path) => void openNotePath(path)}
+        hidden={route.kind === 'search'}
       />
 
       {/* ================= ポップアップ ================= */}
