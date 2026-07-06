@@ -15,12 +15,17 @@ UI_PORT ?= 8203
 
 .PHONY: serve serve-ui stop test test-ui build lint verify clean samples
 
+# serve / serve-ui は起動前に対象ポートを掴んでいる LISTEN プロセスを解放する
+# (stale な .pid で kill しそこねた古いサーバーによる EADDRINUSE を防ぐ。
+#  lsof か fuser があれば使い、無ければスキップ)。
 serve:
 	@mkdir -p "$(DEV_VAULT)"
 	@if [ -f .server.pid ] && kill -0 $$(cat .server.pid) 2>/dev/null; then \
 		kill $$(cat .server.pid); sleep 1; \
 	fi
 	@PORT=$$(command -v portman >/dev/null 2>&1 && portman lease --name $(PROJECT_NAME) || echo $(API_PORT)) && { \
+		if command -v lsof >/dev/null 2>&1; then lsof -ti tcp:$$PORT -sTCP:LISTEN 2>/dev/null | xargs -r kill -9 2>/dev/null || true; \
+		elif command -v fuser >/dev/null 2>&1; then fuser -k $$PORT/tcp 2>/dev/null || true; fi; \
 		LOAMIUM_VAULT="$(DEV_VAULT)" PORT=$$PORT LOAMIUM_HOST=$(HOST) \
 			nohup node_modules/.bin/tsx watch packages/server/src/index.ts > .server.log 2>&1 & \
 		echo $$! > .server.pid; \
@@ -33,6 +38,8 @@ serve-ui:
 	fi
 	@UI_PORT=$$(command -v portman >/dev/null 2>&1 && portman lease --name $(PROJECT_NAME)-ui || echo $(UI_PORT)) && \
 	API_PORT=$$(command -v portman >/dev/null 2>&1 && portman lease --name $(PROJECT_NAME) || echo $(API_PORT)) && { \
+		if command -v lsof >/dev/null 2>&1; then lsof -ti tcp:$$UI_PORT -sTCP:LISTEN 2>/dev/null | xargs -r kill -9 2>/dev/null || true; \
+		elif command -v fuser >/dev/null 2>&1; then fuser -k $$UI_PORT/tcp 2>/dev/null || true; fi; \
 		LOAMIUM_API_URL=http://127.0.0.1:$$API_PORT \
 			nohup node_modules/.bin/vite packages/ui --host $(HOST) --port $$UI_PORT --strictPort > .ui.log 2>&1 & \
 		echo $$! > .ui.pid; \
@@ -42,6 +49,14 @@ serve-ui:
 stop:
 	@if [ -f .server.pid ]; then kill $$(cat .server.pid) 2>/dev/null || true; rm -f .server.pid; fi
 	@if [ -f .ui.pid ]; then kill $$(cat .ui.pid) 2>/dev/null || true; rm -f .ui.pid; fi
+	@# pid ファイルが stale でも、対象ポートを LISTEN しているプロセス(tsx watch の
+	@# 子 node = 実サーバー含む)をポート基準で確実に止める。lsof 優先・fuser 代替。
+	@API=$$(command -v portman >/dev/null 2>&1 && portman lease --name $(PROJECT_NAME) 2>/dev/null || echo $(API_PORT)); \
+	 UI=$$(command -v portman >/dev/null 2>&1 && portman lease --name $(PROJECT_NAME)-ui 2>/dev/null || echo $(UI_PORT)); \
+	 for p in $$API $$UI; do \
+	   if command -v lsof >/dev/null 2>&1; then lsof -ti tcp:$$p -sTCP:LISTEN 2>/dev/null | xargs -r kill -9 2>/dev/null || true; \
+	   elif command -v fuser >/dev/null 2>&1; then fuser -k $$p/tcp 2>/dev/null || true; fi; \
+	 done
 	@portman release --name $(PROJECT_NAME) 2>/dev/null || true
 	@portman release --name $(PROJECT_NAME)-ui 2>/dev/null || true
 
