@@ -4,10 +4,10 @@
   "progress": {
     "current_sprint": "S67ea41",
     "total": 24,
-    "done": 23,
+    "done": 22,
     "in_progress": 0,
-    "remaining": 1,
-    "percentage": 96
+    "remaining": 2,
+    "percentage": 92
   },
   "execution_order": [
     "Sd63ad1",
@@ -1988,7 +1988,7 @@
     },
     "S89a350": {
       "title": "汎用テンプレートシステム — 変数エンジン + 作成モーダル",
-      "status": "done",
+      "status": "partial",
       "milestone": false,
       "description": "vault 内の可視 `templates/` 配下の Markdown ファイルをテンプレートとして扱う汎用テンプレート機構。テンプレートのフロントマター `loamium-template.target`(保存先パターン)と `vars`(ユーザー変数定義)で駆動。変数構文は `{{name}}` と `{{date:FORMAT}}`(任意 eval なし)。プリセット date/now はフォーマット指定で年月日時を切り出す(`{{date:YYYY}}` 等)。変数解決+日付フォーマットのエンジンは packages/shared に置き server/cli/ui で共有。保存パスに入る変数はサニタイズ(スラッシュ等除去)してから normalizeVaultPath に通す。パス衝突時は連番付与。REST とCLI は1:1。ユーザー変数入力モーダルは既存 property-types(text/select/date/tags)を流用しキーボードで完結。ファイル正本は常にピュア Markdown(テンプレート記法は生成時に解決され、結果ノートには残らない)。",
       "stories": {
