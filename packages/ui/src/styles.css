@@ -2954,3 +2954,70 @@ button.callout-title { cursor: pointer; }
 }
 .pc-newkey .type-tag svg { width: 12px; height: 12px; }
 .pc-newkey .arrow { color: var(--text-faint); }
+
+/* ==========================================================================
+   タグ # 候補メニュー (S45fa45 — prototype/props-redesign/chosen.html D/E 準拠)
+   tags プロパティ値の `#` 補完と本文 `#tag` 補完が同一の DOM を共有する。
+   ========================================================================== */
+
+.tag-suggest {
+  position: absolute;
+  z-index: 50;
+  width: 240px;
+  background: var(--bg-editor);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  padding: 5px;
+}
+/* CodeMirror の tooltip 内に載る場合は tooltip 側が位置決めするため static に戻す */
+.cm-tooltip .tag-suggest { position: static; box-shadow: none; }
+.tag-suggest-hint {
+  font-size: 11px;
+  color: var(--text-faint);
+  padding: 3px 9px 5px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+}
+.tag-suggest-hint kbd {
+  font: inherit;
+  background: var(--bg-hover);
+  border-radius: 3px;
+  padding: 0 3px;
+  margin-left: 2px;
+}
+.tag-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 6px 9px;
+  border-radius: 6px;
+  font-size: 13px;
+  background: none;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+}
+.tag-opt:hover, .tag-opt.sel { background: var(--bg-hover); }
+.tag-opt .hash { color: var(--accent); font-weight: 700; }
+.tag-opt .cnt { margin-left: auto; font-size: 11px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.tag-opt mark { background: none; color: var(--accent); font-weight: 700; }
+.tag-opt.create-new { color: var(--text-muted); border-top: 1px solid var(--border); border-radius: 0 0 6px 6px; margin-top: 4px; padding-top: 8px; }
+.tag-opt.create-new .plus { color: var(--accent); font-weight: 700; }
+.tag-suggest-empty { padding: 8px 9px; font-size: 12px; color: var(--text-faint); }
+
+/* 本文のインラインタグチップ (# 直後にスペース無し = タグ) */
+.body-tag {
+  color: var(--accent-hover);
+  background: var(--accent-soft);
+  border-radius: 6px;
+  padding: 0 5px;
+  font-weight: 600;
+  font-size: 0.92em;
+  cursor: pointer;
+}
+.body-tag:hover { background: #e5dff8; }

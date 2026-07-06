@@ -24,11 +24,13 @@ import {
 } from '@codemirror/view';
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import {
+  matchInlineTags,
   parsePropertiesModel,
   resolveLinkTarget,
   type PropertyTypeDef,
 } from '@loamium/shared';
 import { activeLines } from './outline.js';
+import { tagSuggestEnvFacet, type TagSuggestEnv } from './tag-suggest.js';
 import {
   notesUpdatedAnnotation,
   notePathsOf,
@@ -298,6 +300,8 @@ class PropertiesBlockWidget extends WidgetType {
     readonly notePath: string,
     readonly typeDefs: Record<string, PropertyTypeDef>,
     readonly openNoteLink: (target: string) => void,
+    /** タグ補完環境 (tags 値の `#` 補完 — S45fa45-1)。安定オブジェクトなので eq 対象外。 */
+    readonly tagEnv: TagSuggestEnv | null,
   ) {
     super();
   }
@@ -402,6 +406,7 @@ class PropertiesBlockWidget extends WidgetType {
         notePath: this.notePath,
         typeDefs: this.typeDefs,
         openNoteLink: this.openNoteLink,
+        getTags: () => this.tagEnv?.getTags() ?? null,
       });
     } catch (err: unknown) {
       el = document.createElement('div');
@@ -465,10 +470,15 @@ function buildBlockDecorations(state: EditorState): DecorationSet {
         for (let n = 1; n <= closeLine; n++) claimedLines.add(n);
         if (!intersectsActive(1, closeLine)) {
           const typeDefs = state.facet(propertyTypesFacet);
+          const tagEnv = state.facet(tagSuggestEnvFacet);
           decos.push(
             Decoration.replace({
-              widget: new PropertiesBlockWidget(fmLines, notePath, typeDefs, (target) =>
-                renderEnv.openNote(target),
+              widget: new PropertiesBlockWidget(
+                fmLines,
+                notePath,
+                typeDefs,
+                (target) => renderEnv.openNote(target),
+                tagEnv,
               ),
               block: true,
             }).range(doc.line(1).from, doc.line(closeLine).to),
@@ -675,6 +685,44 @@ class InlineRuleWidget extends WidgetType {
   }
 }
 
+/**
+ * 本文中のインラインタグ `#tag` を装飾するチップ widget (S45fa45-2)。
+ * 行頭 `# 見出し` (直後スペース) は matchInlineTags が拾わないため衝突しない。
+ * クリックでタグ検索へ遷移する (env.openTag)。ファイルはピュア Markdown の `#tag` のまま。
+ */
+class BodyTagWidget extends WidgetType {
+  constructor(
+    readonly tag: string,
+    /** 元テキスト (`#tag` — 末尾区切り除去後の表示に一致) */
+    readonly text: string,
+    readonly env: TagSuggestEnv | null,
+  ) {
+    super();
+  }
+
+  override eq(other: BodyTagWidget): boolean {
+    return other.tag === this.tag && other.text === this.text;
+  }
+
+  override toDOM(): HTMLElement {
+    const span = document.createElement('span');
+    span.className = 'body-tag';
+    span.setAttribute('data-testid', 'body-tag');
+    span.setAttribute('data-tag', this.tag);
+    span.title = `タグ #${this.tag}`;
+    span.textContent = this.text;
+    // wikilink と同じく mousedown で扱う (クリックでカーソルが入ると装飾がソースに戻り
+    // click が届かなくなるため)。preventDefault でカーソル移動も抑止する。
+    span.addEventListener('mousedown', (e) => {
+      if (e.button !== 0 || this.env === null) return;
+      e.preventDefault();
+      e.stopPropagation();
+      this.env.openTag(this.tag);
+    });
+    return span;
+  }
+}
+
 const WIKILINK_RE = /\[\[([^[\]|]+)(?:\|([^[\]]+))?\]\]/g;
 
 interface ClaimedRange {
@@ -693,6 +741,7 @@ function buildInlineDecorations(view: EditorView): DecorationSet {
   const active = activeLines(state);
   const notePath = state.facet(notePathFacet);
   const wikilinkEnv = state.facet(wikilinkEnvFacet);
+  const tagEnv = state.facet(tagSuggestEnvFacet);
   const vaultPaths = notePathsOf(state);
   /** [[target]] → 解決済みパス (null=壊れ / undefined=一覧未ロードで判定不能) */
   const resolveWikilink = (rawTarget: string): string | null | undefined => {
@@ -847,6 +896,20 @@ function buildInlineDecorations(view: EditorView): DecorationSet {
           );
           claimed.push({ from, to });
         }
+      }
+
+      // ---- 本文の `#tag` チップ装飾 (S45fa45-2)。matchInlineTags で抽出と整合 ----
+      for (const t of matchInlineTags(line.text)) {
+        const from = line.from + t.start;
+        const to = line.from + t.end;
+        if (overlaps(claimed, from, to)) continue; // wikilink/コード/inline ルールを優先
+        const text = doc.sliceString(from, to); // `#tag` (末尾区切り除去後)
+        decos.push(
+          Decoration.replace({
+            widget: new BodyTagWidget(t.tag, text, tagEnv),
+          }).range(from, to),
+        );
+        claimed.push({ from, to });
       }
     }
   }

@@ -22,6 +22,7 @@ import {
   type FileMeta,
   type NoteMeta,
   type PropertyTypeDef,
+  type TagCount,
 } from '@loamium/shared';
 import { api, ApiError } from './api.js';
 import { formatSize } from './file-kind.js';
@@ -176,6 +177,7 @@ export function App(): JSX.Element {
   const [files, setFiles] = useState<FileMeta[] | null>(null);
   // 意味型スキーマ (.loamium/property-types.json → キー→型定義)。既定 {} (S87f4b7-2)
   const [propertyTypes, setPropertyTypes] = useState<Record<string, PropertyTypeDef>>({});
+  const [tags, setTags] = useState<TagCount[] | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [toasts, setToasts] = useState<UploadToast[]>([]);
@@ -243,6 +245,15 @@ export function App(): JSX.Element {
     }
   }, []);
 
+  // タグ一覧 (件数付き) の読込 (S45fa45)。`#` 候補補完の共通ソース。取得失敗は補完なしで動く。
+  const refreshTags = useCallback(async (): Promise<void> => {
+    try {
+      setTags((await api.getTags()).tags);
+    } catch (err) {
+      console.error('[loamium] failed to load tags:', err);
+    }
+  }, []);
+
   const filesRef = useRef<FileMeta[] | null>(null);
   filesRef.current = files;
   const refreshFiles = useCallback(async (): Promise<void> => {
@@ -306,6 +317,8 @@ export function App(): JSX.Element {
         setConflictPath(null);
         setAppError(null);
         if (res.created) void refreshNotes();
+        // 保存でインデックスが更新される → タグ候補ソースを最新化する (S45fa45)
+        void refreshTags();
         setBacklinksToken((v) => v + 1);
         return true;
       } catch (err) {
@@ -319,7 +332,7 @@ export function App(): JSX.Element {
         savingRef.current = false;
       }
     },
-    [markSaved, refreshNotes],
+    [markSaved, refreshNotes, refreshTags],
   );
 
   const onEditorChange = useCallback(
@@ -531,6 +544,7 @@ export function App(): JSX.Element {
     void refreshNotes();
     void refreshFiles();
     void refreshPropertyTypes();
+    void refreshTags();
     // ジャーナル日付ナビ用の today (server 応答があれば上書きされる)
     setToday(todayJournalDate());
     // 現在のエントリに履歴インデックスを刻む
@@ -1135,12 +1149,14 @@ export function App(): JSX.Element {
             notes={notes}
             files={files}
             propertyTypes={propertyTypes}
+            tags={tags}
             onChange={onEditorChange}
             onSave={() => void saveNow()}
             onOpenNote={(path) => void openNotePath(path)}
             onOpenNoteAtLine={(path, line) => void openNoteAtLine(path, line)}
             onCreateAndOpenNote={(target) => void createNoteFromLink(target, true)}
             onCreateNote={(target) => void createNoteFromLink(target, false)}
+            onOpenTag={(tag) => openSearch({ q: '', tag, folder: '', sort: 'updated' })}
             onUploadFiles={uploadFiles}
             onDragActive={setDragActive}
           />
