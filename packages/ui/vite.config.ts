@@ -25,9 +25,32 @@ function apiTarget(): string {
   return 'http://127.0.0.1:3000';
 }
 
+/**
+ * 許可する Host ヘッダ (Vite の DNS リバインディング対策)。
+ * リバースプロキシ (Caddy 等) のサブドメイン経由で開くと、既定では
+ * "Blocked request. This host is not allowed" になるため、環境変数で許可する。
+ *
+ *   LOAMIUM_UI_ALLOWED_HOSTS=all           … すべてのホストを許可 (保護を無効化)
+ *   LOAMIUM_UI_ALLOWED_HOSTS=.example.com  … example.com と全サブドメインを許可
+ *   LOAMIUM_UI_ALLOWED_HOSTS=a.example.com,b.example.com  … カンマ区切りで個別に
+ *   未設定                                  … 既定 (localhost / IP アドレスのみ。ドメインは拒否)
+ */
+function allowedHosts(): true | string[] {
+  const raw = process.env.LOAMIUM_UI_ALLOWED_HOSTS?.trim();
+  if (raw === undefined || raw === '') return [];
+  if (raw === 'all' || raw === 'true' || raw === '*') return true;
+  return raw
+    .split(',')
+    .map((h) => h.trim())
+    .filter((h) => h !== '');
+}
+
 export default defineConfig({
   plugins: [react()],
   server: {
+    // 既定は localhost / IP のみ。プロキシのドメイン経由で使うときは
+    // LOAMIUM_UI_ALLOWED_HOSTS に許可ホスト (例: .tjstkm.net) を指定する。
+    allowedHosts: allowedHosts(),
     proxy: {
       '/api': {
         target: apiTarget(),

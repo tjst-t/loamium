@@ -83,6 +83,16 @@ make stop       # 停止
 
 LAN 内の他デバイスからアクセスする場合は `make serve HOST=0.0.0.0 && make serve-ui HOST=0.0.0.0`(**無認証なので信頼できるネットワーク限定**。外部公開は Cloudflare Tunnel + Access を想定 — 未同梱)。
 
+リバースプロキシ(Caddy 等)のサブドメイン経由で UI を開くと、Vite の DNS リバインディング対策で `Blocked request. This host is not allowed` になります。**許可ホストを `LOAMIUM_UI_ALLOWED_HOSTS` で指定**してください:
+
+```sh
+# example.com と全サブドメインを許可 (先頭ドット)
+LOAMIUM_UI_ALLOWED_HOSTS=".example.com" make serve-ui HOST=0.0.0.0
+# 個別指定はカンマ区切り / すべて許可は `all`(保護を無効化するので信頼できる構成のみ)
+```
+
+未設定なら既定どおり localhost / IP アドレスのみ許可(ドメイン経由は拒否)。
+
 ### CLI
 
 ```sh
