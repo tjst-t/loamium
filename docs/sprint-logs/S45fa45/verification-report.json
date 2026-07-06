@@ -1,13 +1,78 @@
 {
   "sprint": "S45fa45",
-  "verifier": "independent-verifier",
-  "status": "not_spawned",
-  "reason": "サブエージェント spawn がこの環境で不可。sprint auto --with-verifier の独立 verifier(別 read-only Claude セッション)は起動できないため未実行。",
-  "compensating_controls": [
-    "機械検証: hooks/run-verify.py --sprint S45fa45 → overall=pass(make test 446/446, make lint pass, make test-ui 232/232)。verdict は docs/sprint-logs/S45fa45/verify-run.json($machine_authored)。",
-    "セルフレビュー: code-review 7 角度(correctness×3 / reuse / simplification / efficiency / altitude)をインライン実施。CONFIRMED な実バグ 0。",
-    "クリーンテキスト: 変更/新規ファイル全走査で NUL バイト無し。",
-    "6/8 ガード: 両 Story とも Guard1-6 全 pass(decisions.json done_judgment 参照)。"
+  "verified_at": "2026-07-06",
+  "verifier_model": "claude-opus-4-8 (read-only, separate session)",
+  "overall": "pass",
+  "findings": [
+    {
+      "id": "F-1",
+      "category": "machine-verification",
+      "severity": "info",
+      "status": "pass",
+      "ac": null,
+      "summary": "自己申告(446/232/lint)を独立再実行で再現確認。make test = 37 files / 446 passed (446), make lint = tsc --noEmit 全パッケージ clean, make test-ui = 232 passed (3.7m, first-run green — flaky terminal.spec / wikilink.mock は本再実行では未発生)。verify-run.json の機械判定と一致。"
+    },
+    {
+      "id": "F-2",
+      "category": "acceptance-criteria",
+      "severity": "info",
+      "status": "pass",
+      "ac": "S45fa45-1-AC1",
+      "summary": "tags プロパティ値 `#` 補完を実コードで確認。候補ソースは GET /api/tags(api.getTags→refreshTags→tagSuggestEnvFacet 注入)。絞り込み/新規作成は shared 純関数 filterTagSuggestions(件数保持・部分一致・末尾『新規作成: #xxx』・純数字/既存名は create 抑止)。E2E tag-suggest.e2e.spec.ts が実サーバー実インデックスで propbook:3 件数表示→`propbo` 絞り込み(propcat 除外)→新規作成候補→チップ追加→保存で標準 YAML(`#` なし)を実操作検証。mock 4 件も観測アサート。ログ #221/#222 pass。"
+    },
+    {
+      "id": "F-3",
+      "category": "acceptance-criteria",
+      "severity": "info",
+      "status": "pass",
+      "ac": "S45fa45-2-AC1",
+      "summary": "本文 `# `(スペース)=見出し / `#tag`=タグの判定を実コードで確認。装飾側は live-preview.ts が shared/matchInlineTags(line) を共有し、`# ` はタグ本体空で不一致→行頭見出し(lezer ATXHeading/HeaderMark)に委ねる。BodyTagWidget は claimed 範囲と overlaps 判定で wikilink/コードと非衝突。E2E body-tag.e2e.spec.ts が実キー入力で `# 見出しテスト`→.cm-md-h1、`#realtag`→body-tag チップ、保存でピュア Markdown(`# 見出し`/`#realtag` 保持)を検証。mock は『# スペースでメニュー出さない』も含む。ログ #145 pass。"
+    },
+    {
+      "id": "F-4",
+      "category": "acceptance-criteria",
+      "severity": "info",
+      "status": "pass",
+      "ac": "S45fa45-2-AC2",
+      "summary": "本文 `#tag` 補完(同一ソース)+ ナビを実コードで確認。tag-suggest.ts の detectBodyTagTrigger は frontmatter/コード(syntaxTree resolveInner で Fenced/Inline/CodeMark)/非空選択/`# `見出しを除外、同 shared filterTagSuggestions を使用。keymap は Prec.highest だが全ハンドラが menu 非 open 時 return false のため slash-menu(/)・wikilink([[)と非競合(トリガー排他)。IME は isComposing / input.type.compose / view.composing で抑止。確定は `#tag ` 挿入=ピュア Markdown。クリックは env.openTag→/search?tag=。E2E が bodysci:2 件数→確定→装飾→保存で `#bodysci`→クリックで url=tag=bodysci を検証。ログ #146 pass。"
+    },
+    {
+      "id": "F-5",
+      "category": "refactor-integrity",
+      "severity": "info",
+      "status": "pass",
+      "ac": null,
+      "summary": "extractTags リファクタ(matchInlineTags 共有化)は既存テストを弱めていない。extract.test.ts は純追加(matchInlineTags 6 it、既存削除/改変なし、47 it 全 pass)。matchInlineTags は同一 TAG_RE・blankInlineCode を用い extractTags と一致(`agrees with extractTags` テストで担保)、末尾区切り除去・純数字除外も従来通り。装飾とインデックスが単一正規表現を共有し構造的にズレない。"
+    },
+    {
+      "id": "F-6",
+      "category": "forbidden-scan",
+      "severity": "info",
+      "status": "pass",
+      "ac": null,
+      "summary": "diff 全体で test.only/skip、xit/xdescribe、@ts-ignore/@ts-nocheck、eslint-disable、any/as any、アサーション弱体化、エラー握りつぶし = 検出なし。skip なし。NUL 等バイナリ混入なし。mock-helpers への GET /api/tags 追加は additive(既定 { tags: [] }、property-types と同扱い、検証テストは自前 route で上書き)で契約破壊なし。"
+    },
+    {
+      "id": "F-7",
+      "category": "roadmap-integrity",
+      "severity": "info",
+      "status": "pass",
+      "ac": null,
+      "summary": "ROADMAP 異常(AR-1)を厳密確認。現 branch の ROADMAP は 21 Sprint ちょうど、S89a350/S67ea41 は不在、progress total=21/done=21/remaining=0/percentage=100/current_sprint=null。git diff 73353cf..HEAD -- ROADMAP.json は status(pending→done)・AC status(pending→pass)・progress カウンタのみで、Sprint/Story/AC の追加・削除・本文改変は皆無。commit base(73353cf)にも 21 Sprint・phantom 不在のため『base へ復元し done 更新だけ適用』は base 比で情報欠落ゼロ。AC 改変=即停止カテゴリに該当せず。ただし working-tree に混入した 2 Sprint の破棄は decisions.json AR-1(needs_user_review:true)で開示済み、ユーザ確認推奨。"
+    },
+    {
+      "id": "F-8",
+      "category": "compromise-completeness",
+      "severity": "info",
+      "status": "pass",
+      "ac": null,
+      "summary": "自己申告と diff を突合、申告漏れ(overlooked)なし。AR-1(ROADMAP 復元)・AR-2(flaky 未遭遇)・RV-2(独立 verifier 未 spawn、本レポートで補完)はいずれも decisions.json/verification-results.json に開示済み。ベースライン回帰(unit 432→446 / ui 220→232)は加算のみで既存テスト削除なし。overlooked_by_autopilot 該当項目は摘出されず。"
+    }
   ],
-  "handoff": "親(autopilot)側で opus の read-only verifier を補完実行し、AC の実コード再確認・§2.4 禁止カテゴリ・compromise 完全性を最終確認することを推奨。"
+  "summary": {
+    "ac_failures": 0,
+    "forbidden_warnings": 0,
+    "adr_conflicts": 0,
+    "overlooked_count": 0
+  }
 }
