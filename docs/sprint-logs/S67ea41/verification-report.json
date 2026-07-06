@@ -1,0 +1,94 @@
+{
+  "sprint": "S67ea41",
+  "verified_at": "2026-07-06T00:00:00Z",
+  "verifier_model": "claude-opus-4-8 (read-only, separate session)",
+  "overall": "pass",
+  "findings": [
+    {
+      "id": "F-1",
+      "category": "machine_verdict_reconciliation",
+      "status": "pass",
+      "ac": null,
+      "summary": "自己申告 (test 516/516, ui-tests 255/255, lint pass) を独立再実行で完全に裏付け。`make test` を別プロセスで再走 → 516 passed / 44 files / exit 0。`make test-ui` を再走 → 255 passed (4.0m), 失敗ゼロ。`make lint` を再走 → EXIT=0 (tsc --noEmit 全 workspace + tests/tsconfig.json)。既知 flaky (terminal.spec / wikilink.mock) の発火もなし。verify-run.json の machine_status=pass は本物。",
+      "evidence": "independent `make test` -> Test Files 44 passed (44), Tests 516 passed (516); `make test-ui` -> 255 passed; `make lint` -> EXIT=0"
+    },
+    {
+      "id": "F-2",
+      "category": "ac_verification",
+      "status": "pass",
+      "ac": "S67ea41-1-AC1",
+      "summary": "遅延生成のテンプレ適用がユーザー入口 (GET /api/journal) から到達可能。journal.ts:45-61 で content===null 時に JOURNAL_TEMPLATE_PATH (templates/journal.md) を readNote し、存在すれば applyJournalTemplate、無ければ '' (後方互換)。acceptance が実 HTTP + 実サブプロセスサーバーで両ケースを検証: (a) テンプレ seed 済み vault → created=true, 実ファイル readFile で '# 2026-07-06 (07/06)' を含み {{ / loamium-template 非残存 (バイト検証); (b) テンプレ無し別 vault → content='' かつ実ファイル raw==='' 。",
+      "evidence": "journal.ts L49-53; tests/acceptance/journal-template.spec.ts L82-97 (実ファイル raw 検証) / L119-125 (空ファイル raw==='')"
+    },
+    {
+      "id": "F-3",
+      "category": "ac_verification",
+      "status": "pass",
+      "ac": "S67ea41-1-AC2",
+      "summary": "対象日基準展開: journal.ts は journalDateToLocalDate(date) を ctx.date に渡し、applyJournalTemplate は resolveTemplate に date を基準として渡す (now とは分離)。未来日 2030-12-31 / 過去日 2019-01-02 が対象日で展開されることを実 HTTP で検証、now 基準でないことを確認。read-only: journal.ts:54 の `config.mode !== 'read-only'` ガードで書き込みをスキップしつつ、テンプレ解決本文はモード非依存で返す。acceptance が mode:'read-only' サーバーで created=false / mtime=null / content にテンプレ適用済み / journals/2026-08-15.md がディスク不在 (fileExists=false) をすべて確認。",
+      "evidence": "journal.ts L52,L54; journal-template.spec.ts L138-155 (未来/過去日) / L157-186 (read-only 非書き込み + 仮想返却バイト検証)"
+    },
+    {
+      "id": "F-4",
+      "category": "ac_verification",
+      "status": "pass",
+      "ac": "S67ea41-1-AC3",
+      "summary": "冪等: journal.ts は readNote が非 null (既存ファイル) の場合テンプレ適用分岐に入らず、既存内容をそのまま返す。acceptance が (a) 手書き済み journals/2026-06-01.md を seed → created=false, content が手書きそのまま, 実ファイル raw も不変; (b) 新規生成後の 2 回目アクセス → created=false かつ content が 1 回目と一致、で二重に固定。日付基準展開と冪等の双方に unit + acceptance テスト存在。",
+      "evidence": "journal.ts L45/L64 (else 分岐で既存を触らない); journal-template.spec.ts L188-231"
+    },
+    {
+      "id": "F-5",
+      "category": "pure_markdown_byte_verification",
+      "status": "pass",
+      "ac": "S67ea41-1-AC1/AC2",
+      "summary": "最重要要件 (解決済みピュア Markdown, {{...}}/loamium-template 非残存) をレスポンス本文と実ファイルバイトの両方で検証済み。buildBodyTemplate が loamium-template トップレベルキーブロックを行範囲で verbatim 除去し、applyJournalTemplate が参照全変数を空文字初期化 → default を対象日基準で上書きするため未解決記法が残らない。unit (template-note.test.ts) で default 無し変数の空文字解決と {{ 非残存を固定、acceptance で実ファイル readFile 後の not.toContain('{{') を確認。",
+      "evidence": "template-note.ts buildBodyTemplate/applyJournalTemplate; template-note.test.ts L91-108; journal-template.spec.ts L86-97"
+    },
+    {
+      "id": "F-6",
+      "category": "refactor_verbatim_extraction",
+      "status": "pass",
+      "ac": null,
+      "summary": "templates.ts から shared/template-note.ts への抽出は verbatim。splitRaw / stripConfigLines / buildBodyTemplate / normalizeVar は base(bc3af9d)とバイト一致 (diff 空)。parseConfig は parseTemplateConfig への rename のみで本体一致。既存 templates ルート (instantiate/summary) は parseTemplateConfig を呼ぶだけで挙動不変。acceptance templates.spec.ts (12 tests) が独立再走で全 green、instantiate の回帰なしを裏付け。",
+      "evidence": "git show bc3af9d:templates.ts の各関数 vs template-note.ts の diff は全て空 (IDENTICAL); templates.spec.ts 12 passed"
+    },
+    {
+      "id": "F-7",
+      "category": "forbidden_scan",
+      "status": "pass",
+      "ac": null,
+      "summary": "diff (packages/ + tests/) に禁止カテゴリなし: .only(/.skip(/xit/xdescribe/@ts-ignore/@ts-nocheck/eslint-disable/toBeTruthy 弱アサーション ゼロ、`any` 型の新規混入ゼロ (template-note.ts は unknown + 絞り込みで正しく処理)。エラー握りつぶし (空 catch) は fileExists ヘルパのテスト内 try/catch のみで意図的 (存在確認)、本番コードにはなし。AC 説明文の改変なし。",
+      "evidence": "git diff grep -E '\\.(only|skip)\\(|@ts-ignore|xit|xdescribe|toBeTruthy|eslint-disable' -> 0 hits"
+    },
+    {
+      "id": "F-8",
+      "category": "roadmap_integrity",
+      "status": "pass",
+      "ac": null,
+      "summary": "ROADMAP 差分は S67ea41 スライス + progress カウンタのみ。24 Sprint 保持、execution_order 無変更、他 Sprint の AC 説明改変ゼロ。S89a350 の partial ステータス維持 (S89a350-1/2 done, S89a350-3 needs_user_review / user_review_required=true)。progress は done:23 / remaining:1 / total:24 / percentage:96 で S67ea41 done を正しく反映、残 1 は S89a350-3 分。S67ea41 の AC 説明文は無変更で test ポインタと status のみ TBD/pending → 実テスト/pass に更新。",
+      "evidence": "ROADMAP diff は current_sprint/done/remaining/percentage + S67ea41 status/test/status のみ; S89a350.status=partial, S89a350-3=needs_user_review"
+    },
+    {
+      "id": "F-9",
+      "category": "clean_text",
+      "status": "pass",
+      "ac": null,
+      "summary": "全変更ファイル (journal.ts / template-note.ts / template-note.test.ts / journal.ts(shared) / journal-template.spec.ts / ROADMAP.json / verify-run.json) を LC_ALL=C grep -P '\\x00' で検査し NUL 混入なし。UTF-8/LF 維持。",
+      "evidence": "LC_ALL=C grep -qP '\\x00' 各ファイル -> 全て clean"
+    },
+    {
+      "id": "F-10",
+      "category": "compromise_completeness",
+      "status": "pass",
+      "ac": null,
+      "summary": "overlooked_by_autopilot: true のフラグは sprint-logs 内に存在せず、申告漏れの摘出対象なし。self-report の done_judgment guards (call_path_grep/deferred_comment_clean 等) を独立に再確認し矛盾なし。実装は宣言と一致し、水増し (テスト名のみで実コードパス欠落) は検出されなかった。",
+      "evidence": "grep overlooked_by_autopilot docs/sprint-logs/S67ea41/*.json -> 0 hits; decisions/verification-results と実コードの整合を確認"
+    }
+  ],
+  "summary": {
+    "ac_failures": 0,
+    "forbidden_warnings": 0,
+    "adr_conflicts": 0,
+    "overlooked_count": 0
+  }
+}
