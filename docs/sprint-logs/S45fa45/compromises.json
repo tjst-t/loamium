@@ -1,0 +1,24 @@
+{
+  "milestone_summary": {
+    "stopped_at": "milestone_review_r6 (Sprints S87f4b7, S45fa45)",
+    "compromises": [],
+    "notes": [
+      "両 Sprint とも独立 verifier(opus・read-only、親 autopilot が補完実行)= overall pass / fail 0 / warn 0 / overlooked 0。S87f4b7 は最重要のピュア Markdown 厳守(型情報がファイルに書かれず star/select/progress 編集後も実ファイルが標準 YAML スカラー)をバイト単位で確認。S45fa45 は本文 # 判定(`# `=H1 / `#tag`=タグ)と共通タグ候補ソースを確認。",
+      "この環境ではサブエージェント spawn ツールが無いため、両 Sprint とも独立 verifier は親が補完実行した。",
+      "実機デモ(docs/sprint-logs/S45fa45/demo/)で、畳み状態=`>` のみ、展開=2カラム密行 + 意味型(status 緑ドット選択 / rating ★★★★☆ / progress 80%バー、いずれも .loamium/property-types.json 由来)、本文 #tag のタグ装飾とクリック→検索遷移を確認。ファイルは rating:4 の素の YAML のまま。"
+    ],
+    "user_review_items": [
+      {
+        "id": "roadmap-phantom-sprints",
+        "sprint": "S45fa45",
+        "summary": "S45fa45 実行中、working-tree の ROADMAP.json に身に覚えのない 2 Sprint(S89a350 / S67ea41、total→23)が一時的に出現していた。サブエージェントが commit base(21 Sprint)へ復元し S45fa45 の done 更新のみ適用。独立 verifier が『現在 21 Sprint ちょうど・当該 2 Sprint 不在・AC 改変ゼロ・正規 Sprint 全保持』を厳密確認済み。",
+        "recommended_action": "原因不明の一時的混入。もしこの 2 Sprint が意図的なものだったら sprint idea で再追加を。そうでなければ対応不要(現状の ROADMAP は正しい)。"
+      }
+    ],
+    "blockers_encountered": [],
+    "scope_changes": [
+      "S9df823 のプロパティ UI を S87f4b7 で全面再設計(折りたたみ + ミニマル2カラム + 意味型 + 型ピッカー)。既存 S9df823 テストは新 UX に更新(アサーション弱体化なし、verifier 確認済み)。",
+      "サーバーに GET /api/property-types(.loamium/property-types.json 配信、read 分類)を additive 追加。"
+    ]
+  }
+}

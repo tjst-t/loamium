@@ -177,7 +177,7 @@ make build     # ビルド
 
 ## ステータスと今後
 
-**ロードマップ 15 Sprint 完了**(2026-07): エディタ・ジャーナル・検索(Cmd+K + 詳細検索ページ)・バックリンク・リンク追従・記法拡張(embed / callout / highlight / dataview)・添付ファイルと埋め込みプレビュー・ファイル/フォルダブラウザ・`/` スラッシュメニュー・ブラウザ的ルーティング(戻る/進む)・右サイドバーの Claude(ターミナル)・CLI/Skill 統合まで動作します。今後の候補(バックログ):
+**ロードマップ 21 Sprint 完了**(2026-07): エディタ・ジャーナル・検索(Cmd+K + 詳細検索ページ)・バックリンク・リンク追従・記法拡張(embed / callout / highlight / dataview / WYSIWYG テーブル)・添付ファイルと埋め込みプレビュー・ファイル/フォルダブラウザ・`/` スラッシュメニュー・ブラウザ的ルーティング(戻る/進む)・右サイドバーの Claude(ターミナル)・**frontmatter のプロパティ UI(Obsidian Properties 風・意味型)**・**タグ入力補完(`#`)**・CLI/Skill 統合まで動作します。今後の候補(バックログ):
 
 - Cloudflare Tunnel + Access による外部公開手順
 - デスクトップ化(Tauri / Deno Desktop 再評価)
