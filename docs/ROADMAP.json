@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": null,
-    "total": 21,
+    "current_sprint": "S89a350",
+    "total": 23,
     "done": 21,
     "in_progress": 0,
-    "remaining": 0,
-    "percentage": 100
+    "remaining": 2,
+    "percentage": 91
   },
   "execution_order": [
     "Sd63ad1",
@@ -30,7 +30,9 @@
     "Sa629e2",
     "S9df823",
     "S87f4b7",
-    "S45fa45"
+    "S45fa45",
+    "S89a350",
+    "S67ea41"
   ],
   "sprints": {
     "Sd63ad1": {
@@ -1966,6 +1968,187 @@
           }
         }
       }
+    },
+    "S89a350": {
+      "title": "汎用テンプレートシステム — 変数エンジン + 作成モーダル",
+      "status": "pending",
+      "milestone": false,
+      "description": "vault 内の可視 `templates/` 配下の Markdown ファイルをテンプレートとして扱う汎用テンプレート機構。テンプレートのフロントマター `loamium-template.target`(保存先パターン)と `vars`(ユーザー変数定義)で駆動。変数構文は `{{name}}` と `{{date:FORMAT}}`(任意 eval なし)。プリセット date/now はフォーマット指定で年月日時を切り出す(`{{date:YYYY}}` 等)。変数解決+日付フォーマットのエンジンは packages/shared に置き server/cli/ui で共有。保存パスに入る変数はサニタイズ(スラッシュ等除去)してから normalizeVaultPath に通す。パス衝突時は連番付与。REST とCLI は1:1。ユーザー変数入力モーダルは既存 property-types(text/select/date/tags)を流用しキーボードで完結。ファイル正本は常にピュア Markdown(テンプレート記法は生成時に解決され、結果ノートには残らない)。",
+      "stories": {
+        "S89a350-1": {
+          "title": "変数エンジンと日付フォーマット(packages/shared)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in": "idea",
+          "user_story": "server/cli/ui の実装者として、`{{name}}` と `{{date:FORMAT}}` を解決する共通エンジンが shared にほしい。なぜなら、保存先パスと本文の両方で同じ変数展開を server・cli・ui が使う必要があるから。",
+          "acceptance_criteria": [
+            {
+              "id": "S89a350-1-AC1",
+              "description": "`{{name}}` がユーザー変数値で置換される。未定義変数は検出してエラー情報(不足変数名の一覧)として返し、呼び出し側が入力を促せる",
+              "test": "TBD",
+              "status": "pending"
+            },
+            {
+              "id": "S89a350-1-AC2",
+              "description": "`{{date:FORMAT}}` / `{{now:FORMAT}}` が YYYY/MM/DD/HH/mm/ss トークンでフォーマットされ、`{{date:YYYY-MM-DD}}` が既存 journalPath と同じ文字列を再現する。基準日時は呼び出し側から注入可能(journal は対象日基準)",
+              "test": "TBD",
+              "status": "pending"
+            },
+            {
+              "id": "S89a350-1-AC3",
+              "description": "パス用途の変数値はサニタイズ(`/`・`..`・制御文字を除去/置換)してから展開され、展開結果は normalizeVaultPath を通過する。日付処理・変数解決にユニットテストがある",
+              "test": "TBD",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S89a350-1-1": {
+              "title": "変数解決エンジン",
+              "description": "`{{name}}`/`{{date:FORMAT}}` のパーサと解決器を packages/shared に実装。未定義変数の検出、path用途サニタイズ。ユニットテスト必須。",
+              "status": "pending"
+            },
+            "S89a350-1-2": {
+              "title": "日付フォーマッタ",
+              "description": "YYYY/MM/DD/HH/mm/ss トークンのフォーマッタ。基準日時注入。journalPath 互換を検証するテスト。曜日・日付オフセットは将来拡張の穴だけ空ける。",
+              "status": "pending"
+            }
+          }
+        },
+        "S89a350-2": {
+          "title": "テンプレート定義の読み込みとインスタンス化(REST + CLI)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in": "idea",
+          "user_story": "エージェント(Claude Code)として、CLI/REST でテンプレートを指定し変数を渡してノートを生成したい。なぜなら、議事録などの定型ノートをエージェントからも保存先込みで一発で作りたいから。",
+          "acceptance_criteria": [
+            {
+              "id": "S89a350-2-AC1",
+              "description": "`GET /api/templates` が vault 内 `templates/` 配下の `*.md` を一覧し、各テンプレートの `target` と `vars` 定義を返す。フロントマターが無いファイルも純粋な雛形テンプレートとして扱える。壊れた定義はクラッシュせずスキップ/フォールバック",
+              "test": "TBD",
+              "status": "pending"
+            },
+            {
+              "id": "S89a350-2-AC2",
+              "description": "`POST /api/templates/{name}/instantiate`(body: 変数値マップ)が target と本文を S89a350-1 のエンジンで解決し新規ノートを作成、解決パスと created を返す。パス衝突時は連番(`_2` 等)を付与。不足変数があれば 4xx で不足名を返す",
+              "test": "TBD",
+              "status": "pending"
+            },
+            {
+              "id": "S89a350-2-AC3",
+              "description": "CLI `loamium new --template <name> --var k=v ...` が instantiate API と 1:1 対応。リクエスト/レスポンスは zod 検証、型は packages/shared 共有。書き込みは監査ログ(.loamium/audit.log)に記録される",
+              "test": "TBD",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S89a350-2-1": {
+              "title": "テンプレート読み込み + 一覧 API",
+              "description": "templates/ 配下のスキャン、loamium-template フロントマター(target/vars)の zod スキーマと解析。GET /api/templates。",
+              "status": "pending"
+            },
+            "S89a350-2-2": {
+              "title": "インスタンス化 API",
+              "description": "POST /api/templates/{name}/instantiate。エンジンで target/本文解決、連番衝突回避、監査ログ。",
+              "status": "pending"
+            },
+            "S89a350-2-3": {
+              "title": "CLI new コマンド",
+              "description": "loamium new --template --var。API と 1:1。acceptance テスト。",
+              "status": "pending"
+            }
+          }
+        },
+        "S89a350-3": {
+          "title": "テンプレートから新規作成する UI(選択 + 変数入力モーダル)",
+          "status": "pending",
+          "user_review_required": true,
+          "review_reason": "GUI: テンプレート選択と変数入力モーダルのキーボード操作 UX はユーザーレビューが要る",
+          "added_in": "idea",
+          "user_story": "ノート利用者として、テンプレートを選び変数をモーダルでキーボード入力して新規ノートを作りたい。なぜなら、議事録のような定型ノートを保存先込みで素早く作りたいから。",
+          "acceptance_criteria": [
+            {
+              "id": "S89a350-3-AC1",
+              "description": "新規作成導線からテンプレート一覧を選択でき、選ぶと `vars` 定義に応じた入力モーダルが開く。入力ウィジェットは既存 property-types(text/select/date/tags)を流用する",
+              "test": "TBD",
+              "status": "pending"
+            },
+            {
+              "id": "S89a350-3-AC2",
+              "description": "モーダルは Tab で項目移動・Enter で確定・Esc で中断でき、全操作がキーボードで完結する。必須変数が未入力なら確定できずインライン表示される",
+              "test": "TBD",
+              "status": "pending"
+            },
+            {
+              "id": "S89a350-3-AC3",
+              "description": "確定すると instantiate API を呼び、解決先パス(衝突時は連番付与された新パス)に作成されたノートがエディタで開く",
+              "test": "TBD",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S89a350-3-1": {
+              "title": "テンプレート選択導線",
+              "description": "新規作成メニューにテンプレート一覧。GET /api/templates 連携。",
+              "status": "pending"
+            },
+            "S89a350-3-2": {
+              "title": "変数入力モーダル",
+              "description": "vars に応じたフォーム(property-types ウィジェット流用)、キーボード操作、必須検証。mock + e2e テスト。",
+              "status": "pending"
+            }
+          }
+        }
+      }
+    },
+    "S67ea41": {
+      "title": "journal のテンプレート化(遅延生成を維持)",
+      "status": "pending",
+      "milestone": true,
+      "description": "既存の日次ジャーナル遅延生成(GET /api/journal が初回アクセス時に空ファイルを作る挙動)を、S89a350 のテンプレートエンジンで既定 journal テンプレートを適用した本文生成に差し替える。作成タイミングは遅延生成のまま(プロアクティブ cron は採らない)。テンプレート内 `{{date:...}}` は対象日基準で展開。read-only では書き込まず適用済み仮想ジャーナルを返す。既存ジャーナルは上書きしない冪等挙動。",
+      "stories": {
+        "S67ea41-1": {
+          "title": "journal 遅延生成へのテンプレート適用",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in": "idea",
+          "user_story": "ノート利用者として、日次ジャーナルが毎回テンプレートから中身付きで生成されてほしい。なぜなら、空ファイルではなく定型の見出しや frontmatter から書き始めたいから。",
+          "acceptance_criteria": [
+            {
+              "id": "S67ea41-1-AC1",
+              "description": "`GET /api/journal` の遅延生成が、既定 journal テンプレートを適用した本文でファイルを作成する。テンプレートが存在しなければ従来通り空ファイルで作成する(後方互換)",
+              "test": "TBD",
+              "status": "pending"
+            },
+            {
+              "id": "S67ea41-1-AC2",
+              "description": "テンプレート内の `{{date:...}}` 等が対象日(明日/過去日ジャーナル含む)基準で展開される。read-only モードでは書き込まず、テンプレート適用済みの仮想ジャーナルを返す",
+              "test": "TBD",
+              "status": "pending"
+            },
+            {
+              "id": "S67ea41-1-AC3",
+              "description": "既に存在するジャーナルは上書きされない(冪等)。日付基準の展開と冪等挙動にユニット/acceptance テストがある",
+              "test": "TBD",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S67ea41-1-1": {
+              "title": "journal ルートのテンプレ適用",
+              "description": "packages/server journal ルートの空生成を S89a350 エンジンでのテンプレ適用に差し替え。既定テンプレの解決(templates/ 内の journal テンプレ or フォールバック)。read-only/冪等維持。",
+              "status": "pending"
+            },
+            "S67ea41-1-2": {
+              "title": "日付基準展開のテスト",
+              "description": "対象日展開・read-only・冪等の acceptance テスト。",
+              "status": "pending"
+            }
+          }
+        }
+      }
     }
   },
   "dependencies": {
@@ -2095,6 +2278,18 @@
         "Sbd061c"
       ],
       "reason": "タグ補完ソースと型ピッカーの UI 基盤・検索(タグ)を共有"
+    },
+    "S89a350": {
+      "depends_on": [
+        "S87f4b7"
+      ],
+      "reason": "変数入力モーダルは S87f4b7 の property-types 意味型ウィジェット(input差し替え・commit-on-blur)を流用し、パスは既存 normalizeVaultPath を使う"
+    },
+    "S67ea41": {
+      "depends_on": [
+        "S89a350"
+      ],
+      "reason": "journal の遅延生成を S89a350 のテンプレート/変数エンジンで置き換える"
     }
   },
   "backlog": [
