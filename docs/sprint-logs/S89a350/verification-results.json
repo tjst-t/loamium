@@ -1,0 +1,98 @@
+{
+  "sprint": "S89a350",
+  "verified_at": "2026-07-06",
+  "machine_verdict_source": "docs/sprint-logs/S89a350/verify-run.json",
+  "summary": { "pass": 48, "fail": 0, "skip": 0 },
+  "note": "status は verify-run.json (機械判定, overall=pass) から転記。make test=500 pass / make lint=pass / make test-ui=255 pass。件数はベースライン test 461→500 (+39: shared 20 + templates 12 + cli-new 7)、ui 246→255 (+9: template-create.mock 5 + e2e 4)。",
+  "results": [
+    {
+      "acceptance_criteria": ["S89a350-1-AC1"],
+      "test": "packages/shared/src/template.test.ts [AC-S89a350-1-1]",
+      "type": "library (public API — vitest)",
+      "status": "pass",
+      "evidence": "resolveTemplate が {{name}} を値で置換し、未定義変数を missing[] (出現順・重複排除) で返すことを検証。空文字は指定済み扱い。"
+    },
+    {
+      "acceptance_criteria": ["S89a350-1-AC2"],
+      "test": "packages/shared/src/template.test.ts [AC-S89a350-1-2]",
+      "type": "library (public API — vitest)",
+      "status": "pass",
+      "evidence": "formatDate の YYYY/MM/DD/HH/mm/ss (MM月 vs mm分 区別)、{{date:YYYY-MM-DD}} が journalPath と同一文字列を再現、date/now 基準の注入を検証。"
+    },
+    {
+      "acceptance_criteria": ["S89a350-1-AC3"],
+      "test": "packages/shared/src/template.test.ts [AC-S89a350-1-3]",
+      "type": "library (public API — vitest)",
+      "status": "pass",
+      "evidence": "sanitizePathValue が / \\ / .. / 制御文字を除去し、pathMode 展開結果が normalizeVaultPath を通過、traversal で vault 外へ脱出できないことを検証。"
+    },
+    {
+      "acceptance_criteria": ["S89a350-2-AC1"],
+      "test": "tests/acceptance/templates.spec.ts [AC-S89a350-2-1]",
+      "type": "api (real HTTP against subprocess server)",
+      "status": "pass",
+      "evidence": "GET /api/templates が target/vars を返し、frontmatter 無しファイルを純粋雛形 (target=null) 扱い、壊れた loamium-template をフォールバック、templates/ 外を除外することを実サーバーで検証。"
+    },
+    {
+      "acceptance_criteria": ["S89a350-2-AC2"],
+      "test": "tests/acceptance/templates.spec.ts [AC-S89a350-2-2]",
+      "type": "api (real HTTP against subprocess server)",
+      "status": "pass",
+      "evidence": "POST instantiate が target/本文を解決し実ファイル作成 (解決済みピュア Markdown・{{}}/loamium-template 非残存を実ファイルで確認)、パス衝突で _2 連番、date 上書き、不足変数 400 missing_vars、404 を検証。"
+    },
+    {
+      "acceptance_criteria": ["S89a350-2-AC3"],
+      "test": "tests/acceptance/cli-new.spec.ts [AC-S89a350-2-3] + tests/acceptance/templates.spec.ts [AC-S89a350-2-3]",
+      "type": "cli (real binary subprocess) + api",
+      "status": "pass",
+      "evidence": "loamium new --template --var --date が instantiate と 1:1 (stdout 解決パス、--json 生レスポンス、missing_vars/usage/template_not_found エラー、監査ログ template.instantiate)。API 側で監査ログと read-only 403 も検証。"
+    },
+    {
+      "acceptance_criteria": ["S89a350-3-AC1"],
+      "test": "packages/ui/tests/e2e/template-create.e2e.spec.ts [AC-S89a350-3-1] + template-create.mock.spec.ts",
+      "type": "gui (real Playwright → real Vite → real server)",
+      "status": "pass",
+      "evidence": "新規ノート ▸ テンプレートから → picker 一覧 → 選択 → vars 定義に応じたモーダル。property-types 流用ウィジェット (text/date/select×3/tags) を実ブラウザで確認。"
+    },
+    {
+      "acceptance_criteria": ["S89a350-3-AC2"],
+      "test": "packages/ui/tests/e2e/template-create.e2e.spec.ts [AC-S89a350-3-2] + template-create.mock.spec.ts",
+      "type": "gui (real Playwright → real Vite → real server)",
+      "status": "pass",
+      "evidence": "必須未入力は template-create が aria-disabled=true + template-var-error インライン表示、会議名入力で確定可能→Enter で作成。Esc 中断・select ←→ 切替・保存先ライブプレビューを検証。"
+    },
+    {
+      "acceptance_criteria": ["S89a350-3-AC3"],
+      "test": "packages/ui/tests/e2e/template-create.e2e.spec.ts [AC-S89a350-3-3]",
+      "type": "gui (real Playwright → real Vite → real server)",
+      "status": "pass",
+      "evidence": "確定 → instantiate → 解決先パスに作成されたノートがエディタで開き route-display に反映。実ファイルが解決済みピュア Markdown。衝突時は _2 連番の新パスに作成して開くことを実 FS で検証。"
+    }
+  ],
+  "diff_coverage_scan": {
+    "library_exports": ["formatDate", "resolveTemplate", "sanitizePathValue", "templateVariableNames", "template schemas/types"],
+    "api_routes": ["GET /api/templates", "POST /api/templates/{name}/instantiate"],
+    "cli": ["loamium new --template/--var/--date"],
+    "gui_testids": [
+      "new-note-menu", "new-note-menu-blank", "new-note-menu-template",
+      "template-picker", "template-picker-backdrop", "template-picker-list",
+      "template-item", "template-item-target", "template-modal", "template-modal-backdrop",
+      "template-target-preview", "template-var-input", "template-var-error",
+      "template-submit-error", "template-create", "template-cancel"
+    ],
+    "all_covered": true
+  },
+  "forbidden_degradation_scan": {
+    "test_disabled": "none",
+    "assertion_weakened": "none (editor.mock/e2e はメニュー化に伴う操作パス追加のみ、アサーション不変)",
+    "error_swallowed": "none",
+    "type_safety_relaxed": "none (: any / as any / @ts-ignore ゼロ)",
+    "acceptance_criteria_modified": "none"
+  },
+  "known_flaky": [
+    {
+      "test": "packages/ui/tests/e2e/wikilink.mock.spec.ts",
+      "note": "既知 flaky (指示に明記)。full test-ui 初回で 1 件 transient fail → 単独再実行で 8/8 pass 確認。sidebar-new-note 変更とは無関係 (当該テストは wikilink autocomplete のみ)。最終 full run-verify では ui-tests exit=0 で pass。テスト変更なし。"
+    }
+  ]
+}

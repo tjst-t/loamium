@@ -301,6 +301,7 @@ test('[MOCK] 新規ノート作成は create-only (baseMtime: 0) で PUT し、4
 
   // 2 回目: 外部で先に作られていた → 409 → 重複エラー表示 (黙って上書きしない)
   await page.getByTestId('sidebar-new-note').click();
+  await page.getByTestId('new-note-menu-blank').click(); // 新規ノート ▸ 空のノート (S89a350-3)
   await page.getByTestId('new-note-input').fill('外部が先に作ったメモ');
   await page.getByTestId('new-note-confirm').click();
   await expect(page.getByTestId('app-error')).toContainText('同名のノートが既に存在します');
@@ -336,6 +337,7 @@ test('[MOCK] ダイアログのキャンセルと context-open、F2 リネーム
 
   // 新規ノートダイアログ: キャンセル
   await page.getByTestId('sidebar-new-note').click();
+  await page.getByTestId('new-note-menu-blank').click(); // 新規ノート ▸ 空のノート (S89a350-3)
   await page.getByTestId('new-note-input').fill('捨てる入力');
   await page.getByTestId('new-note-cancel').click();
   await expect(page.getByTestId('new-note-dialog')).not.toBeVisible();

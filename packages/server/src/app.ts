@@ -7,6 +7,7 @@ import { journalRoutes } from './routes/journal.js';
 import { searchRoutes } from './routes/search.js';
 import { filesRoutes } from './routes/files.js';
 import { propertyTypesRoutes } from './routes/property-types.js';
+import { templatesRoutes } from './routes/templates.js';
 import { auditMiddleware } from './audit.js';
 import { permissionMiddleware } from './permissions.js';
 import { indexSyncMiddleware } from './indexSync.js';
@@ -45,6 +46,8 @@ export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv>
   app.route('/', filesRoutes(config, index));
   // 意味型スキーマ配信 (GET /api/property-types — S87f4b7-2)。読み取り専用
   app.route('/', propertyTypesRoutes(config));
+  // 汎用テンプレート (GET /api/templates 一覧 + POST instantiate — S89a350-2)
+  app.route('/', templatesRoutes(config));
 
   return app;
 }

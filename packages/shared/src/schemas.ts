@@ -332,6 +332,79 @@ export const errorResponseSchema = z.object({
 });
 export type ErrorResponse = z.infer<typeof errorResponseSchema>;
 
+// ---- 汎用テンプレート (S89a350) ----
+
+/**
+ * テンプレート変数の入力ウィジェット種別。既存 property-types のうち
+ * モーダルで扱う 4 種 (text/select/date/tags) に限定する (AC-S89a350-3-1)。
+ */
+export const templateVarTypeSchema = z.enum(['text', 'select', 'date', 'tags']);
+export type TemplateVarType = z.infer<typeof templateVarTypeSchema>;
+
+/** テンプレート定義 1 変数。server が loamium-template.vars を正規化して返す。 */
+export const templateVarSchema = z.object({
+  /** 変数名 (= `{{name}}` の name、data-var)。 */
+  name: z.string(),
+  /** 入力ウィジェット種別 (不明な型は server が 'text' にフォールバック)。 */
+  type: templateVarTypeSchema,
+  /** 必須か (未入力なら instantiate は 4xx)。 */
+  required: z.boolean(),
+  /** 表示ラベル (省略時は name)。 */
+  label: z.string().optional(),
+  /** 既定値 (date は `{{date:YYYY-MM-DD}}` 等のテンプレート記法も可)。 */
+  default: z.string().optional(),
+  /** select の選択肢。 */
+  options: z.array(z.string()).optional(),
+});
+export type TemplateVar = z.infer<typeof templateVarSchema>;
+
+/** GET /api/templates が返すテンプレート 1 件のサマリ。 */
+export const templateSummarySchema = z.object({
+  /** テンプレート識別子 (templates/ からの相対パス、拡張子なし)。 */
+  name: z.string(),
+  /** テンプレートファイルの vault 相対パス (templates/xxx.md)。 */
+  path: z.string(),
+  /** 保存先パターン (loamium-template.target)。無ければ null。 */
+  target: z.string().nullable(),
+  /** 説明 (loamium-template.description)。 */
+  description: z.string().optional(),
+  /** 変数定義 (loamium-template.vars を正規化したもの)。 */
+  vars: z.array(templateVarSchema),
+});
+export type TemplateSummary = z.infer<typeof templateSummarySchema>;
+
+export const templatesResponseSchema = z.object({
+  templates: z.array(templateSummarySchema),
+});
+export type TemplatesResponse = z.infer<typeof templatesResponseSchema>;
+
+/**
+ * POST /api/templates/{name}/instantiate のリクエスト。
+ * vars は変数名→値の文字列マップ。date は {{date:...}} の基準日を上書きする
+ * (YYYY-MM-DD、省略時はサーバー今日)。
+ */
+export const templateInstantiateRequestSchema = z.object({
+  vars: z.record(z.string(), z.string()).optional().default({}),
+  date: z.string().optional(),
+});
+export type TemplateInstantiateRequest = z.infer<typeof templateInstantiateRequestSchema>;
+
+export const templateInstantiateResponseSchema = z.object({
+  /** 実際に作成されたノートの vault 相対パス (衝突時は連番付き)。 */
+  path: z.string(),
+  /** 常に true (新規作成)。 */
+  created: z.boolean(),
+});
+export type TemplateInstantiateResponse = z.infer<typeof templateInstantiateResponseSchema>;
+
+/** 不足変数がある場合の 4xx レスポンス (不足変数名の一覧を additive に持つ)。 */
+export const templateMissingVarsResponseSchema = z.object({
+  error: z.literal('missing_vars'),
+  message: z.string(),
+  missing: z.array(z.string()),
+});
+export type TemplateMissingVarsResponse = z.infer<typeof templateMissingVarsResponseSchema>;
+
 /**
  * ターミナル (WS /api/terminal) が無効な理由の機械可読コード (Sb7f458)。
  * - terminal_env_not_set: LOAMIUM_TERMINAL=1 が未設定 (デフォルト無効 — SPEC §6)

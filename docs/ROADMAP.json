@@ -2,7 +2,7 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "S89a350",
+    "current_sprint": "S67ea41",
     "total": 24,
     "done": 22,
     "in_progress": 0,
@@ -1988,13 +1988,13 @@
     },
     "S89a350": {
       "title": "汎用テンプレートシステム — 変数エンジン + 作成モーダル",
-      "status": "pending",
+      "status": "partial",
       "milestone": false,
       "description": "vault 内の可視 `templates/` 配下の Markdown ファイルをテンプレートとして扱う汎用テンプレート機構。テンプレートのフロントマター `loamium-template.target`(保存先パターン)と `vars`(ユーザー変数定義)で駆動。変数構文は `{{name}}` と `{{date:FORMAT}}`(任意 eval なし)。プリセット date/now はフォーマット指定で年月日時を切り出す(`{{date:YYYY}}` 等)。変数解決+日付フォーマットのエンジンは packages/shared に置き server/cli/ui で共有。保存パスに入る変数はサニタイズ(スラッシュ等除去)してから normalizeVaultPath に通す。パス衝突時は連番付与。REST とCLI は1:1。ユーザー変数入力モーダルは既存 property-types(text/select/date/tags)を流用しキーボードで完結。ファイル正本は常にピュア Markdown(テンプレート記法は生成時に解決され、結果ノートには残らない)。",
       "stories": {
         "S89a350-1": {
           "title": "変数エンジンと日付フォーマット(packages/shared)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "added_in": "idea",
@@ -2003,38 +2003,38 @@
             {
               "id": "S89a350-1-AC1",
               "description": "`{{name}}` がユーザー変数値で置換される。未定義変数は検出してエラー情報(不足変数名の一覧)として返し、呼び出し側が入力を促せる",
-              "test": "TBD",
-              "status": "pending"
+              "test": "packages/shared/src/template.test.ts [AC-S89a350-1-*]",
+              "status": "pass"
             },
             {
               "id": "S89a350-1-AC2",
               "description": "`{{date:FORMAT}}` / `{{now:FORMAT}}` が YYYY/MM/DD/HH/mm/ss トークンでフォーマットされ、`{{date:YYYY-MM-DD}}` が既存 journalPath と同じ文字列を再現する。基準日時は呼び出し側から注入可能(journal は対象日基準)",
-              "test": "TBD",
-              "status": "pending"
+              "test": "packages/shared/src/template.test.ts [AC-S89a350-1-*]",
+              "status": "pass"
             },
             {
               "id": "S89a350-1-AC3",
               "description": "パス用途の変数値はサニタイズ(`/`・`..`・制御文字を除去/置換)してから展開され、展開結果は normalizeVaultPath を通過する。日付処理・変数解決にユニットテストがある",
-              "test": "TBD",
-              "status": "pending"
+              "test": "packages/shared/src/template.test.ts [AC-S89a350-1-*]",
+              "status": "pass"
             }
           ],
           "tasks": {
             "S89a350-1-1": {
               "title": "変数解決エンジン",
               "description": "`{{name}}`/`{{date:FORMAT}}` のパーサと解決器を packages/shared に実装。未定義変数の検出、path用途サニタイズ。ユニットテスト必須。",
-              "status": "pending"
+              "status": "done"
             },
             "S89a350-1-2": {
               "title": "日付フォーマッタ",
               "description": "YYYY/MM/DD/HH/mm/ss トークンのフォーマッタ。基準日時注入。journalPath 互換を検証するテスト。曜日・日付オフセットは将来拡張の穴だけ空ける。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S89a350-2": {
           "title": "テンプレート定義の読み込みとインスタンス化(REST + CLI)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "added_in": "idea",
@@ -2043,43 +2043,43 @@
             {
               "id": "S89a350-2-AC1",
               "description": "`GET /api/templates` が vault 内 `templates/` 配下の `*.md` を一覧し、各テンプレートの `target` と `vars` 定義を返す。フロントマターが無いファイルも純粋な雛形テンプレートとして扱える。壊れた定義はクラッシュせずスキップ/フォールバック",
-              "test": "TBD",
-              "status": "pending"
+              "test": "tests/acceptance/templates.spec.ts + cli-new.spec.ts [AC-S89a350-2-*]",
+              "status": "pass"
             },
             {
               "id": "S89a350-2-AC2",
               "description": "`POST /api/templates/{name}/instantiate`(body: 変数値マップ)が target と本文を S89a350-1 のエンジンで解決し新規ノートを作成、解決パスと created を返す。パス衝突時は連番(`_2` 等)を付与。不足変数があれば 4xx で不足名を返す",
-              "test": "TBD",
-              "status": "pending"
+              "test": "tests/acceptance/templates.spec.ts + cli-new.spec.ts [AC-S89a350-2-*]",
+              "status": "pass"
             },
             {
               "id": "S89a350-2-AC3",
               "description": "CLI `loamium new --template <name> --var k=v ...` が instantiate API と 1:1 対応。リクエスト/レスポンスは zod 検証、型は packages/shared 共有。書き込みは監査ログ(.loamium/audit.log)に記録される",
-              "test": "TBD",
-              "status": "pending"
+              "test": "tests/acceptance/templates.spec.ts + cli-new.spec.ts [AC-S89a350-2-*]",
+              "status": "pass"
             }
           ],
           "tasks": {
             "S89a350-2-1": {
               "title": "テンプレート読み込み + 一覧 API",
               "description": "templates/ 配下のスキャン、loamium-template フロントマター(target/vars)の zod スキーマと解析。GET /api/templates。",
-              "status": "pending"
+              "status": "done"
             },
             "S89a350-2-2": {
               "title": "インスタンス化 API",
               "description": "POST /api/templates/{name}/instantiate。エンジンで target/本文解決、連番衝突回避、監査ログ。",
-              "status": "pending"
+              "status": "done"
             },
             "S89a350-2-3": {
               "title": "CLI new コマンド",
               "description": "loamium new --template --var。API と 1:1。acceptance テスト。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S89a350-3": {
           "title": "テンプレートから新規作成する UI(選択 + 変数入力モーダル)",
-          "status": "pending",
+          "status": "needs_user_review",
           "user_review_required": true,
           "review_reason": "GUI: テンプレート選択と変数入力モーダルのキーボード操作 UX はユーザーレビューが要る",
           "added_in": "idea",
@@ -2088,32 +2088,32 @@
             {
               "id": "S89a350-3-AC1",
               "description": "新規作成導線からテンプレート一覧を選択でき、選ぶと `vars` 定義に応じた入力モーダルが開く。入力ウィジェットは既存 property-types(text/select/date/tags)を流用する",
-              "test": "TBD",
-              "status": "pending"
+              "test": "packages/ui/tests/e2e/template-create.{mock,e2e}.spec.ts [AC-S89a350-3-*]",
+              "status": "pass"
             },
             {
               "id": "S89a350-3-AC2",
               "description": "モーダルは Tab で項目移動・Enter で確定・Esc で中断でき、全操作がキーボードで完結する。必須変数が未入力なら確定できずインライン表示される",
-              "test": "TBD",
-              "status": "pending"
+              "test": "packages/ui/tests/e2e/template-create.{mock,e2e}.spec.ts [AC-S89a350-3-*]",
+              "status": "pass"
             },
             {
               "id": "S89a350-3-AC3",
               "description": "確定すると instantiate API を呼び、解決先パス(衝突時は連番付与された新パス)に作成されたノートがエディタで開く",
-              "test": "TBD",
-              "status": "pending"
+              "test": "packages/ui/tests/e2e/template-create.{mock,e2e}.spec.ts [AC-S89a350-3-*]",
+              "status": "pass"
             }
           ],
           "tasks": {
             "S89a350-3-1": {
               "title": "テンプレート選択導線",
               "description": "新規作成メニューにテンプレート一覧。GET /api/templates 連携。",
-              "status": "pending"
+              "status": "done"
             },
             "S89a350-3-2": {
               "title": "変数入力モーダル",
               "description": "vars に応じたフォーム(property-types ウィジェット流用)、キーボード操作、必須検証。mock + e2e テスト。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }

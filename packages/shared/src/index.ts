@@ -95,4 +95,12 @@ export {
   JournalDateError,
 } from './journal.js';
 export { toLf, appendText, countOccurrences } from './text.js';
+export {
+  formatDate,
+  resolveTemplate,
+  sanitizePathValue,
+  templateVariableNames,
+  type TemplateContext,
+  type TemplateResolveResult,
+} from './template.js';
 export * from './schemas.js';
