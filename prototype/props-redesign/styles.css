@@ -515,3 +515,410 @@
   color: var(--accent);
 }
 .pr-fullink:hover { text-decoration: underline; }
+
+/* ==========================================================================
+   確定案 (chosen.html): たたむトグル + ミニマル密行 + 意味型(D方式)描画
+   案1(折りたたみ) × 案5(ミニマル2カラム密行) の合成。すべて additive。
+   ========================================================================== */
+
+/* デモ内のセクション見出し(プロトタイプ専用注記) */
+.pc-demo-label {
+  margin: 24px 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pc-demo-label::after { content: ""; flex: 1; border-top: 1px solid var(--border); }
+.pc-demo-label:first-child { margin-top: 4px; }
+
+/* ---- ラッパ(open 状態を data 属性で切替) -------------------------------- */
+.pc { margin: 0 6px; position: relative; }
+
+/* たたんだ状態: シェブロンだけ(要約テキスト無し・占有ごく僅か) */
+.pc-collapsed {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 0 3px 4px;
+}
+.pc-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+.pc-toggle:hover { background: var(--bg-hover); color: var(--text-muted); }
+.pc-toggle svg { width: 12px; height: 12px; transition: transform 0.12s; }
+/* たたみ状態は右向き(>)、開くと下向き(v) */
+.pc[data-open="false"] .pc-toggle svg { transform: rotate(-90deg); }
+
+.pc-open { display: none; }
+.pc[data-open="true"] .pc-collapsed { display: none; }
+.pc[data-open="true"] .pc-open { display: block; }
+
+/* 開いた状態の先頭: 折りたたむ v トグル + 密行グリッド */
+.pc-open-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 0 2px 4px;
+}
+
+/* ミニマル 2 カラム密行 (案5 の質感) */
+.pc-rows {
+  display: grid;
+  grid-template-columns: 104px 1fr;
+  gap: 0 14px;
+  margin: 0;
+  padding: 1px 0 2px 24px;
+}
+.pc-rows dt {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  line-height: 22px;
+  min-height: 22px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pc-rows dt .ico { width: 12px; height: 12px; }
+.pc-rows dd {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text);
+  line-height: 22px;
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* + プロパティを追加(案1/現状の追加機能) */
+.pc-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 2px 24px;
+  padding: 3px 7px;
+  color: var(--text-muted);
+  font-size: 12px;
+  border-radius: 6px;
+}
+.pc-add:hover { background: var(--bg-hover); color: var(--text); }
+.pc-add.active { background: var(--accent-soft); color: var(--accent-hover); }
+.pc-add .plus { color: var(--accent); font-weight: 700; }
+
+/* ==========================================================================
+   意味型(D方式)の値描画
+   ========================================================================== */
+
+/* tags: チップ */
+.pc-tag {
+  display: inline-flex;
+  align-items: center;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  border-radius: 8px;
+  padding: 0 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 18px;
+  cursor: pointer;
+}
+.pc-tag:hover { background: #e5dff8; }
+.pc-tag-add {
+  color: var(--text-faint);
+  font-weight: 700;
+  background: none;
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+  line-height: 16px;
+}
+.pc-tag-add:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+
+/* select: 色ドット付きピル */
+.pc-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  height: 19px;
+  border-radius: 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: var(--sel-soft, var(--bg-hover));
+  color: var(--sel-fg, var(--text));
+  cursor: pointer;
+}
+.pc-select .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--sel, var(--text-faint)); flex-shrink: 0; }
+.pc-select[data-color="green"]  { --sel: #2f9e63; --sel-soft: #e8f5ee; --sel-fg: #1f7a4d; }
+.pc-select[data-color="blue"]   { --sel: #2a7ae2; --sel-soft: #e9f2fd; --sel-fg: #1c5bb0; }
+.pc-select[data-color="amber"]  { --sel: #b7791f; --sel-soft: #fdf6e9; --sel-fg: #8a5a12; }
+.pc-select[data-color="purple"] { --sel: #6e56cf; --sel-soft: #f0edfb; --sel-fg: #5f48be; }
+.pc-select[data-color="red"]    { --sel: #d64545; --sel-soft: #fdf0f0; --sel-fg: #a83535; }
+
+/* star: interactive rating */
+.pc-stars { display: inline-flex; gap: 1px; cursor: pointer; }
+.pc-stars svg { width: 14px; height: 14px; }
+.pc-stars .on { color: #e0a12c; }
+.pc-stars .off { color: var(--border-strong); }
+
+/* date: カレンダーアイコン */
+.pc-date { display: inline-flex; align-items: center; gap: 5px; }
+.pc-date .ico { color: var(--text-faint); }
+
+/* checkbox: 真偽 */
+.pc-check {
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  border: 1.5px solid var(--border-strong);
+  background: var(--bg-editor);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.pc-check:hover { border-color: var(--accent); }
+.pc-check.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pc-check svg { width: 10px; height: 10px; }
+
+/* progress: 細いバー + % */
+.pc-progress { display: inline-flex; align-items: center; gap: 8px; }
+.pc-progress .bar { width: 96px; height: 5px; border-radius: 3px; background: var(--bg-hover); overflow: hidden; }
+.pc-progress .bar > i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.pc-progress .pct { font-size: 11.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+/* url: リンク体裁 */
+.pc-url { color: var(--link); display: inline-flex; align-items: center; gap: 4px; }
+.pc-url:hover { text-decoration: underline; }
+.pc-url .ico { width: 12px; height: 12px; color: var(--link); opacity: 0.8; }
+
+/* note-link: [[note]] */
+.pc-notelink { color: var(--link); cursor: pointer; }
+.pc-notelink:hover { text-decoration: underline; background: var(--accent-soft); border-radius: 3px; }
+
+.pc-null { color: var(--text-faint); font-style: italic; }
+
+/* ==========================================================================
+   型ピッカー(コンテキストメニュー + インクリメンタル絞り込み)
+   ========================================================================== */
+
+.type-picker {
+  position: absolute;
+  z-index: 55;
+  width: 290px;
+  background: var(--bg-editor);
+  border: 1px solid var(--border-strong);
+  border-radius: 11px;
+  box-shadow: var(--shadow-lg);
+  padding: 7px;
+}
+.type-picker-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  margin-bottom: 5px;
+  border: 1.5px solid var(--accent);
+  border-radius: 8px;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.type-picker-search svg { width: 14px; height: 14px; color: var(--text-faint); flex-shrink: 0; }
+.type-picker-search input {
+  border: none;
+  outline: none;
+  background: none;
+  font-family: inherit;
+  font-size: 13.5px;
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
+}
+.type-picker-list { max-height: 292px; overflow-y: auto; }
+.type-picker-group {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 7px 9px 3px;
+}
+.type-opt {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  padding: 6px 9px;
+  border-radius: 7px;
+  font-size: 13px;
+}
+.type-opt:hover, .type-opt.sel { background: var(--bg-hover); }
+.type-opt .type-ico {
+  width: 26px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.type-opt .type-ico svg { width: 13px; height: 13px; }
+.type-opt .type-main { flex: 1; min-width: 0; }
+.type-opt .type-name { font-weight: 500; }
+.type-opt .type-name mark { background: none; color: var(--accent); font-weight: 700; }
+.type-opt .type-desc { font-size: 11px; color: var(--text-faint); line-height: 1.35; }
+.type-opt .json-badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--warn);
+  background: var(--warn-soft);
+  border: 1px solid #ecdcb4;
+  border-radius: 5px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+}
+.type-picker-empty {
+  padding: 14px 10px;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 12.5px;
+}
+
+/* ==========================================================================
+   タグ # 候補メニュー(reuse .autocomplete-pop ベース)
+   ========================================================================== */
+
+.tag-suggest {
+  position: absolute;
+  z-index: 50;
+  width: 240px;
+  background: var(--bg-editor);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  padding: 5px;
+}
+.tag-suggest-hint {
+  font-size: 11px;
+  color: var(--text-faint);
+  padding: 3px 9px 5px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+}
+.tag-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 6px 9px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.tag-opt:hover, .tag-opt.sel { background: var(--bg-hover); }
+.tag-opt .hash { color: var(--accent); font-weight: 700; }
+.tag-opt .cnt { margin-left: auto; font-size: 11px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.tag-opt mark { background: none; color: var(--accent); font-weight: 700; }
+.tag-opt.create-new { color: var(--text-muted); border-top: 1px solid var(--border); border-radius: 0 0 6px 6px; margin-top: 4px; padding-top: 8px; }
+.tag-opt.create-new .plus { color: var(--accent); font-weight: 700; }
+
+/* チップ追加中の入力(体裁) */
+.pc-chip-input {
+  display: inline-flex;
+  align-items: center;
+  min-width: 70px;
+  border: 1.5px solid var(--accent);
+  border-radius: 8px;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  padding: 0 7px;
+  height: 19px;
+  font-size: 11.5px;
+  color: var(--text);
+  background: var(--bg-editor);
+}
+.pc-chip-input .hash { color: var(--accent); font-weight: 700; margin-right: 1px; }
+
+/* ==========================================================================
+   本文のインラインタグ(# 直後にスペース無し=タグ)
+   ========================================================================== */
+
+.body-tag {
+  color: var(--accent-hover);
+  background: var(--accent-soft);
+  border-radius: 6px;
+  padding: 0 5px;
+  font-weight: 600;
+  font-size: 0.92em;
+  cursor: pointer;
+}
+.body-tag:hover { background: #e5dff8; }
+
+/* 入力中(候補メニューが開いている)タグの体裁 */
+.body-tag.typing {
+  background: var(--accent-soft);
+  outline: 1.5px solid var(--accent);
+  border-radius: 6px;
+}
+.body-caret {
+  display: inline-block;
+  width: 1.5px;
+  height: 1.05em;
+  background: var(--accent);
+  vertical-align: text-bottom;
+  animation: blink 1.1s steps(1) infinite;
+}
+
+/* 追加フォーム(型選択後: キー名 → 値) */
+.pc-newkey {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 4px 0 2px 24px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.pc-newkey .field {
+  border: 1.5px solid var(--accent);
+  border-radius: 8px;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  padding: 3px 9px;
+  font-size: 12.5px;
+  color: var(--text);
+  background: var(--bg-editor);
+  min-width: 90px;
+}
+.pc-newkey .field.dim { border-color: var(--border-strong); box-shadow: none; color: var(--text-faint); }
+.pc-newkey .type-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.pc-newkey .type-tag .ico { width: 12px; height: 12px; }
+.pc-newkey .arrow { color: var(--text-faint); }

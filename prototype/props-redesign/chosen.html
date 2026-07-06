@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>★ 確定案 — プロパティUI(たたむトグル × ミニマル密行 × 意味型)</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<!--
+  ============================================================================
+  確定デザイン(ユーザー承認済み)= 案1(折りたたみ)× 案5(ミニマル2カラム密行)の合成
+  ・たたんだ既定: 要約テキスト無し。本文直前に `>` トグルだけ(占有ごく僅か)
+  ・開いた状態  : 枠/ヘッダ無しのミニマル2カラム密行 + 意味型(D方式)ごとのリッチ描画
+  ・型ピッカー  : 「+ プロパティを追加」→ 型候補メニュー(上部に絞り込み・インクリメンタル)
+  ・タグ # 補完 : tags 値・本文の `#` で既存タグ候補メニュー(インクリメンタル絞り込み)
+  ・本文の # 判定: `# ` (直後スペース)=H1見出し / `#tag`(スペース無し)=タグ
+
+  新規 testid 案 (実装 Sprint で TESTIDS.md に追記):
+    properties-toggle        … たたむ/開くトグル(> / v)
+    property-type-picker     … 型ピッカーのメニュー
+    property-type-filter     … 型ピッカー上部の絞り込み入力(インクリメンタル)
+    property-type-option     … 型候補項目(data-type / data-source="builtin|json")
+    tag-suggest-menu         … # タグ候補メニュー(プロパティ値・本文 共通)
+    tag-suggest-option       … タグ候補項目(data-tag)
+    body-tag                 … 本文中のインラインタグチップ(data-tag)
+  既存契約(尊重): properties-widget / properties-row / properties-value-body /
+    properties-chip / properties-add
+  ============================================================================
+-->
+<body class="demo-body">
+<div class="demo-wrap">
+  <main class="workspace demo-workspace" style="position:relative;">
+    <div class="editor-header">
+      <div class="nav-group">
+        <button class="nav-btn" title="戻る"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg></button>
+        <button class="nav-btn" disabled title="進む"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg></button>
+      </div>
+      <nav class="route-crumbs" aria-label="現在のルート">
+        <span>samples</span><span class="sep">/</span><span>データ</span><span class="sep">/</span><span class="current">読書メモ 失敗の科学</span>
+      </nav>
+      <div class="save-status" data-state="saved"><span class="dot"></span><span>保存済み</span></div>
+    </div>
+
+    <div class="cm-scroll">
+      <div class="cm-editor" data-testid="editor">
+
+        <!-- ==================================================================
+             A) たたんだ状態(既定)+ 本文の H1 vs タグ
+             要約テキストは出さず、`>` トグルだけ。クリックで開く(このデモは実挙動)。
+             ================================================================== -->
+        <div class="pc-demo-label">A. たたんだ状態(既定) — 本文直前は `&gt;` だけ・要約なし</div>
+
+        <div class="pc" id="pcA" data-open="false" data-testid="properties-widget" data-editable="true">
+          <button class="pc-collapsed" data-testid="properties-toggle" aria-expanded="false" title="プロパティを展開">
+            <span class="pc-toggle"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></span>
+          </button>
+          <!-- 開いた中身(= セクション B と同じ密行グリッド。ここでは JS トグルで開閉) -->
+          <div class="pc-open">
+            <div class="pc-open-head">
+              <button class="pc-toggle" data-testid="properties-toggle" title="プロパティを畳む"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></button>
+            </div>
+            <dl class="pc-rows">
+              <dt><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M6 2.5L4.3 13.5M11.7 2.5L10 13.5M3 6h10.5M2.5 10h10.5"/></svg>tags</dt>
+              <dd data-testid="properties-row" data-key="tags"><span class="pc-tag" data-testid="properties-chip" data-value="sample-book">#sample-book</span></dd>
+              <dt><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14V3M4 3.5h7.5l-1.6 2.3 1.6 2.3H4"/></svg>status</dt>
+              <dd data-testid="properties-row" data-key="status"><span class="pc-select" data-color="green" data-testid="properties-value-body" data-type="select"><span class="dot"></span>読了</span></dd>
+              <dt><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M8 2l1.7 3.6 3.9.5-2.9 2.7.8 3.9L8 10.9 4.5 12.7l.8-3.9L2.4 6.1l3.9-.5z"/></svg>rating</dt>
+              <dd data-testid="properties-row" data-key="rating"><span class="pc-stars" data-testid="properties-value-body" data-type="star" data-value="4"></span></dd>
+              <dt><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="2.4" y="3.3" width="11.2" height="10.3" rx="1.6"/><path d="M2.4 6.3h11.2M5.6 1.9v2.6M10.4 1.9v2.6"/></svg>created</dt>
+              <dd data-testid="properties-row" data-key="created"><span class="pc-date" data-testid="properties-value-body" data-type="date"><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="2.4" y="3.3" width="11.2" height="10.3" rx="1.6"/><path d="M2.4 6.3h11.2M5.6 1.9v2.6M10.4 1.9v2.6"/></svg>2026-05-20</span></dd>
+            </dl>
+            <button class="pc-add" data-testid="properties-add"><span class="plus">+</span> プロパティを追加</button>
+          </div>
+        </div>
+
+        <!-- 本文: `# 失敗から学ぶ`(直後スペース → H1) -->
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h1"># 失敗から学ぶ</span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+        <!-- 段落中の `#sample-book`(スペース無し → インラインタグチップ) -->
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content">『失敗の科学』(マシュー・サイド)の要点メモ。この本は <span class="body-tag" data-testid="body-tag" data-tag="sample-book" title="タグ #sample-book">#sample-book</span> として管理している。<span class="md-bold">失敗を隠す文化</span>と、学びに変える文化の対比が主題。</span></div>
+
+        <div class="proto-note">
+          <span class="tag">確定案</span>
+          既定は <strong>本文直前に <code>&gt;</code> シェブロン 1 つだけ</strong>(『プロパティ #sample-book …』のような要約は出さない)。占有はごく僅か。<code>&gt;</code> をクリックで下の密行グリッドが開く(このA欄は実挙動)。<br>
+          本文の <code>#</code> 判定: 上の見出し「<code># 失敗から学ぶ</code>」は <strong>直後にスペースがあるので H1</strong>。段落の <code>#sample-book</code> は <strong>スペースが無いのでタグ</strong>(インラインチップ)。
+        </div>
+
+        <!-- ==================================================================
+             B) 開いた状態 — ミニマル2カラム密行 + 意味型(D方式)を実描画
+             ================================================================== -->
+        <div class="pc-demo-label">B. 開いた状態 — ミニマル2カラム密行 × 意味型(D方式)</div>
+
+        <div class="pc" data-open="true">
+          <div class="pc-open">
+            <div class="pc-open-head">
+              <button class="pc-toggle" title="プロパティを畳む(v)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg></button>
+            </div>
+            <dl class="pc-rows" data-testid="properties-widget" data-editable="true">
+
+              <!-- tags(複数・チップ) -->
+              <dt><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M6 2.5L4.3 13.5M11.7 2.5L10 13.5M3 6h10.5M2.5 10h10.5"/></svg>tags</dt>
+              <dd data-testid="properties-row" data-key="tags">
+                <span class="pc-tag" data-testid="properties-chip" data-value="sample-book">#sample-book</span>
+                <span class="pc-tag" data-testid="properties-chip" data-value="science">#science</span>
+                <button class="pc-tag pc-tag-add" title="タグを追加(# で候補)">+</button>
+              </dd>
+
+              <!-- select(単一・色ドット付きピル) -->
+              <dt><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14V3M4 3.5h7.5l-1.6 2.3 1.6 2.3H4"/></svg>status</dt>
+              <dd data-testid="properties-row" data-key="status"><span class="pc-select" data-color="green" data-testid="properties-value-body" data-type="select"><span class="dot"></span>読了</span></dd>
+
+              <!-- star(0〜5) -->
+              <dt><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M8 2l1.7 3.6 3.9.5-2.9 2.7.8 3.9L8 10.9 4.5 12.7l.8-3.9L2.4 6.1l3.9-.5z"/></svg>rating</dt>
+              <dd data-testid="properties-row" data-key="rating"><span class="pc-stars" data-testid="properties-value-body" data-type="star" data-value="4"></span></dd>
+
+              <!-- date -->
+              <dt><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="2.4" y="3.3" width="11.2" height="10.3" rx="1.6"/><path d="M2.4 6.3h11.2M5.6 1.9v2.6M10.4 1.9v2.6"/></svg>created</dt>
+              <dd data-testid="properties-row" data-key="created"><span class="pc-date" data-testid="properties-value-body" data-type="date"><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="2.4" y="3.3" width="11.2" height="10.3" rx="1.6"/><path d="M2.4 6.3h11.2M5.6 1.9v2.6M10.4 1.9v2.6"/></svg>2026-05-20</span></dd>
+
+              <!-- checkbox(真偽) -->
+              <dt><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="11" height="11" rx="2.6"/><path d="M5.4 8.2l1.8 1.8 3.4-3.6"/></svg>再読したい</dt>
+              <dd data-testid="properties-row" data-key="再読したい"><span class="pc-check on" data-testid="properties-value-body" data-type="checkbox" role="checkbox" aria-checked="true" title="真偽(クリックで切替)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg></span></dd>
+
+              <!-- progress(0-100%) -->
+              <dt><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 5.5h8M2 10.5h4.5"/><circle cx="12" cy="5.5" r="1.6"/><circle cx="8.5" cy="10.5" r="1.6"/></svg>読了率</dt>
+              <dd data-testid="properties-row" data-key="読了率"><span class="pc-progress" data-testid="properties-value-body" data-type="progress" data-value="80"><span class="bar"><i style="width:80%"></i></span><span class="pct">80%</span></span></dd>
+
+              <!-- url -->
+              <dt><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 9.4a2.6 2.6 0 003.7 0l1.9-1.9a2.6 2.6 0 00-3.7-3.7l-1 1"/><path d="M9.4 6.6a2.6 2.6 0 00-3.7 0L3.8 8.5a2.6 2.6 0 003.7 3.7l1-1"/></svg>参考</dt>
+              <dd data-testid="properties-row" data-key="参考"><a class="pc-url" data-testid="properties-value-body" data-type="url" href="#" onclick="return false"><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 9.4a2.6 2.6 0 003.7 0l1.9-1.9a2.6 2.6 0 00-3.7-3.7l-1 1"/><path d="M9.4 6.6a2.6 2.6 0 00-3.7 0L3.8 8.5a2.6 2.6 0 003.7 3.7l1-1"/></svg>example.com</a></dd>
+
+              <!-- note-link([[note]]) -->
+              <dt><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2.2h5l3 3v8.6H4z"/><path d="M9 2.2V5.5h3"/></svg>関連</dt>
+              <dd data-testid="properties-row" data-key="関連"><span class="pc-notelink" data-testid="properties-value-body" data-type="note-link" data-target="失敗学入門.md">[[失敗学入門]]</span></dd>
+
+              <!-- number -->
+              <dt><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 6.2l1.6-1.2V11"/><path d="M8.4 5.7a1.7 1.7 0 112.9 1.2c-.5.6-2.9 2.2-2.9 4.1h3.3"/></svg>ページ数</dt>
+              <dd data-testid="properties-row" data-key="ページ数"><span data-testid="properties-value-body" data-type="number">336</span></dd>
+
+              <!-- text -->
+              <dt><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M4 4h8M8 4v9M6.2 13h3.6"/></svg>著者</dt>
+              <dd data-testid="properties-row" data-key="著者"><span data-testid="properties-value-body" data-type="text">マシュー・サイド</span></dd>
+
+            </dl>
+            <button class="pc-add" data-testid="properties-add"><span class="plus">+</span> プロパティを追加</button>
+          </div>
+        </div>
+
+        <div class="proto-note">
+          <span class="tag">意味型 D方式</span>
+          各値は <strong>キーごとの意味型</strong>で描画: tags=チップ / select=色ドット付きピル / star=★ / date=カレンダー / checkbox=☑ / progress=細バー+% / url=リンク / note-link=[[…]] / number・text=素の値。型はキー左のアイコンで判別。型定義はアプリ内蔵型 + <code>.loamium/property-types.json</code>(JSON定義型)。
+        </div>
+
+        <!-- ==================================================================
+             C) プロパティ追加の型ピッカー(コンテキストメニュー + インクリメンタル絞り込み)
+             ================================================================== -->
+        <div class="pc-demo-label">C. 「+ プロパティを追加」の型ピッカー(打つほど絞られる)</div>
+
+        <div class="pc" data-open="true">
+          <div class="pc-open" style="min-height:392px;">
+            <!-- 追加ボタンを押した状態(型ピッカーが開いている) -->
+            <button class="pc-add active" data-testid="properties-add"><span class="plus">+</span> プロパティを追加</button>
+
+            <!-- 型選択後の流れ(型 → キー名 → 値)を示す帯 -->
+            <div class="pc-newkey" aria-hidden="true">
+              <span class="type-tag"><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14V3M4 3.5h7.5l-1.6 2.3 1.6 2.3H4"/></svg>select</span>
+              <span class="arrow">→</span>
+              <span class="field">キー名を入力</span>
+              <span class="arrow">→</span>
+              <span class="field dim">値</span>
+            </div>
+
+            <!-- 型ピッカー(コンテキストメニュー)。上部の入力で絞り込み(インクリメンタル) -->
+            <div class="type-picker" data-testid="property-type-picker" style="top:34px; left:0;">
+              <label class="type-picker-search">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.3"/><path d="M10.3 10.3L14 14"/></svg>
+                <input id="typeFilter" data-testid="property-type-filter" type="text" placeholder="型を検索…(例: sel / 星 / date)" value="s" autocomplete="off">
+              </label>
+              <div class="type-picker-list" id="typeList">
+
+                <div class="type-picker-group" data-group>内蔵型</div>
+                <button class="type-opt" data-testid="property-type-option" data-type="text" data-source="builtin" data-search="text テキスト 文字 字列">
+                  <span class="type-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M4 4h8M8 4v9M6.2 13h3.6"/></svg></span>
+                  <span class="type-main"><span class="type-name">text</span><span class="type-desc">素のテキスト</span></span>
+                </button>
+                <button class="type-opt" data-testid="property-type-option" data-type="number" data-source="builtin" data-search="number 数値 数字 num">
+                  <span class="type-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 6.2l1.6-1.2V11"/><path d="M8.4 5.7a1.7 1.7 0 112.9 1.2c-.5.6-2.9 2.2-2.9 4.1h3.3"/></svg></span>
+                  <span class="type-main"><span class="type-name">number</span><span class="type-desc">数値</span></span>
+                </button>
+                <button class="type-opt" data-testid="property-type-option" data-type="date" data-source="builtin" data-search="date 日付 カレンダー calendar">
+                  <span class="type-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="2.4" y="3.3" width="11.2" height="10.3" rx="1.6"/><path d="M2.4 6.3h11.2M5.6 1.9v2.6M10.4 1.9v2.6"/></svg></span>
+                  <span class="type-main"><span class="type-name">date</span><span class="type-desc">日付</span></span>
+                </button>
+                <button class="type-opt" data-testid="property-type-option" data-type="checkbox" data-source="builtin" data-search="checkbox 真偽 boolean bool チェック">
+                  <span class="type-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="11" height="11" rx="2.6"/><path d="M5.4 8.2l1.8 1.8 3.4-3.6"/></svg></span>
+                  <span class="type-main"><span class="type-name">checkbox</span><span class="type-desc">真偽(☑)</span></span>
+                </button>
+                <button class="type-opt" data-testid="property-type-option" data-type="select" data-source="builtin" data-search="select 選択 単一 選択肢 プルダウン">
+                  <span class="type-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14V3M4 3.5h7.5l-1.6 2.3 1.6 2.3H4"/></svg></span>
+                  <span class="type-main"><span class="type-name">select</span><span class="type-desc">単一選択(色付き)</span></span>
+                </button>
+                <button class="type-opt" data-testid="property-type-option" data-type="multi-select" data-source="builtin" data-search="multi-select multiselect 複数選択 select">
+                  <span class="type-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 4.5h8M5.5 8h8M5.5 11.5h8M2.5 4.5h.01M2.5 8h.01M2.5 11.5h.01"/></svg></span>
+                  <span class="type-main"><span class="type-name">multi-select</span><span class="type-desc">複数選択</span></span>
+                </button>
+                <button class="type-opt" data-testid="property-type-option" data-type="tags" data-source="builtin" data-search="tags タグ # チップ">
+                  <span class="type-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M6 2.5L4.3 13.5M11.7 2.5L10 13.5M3 6h10.5M2.5 10h10.5"/></svg></span>
+                  <span class="type-main"><span class="type-name">tags</span><span class="type-desc"># で候補・複数チップ</span></span>
+                </button>
+                <button class="type-opt" data-testid="property-type-option" data-type="star" data-source="builtin" data-search="star 星 評価 rating レーティング">
+                  <span class="type-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M8 2l1.7 3.6 3.9.5-2.9 2.7.8 3.9L8 10.9 4.5 12.7l.8-3.9L2.4 6.1l3.9-.5z"/></svg></span>
+                  <span class="type-main"><span class="type-name">star</span><span class="type-desc">0〜5 星</span></span>
+                </button>
+                <button class="type-opt" data-testid="property-type-option" data-type="progress" data-source="builtin" data-search="progress 進捗 パーセント percent bar">
+                  <span class="type-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 5.5h8M2 10.5h4.5"/><circle cx="12" cy="5.5" r="1.6"/><circle cx="8.5" cy="10.5" r="1.6"/></svg></span>
+                  <span class="type-main"><span class="type-name">progress</span><span class="type-desc">0-100% バー</span></span>
+                </button>
+                <button class="type-opt" data-testid="property-type-option" data-type="url" data-source="builtin" data-search="url link リンク http web">
+                  <span class="type-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 9.4a2.6 2.6 0 003.7 0l1.9-1.9a2.6 2.6 0 00-3.7-3.7l-1 1"/><path d="M9.4 6.6a2.6 2.6 0 00-3.7 0L3.8 8.5a2.6 2.6 0 003.7 3.7l1-1"/></svg></span>
+                  <span class="type-main"><span class="type-name">url</span><span class="type-desc">リンク</span></span>
+                </button>
+                <button class="type-opt" data-testid="property-type-option" data-type="note-link" data-source="builtin" data-search="note-link ノートリンク wikilink [[]] 関連">
+                  <span class="type-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2.2h5l3 3v8.6H4z"/><path d="M9 2.2V5.5h3"/></svg></span>
+                  <span class="type-main"><span class="type-name">note-link</span><span class="type-desc">[[note]] 型</span></span>
+                </button>
+
+                <div class="type-picker-group" data-group>JSON定義(.loamium/property-types.json)</div>
+                <button class="type-opt" data-testid="property-type-option" data-type="優先度" data-source="json" data-search="優先度 priority select 高 中 低">
+                  <span class="type-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14V3M4 3.5h7.5l-1.6 2.3 1.6 2.3H4"/></svg></span>
+                  <span class="type-main"><span class="type-name">優先度</span><span class="type-desc">select: 高 / 中 / 低</span></span>
+                  <span class="json-badge">JSON定義</span>
+                </button>
+                <button class="type-opt" data-testid="property-type-option" data-type="難易度" data-source="json" data-search="難易度 difficulty star 星">
+                  <span class="type-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M8 2l1.7 3.6 3.9.5-2.9 2.7.8 3.9L8 10.9 4.5 12.7l.8-3.9L2.4 6.1l3.9-.5z"/></svg></span>
+                  <span class="type-main"><span class="type-name">難易度</span><span class="type-desc">star(0〜5)</span></span>
+                  <span class="json-badge">JSON定義</span>
+                </button>
+                <button class="type-opt" data-testid="property-type-option" data-type="読書ステータス" data-source="json" data-search="読書ステータス reading status select 未読 読書中 読了">
+                  <span class="type-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14V3M4 3.5h7.5l-1.6 2.3 1.6 2.3H4"/></svg></span>
+                  <span class="type-main"><span class="type-name">読書ステータス</span><span class="type-desc">select: 未読 / 読書中 / 読了</span></span>
+                  <span class="json-badge">JSON定義</span>
+                </button>
+
+              </div>
+              <div class="type-picker-empty" id="typeEmpty" style="display:none;">一致する型がありません</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="proto-note">
+          <span class="tag">型ピッカー</span>
+          「+ プロパティを追加」で <strong>型候補メニュー</strong>を開き、上部の入力で <strong>インクリメンタル絞り込み</strong>(この欄は初期値 <code>s</code> で <code>select</code> / <code>tags</code> / <code>star</code> …等に既に絞られている。入力を続けると更に絞れる)。内蔵型 + <strong>JSON定義型</strong>(優先度・難易度・読書ステータス)を「JSON定義」バッジ付きで混在表示し D 方式を可視化。型選択後は キー名 → 値 の順に入力。
+        </div>
+
+        <!-- ==================================================================
+             D) タグ # 候補メニュー(プロパティ値の追加中)
+             ================================================================== -->
+        <div class="pc-demo-label">D. タグの `#` 候補メニュー(インクリメンタル絞り込み)</div>
+
+        <div class="pc" data-open="true">
+          <div class="pc-open" style="min-height:132px;">
+            <dl class="pc-rows" data-testid="properties-widget" data-editable="true">
+              <dt><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M6 2.5L4.3 13.5M11.7 2.5L10 13.5M3 6h10.5M2.5 10h10.5"/></svg>tags</dt>
+              <dd data-testid="properties-row" data-key="tags" style="position:relative;">
+                <span class="pc-tag" data-value="sample-book">#sample-book</span>
+                <!-- 追加入力中(`#sam` まで打った状態) -->
+                <span class="pc-chip-input"><span class="hash">#</span>sam<span class="body-caret"></span></span>
+
+                <!-- タグ候補メニュー(#sam で絞り込み済み) -->
+                <div class="tag-suggest" data-testid="tag-suggest-menu" style="top:26px; left:96px;">
+                  <div class="tag-suggest-hint"><span>タグを挿入</span><span><kbd>↑</kbd><kbd>↓</kbd> <kbd>Enter</kbd></span></div>
+                  <div id="tagList">
+                    <button class="tag-opt sel" data-testid="tag-suggest-option" data-tag="sample-book" data-search="sample-book"><span class="hash">#</span><span><mark>sam</mark>ple-book</span><span class="cnt">12</span></button>
+                    <button class="tag-opt" data-testid="tag-suggest-option" data-tag="sample-project" data-search="sample-project"><span class="hash">#</span><span><mark>sam</mark>ple-project</span><span class="cnt">7</span></button>
+                    <button class="tag-opt create-new" data-testid="tag-suggest-option" data-tag="sam" data-search="sam"><span class="plus">+</span> 新規作成: #sam</button>
+                  </div>
+                  <div class="type-picker-empty" id="tagEmpty" style="display:none;">一致するタグがありません</div>
+                </div>
+              </dd>
+            </dl>
+          </div>
+        </div>
+
+        <div class="proto-note">
+          <span class="tag">タグ補完</span>
+          tags 値の入力で <code>#</code> を打つと <strong>既存タグ候補</strong>をメニュー表示し、<strong>インクリメンタル絞り込み</strong>(<code>#sam</code> で <code>#sample-book</code> / <code>#sample-project</code> に絞れている)。末尾に「<strong>新規作成: #xxx</strong>」。同じ補完を本文でも使う(下)。
+        </div>
+
+        <!-- ==================================================================
+             E) 本文でのタグ入力(H1 vs タグ判定 + 入力中の候補メニュー)
+             ================================================================== -->
+        <div class="pc-demo-label">E. 本文の `#` 判定(H1 / タグ)+ 入力中の候補メニュー</div>
+
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h1"># 失敗から学ぶ</span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content"><span class="md-quote" style="border:none;padding:0;color:var(--text-faint);font-size:12px;">↑ <code>#</code> の直後にスペース → H1 見出し(大きく描画)</span></span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content">この本は <span class="body-tag" data-testid="body-tag" data-tag="sample-book">#sample-book</span> と <span class="body-tag" data-testid="body-tag" data-tag="science">#science</span> でタグ付け。<span class="md-quote" style="border:none;padding:0;color:var(--text-faint);font-size:12px;">← スペース無し → インラインタグチップ</span></span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+
+        <!-- 本文でタグを入力中(#sam まで打ち、候補メニューが開いている) -->
+        <div class="cm-line" style="position:relative;"><span class="gutter"></span><span class="cm-content">関連トピックは <span class="body-tag typing" data-tag="sam">#sam<span class="body-caret"></span></span>
+          <span class="tag-suggest" data-testid="tag-suggest-menu" style="top:1.7em; left:120px;">
+            <div class="tag-suggest-hint"><span>本文タグを挿入</span><span><kbd>Enter</kbd></span></div>
+            <div>
+              <button class="tag-opt sel" data-testid="tag-suggest-option" data-tag="sample-book"><span class="hash">#</span><span><mark>sam</mark>ple-book</span><span class="cnt">12</span></button>
+              <button class="tag-opt" data-testid="tag-suggest-option" data-tag="sample-project"><span class="hash">#</span><span><mark>sam</mark>ple-project</span><span class="cnt">7</span></button>
+              <button class="tag-opt create-new" data-testid="tag-suggest-option" data-tag="sam"><span class="plus">+</span> 新規作成: #sam</button>
+            </div>
+          </span>
+        </span></div>
+
+        <div class="proto-note" style="margin-top:96px;">
+          <span class="tag">本文タグ</span>
+          本文でも <code>#</code> でタグ候補メニュー + インクリメンタル絞り込み。判定は <strong><code>#</code> の直後がスペースなら Markdown 見出し(H1)</strong>、<strong>スペースが無ければタグ</strong>。上に <code># 失敗から学ぶ</code>(H1)と <code>#sample-book</code>(タグチップ)、入力中(<code>#sam</code>)の候補メニュー開状態を併記。
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<a class="proto-chip" href="index.html">← 5 案の比較へ</a>
+
+<script>
+  // ---- 星の描画(data-value 個ぶん点灯・クリックで増減) ----------------------
+  const STAR_ON  = '<svg class="on" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.7l1.9 3.85 4.25.62-3.07 3 .72 4.23L8 11.5 4.17 13.42l.72-4.23L1.82 6.17l4.25-.62z"/></svg>';
+  const STAR_OFF = '<svg class="off" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M8 2l1.7 3.6 3.9.5-2.9 2.7.8 3.9L8 10.9 4.5 12.7l.8-3.9L2.4 6.1l3.9-.5z"/></svg>';
+  function paintStars(el) {
+    const v = Math.max(0, Math.min(5, parseInt(el.dataset.value || '0', 10)));
+    let html = '';
+    for (let i = 1; i <= 5; i++) html += (i <= v ? STAR_ON : STAR_OFF);
+    el.innerHTML = html;
+  }
+  document.querySelectorAll('.pc-stars').forEach(el => {
+    paintStars(el);
+    el.addEventListener('click', (e) => {
+      const rect = el.getBoundingClientRect();
+      const idx = Math.ceil(((e.clientX - rect.left) / rect.width) * 5);
+      el.dataset.value = String(Math.max(0, Math.min(5, idx)));
+      paintStars(el);
+    });
+  });
+
+  // ---- checkbox トグル ------------------------------------------------------
+  document.querySelectorAll('.pc-check').forEach(el => {
+    el.addEventListener('click', () => {
+      const on = el.classList.toggle('on');
+      el.setAttribute('aria-checked', String(on));
+      el.innerHTML = on
+        ? '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>'
+        : '';
+    });
+  });
+
+  // ---- プロパティ たたむ/開く トグル(A欄など) ------------------------------
+  document.querySelectorAll('[data-testid="properties-toggle"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pc = btn.closest('.pc');
+      if (!pc) return;
+      const open = pc.dataset.open !== 'true';
+      pc.dataset.open = open ? 'true' : 'false';
+      const collapsedBtn = pc.querySelector('.pc-collapsed');
+      if (collapsedBtn) collapsedBtn.setAttribute('aria-expanded', String(open));
+    });
+  });
+
+  // ---- 型ピッカー: インクリメンタル絞り込み ---------------------------------
+  const typeFilter = document.getElementById('typeFilter');
+  function filterTypes() {
+    const q = (typeFilter.value || '').trim().toLowerCase();
+    let any = false;
+    document.querySelectorAll('#typeList .type-opt').forEach(opt => {
+      const hit = !q || (opt.dataset.search || '').toLowerCase().includes(q)
+                       || (opt.dataset.type || '').toLowerCase().includes(q);
+      opt.style.display = hit ? '' : 'none';
+      if (hit) any = true;
+    });
+    // 見出し(グループ)は配下に可視項目があるときだけ表示
+    document.querySelectorAll('#typeList [data-group]').forEach(g => {
+      let n = g.nextElementSibling, visible = false;
+      while (n && !n.hasAttribute('data-group')) {
+        if (n.classList.contains('type-opt') && n.style.display !== 'none') visible = true;
+        n = n.nextElementSibling;
+      }
+      g.style.display = visible ? '' : 'none';
+    });
+    document.getElementById('typeEmpty').style.display = any ? 'none' : '';
+  }
+  if (typeFilter) { typeFilter.addEventListener('input', filterTypes); filterTypes(); }
+
+  // ---- タグ候補: インクリメンタル絞り込み(D欄) -----------------------------
+  const tagList = document.getElementById('tagList');
+  if (tagList) {
+    // 静的に #sam で絞り込み済みの状態を提示。実装では入力に追従する。
+  }
+</script>
+</body>
+</html>
