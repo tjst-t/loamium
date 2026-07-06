@@ -18,12 +18,16 @@ import {
   noteWriteResponseSchema,
   errorResponseSchema,
   parsePropertyTypesJson,
+  propertyKeysResponseSchema,
   propertyTypesResponseSchema,
+  propertyTypeWriteResponseSchema,
   queryErrorResponseSchema,
   queryResponseSchema,
   searchResponseSchema,
   tagsResponseSchema,
+  type PropertyKeyCount,
   type PropertyTypeDef,
+  type SelectOption,
   type TagsResponse,
   type BacklinksResponse,
   type FileDeleteResponse,
@@ -120,6 +124,33 @@ export const api = {
    */
   async getPropertyTypes(): Promise<Record<string, PropertyTypeDef>> {
     const res = await request(propertyTypesResponseSchema, '/api/property-types');
+    return parsePropertyTypesJson(res.types);
+  },
+
+  /**
+   * vault 横断のプロパティキー集約 (GET /api/property-keys — Sd13ab1-2)。
+   * 全ノートの frontmatter トップレベルキーを件数付きで返す (件数降順→キー昇順)。
+   * キーファースト追加メニュー zone ① の vault 実使用キー候補に使う。
+   */
+  async getPropertyKeys(): Promise<PropertyKeyCount[]> {
+    const res = await request(propertyKeysResponseSchema, '/api/property-keys');
+    return res.keys;
+  },
+
+  /**
+   * 新規プロパティの汎用型を .loamium/property-types.json へ永続化する
+   * (PUT /api/property-types — Sd13ab1-2, D方式の横断固定)。返り値は妥当性検証済みの
+   * 「キー → 型定義」全体 (以後の解決に使う)。
+   */
+  async putPropertyType(
+    key: string,
+    def: { type: PropertyTypeDef['type']; options?: (string | SelectOption)[] },
+  ): Promise<Record<string, PropertyTypeDef>> {
+    const res = await request(propertyTypeWriteResponseSchema, '/api/property-types', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ key, def }),
+    });
     return parsePropertyTypesJson(res.types);
   },
 

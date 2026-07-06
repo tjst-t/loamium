@@ -51,6 +51,7 @@ export function deriveOp(method: string, reqPath: string): string {
     if (method === 'POST') return reqPath.endsWith('/rename') ? 'file.rename' : 'file.write';
     if (method === 'DELETE') return 'file.delete';
   }
+  if (reqPath === '/api/property-types' && method === 'PUT') return 'property-types.write';
   return `${method.toLowerCase()}.unknown`;
 }
 

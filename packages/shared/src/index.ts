@@ -14,6 +14,7 @@ export {
   hasKeyedProperties,
   parsePropInput,
   isDateLike,
+  summaryEntriesFor,
   type PropEntry,
   type PropScalar,
 } from './frontmatter.js';
@@ -32,6 +33,10 @@ export {
   clampStar,
   clampProgress,
   selectColorFor,
+  WELL_KNOWN_KEYS,
+  buildKeyOptions,
+  filterKeyOptions,
+  canCreateNewKey,
   type BuiltinPropertyType,
   type SelectColor,
   type SelectOption,
@@ -40,6 +45,9 @@ export {
   type PropertyValue,
   type BuiltinTypeMeta,
   type TypePickerOption,
+  type WellKnownKeyMeta,
+  type PropertyKeyCount,
+  type KeyOption,
 } from './property-types.js';
 export {
   extractTags,

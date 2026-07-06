@@ -19,6 +19,7 @@ import {
   VaultPathError,
   type BacklinksResponse,
   type NoteListResponse,
+  type PropertyKeysResponse,
   type QueryErrorResponse,
   type QueryResponse,
   type SearchResponse,
@@ -51,6 +52,13 @@ export function searchRoutes(index: VaultIndex): Hono<AppEnv> {
 
   app.get('/api/tags', (c) => {
     const res: TagsResponse = { tags: index.tags() };
+    return c.json(res);
+  });
+
+  // 全ノートの frontmatter トップレベルキーを件数付き集約 (Sd13ab1-2)。
+  // 読み取り専用 (全権限モードで許可)。chokidar 追従はインデックス側で担保。
+  app.get('/api/property-keys', (c) => {
+    const res: PropertyKeysResponse = { keys: index.propertyKeys() };
     return c.json(res);
   });
 

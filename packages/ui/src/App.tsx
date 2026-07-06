@@ -21,6 +21,7 @@ import {
   todayJournalDate,
   type FileMeta,
   type NoteMeta,
+  type PropertyKeyCount,
   type PropertyTypeDef,
   type TagCount,
 } from '@loamium/shared';
@@ -177,6 +178,8 @@ export function App(): JSX.Element {
   const [files, setFiles] = useState<FileMeta[] | null>(null);
   // 意味型スキーマ (.loamium/property-types.json → キー→型定義)。既定 {} (S87f4b7-2)
   const [propertyTypes, setPropertyTypes] = useState<Record<string, PropertyTypeDef>>({});
+  // vault 横断のプロパティキー候補 (件数付き — Sd13ab1-2)。キーファースト追加の zone ①
+  const [propertyKeys, setPropertyKeys] = useState<PropertyKeyCount[] | null>(null);
   const [tags, setTags] = useState<TagCount[] | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -254,6 +257,31 @@ export function App(): JSX.Element {
     }
   }, []);
 
+  // vault 横断プロパティキー候補の読込 (Sd13ab1-2)。取得失敗はサジェストなしで動く。
+  const refreshPropertyKeys = useCallback(async (): Promise<void> => {
+    try {
+      setPropertyKeys(await api.getPropertyKeys());
+    } catch (err) {
+      console.error('[loamium] failed to load property keys:', err);
+    }
+  }, []);
+
+  // 新規プロパティの型を .loamium/property-types.json へ永続化する (Sd13ab1-2)。
+  // 永続化後、型スキーマとキー候補を最新化する (別ファイルでも同じ型に解決される)。
+  const onPersistPropertyType = useCallback(
+    (key: string, def: PropertyTypeDef): void => {
+      void (async (): Promise<void> => {
+        try {
+          setPropertyTypes(await api.putPropertyType(key, def));
+        } catch (err) {
+          console.error('[loamium] failed to persist property type:', err);
+        }
+        void refreshPropertyKeys();
+      })();
+    },
+    [refreshPropertyKeys],
+  );
+
   const filesRef = useRef<FileMeta[] | null>(null);
   filesRef.current = files;
   const refreshFiles = useCallback(async (): Promise<void> => {
@@ -319,6 +347,8 @@ export function App(): JSX.Element {
         if (res.created) void refreshNotes();
         // 保存でインデックスが更新される → タグ候補ソースを最新化する (S45fa45)
         void refreshTags();
+        // frontmatter キーが増減しうる → キーファースト候補も最新化する (Sd13ab1-2)
+        void refreshPropertyKeys();
         setBacklinksToken((v) => v + 1);
         return true;
       } catch (err) {
@@ -332,7 +362,7 @@ export function App(): JSX.Element {
         savingRef.current = false;
       }
     },
-    [markSaved, refreshNotes, refreshTags],
+    [markSaved, refreshNotes, refreshTags, refreshPropertyKeys],
   );
 
   const onEditorChange = useCallback(
@@ -544,6 +574,7 @@ export function App(): JSX.Element {
     void refreshNotes();
     void refreshFiles();
     void refreshPropertyTypes();
+    void refreshPropertyKeys();
     void refreshTags();
     // ジャーナル日付ナビ用の today (server 応答があれば上書きされる)
     setToday(todayJournalDate());
@@ -1149,6 +1180,8 @@ export function App(): JSX.Element {
             notes={notes}
             files={files}
             propertyTypes={propertyTypes}
+            propertyKeys={propertyKeys}
+            onPersistPropertyType={onPersistPropertyType}
             tags={tags}
             onChange={onEditorChange}
             onSave={() => void saveNow()}

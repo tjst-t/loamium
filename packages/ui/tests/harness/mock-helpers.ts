@@ -46,5 +46,10 @@ export async function installCatchAll(page: Page): Promise<string[]> {
   await page.route('**/api/tags', (route) => {
     void route.fulfill(json({ tags: [] }));
   });
+  // GET /api/property-keys (キーファースト候補ソース — Sd13ab1-2) も起動時の定常呼び出し。
+  // 既定は空。vault 横断サジェストを検証するテストは後から自前の route で上書きする。
+  await page.route('**/api/property-keys', (route) => {
+    void route.fulfill(json({ keys: [] }));
+  });
   return unexpected;
 }

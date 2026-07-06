@@ -546,3 +546,62 @@ Sprint S87f4b7 は S9df823-1 のプロパティブロックを **たたむトグ
   (`body-tag` 装飾 + 補完メニュー)。ファイルは標準的な `#tag`(ピュア Markdown、Obsidian 互換)のまま。
 - 既存の `properties-chip-input`(tags 値の追加入力)へ `#` 補完を結線。既存オートコンプリート
   ([[リンク]] = `wikilink-autocomplete` / `/` = `slash-menu`)とは排他で干渉しない。
+
+## Sprint Sd13ab1 (レビュー第7ラウンド・プロパティUI改訂) 追加分 (2026-07-06)
+
+Sprint Sd13ab1 は S87f4b7 のプロパティ UI を実機フィードバックで改訂する:①畳み時の値要約バー
+②追加フローを型ファースト→キーファーストへ再設計(D方式=型はキーから決まる、と整合)+ vault 横断
+キーサジェスト + 新規キー型の永続化 ③行削除UI ④frontmatter 無しノートへの追加入口。ビジュアルの正は
+`prototype/props-redesign/chosen-v2.html`。ファイルは常に標準 YAML(ピュア Markdown 厳守)。
+既存 `properties-*` 契約は尊重(additive にのみ拡張)。
+
+### 畳み時の値要約バー (Sd13ab1-1)
+
+| data-testid | 画面 | 役割 |
+|---|---|---|
+| `properties-summary` | editor | 畳み時の値要約バー(`>` の後に tags チップ・status・★・日付など。多い場合 +N)。クリックで展開/畳みトグル。『プロパティ』というラベル語は出さず値/キー名のみ。open 時は非表示 |
+
+- `properties-widget` の `data-open="true" \| "false"` は S87f4b7 から継続。`properties-toggle`(`>`)は
+  常時可視で、その右に `properties-summary`(畳み時のみ)が並ぶ。要約は `.pc-sum-tag` / `.pc-sum-item` /
+  `.pc-sum-stars` / `.pc-sum-more`(+N)/ `.sum-sep`(·)で構成。
+
+### キーファーストの追加フロー (Sd13ab1-2)
+
+型ファースト(`property-type-picker` / `property-type-filter` / `property-type-option` を使う add フロー)は
+**キーファーストへ全面置換**。旧 `type-picker.e2e/mock`([AC-S87f4b7-3-*])は本 Sprint で撤去され、
+`props-add.e2e/mock`([AC-Sd13ab1-2-*])へ移行。値型別の描画テスト(`props-types.*`)は add フロー非依存で存続。
+
+| data-testid | 画面 | 役割 |
+|---|---|---|
+| `property-add-menu` | editor | 『+ プロパティを追加』で開くキーファースト候補メニュー(2 ゾーン) |
+| `property-add-filter` | editor | 候補メニュー上部の絞り込み入力(インクリメンタル。↑↓ 移動 / Enter 選択 / Esc 閉じる) |
+| `property-add-known` | editor | ① 既知/一意プロパティの候補行。`data-key` でキー特定。この文書に既にあるキーは `data-existing="true"` かつ `disabled`(一意なので重複不可)。`data-source="builtin" \| "json" \| "vault"` |
+| `property-add-new` | editor | ② 「新規作成: {入力}」の候補行。`data-key` = 入力値。選ぶと型セレクタへ |
+| `property-new-type-wrap` | editor | 新規キーの汎用型セレクタのコンテナ |
+| `property-new-type` | editor | 新規キーの汎用型チップ。`data-type="text" \| "number" \| "date" \| "checkbox" \| "select" \| "star"`。選ぶと型を永続化して追加 |
+
+- 既知キー = キー名の再入力なしで即追加、型は D方式でキーから解決(`resolvePropertyType`)。既存キーは無効。
+- 新規キー = 名前 → 汎用型選択 → `PUT /api/property-types` で `.loamium/property-types.json` に永続化
+  (以後そのキーは全ファイルで同じ型に解決 = D方式の横断固定)。ノート本文は標準 YAML のまま。
+- 候補ソース ① 既知/一意 = 内蔵 well-known(`WELL_KNOWN_KEYS`)+ JSON定義キー +
+  **`GET /api/property-keys`(vault 内で実際に使われている全 frontmatter キー・件数付き)**。他ファイルで
+  作ったキー(例 hoge)も候補に出る。chokidar による外部追加に追従。
+
+### サーバー追加 (Sd13ab1-2)
+
+- `GET /api/property-keys` — 全ノートの frontmatter トップレベルキーを件数付きで集約(件数降順→キー昇順。
+  既存 `GET /api/tags` と同型・read 分類・chokidar 追従)。レスポンス `{ keys: [{ key, count }] }`。
+- `PUT /api/property-types` — 新規プロパティの型を `.loamium/property-types.json` へ 1 キー分マージ書き込み
+  (mutate 分類 = read-only / append-only は 403・監査ログ `property-types.write` に記録)。
+  リクエスト `{ key, def: { type, options? } }`、レスポンス `{ key, types }`。型情報は `.loamium/` にのみ書き、
+  ノート `.md` には一切書かない(ピュア Markdown)。
+
+### 行削除UI と 空ノートへの追加入口 (Sd13ab1-3)
+
+| data-testid | 画面 | 役割 |
+|---|---|---|
+| `properties-row-delete` | editor | 展開時の各プロパティ行の削除ボタン(行ホバーで右端に ×)。`data-key`。クリックでその行(キー)を削除→標準 YAML 反映。全削除で `---` ブロックごと除去。旧 `properties-del`(S9df823)を chosen-v2 準拠へ改称(置換) |
+| `properties-empty-add` | editor | frontmatter 一切無しノートの控えめな追加入口。押すと `property-add-menu` が開き、最初のプロパティ選択で先頭に `---` frontmatter ブロックを生成 |
+
+- 旧 `properties-del`(S9df823 で追加)は `properties-row-delete` へ改称。参照していた既存テスト
+  (`properties.e2e/mock`)は本 Sprint で更新。`properties-summary` / `properties-empty-add` は additive 追加。

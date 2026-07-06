@@ -17,12 +17,19 @@ import {
   parseNote,
   type FileMeta,
   type NoteMeta,
+  type PropertyKeyCount,
   type PropertyTypeDef,
   type TagCount,
 } from '@loamium/shared';
 import { outlineExtension } from '../outline.js';
 import { uploadEnvFacet, uploadExtension, type UploadEnv } from '../upload.js';
-import { livePreviewExtension, notePathFacet, propertyTypesFacet } from '../live-preview.js';
+import {
+  livePreviewExtension,
+  notePathFacet,
+  persistPropertyTypeFacet,
+  propertyKeysFacet,
+  propertyTypesFacet,
+} from '../live-preview.js';
 import { slashMenuExtension } from '../slash-menu.js';
 import {
   bodyTagSuggestExtension,
@@ -82,6 +89,10 @@ export interface EditorProps {
   files: FileMeta[] | null;
   /** 意味型スキーマ (.loamium/property-types.json → キー→型定義)。既定 {} (S87f4b7-2) */
   propertyTypes: Record<string, PropertyTypeDef>;
+  /** vault 横断のプロパティキー候補 (件数付き — Sd13ab1-2)。null = 未ロード */
+  propertyKeys: PropertyKeyCount[] | null;
+  /** 新規プロパティの型を .loamium/property-types.json へ永続化する (Sd13ab1-2) */
+  onPersistPropertyType: (key: string, def: PropertyTypeDef) => void;
   /** タグ一覧 (件数付き — `#` 候補補完のソース)。null = 未ロード (S45fa45) */
   tags: TagCount[] | null;
   onChange: (text: string) => void;
@@ -110,6 +121,8 @@ export function Editor({
   notes,
   files,
   propertyTypes,
+  propertyKeys,
+  onPersistPropertyType,
   tags,
   onChange,
   onSave,
@@ -136,6 +149,10 @@ export function Editor({
   filesRef.current = files;
   const propertyTypesRef = useRef(propertyTypes);
   propertyTypesRef.current = propertyTypes;
+  const propertyKeysRef = useRef(propertyKeys);
+  propertyKeysRef.current = propertyKeys;
+  const onPersistPropertyTypeRef = useRef(onPersistPropertyType);
+  onPersistPropertyTypeRef.current = onPersistPropertyType;
   const tagsRef = useRef(tags);
   tagsRef.current = tags;
   const onOpenTagRef = useRef(onOpenTag);
@@ -201,6 +218,8 @@ export function Editor({
     syntaxHighlighting(mdHighlight),
     notePathFacet.of(path),
     propertyTypesFacet.of(propertyTypesRef.current),
+    propertyKeysFacet.of(propertyKeysRef.current ?? []),
+    persistPropertyTypeFacet.of((key, def) => onPersistPropertyTypeRef.current(key, def)),
     wikilinkEnvFacet.of(wikilinkEnvRef.current),
     tagSuggestEnvFacet.of(tagSuggestEnvRef.current),
     uploadEnvFacet.of(uploadEnvRef.current),

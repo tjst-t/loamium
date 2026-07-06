@@ -263,6 +263,28 @@ export class VaultIndex {
     return out;
   }
 
+  /**
+   * frontmatter トップレベルキー一覧 (件数付き、件数降順 → キー昇順 — Sd13ab1-2)。
+   * tags() と同型の集約。キーファースト追加メニューの vault 横断サジェストに使う。
+   * キーは NFC 正規化して照合する (DESIGN_PRINCIPLES: 比較は NFC)。
+   */
+  propertyKeys(): { key: string; count: number }[] {
+    const counts = new Map<string, { key: string; count: number }>();
+    for (const note of this.notes.values()) {
+      const fm = note.frontmatter;
+      if (fm === null) continue;
+      for (const rawKey of Object.keys(fm)) {
+        const key = rawKey.normalize('NFC');
+        const cur = counts.get(key);
+        if (cur) cur.count += 1;
+        else counts.set(key, { key, count: 1 });
+      }
+    }
+    return [...counts.values()].sort((a, b) =>
+      a.count !== b.count ? b.count - a.count : a.key < b.key ? -1 : 1,
+    );
+  }
+
   /** タグ一覧 (件数付き、件数降順 → タグ昇順)。大文字小文字は最初の表記を採用。 */
   tags(): TagCount[] {
     const counts = new Map<string, { tag: string; count: number }>();

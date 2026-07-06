@@ -242,3 +242,17 @@ export function parsePropInput(text: string): PropScalar {
 export function isDateLike(value: unknown): value is string {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
+
+/**
+ * 畳み時の値要約バー (Sd13ab1-1) 用: 表示するキー付きエントリを上限まで返す。
+ * raw (コメント・空行) は除外。上限を超えた分は more で件数だけ返す
+ * (バーが 1 行に収まるよう +N 表示する)。
+ */
+export function summaryEntriesFor(
+  entries: PropEntry[],
+  limit: number,
+): { shown: PropEntry[]; more: number } {
+  const keyed = entries.filter((e) => e.kind !== 'raw');
+  if (keyed.length <= limit) return { shown: keyed, more: 0 };
+  return { shown: keyed.slice(0, limit), more: keyed.length - limit };
+}

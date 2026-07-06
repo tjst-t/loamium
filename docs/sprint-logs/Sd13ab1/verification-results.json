@@ -1,0 +1,37 @@
+{
+  "sprint": "Sd13ab1",
+  "verified_at": "2026-07-06",
+  "status": "pass",
+  "machine_verdict": {
+    "source": "verify-run.json ($machine_authored = true)",
+    "test": { "exit_code": 0, "status": "pass", "junit": "461/461" },
+    "lint": { "exit_code": 0, "status": "pass" },
+    "ui-tests": { "exit_code": 0, "status": "pass", "junit": "246/246" }
+  },
+  "evidence": {
+    "existing_not_broken": "make test 461/461 (baseline 446 + property-keys 8 + props-keyfirst 7)。make test-ui 246/246 (baseline 232 − type-picker 4 + 新規 props-summary/add/delete/empty 18)。make lint 全 workspace pass。",
+    "ac_traceability": {
+      "Sd13ab1-1-AC1": "[AC-Sd13ab1-1-1] props-summary.e2e.spec.ts pass",
+      "Sd13ab1-1-AC2": "[AC-Sd13ab1-1-2] props-summary.e2e.spec.ts pass",
+      "Sd13ab1-2-AC1": "[AC-Sd13ab1-2-1] props-add.e2e.spec.ts pass",
+      "Sd13ab1-2-AC2": "[AC-Sd13ab1-2-2] props-add.e2e.spec.ts pass",
+      "Sd13ab1-2-AC3": "[AC-Sd13ab1-2-3] props-add.e2e.spec.ts pass",
+      "Sd13ab1-2-AC4": "[AC-Sd13ab1-2-4] tests/acceptance/property-keys.spec.ts pass",
+      "Sd13ab1-3-AC1": "[AC-Sd13ab1-3-1] props-delete.e2e.spec.ts pass",
+      "Sd13ab1-3-AC2": "[AC-Sd13ab1-3-2] props-empty.e2e.spec.ts pass"
+    },
+    "unit_tests": "packages/shared/src/props-keyfirst.test.ts (buildKeyOptions / filterKeyOptions / canCreateNewKey / summaryEntriesFor) 7/7 pass。",
+    "clean_text": "変更・新規全ファイルに NUL 混入なし(grep -P \\x00 スキャン済み)。ファイルは標準 YAML frontmatter のみ・独自記法/型メタ非混入(実ファイル検証済み)。",
+    "known_flaky": "terminal.spec.ts は full-suite で 1 回 fail → 単独 13/13 pass。最終 run-verify では test 461/461 pass(テスト未変更)。"
+  },
+  "independent_verifier": {
+    "requested": true,
+    "executed": false,
+    "reason": "本環境ではサブエージェント spawn 不可のため独立 verifier を起動できない。親(autopilot)が opus の read-only verifier を補完実行する前提。機械検証(run-verify.py)・6/8 ガード・セルフレビュー・クリーンテキスト検証は本セッションで実施済み。"
+  },
+  "done_judgment": {
+    "Sd13ab1-1": "done",
+    "Sd13ab1-2": "done",
+    "Sd13ab1-3": "done"
+  }
+}

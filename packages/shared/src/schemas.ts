@@ -366,6 +366,64 @@ export const propertyTypesResponseSchema = z.object({
 });
 export type PropertyTypesResponse = z.infer<typeof propertyTypesResponseSchema>;
 
+// ---- vault 横断プロパティキー集約 (GET /api/property-keys — Sd13ab1-2) ----
+
+/**
+ * GET /api/property-keys のレスポンス。全ノートの frontmatter トップレベルキーを
+ * 件数付きで集約する (既存 GET /api/tags と同型)。件数降順→キー昇順。
+ * キーファースト追加メニュー zone ① の vault 実使用キー候補に使う。
+ */
+export const propertyKeysResponseSchema = z.object({
+  keys: z.array(z.object({ key: z.string(), count: z.number().int().nonnegative() })),
+});
+export type PropertyKeysResponse = z.infer<typeof propertyKeysResponseSchema>;
+
+// ---- 型永続化 (PUT /api/property-types — Sd13ab1-2, D方式の横断固定) ----
+
+/**
+ * 新規プロパティ作成時に選んだ汎用型を `.loamium/property-types.json` へ永続化する
+ * リクエスト。以後そのキーは全ファイルで同じ型に解決される (D方式の横断固定)。
+ * options は select/multi-select の選択肢 (string | {value,color})。
+ * 型情報は .loamium/ にのみ書き、ノート本文 (.md) には一切書かない (ピュア Markdown)。
+ */
+export const propertyTypeWriteRequestSchema = z.object({
+  key: z.string().min(1),
+  def: z.object({
+    type: z.enum([
+      'text',
+      'number',
+      'date',
+      'checkbox',
+      'select',
+      'multi-select',
+      'tags',
+      'star',
+      'progress',
+      'url',
+      'note-link',
+    ]),
+    options: z
+      .array(
+        z.union([
+          z.string(),
+          z.object({
+            value: z.string(),
+            color: z.enum(['green', 'blue', 'amber', 'purple', 'red', 'gray']).optional(),
+          }),
+        ]),
+      )
+      .optional(),
+  }),
+});
+export type PropertyTypeWriteRequest = z.infer<typeof propertyTypeWriteRequestSchema>;
+
+/** PUT /api/property-types のレスポンス。書き込んだキーと結果の型定義全体を返す。 */
+export const propertyTypeWriteResponseSchema = z.object({
+  key: z.string(),
+  types: z.unknown(),
+});
+export type PropertyTypeWriteResponse = z.infer<typeof propertyTypeWriteResponseSchema>;
+
 // ---- ターミナル WS メッセージ (Sb7f458-1) ----
 
 /** クライアント → サーバー: キー入力 or 端末リサイズ */
