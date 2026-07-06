@@ -495,3 +495,37 @@ Sprint S9df823 は文書冒頭の YAML frontmatter を **Obsidian Properties 風
   未編集キーの原文は verbatim 保持。壊れた YAML は widget 化せず生ソース表示のまま。
 - スラッシュメニューに `data-command="properties"`(『プロパティ』)を追加。frontmatter 無し
   ノートの文書冒頭に `---` / `tags: []` / `---` を生成する(既にあれば二重挿入しない)。
+
+## Sprint S87f4b7 (レビュー第6ラウンド・プロパティUI再設計 + 意味型D方式) 追加分 (2026-07-06)
+
+Sprint S87f4b7 は S9df823-1 のプロパティブロックを **たたむトグル × ミニマル2カラム密行 ×
+意味型(D方式)** へ再設計する。ビジュアルの正は `prototype/props-redesign/chosen.html`。
+既存 `properties-*` 契約は尊重(additive にのみ拡張)。タグ `#` 補完(tag-suggest-*)/
+本文インラインタグ(body-tag)は次 Sprint S45fa45 の範囲で、本 Sprint では追記しない。
+
+### たたみ + 密行 + 型ピッカー (S87f4b7-1 / -3)
+
+| data-testid | 画面 | 役割 |
+|---|---|---|
+| `properties-toggle` | editor | プロパティの畳む/開くトグル。`aria-expanded` で状態、閉時は右向き `>`(要約テキスト無し)。既定は畳み。畳み状態は notePath 単位で保持 |
+| `property-type-picker` | editor | 『+ プロパティを追加』で開く型候補コンテキストメニュー |
+| `property-type-filter` | editor | 型ピッカー上部の絞り込み入力(インクリメンタル。↑↓ 移動 / Enter 選択 / Esc 閉じる) |
+| `property-type-option` | editor | 型候補項目。`data-type`(内蔵型名 or JSON定義のキー名)+ `data-source="builtin" \| "json"`。JSON定義は「JSON定義」バッジ付き |
+| `properties-select-menu` | editor | select 値の編集中に開く選択肢メニュー(options 定義があるとき) |
+| `properties-select-option` | editor | select 選択肢項目。`data-value` + 色ドット |
+
+- `properties-widget` は再設計後も frontmatter ブロックのルート。`data-open="true" \| "false"`
+  を additive 付与。畳み時は密行が非表示(DOM には残る)。`data-editable="true"` は従来どおり。
+- `properties-value-body` の `data-type` は意味型へ拡張: `text` / `number` / `date` / `select` /
+  `star` / `progress` / `url` / `note-link`(+ tags/multi-select は `properties-chip`、
+  真偽は従来どおり `properties-bool`)。
+- 『+ プロパティを追加』(`properties-add`)は旧「キー+値」直接フォームから **型ピッカー経由**
+  へ変更。型選択 → `properties-new-key` → `properties-new-value` の順で標準 YAML の新プロパティを追加。
+- 値の書き戻しは常に標準 YAML スカラー(star/number/progress→数値、checkbox→真偽、
+  tags/multi-select→フラット配列、select/url/note-link/date/text→文字列)。型情報はファイルに書かない。
+
+### 意味型スキーマ配信 (S87f4b7-2)
+
+- サーバー: `GET /api/property-types` が `.loamium/property-types.json`(キー→型定義)の
+  生 JSON を `{ types }` で返す(無ければ `{}`、read 分類で全モード許可)。壊れた JSON でも
+  200 で `{}` を返し、UI 側 `parsePropertyTypesJson`(zod)が妥当なエントリのみ採用してフォールバック。

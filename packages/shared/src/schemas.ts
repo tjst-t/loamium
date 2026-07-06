@@ -353,6 +353,19 @@ export const healthResponseSchema = z.object({
 });
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
 
+// ---- 意味型スキーマ配信 (GET /api/property-types — S87f4b7-2) ----
+
+/**
+ * GET /api/property-types のレスポンス。`.loamium/property-types.json` の生 JSON を
+ * そのまま `types` に載せる (無ければ {})。中身の妥当性検証はクライアント側
+ * (parsePropertyTypesJson) に委ね、壊れた JSON でもクラッシュしないため types は
+ * z.unknown (緩い) にする — サーバーはユーザーの JSON を拒否しない (AC-S87f4b7-2-3)。
+ */
+export const propertyTypesResponseSchema = z.object({
+  types: z.unknown(),
+});
+export type PropertyTypesResponse = z.infer<typeof propertyTypesResponseSchema>;
+
 // ---- ターミナル WS メッセージ (Sb7f458-1) ----
 
 /** クライアント → サーバー: キー入力 or 端末リサイズ */

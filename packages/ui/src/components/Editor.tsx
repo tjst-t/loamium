@@ -13,10 +13,15 @@ import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { syntaxHighlighting, HighlightStyle } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
-import { parseNote, type FileMeta, type NoteMeta } from '@loamium/shared';
+import {
+  parseNote,
+  type FileMeta,
+  type NoteMeta,
+  type PropertyTypeDef,
+} from '@loamium/shared';
 import { outlineExtension } from '../outline.js';
 import { uploadEnvFacet, uploadExtension, type UploadEnv } from '../upload.js';
-import { livePreviewExtension, notePathFacet } from '../live-preview.js';
+import { livePreviewExtension, notePathFacet, propertyTypesFacet } from '../live-preview.js';
 import { slashMenuExtension } from '../slash-menu.js';
 import {
   notesUpdatedAnnotation,
@@ -69,6 +74,8 @@ export interface EditorProps {
   notes: NoteMeta[] | null;
   /** 添付ファイル一覧 (![[file]] プレビューの解決・サイズ表示)。null = 未ロード */
   files: FileMeta[] | null;
+  /** 意味型スキーマ (.loamium/property-types.json → キー→型定義)。既定 {} (S87f4b7-2) */
+  propertyTypes: Record<string, PropertyTypeDef>;
   onChange: (text: string) => void;
   onSave: () => void;
   /** 解決済み [[リンク]] クリック — 対象ノートを開く */
@@ -92,6 +99,7 @@ export function Editor({
   seek,
   notes,
   files,
+  propertyTypes,
   onChange,
   onSave,
   onOpenNote,
@@ -114,6 +122,8 @@ export function Editor({
   notesRef.current = notes;
   const filesRef = useRef(files);
   filesRef.current = files;
+  const propertyTypesRef = useRef(propertyTypes);
+  propertyTypesRef.current = propertyTypes;
   const onOpenNoteRef = useRef(onOpenNote);
   const onOpenNoteAtLineRef = useRef(onOpenNoteAtLine);
   const onCreateAndOpenNoteRef = useRef(onCreateAndOpenNote);
@@ -168,6 +178,7 @@ export function Editor({
     markdown({ base: markdownLanguage }),
     syntaxHighlighting(mdHighlight),
     notePathFacet.of(path),
+    propertyTypesFacet.of(propertyTypesRef.current),
     wikilinkEnvFacet.of(wikilinkEnvRef.current),
     uploadEnvFacet.of(uploadEnvRef.current),
     uploadExtension(),

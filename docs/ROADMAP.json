@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "S87f4b7",
+    "current_sprint": "S45fa45",
     "total": 21,
-    "done": 19,
+    "done": 20,
     "in_progress": 0,
-    "remaining": 2,
-    "percentage": 90
+    "remaining": 1,
+    "percentage": 95
   },
   "execution_order": [
     "Sd63ad1",
@@ -1777,13 +1777,13 @@
     },
     "S87f4b7": {
       "title": "プロパティUI再設計 + 意味型(D方式)",
-      "status": "pending",
+      "status": "done",
       "description": "レビュー第6ラウンド。プロパティブロックを『たたむ=> のみ / 開く=ミニマル2カラム密行 / プロパティ追加』に再設計し、キーごとの意味型(D方式: 内蔵型のヒューリスティック + .loamium/property-types.json のJSON定義で上書き)を導入して値をリッチ描画(tags/select/multi-select/star/progress/date/checkbox/url/note-link/number/text)。追加時は型ピッカー(コンテキストメニュー + インクリメンタル絞り込み)。ファイル正本は常に標準 YAML スカラー(ピュア Markdown 厳守、型情報はファイルに書かない)。プロトタイプ prototype/props-redesign/chosen.html がビジュアルの正。",
       "milestone": false,
       "stories": {
         "S87f4b7-1": {
           "title": "プロパティブロックの再設計(折りたたみ+ミニマル2カラム)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "added_in_review": "review_r6",
@@ -1793,37 +1793,37 @@
               "id": "S87f4b7-1-AC1",
               "description": "frontmatter があるノートで、プロパティは既定で畳まれ、本文直前に `>` トグルのみが表示される(プロパティ要約テキストは出さない)",
               "test": "[AC-S87f4b7-1-1] in packages/ui/tests/e2e/props-layout.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "S87f4b7-1-AC2",
               "description": "`>` をクリックすると枠・ヘッダのないミニマル2カラム密行(キー淡色+型アイコン / 値)で展開し、`v` で再度畳める。占有高さは現状のフル枠より明確に小さい",
               "test": "[AC-S87f4b7-1-2] in packages/ui/tests/e2e/props-layout.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "S87f4b7-1-AC3",
               "description": "展開時の末尾『+ プロパティを追加』からプロパティを追加でき、frontmatter が無いノートにも生成される。畳み状態はノートを切り替えても妥当に保たれる",
               "test": "[AC-S87f4b7-1-3] in packages/ui/tests/e2e/props-layout.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S87f4b7-1-1": {
               "title": "折りたたみ + 2カラム密行",
               "description": "properties.ts/live-preview を chosen.html に合わせて再設計(既定畳み=`>`、展開=密2カラム)。畳み状態の保持(ノート単位)。",
-              "status": "pending"
+              "status": "done"
             },
             "S87f4b7-1-2": {
               "title": "プロパティ追加導線",
               "description": "展開時の追加ボタンを型ピッカー(S87f4b7-3)に接続。frontmatter 生成/除去は既存 frontmatter モデルを再利用。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S87f4b7-2": {
           "title": "意味型システム(D方式)と型別描画",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "added_in_review": "review_r6",
@@ -1833,42 +1833,42 @@
               "id": "S87f4b7-2-AC1",
               "description": "キーごとの意味型が『内蔵ヒューリスティック(例 rating/score→star, status/state→select, created/due→date, progress→progress, tags→tags, URLらしき→url, [[..]]→note-link, 真偽→checkbox)』で解決され、`.loamium/property-types.json` のキー→型定義があればそれで上書きされる",
               "test": "[AC-S87f4b7-2-1] in tests/acceptance/property-types.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "S87f4b7-2-AC2",
               "description": "内蔵型 text/number/date/checkbox/select/multi-select/tags/star/progress/url/note-link が型に応じてリッチ描画・編集でき(star はクリックで増減、select は選択肢+色、progress はバー等)、編集結果は標準 YAML スカラー(rating:4 / 真偽 / 0-100 数値 / 文字列 / フラット配列)としてファイルに書き戻る",
               "test": "[AC-S87f4b7-2-2] in packages/ui/tests/e2e/props-types.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "S87f4b7-2-AC3",
               "description": "`.loamium/property-types.json` は zod で検証され、壊れていてもクラッシュせず内蔵ヒューリスティックにフォールバックする。型情報はノートファイルに一切書き込まれない(ファイルはピュア Markdown のまま)",
               "test": "[AC-S87f4b7-2-3] in tests/acceptance/property-types.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S87f4b7-2-1": {
               "title": "型解決とスキーマ",
               "description": "packages/shared に型定義(zod)と『キー→意味型』解決(ヒューリスティック + .loamium/property-types.json 上書き)。select の選択肢/色定義。ユニットテスト必須。",
-              "status": "pending"
+              "status": "done"
             },
             "S87f4b7-2-2": {
               "title": "サーバー: 型スキーマ配信",
               "description": "GET /api/property-types で .loamium/property-types.json を返す(無ければ空)。read 分類。受け入れテスト。",
-              "status": "pending"
+              "status": "done"
             },
             "S87f4b7-2-3": {
               "title": "型別の値レンダラー/エディタ",
               "description": "star/select/multi-select/progress/date/checkbox/url/note-link/tags/number/text の描画+編集。書き戻しは標準 YAML スカラー。二層テスト。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S87f4b7-3": {
           "title": "プロパティ追加の型ピッカー(コンテキストメニュー+絞り込み)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "added_in_review": "review_r6",
@@ -1878,25 +1878,25 @@
               "id": "S87f4b7-3-AC1",
               "description": "『+ プロパティを追加』で型候補のコンテキストメニューが開き、上部の入力でインクリメンタルに絞り込める(例 `s` で select/star/... に絞る)",
               "test": "[AC-S87f4b7-3-1] in packages/ui/tests/e2e/type-picker.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "S87f4b7-3-AC2",
               "description": "候補は内蔵型と `.loamium/property-types.json` の JSON定義型の両方を含み、JSON定義型は区別表示される。型選択→キー名入力→値入力 の流れで標準 YAML の新プロパティが追加される",
               "test": "[AC-S87f4b7-3-2] in packages/ui/tests/e2e/type-picker.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S87f4b7-3-1": {
               "title": "型ピッカーUI",
               "description": "コンテキストメニュー + フィルタ入力 + キーボードナビ。内蔵 + JSON定義を混在提示(バッジ)。prototype 契約(property-type-picker/-filter/-option)に一致。",
-              "status": "pending"
+              "status": "done"
             },
             "S87f4b7-3-2": {
               "title": "追加フロー結線とテスト",
               "description": "型選択→キー→値→frontmatter 追記(型に沿った初期値)。mock + E2E([AC-] タグ)。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
