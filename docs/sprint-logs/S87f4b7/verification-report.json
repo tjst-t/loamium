@@ -1,16 +1,154 @@
 {
   "sprint": "S87f4b7",
-  "verifier_agent": "not_run",
-  "reason": "この実行環境ではサブエージェント (独立 read-only Claude セッション) を spawn できないため、--with-verifier で要求される独立 verifier を起動できなかった。代替として、実装セッション内で以下を必ず実施した: (1) 機械検証 hooks/run-verify.py(exit code + JUnit)で overall=pass、(2) 6/8 Done ガード評価(fail 0)、(3) セルフレビュー(decisions R-1)、(4) 全成果物のクリーンテキスト検査(NUL/制御文字なし)。独立検証は親 autopilot 側で opus の read-only verifier により補完される想定。",
-  "trust_source_note": "本レポートは verifier 未実行のプレースホルダであり、trust source としての自己採点バイアス低減効果は持たない。最終判定は親 autopilot の補完 verifier に委ねる。",
-  "self_review_summary": {
-    "checked": [
-      "star 減算(同星再クリックで -1)ロジック",
-      "select 選択肢クリックの blur/commit 二重発火なし(mousedown preventDefault)",
-      "型情報の非永続(実ファイル検証で type: 等が混入しない)",
-      "壊れ property-types.json のクラッシュ耐性(サーバー 200 {} + クライアント zod fallback)",
-      "既存 S9df823 テストのアサーション非弱体化(展開手順・型ピッカー導線のみ追従)"
-    ],
-    "issues_found": []
+  "verified_at": "2026-07-06T00:00:00Z",
+  "verifier_model": "claude-opus-4-8 (read-only, separate session)",
+  "overall": "pass",
+  "findings": [
+    {
+      "id": "F-1",
+      "category": "machine_verdict_reconciliation",
+      "status": "pass",
+      "ac": null,
+      "summary": "verify-run.json (machine-authored) の runs (test exit_code 0 / junit 432 pass 0 fail 0 skip、lint exit_code 0、ui-tests exit_code 0 / junit 220 pass 0 fail 0 skip) を独立に再実行して再現。independent `make test` -> Test Files 36 passed, Tests 432 passed, EXIT 0 (24.7s)。`make test-ui` -> 220 passed (3.5m), EXIT 0、mock/e2e とも全緑で property-types.spec の 14 shared ユニット・型ピッカー/密行/意味型 E2E を含む。`make lint` -> tsc --noEmit 全 workspace + tests/tsconfig で EXIT 0。verification-results.json の自己申告 (test 432 / ui 220 / lint) と完全一致。自己申告が言及した初回 terminal.spec の並列 audit-log timing flaky は本再実行では顕在化せず、緑チェックは機械 pass に裏付けられている。",
+      "evidence": "independent make test -> 432 passed EXIT 0; make test-ui -> 220 passed EXIT 0; make lint -> EXIT 0; verify-run.json runs.exit_code=0 x3, junit 432/220 pass 0 skip",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "F-2",
+      "category": "AC-S87f4b7-1-1",
+      "status": "pass",
+      "ac": "S87f4b7-1-AC1",
+      "summary": "既定畳み=`>` のみ・要約テキスト無し が実描画で到達可能。renderProperties (properties.ts) は module-level propsOpenState Map (notePathKey→bool、既定 false) から open を読み wrap.dataset.open を設定、head には properties-toggle (chevron) のみを append し、密行 dl は pc-open 内で data-open=false のとき CSS で display:none。props-layout.e2e [AC-S87f4b7-1-1] が実ブラウザ→実 Vite→実サーバーで data-open=false、properties-toggle 可視、properties-row/-chip の first() が toBeHidden、boundingBox().height < 32px をアサートし独立再実行で pass。密行は DOM に残るが視覚サマリは出さない (AC の『要約テキストを出さない』を満たす)。占有比較は絶対上限 32px を代理指標とし、旧フル枠との直接比較は AC-1-2 の collapsed<expanded で補完される。",
+      "evidence": "properties.ts:68 propsOpenState Map / :172-173 dataset.open / :219-241 toggle; props-layout.e2e.spec.ts:46-82 (rerun pass)",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "F-3",
+      "category": "AC-S87f4b7-1-2",
+      "status": "pass",
+      "ac": "S87f4b7-1-AC2",
+      "summary": "展開=ミニマル2カラム密行 + `v` 再畳み・占有比較が実観測される。toggle click は propsOpenState を反転し dataset.open を切替 (mousedown preventDefault でフォーカス保持)。密行は dl.pc-rows に properties-key (型アイコン+キー淡色) / 値の 2 カラム。props-layout.e2e [AC-S87f4b7-1-2] が collapsedBox 取得→toggle→data-open=true・status 行『進行中』・rating の .pc-star ×5・expandedBox.height > collapsedBox.height・再 toggle で data-open=false かつ statusRow toBeHidden をアサート、独立再実行で pass。占有が展開時 > 畳み時 (=畳みが明確に小) を実測している。",
+      "evidence": "properties.ts:232-240 toggle 反転; props-layout.e2e.spec.ts:84-125 (rerun pass)",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "F-4",
+      "category": "AC-S87f4b7-1-3",
+      "status": "pass",
+      "ac": "S87f4b7-1-AC3",
+      "summary": "『+ プロパティを追加』・frontmatter 無しノート生成・畳み状態保持が全て実装され到達可能。properties-add click→型ピッカー→beginAddForm→applyAdd→entries.push→structuralCommit で CodeMirror ドキュメント (正本 Markdown 1 本) の frontmatter 範囲を置換。frontmatter 無しノートは slash /prop→insertFrontmatterProperties で ---...--- を生成後に型ピッカー追加。畳み状態は notePath 単位の module Map で保持 (ファイルには書かない)。props-layout.e2e [AC-S87f4b7-1-3] が frontmatter 無し none.md に /prop 生成→型ピッカーで number 追加→実ファイルが `---\\n`開始かつ `ページ数: 336`、none.md 開 状態→other.md 既定畳み (data-open=false)→none.md へ戻ると data-open=true を実ブラウザで検証、独立再実行で pass。",
+      "evidence": "properties.ts:820-923 add フロー / :68 Map 保持; props-layout.e2e.spec.ts:127-174 (rerun pass)",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "F-5",
+      "category": "AC-S87f4b7-2-1",
+      "status": "pass",
+      "ac": "S87f4b7-2-AC1",
+      "summary": "load-bearing。意味型がキーから解決 + JSON定義上書きされる経路が実在。shared/property-types.ts heuristicType はキー名を NFC+lowercase 照合し STAR_KEYS(rating/score/stars/評価)→star、SELECT_KEYS(status/state/…)→select、DATE_KEYS(created/updated/due/…)→date、PROGRESS_KEYS→progress、TAGS_KEYS→tags、URL_KEYS→url、値ベースで array→tags / boolean→checkbox / [[..]]→note-link / https?→url / isDateLike→date / number→number / else→text。resolvePropertyType は defs[key] があれば source='json' で上書き、無ければ 'builtin'。GET /api/property-types (routes/property-types.ts) が .loamium/property-types.json の生 JSON を返し、クライアントで parsePropertyTypesJson が zod 検証。property-types.spec.ts [AC-S87f4b7-2-1] が実サーバー subprocess+実 fetch で 空→{} / JSON上書き (status→text source=json、優先度→select+色 options)、shared property-types.test.ts 14 件がヒューリスティック網羅 (キー名/値/NFC・大文字・全角)・上書き・混在提示を検証。全て独立再実行で pass。",
+      "evidence": "property-types.ts:108-174 heuristic+resolve; routes/property-types.ts:21-33; property-types.test.ts:25-118; property-types.spec.ts:49-108 (rerun pass)",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "F-6",
+      "category": "AC-S87f4b7-2-2",
+      "status": "pass",
+      "ac": "S87f4b7-2-AC2",
+      "summary": "最重要・ピュア Markdown 厳守。型別リッチ描画・編集後の実ファイルが標準 YAML スカラーであることを E2E が実検証。properties.ts の renderStars (data-index 星、同星再クリックで i-1 減算=clampStar)、renderProgress (bar>i + 数値編集)、renderSelect (dot+color=selectColorFor、options 色反映)、renderCheckbox、renderUrl/renderNoteLink/number/text/tags チップを実装。書戻しは makeNewEntry / value 編集で標準 YAML スカラー・配列のみ (型情報を書かない)。props-types.e2e [AC-S87f4b7-2-2] が実ブラウザで star/progress(data-value=80)/select(JSON options 色 data-color=blue)/checkbox/date/url/note-link(data-target)/number/text/tags 描画を確認し、star4クリック→rating=4、checkbox toggle、select 選択肢『高』、progress 数値入力 55 の後 Ctrl+S→実ファイル readFile が `rating: 4` / `再読したい: false` / `優先度: 高` / `progress: 55` / `tags: [sample-book, science]` verbatim / 未編集キー保持 を byte-check、expectCleanMarkdown (制御文字なし・^blockid なし・`id::` なし・`type:` なし)。型情報がファイルに一切書かれないことを実観測。独立再実行で pass。",
+      "evidence": "properties.ts:504-538 stars / :540-580 progress+select / :958-978 makeNewEntry; props-types.e2e.spec.ts:75-161 real-file assert (rerun pass)",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "F-7",
+      "category": "AC-S87f4b7-2-3",
+      "status": "pass",
+      "ac": "S87f4b7-2-AC3",
+      "summary": "壊れ property-types.json でクラッシュせず内蔵ヒューリスティックへフォールバック + 型情報非永続を確認。サーバー routes/property-types.ts は readFile→JSON.parse を try/catch し、ENOENT も壊れ JSON もどちらも {} を 200 で返す (ユーザー JSON を拒否しない)。クライアント parsePropertyTypesJson は zod safeParse を 1 エントリずつ行い、不正 type/color を黙って捨て妥当分のみ採用 (トップレベル非オブジェクトも {})。property-types.spec.ts [AC-S87f4b7-2-3] が `{ this is : not valid json ,,, ` →200 {}→resolvePropertyType('rating')→star fallback、一部壊れ (不明 type=rainbow / color=octarine) は 良い のみ採用、PUT した .md を getTypes 後に readFile して note と byte一致・`type:` 非混入・^blockid 非混入・vault 直下に property-types.json が無いことを検証。props-types.mock でも壊れ定義の実ブラウザ fallback を確認。zod スキーマは schemas.ts propertyTypesResponseSchema (types: z.unknown で緩く受ける=サーバーが拒否しない設計) と property-types.ts propertyTypeDefSchema (厳格検証) の二層。独立再実行で pass。",
+      "evidence": "routes/property-types.ts:24-30 catch->{}; property-types.ts:92-104 safeParse per-entry; property-types.spec.ts:111-170 (rerun pass); schemas.ts propertyTypesResponseSchema",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "F-8",
+      "category": "AC-S87f4b7-2-2_readonly_classification",
+      "status": "pass",
+      "ac": "S87f4b7-2-AC1",
+      "summary": "GET /api/property-types が read 分類であることを実観測。app.ts に app.route('/', propertyTypesRoutes(config)) で結線、GET のみ登録 (書き込みメソッド不在)。property-types.spec.ts が startServer({mode:'read-only'}) で GET→status 200 かつ 難易度:{type:star} を返すことをアサートし、read-only モードでも許可される (permission ミドルウェアの読み取り扱い) ことを実サーバーで検証。書き込み API でないため監査ログ要件 (書込系のみ) の対象外で整合。",
+      "evidence": "app.ts:46 route 結線; property-types.spec.ts:100-108 read-only 200 (rerun pass)",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "F-9",
+      "category": "AC-S87f4b7-3-1",
+      "status": "pass",
+      "ac": "S87f4b7-3-AC1",
+      "summary": "型ピッカーのコンテキストメニュー + インクリメンタル絞り込みが実装・到達可能。createTypePicker (properties.ts) が property-type-picker / property-type-filter / property-type-option を生成、filterTypeOptions (shared、NFC+lowercase 部分一致で search 語+name 照合) で絞り、無一致で .type-picker-empty を表示。type-picker.e2e [AC-S87f4b7-3-1] が properties-add→picker 可視・filter フォーカス、`s` で select/star 残り date は count 0、`star` で 1 件、`zzzznope` で option 0 件かつ empty state 可視、Esc で picker toBeHidden を実ブラウザで検証。shared property-types.test.ts が `'s'`→select/star 含み date 非含み、`'star'`→[star] を単体検証。独立再実行で pass。",
+      "evidence": "properties.ts:994-1082 createTypePicker; property-types.ts:252-259 filterTypeOptions; type-picker.e2e.spec.ts:56-91 (rerun pass)",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "F-10",
+      "category": "AC-S87f4b7-3-2",
+      "status": "pass",
+      "ac": "S87f4b7-3-AC2",
+      "summary": "内蔵型 + JSON定義型の混在・区別表示 + 型→キー→値→標準 YAML 追加が実装・到達可能。buildTypePickerOptions が builtin (source=builtin) と defs 由来 (source=json、name=キー名) を返し、createTypePicker が data-source/data-type と JSON定義に .json-badge を付す。JSON定義選択時 beginAddForm が keyInput.value=opt.name で事前入力、applyAdd→makeNewEntry で型に沿った標準 YAML 初期値。type-picker.e2e [AC-S87f4b7-3-2] が builtin(text) と json(優先度/難易度) 両方可視・優先度に .json-badge、優先度選択→keyInput が value『優先度』・値『高』→追加行が select data-color=red 描画→Ctrl+S→実ファイル `優先度: 高` / `status: x` 保持 / `type:` 非混入 を検証。properties.mock『重複キー拒否』も型ピッカー number 経由に追従しつつ keyedKeys().has で拒否・rating→star(data-value=5) 描画を保持。独立再実行で pass。",
+      "evidence": "property-types.ts:228-250 buildTypePickerOptions; properties.ts:840-923 beginAddForm/applyAdd; type-picker.e2e.spec.ts:93-145 real-file assert (rerun pass)",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "F-11",
+      "category": "test_weakening_scan",
+      "status": "pass",
+      "ac": null,
+      "summary": "実装者申告『S9df823 既存テストを新 UX に更新 (弱体化せず)』を精査。properties.e2e / properties.mock の diff は (a) expandProps ヘルパ (既定畳み→data-open=true へ開く) の各テスト冒頭挿入、(b) 追加フローを型ピッカー経由 (addPropertyViaPicker / properties-add→property-type-option) に配線、の 2 点のみ。実質アサーションは全て保持: clean YAML round-trip (rating:5 追加→実ファイル、日本語値 status→完了、tags チップ gamma 追加/alpha 削除)、add-delete (全削除で --- 消滅・本文残存)、source-edit (properties-edit-source→生 YAML→カーソル追従)、complex-readonly (meta ネスト→properties-value-readonly、input 無し)、broken-YAML fallback (parsePropertiesModel は本 diff 不変)、重複キー拒否 (5 行のまま) を継続検証。唯一の値変化『重複キーテスト』末尾は rating→意味型 star 解決に伴い properties-value-body '5' から [data-type=star] data-value=5 へ更新 (値 5 は保持) で弱体化でなく正当な追従。AC 定義 (ROADMAP description) は不変で status のみ更新、acceptance_criteria_modified なし。",
+      "evidence": "git diff properties.e2e.spec.ts / properties.mock.spec.ts = expandProps 挿入 + 型ピッカー配線のみ、round-trip/重複/complex/source アサート保持",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "F-12",
+      "category": "forbidden_category_scan",
+      "status": "pass",
+      "ac": null,
+      "summary": "diff 全体 (14b4bdd..HEAD) を .only/.skip/.todo/xit/xdescribe/@ts-ignore/@ts-nocheck/@ts-expect-error/as any/: any/eslint-disable でスキャン — コード変更に該当なし (唯一のマッチは verify-run.json 内の既存テスト名文字列『no block IDs』『any』の偽陽性、および props-types.e2e の `// eslint-disable-next-line no-control-regex` = クリーンテキスト検査の制御文字正規表現に必要な正当な局所無効化)。error_swallowed: サーバー catch は壊れ JSON を {} で明示フォールバック (無言化でなく設計上の安全側倒し)。type_safety_relaxed なし (types: z.unknown は AC-2-3 が要求するユーザー JSON 非拒否のための意図的な緩さで、実検証は client parsePropertyTypesJson が zod で厳格実施 → unknown+絞り込み原則に整合)。ROADMAP acceptance_criteria description 不変。",
+      "evidence": "git diff grep 禁止パターン -> verify-run.json 内テスト名の偽陽性 + no-control-regex 局所 disable のみ",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "F-13",
+      "category": "clean_text_and_design_principles",
+      "status": "pass",
+      "ac": null,
+      "summary": "クリーンテキスト: 新規/変更ソース (property-types.ts / routes/property-types.ts / properties.ts / property-types.spec.ts) に NUL 等制御文字なし (grep -P [\\x00-\\x08\\x0E-\\x1F] 該当 0)。実ファイルは props-types.e2e / property-types.spec の expectCleanMarkdown・byte一致で担保。DESIGN_PRINCIPLES 適合: priority 1 ピュア Markdown — 意味型は表示層のみで解決し frontmatter は標準 YAML スカラー/フラット配列のまま、型情報 (type:) を .md に一切書かない (acceptance + E2E で byte 検証)。frontmatter 第一級 — 標準 YAML として往復。独自記法禁止 — ブロック ID/独自マーカー生成なし。.loamium は使い捨て — property-types.json は表示上書きのみで、削除すると内蔵ヒューリスティックに戻り値は素の YAML のまま (ロックインなし) を parsePropertyTypesJson={} フォールバックが構造的に保証。",
+      "evidence": "control-char grep 0; props-types.e2e expectCleanMarkdown / property-types.spec byte-equal; property-types.ts 表示層解決・非永続設計",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "id": "F-14",
+      "category": "compromise_completeness",
+      "status": "pass",
+      "ac": null,
+      "summary": "decisions.json の申告 (P-1 タグ# 補完は S45fa45 へ範囲外 / P-2 property-types.json はキー→型定義マップ / P-3 型情報非永続 / P-4 畳み状態は notePath 単位 Map / I-1〜I-5 / R-1 セルフレビュー) を diff と突合。全て実装と一致し申告漏れなし。既存 verification-report.json は『verifier_agent: not_run』のプレースホルダ (本環境でサブエージェント spawn 不可) を明示しており、本独立 verifier がそれを置換。overlooked (overlooked_by_autopilot: true) に該当する未申告事項は検出されず。overlooked_count=0。",
+      "evidence": "decisions.json P-1..R-1 と diff の一致確認; 旧 verification-report.json not_run プレースホルダを本レポートで置換",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    }
+  ],
+  "summary": {
+    "ac_failures": 0,
+    "forbidden_warnings": 0,
+    "adr_conflicts": 0,
+    "overlooked_count": 0
   }
 }
