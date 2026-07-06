@@ -27,6 +27,7 @@ import {
   matchInlineTags,
   parsePropertiesModel,
   resolveLinkTarget,
+  type PropertyKeyCount,
   type PropertyTypeDef,
 } from '@loamium/shared';
 import { activeLines } from './outline.js';
@@ -50,6 +51,7 @@ import { renderImageEmbed } from './renderers/embed.js';
 import { renderMarkdownTable, TABLE_CELL_FOCUS_EVENT } from './renderers/table.js';
 import {
   PROPS_FOCUS_EVENT,
+  renderEmptyPropertiesEntry,
   renderProperties,
   type PropsFocusTarget,
 } from './renderers/properties.js';
@@ -69,6 +71,28 @@ export const propertyTypesFacet = Facet.define<
   Record<string, PropertyTypeDef>
 >({
   combine: (values) => values[0] ?? {},
+});
+
+/**
+ * vault 横断のプロパティキー候補 (件数付き — Sd13ab1-2)。キーファースト追加メニュー
+ * zone ① の「vault で実際に使われているキー」に使う。未ロードは空配列。
+ */
+export const propertyKeysFacet = Facet.define<
+  readonly PropertyKeyCount[],
+  readonly PropertyKeyCount[]
+>({
+  combine: (values) => values[0] ?? [],
+});
+
+/**
+ * 新規プロパティの汎用型を `.loamium/property-types.json` へ永続化するコールバック
+ * (Sd13ab1-2, D方式の横断固定)。未注入なら永続化しない (その場の追加のみ)。
+ */
+export const persistPropertyTypeFacet = Facet.define<
+  (key: string, def: PropertyTypeDef) => void,
+  ((key: string, def: PropertyTypeDef) => void) | null
+>({
+  combine: (values) => values[0] ?? null,
 });
 
 /** 構文木を確保する (通常のノートサイズなら同期で全体をパースできる) */
@@ -302,6 +326,10 @@ class PropertiesBlockWidget extends WidgetType {
     readonly openNoteLink: (target: string) => void,
     /** タグ補完環境 (tags 値の `#` 補完 — S45fa45-1)。安定オブジェクトなので eq 対象外。 */
     readonly tagEnv: TagSuggestEnv | null,
+    /** vault 横断キー候補 (件数付き — Sd13ab1-2)。変化で再描画するため eq 対象。 */
+    readonly propertyKeys: readonly PropertyKeyCount[],
+    /** 新規キーの型永続化 (Sd13ab1-2)。安定参照なので eq 対象外。 */
+    readonly persistType: ((key: string, def: PropertyTypeDef) => void) | null,
   ) {
     super();
   }
@@ -310,6 +338,7 @@ class PropertiesBlockWidget extends WidgetType {
     return (
       other.notePath === this.notePath &&
       other.typeDefs === this.typeDefs &&
+      other.propertyKeys === this.propertyKeys &&
       other.lines.length === this.lines.length &&
       other.lines.every((l, i) => l === this.lines[i])
     );
@@ -407,12 +436,70 @@ class PropertiesBlockWidget extends WidgetType {
         typeDefs: this.typeDefs,
         openNoteLink: this.openNoteLink,
         getTags: () => this.tagEnv?.getTags() ?? null,
+        getPropertyKeys: () => this.propertyKeys,
+        ...(this.persistType !== null ? { persistType: this.persistType } : {}),
       });
     } catch (err: unknown) {
       el = document.createElement('div');
       el.className = 'fence-render-error';
       el.textContent = `プロパティの描画に失敗しました: ${err instanceof Error ? err.message : String(err)}`;
     }
+    holder.el = el;
+    return el;
+  }
+}
+
+/**
+ * frontmatter が無いノートの本文冒頭に置く『+ プロパティを追加』入口 (Sd13ab1-3)。
+ * 押すとキーファーストメニューが開き、最初のプロパティを選ぶと文書先頭へ標準 YAML の
+ * frontmatter ブロックを生成する (ピュア Markdown — priority 1)。
+ */
+class EmptyPropsWidget extends WidgetType {
+  constructor(
+    readonly notePath: string,
+    readonly typeDefs: Record<string, PropertyTypeDef>,
+    readonly propertyKeys: readonly PropertyKeyCount[],
+    readonly persistType: ((key: string, def: PropertyTypeDef) => void) | null,
+  ) {
+    super();
+  }
+
+  override eq(other: EmptyPropsWidget): boolean {
+    return (
+      other.notePath === this.notePath &&
+      other.typeDefs === this.typeDefs &&
+      other.propertyKeys === this.propertyKeys
+    );
+  }
+
+  override ignoreEvent(): boolean {
+    return true;
+  }
+
+  override toDOM(view: EditorView): HTMLElement {
+    const holder: { el: HTMLElement | null } = { el: null };
+    const commit = (block: string): void => {
+      if (holder.el === null || !holder.el.isConnected) return;
+      // 文書先頭へ frontmatter ブロック + 改行を挿入 (本文は下へ)。
+      // カーソルは挿入した frontmatter の直後 (本文先頭) へ明示的に置く。
+      // ここを指定しないと元カーソル位置 0 が frontmatter 内に残り、
+      // ソース表示になって widget が描画されない。
+      const insert = `${block}\n`;
+      view.dispatch({
+        changes: { from: 0, to: 0, insert },
+        selection: { anchor: insert.length },
+        userEvent: 'input',
+      });
+    };
+    const el = renderEmptyPropertiesEntry(
+      { commit },
+      {
+        notePath: this.notePath,
+        typeDefs: this.typeDefs,
+        getPropertyKeys: () => this.propertyKeys,
+        ...(this.persistType !== null ? { persistType: this.persistType } : {}),
+      },
+    );
     holder.el = el;
     return el;
   }
@@ -451,6 +538,7 @@ function buildBlockDecorations(state: EditorState): DecorationSet {
   // 文書冒頭の --- ... --- のみを frontmatter とみなす (shared の parseNote と同条件)。
   // プロパティモデルへ分解できる場合だけ widget 化し、できないもの (壊れた YAML 等) は
   // 生ソース表示のまま (ファイルを壊さない — priority 2)。
+  let hasFrontmatterFence = false;
   if (doc.lines >= 2 && doc.line(1).text.replace(/\r$/, '') === '---') {
     let closeLine = -1;
     for (let n = 2; n <= doc.lines; n++) {
@@ -460,6 +548,7 @@ function buildBlockDecorations(state: EditorState): DecorationSet {
       }
     }
     if (closeLine !== -1) {
+      hasFrontmatterFence = true;
       const fmLines: string[] = [];
       for (let n = 1; n <= closeLine; n++) fmLines.push(doc.line(n).text);
       const inner = fmLines
@@ -471,6 +560,8 @@ function buildBlockDecorations(state: EditorState): DecorationSet {
         if (!intersectsActive(1, closeLine)) {
           const typeDefs = state.facet(propertyTypesFacet);
           const tagEnv = state.facet(tagSuggestEnvFacet);
+          const propertyKeys = state.facet(propertyKeysFacet);
+          const persistType = state.facet(persistPropertyTypeFacet);
           decos.push(
             Decoration.replace({
               widget: new PropertiesBlockWidget(
@@ -479,6 +570,8 @@ function buildBlockDecorations(state: EditorState): DecorationSet {
                 typeDefs,
                 (target) => renderEnv.openNote(target),
                 tagEnv,
+                propertyKeys,
+                persistType,
               ),
               block: true,
             }).range(doc.line(1).from, doc.line(closeLine).to),
@@ -486,6 +579,22 @@ function buildBlockDecorations(state: EditorState): DecorationSet {
         }
       }
     }
+  }
+
+  // ---- frontmatter 無しノートへの控えめな追加入口 (Sd13ab1-3 / AC-3-2) ----
+  // 文書冒頭に frontmatter フェンスが一切無いとき、本文冒頭に薄い『+ プロパティを追加』
+  // を出す。押すとキーファーストメニューが開き、最初のプロパティで --- ブロックを生成。
+  if (!hasFrontmatterFence) {
+    const typeDefs = state.facet(propertyTypesFacet);
+    const propertyKeys = state.facet(propertyKeysFacet);
+    const persistType = state.facet(persistPropertyTypeFacet);
+    decos.push(
+      Decoration.widget({
+        widget: new EmptyPropsWidget(notePath, typeDefs, propertyKeys, persistType),
+        block: true,
+        side: -1,
+      }).range(0),
+    );
   }
 
   // ---- fence レジストリ (構文木の FencedCode) + GFM テーブル (Table) ----

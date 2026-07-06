@@ -17,10 +17,12 @@
  * 畳み状態は notePath 単位でメモリ保持する (ファイルには書かない — priority 6)。
  */
 import {
-  buildTypePickerOptions,
+  buildKeyOptions,
+  canCreateNewKey,
   clampProgress,
   clampStar,
-  filterTypeOptions,
+  defaultValueForType,
+  filterKeyOptions,
   isDateLike,
   parsePropertiesModel,
   parsePropInput,
@@ -28,14 +30,16 @@ import {
   selectColorFor,
   serializeFrontmatterBlock,
   STAR_MAX,
+  summaryEntriesFor,
   type BuiltinPropertyType,
+  type KeyOption,
   type PropEntry,
+  type PropertyKeyCount,
   type PropertyTypeDef,
   type PropertyValue,
   type PropScalar,
   type ResolvedPropertyType,
   type TagCount,
-  type TypePickerOption,
 } from '@loamium/shared';
 import { attachTagInputSuggest } from '../tag-suggest.js';
 
@@ -56,6 +60,18 @@ export interface PropertiesRenderOptions {
   openNoteLink?: (target: string) => void;
   /** タグ候補ソース (tags 値の `#` 補完 — S45fa45-1)。null/未指定なら補完なし。 */
   getTags?: () => readonly TagCount[] | null;
+  /**
+   * vault 横断のプロパティキー候補 (件数付き — Sd13ab1-2)。キーファースト追加
+   * メニュー zone ① の「vault で実際に使われているキー」に使う。null/未指定なら
+   * 内蔵 well-known + JSON定義キーのみ。
+   */
+  getPropertyKeys?: () => readonly PropertyKeyCount[] | null;
+  /**
+   * 新規キーの汎用型を `.loamium/property-types.json` へ永続化する (Sd13ab1-2)。
+   * D方式の横断固定: 以後そのキーは全ファイルで同じ型に解決される。未指定なら
+   * その場の追加のみ (型は永続化されない)。
+   */
+  persistType?: (key: string, def: PropertyTypeDef) => void;
 }
 
 /** コミット後の widget へフォーカス復元を配送する CustomEvent 名。detail: PropsFocusTarget */
@@ -139,6 +155,104 @@ function noteLinkTarget(value: string): string {
   return m?.[1] ?? value;
 }
 
+/** 要約バーの 1 テキスト項目 (`.pc-sum-item`)。 */
+function makeSumItem(text: string, className = 'pc-sum-item'): HTMLElement {
+  const el = document.createElement('span');
+  el.className = className;
+  el.textContent = text;
+  return el;
+}
+
+/**
+ * 畳み時の値要約 (Sd13ab1-1): 1 エントリを型別の簡易トークンへ変換する。
+ * tags→チップ / select→色ラベル / star→★ / progress→% / checkbox→☑ + キー /
+ * date・text・number・url・note-link→値。空値は空配列 (バーに出さない)。
+ * ラベル語『プロパティ』は一切出さない (値/キー名のみ)。
+ */
+function summaryTokensFor(
+  entry: PropEntry,
+  resolve: (e: PropEntry) => ResolvedPropertyType,
+): HTMLElement[] {
+  if (entry.kind === 'raw') return [];
+  if (entry.kind === 'complex') return [makeSumItem('…')];
+
+  const resolved = resolve(entry);
+
+  if (entry.kind === 'list') {
+    if (entry.items.length === 0) return [];
+    const out: HTMLElement[] = [];
+    const shown = entry.items.slice(0, 4);
+    for (const item of shown) {
+      const text = scalarText(item);
+      if (text === '') continue;
+      out.push(makeSumItem(resolved.type === 'tags' ? `#${text}` : text, 'pc-sum-tag'));
+    }
+    if (entry.items.length > 4) out.push(makeSumItem(`+${entry.items.length - 4}`, 'pc-sum-more'));
+    return out;
+  }
+
+  // scalar
+  const value = entry.value;
+  if (resolved.type === 'select' || resolved.type === 'multi-select') {
+    const v = scalarText(value);
+    if (v === '') return [];
+    const chip = document.createElement('span');
+    chip.className = 'pc-sum-item pc-sum-select';
+    chip.dataset.color = selectColorFor(v, resolved.options);
+    const dot = document.createElement('span');
+    dot.className = 'st-dot';
+    const text = document.createElement('span');
+    text.textContent = v;
+    chip.append(dot, text);
+    return [chip];
+  }
+  if (resolved.type === 'star') {
+    const n = clampStar(typeof value === 'number' ? value : Number(value) || 0);
+    if (n === 0) return [];
+    return [makeSumItem('★'.repeat(n) + '☆'.repeat(STAR_MAX - n), 'pc-sum-stars')];
+  }
+  if (resolved.type === 'progress') {
+    const pct = clampProgress(typeof value === 'number' ? value : Number(value) || 0);
+    return [makeSumItem(`${pct}%`)];
+  }
+  if (resolved.type === 'checkbox' || typeof value === 'boolean') {
+    return [makeSumItem(`${value === true ? '☑' : '☐'} ${entry.key}`)];
+  }
+  const text = scalarText(value);
+  if (text === '') return [];
+  return [makeSumItem(text)];
+}
+
+/**
+ * 畳み時の値要約バーの中身を組み立てる (Sd13ab1-1)。上限を超えるエントリは
+ * 末尾に +N で件数だけ示す。バーは値チップ/テキストのみ (ラベル語なし)。
+ */
+function buildSummary(
+  container: HTMLElement,
+  entries: PropEntry[],
+  resolve: (e: PropEntry) => ResolvedPropertyType,
+): void {
+  container.replaceChildren();
+  const vals = document.createElement('span');
+  vals.className = 'pc-sum-vals';
+  const { shown, more } = summaryEntriesFor(entries, 6);
+  let first = true;
+  for (const entry of shown) {
+    const tokens = summaryTokensFor(entry, resolve);
+    if (tokens.length === 0) continue;
+    if (!first) {
+      const sep = document.createElement('span');
+      sep.className = 'sum-sep';
+      sep.textContent = '·';
+      vals.append(sep);
+    }
+    for (const t of tokens) vals.append(t);
+    first = false;
+  }
+  if (more > 0) vals.append(makeSumItem(`+${more}`, 'pc-sum-more'));
+  container.append(vals);
+}
+
 /**
  * frontmatter のソース行配列 (--- 区切りを含む) をプロパティブロックへ描画する。
  * handlers を渡すと編集が有効になる。モデル化できない frontmatter は Error を投げる。
@@ -182,11 +296,9 @@ export function renderProperties(
   let lastCommitted = serializeBlock() ?? '';
   let flushValue: (() => void) | null = null;
   const chipFlushes = new Set<() => void>();
-  let flushAdd: (() => void) | null = null;
   const flushAll = (): void => {
     if (flushValue !== null) flushValue();
     for (const f of Array.from(chipFlushes)) f();
-    if (flushAdd !== null) flushAdd();
   };
 
   const structuralCommit = (): void => {
@@ -220,10 +332,20 @@ export function renderProperties(
     return s;
   };
 
-  // ---- 畳む/開くトグル (本文直前は `>` だけ・要約なし — AC-1-1) -----------------
+  // ---- 畳む/開くトグル + 畳み時の値要約バー (Sd13ab1-1 / AC-1) ------------------
+  // 本文直前に `>` トグル (常時可視) と、畳み時のみ値の要約バー (properties-summary)。
+  // 要約は値チップ/テキストのみ (『プロパティ』というラベル語は出さない — AC-1-1)。
 
   const head = document.createElement('div');
   head.className = 'pc-head';
+
+  const setOpen = (next: boolean): void => {
+    propsOpenState.set(notePathKey, next);
+    wrap.dataset.open = next ? 'true' : 'false';
+    toggleBtn.setAttribute('aria-expanded', String(next));
+    toggleBtn.title = next ? 'プロパティを畳む' : 'プロパティを展開';
+    summaryEl.setAttribute('aria-expanded', String(next));
+  };
 
   const toggleBtn = document.createElement('button');
   toggleBtn.type = 'button';
@@ -236,13 +358,25 @@ export function renderProperties(
   toggleBtn.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
-    const next = wrap.dataset.open !== 'true';
-    propsOpenState.set(notePathKey, next);
-    wrap.dataset.open = next ? 'true' : 'false';
-    toggleBtn.setAttribute('aria-expanded', String(next));
-    toggleBtn.title = next ? 'プロパティを畳む' : 'プロパティを展開';
+    setOpen(wrap.dataset.open !== 'true');
   });
   head.append(toggleBtn);
+
+  // 値要約バー (畳み時のみ表示。クリックで展開/畳みトグル — AC-1-2)
+  const summaryEl = document.createElement('button');
+  summaryEl.type = 'button';
+  summaryEl.className = 'pc-summary';
+  summaryEl.setAttribute('data-testid', 'properties-summary');
+  summaryEl.setAttribute('aria-expanded', String(open));
+  summaryEl.title = 'プロパティを展開';
+  summaryEl.addEventListener('mousedown', (e) => e.preventDefault());
+  summaryEl.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setOpen(wrap.dataset.open !== 'true');
+  });
+  buildSummary(summaryEl, entries, resolve);
+  head.append(summaryEl);
 
   if (editable && handlers?.editSource !== undefined) {
     const editSource = handlers.editSource.bind(handlers);
@@ -823,10 +957,10 @@ export function renderProperties(
     if (editable) {
       const del = document.createElement('button');
       del.type = 'button';
-      del.className = 'md-prop-del';
-      del.setAttribute('data-testid', 'properties-del');
+      del.className = 'md-prop-del pc-row-del';
+      del.setAttribute('data-testid', 'properties-row-delete');
       if (entry.kind !== 'raw') del.setAttribute('data-key', entry.key);
-      del.title = 'プロパティを削除';
+      del.title = entry.kind !== 'raw' ? `この行(${entry.key})を削除` : 'プロパティを削除';
       del.innerHTML = ICON_TIMES;
       del.addEventListener('mousedown', (e) => e.preventDefault());
       del.addEventListener('click', (e) => {
@@ -846,7 +980,10 @@ export function renderProperties(
     rows.append(dt, dd);
   }
 
-  // ---- プロパティ追加 (型ピッカー — S87f4b7-3) --------------------------------
+  // ---- プロパティ追加 (キーファースト候補メニュー — Sd13ab1-2) ----------------
+  // 型ファーストを廃し、まず「どのプロパティ(キー)か」を選ぶ。既知/一意キーは
+  // 選ぶだけで即追加 (型は D方式でキーから決まる)。一致しない名前は新規作成 →
+  // 汎用型を選び、その型を .loamium/property-types.json へ永続化する。
 
   if (editable) {
     const addBtn = document.createElement('button');
@@ -856,109 +993,42 @@ export function renderProperties(
     addBtn.innerHTML = `<span class="plus">+</span> プロパティを追加`;
     openBox.append(addBtn);
 
-    const picker = createTypePicker({
+    /** 型に沿った新エントリを追加してコミットする (キー名の再入力なし)。 */
+    const addForKey = (key: string, type: BuiltinPropertyType): void => {
+      if (key === '' || keyedKeys().has(key)) return;
+      entries.push(makeNewEntry(type, key, ''));
+      handlers?.requestFocus?.({ kind: 'add' });
+      structuralCommit();
+    };
+
+    const menu = createAddMenu({
       typeDefs,
-      onPick: (opt) => {
-        beginAddForm(opt);
+      getPropertyKeys: () => options?.getPropertyKeys?.() ?? null,
+      existingKeys: () => keyedKeys(),
+      onPickKnown: (key) => {
+        menu.close();
+        // 型はキーから決まる (D方式)。既知キーの解決結果を使う。
+        const type = resolvePropertyType(key, defaultValueForType('text'), typeDefs).type;
+        addForKey(key, type);
+      },
+      onPickNew: (key, type) => {
+        menu.close();
+        // 汎用型を .loamium/property-types.json へ永続化 (D方式の横断固定)。
+        options?.persistType?.(key, { type });
+        addForKey(key, type);
       },
       onClose: () => {
         addBtn.classList.remove('active');
       },
     });
-    openBox.append(picker.el);
-
-    /** 型選択後の キー名 → 値 入力フォーム。 */
-    const beginAddForm = (opt: TypePickerOption): void => {
-      picker.close();
-      const form = document.createElement('div');
-      form.className = 'pc-newkey md-props-add-form';
-      const tag = document.createElement('span');
-      tag.className = 'type-tag';
-      tag.innerHTML = `${TYPE_ICONS[opt.type] ?? ''}<span>${escapeHtml(opt.name)}</span>`;
-      const keyInput = document.createElement('input');
-      keyInput.type = 'text';
-      keyInput.className = 'field md-prop-input';
-      keyInput.setAttribute('data-testid', 'properties-new-key');
-      keyInput.placeholder = 'キー名';
-      keyInput.value = opt.source === 'json' ? opt.name : '';
-      const arrow = document.createElement('span');
-      arrow.className = 'arrow';
-      arrow.textContent = '→';
-      const valInput = document.createElement('input');
-      valInput.type = 'text';
-      valInput.className = 'field md-prop-input';
-      valInput.setAttribute('data-testid', 'properties-new-value');
-      valInput.placeholder = '値';
-      form.append(tag, keyInput, arrow, valInput);
-      openBox.insertBefore(form, addBtn.nextSibling);
-      addBtn.style.display = 'none';
-
-      const closeForm = (): void => {
-        flushAdd = null;
-        if (form.parentElement !== null) form.parentElement.removeChild(form);
-        addBtn.style.display = '';
-        addBtn.classList.remove('active');
-      };
-
-      /** キー名 + 値から型に沿った新エントリを追加する。true = 追加した。 */
-      const applyAdd = (): boolean => {
-        const key = keyInput.value.trim();
-        if (key === '') return false;
-        if (keyedKeys().has(key)) {
-          keyInput.classList.add('invalid');
-          keyInput.title = '同名のプロパティが既にあります';
-          return false;
-        }
-        entries.push(makeNewEntry(opt.type, key, valInput.value));
-        return true;
-      };
-      flushAdd = () => {
-        applyAdd();
-      };
-
-      const formKeydown = (e: KeyboardEvent): void => {
-        e.stopPropagation();
-        if (e.isComposing) return;
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          if (e.target === keyInput && keyInput.value.trim() !== '') {
-            valInput.focus();
-            return;
-          }
-          if (applyAdd()) {
-            flushAdd = null;
-            handlers?.requestFocus?.({ kind: 'add' });
-            structuralCommit();
-          }
-        } else if (e.key === 'Escape') {
-          e.preventDefault();
-          closeForm();
-        }
-      };
-      keyInput.addEventListener('keydown', formKeydown);
-      valInput.addEventListener('keydown', formKeydown);
-      for (const inp of [keyInput, valInput]) {
-        inp.addEventListener('beforeinput', (e) => e.stopPropagation());
-        inp.addEventListener('input', (e) => e.stopPropagation());
-        inp.addEventListener('blur', (e) => {
-          const rt = e.relatedTarget;
-          const stayingInForm = rt instanceof Node && form.contains(rt);
-          if (stayingInForm) return;
-          const stayingInWidget = rt instanceof Node && wrap.contains(rt);
-          if (!stayingInWidget) commitFinal();
-          else closeForm();
-        });
-      }
-      keyInput.addEventListener('input', () => keyInput.classList.remove('invalid'));
-      keyInput.focus();
-    };
+    openBox.append(menu.el);
 
     addBtn.addEventListener('mousedown', (e) => e.preventDefault());
     addBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
       addBtn.classList.add('active');
-      picker.open();
+      menu.open();
     });
 
     // フォーカスが widget 外へ抜けたら最終コミット (widget 内の移動では抜けない)
@@ -1008,27 +1078,46 @@ function makeNewEntry(type: BuiltinPropertyType, key: string, valueText: string)
   return { kind: 'scalar', key, value };
 }
 
-// ---- 型ピッカー (コンテキストメニュー + インクリメンタル絞り込み — S87f4b7-3) -----
+// ---- キーファースト追加メニュー (Sd13ab1-2) ---------------------------------
 
-interface TypePickerParams {
+/** 新規キーで選べる汎用型 (chosen-v2.html D 準拠。一意な既知キーは ① で型が決まる)。 */
+const GENERIC_NEW_TYPES: readonly BuiltinPropertyType[] = [
+  'text',
+  'number',
+  'date',
+  'checkbox',
+  'select',
+  'star',
+];
+
+interface AddMenuParams {
   typeDefs: Record<string, PropertyTypeDef>;
-  onPick: (opt: TypePickerOption) => void;
+  /** vault 横断のキー候補 (件数付き)。null なら内蔵 + JSON定義のみ。 */
+  getPropertyKeys: () => readonly PropertyKeyCount[] | null;
+  /** この文書に既にあるキー (重複不可・淡色無効)。 */
+  existingKeys: () => Set<string>;
+  /** 既知/一意キーを選んだ (キー名の再入力なし・型は D方式で解決)。 */
+  onPickKnown: (key: string) => void;
+  /** 新規キー + 汎用型を選んだ (型を永続化して追加)。 */
+  onPickNew: (key: string, type: BuiltinPropertyType) => void;
   onClose: () => void;
 }
 
-interface TypePickerHandle {
+interface AddMenuHandle {
   el: HTMLElement;
   open(): void;
   close(): void;
 }
 
-function createTypePicker(params: TypePickerParams): TypePickerHandle {
-  const { builtin, json } = buildTypePickerOptions(params.typeDefs);
-  const all: TypePickerOption[] = [...builtin, ...json];
-
+/**
+ * キーファーストの追加候補メニュー。① 既知/一意 (内蔵 well-known + JSON定義 +
+ * vault 実使用キー・件数付き) と ② 新規作成 (名前 → 汎用型セレクタ) の 2 ゾーン。
+ * 上部入力でインクリメンタル絞り込み。既存キーは disabled (一意)。
+ */
+function createAddMenu(params: AddMenuParams): AddMenuHandle {
   const el = document.createElement('div');
-  el.className = 'type-picker';
-  el.setAttribute('data-testid', 'property-type-picker');
+  el.className = 'type-picker add-menu';
+  el.setAttribute('data-testid', 'property-add-menu');
   el.style.display = 'none';
 
   const searchLabel = document.createElement('label');
@@ -1037,8 +1126,8 @@ function createTypePicker(params: TypePickerParams): TypePickerHandle {
   const filter = document.createElement('input');
   filter.type = 'text';
   filter.className = 'type-picker-filter';
-  filter.setAttribute('data-testid', 'property-type-filter');
-  filter.placeholder = '型を検索…(例: sel / 星 / date)';
+  filter.setAttribute('data-testid', 'property-add-filter');
+  filter.placeholder = 'プロパティ名で絞り込み / 新しい名前を入力…';
   filter.autocomplete = 'off';
   searchLabel.append(filter);
   el.append(searchLabel);
@@ -1048,74 +1137,171 @@ function createTypePicker(params: TypePickerParams): TypePickerHandle {
   el.append(list);
   const empty = document.createElement('div');
   empty.className = 'type-picker-empty';
-  empty.textContent = '一致する型がありません';
+  empty.textContent = '一致するプロパティがありません — 名前を入力して「新規作成」できます';
   empty.style.display = 'none';
   el.append(empty);
 
-  let visible: TypePickerOption[] = [];
+  let selectableBtns: HTMLElement[] = [];
   let selectedIdx = 0;
+  // 新規キーの型セレクタ表示中は、検索入力を隠すことによる blur で閉じない (guard)。
+  let selectingType = false;
 
-  const makeOption = (opt: TypePickerOption): HTMLElement => {
+  const group = (text: string): HTMLElement => {
+    const g = document.createElement('div');
+    g.className = 'type-picker-group';
+    g.textContent = text;
+    return g;
+  };
+
+  const makeKnownOption = (opt: KeyOption): HTMLElement => {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'type-opt';
-    b.setAttribute('data-testid', 'property-type-option');
-    b.setAttribute('data-type', opt.name);
+    b.className = opt.existing ? 'type-opt is-existing' : 'type-opt';
+    b.setAttribute('data-testid', 'property-add-known');
+    b.setAttribute('data-key', opt.key);
     b.setAttribute('data-source', opt.source);
+    if (opt.existing) {
+      b.setAttribute('data-existing', 'true');
+      b.disabled = true;
+    }
     const ico = document.createElement('span');
     ico.className = 'type-ico';
     ico.innerHTML = TYPE_ICONS[opt.type] ?? TYPE_ICONS['text'] ?? '';
     const main = document.createElement('span');
     main.className = 'type-main';
-    main.innerHTML = `<span class="type-name">${escapeHtml(opt.name)}</span><span class="type-desc">${escapeHtml(opt.desc)}</span>`;
+    const name = document.createElement('span');
+    name.className = 'key-name';
+    name.textContent = opt.key;
+    const desc = document.createElement('span');
+    desc.className = 'type-desc';
+    desc.textContent = opt.count !== undefined ? `${opt.desc} · vault ${opt.count} 件` : opt.desc;
+    main.append(name, desc);
     b.append(ico, main);
-    if (opt.source === 'json') {
+    if (opt.existing) {
+      const badge = document.createElement('span');
+      badge.className = 'exists-badge';
+      badge.textContent = '既存';
+      b.append(badge);
+    } else if (opt.source === 'json') {
       const badge = document.createElement('span');
       badge.className = 'json-badge';
       badge.textContent = 'JSON定義';
       b.append(badge);
     }
+    if (!opt.existing) {
+      b.addEventListener('mousedown', (e) => e.preventDefault());
+      b.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        params.onPickKnown(opt.key);
+      });
+    } else {
+      b.addEventListener('mousedown', (e) => e.preventDefault());
+      b.addEventListener('click', (e) => e.preventDefault());
+    }
+    return b;
+  };
+
+  const makeCreateOption = (key: string): HTMLElement => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'type-opt create-new';
+    b.setAttribute('data-testid', 'property-add-new');
+    b.setAttribute('data-key', key);
+    const ico = document.createElement('span');
+    ico.className = 'type-ico';
+    ico.innerHTML = '<span class="plus">+</span>';
+    const main = document.createElement('span');
+    main.className = 'type-main';
+    const name = document.createElement('span');
+    name.className = 'key-name';
+    name.textContent = `新規作成: 「${key}」`;
+    const desc = document.createElement('span');
+    desc.className = 'type-desc';
+    desc.textContent = '新しいキー。型を次で選ぶ(text/number/date…)';
+    main.append(name, desc);
+    b.append(ico, main);
     b.addEventListener('mousedown', (e) => e.preventDefault());
     b.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      params.onPick(opt);
+      showTypeSelector(key);
     });
     return b;
   };
 
-  const render = (): void => {
-    const q = filter.value;
-    const builtinHits = filterTypeOptions(builtin, q);
-    const jsonHits = filterTypeOptions(json, q);
-    visible = [...builtinHits, ...jsonHits];
-    selectedIdx = 0;
+  /** 新規キーの汎用型セレクタ (② を選んだ後)。型を選ぶと onPickNew。 */
+  const showTypeSelector = (key: string): void => {
+    // 検索入力を隠す前に guard を立てる (hide による filter blur で close しない)
+    selectingType = true;
     list.replaceChildren();
-    if (builtinHits.length > 0) {
-      const g = document.createElement('div');
-      g.className = 'type-picker-group';
-      g.textContent = '内蔵型';
-      list.append(g);
-      for (const o of builtinHits) list.append(makeOption(o));
+    empty.style.display = 'none';
+    searchLabel.style.display = 'none';
+    const wrap = document.createElement('div');
+    wrap.className = 'pc-typesel';
+    wrap.setAttribute('data-testid', 'property-new-type-wrap');
+    const nameEl = document.createElement('span');
+    nameEl.className = 'newkey-name';
+    nameEl.textContent = key;
+    wrap.append(nameEl);
+    for (const type of GENERIC_NEW_TYPES) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'type-chip';
+      chip.setAttribute('data-testid', 'property-new-type');
+      chip.setAttribute('data-type', type);
+      chip.innerHTML = `${TYPE_ICONS[type] ?? ''}<span>${type}</span>`;
+      chip.addEventListener('mousedown', (e) => e.preventDefault());
+      chip.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        params.onPickNew(key, type);
+      });
+      wrap.append(chip);
     }
-    if (jsonHits.length > 0) {
-      const g = document.createElement('div');
-      g.className = 'type-picker-group';
-      g.textContent = 'JSON定義(.loamium/property-types.json)';
-      list.append(g);
-      for (const o of jsonHits) list.append(makeOption(o));
+    list.append(wrap);
+    // 型セレクタへフォーカスを移す (キーボードでも選べる。blur→close も防ぐ)
+    (wrap.querySelector<HTMLElement>('.type-chip'))?.focus();
+  };
+
+  const render = (): void => {
+    selectingType = false;
+    searchLabel.style.display = '';
+    const q = filter.value;
+    const allOptions = buildKeyOptions(
+      params.typeDefs,
+      params.getPropertyKeys() ?? [],
+      params.existingKeys(),
+    );
+    const hits = filterKeyOptions(allOptions, q);
+    list.replaceChildren();
+    selectableBtns = [];
+    selectedIdx = 0;
+
+    if (hits.length > 0) {
+      list.append(group('① 既知のプロパティ(選ぶだけ・型はキーから決まる)'));
+      for (const o of hits) {
+        const b = makeKnownOption(o);
+        list.append(b);
+        if (!o.existing) selectableBtns.push(b);
+      }
     }
-    empty.style.display = visible.length === 0 ? '' : 'none';
+
+    const showCreate = canCreateNewKey(q, allOptions);
+    if (showCreate) {
+      list.append(group('② 新規プロパティ(汎用型 — 名前を付けて作成)'));
+      const b = makeCreateOption(q.trim());
+      list.append(b);
+      selectableBtns.push(b);
+    }
+
+    empty.style.display = hits.length === 0 && !showCreate ? '' : 'none';
     highlight();
   };
 
-  const optionButtons = (): HTMLElement[] =>
-    Array.from(list.querySelectorAll<HTMLElement>('[data-testid="property-type-option"]'));
-
   const highlight = (): void => {
-    const btns = optionButtons();
-    btns.forEach((b, i) => b.classList.toggle('sel', i === selectedIdx));
-    btns[selectedIdx]?.scrollIntoView({ block: 'nearest' });
+    selectableBtns.forEach((b, i) => b.classList.toggle('sel', i === selectedIdx));
+    selectableBtns[selectedIdx]?.scrollIntoView({ block: 'nearest' });
   };
 
   filter.addEventListener('input', (e) => {
@@ -1128,7 +1314,7 @@ function createTypePicker(params: TypePickerParams): TypePickerHandle {
     if (e.isComposing) return;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      selectedIdx = Math.min(selectedIdx + 1, Math.max(0, visible.length - 1));
+      selectedIdx = Math.min(selectedIdx + 1, Math.max(0, selectableBtns.length - 1));
       highlight();
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
@@ -1136,33 +1322,96 @@ function createTypePicker(params: TypePickerParams): TypePickerHandle {
       highlight();
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      const opt = visible[selectedIdx];
-      if (opt !== undefined) params.onPick(opt);
+      selectableBtns[selectedIdx]?.click();
     } else if (e.key === 'Escape') {
       e.preventDefault();
       close();
     }
   });
   filter.addEventListener('blur', (e) => {
+    if (selectingType) return; // 型セレクタ表示中は閉じない
     const rt = e.relatedTarget;
-    // ピッカー内のボタンへ移るときは閉じない
     if (rt instanceof Node && el.contains(rt)) return;
     close();
   });
 
   function open(): void {
+    selectingType = false;
     filter.value = '';
+    searchLabel.style.display = '';
     render();
     el.style.display = '';
     filter.focus();
   }
   function close(): void {
     if (el.style.display === 'none') return;
+    selectingType = false;
     el.style.display = 'none';
     params.onClose();
   }
 
   return { el, open, close };
+}
+
+/**
+ * frontmatter が一切無いノートへの控えめな追加入口 (Sd13ab1-3 / AC-3-2)。
+ * 『+ プロパティを追加』を押すとキーファーストメニューが開き、最初のプロパティを
+ * 選ぶと handlers.commit に標準 YAML の frontmatter ブロック文字列を渡す。
+ */
+export interface EmptyPropertiesHandlers {
+  /** 最初のプロパティから生成した frontmatter ブロック (--- ... ---) をコミットする。 */
+  commit(block: string): void;
+}
+
+export function renderEmptyPropertiesEntry(
+  handlers: EmptyPropertiesHandlers,
+  options?: PropertiesRenderOptions,
+): HTMLElement {
+  const typeDefs = options?.typeDefs ?? {};
+  const wrap = document.createElement('div');
+  wrap.className = 'pc-empty';
+
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'pc-empty-add';
+  addBtn.setAttribute('data-testid', 'properties-empty-add');
+  addBtn.title = '最初のプロパティを追加(frontmatter を作成)';
+  addBtn.innerHTML = `<span class="chev">${ICON_CHEVRON}</span><span class="plus">+</span> プロパティを追加`;
+  wrap.append(addBtn);
+
+  const commitFirst = (key: string, type: BuiltinPropertyType): void => {
+    const entry = makeNewEntry(type, key, '');
+    const block = serializeFrontmatterBlock([entry]);
+    if (block !== null) handlers.commit(block);
+  };
+
+  const menu = createAddMenu({
+    typeDefs,
+    getPropertyKeys: () => options?.getPropertyKeys?.() ?? null,
+    existingKeys: () => new Set<string>(), // frontmatter が無いので既存キーは無し
+    onPickKnown: (key) => {
+      menu.close();
+      const type = resolvePropertyType(key, defaultValueForType('text'), typeDefs).type;
+      commitFirst(key, type);
+    },
+    onPickNew: (key, type) => {
+      menu.close();
+      options?.persistType?.(key, { type });
+      commitFirst(key, type);
+    },
+    onClose: () => addBtn.classList.remove('active'),
+  });
+  wrap.append(menu.el);
+
+  addBtn.addEventListener('mousedown', (e) => e.preventDefault());
+  addBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    addBtn.classList.add('active');
+    menu.open();
+  });
+
+  return wrap;
 }
 
 /** 最小限の HTML エスケープ (テキストノード相当。属性は使わない)。 */

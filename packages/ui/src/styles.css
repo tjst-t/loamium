@@ -2599,6 +2599,9 @@ button.callout-title { cursor: pointer; }
   transition: opacity 0.12s ease, color 0.12s ease, background 0.12s ease;
 }
 .md-prop-row:hover .md-prop-del { opacity: 0.7; }
+/* 密行グリッド (Sd13ab1): 行 (dd) ホバーで削除 × を表示する (chosen-v2 準拠) */
+.pc-rows dd:hover .md-prop-del,
+.pc-rows dd:hover .pc-row-del { opacity: 0.7; }
 .md-prop-del:hover { opacity: 1; color: var(--danger); background: var(--bg-hover); }
 .md-prop-del svg { width: 11px; height: 11px; }
 
@@ -2954,6 +2957,154 @@ button.callout-title { cursor: pointer; }
 }
 .pc-newkey .type-tag svg { width: 12px; height: 12px; }
 .pc-newkey .arrow { color: var(--text-faint); }
+
+/* ==========================================================================
+   プロパティUI改訂 (Sd13ab1 — 値要約バー × キーファースト追加 × 行削除 × 空ノート)
+   ビジュアルの正: prototype/props-redesign/chosen-v2.html
+   ========================================================================== */
+
+/* ---- 畳み時の値要約バー (Sd13ab1-1) ---- */
+/* toggle は常時可視、summary は畳み時のみ (open 時は非表示) */
+.pc[data-open='true'] .pc-summary { display: none; }
+.pc-summary {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  gap: 6px;
+  padding: 1px 6px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-muted);
+  overflow: hidden;
+}
+.pc-summary:hover { background: var(--bg-hover); }
+.pc-sum-vals {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  line-height: 20px;
+}
+.pc-sum-tag {
+  color: var(--accent-hover);
+  background: var(--accent-soft);
+  border-radius: 4px;
+  padding: 0 5px;
+  font-size: 11.5px;
+  flex-shrink: 0;
+}
+.pc-sum-item { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.pc-sum-stars { color: #e0a12c; letter-spacing: -1px; flex-shrink: 0; }
+.pc-sum-more { color: var(--text-faint); font-size: 11px; flex-shrink: 0; }
+.sum-sep { color: var(--border-strong); flex-shrink: 0; }
+.pc-sum-select .st-dot,
+.pc-sum-item .st-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sel, var(--text-faint));
+  flex-shrink: 0;
+}
+.pc-sum-select[data-color='green'] { --sel: #2f9e63; }
+.pc-sum-select[data-color='blue'] { --sel: #2a7ae2; }
+.pc-sum-select[data-color='amber'] { --sel: #b7791f; }
+.pc-sum-select[data-color='purple'] { --sel: #6e56cf; }
+.pc-sum-select[data-color='red'] { --sel: #d64545; }
+.pc-sum-select[data-color='gray'] { --sel: #8a8a8a; }
+
+/* ---- キーファースト追加メニュー (Sd13ab1-2) ---- */
+.type-picker.add-menu { width: 320px; }
+.add-menu .type-opt { align-items: flex-start; }
+.add-menu .type-opt .key-name { font-weight: 500; color: var(--text); }
+.add-menu .type-opt.is-existing {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.add-menu .type-opt.is-existing:hover { background: none; }
+.add-menu .type-opt .exists-badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--text-faint);
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+}
+.add-menu .type-opt.create-new .type-ico {
+  color: var(--accent);
+  border-color: #ddd4f4;
+  background: var(--accent-soft);
+}
+.add-menu .type-opt.create-new .plus { font-weight: 700; color: var(--accent); }
+
+/* 新規キーの汎用型セレクタ */
+.pc-typesel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 6px;
+}
+.pc-typesel .newkey-name {
+  font-weight: 600;
+  color: var(--text);
+  margin-right: 4px;
+}
+.type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-editor);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.type-chip:hover, .type-chip.sel {
+  border-color: var(--accent);
+  color: var(--accent-hover);
+  background: var(--accent-soft);
+}
+.type-chip svg { width: 12px; height: 12px; }
+
+/* ---- frontmatter 無しノートへの控えめな追加入口 (Sd13ab1-3) ---- */
+.pc-empty { position: relative; margin: 2px 0 4px 4px; }
+.pc-empty-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px dashed var(--border);
+  background: none;
+  color: var(--text-faint);
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.7;
+  font-family: inherit;
+  transition: opacity 0.12s ease, color 0.12s ease, background 0.12s ease;
+}
+.pc-empty-add:hover, .pc-empty-add.active {
+  opacity: 1;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: #ddd4f4;
+}
+.pc-empty-add .chev { display: inline-flex; }
+.pc-empty-add .chev svg { width: 11px; height: 11px; transform: rotate(-90deg); }
+.pc-empty-add .plus { color: var(--accent); font-weight: 700; }
+.pc-empty .add-menu { top: 28px; left: 0; }
 
 /* ==========================================================================
    タグ # 候補メニュー (S45fa45 — prototype/props-redesign/chosen.html D/E 準拠)

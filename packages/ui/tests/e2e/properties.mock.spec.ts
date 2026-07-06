@@ -189,32 +189,26 @@ test('[MOCK] 真偽値はチェックボックスで切り替えられる', asyn
   expect(unexpected).toEqual([]);
 });
 
-test('[MOCK] プロパティを追加でき、重複キーは拒否される', async ({ page }) => {
+test('[MOCK] キーファースト追加: 既存キーは無効・既知キーは即追加される', async ({ page }) => {
   const unexpected = await openWithJournal(page, FM_NOTE, 'アンカー行');
   await expandProps(page);
-  // 追加ボタン → 型ピッカーが開く (S87f4b7-3)
+  // 追加ボタン → キーファースト候補メニューが開く (Sd13ab1-2)
   await page.getByTestId('properties-add').click();
-  await expect(page.getByTestId('property-type-picker')).toBeVisible();
-  // number 型を選ぶ → キー名入力へ
-  await page.locator('[data-testid="property-type-option"][data-type="number"]').first().click();
-  const keyInput = page.getByTestId('properties-new-key');
-  await expect(keyInput).toBeFocused();
+  await expect(page.getByTestId('property-add-menu')).toBeVisible();
 
-  // 重複キーは追加されずフォームが残る
-  await keyInput.fill('status');
-  await page.getByTestId('properties-new-value').fill('1');
-  await page.keyboard.press('Enter');
-  await expect(page.getByTestId('properties-new-key')).toBeVisible();
-  await expect(page.getByTestId('properties-row')).toHaveCount(5);
+  // この文書に既にある status は候補で無効 (一意なので重複不可)
+  await page.getByTestId('property-add-filter').fill('status');
+  const statusOpt = page.locator('[data-testid="property-add-known"][data-key="status"]');
+  await expect(statusOpt).toHaveAttribute('data-existing', 'true');
+  await expect(statusOpt).toBeDisabled();
 
-  // 一意なキー + 値で追加される
-  await keyInput.fill('rating');
-  await page.getByTestId('properties-new-value').fill('5');
-  await page.keyboard.press('Enter');
+  // 既知/一意キー rating を選ぶ → キー名の再入力なしに即追加。型は D方式で star に解決
+  await page.getByTestId('property-add-filter').fill('rating');
+  await page.locator('[data-testid="property-add-known"][data-key="rating"]').click();
   const newRow = page.locator('[data-testid="properties-row"][data-key="rating"]');
   await expect(newRow).toBeVisible();
-  // rating キーは意味型 star に解決され、値 5 は star (data-value=5) として描画される
-  await expect(newRow.locator('[data-type="star"]')).toHaveAttribute('data-value', '5');
+  await expect(newRow.locator('[data-type="star"]')).toBeVisible();
+  await expect(page.getByTestId('properties-row')).toHaveCount(6);
   expect(unexpected).toEqual([]);
 });
 
@@ -226,7 +220,7 @@ test('[MOCK] 全プロパティを削除すると frontmatter ブロック自体
   );
   await expandProps(page);
   await expect(page.getByTestId('properties-row')).toHaveCount(2);
-  const firstDel = () => page.locator('[data-testid="properties-del"]').first();
+  const firstDel = () => page.locator('[data-testid="properties-row-delete"]').first();
   await firstDel().click();
   await expect(page.getByTestId('properties-row')).toHaveCount(1);
   await firstDel().click();

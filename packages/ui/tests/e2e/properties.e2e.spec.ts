@@ -49,19 +49,28 @@ async function expandProps(page: Page): Promise<void> {
   }
 }
 
-/** 型ピッカー経由で新プロパティを追加する (S87f4b7-3 の新規追加フロー)。 */
-async function addPropertyViaPicker(
+/**
+ * キーファースト追加フロー (Sd13ab1-2) で新規キー(汎用型)を追加し、値を入力する。
+ * 『+ プロパティを追加』→ キー名入力 → 新規作成 → 汎用型選択 → 値本体を編集。
+ */
+async function addNewProperty(
   page: Page,
-  type: string,
   key: string,
+  type: string,
   value: string,
 ): Promise<void> {
   await page.getByTestId('properties-add').click();
-  await expect(page.getByTestId('property-type-picker')).toBeVisible();
-  await page.locator(`[data-testid="property-type-option"][data-type="${type}"]`).first().click();
-  await page.getByTestId('properties-new-key').fill(key);
-  await page.getByTestId('properties-new-value').fill(value);
-  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('property-add-menu')).toBeVisible();
+  await page.getByTestId('property-add-filter').fill(key);
+  await page.getByTestId('property-add-new').click();
+  await page.locator(`[data-testid="property-new-type"][data-type="${type}"]`).click();
+  const row = page.locator(`[data-testid="properties-row"][data-key="${key}"]`);
+  await expect(row).toBeVisible();
+  // 値を編集: 値本体クリック → input へ入力 → Enter で確定
+  await row.getByTestId('properties-value-body').click();
+  const input = row.getByTestId('properties-value-input');
+  await input.fill(value);
+  await input.press('Enter');
 }
 
 async function readVaultFile(rel: string): Promise<string> {
@@ -211,18 +220,19 @@ test('[AC-S9df823-1-3] プロパティの追加・削除ができ、スラッシ
   await openNoteFromTree(page, source, 'アンカー行');
   await expandProps(page);
 
-  // 展開時の末尾『+ プロパティを追加』→ 型ピッカーで number を選んで追加 (AC-S87f4b7-1-3 / -3-2)
-  await addPropertyViaPicker(page, 'number', 'rating', '5');
-  await expect(page.locator('[data-testid="properties-row"][data-key="rating"]')).toBeVisible();
+  // 展開時の末尾『+ プロパティを追加』→ キーファーストで新規キー(number)を追加
+  // (rating は well-known で star に解決されるため、汎用の新規キー『個数』を使う — Sd13ab1-2)
+  await addNewProperty(page, '個数', 'number', '5');
+  await expect(page.locator('[data-testid="properties-row"][data-key="個数"]')).toBeVisible();
   await editorLine(page, 'アンカー行').click();
   await save(page);
   let file = await readVaultFile(source);
-  expect(file).toContain('rating: 5');
+  expect(file).toContain('個数: 5');
   expectCleanMarkdown(file);
 
   // 全プロパティ削除 → frontmatter ブロック自体が除去される
-  while ((await page.locator('[data-testid="properties-del"]').count()) > 0) {
-    await page.locator('[data-testid="properties-del"]').first().click();
+  while ((await page.locator('[data-testid="properties-row-delete"]').count()) > 0) {
+    await page.locator('[data-testid="properties-row-delete"]').first().click();
   }
   await expect(page.getByTestId('properties-widget')).toHaveCount(0);
   await editorLine(page, 'アンカー行').click();
