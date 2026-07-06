@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": null,
-    "total": 19,
+    "current_sprint": "S87f4b7",
+    "total": 21,
     "done": 19,
     "in_progress": 0,
-    "remaining": 0,
-    "percentage": 100
+    "remaining": 2,
+    "percentage": 90
   },
   "execution_order": [
     "Sd63ad1",
@@ -28,7 +28,9 @@
     "S79c210",
     "Sd40b63",
     "Sa629e2",
-    "S9df823"
+    "S9df823",
+    "S87f4b7",
+    "S45fa45"
   ],
   "sprints": {
     "Sd63ad1": {
@@ -1718,7 +1720,7 @@
       "title": "frontmatter のプロパティ UI(Obsidian Properties 風)",
       "status": "done",
       "description": "レビュー第5ラウンド。ノート冒頭の YAML frontmatter を、生 YAML ではなく GUI に溶け込むプロパティブロックとして表示・編集する(Obsidian の Properties 相当)。tags はチップ、値はその場で編集、プロパティの追加・削除。ファイルは常に標準 YAML frontmatter のまま(ピュア Markdown 維持)。テーブル WYSIWYG(Sd40b63/Sa629e2)で確立した『表示層でリッチ・ファイルは標準記法』パターンを適用する。",
-      "milestone": true,
+      "milestone": false,
       "stories": {
         "S9df823-1": {
           "title": "プロパティブロック表示と編集",
@@ -1768,6 +1770,198 @@
               "title": "ソース切替・スラッシュメニュー・テスト",
               "description": "『ソースを編集』ボタン(テーブルと同 UX)。スラッシュメニューに『プロパティ』(frontmatter 追加)。mock + E2E([AC-] タグ、編集→実ファイルが標準 YAML であることを検証、Tab/IME 考慮)。",
               "status": "done"
+            }
+          }
+        }
+      }
+    },
+    "S87f4b7": {
+      "title": "プロパティUI再設計 + 意味型(D方式)",
+      "status": "pending",
+      "description": "レビュー第6ラウンド。プロパティブロックを『たたむ=> のみ / 開く=ミニマル2カラム密行 / プロパティ追加』に再設計し、キーごとの意味型(D方式: 内蔵型のヒューリスティック + .loamium/property-types.json のJSON定義で上書き)を導入して値をリッチ描画(tags/select/multi-select/star/progress/date/checkbox/url/note-link/number/text)。追加時は型ピッカー(コンテキストメニュー + インクリメンタル絞り込み)。ファイル正本は常に標準 YAML スカラー(ピュア Markdown 厳守、型情報はファイルに書かない)。プロトタイプ prototype/props-redesign/chosen.html がビジュアルの正。",
+      "milestone": false,
+      "stories": {
+        "S87f4b7-1": {
+          "title": "プロパティブロックの再設計(折りたたみ+ミニマル2カラム)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in_review": "review_r6",
+          "user_story": "ノート利用者として、プロパティが普段は畳まれ、開くと省スペースな2カラムで見えてほしい。なぜなら、frontmatter が常時大きく本文を押し下げるのが邪魔だから。",
+          "acceptance_criteria": [
+            {
+              "id": "S87f4b7-1-AC1",
+              "description": "frontmatter があるノートで、プロパティは既定で畳まれ、本文直前に `>` トグルのみが表示される(プロパティ要約テキストは出さない)",
+              "test": "[AC-S87f4b7-1-1] in packages/ui/tests/e2e/props-layout.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "S87f4b7-1-AC2",
+              "description": "`>` をクリックすると枠・ヘッダのないミニマル2カラム密行(キー淡色+型アイコン / 値)で展開し、`v` で再度畳める。占有高さは現状のフル枠より明確に小さい",
+              "test": "[AC-S87f4b7-1-2] in packages/ui/tests/e2e/props-layout.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "S87f4b7-1-AC3",
+              "description": "展開時の末尾『+ プロパティを追加』からプロパティを追加でき、frontmatter が無いノートにも生成される。畳み状態はノートを切り替えても妥当に保たれる",
+              "test": "[AC-S87f4b7-1-3] in packages/ui/tests/e2e/props-layout.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S87f4b7-1-1": {
+              "title": "折りたたみ + 2カラム密行",
+              "description": "properties.ts/live-preview を chosen.html に合わせて再設計(既定畳み=`>`、展開=密2カラム)。畳み状態の保持(ノート単位)。",
+              "status": "pending"
+            },
+            "S87f4b7-1-2": {
+              "title": "プロパティ追加導線",
+              "description": "展開時の追加ボタンを型ピッカー(S87f4b7-3)に接続。frontmatter 生成/除去は既存 frontmatter モデルを再利用。",
+              "status": "pending"
+            }
+          }
+        },
+        "S87f4b7-2": {
+          "title": "意味型システム(D方式)と型別描画",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in_review": "review_r6",
+          "user_story": "ノート利用者として、rating が星、status が色付き選択のように、プロパティが意味に沿って表示・編集できてほしい。なぜなら、素の数値や文字列より意味が一目で分かり、入力も速いから。",
+          "acceptance_criteria": [
+            {
+              "id": "S87f4b7-2-AC1",
+              "description": "キーごとの意味型が『内蔵ヒューリスティック(例 rating/score→star, status/state→select, created/due→date, progress→progress, tags→tags, URLらしき→url, [[..]]→note-link, 真偽→checkbox)』で解決され、`.loamium/property-types.json` のキー→型定義があればそれで上書きされる",
+              "test": "[AC-S87f4b7-2-1] in tests/acceptance/property-types.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "S87f4b7-2-AC2",
+              "description": "内蔵型 text/number/date/checkbox/select/multi-select/tags/star/progress/url/note-link が型に応じてリッチ描画・編集でき(star はクリックで増減、select は選択肢+色、progress はバー等)、編集結果は標準 YAML スカラー(rating:4 / 真偽 / 0-100 数値 / 文字列 / フラット配列)としてファイルに書き戻る",
+              "test": "[AC-S87f4b7-2-2] in packages/ui/tests/e2e/props-types.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "S87f4b7-2-AC3",
+              "description": "`.loamium/property-types.json` は zod で検証され、壊れていてもクラッシュせず内蔵ヒューリスティックにフォールバックする。型情報はノートファイルに一切書き込まれない(ファイルはピュア Markdown のまま)",
+              "test": "[AC-S87f4b7-2-3] in tests/acceptance/property-types.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S87f4b7-2-1": {
+              "title": "型解決とスキーマ",
+              "description": "packages/shared に型定義(zod)と『キー→意味型』解決(ヒューリスティック + .loamium/property-types.json 上書き)。select の選択肢/色定義。ユニットテスト必須。",
+              "status": "pending"
+            },
+            "S87f4b7-2-2": {
+              "title": "サーバー: 型スキーマ配信",
+              "description": "GET /api/property-types で .loamium/property-types.json を返す(無ければ空)。read 分類。受け入れテスト。",
+              "status": "pending"
+            },
+            "S87f4b7-2-3": {
+              "title": "型別の値レンダラー/エディタ",
+              "description": "star/select/multi-select/progress/date/checkbox/url/note-link/tags/number/text の描画+編集。書き戻しは標準 YAML スカラー。二層テスト。",
+              "status": "pending"
+            }
+          }
+        },
+        "S87f4b7-3": {
+          "title": "プロパティ追加の型ピッカー(コンテキストメニュー+絞り込み)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in_review": "review_r6",
+          "user_story": "ノート利用者として、プロパティ追加時に使える型を候補から選び、打ち込んで絞り込みたい。なぜなら、どんな型が使えるか覚えていなくても、素早く正しい型で追加したいから。",
+          "acceptance_criteria": [
+            {
+              "id": "S87f4b7-3-AC1",
+              "description": "『+ プロパティを追加』で型候補のコンテキストメニューが開き、上部の入力でインクリメンタルに絞り込める(例 `s` で select/star/... に絞る)",
+              "test": "[AC-S87f4b7-3-1] in packages/ui/tests/e2e/type-picker.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "S87f4b7-3-AC2",
+              "description": "候補は内蔵型と `.loamium/property-types.json` の JSON定義型の両方を含み、JSON定義型は区別表示される。型選択→キー名入力→値入力 の流れで標準 YAML の新プロパティが追加される",
+              "test": "[AC-S87f4b7-3-2] in packages/ui/tests/e2e/type-picker.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S87f4b7-3-1": {
+              "title": "型ピッカーUI",
+              "description": "コンテキストメニュー + フィルタ入力 + キーボードナビ。内蔵 + JSON定義を混在提示(バッジ)。prototype 契約(property-type-picker/-filter/-option)に一致。",
+              "status": "pending"
+            },
+            "S87f4b7-3-2": {
+              "title": "追加フロー結線とテスト",
+              "description": "型選択→キー→値→frontmatter 追記(型に沿った初期値)。mock + E2E([AC-] タグ)。",
+              "status": "pending"
+            }
+          }
+        }
+      }
+    },
+    "S45fa45": {
+      "title": "タグ入力の候補補完(プロパティ + 本文)",
+      "status": "pending",
+      "description": "レビュー第6ラウンド続き。`#` でタグ候補をコンテキストメニュー表示+インクリメンタル絞り込み(既存タグ+件数+新規作成)を、tags プロパティ値と本文の両方で。本文の `#` 判定: 直後スペースあり=Markdown 見出し(H1 等)、スペースなし=タグ。タグはピュア Markdown の Obsidian 互換 `#tag` のまま。プロトタイプ chosen.html のタグメニュー/本文タグがビジュアルの正。",
+      "milestone": true,
+      "stories": {
+        "S45fa45-1": {
+          "title": "タグ候補補完(共通ソース)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in_review": "review_r6",
+          "user_story": "ノート利用者として、`#` を打つと既存タグの候補が絞り込み表示されてほしい。なぜなら、正確なタグ名を思い出さなくても一貫したタグ付けができるから。",
+          "acceptance_criteria": [
+            {
+              "id": "S45fa45-1-AC1",
+              "description": "tags プロパティ値で `#` 入力すると既存タグ候補(件数付き)のメニューが出て、続く入力でインクリメンタルに絞り込め、選択でタグが追加される。候補末尾に『新規作成: #xxx』がある",
+              "test": "[AC-S45fa45-1-1] in packages/ui/tests/e2e/tag-suggest.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S45fa45-1-1": {
+              "title": "タグ候補ソース + メニュー",
+              "description": "GET /api/tags を候補ソースに、コンテキストメニュー + 絞り込み + 新規作成。prototype 契約(tag-suggest-menu/-option)。tags プロパティに結線。mock + E2E。",
+              "status": "pending"
+            }
+          }
+        },
+        "S45fa45-2": {
+          "title": "本文のタグ入力と # 判定(見出し vs タグ)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in_review": "review_r6",
+          "user_story": "ノート利用者として、本文でも `#` でタグを補完付きで書きたい。ただし行頭の見出しは従来どおり使いたい。なぜなら、タグ付けと見出しはどちらも `#` を使うが用途が違うから。",
+          "acceptance_criteria": [
+            {
+              "id": "S45fa45-2-AC1",
+              "description": "本文で `#` の直後にスペースがある場合は通常の Markdown 見出し(H1 等)として扱われ、スペースがない場合(`#tag`)はタグとして扱われる(インライン装飾+補完メニュー)",
+              "test": "[AC-S45fa45-2-1] in packages/ui/tests/e2e/body-tag.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "S45fa45-2-AC2",
+              "description": "本文で `#tag` を入力するとタグ候補メニュー(S45fa45-1 と同一ソース)が出て絞り込み・選択でき、確定したタグはインラインのタグ装飾(クリックで検索/移動)になる。ファイルは標準的な `#tag`(ピュア Markdown)のまま",
+              "test": "[AC-S45fa45-2-2] in packages/ui/tests/e2e/body-tag.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S45fa45-2-1": {
+              "title": "本文 # 判定と装飾",
+              "description": "lezer の ATXHeading(行頭 `# `)と衝突しないインラインタグ装飾。`#tag`(スペースなし)をタグとして認識・装飾(既存の #tag 抽出ロジックと整合)。",
+              "status": "pending"
+            },
+            "S45fa45-2-2": {
+              "title": "本文タグ補完 + ナビ",
+              "description": "本文 `#` で補完メニュー(共通ソース)。タグクリックで検索/一覧へ。mock + E2E([AC-] タグ)。",
+              "status": "pending"
             }
           }
         }
@@ -1888,6 +2082,19 @@
         "Sa629e2"
       ],
       "reason": "テーブル WYSIWYG で確立した編集ウィジェットパターン(input 差し替え・commit-on-blur・フォーカス復元)を再利用"
+    },
+    "S87f4b7": {
+      "depends_on": [
+        "S9df823"
+      ],
+      "reason": "S9df823 のプロパティUI/frontmatter モデルを再設計・拡張する"
+    },
+    "S45fa45": {
+      "depends_on": [
+        "S87f4b7",
+        "Sbd061c"
+      ],
+      "reason": "タグ補完ソースと型ピッカーの UI 基盤・検索(タグ)を共有"
     }
   },
   "backlog": [
