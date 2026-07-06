@@ -34,8 +34,10 @@ import {
   type PropertyValue,
   type PropScalar,
   type ResolvedPropertyType,
+  type TagCount,
   type TypePickerOption,
 } from '@loamium/shared';
+import { attachTagInputSuggest } from '../tag-suggest.js';
 
 /** 編集結果を元ドキュメントへ書き戻すためのハンドラ (エディタ側が dispatch を担う)。 */
 export interface PropertiesEditHandlers {
@@ -52,6 +54,8 @@ export interface PropertiesRenderOptions {
   typeDefs?: Record<string, PropertyTypeDef>;
   /** note-link の遷移 (読み取り時)。 */
   openNoteLink?: (target: string) => void;
+  /** タグ候補ソース (tags 値の `#` 補完 — S45fa45-1)。null/未指定なら補完なし。 */
+  getTags?: () => readonly TagCount[] | null;
 }
 
 /** コミット後の widget へフォーカス復元を配送する CustomEvent 名。detail: PropsFocusTarget */
@@ -711,30 +715,53 @@ export function renderProperties(
     input.setAttribute('data-testid', 'properties-chip-input');
     input.setAttribute('data-key', entry.key);
     input.placeholder = '追加…';
-    const addPending = (): boolean => {
-      const t = input.value.trim();
+    /** value v で新チップを 1 件追加する (tags 値は先頭 `#` を落として保存 — ピュア Markdown)。 */
+    const commitChip = (v: string): boolean => {
+      const t = v.trim().replace(/^#+/, '');
       if (t === '') return false;
       const prev = ref.entry;
       if (prev.kind !== 'list') return false;
       const updated: PropEntry = { kind: 'list', key: prev.key, items: [...prev.items, t] };
       replaceEntry(prev, updated);
       ref.entry = updated;
+      return true;
+    };
+    const insertLastChip = (): void => {
+      const prev = ref.entry;
+      if (prev.kind === 'list') {
+        const added = prev.items[prev.items.length - 1] ?? null;
+        cell.insertBefore(makeChip(added), input);
+      }
+    };
+    const addPending = (): boolean => {
+      if (!commitChip(input.value)) return false;
       input.value = '';
       return true;
     };
     chipFlushes.add(addPending);
+
+    // tags 値の `#` 候補補完 (S45fa45-1)。共通ソース (GET /api/tags) を filterTagSuggestions で絞り込む。
+    const tagSuggest =
+      type === 'tags' && options?.getTags !== undefined
+        ? attachTagInputSuggest(input, {
+            getTags: options.getTags,
+            onPick: (tag) => {
+              input.value = ''; // structuralCommit の flush(addPending) による二重追加を防ぐ
+              if (commitChip(tag)) {
+                insertLastChip();
+                structuralCommit();
+              }
+            },
+          })
+        : null;
+
     input.addEventListener('keydown', (e) => {
       e.stopPropagation();
       if (e.isComposing) return;
+      if (tagSuggest !== null && tagSuggest.handleKeydown(e)) return;
       if (e.key === 'Enter') {
         e.preventDefault();
-        if (addPending()) {
-          const prev = ref.entry;
-          if (prev.kind === 'list') {
-            const added = prev.items[prev.items.length - 1] ?? null;
-            cell.insertBefore(makeChip(added), input);
-          }
-        }
+        if (addPending()) insertLastChip();
       } else if (e.key === 'Backspace' && input.value === '') {
         const prev = ref.entry;
         if (prev.kind !== 'list' || prev.items.length === 0) return;
@@ -751,10 +778,14 @@ export function renderProperties(
       }
     });
     input.addEventListener('beforeinput', (e) => e.stopPropagation());
-    input.addEventListener('input', (e) => e.stopPropagation());
+    input.addEventListener('input', (e) => {
+      e.stopPropagation();
+      tagSuggest?.refresh();
+    });
     input.addEventListener('blur', (e) => {
       const rt = e.relatedTarget;
       const stayingInWidget = rt instanceof Node && wrap.contains(rt);
+      tagSuggest?.close();
       if (!stayingInWidget) commitFinal();
     });
     cell.append(input);

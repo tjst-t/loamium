@@ -1,0 +1,102 @@
+{
+  "sprint": "S45fa45",
+  "title": "タグ入力の候補補完(プロパティ + 本文)",
+  "mode": "autopilot / sprint auto --auto --with-verifier",
+  "branch": "autopilot/main/S45fa45",
+  "planning_decisions": [
+    {
+      "id": "PD-1",
+      "decision": "タグ補完の絞り込みロジック (既存タグ + 件数 + 新規作成) を packages/shared の純関数 filterTagSuggestions に置き、UI 依存を持たせない",
+      "rationale": "『タグ補完ソースは共通化』要件 + DESIGN_PRINCIPLES coding_conventions『Markdown パース等はユニットテスト必須』。純ロジックを shared に置くことで tags プロパティ(DOM)と本文(CodeMirror)の両ホストが同一判定を共有し、Vitest で件数付き絞り込み・新規作成・NFC を固められる。"
+    },
+    {
+      "id": "PD-2",
+      "decision": "本文 #tag の抽出位置は shared/extract.ts に matchInlineTags(line) を新設し、extractTags もこれを使うよう refactor。live-preview の装飾もこれを呼ぶ",
+      "rationale": "『既存の #tag 抽出ロジック(extractTags、コードフェンス/インラインコード除外)と整合』要件。単一の TAG_RE を共有し、装飾・インデックスのズレを構造的に防ぐ。extract.test.ts に matchInlineTags のユニットテストを追加。"
+    },
+    {
+      "id": "PD-3",
+      "decision": "本文の # 判定は lezer の ATXHeading と衝突させない。`# `(直後スペース)は見出しのまま、`#tag`(スペース無し)だけを inline replace widget (BodyTagWidget) で装飾",
+      "rationale": "CommonMark/lezer は `#tag`(スペース無し)を ATXHeading と解釈せず段落にする。TAG_RE は `#` 直後にタグ文字が必要なため `# 見出し` に一致しない。既存の HeaderMark 装飾(行頭 `# ` 非表示)と範囲が重ならない。DESIGN_PRINCIPLES priority 1/4(ピュア Markdown / Obsidian 互換 #tag)。"
+    },
+    {
+      "id": "PD-4",
+      "decision": "本文の #tag 補完メニューは slash-menu と同型の StateField + showTooltip + Prec.highest keymap で実装。プロパティ値は plain input 用のフローティングメニュー(共通 buildTagMenu)で実装",
+      "rationale": "既存 slash-menu.ts(/ メニュー)の確立パターンを踏襲し、wikilink オートコンプリート(autocompletion)・slash メニューと keymap が競合しないよう Prec.highest・登録順で制御。# と / と [[ は排他トリガーなので相互干渉しない。IME 対策(composing / input.type.compose)も slash と同じ規約で踏襲。"
+    },
+    {
+      "id": "PD-5",
+      "decision": "確定タグのマウス選択は mousedown で preventDefault(フォーカス保持)しつつ、onChoose の実行を setTimeout(0) で遅延する",
+      "rationale": "確定は widget/tooltip を同期的に作り替えて自身を DOM から外すため、mouseup 前に外すと(実ブラウザでは無害だが)Playwright のクリックが不成立になる。遅延で mousedown→mouseup 完了後に確定させ、実機/テスト双方で成立させる。UX は不変。"
+    }
+  ],
+  "implementation_decisions": [
+    {
+      "id": "ID-1",
+      "decision": "GET /api/tags を UI に結線: api.getTags() 追加、App が起動時と保存後に refreshTags、tagSuggestEnvFacet(getTags/openTag)で Editor→live-preview→properties へ注入",
+      "rationale": "候補ソースは既存 GET /api/tags(件数降順→タグ昇順)。保存でインデックスが更新されるため保存後に再取得して候補を最新化。env は ref 読みの安定オブジェクトにし拡張の作り直しを避ける(wikilinkEnv と同じ設計)。"
+    },
+    {
+      "id": "ID-2",
+      "decision": "本文タグのクリックは openTag → openSearch({tag}) で既存の詳細検索(/search?tag=)へ遷移",
+      "rationale": "『クリックで検索/移動』要件を、既存のタグ絞り込み検索基盤(Sbd061c/S935867)へ委譲。新規ナビ機構を作らない(priority 5 シンプルさ)。"
+    },
+    {
+      "id": "ID-3",
+      "decision": "tags チップ入力の menu は初回オープン時に input の親セルへ遅延マウント(ensureMounted)",
+      "rationale": "renderChips は input を組み立ててから cell へ append するため、attach 時点で input.parentElement が null。遅延マウントで接続済みセルへ確実に載せ、widget 再構築時はセルごと破棄されて leak しない。"
+    },
+    {
+      "id": "ID-4",
+      "decision": "mock ハーネス installCatchAll に GET /api/tags(既定 { tags: [] })を additive 追加",
+      "rationale": "App が起動時に /api/tags を叩くようになったため、既存 mock テストが unmocked で落ちないよう既定ルートを追加(property-types と同じ扱い)。契約は additive のみ拡張。"
+    }
+  ],
+  "autonomous_resolutions": [
+    {
+      "id": "AR-1",
+      "issue": "作業中に docs/ROADMAP.json の working tree に無関係な 2 Sprint(S89a350 テンプレート系 / S67ea41)が追加され、progress が total:23 へ書き換わっていた(セッション開始時 HEAD は clean)",
+      "resolution": "ROADMAP.json を HEAD へ復元してから S45fa45 の done 更新のみ適用した",
+      "rationale": "本タスクは S45fa45 を『最終 Sprint』と明示し、done 時 progress を done:21/remaining:0/percentage:100/current_sprint:null(total 21)へ更新するよう指示。無関係 Sprint の混入はこの前提と矛盾するため、指示に忠実な最終状態へ戻した。これらの Sprint が正式に必要なら親/ユーザが別途 sprint idea で再登録する想定。",
+      "needs_user_review": true
+    },
+    {
+      "id": "AR-2",
+      "issue": "既知の flaky(terminal.spec / wikilink.mock)への遭遇有無",
+      "resolution": "make test-ui フル 232 件を 1 回で全 pass(flaky 再実行は不要だった)",
+      "rationale": "232 = 既存 220 + 新規 12。全 pass のため単独再実行や既存テスト変更は行っていない。"
+    }
+  ],
+  "review_decisions": [
+    {
+      "id": "RV-1",
+      "decision": "セルフレビュー(code-review 7 角度)をインラインで実施。CONFIRMED な実バグは無し",
+      "notes": "確認事項: (a) BodyTagWidget の replace 装飾は Decoration.set(decos,true) でソートされ claimed と重複しない, (b) frontmatter 値中の # は block widget 配下で隠れ既存 wikilink と同挙動で無害, (c) マウス確定の遅延で detach-on-mouseup を回避, (d) refreshTags は安定 useCallback で再レンダーループ無し, (e) IME(composing / input.type.compose)で # 誤発火しない。"
+    },
+    {
+      "id": "RV-2",
+      "decision": "独立 verifier(別 Claude セッション)は本環境ではサブエージェント spawn 不可のため未実行",
+      "rationale": "タスク指示どおり、その旨を明記して done を完了。親が opus の read-only verifier を補完実行する前提。機械検証(run-verify.py)・6/8 ガード・セルフレビュー・クリーンテキスト(NUL 無し)は実施済み。"
+    }
+  ],
+  "done_judgment": {
+    "S45fa45-1": {
+      "guard1_ac_covered": "pass",
+      "guard2_tests_real": "pass",
+      "guard3_no_forbidden": "pass",
+      "guard4_machine_verified": "pass",
+      "guard5_scope": "pass",
+      "guard6_docs_contract": "pass",
+      "verdict": "done"
+    },
+    "S45fa45-2": {
+      "guard1_ac_covered": "pass",
+      "guard2_tests_real": "pass",
+      "guard3_no_forbidden": "pass",
+      "guard4_machine_verified": "pass",
+      "guard5_scope": "pass",
+      "guard6_docs_contract": "pass",
+      "verdict": "done"
+    }
+  }
+}

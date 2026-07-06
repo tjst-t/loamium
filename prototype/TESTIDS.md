@@ -529,3 +529,20 @@ Sprint S87f4b7 は S9df823-1 のプロパティブロックを **たたむトグ
 - サーバー: `GET /api/property-types` が `.loamium/property-types.json`(キー→型定義)の
   生 JSON を `{ types }` で返す(無ければ `{}`、read 分類で全モード許可)。壊れた JSON でも
   200 で `{}` を返し、UI 側 `parsePropertyTypesJson`(zod)が妥当なエントリのみ採用してフォールバック。
+
+## タグ # 候補補完 (S45fa45 — prototype/props-redesign/chosen.html D/E)
+
+| data-testid | 画面 | 役割 |
+|---|---|---|
+| `tag-suggest-menu` | editor | タグ候補メニューのコンテナ(tags プロパティ値の `#` 補完・本文 `#tag` 補完で共通)。件数付き既存タグ + 末尾に「新規作成: #xxx」 |
+| `tag-suggest-option` | editor | タグ候補項目。`data-tag`(タグ名、`#` なし)。選択中は `.sel`、新規作成は `.create-new`。件数は `.cnt`、一致範囲は `<mark>` |
+| `tag-suggest-empty` | editor | 一致するタグが無いときの空状態 |
+| `body-tag` | editor | 本文中のインラインタグチップ(`#tag`、スペース無し)。`data-tag`(タグ名)。クリックでタグ絞り込み検索へ遷移 |
+
+- タグ補完ソースは共通(`GET /api/tags` = 既存タグ + 件数)。tags プロパティ値と本文で同一ロジック
+  (`filterTagSuggestions` / `buildTagMenu`)を共有。`#` を打つと候補メニューが開き、続く入力で
+  インクリメンタル絞り込み、↑↓ 移動 / Enter・クリックで確定、Esc で閉じる(IME 変換中は誤発火しない)。
+- 本文の `#` 判定: `# `(直後スペース)は Markdown 見出し(H1 等)、`#tag`(スペース無し)はタグ
+  (`body-tag` 装飾 + 補完メニュー)。ファイルは標準的な `#tag`(ピュア Markdown、Obsidian 互換)のまま。
+- 既存の `properties-chip-input`(tags 値の追加入力)へ `#` 補完を結線。既存オートコンプリート
+  ([[リンク]] = `wikilink-autocomplete` / `/` = `slash-menu`)とは排他で干渉しない。

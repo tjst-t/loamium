@@ -4,6 +4,7 @@ import {
   extractTags,
   extractTasks,
   frontmatterTags,
+  matchInlineTags,
   noteTitle,
   rewriteLinks,
 } from './extract.js';
@@ -267,5 +268,42 @@ describe('extractTasks (Sb1593c-1)', () => {
   it('keeps inline code and tags in the task text verbatim', () => {
     const content = '- [ ] `code` を含む #tag タスク\n';
     expect(extractTasks(content)[0]?.text).toBe('`code` を含む #tag タスク');
+  });
+});
+
+describe('matchInlineTags', () => {
+  it('returns #tag positions for a single line', () => {
+    // "この本は #sample-book です"
+    const line = 'この本は #sample-book です';
+    const hashPos = line.indexOf('#');
+    expect(matchInlineTags(line)).toEqual([
+      { start: hashPos, end: hashPos + '#sample-book'.length, tag: 'sample-book' },
+    ]);
+  });
+
+  it('does not match an ATX heading (# followed by a space)', () => {
+    expect(matchInlineTags('# 見出し')).toEqual([]);
+    expect(matchInlineTags('## Section')).toEqual([]);
+  });
+
+  it('matches a tag at line start when no space follows the #', () => {
+    expect(matchInlineTags('#tag body')).toEqual([{ start: 0, end: 4, tag: 'tag' }]);
+  });
+
+  it('ignores #tags inside inline code', () => {
+    expect(matchInlineTags('code `#nope` and #yes')).toEqual([
+      { start: 'code `#nope` and '.length, end: 'code `#nope` and '.length + 4, tag: 'yes' },
+    ]);
+  });
+
+  it('drops a trailing separator from the matched range', () => {
+    // "#foo/" — the trailing slash is not part of the tag
+    expect(matchInlineTags('a #foo/')).toEqual([{ start: 2, end: 6, tag: 'foo' }]);
+  });
+
+  it('agrees with extractTags on which tags a body line yields', () => {
+    const line = 'この本は #sample-book と #science でタグ付け';
+    expect(matchInlineTags(line).map((m) => m.tag)).toEqual(['sample-book', 'science']);
+    expect(extractTags(line)).toEqual(['sample-book', 'science']);
   });
 });

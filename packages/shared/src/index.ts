@@ -46,12 +46,20 @@ export {
   extractLinks,
   extractTasks,
   frontmatterTags,
+  matchInlineTags,
   noteTitle,
   rewriteLinks,
+  type InlineTagMatch,
   type NoteTask,
   type RewriteResult,
   type WikiLink,
 } from './extract.js';
+export {
+  filterTagSuggestions,
+  isValidTagName,
+  normalizeTagQuery,
+  type TagSuggestion,
+} from './tag-suggest.js';
 export {
   parseQuery,
   executeQuery,

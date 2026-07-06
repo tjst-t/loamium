@@ -106,6 +106,35 @@ function isNumericOnly(tag: string): boolean {
   return /^[\p{N}]+$/u.test(tag);
 }
 
+/** 1 行内のインライン #tag の一致 (位置つき — 本文タグ装飾が使う)。 */
+export interface InlineTagMatch {
+  /** `#` の開始オフセット (行頭からの桁位置) */
+  start: number;
+  /** タグ末尾の次の位置 (`#` + タグ本体、末尾区切りは含まない) */
+  end: number;
+  /** タグ名 (`#` なし、NFC 正規化、末尾区切り除去済み) */
+  tag: string;
+}
+
+/**
+ * 1 行 (raw) からインライン #tag を位置つきで抽出する。
+ * インラインコード (`...`) 内は無効化してから走査するため、抽出 (extractTags) と
+ * 本文のタグ装飾 (live-preview) が同一の判定を共有できる。
+ * 行頭 `# ` (直後スペース) の見出しは `#` の直後がタグ文字でないため一致しない。
+ */
+export function matchInlineTags(line: string): InlineTagMatch[] {
+  const scan = blankInlineCode(line);
+  const out: InlineTagMatch[] = [];
+  for (const m of scan.matchAll(TAG_RE)) {
+    const body = (m[2] ?? '').replace(/[/-]+$/, ''); // 末尾の区切り記号は落とす
+    if (body.length === 0 || isNumericOnly(body)) continue;
+    const lead = m[1] ?? ''; // 直前の区切り (行頭は '')
+    const start = m.index + lead.length; // '#' の位置
+    out.push({ start, end: start + 1 + body.length, tag: body.normalize('NFC') });
+  }
+  return out;
+}
+
 /**
  * ノートからタグを抽出する。
  * インライン #tag (コードフェンス・インラインコード内は除外) と frontmatter tags の両方。
@@ -130,11 +159,7 @@ export function extractTags(content: string): string[] {
 
   for (const line of scannableLines(content)) {
     if (line === null) continue;
-    for (const m of line.matchAll(TAG_RE)) {
-      const tag = (m[2] ?? '').replace(/[/-]+$/, ''); // 末尾の区切り記号は落とす
-      if (tag.length === 0 || isNumericOnly(tag)) continue;
-      add(tag);
-    }
+    for (const m of matchInlineTags(line)) add(m.tag);
   }
   return out;
 }

@@ -18,11 +18,17 @@ import {
   type FileMeta,
   type NoteMeta,
   type PropertyTypeDef,
+  type TagCount,
 } from '@loamium/shared';
 import { outlineExtension } from '../outline.js';
 import { uploadEnvFacet, uploadExtension, type UploadEnv } from '../upload.js';
 import { livePreviewExtension, notePathFacet, propertyTypesFacet } from '../live-preview.js';
 import { slashMenuExtension } from '../slash-menu.js';
+import {
+  bodyTagSuggestExtension,
+  tagSuggestEnvFacet,
+  type TagSuggestEnv,
+} from '../tag-suggest.js';
 import {
   notesUpdatedAnnotation,
   wikilinkAutocomplete,
@@ -76,6 +82,8 @@ export interface EditorProps {
   files: FileMeta[] | null;
   /** 意味型スキーマ (.loamium/property-types.json → キー→型定義)。既定 {} (S87f4b7-2) */
   propertyTypes: Record<string, PropertyTypeDef>;
+  /** タグ一覧 (件数付き — `#` 候補補完のソース)。null = 未ロード (S45fa45) */
+  tags: TagCount[] | null;
   onChange: (text: string) => void;
   onSave: () => void;
   /** 解決済み [[リンク]] クリック — 対象ノートを開く */
@@ -86,6 +94,8 @@ export interface EditorProps {
   onCreateAndOpenNote: (target: string) => void;
   /** オートコンプリートの「作成してリンク」— ノートを作成する (移動しない) */
   onCreateNote: (target: string) => void;
+  /** 本文タグのクリック — タグで絞り込んだ検索へ遷移する (S45fa45-2) */
+  onOpenTag: (tag: string) => void;
   /** D&D / ペーストのアップロード実体 (Sf53ad6-2)。保存された vault パスを返す */
   onUploadFiles: (uploads: File[]) => Promise<string[]>;
   /** ファイルドラッグ中のドロップオーバーレイ表示切替 */
@@ -100,12 +110,14 @@ export function Editor({
   notes,
   files,
   propertyTypes,
+  tags,
   onChange,
   onSave,
   onOpenNote,
   onOpenNoteAtLine,
   onCreateAndOpenNote,
   onCreateNote,
+  onOpenTag,
   onUploadFiles,
   onDragActive,
 }: EditorProps): JSX.Element {
@@ -124,6 +136,10 @@ export function Editor({
   filesRef.current = files;
   const propertyTypesRef = useRef(propertyTypes);
   propertyTypesRef.current = propertyTypes;
+  const tagsRef = useRef(tags);
+  tagsRef.current = tags;
+  const onOpenTagRef = useRef(onOpenTag);
+  onOpenTagRef.current = onOpenTag;
   const onOpenNoteRef = useRef(onOpenNote);
   const onOpenNoteAtLineRef = useRef(onOpenNoteAtLine);
   const onCreateAndOpenNoteRef = useRef(onCreateAndOpenNote);
@@ -139,6 +155,12 @@ export function Editor({
     createAndOpenNote: (target) => onCreateAndOpenNoteRef.current(target),
     createNote: (target) => onCreateNoteRef.current(target),
     getFiles: () => filesRef.current,
+  });
+
+  // タグ補完環境 (S45fa45): 実体は App、拡張は ref 読みの安定オブジェクト
+  const tagSuggestEnvRef = useRef<TagSuggestEnv>({
+    getTags: () => tagsRef.current,
+    openTag: (tag) => onOpenTagRef.current(tag),
   });
 
   // アップロード環境 (Sf53ad6-2): 実体は App、拡張は ref 読みの安定オブジェクト
@@ -180,12 +202,15 @@ export function Editor({
     notePathFacet.of(path),
     propertyTypesFacet.of(propertyTypesRef.current),
     wikilinkEnvFacet.of(wikilinkEnvRef.current),
+    tagSuggestEnvFacet.of(tagSuggestEnvRef.current),
     uploadEnvFacet.of(uploadEnvRef.current),
     uploadExtension(),
     // slashMenuExtension は wikilinkAutocomplete より前に置く: どちらも Prec.highest
     // の keymap を持ち、同一 Prec 内では登録順が早いほうが優先される。/ メニューの
-    // ↑↓/Enter/Esc を補完キーマップより先に処理させるため。
+    // ↑↓/Enter/Esc を補完キーマップより先に処理させるため。同様に本文タグ補完 (#) も
+    // 補完キーマップより先に ↑↓/Enter/Esc を奪う (# と / は排他なので相互干渉しない)。
     slashMenuExtension(),
+    bodyTagSuggestExtension(),
     wikilinkAutocomplete(),
     outlineExtension(),
     livePreviewExtension(),

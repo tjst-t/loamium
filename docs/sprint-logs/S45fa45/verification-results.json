@@ -1,0 +1,48 @@
+{
+  "sprint": "S45fa45",
+  "verified_at": "2026-07-06",
+  "machine_verdict": {
+    "source": "docs/sprint-logs/S45fa45/verify-run.json ($machine_authored)",
+    "overall": "pass",
+    "runs": [
+      { "name": "test", "command": "make test", "exit_code": 0, "status": "pass", "junit": { "total": 446, "passed": 446, "failed": 0 } },
+      { "name": "lint", "command": "make lint", "exit_code": 0, "status": "pass" },
+      { "name": "ui-tests", "command": "make test-ui", "exit_code": 0, "status": "pass", "junit": { "total": 232, "passed": 232, "failed": 0 } }
+    ]
+  },
+  "baseline_regression_check": {
+    "unit_tests": { "baseline": 432, "now": 446, "delta": "+14 (tag-suggest 8 + matchInlineTags 6)" },
+    "ui_tests": { "baseline": 220, "now": 232, "delta": "+12 (tag-suggest mock 4/e2e 2, body-tag mock 4/e2e 2)" },
+    "flaky_encountered": "none — full make test-ui green on first run (terminal.spec / wikilink.mock passed)"
+  },
+  "acceptance_criteria": [
+    {
+      "id": "S45fa45-1-AC1",
+      "status": "pass",
+      "evidence": "packages/ui/tests/e2e/tag-suggest.e2e.spec.ts [AC-S45fa45-1-1] (実サーバー: propbook:3 の件数付き候補 → `#propbo` 絞り込み(propcat 除外)→ 新規作成: #propbo → 選択でチップ追加 → 保存で標準 YAML(# なし)) + tag-suggest.mock.spec.ts 4 件(件数表示/絞り込み/クリック確定/↑↓Enter/Esc/空ソースでも新規作成)"
+    },
+    {
+      "id": "S45fa45-2-AC1",
+      "status": "pass",
+      "evidence": "packages/ui/tests/e2e/body-tag.e2e.spec.ts [AC-S45fa45-2-1] (実操作: `# 見出しテスト`=H1(.cm-md-h1) / `#realtag`(スペース無し)=body-tag 装飾、保存でピュア Markdown) + body-tag.mock.spec.ts(`# `=見出しでメニュー出さない を含む)"
+    },
+    {
+      "id": "S45fa45-2-AC2",
+      "status": "pass",
+      "evidence": "packages/ui/tests/e2e/body-tag.e2e.spec.ts [AC-S45fa45-2-2] (本文 `#bodys` で S45fa45-1 と同一ソースの候補メニュー(件数 2)→ 確定で `#bodysci` 挿入 → body-tag 装飾 → 保存でピュア Markdown → タグクリックで /search?tag=bodysci へ遷移)"
+    }
+  ],
+  "test_discipline": {
+    "rule1_user_scenario": "pass — 全 Story にユーザーシナリオ(タグ付け/見出し vs タグ)",
+    "rule2_entry_point": "pass — E2E は実ブラウザ→実 Vite→実サーバー→実 FS(ネットワークモックなし)、mock は page.route で error/edge",
+    "rule3_no_silent_skip": "pass — skip なし",
+    "rule4_gui_e2e_real_backend": "pass — GET /api/tags 実インデックス、保存は実ファイル書込を readFile で検証",
+    "rule5_status_truthful": "pass — status は run-verify.json(機械判定)由来",
+    "rule6_diff_scan": "pass — 新規ユーザー可視面(tag-suggest-menu/-option/body-tag)は全て passing テストで観測",
+    "rule7_prod_smoke": "n/a — 障害シナリオ Story ではない(通常の GUI E2E で本番同等サーバーを使用)"
+  },
+  "independent_verifier": {
+    "status": "not_run",
+    "reason": "本環境ではサブエージェント spawn 不可(タスク指示どおり)。親が opus の read-only verifier を補完実行する前提。セルフレビュー(code-review 7 角度)はインライン実施済み、CONFIRMED バグ無し。"
+  }
+}

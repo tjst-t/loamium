@@ -41,5 +41,10 @@ export async function installCatchAll(page: Page): Promise<string[]> {
   await page.route('**/api/property-types', (route) => {
     void route.fulfill(json({ types: {} }));
   });
+  // GET /api/tags (タグ候補ソース — S45fa45) も起動時の定常呼び出し。既定は空。
+  // タグ補完を検証するテストは後から自前の route を登録して上書きする。
+  await page.route('**/api/tags', (route) => {
+    void route.fulfill(json({ tags: [] }));
+  });
   return unexpected;
 }

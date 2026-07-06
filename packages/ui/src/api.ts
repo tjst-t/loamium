@@ -22,7 +22,9 @@ import {
   queryErrorResponseSchema,
   queryResponseSchema,
   searchResponseSchema,
+  tagsResponseSchema,
   type PropertyTypeDef,
+  type TagsResponse,
   type BacklinksResponse,
   type FileDeleteResponse,
   type FileListResponse,
@@ -156,6 +158,11 @@ export const api = {
 
   search(q: string): Promise<SearchResponse> {
     return request(searchResponseSchema, `/api/search?q=${encodeURIComponent(q)}`);
+  },
+
+  /** タグ一覧 (件数付き — S45fa45 のタグ補完ソース)。件数降順→タグ昇順で返る。 */
+  getTags(): Promise<TagsResponse> {
+    return request(tagsResponseSchema, '/api/tags');
   },
 
   /**

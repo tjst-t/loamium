@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "S45fa45",
+    "current_sprint": null,
     "total": 21,
-    "done": 20,
+    "done": 21,
     "in_progress": 0,
-    "remaining": 1,
-    "percentage": 95
+    "remaining": 0,
+    "percentage": 100
   },
   "execution_order": [
     "Sd63ad1",
@@ -1904,13 +1904,13 @@
     },
     "S45fa45": {
       "title": "タグ入力の候補補完(プロパティ + 本文)",
-      "status": "pending",
+      "status": "done",
       "description": "レビュー第6ラウンド続き。`#` でタグ候補をコンテキストメニュー表示+インクリメンタル絞り込み(既存タグ+件数+新規作成)を、tags プロパティ値と本文の両方で。本文の `#` 判定: 直後スペースあり=Markdown 見出し(H1 等)、スペースなし=タグ。タグはピュア Markdown の Obsidian 互換 `#tag` のまま。プロトタイプ chosen.html のタグメニュー/本文タグがビジュアルの正。",
       "milestone": true,
       "stories": {
         "S45fa45-1": {
           "title": "タグ候補補完(共通ソース)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "added_in_review": "review_r6",
@@ -1920,20 +1920,20 @@
               "id": "S45fa45-1-AC1",
               "description": "tags プロパティ値で `#` 入力すると既存タグ候補(件数付き)のメニューが出て、続く入力でインクリメンタルに絞り込め、選択でタグが追加される。候補末尾に『新規作成: #xxx』がある",
               "test": "[AC-S45fa45-1-1] in packages/ui/tests/e2e/tag-suggest.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S45fa45-1-1": {
               "title": "タグ候補ソース + メニュー",
               "description": "GET /api/tags を候補ソースに、コンテキストメニュー + 絞り込み + 新規作成。prototype 契約(tag-suggest-menu/-option)。tags プロパティに結線。mock + E2E。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S45fa45-2": {
           "title": "本文のタグ入力と # 判定(見出し vs タグ)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "added_in_review": "review_r6",
@@ -1943,25 +1943,25 @@
               "id": "S45fa45-2-AC1",
               "description": "本文で `#` の直後にスペースがある場合は通常の Markdown 見出し(H1 等)として扱われ、スペースがない場合(`#tag`)はタグとして扱われる(インライン装飾+補完メニュー)",
               "test": "[AC-S45fa45-2-1] in packages/ui/tests/e2e/body-tag.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "S45fa45-2-AC2",
               "description": "本文で `#tag` を入力するとタグ候補メニュー(S45fa45-1 と同一ソース)が出て絞り込み・選択でき、確定したタグはインラインのタグ装飾(クリックで検索/移動)になる。ファイルは標準的な `#tag`(ピュア Markdown)のまま",
               "test": "[AC-S45fa45-2-2] in packages/ui/tests/e2e/body-tag.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S45fa45-2-1": {
               "title": "本文 # 判定と装飾",
               "description": "lezer の ATXHeading(行頭 `# `)と衝突しないインラインタグ装飾。`#tag`(スペースなし)をタグとして認識・装飾(既存の #tag 抽出ロジックと整合)。",
-              "status": "pending"
+              "status": "done"
             },
             "S45fa45-2-2": {
               "title": "本文タグ補完 + ナビ",
               "description": "本文 `#` で補完メニュー(共通ソース)。タグクリックで検索/一覧へ。mock + E2E([AC-] タグ)。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
