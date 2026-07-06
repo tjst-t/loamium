@@ -6,6 +6,7 @@ import { notesRoutes } from './routes/notes.js';
 import { journalRoutes } from './routes/journal.js';
 import { searchRoutes } from './routes/search.js';
 import { filesRoutes } from './routes/files.js';
+import { propertyTypesRoutes } from './routes/property-types.js';
 import { auditMiddleware } from './audit.js';
 import { permissionMiddleware } from './permissions.js';
 import { indexSyncMiddleware } from './indexSync.js';
@@ -42,6 +43,8 @@ export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv>
   app.route('/', notesRoutes(config, index));
   // files: GET 配信/一覧 (S9e5ca4-2, Sf53ad6) + POST アップロード/リネーム + DELETE (Sf53ad6)
   app.route('/', filesRoutes(config, index));
+  // 意味型スキーマ配信 (GET /api/property-types — S87f4b7-2)。読み取り専用
+  app.route('/', propertyTypesRoutes(config));
 
   return app;
 }

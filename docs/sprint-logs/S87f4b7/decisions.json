@@ -1,0 +1,84 @@
+{
+  "sprint": "S87f4b7",
+  "title": "プロパティUI再設計 + 意味型(D方式)",
+  "mode": "auto",
+  "planning": [
+    {
+      "id": "P-1",
+      "topic": "スコープ境界: タグ# 補完は本 Sprint 対象外",
+      "decision": "prototype/props-redesign/chosen.html の D/E 欄(tag-suggest-menu / tag-suggest-option / body-tag = タグ # 補完)は次 Sprint S45fa45『タグ入力補完』の範囲。本 Sprint では実装せず、testid も追記しない。本 Sprint は A(たたむ)/B(密行+意味型)/C(型ピッカー)のみ。",
+      "rationale": "ROADMAP.json の S87f4b7 AC は layout/意味型/型ピッカーの 3 Story のみ。S45fa45 の depends_on が『型ピッカーの UI 基盤・検索(タグ)を共有』と明記。DESIGN_PRINCIPLES priority 5(シンプルさ)。"
+    },
+    {
+      "id": "P-2",
+      "topic": "JSON定義型のキー付け(.loamium/property-types.json のスキーマ)",
+      "decision": ".loamium/property-types.json は『プロパティキー名 → 型定義(type + options)』のマップとする。解決は defs[key] があれば上書き、無ければヒューリスティック(AC-2-1)。型ピッカーの JSON定義セクションは、この各キーを『そのキー名の型』として提示(data-source=json, data-type=キー名)。選択するとキー名を事前入力する。",
+      "rationale": "AC-2-1 は『キー→型定義があれば上書き』を要求。prototype の picker が優先度/難易度/読書ステータス(=プロパティキー名)を JSON定義型として並べる挙動と、この解釈が唯一整合する。"
+    },
+    {
+      "id": "P-3",
+      "topic": "型情報の非永続化(ピュア Markdown 厳守)",
+      "decision": "意味型はノート .md に一切書かない。frontmatter は標準 YAML スカラー(star→number, checkbox→boolean, progress→0-100 number, select/url/note-link/text→string, tags/multi-select→flat array)のまま。型は表示層でのみ解決。",
+      "rationale": "DESIGN_PRINCIPLES priority 1 / forbidden(独自記法・メタデータ埋め込み禁止)。CLAUDE.md『ピュア Markdown 絶対』。"
+    },
+    {
+      "id": "P-4",
+      "topic": "既定たたみ状態の保持粒度",
+      "decision": "たたみ/開き状態は notePath 単位で UI モジュールの Map に保持(既定=たたみ)。ファイルには書かない。ノート切替で以前の状態を復元。",
+      "rationale": "AC-1-3『畳み状態はノート切替でも妥当に保たれる』/ task S87f4b7-1-1『畳み状態の保持(ノート単位)』。ピュア Markdown 維持のため永続化はメモリのみ(priority 1 / 6: .loamium も含めファイルに書かない)。"
+    }
+  ],
+  "implementation": [
+    {
+      "id": "I-1",
+      "topic": "意味型の解決は表示層のみ・キー単位で毎回再解決",
+      "decision": "packages/shared/property-types.ts に resolvePropertyType(key,value,defs) を新設。JSON定義(defs[key])優先、無ければヒューリスティック。UI の型ピッカーで型を選んで追加しても、描画時は必ずキーから再解決する(選んだ型は初期値の形だけを決める)。例: 型ピッカーで number を選んでもキー rating は star に解決され星で描画される。",
+      "rationale": "D方式は『型はキーに紐づき、ファイルに書かない』(priority 1)。型を値と一緒に永続化しないため、描画は常にキー基準の解決が正。zod 検証 + ユニットテスト(property-types.test.ts 14 件)。"
+    },
+    {
+      "id": "I-2",
+      "topic": "既存 S9df823 プロパティテストの再設計追従(テスト弱体化ではない)",
+      "decision": "properties.e2e/mock の既存テストを新 UX(既定畳み → expandProps で開く / 追加は型ピッカー経由)へ追従更新。全ての実質アサーション(標準 YAML round-trip・クリーンテキスト・チップ追加削除・ソース編集・複雑値読み取り専用・壊れ YAML フォールバック・スラッシュ生成・重複キー拒否)は保持。",
+      "rationale": "本 Sprint は同一機能(プロパティブロック)の再設計であり、旧 UI 前提のテスト機構(即時展開・旧キー値フォーム)を新 UI に合わせるのは test-discipline Rule 5『status reflects reality』の維持。アサーションの削除・緩和は一切行っていない(forbidden 尊重)。"
+    },
+    {
+      "id": "I-3",
+      "topic": "select 編集は自由入力 input + 選択肢メニューの併存",
+      "decision": "select 値クリックで properties-value-input(自由入力)を開き、options があれば properties-select-menu を併置。自由入力を主経路に残すことで、旧 status(select 相当)自由編集テストと『選択肢+色』の両 AC を同時に満たす。",
+      "rationale": "AC-2-2『select は選択肢+色』と、既存の status 自由テキスト編集の両立。UX の一貫性(priority 3 は API 優先だが UI は自由度確保)。"
+    },
+    {
+      "id": "I-4",
+      "topic": "GET /api/property-types はユーザー JSON を拒否しない",
+      "decision": "サーバーは .loamium/property-types.json の生 JSON を {types} でそのまま返す(ENOENT/壊れ JSON はどちらも {})。zod 検証はクライアント(parsePropertyTypesJson)で 1 エントリずつ行い、妥当な分だけ採用。",
+      "rationale": "AC-2-3『壊れていてもクラッシュせずフォールバック』。.loamium は使い捨て(priority 6)、サーバーはユーザーデータを守る側に倒す(priority 2)。"
+    },
+    {
+      "id": "I-5",
+      "topic": "型スキーマの UI への配線は facet + App 起動時 fetch",
+      "decision": "live-preview に propertyTypesFacet を新設し、Editor 経由で App が起動時に取得した defs を注入。widget は state.facet で defs を読み、型ピッカーの JSON定義セクションと型解決に使う。",
+      "rationale": "wikilinkEnvFacet と同型の既存パターンに揃える(シンプルさ priority 5)。取得失敗はヒューリスティックのみで動作継続。"
+    }
+  ],
+  "review": [
+    {
+      "id": "R-1",
+      "topic": "セルフレビュー(独立 verifier 代替)",
+      "findings": "本環境はサブエージェント spawn 不可のため独立 verifier を実行できない。代わりにセルフレビューを実施: (a) star 減算ロジック(同星再クリックで -1)、(b) select 選択肢クリック時の blur/commit 二重発火なし(mousedown preventDefault でフォーカス保持)、(c) 型情報がファイルに書かれないこと(acceptance/property-types + props-types E2E で実ファイル検証)、(d) 未使用 import 除去。いずれも問題なし。親 autopilot 側で opus read-only verifier を補完する前提。"
+    }
+  ],
+  "done_judgment": {
+    "guard_1_user_review_required": "pass — 全 Story user_review_required=false (ROADMAP 定義どおり)。自動 done 対象。",
+    "guard_2_nil_injection_mock": "pass — nil-guard で実依存を潰す構造なし。型解決は純粋関数、サーバーは実 FS。",
+    "guard_3_mock_mode_as_real": "pass — 受け入れは実サーバー(tsx サブプロセス)+ 実 FS、UI は実ブラウザ+実 Vite+実サーバー。MOCK=true 等での実機扱いなし。",
+    "guard_4_priority9_exception": "n/a — 障害シナリオ Story ではない。例外条項の主張なし。",
+    "guard_5_call_path_exists": "pass — GET /api/property-types は app.ts に結線・acceptance で実 HTTP 検証。UI は App→Editor→facet→widget の実経路を E2E が通す。",
+    "guard_6_deferred_comments": "pass — TODO/FIXME/後で 等の先送りコメントなし。",
+    "guard_7_adr_conformance": "n/a — docs/DESIGN/ 不在(ADR 管理なし)。DESIGN_PRINCIPLES priority 1(ピュア Markdown)/4/6 は遵守。",
+    "guard_8_destructive_multiversion": "n/a — 破壊的マルチバージョン操作なし(表示層の再設計 + 読み取り専用 API)。",
+    "overall": "全 Story done 可。fail ガードなし。"
+  },
+  "verifier": {
+    "note": "本環境ではサブエージェント spawn 不可のため独立 verifier(--with-verifier)は実行できない。親(autopilot)が opus の read-only verifier を補完実行する前提。機械検証(run-verify.py)・6/8 ガード・セルフレビュー・クリーンテキスト(NUL 混入なし)は本セッションで必ず実施する。"
+  }
+}

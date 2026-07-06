@@ -1,47 +1,57 @@
 /**
- * frontmatter のプロパティブロック描画 + WYSIWYG 編集 (S9df823-1 — Obsidian Properties 風)。
+ * frontmatter プロパティブロックの再設計描画 + WYSIWYG 編集 (S87f4b7)。
  *
- * 文書冒頭の YAML frontmatter (--- ... ---) を「キーと値の整った一覧」として表示する。
- * 正本は常に標準 YAML frontmatter のまま (表示層のみ — DESIGN_PRINCIPLES priority 1 / 4)。
- * handlers を渡すと値のその場編集・tags 等のチップ追加削除・プロパティの追加削除ができ、
- * 編集結果は @loamium/shared の serializeFrontmatterBlock で標準 YAML へ直列化して
- * handlers.commit に渡す (ブロック ID・独自記法・不可視文字を一切混入しない)。
+ * S9df823-1 の Obsidian Properties 風ブロックを、prototype/props-redesign/chosen.html
+ * の確定案へ再設計する:
+ *  - 既定は畳まれ、本文直前に `>` トグルだけ (要約テキスト無し) — S87f4b7-1
+ *  - 開くと枠・ヘッダ無しのミニマル 2 カラム密行 (キー淡色+型アイコン / 値)
+ *  - 値は「キーごとの意味型」(D方式 — S87f4b7-2) に沿ってリッチ描画・編集
+ *    (star=クリックで増減 / select=色付きピル / progress=バー / checkbox=☑ /
+ *     tags=チップ / date / url / note-link / number / text)
+ *  - 『+ プロパティを追加』は型ピッカー (コンテキストメニュー + インクリメンタル
+ *    絞り込み) を開く — S87f4b7-3
  *
- * UX はテーブル WYSIWYG (table.ts — Sd40b63-1 / Sa629e2-1) で確立したパターンを踏襲:
- * - 値クリックで input 差し替え、commit は blur の relatedTarget 判定 (widget 内は保留)
- * - 構造変更 (チップ削除・行削除・真偽切替・プロパティ追加) は即コミット
- * - コミット後のフォーカス復元は DOM 位置ベースの CustomEvent (インスタンス非依存)
- *
- * ネスト等の複雑な値 (round-trip を保証できないもの) は読み取り専用表示にし、
- * クリックでソース編集へ誘導する (壊さないことが最優先 — AC4)。
+ * 正本は常に標準 YAML frontmatter のまま。意味型はファイルに一切書かない
+ * (ピュア Markdown 厳守 — DESIGN_PRINCIPLES priority 1)。書き戻しは
+ * serializeFrontmatterBlock で標準 YAML スカラー/フラット配列へ直列化する。
+ * 畳み状態は notePath 単位でメモリ保持する (ファイルには書かない — priority 6)。
  */
 import {
+  buildTypePickerOptions,
+  clampProgress,
+  clampStar,
+  filterTypeOptions,
   isDateLike,
-  parsePropInput,
   parsePropertiesModel,
+  parsePropInput,
+  resolvePropertyType,
+  selectColorFor,
   serializeFrontmatterBlock,
+  STAR_MAX,
+  type BuiltinPropertyType,
   type PropEntry,
+  type PropertyTypeDef,
+  type PropertyValue,
   type PropScalar,
+  type ResolvedPropertyType,
+  type TypePickerOption,
 } from '@loamium/shared';
 
 /** 編集結果を元ドキュメントへ書き戻すためのハンドラ (エディタ側が dispatch を担う)。 */
 export interface PropertiesEditHandlers {
-  /**
-   * 変更後の frontmatter ブロック (--- ... --- の複数行文字列) をコミットする。
-   * null = 全プロパティが削除された → ブロック自体を除去する。
-   */
   commit(newBlock: string | null): void;
-  /**
-   * コミット直後に再構築される widget でフォーカスを復元する (テーブルの
-   * requestFocus と同じ経路)。現状は「プロパティ追加フォームを開き直す」のみ。
-   */
   requestFocus?(target: PropsFocusTarget): void;
-  /**
-   * 『ソースを編集』— カーソルを frontmatter へ移して生 YAML 表示に切り替える。
-   * currentBlock は編集中の値を flush した最新の直列化結果 (null は起こらない想定
-   * だが、全削除直後は commit(null) 側の経路を使う)。
-   */
   editSource?(currentBlock: string): void;
+}
+
+/** 描画オプション (意味型解決・畳み状態の粒度・note-link ナビ)。 */
+export interface PropertiesRenderOptions {
+  /** 畳み状態の保持キー (notePath 単位)。 */
+  notePath?: string;
+  /** `.loamium/property-types.json` のキー→型定義 (D方式の上書き)。 */
+  typeDefs?: Record<string, PropertyTypeDef>;
+  /** note-link の遷移 (読み取り時)。 */
+  openNoteLink?: (target: string) => void;
 }
 
 /** コミット後の widget へフォーカス復元を配送する CustomEvent 名。detail: PropsFocusTarget */
@@ -50,41 +60,59 @@ export const PROPS_FOCUS_EVENT = 'loamium:props-focus';
 /** フォーカス復元先。 */
 export type PropsFocusTarget = { kind: 'add' } | { kind: 'chip'; key: string };
 
+/**
+ * 畳み/開き状態の保持 (notePath 単位・既定は畳み)。ファイルには書かない
+ * (ピュア Markdown / .loamium も使わない — priority 1 / 6)。widget は頻繁に
+ * 再構築されるためモジュールスコープに置く。
+ */
+const propsOpenState = new Map<string, boolean>();
+
 // ---- SVG アイコン ------------------------------------------------------------
 
 const ICON_TIMES =
   '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
-const ICON_PLUS =
-  '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>';
+const ICON_CHEVRON =
+  '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>';
 const ICON_CODE =
   '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 4.5 2 8l3.5 3.5M10.5 4.5 14 8l-3.5 3.5"/></svg>';
-/** 型アイコン (キー左)。Obsidian Properties と同様の控えめなヒント。 */
+const ICON_SEARCH =
+  '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.3"/><path d="M10.3 10.3L14 14"/></svg>';
+const STAR_ON =
+  '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.7l1.9 3.85 4.25.62-3.07 3 .72 4.23L8 11.5 4.17 13.42l.72-4.23L1.82 6.17l4.25-.62z"/></svg>';
+const STAR_OFF =
+  '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M8 2l1.7 3.6 3.9.5-2.9 2.7.8 3.9L8 10.9 4.5 12.7l.8-3.9L2.4 6.1l3.9-.5z"/></svg>';
+const ICON_CHECK =
+  '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>';
+
+/** 意味型ごとのキー左アイコン (prototype 準拠)。complex/list は補助アイコン。 */
 const TYPE_ICONS: Record<string, string> = {
-  text: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 4h10M5.5 4v8M10.5 4v8" transform="translate(0 0)"/><path d="M4 12h3M9 12h3"/></svg>',
+  text: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M4 4h8M8 4v9M6.2 13h3.6"/></svg>',
   number:
-    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M6 2 5 14M11 2l-1 12M3 6h11M2 10h11"/></svg>',
-  boolean:
-    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="12" height="6" rx="3"/><circle cx="11" cy="8" r="1.6"/></svg>',
-  date: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><rect x="2" y="3" width="12" height="11" rx="1.5"/><path d="M2 6.5h12M5 2v2.5M11 2v2.5"/></svg>',
-  list: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M6 4h8M6 8h8M6 12h8"/><circle cx="3" cy="4" r="0.9" fill="currentColor" stroke="none"/><circle cx="3" cy="8" r="0.9" fill="currentColor" stroke="none"/><circle cx="3" cy="12" r="0.9" fill="currentColor" stroke="none"/></svg>',
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 6.2l1.6-1.2V11"/><path d="M8.4 5.7a1.7 1.7 0 112.9 1.2c-.5.6-2.9 2.2-2.9 4.1h3.3"/></svg>',
+  date: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="2.4" y="3.3" width="11.2" height="10.3" rx="1.6"/><path d="M2.4 6.3h11.2M5.6 1.9v2.6M10.4 1.9v2.6"/></svg>',
+  checkbox:
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="11" height="11" rx="2.6"/><path d="M5.4 8.2l1.8 1.8 3.4-3.6"/></svg>',
+  select:
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14V3M4 3.5h7.5l-1.6 2.3 1.6 2.3H4"/></svg>',
+  'multi-select':
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 4.5h8M5.5 8h8M5.5 11.5h8M2.5 4.5h.01M2.5 8h.01M2.5 11.5h.01"/></svg>',
+  tags: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M6 2.5L4.3 13.5M11.7 2.5L10 13.5M3 6h10.5M2.5 10h10.5"/></svg>',
+  star: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M8 2l1.7 3.6 3.9.5-2.9 2.7.8 3.9L8 10.9 4.5 12.7l.8-3.9L2.4 6.1l3.9-.5z"/></svg>',
+  progress:
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 5.5h8M2 10.5h4.5"/><circle cx="12" cy="5.5" r="1.6"/><circle cx="8.5" cy="10.5" r="1.6"/></svg>',
+  url: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 9.4a2.6 2.6 0 003.7 0l1.9-1.9a2.6 2.6 0 00-3.7-3.7l-1 1"/><path d="M9.4 6.6a2.6 2.6 0 00-3.7 0L3.8 8.5a2.6 2.6 0 003.7 3.7l1-1"/></svg>',
+  'note-link':
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2.2h5l3 3v8.6H4z"/><path d="M9 2.2V5.5h3"/></svg>',
   complex:
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3H5a2 2 0 0 0-2 2v1.5A1.5 1.5 0 0 1 1.5 8 1.5 1.5 0 0 1 3 9.5V11a2 2 0 0 0 2 2h1M10 3h1a2 2 0 0 1 2 2v1.5A1.5 1.5 0 0 0 14.5 8 1.5 1.5 0 0 0 13 9.5V11a2 2 0 0 1-2 2h-1"/></svg>',
 };
-
-/** スカラー値の素朴な型名 (表示・アイコン用)。 */
-function scalarTypeOf(value: PropScalar): string {
-  if (typeof value === 'boolean') return 'boolean';
-  if (typeof value === 'number') return 'number';
-  if (isDateLike(value)) return 'date';
-  return 'text';
-}
 
 /** スカラー値の表示テキスト (null は空)。 */
 function scalarText(value: PropScalar): string {
   return value === null ? '' : String(value);
 }
 
-/** complex エントリの値プレビュー (1 行目の値部分 + 続きがあれば省略記号)。 */
+/** complex エントリの値プレビュー。 */
 function complexPreview(source: string[]): string {
   const first = source[0] ?? '';
   const idx = first.indexOf(':');
@@ -94,13 +122,28 @@ function complexPreview(source: string[]): string {
   return multi ? `${head} …` : head;
 }
 
+/** エントリの解決用の値 (list は配列、scalar は値、complex/raw は null)。 */
+function entryValue(entry: PropEntry): PropertyValue {
+  if (entry.kind === 'scalar') return entry.value;
+  if (entry.kind === 'list') return entry.items;
+  return null;
+}
+
+/** note-link 文字列 `[[name]]` から内側の名前を取り出す (不正なら原文)。 */
+function noteLinkTarget(value: string): string {
+  const m = /^\[\[(.+)\]\]$/.exec(value.trim());
+  return m?.[1] ?? value;
+}
+
 /**
- * frontmatter のソース行配列 (--- 区切りを含む) をプロパティブロック要素へ描画する。
- * handlers を渡すと編集が有効になる (エディタ内)。省略時は読み取り専用。
- * モデル化できない frontmatter (壊れた YAML 等) は呼び出し側で widget 化しない
- * こと (parsePropertiesModel で事前判定する)。ここでは Error を投げる。
+ * frontmatter のソース行配列 (--- 区切りを含む) をプロパティブロックへ描画する。
+ * handlers を渡すと編集が有効になる。モデル化できない frontmatter は Error を投げる。
  */
-export function renderProperties(lines: string[], handlers?: PropertiesEditHandlers): HTMLElement {
+export function renderProperties(
+  lines: string[],
+  handlers?: PropertiesEditHandlers,
+  options?: PropertiesRenderOptions,
+): HTMLElement {
   const inner = lines
     .slice(1, -1)
     .map((l) => l.replace(/\r$/, ''))
@@ -111,17 +154,28 @@ export function renderProperties(lines: string[], handlers?: PropertiesEditHandl
   }
   const entries: PropEntry[] = parsed;
   const editable = handlers !== undefined;
+  const typeDefs = options?.typeDefs ?? {};
+  const notePathKey = options?.notePath ?? '';
+  const openNoteLink = options?.openNoteLink;
+
+  const resolve = (entry: PropEntry): ResolvedPropertyType =>
+    entry.kind === 'raw'
+      ? { type: 'text', source: 'builtin' }
+      : resolvePropertyType(entry.key, entryValue(entry), typeDefs);
+
+  // ---- ルート要素 ------------------------------------------------------------
 
   const wrap = document.createElement('div');
-  wrap.className = editable ? 'md-props-wrap editable' : 'md-props-wrap';
+  wrap.className = editable ? 'pc md-props-wrap editable' : 'pc md-props-wrap';
   wrap.setAttribute('data-testid', 'properties-widget');
   if (editable) wrap.setAttribute('data-editable', 'true');
+  const open = propsOpenState.get(notePathKey) ?? false;
+  wrap.dataset.open = open ? 'true' : 'false';
 
   // ---- コミット基盤 (table.ts と同じ: flush → 直列化 → 変化時のみ dispatch) ----
 
   const serializeBlock = (): string | null => serializeFrontmatterBlock(entries);
   let lastCommitted = serializeBlock() ?? '';
-  /** 編集中 input / チップ入力 / 追加フォームの未確定値をモデルへ反映する。 */
   let flushValue: (() => void) | null = null;
   const chipFlushes = new Set<() => void>();
   let flushAdd: (() => void) | null = null;
@@ -162,14 +216,29 @@ export function renderProperties(lines: string[], handlers?: PropertiesEditHandl
     return s;
   };
 
-  // ---- ヘッダ (ラベル + ソースを編集) -----------------------------------------
+  // ---- 畳む/開くトグル (本文直前は `>` だけ・要約なし — AC-1-1) -----------------
 
   const head = document.createElement('div');
-  head.className = 'md-props-head';
-  const label = document.createElement('span');
-  label.className = 'md-props-label';
-  label.textContent = 'プロパティ';
-  head.append(label);
+  head.className = 'pc-head';
+
+  const toggleBtn = document.createElement('button');
+  toggleBtn.type = 'button';
+  toggleBtn.className = 'pc-toggle';
+  toggleBtn.setAttribute('data-testid', 'properties-toggle');
+  toggleBtn.setAttribute('aria-expanded', String(open));
+  toggleBtn.title = open ? 'プロパティを畳む' : 'プロパティを展開';
+  toggleBtn.innerHTML = ICON_CHEVRON;
+  toggleBtn.addEventListener('mousedown', (e) => e.preventDefault());
+  toggleBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const next = wrap.dataset.open !== 'true';
+    propsOpenState.set(notePathKey, next);
+    wrap.dataset.open = next ? 'true' : 'false';
+    toggleBtn.setAttribute('aria-expanded', String(next));
+    toggleBtn.title = next ? 'プロパティを畳む' : 'プロパティを展開';
+  });
+  head.append(toggleBtn);
 
   if (editable && handlers?.editSource !== undefined) {
     const editSource = handlers.editSource.bind(handlers);
@@ -191,11 +260,16 @@ export function renderProperties(lines: string[], handlers?: PropertiesEditHandl
   }
   wrap.append(head);
 
-  const rows = document.createElement('div');
-  rows.className = 'md-props-rows';
-  wrap.append(rows);
+  // ---- 開いた中身 (密行グリッド + 追加) --------------------------------------
 
-  /** 複雑値の行クリック → ソース編集へ誘導 (編集はソースで行う — AC4)。 */
+  const openBox = document.createElement('div');
+  openBox.className = 'pc-open';
+  wrap.append(openBox);
+
+  const rows = document.createElement('dl');
+  rows.className = 'pc-rows md-props-rows';
+  openBox.append(rows);
+
   const gotoSource = (): void => {
     if (handlers?.editSource === undefined) return;
     flushAll();
@@ -203,68 +277,113 @@ export function renderProperties(lines: string[], handlers?: PropertiesEditHandl
     if (s !== null) handlers.editSource(s);
   };
 
-  // ---- スカラー値の input 差し替え編集 (table.ts の beginEdit と同型) ----------
+  // ---- スカラー値の input 差し替え編集 ----------------------------------------
 
-  function beginScalarEdit(body: HTMLElement, ref: { entry: PropEntry }): void {
+  function beginValueEdit(
+    cell: HTMLElement,
+    body: HTMLElement,
+    ref: { entry: PropEntry },
+    resolved: ResolvedPropertyType,
+  ): void {
     if (!editable) return;
     if (body.dataset.editing === '1') return;
     const cur = ref.entry;
     if (cur.kind !== 'scalar') return;
     body.dataset.editing = '1';
-    const cell = body.parentElement;
-    if (cell === null) return;
+
     const input = document.createElement('input');
-    input.type = isDateLike(cur.value) ? 'date' : 'text';
     input.className = 'md-prop-input';
     input.setAttribute('data-testid', 'properties-value-input');
     input.setAttribute('data-key', cur.key);
+    input.type =
+      resolved.type === 'date' && (isDateLike(cur.value) || cur.value === null)
+        ? 'date'
+        : resolved.type === 'number' || resolved.type === 'progress'
+          ? 'number'
+          : 'text';
     input.value = scalarText(cur.value);
     body.style.display = 'none';
     cell.insertBefore(input, body);
+
+    // select の選択肢メニュー (options があれば — AC-2-2「選択肢+色」)
+    let optionMenu: HTMLElement | null = null;
+    if (resolved.type === 'select' || resolved.type === 'multi-select') {
+      const opts = resolved.options ?? [];
+      if (opts.length > 0) {
+        optionMenu = document.createElement('div');
+        optionMenu.className = 'pc-select-menu';
+        optionMenu.setAttribute('data-testid', 'properties-select-menu');
+        for (const opt of opts) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'pc-select-option';
+          b.setAttribute('data-testid', 'properties-select-option');
+          b.setAttribute('data-value', opt.value);
+          b.dataset.color = selectColorFor(opt.value, opts);
+          b.innerHTML = `<span class="dot"></span><span>${escapeHtml(opt.value)}</span>`;
+          b.addEventListener('mousedown', (e) => e.preventDefault());
+          b.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            input.value = opt.value;
+            finish();
+            commitFinal();
+          });
+          optionMenu.append(b);
+        }
+        cell.append(optionMenu);
+      }
+    }
+
     input.focus();
     if (input.type === 'text') {
       const len = input.value.length;
       try {
         input.setSelectionRange(len, len);
       } catch {
-        // input 種別によっては失敗しうる。キャレット位置は無視して継続。
+        // input 種別によっては失敗しうる。無視して継続。
       }
     }
     const initialText = input.value;
+
     const apply = (): void => {
       const prev = ref.entry;
       if (prev.kind !== 'scalar') return;
-      // テキストが実際に変わったときだけ再解釈する。無変更の blur で素朴な型解釈を
-      // 通すと、引用符付き文字列 ("5" / "true") が数値/真偽へ化けてしまうため。
+      // 無変更の blur では再解釈しない (引用符付き "5"/"true" の型化けを防ぐ — S9df823)
       if (input.value === initialText) return;
-      const next = parsePropInput(input.value);
+      let next: PropScalar;
+      if (resolved.type === 'progress') {
+        next = input.value.trim() === '' ? null : clampProgress(Number(input.value));
+      } else {
+        next = parsePropInput(input.value);
+      }
       const updated: PropEntry = { kind: 'scalar', key: prev.key, value: next };
       replaceEntry(prev, updated);
       ref.entry = updated;
     };
     flushValue = apply;
 
-    // フォーカス中 input の removeChild は blur を同期再入させる (table.ts 参照)。
-    // 先に editing フラグを畳み、再入した finish/cancel を no-op にする。
-    const finish = (): void => {
+    const cleanup = (): void => {
+      flushValue = null;
+      if (input.parentElement !== null) input.parentElement.removeChild(input);
+      if (optionMenu !== null && optionMenu.parentElement !== null) {
+        optionMenu.parentElement.removeChild(optionMenu);
+      }
+      body.style.display = '';
+    };
+
+    function finish(): void {
       if (body.dataset.editing !== '1') return;
       body.dataset.editing = '';
       apply();
-      flushValue = null;
-      if (input.parentElement !== null) input.parentElement.removeChild(input);
-      body.style.display = '';
-      const e = ref.entry;
-      if (e.kind === 'scalar') {
-        body.textContent = scalarText(e.value);
-        body.setAttribute('data-type', scalarTypeOf(e.value));
-      }
-    };
+      cleanup();
+      // 型に沿って body を作り直す (値と型が変わりうる)
+      rebuildValueCell(cell, ref);
+    }
     const cancel = (): void => {
       if (body.dataset.editing !== '1') return;
       body.dataset.editing = '';
-      flushValue = null;
-      if (input.parentElement !== null) input.parentElement.removeChild(input);
-      body.style.display = '';
+      cleanup();
     };
 
     input.addEventListener('keydown', (e) => {
@@ -279,110 +398,280 @@ export function renderProperties(lines: string[], handlers?: PropertiesEditHandl
         cancel();
       }
     });
-    // beforeinput / input は CodeMirror の DOM 監視へ伝播させない (誤同期防止)
     input.addEventListener('beforeinput', (e) => e.stopPropagation());
     input.addEventListener('input', (e) => e.stopPropagation());
     input.addEventListener('blur', (e) => {
       const rt = e.relatedTarget;
+      // select オプションボタン等 widget 内へ移るときはコミットしない
       const stayingInWidget = rt instanceof Node && wrap.contains(rt);
       finish();
       if (!stayingInWidget) commitFinal();
     });
   }
 
-  // ---- 行の描画 ---------------------------------------------------------------
+  // ---- 型ごとの値セル描画 -----------------------------------------------------
 
-  function makeValueCell(ref: { entry: PropEntry }): HTMLElement {
-    const cell = document.createElement('div');
-    cell.className = 'md-prop-value';
-    cell.setAttribute('data-testid', 'properties-value');
+  /** value セルの中身を作り直す (編集確定後の再描画に使う)。 */
+  function rebuildValueCell(cell: HTMLElement, ref: { entry: PropEntry }): void {
+    cell.replaceChildren();
+    cell.className = 'md-prop-value pc-value-cell';
+    fillValueCell(cell, ref);
+  }
+
+  function fillValueCell(cell: HTMLElement, ref: { entry: PropEntry }): void {
     const entry = ref.entry;
+    const resolved = resolve(entry);
 
-    if (entry.kind === 'scalar' && typeof entry.value === 'boolean') {
-      // 真偽値はチェックボックスで直接切替 (即コミット)
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.className = 'md-prop-bool';
-      cb.setAttribute('data-testid', 'properties-bool');
-      cb.setAttribute('data-key', entry.key);
-      cb.checked = entry.value;
-      if (!editable) cb.disabled = true;
-      cb.addEventListener('change', () => {
-        const prev = ref.entry;
-        if (prev.kind !== 'scalar') return;
-        const updated: PropEntry = { kind: 'scalar', key: prev.key, value: cb.checked };
-        replaceEntry(prev, updated);
-        ref.entry = updated;
-        structuralCommit();
-      });
-      cell.append(cb);
-      return cell;
-    }
-
-    if (entry.kind === 'scalar') {
-      const body = document.createElement('span');
-      body.className = 'md-prop-value-body';
-      body.setAttribute('data-testid', 'properties-value-body');
-      body.setAttribute('data-type', scalarTypeOf(entry.value));
-      body.textContent = scalarText(entry.value);
-      cell.append(body);
+    if (entry.kind === 'complex') {
+      const ro = document.createElement('span');
+      ro.className = 'md-prop-value-readonly';
+      ro.setAttribute('data-testid', 'properties-value-readonly');
+      ro.textContent = complexPreview(entry.source);
+      ro.title = '複雑な値のためここでは編集できません — クリックでソースを編集';
       if (editable) {
-        cell.addEventListener('mousedown', (e) => {
+        ro.addEventListener('mousedown', (e) => {
           if (e.button !== 0) return;
-          const t = e.target;
-          if (t instanceof Element && (t.closest('button') !== null || t.closest('input') !== null)) return;
           e.preventDefault();
           e.stopPropagation();
-          beginScalarEdit(body, ref);
+          gotoSource();
         });
       }
-      return cell;
+      const hint = document.createElement('span');
+      hint.className = 'md-prop-ro-hint';
+      hint.textContent = 'ソースで編集';
+      cell.append(ro, hint);
+      return;
     }
 
     if (entry.kind === 'list') {
-      renderChips(cell, ref);
-      return cell;
+      renderChips(cell, ref, resolved.type);
+      return;
     }
 
-    // complex: 読み取り専用 + ソース編集へ誘導 (AC4)
-    const ro = document.createElement('span');
-    ro.className = 'md-prop-value-readonly';
-    ro.setAttribute('data-testid', 'properties-value-readonly');
-    ro.textContent = complexPreview(entry.source);
-    ro.title = '複雑な値のためここでは編集できません — クリックでソースを編集';
+    if (entry.kind !== 'scalar') return; // raw は行として描画しない
+
+    // scalar — 意味型ごとの描画
+    if (resolved.type === 'checkbox' || typeof entry.value === 'boolean') {
+      renderCheckbox(cell, ref);
+      return;
+    }
+    if (resolved.type === 'star') {
+      renderStars(cell, ref);
+      return;
+    }
+    if (resolved.type === 'progress') {
+      renderProgress(cell, ref, resolved);
+      return;
+    }
+    if (resolved.type === 'select' || resolved.type === 'multi-select') {
+      renderSelect(cell, ref, resolved);
+      return;
+    }
+    if (resolved.type === 'url') {
+      renderUrl(cell, ref, resolved);
+      return;
+    }
+    if (resolved.type === 'note-link') {
+      renderNoteLink(cell, ref, resolved);
+      return;
+    }
+    // text / number / date
+    renderScalar(cell, ref, resolved);
+  }
+
+  function makeBody(type: BuiltinPropertyType, className: string): HTMLElement {
+    const body = document.createElement('span');
+    body.className = className;
+    body.setAttribute('data-testid', 'properties-value-body');
+    body.setAttribute('data-type', type);
+    return body;
+  }
+
+  function renderScalar(
+    cell: HTMLElement,
+    ref: { entry: PropEntry },
+    resolved: ResolvedPropertyType,
+  ): void {
+    const entry = ref.entry;
+    if (entry.kind !== 'scalar') return;
+    const body = makeBody(resolved.type, 'md-prop-value-body');
+    body.textContent = scalarText(entry.value);
+    if (entry.value === null) body.classList.add('pc-null');
+    cell.append(body);
+    if (editable) attachEditClick(cell, body, ref, resolved);
+  }
+
+  function renderStars(cell: HTMLElement, ref: { entry: PropEntry }): void {
+    const entry = ref.entry;
+    if (entry.kind !== 'scalar') return;
+    const body = makeBody('star', 'pc-stars');
+    const cur = clampStar(typeof entry.value === 'number' ? entry.value : Number(entry.value) || 0);
+    body.setAttribute('data-value', String(cur));
+    for (let i = 1; i <= STAR_MAX; i++) {
+      const s = document.createElement('button');
+      s.type = 'button';
+      s.className = 'pc-star';
+      s.setAttribute('data-index', String(i));
+      s.innerHTML = i <= cur ? STAR_ON : STAR_OFF;
+      if (i <= cur) s.classList.add('on');
+      if (editable) {
+        s.addEventListener('mousedown', (e) => e.preventDefault());
+        s.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const prev = ref.entry;
+          if (prev.kind !== 'scalar') return;
+          const now = clampStar(typeof prev.value === 'number' ? prev.value : Number(prev.value) || 0);
+          const nextVal = now === i ? i - 1 : i; // 同じ星の再クリックで 1 減らす
+          const updated: PropEntry = { kind: 'scalar', key: prev.key, value: nextVal };
+          replaceEntry(prev, updated);
+          ref.entry = updated;
+          rebuildValueCell(cell, ref);
+          structuralCommit();
+        });
+      } else {
+        s.disabled = true;
+      }
+      body.append(s);
+    }
+    cell.append(body);
+  }
+
+  function renderProgress(
+    cell: HTMLElement,
+    ref: { entry: PropEntry },
+    resolved: ResolvedPropertyType,
+  ): void {
+    const entry = ref.entry;
+    if (entry.kind !== 'scalar') return;
+    const pct = clampProgress(typeof entry.value === 'number' ? entry.value : Number(entry.value) || 0);
+    const body = makeBody('progress', 'pc-progress');
+    body.setAttribute('data-value', String(pct));
+    const bar = document.createElement('span');
+    bar.className = 'bar';
+    const fill = document.createElement('i');
+    fill.style.width = `${pct}%`;
+    bar.append(fill);
+    const label = document.createElement('span');
+    label.className = 'pct';
+    label.textContent = `${pct}%`;
+    body.append(bar, label);
+    cell.append(body);
+    if (editable) attachEditClick(cell, body, ref, resolved);
+  }
+
+  function renderSelect(
+    cell: HTMLElement,
+    ref: { entry: PropEntry },
+    resolved: ResolvedPropertyType,
+  ): void {
+    const entry = ref.entry;
+    if (entry.kind !== 'scalar') return;
+    const val = scalarText(entry.value);
+    const body = makeBody('select', 'pc-select');
+    body.dataset.color = selectColorFor(val, resolved.options);
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    const text = document.createElement('span');
+    text.textContent = val;
+    body.append(dot, text);
+    cell.append(body);
+    if (editable) attachEditClick(cell, body, ref, resolved);
+  }
+
+  function renderUrl(
+    cell: HTMLElement,
+    ref: { entry: PropEntry },
+    resolved: ResolvedPropertyType,
+  ): void {
+    const entry = ref.entry;
+    if (entry.kind !== 'scalar') return;
+    const val = scalarText(entry.value);
+    const body = makeBody('url', 'pc-url');
+    body.textContent = val;
+    cell.append(body);
+    if (editable) attachEditClick(cell, body, ref, resolved);
+  }
+
+  function renderNoteLink(
+    cell: HTMLElement,
+    ref: { entry: PropEntry },
+    resolved: ResolvedPropertyType,
+  ): void {
+    const entry = ref.entry;
+    if (entry.kind !== 'scalar') return;
+    const val = scalarText(entry.value);
+    const body = makeBody('note-link', 'pc-notelink');
+    body.setAttribute('data-target', noteLinkTarget(val));
+    body.textContent = val;
+    cell.append(body);
     if (editable) {
-      ro.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return;
+      attachEditClick(cell, body, ref, resolved);
+    } else if (openNoteLink !== undefined) {
+      body.addEventListener('click', (e) => {
         e.preventDefault();
-        e.stopPropagation();
-        gotoSource();
+        openNoteLink(noteLinkTarget(val));
       });
     }
-    const hint = document.createElement('span');
-    hint.className = 'md-prop-ro-hint';
-    hint.textContent = 'ソースで編集';
-    cell.append(ro, hint);
-    return cell;
+  }
+
+  function renderCheckbox(cell: HTMLElement, ref: { entry: PropEntry }): void {
+    const entry = ref.entry;
+    if (entry.kind !== 'scalar') return;
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.className = 'md-prop-bool pc-check-input';
+    cb.setAttribute('data-testid', 'properties-bool');
+    cb.setAttribute('data-key', entry.key);
+    cb.setAttribute('data-type', 'checkbox');
+    cb.checked = entry.value === true;
+    if (!editable) cb.disabled = true;
+    cb.addEventListener('change', () => {
+      const prev = ref.entry;
+      if (prev.kind !== 'scalar') return;
+      const updated: PropEntry = { kind: 'scalar', key: prev.key, value: cb.checked };
+      replaceEntry(prev, updated);
+      ref.entry = updated;
+      structuralCommit();
+    });
+    cell.append(cb);
+  }
+
+  /** 値本体クリックで input 編集を開く共通ハンドラ。 */
+  function attachEditClick(
+    cell: HTMLElement,
+    body: HTMLElement,
+    ref: { entry: PropEntry },
+    resolved: ResolvedPropertyType,
+  ): void {
+    cell.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      const t = e.target;
+      if (t instanceof Element && (t.closest('button') !== null || t.closest('input') !== null)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      beginValueEdit(cell, body, ref, resolved);
+    });
   }
 
   /**
-   * list エントリのチップ列 + 追加入力を描画する。
-   * チップの追加/削除は DOM を増分更新する (input を作り直すとフォーカスが落ち、
-   * blur → 早期コミット → widget 再構築で連続追加が壊れるため)。
+   * list エントリのチップ列 + 追加入力を描画する (tags / multi-select)。
+   * チップの追加/削除は DOM を増分更新する (input 再生成でフォーカスが落ちるのを防ぐ)。
    */
-  function renderChips(cell: HTMLElement, ref: { entry: PropEntry }): void {
+  function renderChips(cell: HTMLElement, ref: { entry: PropEntry }, type: BuiltinPropertyType): void {
     cell.replaceChildren();
     cell.classList.add('md-prop-chips');
+    cell.dataset.type = type;
     const entry = ref.entry;
     if (entry.kind !== 'list') return;
 
     const makeChip = (item: PropScalar): HTMLElement => {
       const chip = document.createElement('span');
-      chip.className = 'md-prop-chip';
+      chip.className = 'md-prop-chip pc-tag';
       chip.setAttribute('data-testid', 'properties-chip');
       chip.setAttribute('data-value', scalarText(item));
       const text = document.createElement('span');
-      text.textContent = scalarText(item);
+      text.textContent = type === 'tags' ? `#${scalarText(item)}` : scalarText(item);
       chip.append(text);
       if (editable) {
         const del = document.createElement('button');
@@ -398,7 +687,6 @@ export function renderProperties(lines: string[], handlers?: PropertiesEditHandl
           e.stopPropagation();
           const prev = ref.entry;
           if (prev.kind !== 'list') return;
-          // インデックスはクリック時点の DOM 位置から求める (追加/削除でずれないように)
           const chips = Array.from(cell.querySelectorAll('[data-testid="properties-chip"]'));
           const idx = chips.indexOf(chip);
           if (idx < 0) return;
@@ -423,13 +711,11 @@ export function renderProperties(lines: string[], handlers?: PropertiesEditHandl
     input.setAttribute('data-testid', 'properties-chip-input');
     input.setAttribute('data-key', entry.key);
     input.placeholder = '追加…';
-    /** 未確定テキストをチップとしてモデルへ足す (コミットは呼ばない — 呼出側で)。 */
     const addPending = (): boolean => {
       const t = input.value.trim();
       if (t === '') return false;
       const prev = ref.entry;
       if (prev.kind !== 'list') return false;
-      // チップは素朴に文字列として追加する (P-8)。クオートは直列化側が判断。
       const updated: PropEntry = { kind: 'list', key: prev.key, items: [...prev.items, t] };
       replaceEntry(prev, updated);
       ref.entry = updated;
@@ -439,11 +725,9 @@ export function renderProperties(lines: string[], handlers?: PropertiesEditHandl
     chipFlushes.add(addPending);
     input.addEventListener('keydown', (e) => {
       e.stopPropagation();
-      if (e.isComposing) return; // IME 変換確定の Enter は取り込まない
+      if (e.isComposing) return;
       if (e.key === 'Enter') {
         e.preventDefault();
-        // コミットはフォーカスが widget を離れるときに行う (連続追加を邪魔しない)。
-        // input は作り直さず、チップだけを増分挿入する (フォーカス維持)。
         if (addPending()) {
           const prev = ref.entry;
           if (prev.kind === 'list') {
@@ -471,35 +755,39 @@ export function renderProperties(lines: string[], handlers?: PropertiesEditHandl
     input.addEventListener('blur', (e) => {
       const rt = e.relatedTarget;
       const stayingInWidget = rt instanceof Node && wrap.contains(rt);
-      if (!stayingInWidget) commitFinal(); // flushAll が未確定チップを取り込む
+      if (!stayingInWidget) commitFinal();
     });
     cell.append(input);
   }
 
-  function makeRow(entry: PropEntry): HTMLElement {
+  // ---- 行の描画 (dt: キー / dd: 値) -------------------------------------------
+
+  function makeRow(entry: PropEntry): { dt: HTMLElement; dd: HTMLElement } {
     const ref = { entry };
-    const row = document.createElement('div');
-    row.className = 'md-prop-row';
-    row.setAttribute('data-testid', 'properties-row');
-    if (entry.kind !== 'raw') row.setAttribute('data-key', entry.key);
+    const resolved = resolve(entry);
 
-    const keyEl = document.createElement('span');
-    keyEl.className = 'md-prop-key';
-    keyEl.setAttribute('data-testid', 'properties-key');
+    const dt = document.createElement('dt');
+    dt.className = 'md-prop-key';
+    dt.setAttribute('data-testid', 'properties-key');
     const icon = document.createElement('span');
-    icon.className = 'md-prop-type-icon';
-    const type =
-      entry.kind === 'list'
-        ? 'list'
-        : entry.kind === 'scalar'
-          ? scalarTypeOf(entry.value)
-          : 'complex';
-    icon.innerHTML = TYPE_ICONS[type] ?? TYPE_ICONS['text'] ?? '';
+    icon.className = 'ico md-prop-type-icon';
+    const iconKey = entry.kind === 'complex' ? 'complex' : resolved.type;
+    icon.innerHTML = TYPE_ICONS[iconKey] ?? TYPE_ICONS['text'] ?? '';
     const keyText = document.createElement('span');
+    keyText.className = 'md-prop-key-text';
     keyText.textContent = entry.kind !== 'raw' ? entry.key : '';
-    keyEl.append(icon, keyText);
+    dt.append(icon, keyText);
 
-    row.append(keyEl, makeValueCell(ref));
+    const dd = document.createElement('dd');
+    dd.className = 'md-prop-value pc-value-cell';
+    dd.setAttribute('data-testid', 'properties-row');
+    if (entry.kind !== 'raw') dd.setAttribute('data-key', entry.key);
+
+    const valueCell = document.createElement('div');
+    valueCell.className = 'md-prop-value-inner';
+    valueCell.setAttribute('data-testid', 'properties-value');
+    fillValueCell(valueCell, ref);
+    dd.append(valueCell);
 
     if (editable) {
       const del = document.createElement('button');
@@ -516,73 +804,121 @@ export function renderProperties(lines: string[], handlers?: PropertiesEditHandl
         removeEntry(ref.entry);
         structuralCommit(); // 最後の 1 件ならブロックごと除去 (commit(null))
       });
-      row.append(del);
+      dd.append(del);
     }
-    return row;
+    return { dt, dd };
   }
 
   for (const entry of entries) {
     if (entry.kind === 'raw') continue; // コメント・空行は表示しない (verbatim 保持のみ)
-    rows.append(makeRow(entry));
+    const { dt, dd } = makeRow(entry);
+    rows.append(dt, dd);
   }
 
-  // ---- プロパティ追加 (キー + 値) ----------------------------------------------
+  // ---- プロパティ追加 (型ピッカー — S87f4b7-3) --------------------------------
 
   if (editable) {
-    const addWrap = document.createElement('div');
-    addWrap.className = 'md-props-add-wrap';
-
     const addBtn = document.createElement('button');
     addBtn.type = 'button';
-    addBtn.className = 'md-props-add';
+    addBtn.className = 'pc-add md-props-add';
     addBtn.setAttribute('data-testid', 'properties-add');
-    addBtn.innerHTML = `${ICON_PLUS}<span>プロパティを追加</span>`;
+    addBtn.innerHTML = `<span class="plus">+</span> プロパティを追加`;
+    openBox.append(addBtn);
 
-    const form = document.createElement('div');
-    form.className = 'md-props-add-form';
-    form.style.display = 'none';
-    const keyInput = document.createElement('input');
-    keyInput.type = 'text';
-    keyInput.className = 'md-prop-input';
-    keyInput.setAttribute('data-testid', 'properties-new-key');
-    keyInput.placeholder = 'キー';
-    const valInput = document.createElement('input');
-    valInput.type = 'text';
-    valInput.className = 'md-prop-input';
-    valInput.setAttribute('data-testid', 'properties-new-value');
-    valInput.placeholder = '値';
-    form.append(keyInput, valInput);
-    addWrap.append(addBtn, form);
-    wrap.append(addWrap);
+    const picker = createTypePicker({
+      typeDefs,
+      onPick: (opt) => {
+        beginAddForm(opt);
+      },
+      onClose: () => {
+        addBtn.classList.remove('active');
+      },
+    });
+    openBox.append(picker.el);
 
-    const closeForm = (): void => {
-      flushAdd = null;
-      keyInput.value = '';
-      valInput.value = '';
-      keyInput.classList.remove('invalid');
-      form.style.display = 'none';
-      addBtn.style.display = '';
-    };
-    /** キーが有効なら新しいスカラーエントリを追加する。true = 追加した。 */
-    const applyAdd = (): boolean => {
-      const key = keyInput.value.trim();
-      if (key === '') return false;
-      if (keyedKeys().has(key)) {
-        keyInput.classList.add('invalid');
-        keyInput.title = '同名のプロパティが既にあります';
-        return false;
-      }
-      entries.push({ kind: 'scalar', key, value: parsePropInput(valInput.value) });
-      keyInput.value = '';
-      valInput.value = '';
-      return true;
-    };
-    const openForm = (): void => {
+    /** 型選択後の キー名 → 値 入力フォーム。 */
+    const beginAddForm = (opt: TypePickerOption): void => {
+      picker.close();
+      const form = document.createElement('div');
+      form.className = 'pc-newkey md-props-add-form';
+      const tag = document.createElement('span');
+      tag.className = 'type-tag';
+      tag.innerHTML = `${TYPE_ICONS[opt.type] ?? ''}<span>${escapeHtml(opt.name)}</span>`;
+      const keyInput = document.createElement('input');
+      keyInput.type = 'text';
+      keyInput.className = 'field md-prop-input';
+      keyInput.setAttribute('data-testid', 'properties-new-key');
+      keyInput.placeholder = 'キー名';
+      keyInput.value = opt.source === 'json' ? opt.name : '';
+      const arrow = document.createElement('span');
+      arrow.className = 'arrow';
+      arrow.textContent = '→';
+      const valInput = document.createElement('input');
+      valInput.type = 'text';
+      valInput.className = 'field md-prop-input';
+      valInput.setAttribute('data-testid', 'properties-new-value');
+      valInput.placeholder = '値';
+      form.append(tag, keyInput, arrow, valInput);
+      openBox.insertBefore(form, addBtn.nextSibling);
       addBtn.style.display = 'none';
-      form.style.display = '';
+
+      const closeForm = (): void => {
+        flushAdd = null;
+        if (form.parentElement !== null) form.parentElement.removeChild(form);
+        addBtn.style.display = '';
+        addBtn.classList.remove('active');
+      };
+
+      /** キー名 + 値から型に沿った新エントリを追加する。true = 追加した。 */
+      const applyAdd = (): boolean => {
+        const key = keyInput.value.trim();
+        if (key === '') return false;
+        if (keyedKeys().has(key)) {
+          keyInput.classList.add('invalid');
+          keyInput.title = '同名のプロパティが既にあります';
+          return false;
+        }
+        entries.push(makeNewEntry(opt.type, key, valInput.value));
+        return true;
+      };
       flushAdd = () => {
         applyAdd();
       };
+
+      const formKeydown = (e: KeyboardEvent): void => {
+        e.stopPropagation();
+        if (e.isComposing) return;
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (e.target === keyInput && keyInput.value.trim() !== '') {
+            valInput.focus();
+            return;
+          }
+          if (applyAdd()) {
+            flushAdd = null;
+            handlers?.requestFocus?.({ kind: 'add' });
+            structuralCommit();
+          }
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          closeForm();
+        }
+      };
+      keyInput.addEventListener('keydown', formKeydown);
+      valInput.addEventListener('keydown', formKeydown);
+      for (const inp of [keyInput, valInput]) {
+        inp.addEventListener('beforeinput', (e) => e.stopPropagation());
+        inp.addEventListener('input', (e) => e.stopPropagation());
+        inp.addEventListener('blur', (e) => {
+          const rt = e.relatedTarget;
+          const stayingInForm = rt instanceof Node && form.contains(rt);
+          if (stayingInForm) return;
+          const stayingInWidget = rt instanceof Node && wrap.contains(rt);
+          if (!stayingInWidget) commitFinal();
+          else closeForm();
+        });
+      }
+      keyInput.addEventListener('input', () => keyInput.classList.remove('invalid'));
       keyInput.focus();
     };
 
@@ -590,43 +926,9 @@ export function renderProperties(lines: string[], handlers?: PropertiesEditHandl
     addBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      openForm();
+      addBtn.classList.add('active');
+      picker.open();
     });
-
-    const formKeydown = (e: KeyboardEvent): void => {
-      e.stopPropagation();
-      if (e.isComposing) return;
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        if (applyAdd()) {
-          flushAdd = null;
-          // コミットで widget が再構築されるため、追加フォームの再オープンを予約する
-          handlers?.requestFocus?.({ kind: 'add' });
-          structuralCommit();
-        }
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        closeForm();
-      }
-    };
-    keyInput.addEventListener('keydown', formKeydown);
-    valInput.addEventListener('keydown', formKeydown);
-    for (const inp of [keyInput, valInput]) {
-      inp.addEventListener('beforeinput', (e) => e.stopPropagation());
-      inp.addEventListener('input', (e) => e.stopPropagation());
-      inp.addEventListener('blur', (e) => {
-        const rt = e.relatedTarget;
-        const stayingInForm = rt instanceof Node && form.contains(rt);
-        if (stayingInForm) return;
-        const stayingInWidget = rt instanceof Node && wrap.contains(rt);
-        if (!stayingInWidget) {
-          commitFinal(); // flushAdd 経由で未確定の追加を取り込む
-        } else {
-          closeForm();
-        }
-      });
-    }
-    keyInput.addEventListener('input', () => keyInput.classList.remove('invalid'));
 
     // フォーカスが widget 外へ抜けたら最終コミット (widget 内の移動では抜けない)
     wrap.addEventListener('focusout', (e) => {
@@ -641,9 +943,7 @@ export function renderProperties(lines: string[], handlers?: PropertiesEditHandl
       const d: unknown = e.detail;
       if (typeof d !== 'object' || d === null) return;
       const target = d as { kind?: unknown; key?: unknown };
-      if (target.kind === 'add') {
-        openForm();
-      } else if (target.kind === 'chip' && typeof target.key === 'string') {
+      if (target.kind === 'chip' && typeof target.key === 'string') {
         const input = wrap.querySelector<HTMLInputElement>(
           `[data-testid="properties-chip-input"][data-key="${CSS.escape(target.key)}"]`,
         );
@@ -653,4 +953,192 @@ export function renderProperties(lines: string[], handlers?: PropertiesEditHandl
   }
 
   return wrap;
+}
+
+/** 型に沿った新エントリ (標準 YAML スカラー/配列) を作る。 */
+function makeNewEntry(type: BuiltinPropertyType, key: string, valueText: string): PropEntry {
+  const t = valueText.trim();
+  if (type === 'tags' || type === 'multi-select') {
+    const items = t === '' ? [] : t.split(/[\s,、]+/).filter((s) => s !== '');
+    return { kind: 'list', key, items };
+  }
+  let value: PropScalar;
+  if (type === 'star') value = clampStar(Number(t) || 0);
+  else if (type === 'progress') value = clampProgress(Number(t) || 0);
+  else if (type === 'number') {
+    const p = parsePropInput(t);
+    value = typeof p === 'number' ? p : t === '' ? 0 : p;
+  } else if (type === 'checkbox') {
+    value = t === 'true';
+  } else {
+    // date / select / url / note-link / text: 素朴解釈 (空は null = `key:`)
+    value = parsePropInput(t);
+  }
+  return { kind: 'scalar', key, value };
+}
+
+// ---- 型ピッカー (コンテキストメニュー + インクリメンタル絞り込み — S87f4b7-3) -----
+
+interface TypePickerParams {
+  typeDefs: Record<string, PropertyTypeDef>;
+  onPick: (opt: TypePickerOption) => void;
+  onClose: () => void;
+}
+
+interface TypePickerHandle {
+  el: HTMLElement;
+  open(): void;
+  close(): void;
+}
+
+function createTypePicker(params: TypePickerParams): TypePickerHandle {
+  const { builtin, json } = buildTypePickerOptions(params.typeDefs);
+  const all: TypePickerOption[] = [...builtin, ...json];
+
+  const el = document.createElement('div');
+  el.className = 'type-picker';
+  el.setAttribute('data-testid', 'property-type-picker');
+  el.style.display = 'none';
+
+  const searchLabel = document.createElement('label');
+  searchLabel.className = 'type-picker-search';
+  searchLabel.innerHTML = ICON_SEARCH;
+  const filter = document.createElement('input');
+  filter.type = 'text';
+  filter.className = 'type-picker-filter';
+  filter.setAttribute('data-testid', 'property-type-filter');
+  filter.placeholder = '型を検索…(例: sel / 星 / date)';
+  filter.autocomplete = 'off';
+  searchLabel.append(filter);
+  el.append(searchLabel);
+
+  const list = document.createElement('div');
+  list.className = 'type-picker-list';
+  el.append(list);
+  const empty = document.createElement('div');
+  empty.className = 'type-picker-empty';
+  empty.textContent = '一致する型がありません';
+  empty.style.display = 'none';
+  el.append(empty);
+
+  let visible: TypePickerOption[] = [];
+  let selectedIdx = 0;
+
+  const makeOption = (opt: TypePickerOption): HTMLElement => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'type-opt';
+    b.setAttribute('data-testid', 'property-type-option');
+    b.setAttribute('data-type', opt.name);
+    b.setAttribute('data-source', opt.source);
+    const ico = document.createElement('span');
+    ico.className = 'type-ico';
+    ico.innerHTML = TYPE_ICONS[opt.type] ?? TYPE_ICONS['text'] ?? '';
+    const main = document.createElement('span');
+    main.className = 'type-main';
+    main.innerHTML = `<span class="type-name">${escapeHtml(opt.name)}</span><span class="type-desc">${escapeHtml(opt.desc)}</span>`;
+    b.append(ico, main);
+    if (opt.source === 'json') {
+      const badge = document.createElement('span');
+      badge.className = 'json-badge';
+      badge.textContent = 'JSON定義';
+      b.append(badge);
+    }
+    b.addEventListener('mousedown', (e) => e.preventDefault());
+    b.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      params.onPick(opt);
+    });
+    return b;
+  };
+
+  const render = (): void => {
+    const q = filter.value;
+    const builtinHits = filterTypeOptions(builtin, q);
+    const jsonHits = filterTypeOptions(json, q);
+    visible = [...builtinHits, ...jsonHits];
+    selectedIdx = 0;
+    list.replaceChildren();
+    if (builtinHits.length > 0) {
+      const g = document.createElement('div');
+      g.className = 'type-picker-group';
+      g.textContent = '内蔵型';
+      list.append(g);
+      for (const o of builtinHits) list.append(makeOption(o));
+    }
+    if (jsonHits.length > 0) {
+      const g = document.createElement('div');
+      g.className = 'type-picker-group';
+      g.textContent = 'JSON定義(.loamium/property-types.json)';
+      list.append(g);
+      for (const o of jsonHits) list.append(makeOption(o));
+    }
+    empty.style.display = visible.length === 0 ? '' : 'none';
+    highlight();
+  };
+
+  const optionButtons = (): HTMLElement[] =>
+    Array.from(list.querySelectorAll<HTMLElement>('[data-testid="property-type-option"]'));
+
+  const highlight = (): void => {
+    const btns = optionButtons();
+    btns.forEach((b, i) => b.classList.toggle('sel', i === selectedIdx));
+    btns[selectedIdx]?.scrollIntoView({ block: 'nearest' });
+  };
+
+  filter.addEventListener('input', (e) => {
+    e.stopPropagation();
+    render();
+  });
+  filter.addEventListener('beforeinput', (e) => e.stopPropagation());
+  filter.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.isComposing) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedIdx = Math.min(selectedIdx + 1, Math.max(0, visible.length - 1));
+      highlight();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedIdx = Math.max(selectedIdx - 1, 0);
+      highlight();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const opt = visible[selectedIdx];
+      if (opt !== undefined) params.onPick(opt);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      close();
+    }
+  });
+  filter.addEventListener('blur', (e) => {
+    const rt = e.relatedTarget;
+    // ピッカー内のボタンへ移るときは閉じない
+    if (rt instanceof Node && el.contains(rt)) return;
+    close();
+  });
+
+  function open(): void {
+    filter.value = '';
+    render();
+    el.style.display = '';
+    filter.focus();
+  }
+  function close(): void {
+    if (el.style.display === 'none') return;
+    el.style.display = 'none';
+    params.onClose();
+  }
+
+  return { el, open, close };
+}
+
+/** 最小限の HTML エスケープ (テキストノード相当。属性は使わない)。 */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }

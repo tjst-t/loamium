@@ -21,6 +21,7 @@ import {
   todayJournalDate,
   type FileMeta,
   type NoteMeta,
+  type PropertyTypeDef,
 } from '@loamium/shared';
 import { api, ApiError } from './api.js';
 import { formatSize } from './file-kind.js';
@@ -173,6 +174,8 @@ export function App(): JSX.Element {
   const [notes, setNotes] = useState<NoteMeta[] | null>(null);
   const [notesError, setNotesError] = useState<string | null>(null);
   const [files, setFiles] = useState<FileMeta[] | null>(null);
+  // 意味型スキーマ (.loamium/property-types.json → キー→型定義)。既定 {} (S87f4b7-2)
+  const [propertyTypes, setPropertyTypes] = useState<Record<string, PropertyTypeDef>>({});
   const [preview, setPreview] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [toasts, setToasts] = useState<UploadToast[]>([]);
@@ -228,6 +231,15 @@ export function App(): JSX.Element {
       setNotesError(null);
     } catch (err) {
       setNotesError(errMessage(err));
+    }
+  }, []);
+
+  // 意味型スキーマの読込 (S87f4b7-2)。取得失敗はヒューリスティックのみで動くため無視。
+  const refreshPropertyTypes = useCallback(async (): Promise<void> => {
+    try {
+      setPropertyTypes(await api.getPropertyTypes());
+    } catch (err) {
+      console.error('[loamium] failed to load property types:', err);
     }
   }, []);
 
@@ -518,6 +530,7 @@ export function App(): JSX.Element {
     didInitRef.current = true;
     void refreshNotes();
     void refreshFiles();
+    void refreshPropertyTypes();
     // ジャーナル日付ナビ用の today (server 応答があれば上書きされる)
     setToday(todayJournalDate());
     // 現在のエントリに履歴インデックスを刻む
@@ -1121,6 +1134,7 @@ export function App(): JSX.Element {
             seek={seek}
             notes={notes}
             files={files}
+            propertyTypes={propertyTypes}
             onChange={onEditorChange}
             onSave={() => void saveNow()}
             onOpenNote={(path) => void openNotePath(path)}

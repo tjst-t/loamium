@@ -17,9 +17,12 @@ import {
   noteResponseSchema,
   noteWriteResponseSchema,
   errorResponseSchema,
+  parsePropertyTypesJson,
+  propertyTypesResponseSchema,
   queryErrorResponseSchema,
   queryResponseSchema,
   searchResponseSchema,
+  type PropertyTypeDef,
   type BacklinksResponse,
   type FileDeleteResponse,
   type FileListResponse,
@@ -106,6 +109,16 @@ export const api = {
   /** 機能フラグ検出 (Sb7f458-2 — ターミナルの有効/無効と理由)。 */
   getHealth(): Promise<HealthResponse> {
     return request(healthResponseSchema, '/api/health');
+  },
+
+  /**
+   * 意味型スキーマ (.loamium/property-types.json) を取得する (S87f4b7-2)。
+   * 生 JSON を検証済みの「キー → 型定義」へ変換して返す。壊れていても
+   * parsePropertyTypesJson が妥当なエントリだけ採用しクラッシュしない (AC-2-3)。
+   */
+  async getPropertyTypes(): Promise<Record<string, PropertyTypeDef>> {
+    const res = await request(propertyTypesResponseSchema, '/api/property-types');
+    return parsePropertyTypesJson(res.types);
   },
 
   listNotes(): Promise<NoteListResponse> {

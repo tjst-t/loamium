@@ -23,7 +23,11 @@ import {
   type ViewUpdate,
 } from '@codemirror/view';
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
-import { parsePropertiesModel, resolveLinkTarget } from '@loamium/shared';
+import {
+  parsePropertiesModel,
+  resolveLinkTarget,
+  type PropertyTypeDef,
+} from '@loamium/shared';
 import { activeLines } from './outline.js';
 import {
   notesUpdatedAnnotation,
@@ -51,6 +55,18 @@ import {
 /** 開いているノートの vault 相対パス (RenderContext 用) */
 export const notePathFacet = Facet.define<string, string>({
   combine: (values) => values[0] ?? '',
+});
+
+/**
+ * 意味型スキーマ (.loamium/property-types.json → キー→型定義) — S87f4b7-2。
+ * プロパティブロックの型解決・型ピッカーの JSON定義セクションに使う。
+ * 未ロード / ファイル無しは {} (ヒューリスティックのみで解決)。
+ */
+export const propertyTypesFacet = Facet.define<
+  Record<string, PropertyTypeDef>,
+  Record<string, PropertyTypeDef>
+>({
+  combine: (values) => values[0] ?? {},
 });
 
 /** 構文木を確保する (通常のノートサイズなら同期で全体をパースできる) */
@@ -277,13 +293,21 @@ class TableWidget extends WidgetType {
  * 編集結果は標準 YAML frontmatter として元の行範囲へ書き戻す (priority 1 / 4)。
  */
 class PropertiesBlockWidget extends WidgetType {
-  constructor(readonly lines: string[]) {
+  constructor(
+    readonly lines: string[],
+    readonly notePath: string,
+    readonly typeDefs: Record<string, PropertyTypeDef>,
+    readonly openNoteLink: (target: string) => void,
+  ) {
     super();
   }
 
   override eq(other: PropertiesBlockWidget): boolean {
     return (
-      other.lines.length === this.lines.length && other.lines.every((l, i) => l === this.lines[i])
+      other.notePath === this.notePath &&
+      other.typeDefs === this.typeDefs &&
+      other.lines.length === this.lines.length &&
+      other.lines.every((l, i) => l === this.lines[i])
     );
   }
 
@@ -374,6 +398,10 @@ class PropertiesBlockWidget extends WidgetType {
           }
           view.focus();
         },
+      }, {
+        notePath: this.notePath,
+        typeDefs: this.typeDefs,
+        openNoteLink: this.openNoteLink,
       });
     } catch (err: unknown) {
       el = document.createElement('div');
@@ -436,11 +464,14 @@ function buildBlockDecorations(state: EditorState): DecorationSet {
       if (parsePropertiesModel(inner) !== null) {
         for (let n = 1; n <= closeLine; n++) claimedLines.add(n);
         if (!intersectsActive(1, closeLine)) {
+          const typeDefs = state.facet(propertyTypesFacet);
           decos.push(
-            Decoration.replace({ widget: new PropertiesBlockWidget(fmLines), block: true }).range(
-              doc.line(1).from,
-              doc.line(closeLine).to,
-            ),
+            Decoration.replace({
+              widget: new PropertiesBlockWidget(fmLines, notePath, typeDefs, (target) =>
+                renderEnv.openNote(target),
+              ),
+              block: true,
+            }).range(doc.line(1).from, doc.line(closeLine).to),
           );
         }
       }
