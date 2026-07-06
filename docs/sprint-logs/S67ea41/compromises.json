@@ -1,0 +1,42 @@
+{
+  "milestone_summary": {
+    "stopped_at": "milestone_r7_final (Sprints Sd13ab1, S89a350, S67ea41)",
+    "compromises": [
+      {
+        "type": "test_assertion_updated",
+        "severity": "low",
+        "story": "S89a350-3",
+        "file": "packages/ui/tests/e2e/editor.*.spec.ts",
+        "rationale": "sidebar の新規ノート導線をメニュー化(prototype 準拠)したため、既存 editor テスト 3 件の操作パスに『new-note-menu-blank をクリック』を追加。アサーションは不変(弱体化なし)。",
+        "diff_summary": "操作パスに1クリック追加のみ。verifier 確認済み。",
+        "recommended_action": "なし(仕様進化)。",
+        "adr_ref": "none",
+        "overlooked_by_autopilot": false
+      }
+    ],
+    "notes": [
+      "3 Sprint とも独立 verifier(opus・read-only、親 autopilot が補完実行): Sd13ab1=pass(warn 1=旧type-pickerテスト参照の宙吊り→親が整理済み)、S89a350=warn(唯一の指摘=status bookkeeping、親が partial に是正済み)、S67ea41=pass。全 AC は実装・テスト済み。",
+      "複数 Sprint で再発していた terminal.spec.ts の flaky(WS 監査ログ flush race)を、この機にテスト側でポーリング安定化(アサーション不変)。フルスイート 516/516 を 2 回連続で確認。",
+      "実機デモ: journal 遅延生成にテンプレ適用(templates/journal.md、{{...}} 非残存)、GET /api/templates 一覧、議事録インスタンス化で 議事録/2026/07/06_定例会議.md へパス解決を確認。"
+    ],
+    "user_review_items": [
+      {
+        "id": "S89a350-3-modal-ux",
+        "sprint": "S89a350",
+        "summary": "テンプレート変数入力モーダル(S89a350-3)は user_review_required=true で needs_user_review。全 AC(キーボード完結・必須検証・保存先ライブプレビュー・作成→エディタで開く)は実装・E2E 済みだが、UX は実機での人間確認が推奨。承認すれば S89a350 は partial→done、進捗 23→24(100%)。",
+        "recommended_action": "実機で『テンプレートから新規作成』のモーダルを触って承認 or 調整点を指摘。承認なら親が S89a350 を done に更新。"
+      },
+      {
+        "id": "weekday-token",
+        "sprint": "S89a350",
+        "summary": "日付フォーマットは YYYY/MM/DD/HH/mm/ss をサポート。曜日(ddd 等)トークンは未対応で、テンプレに書くとリテラルのまま残る(例 {{date:ddd}} → ddd)。",
+        "recommended_action": "曜日が要れば backlog として追加(既存 journalDayOfWeek を流用可)。"
+      }
+    ],
+    "blockers_encountered": [],
+    "scope_changes": [
+      "Sd13ab1: S87f4b7 の型ファースト型ピッカーをキーファースト追加に全面置換 + vault 横断キーサジェスト(GET /api/property-keys)+ 型の横断永続化(PUT /api/property-types → .loamium/property-types.json)を追加。",
+      "S89a350/S67ea41: テンプレートシステム(別 Claude セッションから復元した設計)を新規実装。GET /api/templates・POST /api/templates/{name}/instantiate・CLI loamium new・journal 遅延生成のテンプレ化。"
+    ]
+  }
+}
