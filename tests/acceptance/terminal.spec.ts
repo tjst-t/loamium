@@ -25,11 +25,34 @@ interface AuditLine {
 }
 
 async function readAuditLog(vault: string): Promise<AuditLine[]> {
-  const raw = await readFile(path.join(vault, '.loamium', 'audit.log'), 'utf8');
+  let raw: string;
+  try {
+    raw = await readFile(path.join(vault, '.loamium', 'audit.log'), 'utf8');
+  } catch {
+    return []; // まだ 1 行も書かれていない場合
+  }
   return raw
     .split('\n')
     .filter((l) => l.trim() !== '')
     .map((l) => JSON.parse(l) as AuditLine);
+}
+
+/**
+ * 監査ログの書き込みは WS close ハンドラから非同期に flush されるため、client の
+ * close 観測直後には未反映のことがある(fullスイート並列時に顕在化する race)。
+ * predicate を満たすエントリが現れるまで短くポーリングして返す(アサーションは不変)。
+ */
+async function waitForAudit(
+  vault: string,
+  predicate: (e: AuditLine) => boolean,
+  timeoutMs = 3000,
+): Promise<AuditLine | undefined> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const found = (await readAuditLog(vault)).find(predicate);
+    if (found || Date.now() > deadline) return found;
+    await new Promise((r) => setTimeout(r, 50));
+  }
 }
 
 function wsUrl(server: TestServer): string {
@@ -297,9 +320,9 @@ describe('[AC-Sb7f458-1-1] terminal is opt-in: LOAMIUM_TERMINAL=1 + LOAMIUM_MODE
       expect(same.stayedOpen).toBe(true);
       expect(same.closeCode).not.toBe(1008);
 
-      // cross-origin 拒否は監査ログに denied として残る
-      const entries = await readAuditLog(vault);
-      const denied = entries.find(
+      // cross-origin 拒否は監査ログに denied として残る(非同期 flush をポーリングで待つ)
+      const denied = await waitForAudit(
+        vault,
         (e) => e.op === 'terminal.connect' && e.result === 'denied' && e.status === 403,
       );
       expect(denied).toBeDefined();
@@ -345,9 +368,9 @@ describe('[AC-S79c210-3-1] LOAMIUM_TERMINAL_ALLOWED_ORIGINS allows listed LAN or
       expect(denied.closeCode).toBe(1008);
       expect(denied.gotOutput).toBe(false);
 
-      // 拒否は監査ログに denied として残る
-      const entries = await readAuditLog(vault);
-      const deniedAudit = entries.find(
+      // 拒否は監査ログに denied として残る(非同期 flush をポーリングで待つ)
+      const deniedAudit = await waitForAudit(
+        vault,
         (e) => e.op === 'terminal.connect' && e.result === 'denied' && e.status === 403,
       );
       expect(deniedAudit).toBeDefined();
