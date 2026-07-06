@@ -3,16 +3,24 @@ DEV_VAULT ?= $(CURDIR)/dev-vault
 # デフォルトはローカルのみ。LAN からアクセスするなら `make serve HOST=0.0.0.0` (無認証なので注意)
 HOST ?= 127.0.0.1
 
+# make は /bin/sh でレシピを実行するため、portman が /usr/local/bin にあっても
+# 対話シェルの PATH 次第で見つからないことがある。ここで確実に通す。
+export PATH := /usr/local/bin:$(PATH)
+
+# ポートは portman があればリースで動的取得 (CLAUDE.md 準拠)。
+# portman が見つからない/失敗する環境では、固定の既定ポートにフォールバックする。
+# 既定を変えたいときは `make serve API_PORT=9000` のように上書き可。
+API_PORT ?= 8202
+UI_PORT ?= 8203
+
 .PHONY: serve serve-ui stop test test-ui build lint verify clean samples
 
-# ポートは portman が管理する (ハードコード禁止 — CLAUDE.md)。
-# `portman lease` は同一プロジェクト・同一 name なら冪等に同じポートを返す。
 serve:
 	@mkdir -p "$(DEV_VAULT)"
 	@if [ -f .server.pid ] && kill -0 $$(cat .server.pid) 2>/dev/null; then \
 		kill $$(cat .server.pid); sleep 1; \
 	fi
-	@PORT=$$(portman lease --name $(PROJECT_NAME)) && { \
+	@PORT=$$(command -v portman >/dev/null 2>&1 && portman lease --name $(PROJECT_NAME) || echo $(API_PORT)) && { \
 		LOAMIUM_VAULT="$(DEV_VAULT)" PORT=$$PORT LOAMIUM_HOST=$(HOST) \
 			nohup node_modules/.bin/tsx watch packages/server/src/index.ts > .server.log 2>&1 & \
 		echo $$! > .server.pid; \
@@ -23,8 +31,8 @@ serve-ui:
 	@if [ -f .ui.pid ] && kill -0 $$(cat .ui.pid) 2>/dev/null; then \
 		kill $$(cat .ui.pid); sleep 1; \
 	fi
-	@UI_PORT=$$(portman lease --name $(PROJECT_NAME)-ui) && \
-	API_PORT=$$(portman lease --name $(PROJECT_NAME)) && { \
+	@UI_PORT=$$(command -v portman >/dev/null 2>&1 && portman lease --name $(PROJECT_NAME)-ui || echo $(UI_PORT)) && \
+	API_PORT=$$(command -v portman >/dev/null 2>&1 && portman lease --name $(PROJECT_NAME) || echo $(API_PORT)) && { \
 		LOAMIUM_API_URL=http://127.0.0.1:$$API_PORT \
 			nohup node_modules/.bin/vite packages/ui --host $(HOST) --port $$UI_PORT --strictPort > .ui.log 2>&1 & \
 		echo $$! > .ui.pid; \
