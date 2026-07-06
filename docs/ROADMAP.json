@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "S89a350",
-    "total": 23,
+    "current_sprint": "Sd13ab1",
+    "total": 24,
     "done": 21,
     "in_progress": 0,
-    "remaining": 2,
-    "percentage": 91
+    "remaining": 3,
+    "percentage": 88
   },
   "execution_order": [
     "Sd63ad1",
@@ -32,7 +32,8 @@
     "S87f4b7",
     "S45fa45",
     "S89a350",
-    "S67ea41"
+    "S67ea41",
+    "Sd13ab1"
   ],
   "sprints": {
     "Sd63ad1": {
@@ -1821,7 +1822,15 @@
               "description": "展開時の追加ボタンを型ピッカー(S87f4b7-3)に接続。frontmatter 生成/除去は既存 frontmatter モデルを再利用。",
               "status": "done"
             }
-          }
+          },
+          "corrections": [
+            {
+              "type": "superseded_by",
+              "ref": "Sd13ab1-1",
+              "milestone": "review_r7",
+              "note": "AC-S87f4b7-1-1『要約テキストは出さない』は当方の要件解釈ミス。ユーザーの原意図は『プロパティというラベル語だけ不要・値要約は表示』。Sd13ab1-1 で値要約バーとして復元。"
+            }
+          ]
         },
         "S87f4b7-2": {
           "title": "意味型システム(D方式)と型別描画",
@@ -1908,7 +1917,7 @@
       "title": "タグ入力の候補補完(プロパティ + 本文)",
       "status": "done",
       "description": "レビュー第6ラウンド続き。`#` でタグ候補をコンテキストメニュー表示+インクリメンタル絞り込み(既存タグ+件数+新規作成)を、tags プロパティ値と本文の両方で。本文の `#` 判定: 直後スペースあり=Markdown 見出し(H1 等)、スペースなし=タグ。タグはピュア Markdown の Obsidian 互換 `#tag` のまま。プロトタイプ chosen.html のタグメニュー/本文タグがビジュアルの正。",
-      "milestone": true,
+      "milestone": false,
       "stories": {
         "S45fa45-1": {
           "title": "タグ候補補完(共通ソース)",
@@ -2105,7 +2114,7 @@
     "S67ea41": {
       "title": "journal のテンプレート化(遅延生成を維持)",
       "status": "pending",
-      "milestone": true,
+      "milestone": false,
       "description": "既存の日次ジャーナル遅延生成(GET /api/journal が初回アクセス時に空ファイルを作る挙動)を、S89a350 のテンプレートエンジンで既定 journal テンプレートを適用した本文生成に差し替える。作成タイミングは遅延生成のまま(プロアクティブ cron は採らない)。テンプレート内 `{{date:...}}` は対象日基準で展開。read-only では書き込まず適用済み仮想ジャーナルを返す。既存ジャーナルは上書きしない冪等挙動。",
       "stories": {
         "S67ea41-1": {
@@ -2144,6 +2153,122 @@
             "S67ea41-1-2": {
               "title": "日付基準展開のテスト",
               "description": "対象日展開・read-only・冪等の acceptance テスト。",
+              "status": "pending"
+            }
+          }
+        }
+      }
+    },
+    "Sd13ab1": {
+      "title": "プロパティUI改訂 — 値要約 / キーファースト追加 / 行削除 / 空ノート追加",
+      "status": "pending",
+      "description": "レビュー第7ラウンド。S87f4b7 のプロパティ UI を実機フィードバックで改訂。①畳み時に値の要約バーを表示(『プロパティ』ラベル語は出さず値チップ/テキストのみ)②追加フローを『型ファースト』から『キーファースト』に作り直す(D方式=型はキーから決まる、と整合)。既知/一意プロパティは選ぶだけ、汎用型は名前+型③プロパティ行の削除UI④frontmatter 無しノートへの追加入口。ビジュアルの正は prototype/props-redesign/chosen-v2.html。ファイルは常に標準 YAML(ピュア Markdown 厳守)。",
+      "milestone": true,
+      "stories": {
+        "Sd13ab1-1": {
+          "title": "畳み時の値要約バー",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in_review": "review_r7",
+          "user_story": "ノート利用者として、プロパティを畳んだときでも値の要約(タグ・状態・評価など)が一目で見えてほしい。なぜなら、開かずに中身を把握できることが省スペースと情報性の両立だから。",
+          "acceptance_criteria": [
+            {
+              "id": "Sd13ab1-1-AC1",
+              "description": "frontmatter があるノートの畳み状態で、`>` の後にプロパティ値の要約(tags チップ・status・rating・日付など、多い場合は +N)が表示される。『プロパティ』というラベル語は表示されない",
+              "test": "[AC-Sd13ab1-1-1] in packages/ui/tests/e2e/props-summary.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "Sd13ab1-1-AC2",
+              "description": "要約バー(または `>`)クリックで展開/畳みがトグルし、展開時は従来の2カラム密行になる",
+              "test": "[AC-Sd13ab1-1-2] in packages/ui/tests/e2e/props-summary.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sd13ab1-1-1": {
+              "title": "値要約の生成と表示",
+              "description": "畳み状態のバーに値要約(型別の簡易表示: tags→チップ, select→ラベル, star→★, date→日付, その他→値。上限超は +N)。ラベル語は出さない。chosen-v2.html 準拠。",
+              "status": "pending"
+            },
+            "Sd13ab1-1-2": {
+              "title": "トグルとテスト",
+              "description": "バー/`>` クリックで展開・畳み。mock + E2E([AC-] タグ)。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sd13ab1-2": {
+          "title": "キーファーストの追加フロー(既知/一意 vs 汎用)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in_review": "review_r7",
+          "user_story": "ノート利用者として、プロパティ追加はまず『どのプロパティ(キー)か』を選び、tags のような既知プロパティならキー名を再入力せず即追加したい。なぜなら、型はキーから決まる(D方式)のに、型を選んでからキー名をまた聞かれるのは不整合で分かりにくいから。",
+          "acceptance_criteria": [
+            {
+              "id": "Sd13ab1-2-AC1",
+              "description": "『+ プロパティを追加』でキー候補メニューが開き、上部入力でインクリメンタル絞り込みできる。メニューは『① 既知/一意プロパティ』(tags/aliases/status/rating/created + .loamium/property-types.json 定義キー)と『② 新規作成』の2ゾーンに分かれる",
+              "test": "[AC-Sd13ab1-2-1] in packages/ui/tests/e2e/props-add.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "Sd13ab1-2-AC2",
+              "description": "既知/一意プロパティを選ぶとキー名の再入力なしに即追加され、型はキーから自動決定される(D方式)。その文書に既に存在するキーは候補で無効(重複不可)",
+              "test": "[AC-Sd13ab1-2-2] in packages/ui/tests/e2e/props-add.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "Sd13ab1-2-AC3",
+              "description": "一致しない名前を入力すると『新規作成: 入力名』が出て、選ぶと新キーとして追加され、汎用型(text/number/date/checkbox/select 等)を選べる。結果は標準 YAML の新プロパティ",
+              "test": "[AC-Sd13ab1-2-3] in packages/ui/tests/e2e/props-add.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sd13ab1-2-1": {
+              "title": "キー候補メニュー(2ゾーン)",
+              "description": "型ファーストを廃し、キー候補メニューに再設計。既知/一意ゾーン(内蔵の well-known キー + JSON定義キー、既存キーは無効)+ 新規作成ゾーン。絞り込み。chosen-v2.html 準拠。",
+              "status": "pending"
+            },
+            "Sd13ab1-2-2": {
+              "title": "追加フロー結線",
+              "description": "既知キー=即追加(型は D方式で解決)。新規キー=名前+型セレクタ→標準 YAML 追加。既存 property-type 描画を再利用。mock + E2E([AC-] タグ)。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sd13ab1-3": {
+          "title": "行削除UI と 空ノートへの追加入口",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in_review": "review_r7",
+          "user_story": "ノート利用者として、プロパティ行を明確に削除でき、frontmatter が無いノートにもプロパティを追加できてほしい。なぜなら、消す手段と、最初の1件を足す入口が無いと編集が完結しないから。",
+          "acceptance_criteria": [
+            {
+              "id": "Sd13ab1-3-AC1",
+              "description": "展開時の各プロパティ行に削除アフォーダンス(ホバー時の × 等)があり、クリックでその行(キー)が削除され、標準 YAML に反映される。全プロパティ削除で --- ブロックごと除去される",
+              "test": "[AC-Sd13ab1-3-1] in packages/ui/tests/e2e/props-delete.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "Sd13ab1-3-AC2",
+              "description": "frontmatter が一切無いノートに、控えめな『+ プロパティを追加』の入口が表示され、押すとキーファーストメニュー(Sd13ab1-2)が開いて最初のプロパティ(=frontmatter)を作成できる",
+              "test": "[AC-Sd13ab1-3-2] in packages/ui/tests/e2e/props-empty.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sd13ab1-3-1": {
+              "title": "行削除UI",
+              "description": "各行ホバーの × で行削除。全削除で --- 除去。既存 properties-del を chosen-v2 準拠に。mock + E2E。",
+              "status": "pending"
+            },
+            "Sd13ab1-3-2": {
+              "title": "空ノート追加入口",
+              "description": "frontmatter 無し時の控えめな追加入口 → キーファーストメニュー → frontmatter 生成。mock + E2E([AC-] タグ)。",
               "status": "pending"
             }
           }
@@ -2290,6 +2415,12 @@
         "S89a350"
       ],
       "reason": "journal の遅延生成を S89a350 のテンプレート/変数エンジンで置き換える"
+    },
+    "Sd13ab1": {
+      "depends_on": [
+        "S87f4b7"
+      ],
+      "reason": "S87f4b7 のプロパティ UI(折りたたみ/意味型/型ピッカー)を改訂する"
     }
   },
   "backlog": [
