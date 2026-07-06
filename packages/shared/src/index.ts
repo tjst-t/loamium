@@ -87,8 +87,10 @@ export {
 } from './links.js';
 export {
   JOURNAL_DIR,
+  JOURNAL_TEMPLATE_PATH,
   isValidJournalDate,
   journalPath,
+  journalDateToLocalDate,
   journalDayOfWeek,
   shiftJournalDate,
   todayJournalDate,
@@ -103,4 +105,11 @@ export {
   type TemplateContext,
   type TemplateResolveResult,
 } from './template.js';
+export {
+  normalizeVar,
+  parseTemplateConfig,
+  buildBodyTemplate,
+  applyJournalTemplate,
+  type TemplateConfig,
+} from './template-note.js';
 export * from './schemas.js';

@@ -1,0 +1,92 @@
+{
+  "sprint": "S67ea41",
+  "title": "journal のテンプレート化(遅延生成を維持)",
+  "mode": "auto --with-verifier",
+  "base_branch": "main",
+  "work_branch": "autopilot/main/S67ea41",
+  "start_sha": "bc3af9d52179a9030f90df7f3654795a86bd33a7",
+  "milestone": true,
+  "environment_note": "本環境ではサブエージェント spawn 不可のため、実装・レビュー・独立 verifier をすべて main セッションで直列実行する。独立 verifier(read-only 別セッション)は spawn できないため、親が opus の read-only verifier を補完実行する。機械検証(hooks/run-verify.py)・6/8 ガード・セルフレビュー・クリーンテキスト(NUL 混入なし)は本セッションで必ず実施済み。",
+  "planning_decisions": [
+    {
+      "id": "PL-1",
+      "topic": "ストーリー粒度",
+      "decision": "ROADMAP の 1 Story / 3 AC(遅延生成テンプレ適用 / 対象日展開・read-only 仮想 / 冪等)をそのまま採用。1 ユーザー可視挙動(『journal がテンプレから中身付きで生成される』)に対応し過負荷なし。",
+      "rationale": "DESIGN_PRINCIPLES priority 5(シンプルさ)。分割不要。"
+    },
+    {
+      "id": "PL-2",
+      "topic": "GUI 有無",
+      "decision": "本 Story は server ルート + shared エンジンの結線であり GUI 変更なし(既存 journal UI はレスポンス content をそのまま描画するため無改修で恩恵を受ける)。Playwright 追加不要。UI テスト件数 255 は不変。",
+      "rationale": "gui-spec Phase 1 判定。ユーザー可視挙動は API レスポンス content の変化で、既存 journal.e2e が描画経路を既にカバー。"
+    }
+  ],
+  "implementation_decisions": [
+    {
+      "id": "IM-1",
+      "topic": "既定 journal テンプレートの在り処",
+      "decision": "vault 内 `templates/journal.md` を既定 journal テンプレートとする(定数 JOURNAL_TEMPLATE_PATH)。存在すれば適用、無ければ従来どおり空ファイル(後方互換 AC1)。.loamium/ 設定ファイルは新設しない。",
+      "rationale": "S89a350 が確立した templates/ 配下ピュア Markdown 規約(loamium-template frontmatter)をそのまま再利用でき、新しい設定ファイル(.loamium/ 内 JSON)を増やさずに済む — DESIGN_PRINCIPLES priority 5(シンプルさ)/ priority 1(ピュア Markdown 正本)/ CLAUDE.md『REST/CLI 1:1・共有型』。journal テンプレも GET /api/templates に自然に現れ、instantiate と同じ編集フローで管理できる。"
+    },
+    {
+      "id": "IM-2",
+      "topic": "S89a350 エンジンとの結線方法(重複排除)",
+      "decision": "templates.ts のローカル private 関数(parseConfig/normalizeVar/splitRaw/stripConfigLines/buildBodyTemplate)を packages/shared/src/template-note.ts へ抽出し、templates ルートと journal ルートで共有する。journal 用に applyJournalTemplate(content, {date, now}) を新設し、buildBodyTemplate + resolveTemplate(S89a350 エンジン)を組み合わせて対象日基準で解決する。",
+      "rationale": "DRY(重複コピーを避ける)/ CLAUDE.md『型・ロジックは packages/shared で共有』。既存 templates ルートの挙動は不変(コードは verbatim 移動)で、S89a350 の受け入れテスト(templates.spec.ts)は無改修で pass 継続。"
+    },
+    {
+      "id": "IM-3",
+      "topic": "対象日基準の展開(AC2)",
+      "decision": "journalDateToLocalDate(date) で YYYY-MM-DD をサーバーローカル 00:00 の Date に変換し、applyJournalTemplate の date に渡す。{{date:...}} は対象日、{{now:...}} は生成時刻(new Date())で展開する。明日・過去日ジャーナルも date クエリの対象日で一貫。formatDate('YYYY-MM-DD', journalDateToLocalDate(d)) === d をユニットで固定。",
+      "rationale": "AC2『{{date:...}} 等が対象日(明日/過去日含む)基準で展開』。S89a350 IM-1(ctx.date/now 分離)を journal 側で date=対象日として利用するだけで再現でき、エンジンは汎用のまま。既存 journal.ts のローカルタイムゾーン規約(VISION 個人用・自宅サーバー)と一致。"
+    },
+    {
+      "id": "IM-4",
+      "topic": "遅延生成での未入力変数の扱い(ピュア Markdown 保証)",
+      "decision": "journal 遅延生成には作成モーダル(対話的変数入力)が存在しないため、applyJournalTemplate は (a) loamium-template.vars の default を対象日基準で解決して使い、(b) 参照されるが default の無い変数は空文字で解決する。これにより結果本文に {{...}} を一切残さない。instantiate のような missing_vars 400 中断は journal では起こさない(自動生成を止めないため)。",
+      "rationale": "設計必須事項『生成された journal 本文は解決済みピュア Markdown({{...}} 非残存)』/ DESIGN_PRINCIPLES priority 1。既定 journal テンプレートは基本 {{date:...}} のみを使う想定だが、作者が変数を書いた場合も破綻せず有効な Markdown を出す方に倒す(priority 2 データ安全性=ファイルを壊さない)。空文字解決はユニット [AC-S67ea41-1-2] で固定。"
+    },
+    {
+      "id": "IM-5",
+      "topic": "read-only の仮想ジャーナル(AC2)",
+      "decision": "read-only モードでは従来どおりディスクに書かず、テンプレート適用済みの content を created=false / mtime=null で返す。テンプレ読み取り(readNote)は read だけなので read-only でも実行できる。",
+      "rationale": "AC2『read-only では書き込まず、テンプレート適用済みの仮想ジャーナルを返す』/ priority 2(read-only はファイルを守る)。既存の read-only 挙動(Sd63ad1-3-2 の監査テスト『GET は read-only で自動生成しない』)を壊さない — 516 件 full run で当該テスト pass 確認。"
+    },
+    {
+      "id": "IM-6",
+      "topic": "冪等(AC3)",
+      "decision": "content !== null(ファイル既存)の分岐では従来どおり読み出すだけでテンプレ適用も書き込みもしない。テンプレ適用は content === null(初回)のみ。ユーザーが手書きしたジャーナルも、自動生成済みジャーナルの 2 回目アクセスも上書きしない。",
+      "rationale": "AC3『既存ジャーナルは上書きしない冪等』/ priority 1・2。acceptance [AC-S67ea41-1-3] で既存手書きファイル不変 + 2 回目 created=false・内容不変を固定。"
+    }
+  ],
+  "review_decisions": [
+    {
+      "id": "RV-1",
+      "topic": "セルフレビュー(サブエージェント不可のため main セッションで実施)",
+      "findings": "shared/template-note.ts(境界・default 解決・空文字フォールバックで {{}} 非残存)、journal ルート(初回のみ適用・read-only 非書込・冪等分岐)、templates ルート(verbatim 抽出で挙動不変)を確認。`: any` / `as any` / `@ts-ignore` / `@ts-expect-error` ゼロ、空 catch ゼロ、Guard 6 先送りコメント(TODO Phase / Sprint で実装)ゼロ。NUL 混入なし(全 7 ファイル clean)。make lint(tsc 全 workspace)pass。"
+    },
+    {
+      "id": "RV-2",
+      "topic": "既存テストへの影響",
+      "decision": "既存の journal.spec.ts / templates.spec.ts / audit-permissions.spec.ts は無改修。templates ルートのロジックは shared へ verbatim 移動しただけで API 挙動不変。テンプレ未 seed の既存 journal テストは後方互換パス(空ファイル)を通るため不変。full run で 516 件(旧 500 + 新 16)全 pass、ui-tests 255 不変。",
+      "rationale": "テスト無効化・アサーション弱体化・削除なし。既存挙動を壊さない(指示の必須要件)。"
+    }
+  ],
+  "compromises": [],
+  "known_flaky_encountered": [],
+  "backlog_added": [],
+  "done_judgment": {
+    "S67ea41-1": {
+      "guard1_user_review_required_not_done": "pass (user_review_required=false)",
+      "guard2_nil_injection_mock": "n/a (TypeScript、nil-guard パターン不適用)",
+      "guard3_mock_mode_not_real_smoke": "n/a (priority_rule 9 dev VM smoke 要件なし)",
+      "guard4_priority_rule_9_exception_valid": "n/a (例外条項の主張なし)",
+      "guard5_call_path_grep": "pass (journal ルート→shared applyJournalTemplate→resolveTemplate の呼出経路がコード上に存在、acceptance が実 HTTP で駆動)",
+      "guard6_deferred_comment_clean": "pass (diff に先送りコメントなし)",
+      "guard7_adr_conformance": "n/a (docs/DESIGN/ 不在。DESIGN_PRINCIPLES priority 1/2/5 準拠を IM-1/4/5 で明記)",
+      "guard8_destructive_multiversion": "n/a (破壊的多版テスト要件なし)",
+      "overall": "all pass/na -> done 可"
+    }
+  },
+  "verifier_note": "独立 verifier(read-only 別 Claude セッション)は本環境で spawn 不可。self-report は本 decisions.json + verification-results.json。親(opus)が read-only verifier を補完実行する前提で done を完了する。機械検証 verify-run.json(overall_machine_status=pass, test 516/lint/ui-tests 255 全 exit=0)が信頼の基盤。"
+}
