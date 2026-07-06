@@ -20,21 +20,25 @@
     </p>
   </div>
 
-  <!-- ============ ★ 確定案(ユーザー承認済み) ============ -->
+  <!-- ============ ★ 確定案 v2(実機フィードバック反映) ============ -->
   <div class="pr-variant" style="border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft),var(--shadow);">
     <div class="pr-vhead">
       <span class="pr-num" style="background:var(--accent);color:#fff;">★</span>
-      <h2>確定案 — たたむトグル × ミニマル密行 × 意味型(D方式)</h2>
-      <span class="pr-metric">案1 × 案5 の合成</span>
+      <h2>確定案 v2 — 値要約バー × キーファースト追加 × 行削除</h2>
+      <span class="pr-metric">v1 改訂 4 点</span>
     </div>
     <p class="pr-concept">
-      <strong>案1(折りたたみ)と案5(ミニマル2カラム密行)を合成した確定デザイン。</strong>
-      既定は本文直前に <code>&gt;</code> トグルだけ(要約テキスト無し・占有ごく僅か)。開くと枠/ヘッダ無しの密な2カラムで、
-      各値を <strong>意味型(D方式)ごとにリッチ描画</strong>(tags チップ / select 色ピル / star / date / checkbox / progress バー / url / note-link / number / text)。
-      「+ プロパティを追加」は <strong>型ピッカー(インクリメンタル絞り込み・JSON定義型混在)</strong>、tags と本文は <code>#</code> でタグ候補メニュー。
-      本文の <code>#</code> は「直後スペース= H1 / スペース無し=タグ」で判定。
+      <strong>実機フィードバックを反映した改訂版(v1 の 4 点を改訂)。</strong>
+      ①<strong>畳み時に値の要約バー</strong>を表示(<code>&gt; #sample-book #science · 読了 · ★★★★☆ · 2026-05-20 · +6</code>。「プロパティ」ラベル語は出さない)。
+      ②<strong>追加をキーファーストに再設計</strong> — 候補メニューは 2 ゾーン:「① 既知/一意プロパティ(選ぶだけ・型はキーから決定・既存キーは淡色無効)」+「② 新規作成: {入力}(汎用型は型セレクタ)」。
+      ③<strong>各行に削除アフォーダンス</strong>(ホバーで右端に <code>×</code>。空になれば <code>---</code> ごと消える)。
+      ④<strong>frontmatter 無しノートへの控えめな追加入口</strong>(押すと最初のプロパティ=frontmatter を生成)。
     </p>
-    <a class="pr-fullink" href="chosen.html" style="font-size:13.5px;">★ 確定案の単体ページを開く(たたむ/開く・型ピッカー・タグ補完・本文タグを実挙動で確認)→</a>
+    <a class="pr-fullink" href="chosen-v2.html" style="font-size:13.5px;">★ 確定案 v2 の単体ページを開く(値要約バー・キーファースト追加・行削除・frontmatter 生成を実挙動で確認)→</a>
+    <div style="margin-top:8px;font-size:12.5px;color:var(--text-muted);">
+      旧確定案(v1)は参考として残置:
+      <a href="chosen.html">v1 の単体ページ(たたむトグル × 密行 × 意味型 × 型ピッカー × タグ補完)→</a>
+    </div>
   </div>
 
   <div class="pr-section-label" style="margin-top:34px;">探索した 5 案(参考・確定案の元)<span class="line"></span></div>

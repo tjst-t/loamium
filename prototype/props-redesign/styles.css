@@ -922,3 +922,185 @@
 }
 .pc-newkey .type-tag .ico { width: 12px; height: 12px; }
 .pc-newkey .arrow { color: var(--text-faint); }
+
+/* ==========================================================================
+   chosen-v2: 実機フィードバック反映(値要約バー / キーファースト追加 /
+   行削除 / frontmatter 無しの追加入口)。すべて additive。
+   ========================================================================== */
+
+/* ---- 1) 畳み時の値要約バー(ラベル語 "プロパティ" は出さない) ---------- */
+.pc-summary {
+  display: none; /* data-open="false" のとき flex に */
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 3px 8px 4px 4px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+.pc[data-open="false"] .pc-summary { display: flex; }
+.pc[data-open="true"]  .pc-summary { display: none; }
+.pc-summary:hover { background: var(--bg-hover); }
+.pc-summary .pc-toggle { flex-shrink: 0; }
+.pc-sum-vals {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.pc-sum-vals .sum-sep { color: var(--border-strong); }
+.pc-sum-tag { color: var(--accent-hover); font-weight: 600; }
+.pc-sum-item { display: inline-flex; align-items: center; gap: 4px; color: var(--text); }
+.pc-sum-item .st-dot { width: 6px; height: 6px; border-radius: 50%; }
+.pc-sum-item .ico { width: 12px; height: 12px; }
+.pc-sum-stars { display: inline-flex; gap: 1px; color: #e0a12c; }
+.pc-sum-stars svg { width: 12px; height: 12px; }
+.pc-sum-more { color: var(--text-faint); font-weight: 600; }
+
+/* ---- 2) キーファースト追加メニュー(2ゾーン) --------------------------
+   コンテナ/検索/リストは .type-picker 系を再利用。ここは差分のみ。 */
+.add-menu { width: 300px; }
+.type-opt.is-existing { opacity: 0.42; cursor: default; }
+.type-opt.is-existing:hover { background: none; }
+.type-opt .key-name { font-weight: 600; color: var(--text); }
+.type-opt .key-name mark { background: none; color: var(--accent); font-weight: 700; }
+.type-opt .exists-badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--text-faint);
+  background: var(--bg-hover);
+  border-radius: 5px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+.type-opt.create-new .type-ico {
+  color: var(--accent);
+  border-color: #ddd4f4;
+  background: var(--accent-soft);
+}
+.type-opt.create-new .key-name { color: var(--accent-hover); }
+.type-opt.create-new { border-top: 1px solid var(--border); border-radius: 0 0 7px 7px; margin-top: 4px; padding-top: 8px; }
+.add-menu-note {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  line-height: 1.55;
+  padding: 6px 9px 3px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+.add-menu-note b { color: var(--text-muted); font-weight: 700; }
+
+/* ---- 3) 新規キーの型セレクタ(汎用型=名前必須なものを選ぶ) ---------- */
+.pc-typesel {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 5px 0 2px 24px;
+  padding: 7px 9px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  max-width: 460px;
+}
+.pc-typesel .newkey-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  padding-right: 8px;
+  margin-right: 2px;
+  border-right: 1px solid var(--border);
+}
+.pc-typesel .newkey-name .k-ico {
+  width: 15px; height: 15px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 5px; background: var(--accent-soft); color: var(--accent);
+}
+.pc-typesel .newkey-name .k-ico svg { width: 11px; height: 11px; }
+.type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 7px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--bg-editor);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+.type-chip:hover { border-color: var(--border-strong); color: var(--text); }
+.type-chip.sel {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-hover);
+  font-weight: 600;
+}
+.type-chip .ico { width: 13px; height: 13px; color: currentColor; }
+.pc-typesel .sel-hint {
+  width: 100%;
+  margin-top: 3px;
+  font-size: 10.5px;
+  color: var(--text-faint);
+  line-height: 1.5;
+}
+
+/* ---- 4) プロパティ行の削除アフォーダンス(行ホバーで右端に ×) -------- */
+.pc-rows dd { position: relative; padding-right: 22px; }
+.pc-row-del {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  color: var(--text-faint);
+  opacity: 0;
+  transition: opacity 0.1s;
+  flex-shrink: 0;
+}
+.pc-rows dd:hover .pc-row-del,
+.pc-rows dt:hover + dd .pc-row-del,
+.pc-row-del:focus-visible { opacity: 1; }
+.pc-row-del:hover { background: var(--danger-soft); color: var(--danger); }
+.pc-row-del svg { width: 13px; height: 13px; }
+
+/* ---- 5) frontmatter 無しノートへの控えめな追加入口 --------------------- */
+.pc-empty {
+  margin: 0 6px 2px;
+  padding-left: 4px;
+}
+.pc-empty-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px 2px 6px;
+  color: var(--text-faint);
+  font-size: 12px;
+  border-radius: 7px;
+  border: 1px dashed transparent;
+  cursor: pointer;
+}
+.pc-empty-add:hover { color: var(--accent); background: var(--accent-soft); border-color: #ddd4f4; }
+.pc-empty-add .plus { color: var(--accent); font-weight: 700; font-size: 13px; }
+.pc-empty-add .chev { width: 11px; height: 11px; color: var(--text-faint); }
+
+/* 生成された --- ブロック(frontmatter fence)の視覚ヒント(プロト用) */
+.fm-fence {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  padding: 1px 4px;
+  margin: 2px 6px;
+}
+.fm-fence.dim { opacity: 0.55; }
