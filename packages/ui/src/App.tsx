@@ -24,6 +24,7 @@ import {
   type PropertyKeyCount,
   type PropertyTypeDef,
   type TagCount,
+  type TemplateSummary,
 } from '@loamium/shared';
 import { api, ApiError } from './api.js';
 import { formatSize } from './file-kind.js';
@@ -44,6 +45,8 @@ import { ContextMenu } from './components/ContextMenu.js';
 import { ConflictDialog, DeleteDialog, NameDialog } from './components/dialogs.js';
 import { SearchPalette } from './components/SearchPalette.js';
 import { SearchPage } from './components/SearchPage.js';
+import { TemplatePicker } from './components/TemplatePicker.js';
+import { TemplateModal } from './components/TemplateModal.js';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -213,6 +216,12 @@ export function App(): JSX.Element {
   const [dialog, setDialog] = useState<DialogState>(null);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // ---- テンプレート (S89a350-3) ----
+  const [newNoteMenuOpen, setNewNoteMenuOpen] = useState(false);
+  const [templates, setTemplates] = useState<TemplateSummary[] | null>(null);
+  const [templatesError, setTemplatesError] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [modalTemplate, setModalTemplate] = useState<TemplateSummary | null>(null);
   /** 全文ヒット確定時のカーソル移動指示 (Editor の seek prop へ) */
   const [seek, setSeek] = useState<{ line: number; token: number } | null>(null);
   const seekCounterRef = useRef(0);
@@ -639,7 +648,12 @@ export function App(): JSX.Element {
 
   // ---- グローバルキー: Cmd/Ctrl+S (保存) / Cmd/Ctrl+K (検索) / F2 (リネーム) ----
   const modalOpenRef = useRef(false);
-  modalOpenRef.current = dialog !== null || conflictPath !== null || menu !== null;
+  modalOpenRef.current =
+    dialog !== null ||
+    conflictPath !== null ||
+    menu !== null ||
+    pickerOpen ||
+    modalTemplate !== null;
   const paletteOpenRef = useRef(false);
   paletteOpenRef.current = paletteOpen;
   useEffect(() => {
@@ -779,6 +793,46 @@ export function App(): JSX.Element {
       }
     },
     [applyHistory, expandAncestors, refreshNotes, setOpenDoc],
+  );
+
+  // ---- テンプレート (S89a350-3) ----
+  const refreshTemplates = useCallback(async (): Promise<void> => {
+    try {
+      setTemplates(await api.listTemplates());
+      setTemplatesError(null);
+    } catch (err) {
+      setTemplatesError(errMessage(err));
+    }
+  }, []);
+
+  /** 新規ノート ▸ 「テンプレートから新規作成」→ 一覧を取得して picker を開く。 */
+  const openTemplatePicker = useCallback((): void => {
+    setNewNoteMenuOpen(false);
+    setTemplates(null);
+    setTemplatesError(null);
+    setPickerOpen(true);
+    void refreshTemplates();
+  }, [refreshTemplates]);
+
+  /**
+   * モーダル確定 → instantiate API → 解決先パス(衝突時は連番)に作成されたノートを開く。
+   * 失敗 (不足変数の 4xx など) は throw して呼び出し元 (モーダル) がインライン表示する。
+   */
+  const createFromTemplate = useCallback(
+    async (
+      template: TemplateSummary,
+      vars: Record<string, string>,
+      date: string | undefined,
+    ): Promise<void> => {
+      const res = await api.instantiateTemplate(template.name, vars, date);
+      setModalTemplate(null);
+      setPickerOpen(false);
+      await refreshNotes();
+      expandAncestors(dirnameOf(res.path));
+      await openNotePath(res.path);
+      setAppError(null);
+    },
+    [expandAncestors, openNotePath, refreshNotes],
   );
 
   const renameNote = useCallback(
@@ -1039,12 +1093,14 @@ export function App(): JSX.Element {
 
         <div className="tree-section-title">
           <span>ノート</span>
-          <span className="actions">
+          <span className="actions" style={{ position: 'relative' }}>
             <button
               className="icon-btn"
               data-testid="sidebar-new-note"
               title="新規ノート"
-              onClick={() => setDialog({ type: 'new-note', folder: '' })}
+              aria-haspopup="menu"
+              aria-expanded={newNoteMenuOpen}
+              onClick={() => setNewNoteMenuOpen((v) => !v)}
             >
               <NewNoteIcon />
             </button>
@@ -1056,6 +1112,45 @@ export function App(): JSX.Element {
             >
               <NewFolderIcon />
             </button>
+            {newNoteMenuOpen && (
+              <>
+                <div className="newnote-menu-scrim" onMouseDown={() => setNewNoteMenuOpen(false)} />
+                <div
+                  className="newnote-menu"
+                  data-testid="new-note-menu"
+                  role="menu"
+                  style={{ top: 26, right: 0 }}
+                >
+                  <button
+                    className="nm-item"
+                    data-testid="new-note-menu-blank"
+                    role="menuitem"
+                    onClick={() => {
+                      setNewNoteMenuOpen(false);
+                      setDialog({ type: 'new-note', folder: '' });
+                    }}
+                  >
+                    <DocumentIcon />
+                    <span className="nm-main">
+                      空のノート<span className="nm-sub">見出しのみの新規ノート</span>
+                    </span>
+                  </button>
+                  <div className="nm-sep" />
+                  <button
+                    className="nm-item"
+                    data-testid="new-note-menu-template"
+                    role="menuitem"
+                    onClick={openTemplatePicker}
+                  >
+                    <DocumentIcon />
+                    <span className="nm-main">
+                      テンプレートから新規作成
+                      <span className="nm-sub">templates/ から選ぶ</span>
+                    </span>
+                  </button>
+                </div>
+              </>
+            )}
           </span>
         </div>
 
@@ -1267,6 +1362,31 @@ export function App(): JSX.Element {
           onOpenAdvanced={(q) => {
             setPaletteOpen(false);
             openSearch({ q: q.trim().normalize('NFC'), tag: '', folder: '', sort: 'updated' });
+          }}
+        />
+      )}
+
+      {pickerOpen && (
+        <TemplatePicker
+          templates={templates}
+          error={templatesError}
+          onSelect={(t) => {
+            setPickerOpen(false);
+            setModalTemplate(t);
+          }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
+
+      {modalTemplate !== null && (
+        <TemplateModal
+          template={modalTemplate}
+          onCreate={(vars, date) => createFromTemplate(modalTemplate, vars, date)}
+          onCancel={() => {
+            // モーダルを閉じて picker へ戻す (prototype: 中断で選択へ戻る)
+            const t = modalTemplate;
+            setModalTemplate(null);
+            if (t !== null) setPickerOpen(true);
           }}
         />
       )}

@@ -17,6 +17,7 @@
  *   files                                GET    /api/files (添付ファイル一覧)
  *   list [--tag] [--folder]              GET    /api/notes[?tag=&folder=]
  *   tags                                 GET    /api/tags
+ *   new --template <n> [--var k=v ...]   POST   /api/templates/{name}/instantiate
  *
  * 出力規約 (AC-S0c9a48-1-2):
  * - 成功: exit 0、結果を stdout へ。--json で API レスポンスの生 JSON をそのまま出す
@@ -33,6 +34,7 @@ import {
   journalAppendResponseSchema,
   journalResponseSchema,
   noteListResponseSchema,
+  templateInstantiateResponseSchema,
   noteRenameResponseSchema,
   noteResponseSchema,
   noteWriteResponseSchema,
@@ -324,6 +326,44 @@ function buildProgram(): Command {
         }
       });
     });
+
+  sub('new', 'テンプレートからノートを新規作成する (POST /api/templates/{name}/instantiate)')
+    .requiredOption('--template <name>', 'テンプレート名 (templates/ 配下、拡張子なし)')
+    .option(
+      '--var <key=value>',
+      '変数の指定 (複数回指定可。例: --var 会議名=定例)',
+      (value: string, acc: string[]) => [...acc, value],
+      [],
+    )
+    .option('--date <YYYY-MM-DD>', '{{date:...}} の基準日 (省略時はサーバー今日)')
+    .action(
+      async (opts: JsonOpt & { template: string; var: string[]; date?: string }) => {
+        const vars: Record<string, string> = {};
+        for (const kv of opts.var) {
+          const eq = kv.indexOf('=');
+          if (eq <= 0) {
+            fail('usage', `--var の形式が不正です (key=value を期待): "${kv}"`, 2);
+          }
+          vars[kv.slice(0, eq)] = kv.slice(eq + 1);
+        }
+        const reqBody: { vars: Record<string, string>; date?: string } = { vars };
+        if (opts.date !== undefined) reqBody.date = opts.date;
+        const name = opts.template
+          .split('/')
+          .map((seg) => encodeURIComponent(seg))
+          .join('/');
+        const base = await resolveBaseUrl();
+        const result = await apiFetch(
+          base,
+          `/api/templates/${name}/instantiate`,
+          postJson(reqBody),
+        );
+        output(opts, result, () => {
+          const res = parseAs(result, templateInstantiateResponseSchema, 'new');
+          println(`created ${res.path}`);
+        });
+      },
+    );
 
   sub('tags', 'タグ一覧を件数付きで表示する (GET /api/tags)')
     .action(async (opts: JsonOpt) => {

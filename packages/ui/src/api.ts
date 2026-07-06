@@ -25,6 +25,10 @@ import {
   queryResponseSchema,
   searchResponseSchema,
   tagsResponseSchema,
+  templateInstantiateResponseSchema,
+  templatesResponseSchema,
+  type TemplateInstantiateResponse,
+  type TemplateSummary,
   type PropertyKeyCount,
   type PropertyTypeDef,
   type SelectOption,
@@ -261,6 +265,37 @@ export const api = {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ newPath }),
+    });
+  },
+
+  // ---- 汎用テンプレート (S89a350-3) ----
+
+  /** テンプレート一覧 (GET /api/templates)。target / vars 付き。 */
+  async listTemplates(): Promise<TemplateSummary[]> {
+    const res = await request(templatesResponseSchema, '/api/templates');
+    return res.templates;
+  },
+
+  /**
+   * テンプレートをインスタンス化する (POST /api/templates/{name}/instantiate)。
+   * 不足変数は ApiError(status 400, code 'missing_vars') で送出する。
+   * date は {{date:...}} の基準日を上書きする (YYYY-MM-DD)。
+   */
+  instantiateTemplate(
+    name: string,
+    vars: Record<string, string>,
+    date?: string,
+  ): Promise<TemplateInstantiateResponse> {
+    const body: { vars: Record<string, string>; date?: string } = { vars };
+    if (date !== undefined) body.date = date;
+    const encoded = name
+      .split('/')
+      .map((s) => encodeURIComponent(s))
+      .join('/');
+    return request(templateInstantiateResponseSchema, `/api/templates/${encoded}/instantiate`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
     });
   },
 };

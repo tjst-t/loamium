@@ -50,6 +50,32 @@ async function seedVault(vault: string): Promise<void> {
     // 過去のジャーナル (E2E の日付ナビゲーション用 — 今日から相対で作る)
     [journalPath(shiftJournalDate(today, -1))]: `# 昨日のジャーナル\n\n昨日のメモ。\n`,
     [journalPath(shiftJournalDate(today, -3))]: `# 3日前のジャーナル\n\n3日前のメモ。\n`,
+    // 汎用テンプレート (S89a350-3 の E2E 用)
+    'templates/議事録.md': [
+      '---',
+      'loamium-template:',
+      '  description: 会議の議事録',
+      '  target: "議事録/{{date:YYYY}}/{{date:MM}}/{{date:DD}}_{{会議名}}"',
+      '  vars:',
+      '    - name: 会議名',
+      '      type: text',
+      '      required: true',
+      '    - name: 日付',
+      '      type: date',
+      '      default: "{{date:YYYY-MM-DD}}"',
+      '    - name: カテゴリ',
+      '      type: select',
+      '      options: [定例, 臨時, その他]',
+      '      default: 定例',
+      '    - name: 参加者',
+      '      type: tags',
+      'カテゴリ: "{{カテゴリ}}"',
+      '---',
+      '# {{会議名}}',
+      '',
+      '参加者: {{参加者}}',
+      '',
+    ].join('\n'),
   };
   for (const [rel, content] of Object.entries(files)) {
     const abs = path.join(vault, rel);
