@@ -31,9 +31,9 @@
     "S9df823",
     "S87f4b7",
     "S45fa45",
+    "Sd13ab1",
     "S89a350",
-    "S67ea41",
-    "Sd13ab1"
+    "S67ea41"
   ],
   "sprints": {
     "Sd63ad1": {
@@ -2114,7 +2114,7 @@
     "S67ea41": {
       "title": "journal のテンプレート化(遅延生成を維持)",
       "status": "pending",
-      "milestone": false,
+      "milestone": true,
       "description": "既存の日次ジャーナル遅延生成(GET /api/journal が初回アクセス時に空ファイルを作る挙動)を、S89a350 のテンプレートエンジンで既定 journal テンプレートを適用した本文生成に差し替える。作成タイミングは遅延生成のまま(プロアクティブ cron は採らない)。テンプレート内 `{{date:...}}` は対象日基準で展開。read-only では書き込まず適用済み仮想ジャーナルを返す。既存ジャーナルは上書きしない冪等挙動。",
       "stories": {
         "S67ea41-1": {
@@ -2163,7 +2163,7 @@
       "title": "プロパティUI改訂 — 値要約 / キーファースト追加 / 行削除 / 空ノート追加",
       "status": "pending",
       "description": "レビュー第7ラウンド。S87f4b7 のプロパティ UI を実機フィードバックで改訂。①畳み時に値の要約バーを表示(『プロパティ』ラベル語は出さず値チップ/テキストのみ)②追加フローを『型ファースト』から『キーファースト』に作り直す(D方式=型はキーから決まる、と整合)。既知/一意プロパティは選ぶだけ、汎用型は名前+型③プロパティ行の削除UI④frontmatter 無しノートへの追加入口。ビジュアルの正は prototype/props-redesign/chosen-v2.html。ファイルは常に標準 YAML(ピュア Markdown 厳守)。 さらに、vault 横断のプロパティキー・サジェスト(GET /api/property-keys、既存タグ集約と同型)と、新規プロパティ作成時の型を .loamium/property-types.json へ永続化して型をキー単位で全ファイル一貫させる(D方式の横断固定、Obsidian/Notion 相当)。",
-      "milestone": true,
+      "milestone": false,
       "stories": {
         "Sd13ab1-1": {
           "title": "畳み時の値要約バー",
