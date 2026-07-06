@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>案2 インライン・チップ列 — プロパティ改編</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="demo-body">
+<div class="demo-wrap">
+  <main class="workspace demo-workspace" style="position:relative;">
+    <div class="editor-header">
+      <div class="nav-group">
+        <button class="nav-btn" title="戻る"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg></button>
+        <button class="nav-btn" disabled title="進む"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg></button>
+      </div>
+      <nav class="route-crumbs" aria-label="現在のルート">
+        <span class="route-token">/n/</span>
+        <span>samples</span><span class="sep">/</span><span>データ</span><span class="sep">/</span><span class="current">読書メモ 失敗の科学</span>
+      </nav>
+      <div class="save-status" data-state="saved"><span class="dot"></span><span>保存済み</span></div>
+    </div>
+
+    <div class="cm-scroll">
+      <div class="cm-editor" data-testid="editor">
+
+        <!-- ============ 案2: インライン・チップ列(枠なし・折返し) ============ -->
+        <div class="pv2" data-testid="properties-widget" data-editable="true">
+          <span class="pv2-pill tag" data-testid="properties-chip" data-value="sample-book" title="tags">#sample-book</span>
+
+          <button class="pv2-pill" id="status-pill" data-testid="properties-row" data-key="status" title="status(クリックで変更)">
+            <span class="st-dot"></span><span class="k">status</span><span id="status-val" data-testid="properties-value-body" data-type="text">読了</span>
+          </button>
+
+          <span class="pv2-pill" data-testid="properties-row" data-key="rating" title="rating">
+            <span class="k">rating</span>
+            <span class="stars" data-testid="properties-value-body" data-type="number">
+              <svg class="on" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.7l1.9 3.85 4.25.62-3.07 3 .72 4.23L8 11.5 4.17 13.42l.72-4.23L1.82 6.17l4.25-.62z"/></svg>
+              <svg class="on" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.7l1.9 3.85 4.25.62-3.07 3 .72 4.23L8 11.5 4.17 13.42l.72-4.23L1.82 6.17l4.25-.62z"/></svg>
+              <svg class="on" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.7l1.9 3.85 4.25.62-3.07 3 .72 4.23L8 11.5 4.17 13.42l.72-4.23L1.82 6.17l4.25-.62z"/></svg>
+              <svg class="on" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.7l1.9 3.85 4.25.62-3.07 3 .72 4.23L8 11.5 4.17 13.42l.72-4.23L1.82 6.17l4.25-.62z"/></svg>
+              <svg class="off" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M8 2l1.7 3.6 3.9.5-2.9 2.7.8 3.9L8 10.9 4.5 12.7l.8-3.9L2.4 6.1l3.9-.5z"/></svg>
+            </span>
+          </span>
+
+          <span class="pv2-pill" data-testid="properties-row" data-key="created" title="created">
+            <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="2.4" y="3.3" width="11.2" height="10.3" rx="1.6"/><path d="M2.4 6.3h11.2M5.6 1.9v2.6M10.4 1.9v2.6"/></svg>
+            <span data-testid="properties-value-body" data-type="date">2026-05-20</span>
+          </span>
+
+          <button class="pv2-pill pv2-add" data-testid="properties-add">+ プロパティ</button>
+        </div>
+
+        <!-- status 変更のミニポップ(デモ) -->
+        <div class="mini-pop" id="status-pop">
+          <button class="mini-opt" data-v="未読">未読</button>
+          <button class="mini-opt" data-v="読中">読中</button>
+          <button class="mini-opt sel" data-v="読了">読了</button>
+        </div>
+
+        <!-- ============ 本文 ============ -->
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h1">読書メモ 失敗の科学</span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content">『失敗の科学』(マシュー・サイド)の要点メモ。<span class="md-bold">失敗を隠す文化</span>と、失敗を学びに変える文化の対比が主題。航空業界の事故調査プロセスと、医療業界の隠蔽体質の対比が印象に残った。</span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h2">要点</span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">•</span><span>非難ではなく「なぜ起きたか」を検証するオープンな仕組みが学習を生む</span></span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">•</span><span>小さな失敗を早く出す(マージナル・ゲイン)ことが改善の起点</span></span></div>
+
+        <div class="proto-note">
+          <span class="tag">案2</span>
+          <strong>インライン・チップ列</strong>。全プロパティを 1〜2 行の横並びピルで表示(枠なし)。ピルをクリックするとその場で編集(status ピルを押すと選択ポップが出る)。値が一望でき、高さは 1 行分。
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<a class="proto-chip" href="index.html">← 5 案の比較へ</a>
+<script>
+  const pill = document.getElementById('status-pill');
+  const pop = document.getElementById('status-pop');
+  pill.addEventListener('click', (e) => {
+    const r = pill.getBoundingClientRect();
+    const host = pill.closest('.demo-workspace').getBoundingClientRect();
+    pop.style.left = (r.left - host.left) + 'px';
+    pop.style.top = (r.bottom - host.top + 4) + 'px';
+    pop.classList.toggle('open');
+    e.stopPropagation();
+  });
+  pop.querySelectorAll('.mini-opt').forEach(o => o.addEventListener('click', () => {
+    pop.querySelectorAll('.mini-opt').forEach(x => x.classList.remove('sel'));
+    o.classList.add('sel');
+    document.getElementById('status-val').textContent = o.dataset.v;
+    pop.classList.remove('open');
+  }));
+  document.addEventListener('click', () => pop.classList.remove('open'));
+</script>
+</body>
+</html>
