@@ -1888,13 +1888,13 @@
             {
               "id": "S87f4b7-3-AC1",
               "description": "『+ プロパティを追加』で型候補のコンテキストメニューが開き、上部の入力でインクリメンタルに絞り込める(例 `s` で select/star/... に絞る)",
-              "test": "[AC-S87f4b7-3-1] in packages/ui/tests/e2e/type-picker.e2e.spec.ts",
+              "test": "[AC-S87f4b7-3-1] in packages/ui/tests/e2e/props-add.e2e.spec.ts (superseded by Sd13ab1-2)",
               "status": "pass"
             },
             {
               "id": "S87f4b7-3-AC2",
               "description": "候補は内蔵型と `.loamium/property-types.json` の JSON定義型の両方を含み、JSON定義型は区別表示される。型選択→キー名入力→値入力 の流れで標準 YAML の新プロパティが追加される",
-              "test": "[AC-S87f4b7-3-2] in packages/ui/tests/e2e/type-picker.e2e.spec.ts",
+              "test": "[AC-S87f4b7-3-2] in packages/ui/tests/e2e/props-add.e2e.spec.ts (superseded by Sd13ab1-2)",
               "status": "pass"
             }
           ],
@@ -1909,7 +1909,15 @@
               "description": "型選択→キー→値→frontmatter 追記(型に沿った初期値)。mock + E2E([AC-] タグ)。",
               "status": "done"
             }
-          }
+          },
+          "corrections": [
+            {
+              "type": "superseded_by",
+              "ref": "Sd13ab1-2",
+              "milestone": "review_r7",
+              "note": "型ファーストの型ピッカー(S87f4b7-3)はキーファースト追加(Sd13ab1-2)に全面置換。旧 type-picker テストは props-add テストへ移行。下記 AC の test ポインタは移行先を指すよう更新(AC の id/文言は不変)。"
+            }
+          ]
         }
       }
     },
