@@ -7,6 +7,13 @@
 
 export const JOURNAL_DIR = 'journals';
 
+/**
+ * 既定 journal テンプレートの vault 相対パス (S67ea41)。
+ * templates/ 配下のピュア Markdown を正本とし、遅延生成時に適用する。
+ * 存在しなければ従来どおり空ファイルで生成する(後方互換)。
+ */
+export const JOURNAL_TEMPLATE_PATH = 'templates/journal.md';
+
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 export class JournalDateError extends Error {
@@ -72,6 +79,21 @@ export function journalDayOfWeek(date: string): string {
   const dow = days[d.getDay()];
   if (dow === undefined) throw new JournalDateError(`invalid journal date: "${date}"`);
   return dow;
+}
+
+/**
+ * ジャーナル日付文字列 (YYYY-MM-DD) を、サーバーローカルタイムゾーンで
+ * その日の 00:00 を指す Date に変換する。テンプレートの `{{date:...}}` を
+ * 対象日基準で展開するための基準日として使う (S67ea41)。
+ * formatDate('YYYY-MM-DD', journalDateToLocalDate(d)) は d と一致する。
+ * 無効な日付は JournalDateError。
+ */
+export function journalDateToLocalDate(date: string): Date {
+  const m = DATE_RE.exec(date);
+  if (!m || !isValidJournalDate(date)) {
+    throw new JournalDateError(`invalid journal date: "${date}" (expected YYYY-MM-DD)`);
+  }
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
 }
 
 /**

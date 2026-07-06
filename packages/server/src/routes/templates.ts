@@ -16,9 +16,11 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import {
+  buildBodyTemplate,
   isValidJournalDate,
   normalizeVaultPath,
   parseNote,
+  parseTemplateConfig,
   resolveTemplate,
   templateInstantiateRequestSchema,
   VaultPathError,
@@ -26,8 +28,6 @@ import {
   type TemplateMissingVarsResponse,
   type TemplateSummary,
   type TemplatesResponse,
-  type TemplateVar,
-  type TemplateVarType,
 } from '@loamium/shared';
 import type { ServerConfig } from '../config.js';
 import { listNoteFiles, noteMtime, readNote, writeNote } from '../vault.js';
@@ -36,120 +36,9 @@ import { errorJson, parseBody, setAudit, type AppEnv } from '../http.js';
 const TEMPLATES_DIR = 'templates';
 const TEMPLATES_PREFIX = `${TEMPLATES_DIR}/`;
 const INSTANTIATE_PREFIX = '/api/templates/';
-const VAR_TYPES: readonly TemplateVarType[] = ['text', 'select', 'date', 'tags'];
-
-interface TemplateConfig {
-  target: string | null;
-  description?: string;
-  vars: TemplateVar[];
-}
-
-/** loamium-template.vars の 1 要素を寛容に正規化する(不正は null で捨てる)。 */
-function normalizeVar(raw: unknown): TemplateVar | null {
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
-  const o = raw as Record<string, unknown>;
-  const name = typeof o.name === 'string' ? o.name.trim() : '';
-  if (name === '') return null;
-  const t = o.type;
-  const type: TemplateVarType =
-    typeof t === 'string' && (VAR_TYPES as readonly string[]).includes(t)
-      ? (t as TemplateVarType)
-      : 'text';
-  const v: TemplateVar = { name, type, required: o.required === true };
-  if (typeof o.label === 'string') v.label = o.label;
-  if (typeof o.default === 'string') v.default = o.default;
-  else if (typeof o.default === 'number' || typeof o.default === 'boolean') {
-    v.default = String(o.default);
-  }
-  if (Array.isArray(o.options)) {
-    const opts = o.options.filter((x): x is string => typeof x === 'string');
-    if (opts.length > 0) v.options = opts;
-  }
-  return v;
-}
-
-/** frontmatter から loamium-template 設定を寛容に取り出す(壊れは純粋雛形へフォールバック)。 */
-function parseConfig(frontmatter: Record<string, unknown> | null): TemplateConfig {
-  const empty: TemplateConfig = { target: null, vars: [] };
-  if (frontmatter === null) return empty;
-  const raw = frontmatter['loamium-template'];
-  if (raw === undefined) return empty; // 他フロントマターだけを持つ純粋雛形
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return empty; // 壊れ → フォールバック
-  const o = raw as Record<string, unknown>;
-  const cfg: TemplateConfig = {
-    target: typeof o.target === 'string' && o.target.trim() !== '' ? o.target : null,
-    vars: [],
-  };
-  if (typeof o.description === 'string') cfg.description = o.description;
-  if (Array.isArray(o.vars)) {
-    for (const rv of o.vars) {
-      const v = normalizeVar(rv);
-      if (v !== null) cfg.vars.push(v);
-    }
-  }
-  return cfg;
-}
-
-/** 生ノートを (frontmatter 行配列, 本文) に分ける(parseNote と同じ境界判定)。 */
-function splitRaw(content: string): { fmLines: string[] | null; body: string } {
-  if (!/^---(?:\r?\n)/.test(content)) return { fmLines: null, body: content };
-  const lines = content.split('\n');
-  let close = -1;
-  for (let i = 1; i < lines.length; i++) {
-    if ((lines[i] ?? '').replace(/\r$/, '') === '---') {
-      close = i;
-      break;
-    }
-  }
-  if (close === -1) return { fmLines: null, body: content };
-  const fmLines = lines.slice(1, close).map((l) => l.replace(/\r$/, ''));
-  const body = lines.slice(close + 1).join('\n');
-  return { fmLines, body };
-}
-
-/** frontmatter 行から loamium-template のトップレベルキーブロックを verbatim 除去する。 */
-function stripConfigLines(fmLines: string[]): string[] {
-  const out: string[] = [];
-  let i = 0;
-  while (i < fmLines.length) {
-    const line = fmLines[i] ?? '';
-    if (/^loamium-template\s*:/.test(line)) {
-      i++;
-      // 続くインデント行・空行(このキーの配下)を読み飛ばす
-      while (i < fmLines.length) {
-        const next = fmLines[i] ?? '';
-        if (next.trim() === '' || /^\s/.test(next)) {
-          i++;
-          continue;
-        }
-        break;
-      }
-      continue;
-    }
-    out.push(line);
-    i++;
-  }
-  return out;
-}
-
-/**
- * テンプレートファイルの内容から「結果ノートのテンプレート本体」を組み立てる。
- * loamium-template ブロックを除いた残りフロントマター + 本文。残りが空なら本文のみ。
- */
-function buildBodyTemplate(content: string): string {
-  const { fmLines, body } = splitRaw(content);
-  if (fmLines === null) return content; // frontmatter 無し = 全体が本文テンプレート
-  const remaining = stripConfigLines(fmLines);
-  while (remaining.length > 0 && (remaining[0] ?? '').trim() === '') remaining.shift();
-  while (remaining.length > 0 && (remaining[remaining.length - 1] ?? '').trim() === '') {
-    remaining.pop();
-  }
-  if (remaining.length === 0) return body;
-  return `---\n${remaining.join('\n')}\n---\n${body}`;
-}
 
 function summaryFor(rel: string, content: string): TemplateSummary {
-  const cfg = parseConfig(parseNote(content).frontmatter);
+  const cfg = parseTemplateConfig(parseNote(content).frontmatter);
   const name = rel.slice(TEMPLATES_PREFIX.length).replace(/\.md$/i, '');
   const summary: TemplateSummary = { name, path: rel, target: cfg.target, vars: cfg.vars };
   if (cfg.description !== undefined) summary.description = cfg.description;
@@ -241,7 +130,7 @@ export function templatesRoutes(config: ServerConfig): Hono<AppEnv> {
       dateBase = new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1);
     }
 
-    const cfg = parseConfig(parseNote(content).frontmatter);
+    const cfg = parseTemplateConfig(parseNote(content).frontmatter);
 
     // 宣言済み変数をマージする。default があれば解決値、無ければ空文字で初期化し
     // (任意変数の未入力を missing 扱いにしない)、リクエスト値で上書きする。

@@ -5,14 +5,21 @@
  * - POST /api/journal/append             今日 (または body.date の日) のジャーナル末尾に追記
  *
  * タイムゾーンはサーバーローカル (shared/journal.ts)。
- * read-only モードでは自動生成せず、仮想的な空ジャーナルを返す (ファイルを書かない)。
+ * 遅延生成 (S67ea41): 既定 journal テンプレート (templates/journal.md) があれば、対象日基準で
+ * `{{date:...}}` 等を展開した本文でファイルを作成する。テンプレートが無ければ従来どおり空ファイル
+ * (後方互換)。結果は解決済みピュア Markdown (テンプレ記法 {{...}} は残らない)。
+ * read-only モードでは自動生成せず、テンプレート適用済みの仮想ジャーナルを返す (ファイルを書かない)。
+ * 既存ジャーナルは上書きしない (冪等)。
  */
 import { Hono } from 'hono';
 import {
   appendText,
+  applyJournalTemplate,
   isValidJournalDate,
   journalAppendRequestSchema,
+  journalDateToLocalDate,
   journalPath,
+  JOURNAL_TEMPLATE_PATH,
   parseNote,
   todayJournalDate,
   type JournalAppendResponse,
@@ -36,7 +43,14 @@ export function journalRoutes(config: ServerConfig): Hono<AppEnv> {
     let created = false;
     let mtime: number | null = null;
     if (content === null) {
-      content = '';
+      // 遅延生成の本文を既定 journal テンプレートから解決する (S67ea41-1)。
+      // テンプレートが無ければ従来どおり空ファイル(後方互換 — AC1)。
+      // {{date:...}} は対象日基準で展開する(明日/過去日ジャーナルも対象日 — AC2)。
+      const template = await readNote(config.vaultRoot, JOURNAL_TEMPLATE_PATH);
+      content =
+        template !== null
+          ? applyJournalTemplate(template, { date: journalDateToLocalDate(date), now: new Date() })
+          : '';
       if (config.mode !== 'read-only') {
         // 自動生成 (VISION success_criteria: デイリージャーナルの自動生成)。
         // これはディスクへの書き込みなので監査ログに残す。
@@ -45,7 +59,8 @@ export function journalRoutes(config: ServerConfig): Hono<AppEnv> {
         mtime = written.mtime;
         created = true;
       }
-      // read-only の仮想ジャーナル (ファイル無し) は mtime: null のまま
+      // read-only の仮想ジャーナル (ファイル無し) は mtime: null のまま。
+      // テンプレート適用済みの本文をそのまま返す (書き込みはしない — AC2)。
     } else {
       mtime = await noteMtime(config.vaultRoot, rel);
     }
