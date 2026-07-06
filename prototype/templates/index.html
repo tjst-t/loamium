@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loamium — テンプレートシステム(S89a350-3)</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<!--
+  ============================================================================
+  テンプレートシステム プロトタイプ 入口(Sprint S89a350-3)
+  vault 内の可視 templates/ 配下 Markdown を「テンプレート」として扱う汎用機構。
+  フロントマター loamium-template.target(保存先パターン)と vars(変数定義)で駆動。
+  {{name}} と {{date:FORMAT}}(YYYY/MM/DD/HH/mm/ss)を解決して新規ノートを作る。
+
+  この入口ページ → 2 画面へ:
+    picker.html … 新規作成導線からのテンプレート選択(保存先パターンのプレビュー付き)
+    modal.html  … 変数入力モーダル(最重要。キーボード完結・必須検証・保存先ライブプレビュー)
+
+  data-testid 一覧(プロト内契約。実装 Sprint で TESTIDS.md へ additive 追記):
+    picker.html:
+      template-picker            … テンプレート選択のコンテナ(コマンドパレット様)
+      template-picker-backdrop   … 背景(外側クリック / Esc で閉じる)
+      template-item (data-template) … テンプレート項目。保存先パターンのプレビューを内包
+      new-note-menu              … サイドバー新規ノート ▸ の「空 / テンプレートから」小メニュー
+    modal.html:
+      template-modal             … 変数入力モーダル
+      template-modal-backdrop    … 背景
+      template-target-preview    … 解決後の保存先ライブプレビュー
+      template-var-input (data-var) … 各変数の入力欄(text/date/select/tags)
+      template-var-error (data-var) … 必須未入力のインラインエラー
+      template-create            … 確定ボタン「作成」
+      template-cancel            … 中断(× / キャンセル / Esc)
+  ============================================================================
+-->
+<body>
+<div class="index-page">
+
+  <header class="index-hero">
+    <div class="logo-row">
+      <div class="vault-badge">L</div>
+      <h1>テンプレートシステム</h1>
+    </div>
+    <p class="sub">
+      vault 内の可視 <code>templates/</code> 配下 Markdown をそのまま「テンプレート」として扱う汎用機構。
+      テンプレートのフロントマター <code>loamium-template.target</code>(保存先パターン)と <code>vars</code>(ユーザー変数定義)で駆動し、
+      <code>{{name}}</code> と <code>{{date:FORMAT}}</code> を解決して新規ノートを作成します。
+      新規作成時に変数入力モーダルを出し、<strong>キーボードで完結</strong>します。
+    </p>
+    <div class="sprint-tags">
+      <span class="sprint-tag">S89a350-3 — 汎用テンプレートシステム</span>
+      <span class="sprint-tag">保存先パターン target</span>
+      <span class="sprint-tag">変数 vars: text / select / date / tags</span>
+      <span class="sprint-tag milestone">キーボード完結モーダル [重点]</span>
+    </div>
+  </header>
+
+  <div class="index-section-title">
+    <span>画面</span>
+    <span class="badge">静的 HTML プロトタイプ</span>
+    <span class="line"></span>
+  </div>
+
+  <div class="screen-grid">
+    <a class="screen-card" href="picker.html">
+      <span class="num">1</span>
+      <h3>テンプレート選択(新規作成導線)</h3>
+      <p>サイドバー「新規ノート ▸ テンプレートから」/ コマンドから開くテンプレート一覧。議事録 / デイリー / 読書メモ / プロジェクトの各項目に、
+        いま作るとどこへ保存されるか(例 <code>→ 議事録/2026/07/06_{{会議名}}.md</code>)のプレビュー付き。選択で変数入力モーダルへ。</p>
+      <span class="stories">template-picker / template-item</span>
+    </a>
+
+    <a class="screen-card" href="modal.html">
+      <span class="num">2</span>
+      <h3>変数入力モーダル(最重要)</h3>
+      <p>「議事録」テンプレートの <code>vars</code> に応じた入力欄(会議名=text必須 / 日付=date / カテゴリ=select / 参加者=tags)。
+        property-types と同じ入力ウィジェットを流用。Tab 移動・Enter 確定・Esc 中断のキーボード完結、必須未入力のインライン検証、
+        上部に解決後の保存先ライブプレビュー。初期 / エラー / 入力済みの 3 状態を併記。</p>
+      <span class="stories">template-modal / template-target-preview / template-create</span>
+    </a>
+  </div>
+
+  <div class="index-section-title">
+    <span>要点 — 保存先パターンと解決</span>
+    <span class="line"></span>
+  </div>
+
+  <div class="tpl-lead">
+    <div class="tpl-explain">
+      <h3>保存先パターン(target)→ 解決例</h3>
+      <p>テンプレート「議事録」のフロントマター:</p>
+      <div class="tpl-pattern"><span class="lbl">target: </span><span class="tpl-lit">/議事録/</span><span class="tpl-token">{{date:YYYY}}</span><span class="tpl-lit">/</span><span class="tpl-token">{{date:MM}}</span><span class="tpl-lit">/</span><span class="tpl-token">{{date:DD}}</span><span class="tpl-lit">_</span><span class="tpl-token">{{会議名}}</span>
+
+<span class="lbl">今日 = 2026-07-06 / 会議名 = 定例会議</span>
+<span class="lbl">→ </span><span class="tpl-resolved">議事録/2026/07/06_定例会議.md</span></div>
+      <p style="margin-top:12px;margin-bottom:0;">
+        <code>{{name}}</code> は vars で定義したユーザー変数、<code>{{date:FORMAT}}</code> は今日の日付(モーダルの「日付」変数で上書き可)。
+        ファイルには独自記法もブロック ID も書かず、生成物は<strong>ピュア Markdown</strong> のまま。
+      </p>
+    </div>
+
+    <div class="tpl-explain">
+      <h3><code>{{date:FORMAT}}</code> 早見表</h3>
+      <p>2026-07-06 09:04:20(月)を例に:</p>
+      <table class="tpl-fmt-table">
+        <thead><tr><th>FORMAT</th><th>意味</th><th>解決値</th></tr></thead>
+        <tbody>
+          <tr><td>YYYY</td><td>西暦 4 桁</td><td>2026</td></tr>
+          <tr><td>MM</td><td>月(0 埋め)</td><td>07</td></tr>
+          <tr><td>DD</td><td>日(0 埋め)</td><td>06</td></tr>
+          <tr><td>HH</td><td>時(24h)</td><td>09</td></tr>
+          <tr><td>mm</td><td>分</td><td>04</td></tr>
+          <tr><td>ss</td><td>秒</td><td>20</td></tr>
+        </tbody>
+      </table>
+      <p style="margin:12px 0 0;">
+        組み合わせ(<code>{{date:YYYY-MM-DD}}</code> 等)も可。未定義の変数や不正な FORMAT はモーダルで検証され、確定できません。
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<a class="proto-chip" href="../index.html">← プロトタイプ一覧</a>
+</body>
+</html>

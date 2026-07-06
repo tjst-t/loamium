@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>変数入力モーダル — 議事録テンプレート(S89a350-3)</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<!--
+  ============================================================================
+  変数入力モーダル(最重要)
+  picker で選んだテンプレート「議事録」の vars に応じた入力欄を出す。
+    会議名 (text・必須) / 日付 (date・既定 today) / カテゴリ (select: 定例/臨時/その他) / 参加者 (tags)
+  property-types と同じ入力ウィジェットの見た目を流用(chosen-v2 準拠)。
+
+  キーボード完結: Tab=項目移動 / Enter=確定 / Esc=中断。フッターにヒント。
+  必須未入力は確定不可 + インラインエラー。上部に解決後の保存先ライブプレビュー。
+
+  上段: 実挙動のインタラクティブモーダル(初期→入力→エラー→作成を体験できる)
+  下段: 状態カタログ(a 初期 / b 会議名未入力エラー / c 入力済み+プレビュー更新)を静的併記
+
+  data-testid:
+    template-modal-backdrop        … 背景(外側クリック / Esc で閉じる)
+    template-modal                 … モーダル
+    template-target-preview        … 解決後の保存先ライブプレビュー
+    template-var-input (data-var)  … 各変数の入力欄(会議名/日付/カテゴリ/参加者)
+    template-var-error  (data-var) … 必須未入力のインラインエラー
+    template-cancel                … 中断(× / キャンセル / Esc)
+    template-create                … 確定ボタン「作成」(未入力時は aria-disabled)
+  ============================================================================
+-->
+<body>
+
+<!-- ================= 下地: 3 ペインシェル(モーダルの後ろ) ================= -->
+<div class="app" aria-hidden="true">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="vault-badge">L</div>
+      <div class="vault-name">loamium-notes</div>
+    </div>
+    <div class="tree-section-title"><span>ノート</span></div>
+    <div class="tree">
+      <button class="tree-item" data-path="議事録"><svg class="chev closed" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg><span class="name">議事録</span></button>
+      <button class="tree-item" data-path="templates"><svg class="chev closed" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg><span class="name">templates</span></button>
+    </div>
+  </aside>
+  <main class="workspace">
+    <div class="editor-header">
+      <nav class="route-crumbs"><span class="route-token">/n/</span><span>projects</span><span class="sep">/</span><span class="current">Hydra 設計メモ</span></nav>
+      <div class="save-status" data-state="saved"><span class="dot"></span><span>保存済み</span></div>
+    </div>
+    <div class="cm-scroll"><div class="cm-editor">
+      <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h1">Hydra 設計メモ</span></div>
+    </div></div>
+  </main>
+</div>
+
+<!-- ================= 変数入力モーダル(実挙動) ================= -->
+<div class="dialog-backdrop" data-testid="template-modal-backdrop" id="modalBackdrop" style="padding-top:11vh;">
+  <div class="tpl-modal" data-testid="template-modal" role="dialog" aria-label="議事録テンプレートの変数を入力">
+
+    <div class="tpl-modal-head">
+      <span class="tpl-h-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2.6h8.4L13 4.2v9.2H3z"/><path d="M5 6h6M5 8.5h6M5 11h3.5"/></svg></span>
+      <div class="tpl-h-main">
+        <h2>議事録 テンプレート</h2>
+        <div class="sub">保存先パターン <code>/議事録/{{date:YYYY}}/{{date:MM}}/{{date:DD}}_{{会議名}}</code></div>
+      </div>
+      <button class="icon-btn" data-testid="template-cancel" title="中断 (Esc)" onclick="cancelModal()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+      </button>
+    </div>
+
+    <!-- 解決後の保存先ライブプレビュー -->
+    <div class="tpl-target-label">保存先(入力に応じてライブ更新)</div>
+    <div class="tpl-target" data-testid="template-target-preview">
+      <span class="arrow">→</span>
+      <span class="tpl-target-path" id="targetPath">議事録/<span class="filled">2026</span>/<span class="filled">07</span>/<span class="filled">06</span>_<span class="ph" id="tpName">{{会議名}}</span>.md</span>
+    </div>
+
+    <!-- 変数入力フォーム -->
+    <div class="tpl-vars">
+
+      <!-- 会議名: text・必須 -->
+      <div class="tpl-var-row" id="rowName">
+        <label class="tpl-var-label" for="varName">
+          <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M4 4h8M8 4v9M6.2 13h3.6"/></svg>
+          会議名<span class="req" title="必須">*</span>
+        </label>
+        <div class="tpl-var-field">
+          <input class="tpl-input" id="varName" data-testid="template-var-input" data-var="会議名" type="text"
+                 placeholder="例: 定例会議" autocomplete="off" autofocus>
+          <div class="tpl-error" data-testid="template-var-error" data-var="会議名">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v4M8 11h.01"/></svg>
+            会議名は必須です。ファイル名に使われます。
+          </div>
+        </div>
+      </div>
+
+      <!-- 日付: date・既定 today -->
+      <div class="tpl-var-row">
+        <label class="tpl-var-label" for="varDate">
+          <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="2.4" y="3.3" width="11.2" height="10.3" rx="1.6"/><path d="M2.4 6.3h11.2M5.6 1.9v2.6M10.4 1.9v2.6"/></svg>
+          日付<span class="opt">既定=今日</span>
+        </label>
+        <div class="tpl-var-field">
+          <input class="tpl-input date" id="varDate" data-testid="template-var-input" data-var="日付" type="date" value="2026-07-06">
+        </div>
+      </div>
+
+      <!-- カテゴリ: select -->
+      <div class="tpl-var-row">
+        <label class="tpl-var-label">
+          <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14V3M4 3.5h7.5l-1.6 2.3 1.6 2.3H4"/></svg>
+          カテゴリ
+        </label>
+        <div class="tpl-var-field">
+          <div class="tpl-select-opts" role="radiogroup" data-testid="template-var-input" data-var="カテゴリ" id="varCategory">
+            <button type="button" class="tpl-opt sel" data-color="blue"  role="radio" aria-checked="true"  data-value="定例"><span class="dot"></span>定例</button>
+            <button type="button" class="tpl-opt"     data-color="amber" role="radio" aria-checked="false" data-value="臨時"><span class="dot"></span>臨時</button>
+            <button type="button" class="tpl-opt"     data-color="gray"  role="radio" aria-checked="false" data-value="その他"><span class="dot"></span>その他</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 参加者: tags -->
+      <div class="tpl-var-row">
+        <label class="tpl-var-label" for="varTagsInput">
+          <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M6 2.5L4.3 13.5M11.7 2.5L10 13.5M3 6h10.5M2.5 10h10.5"/></svg>
+          参加者<span class="opt">複数可</span>
+        </label>
+        <div class="tpl-var-field">
+          <div class="tpl-tags" data-testid="template-var-input" data-var="参加者" id="varTags">
+            <input class="tpl-tag-input" id="varTagsInput" type="text" placeholder="名前を入力して Enter" autocomplete="off">
+          </div>
+          <div class="tpl-tag-hint">Enter で 1 人ずつ追加。Backspace(空欄)で末尾を削除。</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- フッタ: キーボードヒント + アクション -->
+    <div class="tpl-modal-foot">
+      <div class="tpl-kbd-hints">
+        <span><kbd>Tab</kbd> 項目移動</span>
+        <span><kbd>Enter</kbd> 作成</span>
+        <span><kbd>Esc</kbd> 中断</span>
+        <span><kbd>←</kbd><kbd>→</kbd> カテゴリ選択</span>
+      </div>
+      <div class="tpl-foot-actions">
+        <button class="btn" data-testid="template-cancel" onclick="cancelModal()">キャンセル</button>
+        <button class="btn primary tpl-create" data-testid="template-create" id="createBtn" aria-disabled="true" onclick="submitModal()">作成</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 作成成功トースト(プロト用の体裁) -->
+<div class="tpl-toast" id="toast">
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+  <span>作成しました: <code id="toastPath">議事録/2026/07/06_定例会議.md</code></span>
+</div>
+
+<!-- ================= 状態カタログ(a / b / c を静的併記) ================= -->
+<div class="state-catalog">
+  <div class="index-section-title">
+    <span>3 つの状態</span>
+    <span class="badge">上のモーダルは実挙動。下は各状態の静的スナップショット</span>
+    <span class="line"></span>
+  </div>
+
+  <div class="state-grid">
+
+    <!-- (a) 初期 -->
+    <div class="state-card">
+      <div class="state-card-head">
+        <span class="badge">a</span>
+        <div><h3>初期 — today が入っている</h3><div class="sub">会議名は空。保存先は変数トークンのまま</div></div>
+      </div>
+      <div class="state-card-body">
+        <div class="tpl-target">
+          <span class="arrow">→</span>
+          <span class="tpl-target-path">議事録/<span class="filled">2026</span>/<span class="filled">07</span>/<span class="filled">06</span>_<span class="ph">{{会議名}}</span>.md</span>
+        </div>
+        <div class="tpl-var-row">
+          <label class="tpl-var-label"><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M4 4h8M8 4v9M6.2 13h3.6"/></svg>会議名<span class="req">*</span></label>
+          <div class="tpl-var-field"><input class="tpl-input" type="text" placeholder="例: 定例会議" disabled></div>
+        </div>
+        <div class="tpl-var-row">
+          <label class="tpl-var-label"><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="2.4" y="3.3" width="11.2" height="10.3" rx="1.6"/><path d="M2.4 6.3h11.2M5.6 1.9v2.6M10.4 1.9v2.6"/></svg>日付</label>
+          <div class="tpl-var-field"><span class="pc-date"><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="2.4" y="3.3" width="11.2" height="10.3" rx="1.6"/><path d="M2.4 6.3h11.2M5.6 1.9v2.6M10.4 1.9v2.6"/></svg>2026-07-06</span></div>
+        </div>
+        <div class="tpl-var-row">
+          <label class="tpl-var-label"><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14V3M4 3.5h7.5l-1.6 2.3 1.6 2.3H4"/></svg>カテゴリ</label>
+          <div class="tpl-var-field"><span class="pc-select" data-color="blue"><span class="dot"></span>定例</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- (b) 会議名未入力エラー -->
+    <div class="state-card">
+      <div class="state-card-head err">
+        <span class="badge">b</span>
+        <div><h3>会議名 未入力エラー</h3><div class="sub">確定不可。行が赤くインラインエラー</div></div>
+      </div>
+      <div class="state-card-body">
+        <div class="tpl-target">
+          <span class="arrow">→</span>
+          <span class="tpl-target-path">議事録/<span class="filled">2026</span>/<span class="filled">07</span>/<span class="filled">06</span>_<span class="ph">{{会議名}}</span>.md</span>
+        </div>
+        <div class="tpl-var-row invalid">
+          <label class="tpl-var-label"><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M4 4h8M8 4v9M6.2 13h3.6"/></svg>会議名<span class="req">*</span></label>
+          <div class="tpl-var-field">
+            <input class="tpl-input" type="text" placeholder="例: 定例会議" disabled>
+            <div class="tpl-error">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v4M8 11h.01"/></svg>
+              会議名は必須です。ファイル名に使われます。
+            </div>
+          </div>
+        </div>
+        <div class="tpl-var-row">
+          <label class="tpl-var-label"><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="2.4" y="3.3" width="11.2" height="10.3" rx="1.6"/><path d="M2.4 6.3h11.2M5.6 1.9v2.6M10.4 1.9v2.6"/></svg>日付</label>
+          <div class="tpl-var-field"><span class="pc-date"><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="2.4" y="3.3" width="11.2" height="10.3" rx="1.6"/><path d="M2.4 6.3h11.2M5.6 1.9v2.6M10.4 1.9v2.6"/></svg>2026-07-06</span></div>
+        </div>
+        <div style="margin-top:10px;text-align:right;">
+          <span class="btn primary tpl-create" aria-disabled="true" style="pointer-events:none;">作成</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- (c) 入力済み + 保存先プレビュー更新 -->
+    <div class="state-card">
+      <div class="state-card-head">
+        <span class="badge">c</span>
+        <div><h3>入力済み — プレビュー更新</h3><div class="sub">会議名で保存先が確定・作成可能</div></div>
+      </div>
+      <div class="state-card-body">
+        <div class="tpl-target">
+          <span class="arrow">→</span>
+          <span class="tpl-target-path">議事録/<span class="filled">2026</span>/<span class="filled">07</span>/<span class="filled">06</span>_<span class="filled">定例会議</span>.md</span>
+        </div>
+        <div class="tpl-var-row">
+          <label class="tpl-var-label"><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M4 4h8M8 4v9M6.2 13h3.6"/></svg>会議名<span class="req">*</span></label>
+          <div class="tpl-var-field"><input class="tpl-input" type="text" value="定例会議" disabled style="border-color:var(--accent);"></div>
+        </div>
+        <div class="tpl-var-row">
+          <label class="tpl-var-label"><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14V3M4 3.5h7.5l-1.6 2.3 1.6 2.3H4"/></svg>カテゴリ</label>
+          <div class="tpl-var-field"><span class="pc-select" data-color="blue"><span class="dot"></span>定例</span></div>
+        </div>
+        <div class="tpl-var-row">
+          <label class="tpl-var-label"><svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M6 2.5L4.3 13.5M11.7 2.5L10 13.5M3 6h10.5M2.5 10h10.5"/></svg>参加者</label>
+          <div class="tpl-var-field"><span class="tpl-tags"><span class="pc-tag">田中</span><span class="pc-tag">佐藤</span><span class="pc-tag">鈴木</span></span></div>
+        </div>
+        <div style="margin-top:10px;text-align:right;">
+          <span class="btn primary" style="pointer-events:none;">作成</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="proto-note" style="max-width:none;margin-top:22px;">
+    <span class="tag">要点</span>
+    上のモーダルは <strong>キーボード完結</strong>: <kbd>Tab</kbd> で会議名 → 日付 → カテゴリ → 参加者 → 作成、<kbd>Enter</kbd> で作成、<kbd>Esc</kbd> で中断。
+    <strong>会議名(必須)が空</strong>のときは <code>作成</code> が <code>aria-disabled</code> で押せず、押下/Enter でインラインエラー(状態 b)を表示。
+    入力すると上部の <strong>保存先プレビューがライブ更新</strong>(<span class="tpl-token">{{会議名}}</span> → <span class="tpl-resolved">定例会議</span>)。
+    入力ウィジェットは property-types(chosen-v2)流用 — カテゴリは色ドット付き select ピル、参加者は tags チップ。
+  </div>
+</div>
+
+<a class="proto-chip" href="picker.html">← テンプレート選択へ</a>
+
+<script>
+  const nameInput = document.getElementById('varName');
+  const dateInput = document.getElementById('varDate');
+  const rowName   = document.getElementById('rowName');
+  const createBtn = document.getElementById('createBtn');
+  const tpName    = document.getElementById('tpName');
+  const targetPath = document.getElementById('targetPath');
+
+  // ---- 保存先ライブプレビュー ----------------------------------------------
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function updatePreview() {
+    const name = nameInput.value.trim();
+    // 日付 → YYYY / MM / DD(date:FORMAT の解決)
+    let y = '2026', m = '07', d = '06';
+    if (dateInput.value) {
+      const [yy, mm, dd] = dateInput.value.split('-');
+      y = yy; m = mm; d = dd;
+    }
+    const nameHtml = name
+      ? '<span class="filled">' + escapeHtml(name) + '</span>'
+      : '<span class="ph">{{会議名}}</span>';
+    targetPath.innerHTML =
+      '議事録/<span class="filled">' + y + '</span>/<span class="filled">' + m + '</span>/<span class="filled">' + d + '</span>_' + nameHtml + '.md';
+    // 会議名が入ったらエラー解除 + 作成可能に
+    const valid = name.length > 0;
+    createBtn.setAttribute('aria-disabled', valid ? 'false' : 'true');
+    if (valid) rowName.classList.remove('invalid');
+  }
+  function escapeHtml(s) {
+    return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  }
+  nameInput.addEventListener('input', updatePreview);
+  dateInput.addEventListener('input', updatePreview);
+  updatePreview();
+
+  // ---- カテゴリ select ピル(クリック / ←→ で選択) --------------------------
+  const catGroup = document.getElementById('varCategory');
+  const opts = Array.from(catGroup.querySelectorAll('.tpl-opt'));
+  function selectCat(i) {
+    opts.forEach((o, k) => {
+      const on = k === i;
+      o.classList.toggle('sel', on);
+      o.setAttribute('aria-checked', String(on));
+    });
+    opts[i].focus();
+  }
+  opts.forEach((o, i) => {
+    o.addEventListener('click', () => selectCat(i));
+    o.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); selectCat((i + 1) % opts.length); }
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); selectCat((i - 1 + opts.length) % opts.length); }
+    });
+  });
+
+  // ---- 参加者 tags(Enter で追加 / Backspace で末尾削除 / × で削除) ---------
+  const tagsWrap = document.getElementById('varTags');
+  const tagInput = document.getElementById('varTagsInput');
+  function addTag(name) {
+    name = name.trim();
+    if (!name) return;
+    const chip = document.createElement('span');
+    chip.className = 'pc-tag';
+    chip.innerHTML = escapeHtml(name) + '<span class="x" title="削除">×</span>';
+    chip.querySelector('.x').addEventListener('click', () => chip.remove());
+    tagsWrap.insertBefore(chip, tagInput);
+  }
+  tagInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation(); // モーダル全体の Enter=作成 を抑止(タグ追加を優先)
+      addTag(tagInput.value);
+      tagInput.value = '';
+    } else if (e.key === 'Backspace' && tagInput.value === '') {
+      const chips = tagsWrap.querySelectorAll('.pc-tag');
+      if (chips.length) chips[chips.length - 1].remove();
+    }
+  });
+
+  // ---- キーボード完結: Enter=作成 / Esc=中断 --------------------------------
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && document.activeElement !== tagInput) {
+      e.preventDefault();
+      submitModal();
+    } else if (e.key === 'Escape') {
+      cancelModal();
+    }
+  });
+
+  // ---- 作成 / 中断 ----------------------------------------------------------
+  function submitModal() {
+    const name = nameInput.value.trim();
+    if (!name) {
+      // 必須未入力 → 確定不可 + インラインエラー(状態 b)
+      rowName.classList.add('invalid');
+      createBtn.setAttribute('aria-disabled', 'true');
+      // shake 再発火のためリフロー
+      void rowName.offsetWidth;
+      rowName.classList.add('invalid');
+      nameInput.focus();
+      return;
+    }
+    // 成功: 解決した保存先をトーストで見せる(実際は POST 作成 → 監査ログ)
+    const path = targetPath.textContent;
+    const toast = document.getElementById('toast');
+    document.getElementById('toastPath').textContent = path;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2600);
+  }
+  function cancelModal() { window.location.href = 'picker.html'; }
+
+  // 背景クリックで中断
+  document.getElementById('modalBackdrop').addEventListener('mousedown', (e) => {
+    if (e.target.id === 'modalBackdrop') cancelModal();
+  });
+
+  nameInput.focus();
+</script>
+</body>
+</html>
