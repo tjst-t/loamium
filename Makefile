@@ -74,11 +74,14 @@ verify: test
 
 # 機能サンプルノート集を vault へ投入する (Sa629e2-2)。
 # 送り先は LOAMIUM_VAULT (未設定なら dev-vault)。cp -n なので既存ファイルは上書きしない。
+# サンプルテンプレート (samples/templates/*) は、実際に使える vault 直下の
+# templates/ にも配置する (アプリが拾うのは vault 直下の templates/ のみ)。
 samples:
 	@DEST="$${LOAMIUM_VAULT:-$(DEV_VAULT)}"; \
-	mkdir -p "$$DEST"; \
+	mkdir -p "$$DEST" "$$DEST/templates"; \
 	cp -R --update=none samples "$$DEST/" 2>/dev/null || cp -R -n samples "$$DEST/"; \
-	echo "サンプルを $$DEST/samples/ へ投入しました (既存ファイルは上書きしていません)"
+	cp -R --update=none samples/templates/. "$$DEST/templates/" 2>/dev/null || cp -Rn samples/templates/. "$$DEST/templates/" 2>/dev/null || true; \
+	echo "サンプルを $$DEST/samples/ へ、テンプレートを $$DEST/templates/ へ投入しました (既存は上書きしません)"
 
 build:
 	npm run build --workspaces --if-present
