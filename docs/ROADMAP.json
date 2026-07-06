@@ -2162,7 +2162,7 @@
     "Sd13ab1": {
       "title": "プロパティUI改訂 — 値要約 / キーファースト追加 / 行削除 / 空ノート追加",
       "status": "pending",
-      "description": "レビュー第7ラウンド。S87f4b7 のプロパティ UI を実機フィードバックで改訂。①畳み時に値の要約バーを表示(『プロパティ』ラベル語は出さず値チップ/テキストのみ)②追加フローを『型ファースト』から『キーファースト』に作り直す(D方式=型はキーから決まる、と整合)。既知/一意プロパティは選ぶだけ、汎用型は名前+型③プロパティ行の削除UI④frontmatter 無しノートへの追加入口。ビジュアルの正は prototype/props-redesign/chosen-v2.html。ファイルは常に標準 YAML(ピュア Markdown 厳守)。",
+      "description": "レビュー第7ラウンド。S87f4b7 のプロパティ UI を実機フィードバックで改訂。①畳み時に値の要約バーを表示(『プロパティ』ラベル語は出さず値チップ/テキストのみ)②追加フローを『型ファースト』から『キーファースト』に作り直す(D方式=型はキーから決まる、と整合)。既知/一意プロパティは選ぶだけ、汎用型は名前+型③プロパティ行の削除UI④frontmatter 無しノートへの追加入口。ビジュアルの正は prototype/props-redesign/chosen-v2.html。ファイルは常に標準 YAML(ピュア Markdown 厳守)。 さらに、vault 横断のプロパティキー・サジェスト(GET /api/property-keys、既存タグ集約と同型)と、新規プロパティ作成時の型を .loamium/property-types.json へ永続化して型をキー単位で全ファイル一貫させる(D方式の横断固定、Obsidian/Notion 相当)。",
       "milestone": true,
       "stories": {
         "Sd13ab1-1": {
@@ -2209,7 +2209,7 @@
           "acceptance_criteria": [
             {
               "id": "Sd13ab1-2-AC1",
-              "description": "『+ プロパティを追加』でキー候補メニューが開き、上部入力でインクリメンタル絞り込みできる。メニューは『① 既知/一意プロパティ』(tags/aliases/status/rating/created + .loamium/property-types.json 定義キー)と『② 新規作成』の2ゾーンに分かれる",
+              "description": "『+ プロパティを追加』でキー候補メニューが開き、上部入力でインクリメンタル絞り込みできる。候補は『① 既知/一意プロパティ』(内蔵 well-known + .loamium/property-types.json 定義キー + **vault 内で実際に使われている全 frontmatter キー(件数付き)**)と『② 新規作成』の2ゾーンに分かれ、他ファイルで作ったキー(例 hoge)もサジェストされる",
               "test": "[AC-Sd13ab1-2-1] in packages/ui/tests/e2e/props-add.e2e.spec.ts",
               "status": "pending"
             },
@@ -2221,8 +2221,14 @@
             },
             {
               "id": "Sd13ab1-2-AC3",
-              "description": "一致しない名前を入力すると『新規作成: 入力名』が出て、選ぶと新キーとして追加され、汎用型(text/number/date/checkbox/select 等)を選べる。結果は標準 YAML の新プロパティ",
+              "description": "一致しない名前を入力すると『新規作成: 入力名』が出て、選ぶと新キーとして追加され汎用型(text/number/date/checkbox/select 等)を選べる。選んだ型は .loamium/property-types.json に永続化され、以後そのキーは全ファイルで同じ型に解決される(D方式の横断固定)。ノート本文は標準 YAML のまま",
               "test": "[AC-Sd13ab1-2-3] in packages/ui/tests/e2e/props-add.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "Sd13ab1-2-AC4",
+              "description": "あるノートで作った frontmatter キー(例 hoge)が、GET /api/property-keys に集約され、別ノートの追加メニューの候補として出る(件数付き)。ファイル監視(chokidar)による外部追加にも追従する",
+              "test": "[AC-Sd13ab1-2-4] in tests/acceptance/property-keys.spec.ts",
               "status": "pending"
             }
           ],
@@ -2234,7 +2240,12 @@
             },
             "Sd13ab1-2-2": {
               "title": "追加フロー結線",
-              "description": "既知キー=即追加(型は D方式で解決)。新規キー=名前+型セレクタ→標準 YAML 追加。既存 property-type 描画を再利用。mock + E2E([AC-] タグ)。",
+              "description": "既知キー=即追加(型は D方式で解決)。新規キー=名前+型セレクタ→型を .loamium/property-types.json に永続化→標準 YAML 追加。候補ソースに GET /api/property-keys を統合。既存 property-type 描画を再利用。mock + E2E([AC-] タグ、他ファイルで作ったキーが別ファイルでサジェストされることを実サーバーで検証)。",
+              "status": "pending"
+            },
+            "Sd13ab1-2-3": {
+              "title": "サーバー: プロパティキー集約 + 型永続化",
+              "description": "GET /api/property-keys(全ノートの frontmatter キーを件数付き集約 — 既存 tags() と同型、read 分類)。新規プロパティの型選択を .loamium/property-types.json に書き込む書き込み系(PUT /api/property-types 等、full/権限考慮・監査ログ)。受け入れテスト(tests/acceptance/property-keys.spec.ts)。",
               "status": "pending"
             }
           }
