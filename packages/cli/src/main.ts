@@ -18,6 +18,8 @@
  *   list [--tag] [--folder]              GET    /api/notes[?tag=&folder=]
  *   tags                                 GET    /api/tags
  *   new --template <n> [--var k=v ...]   POST   /api/templates/{name}/instantiate
+ *   prop set <path> <key> <value>         POST   /api/notes/{path}/properties (set)
+ *   prop unset <path> <key>              POST   /api/notes/{path}/properties (unset)
  *   smart-folders                        GET    /api/smart-folders (定義一式取得)
  *   smart-folders set <json-file>        PUT    /api/smart-folders (定義全置換)
  *   smart-folder <id>                    GET    /api/smart-folders/{id}/notes (解決)
@@ -37,10 +39,12 @@ import {
   journalAppendResponseSchema,
   journalResponseSchema,
   noteListResponseSchema,
+  notePropertyWriteResponseSchema,
   templateInstantiateResponseSchema,
   noteRenameResponseSchema,
   noteResponseSchema,
   noteWriteResponseSchema,
+  parsePropInput,
   queryResponseSchema,
   searchResponseSchema,
   tagsResponseSchema,
@@ -381,6 +385,63 @@ function buildProgram(): Command {
         }
       });
     });
+
+  // ---- フロントマタープロパティ書込 (S32940c-3) ------------------------------------------
+
+  // prop コマンド: POST /api/notes/{path}/properties + set/unset サブコマンド
+  const propCmd = new Command('prop');
+  propCmd
+    .description('ノートのフロントマタープロパティを操作する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} });
+
+  // prop set <path> <key> <value>
+  propCmd
+    .command('set')
+    .description('フロントマタープロパティを追加・更新する (POST /api/notes/{path}/properties)')
+    .argument('<path>', 'vault 相対パス (例: projects/note.md)')
+    .argument('<key>', 'プロパティキー名')
+    .argument('<value>', 'スカラー値 ("true"/"false" → 真偽、整数/小数 → 数値、空 → null、その他 → 文字列)')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (path: string, key: string, value: string, opts: JsonOpt) => {
+      const scalar = parsePropInput(value);
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(
+        base,
+        `/api/notes/${encodeNotePath(path)}/properties`,
+        postJson({ set: { [key]: scalar } }),
+      );
+      output(opts, result, () => {
+        const res = parseAs(result, notePropertyWriteResponseSchema, 'prop set');
+        println(`set ${key} on ${res.path}`);
+      });
+    });
+
+  // prop unset <path> <key>
+  propCmd
+    .command('unset')
+    .description('フロントマタープロパティを削除する (POST /api/notes/{path}/properties)')
+    .argument('<path>', 'vault 相対パス')
+    .argument('<key>', '削除するプロパティキー名')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (path: string, key: string, opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(
+        base,
+        `/api/notes/${encodeNotePath(path)}/properties`,
+        postJson({ unset: [key] }),
+      );
+      output(opts, result, () => {
+        const res = parseAs(result, notePropertyWriteResponseSchema, 'prop unset');
+        println(`unset ${key} on ${res.path}`);
+      });
+    });
+
+  program.addCommand(propCmd);
 
   // ---- スマートフォルダ (S32940c-2) ------------------------------------------
 

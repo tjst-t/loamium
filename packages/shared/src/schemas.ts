@@ -598,6 +598,31 @@ export const smartFoldersResolveResponseSchema = z.object({
 });
 export type SmartFoldersResolveResponse = z.infer<typeof smartFoldersResolveResponseSchema>;
 
+// ---- フロントマタープロパティ書込 (POST /api/notes/{path}/properties — S32940c-3) ----
+
+/**
+ * スカラー値のみ許可 (string | number | boolean | null)。
+ * ネスト・配列・オブジェクトは拒否 (frontmatter の安全な round-trip が保証できないため)。
+ */
+const propScalarValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+
+export const notePropertyWriteRequestSchema = z.object({
+  /** 追加・更新するキー→スカラー値マップ (upsert セマンティクス) */
+  set: z.record(z.string(), propScalarValueSchema).optional(),
+  /** 削除するキー名の配列 */
+  unset: z.array(z.string()).optional(),
+});
+export type NotePropertyWriteRequest = z.infer<typeof notePropertyWriteRequestSchema>;
+
+export const notePropertyWriteResponseSchema = z.object({
+  path: z.string(),
+  /** 書き込み後の frontmatter (キー→値)。frontmatter なし = null */
+  frontmatter: frontmatterSchema,
+  /** 書き込み後のファイル mtime (ms epoch) */
+  mtime: z.number(),
+});
+export type NotePropertyWriteResponse = z.infer<typeof notePropertyWriteResponseSchema>;
+
 // ---- 監査ログ (JSONL 1 行分) ----
 
 export const auditEntrySchema = z.object({
