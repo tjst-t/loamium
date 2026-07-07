@@ -24,6 +24,8 @@ import {
   queryErrorResponseSchema,
   queryResponseSchema,
   searchResponseSchema,
+  smartFoldersResolveResponseSchema,
+  smartViewConfigSchema,
   tagsResponseSchema,
   templateInstantiateResponseSchema,
   templatesResponseSchema,
@@ -32,6 +34,8 @@ import {
   type PropertyKeyCount,
   type PropertyTypeDef,
   type SelectOption,
+  type SmartFoldersResolveResponse,
+  type SmartViewConfig,
   type TagsResponse,
   type BacklinksResponse,
   type FileDeleteResponse,
@@ -266,6 +270,18 @@ export const api = {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ newPath }),
     });
+  },
+
+  // ---- スマートフォルダ (S8086d9-1) ----
+
+  /** スマートフォルダ定義一式 (GET /api/smart-folders)。 */
+  listSmartFolders(): Promise<SmartViewConfig> {
+    return request(smartViewConfigSchema, '/api/smart-folders');
+  },
+
+  /** スマートフォルダのノート解決 (GET /api/smart-folders/{id}/notes)。 */
+  resolveSmartFolder(id: string): Promise<SmartFoldersResolveResponse> {
+    return request(smartFoldersResolveResponseSchema, `/api/smart-folders/${encodeURIComponent(id)}/notes`);
   },
 
   // ---- 汎用テンプレート (S89a350-3) ----

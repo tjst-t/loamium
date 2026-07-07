@@ -39,6 +39,7 @@ import { Editor } from './components/Editor.js';
 import { FilePreview } from './components/FilePreview.js';
 import { FilesPage } from './components/FilesPage.js';
 import { FileTree } from './components/FileTree.js';
+import { SmartView } from './components/SmartView.js';
 import { JournalNav } from './components/JournalNav.js';
 import { RightSidebar } from './components/RightSidebar.js';
 import { ContextMenu } from './components/ContextMenu.js';
@@ -175,6 +176,16 @@ function RenameLinkNote({ path }: { path: string }): JSX.Element {
 }
 
 export function App(): JSX.Element {
+  // ---- サイドバー: ビューモード (physical | smart) — localStorage に永続化 ----
+  const [sidebarView, setSidebarView] = useState<'physical' | 'smart'>(() => {
+    const stored = localStorage.getItem('loamium.sidebarView');
+    return stored === 'smart' ? 'smart' : 'physical';
+  });
+  const switchSidebarView = useCallback((mode: 'physical' | 'smart'): void => {
+    setSidebarView(mode);
+    localStorage.setItem('loamium.sidebarView', mode);
+  }, []);
+
   // ---- サイドバー: ノート一覧と添付 ----
   const [notes, setNotes] = useState<NoteMeta[] | null>(null);
   const [notesError, setNotesError] = useState<string | null>(null);
@@ -1092,79 +1103,107 @@ export function App(): JSX.Element {
         />
 
         <div className="tree-section-title">
-          <span>ノート</span>
-          <span className="actions" style={{ position: 'relative' }}>
+          <span className="sidebar-view-toggle">
             <button
-              className="icon-btn"
-              data-testid="sidebar-new-note"
-              title="新規ノート"
-              aria-haspopup="menu"
-              aria-expanded={newNoteMenuOpen}
-              onClick={() => setNewNoteMenuOpen((v) => !v)}
+              className={`sidebar-view-btn${sidebarView === 'physical' ? ' active' : ''}`}
+              data-testid="sidebar-view-physical"
+              aria-pressed={sidebarView === 'physical'}
+              title="物理フォルダビュー"
+              onClick={() => switchSidebarView('physical')}
             >
-              <NewNoteIcon />
+              ノート
             </button>
             <button
-              className="icon-btn"
-              data-testid="sidebar-new-folder"
-              title="新規フォルダ"
-              onClick={() => setDialog({ type: 'new-folder', parent: '' })}
+              className={`sidebar-view-btn${sidebarView === 'smart' ? ' active' : ''}`}
+              data-testid="sidebar-view-smart"
+              aria-pressed={sidebarView === 'smart'}
+              title="スマートビュー"
+              onClick={() => switchSidebarView('smart')}
             >
-              <NewFolderIcon />
+              スマート
             </button>
-            {newNoteMenuOpen && (
-              <>
-                <div className="newnote-menu-scrim" onMouseDown={() => setNewNoteMenuOpen(false)} />
-                <div
-                  className="newnote-menu"
-                  data-testid="new-note-menu"
-                  role="menu"
-                  style={{ top: 26, right: 0 }}
-                >
-                  <button
-                    className="nm-item"
-                    data-testid="new-note-menu-blank"
-                    role="menuitem"
-                    onClick={() => {
-                      setNewNoteMenuOpen(false);
-                      setDialog({ type: 'new-note', folder: '' });
-                    }}
-                  >
-                    <DocumentIcon />
-                    <span className="nm-main">
-                      空のノート<span className="nm-sub">見出しのみの新規ノート</span>
-                    </span>
-                  </button>
-                  <div className="nm-sep" />
-                  <button
-                    className="nm-item"
-                    data-testid="new-note-menu-template"
-                    role="menuitem"
-                    onClick={openTemplatePicker}
-                  >
-                    <DocumentIcon />
-                    <span className="nm-main">
-                      テンプレートから新規作成
-                      <span className="nm-sub">templates/ から選ぶ</span>
-                    </span>
-                  </button>
-                </div>
-              </>
-            )}
           </span>
+          {sidebarView === 'physical' && (
+            <span className="actions" style={{ position: 'relative' }}>
+              <button
+                className="icon-btn"
+                data-testid="sidebar-new-note"
+                title="新規ノート"
+                aria-haspopup="menu"
+                aria-expanded={newNoteMenuOpen}
+                onClick={() => setNewNoteMenuOpen((v) => !v)}
+              >
+                <NewNoteIcon />
+              </button>
+              <button
+                className="icon-btn"
+                data-testid="sidebar-new-folder"
+                title="新規フォルダ"
+                onClick={() => setDialog({ type: 'new-folder', parent: '' })}
+              >
+                <NewFolderIcon />
+              </button>
+              {newNoteMenuOpen && (
+                <>
+                  <div className="newnote-menu-scrim" onMouseDown={() => setNewNoteMenuOpen(false)} />
+                  <div
+                    className="newnote-menu"
+                    data-testid="new-note-menu"
+                    role="menu"
+                    style={{ top: 26, right: 0 }}
+                  >
+                    <button
+                      className="nm-item"
+                      data-testid="new-note-menu-blank"
+                      role="menuitem"
+                      onClick={() => {
+                        setNewNoteMenuOpen(false);
+                        setDialog({ type: 'new-note', folder: '' });
+                      }}
+                    >
+                      <DocumentIcon />
+                      <span className="nm-main">
+                        空のノート<span className="nm-sub">見出しのみの新規ノート</span>
+                      </span>
+                    </button>
+                    <div className="nm-sep" />
+                    <button
+                      className="nm-item"
+                      data-testid="new-note-menu-template"
+                      role="menuitem"
+                      onClick={openTemplatePicker}
+                    >
+                      <DocumentIcon />
+                      <span className="nm-main">
+                        テンプレートから新規作成
+                        <span className="nm-sub">templates/ から選ぶ</span>
+                      </span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </span>
+          )}
         </div>
 
-        <FileTree
-          notes={notes}
-          extraFolders={extraFolders}
-          activePath={activeSidebarPath}
-          collapsed={collapsedFolders}
-          error={notesError}
-          onToggleFolder={toggleFolder}
-          onOpenNote={(path) => void openNotePath(path)}
-          onContextMenuNote={onContextMenuNote}
-          onContextMenuFolder={onContextMenuFolder}
-        />
+        {sidebarView === 'smart' ? (
+          <SmartView
+            onOpenNote={(path) => void openNotePath(path)}
+            onSwitchToPhysical={() => switchSidebarView('physical')}
+          />
+        ) : (
+          <FileTree
+            notes={notes}
+            extraFolders={extraFolders}
+            activePath={activeSidebarPath}
+            collapsed={collapsedFolders}
+            error={notesError}
+            onToggleFolder={toggleFolder}
+            onOpenNote={(path) => void openNotePath(path)}
+            onContextMenuNote={onContextMenuNote}
+            onContextMenuFolder={onContextMenuFolder}
+          />
+        )}
 
         <div className="tree-section-title show-all-row">
           <span className="recent-hint">画像・PDF 等の添付はこちら</span>

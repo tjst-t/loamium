@@ -1,0 +1,41 @@
+## S8086d9-1 Implementation Log
+
+Date: 2026-07-07
+Story: サイドバー 物理/スマート ビュー切替 + スマートフォルダ描画
+
+### Files Changed
+
+- packages/ui/src/api.ts
+  - Added imports: smartViewConfigSchema, smartFoldersResolveResponseSchema, SmartViewConfig, SmartFoldersResolveResponse
+  - Added api.listSmartFolders() → GET /api/smart-folders
+  - Added api.resolveSmartFolder(id) → GET /api/smart-folders/{id}/notes
+
+- packages/ui/src/components/SmartView.tsx (new)
+  - SmartView component: loads definitions, shows loading/error/empty/populated states
+  - SmartFolder (query kind): collapsible, lazy-resolves notes on first expand
+  - SmartPin (pin kind): leaf node, click navigates to note
+  - SmartIcon: built-in name→SVG map (12 icons) + emoji/unknown passthrough; always sets data-icon
+
+- packages/ui/src/App.tsx
+  - Added sidebarView state ('physical'|'smart') persisted to localStorage('loamium.sidebarView')
+  - Added switchSidebarView callback
+  - Added sidebar-view-physical / sidebar-view-smart toggle buttons (aria-pressed)
+  - Conditionally renders SmartView or FileTree in sidebar
+
+- packages/ui/src/styles.css
+  - Added .sidebar-view-toggle / .sidebar-view-btn styles for toggle
+  - Added .smart-view / .smart-view-state / .smart-folder-* / .smart-note-item / .smart-pin-btn / .smart-icon styles
+
+### Key Design Decisions
+
+- data-testid="smart-folder" placed on wrapper div (not inner button) so that smart-folder-error is a descendant of smart-folder (required for test locator chaining)
+- icon fallback: icon field absent → kind default (pin→'file-text', query→'search'); data-icon always set to raw icon string (even defaults)
+- SmartFolder fetches notes only on first expand (idle→loading→loaded/error); re-expand after error is kept as-is (no re-fetch)
+
+### Test Results
+
+Mock tests (completion gate):
+  npx playwright test --config=packages/ui/playwright.config.ts --project=mock smart-view.mock.spec.ts
+  5/5 passed
+
+Lint: PASS (make lint)
