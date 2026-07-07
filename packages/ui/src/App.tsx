@@ -35,6 +35,7 @@ import {
   type Route,
   type SearchParams,
 } from './router.js';
+import { BookmarkStar } from './components/BookmarkStar.js';
 import { Editor } from './components/Editor.js';
 import { FilePreview } from './components/FilePreview.js';
 import { FilesPage } from './components/FilesPage.js';
@@ -76,6 +77,8 @@ interface OpenDoc {
   /** journals/YYYY-MM-DD.md のときの日付 */
   journalDate: string | null;
   resetToken: number;
+  /** サーバーから取得した frontmatter (BookmarkStar の初期値に使う) */
+  frontmatter: Record<string, unknown> | null;
 }
 
 type DialogState =
@@ -399,22 +402,26 @@ export function App(): JSX.Element {
     [saveNow],
   );
 
-  const setOpenDoc = useCallback((path: string, text: string, mtime: number | null): void => {
-    resetCounterRef.current += 1;
-    const next: OpenDoc = {
-      path,
-      text,
-      mtime,
-      journalDate: journalDateOf(path),
-      resetToken: resetCounterRef.current,
-    };
-    contentRef.current = text;
-    dirtyRef.current = false;
-    docRef.current = next;
-    setDoc(next);
-    setDirty(false);
-    setSeek(null);
-  }, []);
+  const setOpenDoc = useCallback(
+    (path: string, text: string, mtime: number | null, frontmatter: Record<string, unknown> | null): void => {
+      resetCounterRef.current += 1;
+      const next: OpenDoc = {
+        path,
+        text,
+        mtime,
+        journalDate: journalDateOf(path),
+        resetToken: resetCounterRef.current,
+        frontmatter,
+      };
+      contentRef.current = text;
+      dirtyRef.current = false;
+      docRef.current = next;
+      setDoc(next);
+      setDirty(false);
+      setSeek(null);
+    },
+    [],
+  );
 
   // ---- 履歴同期 ----
   const syncNavFlags = useCallback((): void => {
@@ -447,7 +454,7 @@ export function App(): JSX.Element {
       try {
         const res = await api.getNote(path);
         setPreview(null);
-        setOpenDoc(res.path, res.content, res.mtime);
+        setOpenDoc(res.path, res.content, res.mtime, res.frontmatter);
         setAppError(null);
         return res.path;
       } catch (err) {
@@ -464,7 +471,7 @@ export function App(): JSX.Element {
       try {
         const res = await api.getJournal(date);
         setPreview(null);
-        setOpenDoc(res.path, res.content, res.mtime);
+        setOpenDoc(res.path, res.content, res.mtime, res.frontmatter);
         if (date === undefined) setToday(res.date);
         if (res.created) void refreshNotes();
         setAppError(null);
@@ -791,7 +798,7 @@ export function App(): JSX.Element {
         await refreshNotes();
         // 作成先フォルダ (と祖先) を展開してツリー上で見えるようにする
         expandAncestors(dirnameOf(res.path));
-        setOpenDoc(res.path, '', res.mtime);
+        setOpenDoc(res.path, '', res.mtime, null);
         applyHistory({ kind: 'note', path: res.path }, 'push');
         setAppError(null);
       } catch (err) {
@@ -859,12 +866,12 @@ export function App(): JSX.Element {
         const openPath = docRef.current?.path;
         if (openPath === oldPath) {
           const note = await api.getNote(res.path);
-          setOpenDoc(note.path, note.content, note.mtime);
+          setOpenDoc(note.path, note.content, note.mtime, note.frontmatter);
           // 開いているノート自身のリネーム → URL を新パスへ差替 (履歴は増やさない)
           applyHistory({ kind: 'note', path: note.path }, 'replace');
         } else if (openPath !== undefined && res.updatedNotes.some((u) => u.path === openPath)) {
           const note = await api.getNote(openPath);
-          setOpenDoc(note.path, note.content, note.mtime);
+          setOpenDoc(note.path, note.content, note.mtime, note.frontmatter);
         }
         setBacklinksToken((v) => v + 1);
         setAppError(null);
@@ -987,7 +994,7 @@ export function App(): JSX.Element {
         const openPath = docRef.current?.path;
         if (openPath !== undefined && res.updatedNotes.some((u) => u.path === openPath)) {
           const note = await api.getNote(openPath);
-          setOpenDoc(note.path, note.content, note.mtime);
+          setOpenDoc(note.path, note.content, note.mtime, note.frontmatter);
         }
         setBacklinksToken((v) => v + 1);
         setAppError(null);
@@ -1043,7 +1050,7 @@ export function App(): JSX.Element {
     if (d === null) return;
     try {
       const res = await api.getNote(d.path);
-      setOpenDoc(res.path, res.content, res.mtime);
+      setOpenDoc(res.path, res.content, res.mtime, res.frontmatter);
       setAppError(null);
     } catch (err) {
       setAppError(`再読み込みに失敗しました — ${errMessage(err)}`);
@@ -1282,6 +1289,13 @@ export function App(): JSX.Element {
               <span className="dot" />
               <span>{dirty ? '未保存' : '保存済み'}</span>
             </div>
+          )}
+          {route.kind === 'note' && doc !== null && preview === null && (
+            <BookmarkStar
+              key={doc.path}
+              docPath={doc.path}
+              initialFrontmatter={doc.frontmatter}
+            />
           )}
         </div>
 

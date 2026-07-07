@@ -3556,3 +3556,26 @@ button.callout-title { cursor: pointer; }
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ==========================================================================
+   S8086d9-2 — ブックマークスター (ノートヘッダ右端)
+   ========================================================================== */
+
+.bookmark-star {
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+.bookmark-star:hover:not([aria-disabled="true"]) {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.bookmark-star.is-bookmarked {
+  color: var(--accent);
+}
+.bookmark-star[aria-disabled="true"] {
+  opacity: 0.35;
+  cursor: default;
+}
+.bookmark-star[aria-disabled="true"]:hover {
+  background: none;
+}

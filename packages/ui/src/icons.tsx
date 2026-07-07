@@ -228,3 +228,21 @@ export function TerminalIcon({ className }: IconProps): JSX.Element {
     </svg>
   );
 }
+
+/** ブックマークスター: 輪郭のみ (未ブックマーク状態) */
+export function StarOutlineIcon({ className }: IconProps): JSX.Element {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 1.5l1.8 3.7 4.1.6-3 2.9.7 4.1L8 10.7l-3.6 1.9.7-4.1-3-2.9 4.1-.6z" />
+    </svg>
+  );
+}
+
+/** ブックマークスター: 塗り (ブックマーク済み状態) */
+export function StarFilledIcon({ className }: IconProps): JSX.Element {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="currentColor" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 1.5l1.8 3.7 4.1.6-3 2.9.7 4.1L8 10.7l-3.6 1.9.7-4.1-3-2.9 4.1-.6z" />
+    </svg>
+  );
+}

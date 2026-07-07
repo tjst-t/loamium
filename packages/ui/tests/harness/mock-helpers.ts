@@ -51,5 +51,12 @@ export async function installCatchAll(page: Page): Promise<string[]> {
   await page.route('**/api/property-keys', (route) => {
     void route.fulfill(json({ keys: [] }));
   });
+  // GET /api/health (モード確認 — S8086d9-2 BookmarkStar / TerminalPane)。
+  // 既定は full モード・ターミナル無効。モードを変えるテストは後から自前の route で上書きする。
+  await page.route('**/api/health', (route) => {
+    void route.fulfill(
+      json({ status: 'ok', mode: 'full', terminal: { enabled: false, reason: null } }),
+    );
+  });
   return unexpected;
 }
