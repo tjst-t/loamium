@@ -20,7 +20,7 @@ function note(partial: Partial<QueryableNote> & { path: string }): QueryableNote
 
 describe('parseQuery — 構文', () => {
   it('LIST 単独をパースする', () => {
-    expect(parseQuery('LIST')).toEqual({ type: 'list', fields: [], from: null, where: [], sort: null });
+    expect(parseQuery('LIST')).toEqual({ type: 'list', fields: [], from: null, where: [], sort: null, limit: null });
   });
 
   it('キーワードは大文字小文字両対応 (list / List / LIST)', () => {
@@ -263,5 +263,206 @@ describe('executeQuery — 評価', () => {
     const before = JSON.stringify(notes);
     executeQuery(parseQuery('TABLE status from "projects" sort status desc'), notes);
     expect(JSON.stringify(notes)).toBe(before);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// LIMIT 節のパーステスト
+// ---------------------------------------------------------------------------
+
+describe('[AC-S32940c-1-1][AC-S32940c-1-3] parseQuery — LIMIT 節', () => {
+  it('LIMIT n をパースして limit フィールドに保持する', () => {
+    const ast = parseQuery('LIST LIMIT 5');
+    expect(ast.limit).toBe(5);
+  });
+
+  it('SORT と LIMIT の組み合わせをパースする (Obsidian dataview 互換)', () => {
+    const ast = parseQuery('LIST SORT file.mtime DESC LIMIT 10');
+    expect(ast.sort).toEqual({ field: 'file.mtime', direction: 'desc' });
+    expect(ast.limit).toBe(10);
+  });
+
+  it('[AC-S32940c-1-5] LIMIT 0 は合法で 0 件を意味する', () => {
+    const ast = parseQuery('LIST LIMIT 0');
+    expect(ast.limit).toBe(0);
+  });
+
+  it('[AC-S32940c-1-5] 巨大な LIMIT n は受け入れる', () => {
+    const ast = parseQuery('LIST LIMIT 999999');
+    expect(ast.limit).toBe(999999);
+  });
+
+  it('[AC-S32940c-1-3][AC-S32940c-1-5] LIMIT 負値は DqlParseError (位置情報付き)', () => {
+    try {
+      parseQuery('LIST LIMIT -1');
+      expect.unreachable('エラーになるはず');
+    } catch (err) {
+      expect(err).toBeInstanceOf(DqlParseError);
+      const e = err as DqlParseError;
+      expect(e.line).toBe(1);
+      expect(e.column).toBeGreaterThan(0);
+      expect(e.length).toBeGreaterThan(0);
+      expect(e.message).toMatch(/整数/);
+    }
+  });
+
+  it('[AC-S32940c-1-3][AC-S32940c-1-5] LIMIT 非整数 (小数) は DqlParseError (位置情報付き)', () => {
+    try {
+      parseQuery('LIST LIMIT 1.5');
+      expect.unreachable('エラーになるはず');
+    } catch (err) {
+      expect(err).toBeInstanceOf(DqlParseError);
+      const e = err as DqlParseError;
+      expect(e.line).toBe(1);
+      expect(e.column).toBeGreaterThan(0);
+      expect(e.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('[AC-S32940c-1-3][AC-S32940c-1-5] LIMIT 非整数 (単語) は DqlParseError (位置情報付き)', () => {
+    try {
+      parseQuery('LIST SORT file.mtime DESC LIMIT abc');
+      expect.unreachable('エラーになるはず');
+    } catch (err) {
+      expect(err).toBeInstanceOf(DqlParseError);
+      const e = err as DqlParseError;
+      expect(e.line).toBe(1);
+      expect(e.column).toBeGreaterThan(0);
+      expect(e.length).toBe(3); // 'abc' の長さ
+    }
+  });
+
+  it('LIMIT なしのクエリは limit: null を返す (後方互換)', () => {
+    const ast = parseQuery('LIST from #project where status = "in-progress" sort updated desc');
+    expect(ast.limit).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// LIMIT 節の評価テスト
+// ---------------------------------------------------------------------------
+
+describe('[AC-S32940c-1-1][AC-S32940c-1-3] executeQuery — LIMIT 適用', () => {
+  const manyNotes: QueryableNote[] = [
+    note({ path: 'a.md', mtime: 100 }),
+    note({ path: 'b.md', mtime: 200 }),
+    note({ path: 'c.md', mtime: 300 }),
+    note({ path: 'd.md', mtime: 400 }),
+    note({ path: 'e.md', mtime: 500 }),
+    note({ path: 'f.md', mtime: 600 }),
+  ];
+
+  it('[AC-S32940c-1-1] LIST SORT mtime DESC LIMIT 3 は SORT 後の先頭 3 件', () => {
+    const res = runQuery('LIST SORT file.mtime DESC LIMIT 3', manyNotes);
+    if (res.type !== 'list') expect.unreachable();
+    expect(res.results).toHaveLength(3);
+    // SORT DESC → f(600) b(400) ... 先頭 3 件
+    expect(res.results.map((r) => r.path)).toEqual(['f.md', 'e.md', 'd.md']);
+  });
+
+  it('[AC-S32940c-1-5] LIMIT 0 は 0 件返す', () => {
+    const res = runQuery('LIST LIMIT 0', manyNotes);
+    if (res.type !== 'list') expect.unreachable();
+    expect(res.results).toHaveLength(0);
+  });
+
+  it('[AC-S32940c-1-5] 巨大 n (全件より多い) は全件返す', () => {
+    const res = runQuery('LIST LIMIT 999999', manyNotes);
+    if (res.type !== 'list') expect.unreachable();
+    expect(res.results).toHaveLength(manyNotes.length);
+  });
+
+  it('[AC-S32940c-1-3] LIMIT なしクエリは従来通り全件返す (後方互換)', () => {
+    const res = runQuery('LIST', manyNotes);
+    if (res.type !== 'list') expect.unreachable();
+    expect(res.results).toHaveLength(manyNotes.length);
+  });
+
+  it('[AC-S32940c-1-1] TABLE LIMIT が機能する', () => {
+    const tableNotes = [
+      note({ path: 'x.md', frontmatter: { status: 'a' } }),
+      note({ path: 'y.md', frontmatter: { status: 'b' } }),
+      note({ path: 'z.md', frontmatter: { status: 'c' } }),
+    ];
+    const res = runQuery('TABLE status LIMIT 2', tableNotes);
+    if (res.type !== 'table') expect.unreachable();
+    expect(res.results).toHaveLength(2);
+  });
+
+  it('[AC-S32940c-1-1] TASK LIMIT が機能する', () => {
+    const taskNotes: QueryableNote[] = [
+      note({ path: 'p.md', tasks: [{ line: 1, text: 'T1', checked: false, indent: 0 }, { line: 2, text: 'T2', checked: false, indent: 0 }] }),
+      note({ path: 'q.md', tasks: [{ line: 1, text: 'T3', checked: false, indent: 0 }] }),
+    ];
+    const res = runQuery('TASK LIMIT 2', taskNotes);
+    if (res.type !== 'task') expect.unreachable();
+    expect(res.results).toHaveLength(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// file.tasks / file.open_tasks フィールドのテスト
+// ---------------------------------------------------------------------------
+
+describe('[AC-S32940c-1-2] noteField — file.tasks / file.open_tasks', () => {
+  const notesWithTasks: QueryableNote[] = [
+    // ノート A: 未完了タスクあり
+    note({
+      path: 'noteA.md',
+      tasks: [
+        { line: 1, text: 'open task', checked: false, indent: 0 },
+        { line: 2, text: 'closed task', checked: true, indent: 0 },
+      ],
+    }),
+    // ノート B: 完了のみ
+    note({
+      path: 'noteB.md',
+      tasks: [{ line: 1, text: 'done', checked: true, indent: 0 }],
+    }),
+    // ノート C: タスク無し
+    note({ path: 'noteC.md' }),
+  ];
+
+  it('[AC-S32940c-1-2] LIST WHERE file.open_tasks は未完了タスクを持つノートのみ返す', () => {
+    const res = runQuery('LIST WHERE file.open_tasks', notesWithTasks);
+    if (res.type !== 'list') expect.unreachable();
+    expect(res.results.map((r) => r.path)).toEqual(['noteA.md']);
+  });
+
+  it('[AC-S32940c-1-2] LIST WHERE file.tasks はタスクが存在するノートのみ返す', () => {
+    const res = runQuery('LIST WHERE file.tasks', notesWithTasks);
+    if (res.type !== 'list') expect.unreachable();
+    expect(res.results.map((r) => r.path)).toContain('noteA.md');
+    expect(res.results.map((r) => r.path)).toContain('noteB.md');
+    expect(res.results.map((r) => r.path)).not.toContain('noteC.md');
+  });
+
+  it('[AC-S32940c-1-5] タスク 0 件のノートは file.open_tasks で除外される', () => {
+    const zeroTaskNotes: QueryableNote[] = [note({ path: 'zero.md', tasks: [] })];
+    const res = runQuery('LIST WHERE file.open_tasks', zeroTaskNotes);
+    if (res.type !== 'list') expect.unreachable();
+    expect(res.results).toHaveLength(0);
+  });
+
+  it('[AC-S32940c-1-5] 完了タスクのみのノートは file.open_tasks で除外される', () => {
+    const allDoneNotes: QueryableNote[] = [
+      note({ path: 'alldone.md', tasks: [{ line: 1, text: 'done', checked: true, indent: 0 }] }),
+    ];
+    const res = runQuery('LIST WHERE file.open_tasks', allDoneNotes);
+    if (res.type !== 'list') expect.unreachable();
+    expect(res.results).toHaveLength(0);
+  });
+
+  it('[AC-S32940c-1-2] file.open_tasks は数値として比較できる', () => {
+    const res = runQuery('LIST WHERE file.open_tasks > 0', notesWithTasks);
+    if (res.type !== 'list') expect.unreachable();
+    expect(res.results.map((r) => r.path)).toEqual(['noteA.md']);
+  });
+
+  it('[AC-S32940c-1-3] 既存クエリ (LIMIT・新フィールド未使用) の結果は不変', () => {
+    const res = runQuery('LIST from #project', notesWithTasks);
+    if (res.type !== 'list') expect.unreachable();
+    // タグなしノートなので全て除外されるべき (後方互換確認)
+    expect(res.results).toHaveLength(0);
   });
 });
