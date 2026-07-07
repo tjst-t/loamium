@@ -2793,6 +2793,24 @@
       "added_in": "Sf53ad6",
       "reason": "AC 外のスコープ制御 (decisions.json P4)。REST/CLI 1:1 原則の完全化",
       "status": "pending"
+    },
+    {
+      "title": "スマートフォルダの aria-expanded を開閉ボタンへ移す",
+      "description": "SmartView の aria-expanded がラッパー div に付いており SR で開閉状態が読まれない。トグル button 側へ。verifier(S8086d9)指摘。",
+      "added_in": "S8086d9",
+      "reason": "a11y quality debt(非ブロッキング)"
+    },
+    {
+      "title": "query スマートフォルダの再取得(stale データ回避)",
+      "description": "query フォルダは初回展開で結果をキャッシュし再展開で再取得しない。vault 変更時に古い結果が出る。リフレッシュ導線 or 監視連動。",
+      "added_in": "S8086d9",
+      "reason": "UX quality debt"
+    },
+    {
+      "title": "ブックマークスターの append-only テスト + AC-2-4 タグ",
+      "description": "star は mode!==full で無効化(read-only はテスト済、append-only 未テスト)。AC-S8086d9-2-4 のテストにタグ付与。",
+      "added_in": "S8086d9",
+      "reason": "traceability/coverage"
     }
   ]
 }
