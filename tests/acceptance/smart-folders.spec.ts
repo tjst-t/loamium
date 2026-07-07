@@ -345,6 +345,12 @@ describe('[AC-S32940c-2-2] read-only モードでは PUT を 403 (scenario-2)', 
     const { status } = await getConfig(server.baseUrl);
     expect(status).toBe(200);
   });
+
+  it('append-only モードでも PUT /api/smart-folders は 403 (書込は full のみ)', async () => {
+    server = await startServer({ vault, mode: 'append-only' });
+    const { status } = await putConfig(server.baseUrl, { version: 1, items: [] });
+    expect(status).toBe(403);
+  });
 });
 
 describe('[AC-S32940c-2-5] .gitignore — smart-folders.json は git 追跡対象 (scenario-3)', () => {
