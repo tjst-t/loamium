@@ -1,0 +1,169 @@
+{
+  "sprint": "S32940c",
+  "run_at": "2026-07-07T16:15:45Z",
+  "server_command": "npx vitest run (acceptance harness starts real server per test)",
+  "summary": {
+    "total": 99,
+    "pass": 99,
+    "fail": 0,
+    "skip": 0,
+    "note": "S32940c-new tests: dql 51 unit + query-limit 6 + smart-folders 16 + smart-folders-cli 8 + note-properties 18. Full repo suite excluding env-blocked terminal.spec.ts: 47 files / 570 tests all pass; make lint exit 0."
+  },
+  "env_exclusions": [
+    {
+      "file": "tests/acceptance/terminal.spec.ts",
+      "reason": "node-pty native module requires GLIBC_2.42, unavailable in sandbox; terminal feature only, unrelated to S32940c. Excluded, not falsely passed.",
+      "tests": 7
+    }
+  ],
+  "tests": [
+    {
+      "name": "[AC-S32940c-1-1/1-4] LIMIT via POST /api/query",
+      "file": "tests/acceptance/query-limit.spec.ts",
+      "story": "S32940c-1",
+      "acceptance_criteria": [
+        "AC-S32940c-1-1",
+        "AC-S32940c-1-4"
+      ],
+      "status": "pass"
+    },
+    {
+      "name": "[AC-S32940c-1-2] file.open_tasks/file.tasks filtering",
+      "file": "tests/acceptance/query-limit.spec.ts",
+      "story": "S32940c-1",
+      "acceptance_criteria": [
+        "AC-S32940c-1-2"
+      ],
+      "status": "pass"
+    },
+    {
+      "name": "[AC-S32940c-1-3/1-5] LIMIT boundaries + backward compat",
+      "file": "packages/shared/src/dql.test.ts",
+      "story": "S32940c-1",
+      "acceptance_criteria": [
+        "AC-S32940c-1-3",
+        "AC-S32940c-1-5"
+      ],
+      "status": "pass"
+    },
+    {
+      "name": "[AC-S32940c-2-1..2-5] smart-folders CRUD/resolve/gitignore",
+      "file": "tests/acceptance/smart-folders.spec.ts",
+      "story": "S32940c-2",
+      "acceptance_criteria": [
+        "AC-S32940c-2-1",
+        "AC-S32940c-2-2",
+        "AC-S32940c-2-3",
+        "AC-S32940c-2-4",
+        "AC-S32940c-2-5"
+      ],
+      "status": "pass"
+    },
+    {
+      "name": "[AC-S32940c-2-6] CLI smart-folders/smart-folder",
+      "file": "tests/acceptance/smart-folders-cli.spec.ts",
+      "story": "S32940c-2",
+      "acceptance_criteria": [
+        "AC-S32940c-2-6"
+      ],
+      "status": "pass"
+    },
+    {
+      "name": "[AC-S32940c-3-1..3-5] properties write round-trip/403/bookmark",
+      "file": "tests/acceptance/note-properties.spec.ts",
+      "story": "S32940c-3",
+      "acceptance_criteria": [
+        "AC-S32940c-3-1",
+        "AC-S32940c-3-2",
+        "AC-S32940c-3-3",
+        "AC-S32940c-3-4",
+        "AC-S32940c-3-5"
+      ],
+      "status": "pass"
+    }
+  ],
+  "diff_coverage": {
+    "surfaces": [
+      {
+        "type": "dql_syntax",
+        "identifier": "LIMIT n + file.tasks/file.open_tasks",
+        "introduced_in_files": [
+          "packages/shared/src/dql.ts"
+        ],
+        "resolution": "covered",
+        "test": "query-limit.spec.ts + dql.test.ts"
+      },
+      {
+        "type": "api",
+        "identifier": "GET/PUT /api/smart-folders, GET /api/smart-folders/{id}/notes",
+        "introduced_in_files": [
+          "packages/server/src/routes/smart-folders.ts"
+        ],
+        "resolution": "covered",
+        "test": "smart-folders.spec.ts"
+      },
+      {
+        "type": "api",
+        "identifier": "POST /api/notes/{path}/properties",
+        "introduced_in_files": [
+          "packages/server/src/routes/notes.ts"
+        ],
+        "resolution": "covered",
+        "test": "note-properties.spec.ts"
+      },
+      {
+        "type": "cli",
+        "identifier": "smart-folders / smart-folders set / smart-folder / prop set / prop unset",
+        "introduced_in_files": [
+          "packages/cli/src/main.ts"
+        ],
+        "resolution": "covered",
+        "test": "smart-folders-cli.spec.ts + note-properties.spec.ts"
+      }
+    ]
+  },
+  "done_judgment": [
+    {
+      "story_id": "S32940c-1",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "n/a",
+        "guard3_mock_mode_not_real_smoke": "n/a",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "pass",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    },
+    {
+      "story_id": "S32940c-2",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "n/a",
+        "guard3_mock_mode_not_real_smoke": "n/a",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "pass",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    },
+    {
+      "story_id": "S32940c-3",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "n/a",
+        "guard3_mock_mode_not_real_smoke": "n/a",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "pass",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    }
+  ]
+}
