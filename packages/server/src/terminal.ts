@@ -15,7 +15,8 @@
  *   - セッションの開始・終了だけを audit.log へ記録する。入出力・コマンド内容は
  *     一切記録しない (vault は機微情報を含みうる — DESIGN_PRINCIPLES priority 2)
  */
-import { spawn, type IPty } from 'node-pty';
+import { createRequire } from 'node:module';
+import type { IPty } from 'node-pty';
 import type { Hono } from 'hono';
 import type { UpgradeWebSocket } from 'hono/ws';
 import {
@@ -28,6 +29,22 @@ import { errorJson, setAudit, type AppEnv } from './http.js';
 
 /** SIGTERM 後にこの時間で終了しなければ SIGKILL へエスカレーションする。 */
 const SIGKILL_ESCALATION_MS = 3000;
+
+/**
+ * node-pty はネイティブモジュール (build/Release/pty.node)。ターミナルは既定無効の
+ * オプトイン機能なので、モジュール読み込み時ではなく「実際に pty を spawn する瞬間」
+ * まで遅延ロードする。これによりネイティブモジュールが無い/ロードできない環境でも
+ * サーバー本体は起動でき (DESIGN_PRINCIPLES priority 2: 任意機能がコアを壊さない)、
+ * ターミナル無効時は node-pty に一切触れない。キャッシュして 2 回目以降は即返す。
+ */
+let ptyModule: typeof import('node-pty') | null = null;
+function loadPty(): typeof import('node-pty') {
+  if (ptyModule === null) {
+    const require = createRequire(import.meta.url);
+    ptyModule = require('node-pty') as typeof import('node-pty');
+  }
+  return ptyModule;
+}
 
 /** 稼働中セッションの pty (サーバーシャットダウン時の一括終了用)。 */
 const activeSessions = new Set<IPty>();
@@ -200,7 +217,7 @@ export function registerTerminalRoute(
             return;
           }
           try {
-            proc = spawn(config.terminal.cmd, [], {
+            proc = loadPty().spawn(config.terminal.cmd, [], {
               name: 'xterm-256color',
               cols: 80,
               rows: 24,

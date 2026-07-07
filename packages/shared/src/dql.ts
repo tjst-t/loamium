@@ -45,6 +45,8 @@ export interface DqlQuery {
   /** AND 結合の条件列 (空 = 全件) */
   where: DqlCondition[];
   sort: { field: string; direction: 'asc' | 'desc' } | null;
+  /** SORT 適用後に先頭 n 件に絞る (null = 制限なし、0 = 0 件)。Obsidian dataview 互換の LIMIT 節。 */
+  limit: number | null;
 }
 
 /** 構文エラー (1 始まりの行・列 + 該当トークン長)。message は位置情報込み。 */
@@ -153,7 +155,7 @@ function keywordOf(tok: Token): string | null {
   return tok.kind === 'word' ? tok.text.toLowerCase() : null;
 }
 
-const CLAUSE_KEYWORDS = new Set(['from', 'where', 'sort']);
+const CLAUSE_KEYWORDS = new Set(['from', 'where', 'sort', 'limit']);
 
 function unexpected(tok: Token | undefined, expected: string, fallbackLine = 1, fallbackCol = 1): never {
   if (tok === undefined) {
@@ -214,6 +216,7 @@ export function parseQuery(query: string): DqlQuery {
   let from: DqlSource | null = null;
   const where: DqlCondition[] = [];
   let sort: DqlQuery['sort'] = null;
+  let limit: number | null = null;
 
   const parseValue = (): string | number | boolean => {
     const tok = next();
@@ -298,12 +301,41 @@ export function parseQuery(query: string): DqlQuery {
         i += 1;
       }
       sort = { field: field.text, direction };
+    } else if (kw === 'limit') {
+      if (limit !== null) unexpected(tok, 'LIMIT 節は 1 つだけ指定できます');
+      const numTok = next();
+      if (numTok === undefined) {
+        throw new DqlParseError(
+          'LIMIT には 0 以上の整数を指定してください',
+          tok.line,
+          tok.column + tok.text.length + 1,
+          1,
+        );
+      }
+      if (numTok.kind !== 'number') {
+        throw new DqlParseError(
+          `LIMIT には 0 以上の整数を指定してください — '${numTok.text}' は整数ではありません`,
+          numTok.line,
+          numTok.column,
+          numTok.text.length,
+        );
+      }
+      const n = numTok.value as number;
+      if (!Number.isInteger(n) || n < 0) {
+        throw new DqlParseError(
+          `LIMIT には 0 以上の整数を指定してください — ${numTok.text} は無効です (負値または小数は不可)`,
+          numTok.line,
+          numTok.column,
+          numTok.text.length,
+        );
+      }
+      limit = n;
     } else {
-      unexpected(tok, "'from' / 'where' / 'sort' のいずれかを想定");
+      unexpected(tok, "'from' / 'where' / 'sort' / 'limit' のいずれかを想定");
     }
   }
 
-  return { type, fields, from, where, sort };
+  return { type, fields, from, where, sort, limit };
 }
 
 // ---- 評価器 ---------------------------------------------------------------------
@@ -333,6 +365,8 @@ function noteField(note: QueryableNote, field: string): FieldValue {
   if (key === 'file.path') return note.path;
   if (key === 'file.mtime') return note.mtime;
   if (key === 'tags' || key === 'file.tags') return note.tags;
+  if (key === 'file.tasks') return note.tasks.length;
+  if (key === 'file.open_tasks') return note.tasks.filter((t) => !t.checked).length;
   const raw = note.frontmatter?.[field] ?? note.frontmatter?.[key];
   return toFieldValue(raw);
 }
@@ -490,7 +524,8 @@ export function executeQuery(ast: DqlQuery, notes: readonly QueryableNote[]): Qu
       if (a.note.path !== b.note.path) return a.note.path < b.note.path ? -1 : 1;
       return a.task.line - b.task.line;
     });
-    const rows: TaskQueryRow[] = hits.map(({ note, task }) => ({
+    const limitedHits = ast.limit !== null ? hits.slice(0, ast.limit) : hits;
+    const rows: TaskQueryRow[] = limitedHits.map(({ note, task }) => ({
       path: note.path,
       title: note.title,
       line: task.line,
@@ -515,15 +550,16 @@ export function executeQuery(ast: DqlQuery, notes: readonly QueryableNote[]): Qu
     }
     return a.path < b.path ? -1 : a.path > b.path ? 1 : 0;
   });
+  const limited = ast.limit !== null ? matched.slice(0, ast.limit) : matched;
 
   if (ast.type === 'list') {
     return {
       type: 'list',
-      results: matched.map((n) => ({ path: n.path, title: n.title, folder: n.folder })),
+      results: limited.map((n) => ({ path: n.path, title: n.title, folder: n.folder })),
     };
   }
 
-  const rows: TableQueryRow[] = matched.map((n) => ({
+  const rows: TableQueryRow[] = limited.map((n) => ({
     path: n.path,
     title: n.title,
     folder: n.folder,

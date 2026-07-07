@@ -13,19 +13,24 @@ import {
   appendText,
   countOccurrences,
   noteAppendRequestSchema,
+  notePropertyWriteRequestSchema,
   notePatchRequestSchema,
   noteRenameRequestSchema,
   noteWriteRequestSchema,
   normalizeVaultPath,
   parseNote,
+  parsePropertiesModel,
+  serializeFrontmatterBlock,
   preferredLinkTarget,
   resolveLinkTarget,
   rewriteLinks,
   VaultPathError,
   type NoteDeleteResponse,
+  type NotePropertyWriteResponse,
   type NoteRenameResponse,
   type NoteResponse,
   type NoteWriteResponse,
+  type PropEntry,
   type RenameUpdatedNote,
 } from '@loamium/shared';
 import type { ServerConfig } from '../config.js';
@@ -34,7 +39,7 @@ import type { VaultIndex } from '../noteIndex.js';
 import { errorJson, parseBody, setAudit, type AppEnv } from '../http.js';
 
 const NOTES_PREFIX = '/api/notes/';
-const POST_ACTIONS = ['append', 'patch', 'rename'] as const;
+const POST_ACTIONS = ['append', 'patch', 'rename', 'properties'] as const;
 type PostAction = (typeof POST_ACTIONS)[number];
 
 /** リクエストパスから vault 相対のノートパスを取り出して正規化する。 */
@@ -139,7 +144,7 @@ export function notesRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
         c,
         404,
         'unknown_action',
-        'POST /api/notes/{path}/(append|patch) のみサポートしています',
+        'POST /api/notes/{path}/(append|patch|rename|properties) のみサポートしています',
       );
     }
     let rel: string;
@@ -254,6 +259,124 @@ export function notesRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
         mtime: written.mtime,
         updatedNotes,
         updatedLinks: updatedNotes.reduce((sum, u) => sum + u.links, 0),
+      };
+      return c.json(res);
+    }
+
+    if (action === 'properties') {
+      // フロントマタープロパティ書込 (ADR-0004 / S32940c-3)。
+      // データ安全性 (priority 2): parsePropertiesModel が null (= 安全にモデル化できない) なら
+      // 4xx を返してファイルを一切変更しない。round-trip 検証も必ず実施する。
+      setAudit(c, 'note.property.write', rel);
+      const reqBody = await parseBody(c, notePropertyWriteRequestSchema);
+      if (!reqBody.ok) return reqBody.response;
+
+      const existing = await readNote(config.vaultRoot, rel);
+      if (existing === null) {
+        return errorJson(c, 404, 'not_found', `note not found: ${rel}`);
+      }
+
+      // frontmatter と body を分離する。
+      // afterFrontmatter = closing --- 行の直後から末尾まで (先頭の \n を含む)。
+      const FRONTMATTER_OPEN = /^---(?:\r?\n)/;
+      const parsed = parseNote(existing);
+
+      let entries: PropEntry[];
+      let afterFrontmatter: string;
+
+      if (!FRONTMATTER_OPEN.test(existing)) {
+        // frontmatter ブロックが存在しない → 空のモデルで開始し新規作成する
+        entries = [];
+        afterFrontmatter = existing.length > 0 ? '\n' + existing : '';
+      } else if (parsed.frontmatter === null) {
+        // --- 構文はあるが YAML が壊れている / トップレベルがオブジェクトでない
+        return errorJson(
+          c,
+          422,
+          'unprocessable_frontmatter',
+          'note has frontmatter that cannot be safely parsed (broken YAML or non-object); edit it manually',
+        );
+      } else {
+        // 有効な frontmatter — YAML テキストを再抽出してモデルへ分解する
+        const lines = existing.split('\n');
+        let closeIndex = -1;
+        for (let i = 1; i < lines.length; i++) {
+          if ((lines[i] ?? '').replace(/\r$/, '') === '---') {
+            closeIndex = i;
+            break;
+          }
+        }
+        // frontmatter !== null が保証する closing --- が必ず存在する
+        const yamlText = lines
+          .slice(1, closeIndex)
+          .map((l) => l.replace(/\r$/, ''))
+          .join('\n');
+        const model = parsePropertiesModel(yamlText);
+        if (model === null) {
+          // アンカー・マージキー・重複キー等で安全にモデル化できない
+          return errorJson(
+            c,
+            422,
+            'unprocessable_frontmatter',
+            'note frontmatter is too complex to safely modify (anchors, merge keys, duplicate keys, or similar); edit it manually',
+          );
+        }
+        entries = model;
+        const bodyLines = lines.slice(closeIndex + 1);
+        afterFrontmatter = bodyLines.length > 0 ? '\n' + bodyLines.join('\n') : '';
+      }
+
+      // --- set / unset 適用 ---
+      const { set: setMap, unset: unsetKeys } = reqBody.data;
+
+      // unset: 指定キーのエントリを削除 (raw = コメント・空行は保持)
+      if (unsetKeys !== undefined && unsetKeys.length > 0) {
+        entries = entries.filter(
+          (e): boolean => e.kind === 'raw' || !unsetKeys.includes(e.key),
+        );
+      }
+
+      // set: キーが既存なら上書き、無ければ末尾に追加 (upsert)
+      if (setMap !== undefined) {
+        for (const [key, value] of Object.entries(setMap)) {
+          const existingIdx = entries.findIndex((e) => e.kind !== 'raw' && e.key === key);
+          if (existingIdx >= 0) {
+            // source を持つ既存エントリを上書き (source 削除で再直列化させる)
+            entries[existingIdx] = { kind: 'scalar', key, value };
+          } else {
+            entries.push({ kind: 'scalar', key, value });
+          }
+        }
+      }
+
+      // --- 直列化 ---
+      const block = serializeFrontmatterBlock(entries);
+      // block === null → 全キーが除去された → frontmatter ブロックごと削除
+      let newContent: string;
+      if (block === null) {
+        // afterFrontmatter は '\n' + body 形式。先頭の \n を剥がして body だけにする
+        newContent = afterFrontmatter.length > 0 ? afterFrontmatter.slice(1) : '';
+      } else {
+        newContent = block + afterFrontmatter;
+      }
+
+      // --- round-trip 安全性の最終検証 (priority 2) ---
+      const roundTripped = parseNote(newContent);
+      if (block !== null && roundTripped.frontmatter === null) {
+        // 直列化結果が再パースできない → 書かずに拒否
+        return errorJson(
+          c,
+          422,
+          'roundtrip_failed',
+          'serialized frontmatter could not be re-parsed; refusing to write (data safety priority 2)',
+        );
+      }
+
+      const written = await writeNote(config.vaultRoot, rel, newContent);
+      const res: NotePropertyWriteResponse = {
+        path: rel,
+        frontmatter: roundTripped.frontmatter,
+        mtime: written.mtime,
       };
       return c.json(res);
     }

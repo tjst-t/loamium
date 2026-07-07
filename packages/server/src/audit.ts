@@ -44,6 +44,7 @@ export function deriveOp(method: string, reqPath: string): string {
       if (reqPath.endsWith('/append')) return 'note.append';
       if (reqPath.endsWith('/patch')) return 'note.patch';
       if (reqPath.endsWith('/rename')) return 'note.rename';
+      if (reqPath.endsWith('/properties')) return 'note.property.write';
       return 'note.unknown';
     }
   }
@@ -52,6 +53,7 @@ export function deriveOp(method: string, reqPath: string): string {
     if (method === 'DELETE') return 'file.delete';
   }
   if (reqPath === '/api/property-types' && method === 'PUT') return 'property-types.write';
+  if (reqPath === '/api/smart-folders' && method === 'PUT') return 'smart-folders.write';
   return `${method.toLowerCase()}.unknown`;
 }
 
