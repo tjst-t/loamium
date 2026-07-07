@@ -1,0 +1,33 @@
+{
+  "sprint": "S8086d9",
+  "verifier": "independent read-only sub-agent",
+  "run_at": "2026-07-07T17:03:23Z",
+  "verdict": "all_pass",
+  "per_ac_all_pass": true,
+  "adr_conformance": {
+    "ADR-0003": "conforms",
+    "ADR-0004": "conforms"
+  },
+  "forbidden_degradations": [],
+  "mock_helpers_change": "acceptable_infra",
+  "overlooked_by_autopilot": [
+    {
+      "item": "AC-S8086d9-2-4 test lacks the [AC-...] tag (traceability)",
+      "severity": "low"
+    },
+    {
+      "item": "append-only mode not tested for the star (implemented via mode!=='full', read-only tested)",
+      "severity": "low"
+    },
+    {
+      "item": "aria-expanded on the smart-folder wrapper div, not the toggle button (a11y — screen readers)",
+      "severity": "medium"
+    },
+    {
+      "item": "query folder caches results; collapse+re-expand shows stale data with no refresh",
+      "severity": "low"
+    }
+  ],
+  "lint": "pass",
+  "tests": "165 mock + 8 new e2e pass; full UI 269 pass / 5 terminal-env fail"
+}

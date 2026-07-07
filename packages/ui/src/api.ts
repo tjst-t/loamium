@@ -14,6 +14,7 @@ import {
   noteDeleteResponseSchema,
   noteListResponseSchema,
   noteRenameResponseSchema,
+  notePropertyWriteRequestSchema,
   noteResponseSchema,
   noteWriteResponseSchema,
   errorResponseSchema,
@@ -24,6 +25,8 @@ import {
   queryErrorResponseSchema,
   queryResponseSchema,
   searchResponseSchema,
+  smartFoldersResolveResponseSchema,
+  smartViewConfigSchema,
   tagsResponseSchema,
   templateInstantiateResponseSchema,
   templatesResponseSchema,
@@ -32,6 +35,8 @@ import {
   type PropertyKeyCount,
   type PropertyTypeDef,
   type SelectOption,
+  type SmartFoldersResolveResponse,
+  type SmartViewConfig,
   type TagsResponse,
   type BacklinksResponse,
   type FileDeleteResponse,
@@ -43,6 +48,7 @@ import {
   type NoteDeleteResponse,
   type NoteListResponse,
   type NoteRenameResponse,
+  type NotePropertyWriteRequest,
   type NoteResponse,
   type NoteWriteResponse,
   type QueryResponse,
@@ -266,6 +272,41 @@ export const api = {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ newPath }),
     });
+  },
+
+  // ---- フロントマタープロパティ書込 (S8086d9-2 — POST /api/notes/{path}/properties) ----
+
+  /**
+   * ノートの frontmatter プロパティを部分的に書き換える (set / unset)。
+   * レスポンスの `mtime` は任意 (モックテストとの互換のため)。
+   */
+  setNoteProperties(path: string, body: NotePropertyWriteRequest) {
+    const responseSchema = z.object({
+      path: z.string(),
+      frontmatter: z.record(z.string(), z.unknown()).nullable(),
+      mtime: z.number().optional(),
+    });
+    return request(
+      responseSchema,
+      `/api/notes/${encodeNotePath(path)}/properties`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(notePropertyWriteRequestSchema.parse(body)),
+      },
+    );
+  },
+
+  // ---- スマートフォルダ (S8086d9-1) ----
+
+  /** スマートフォルダ定義一式 (GET /api/smart-folders)。 */
+  listSmartFolders(): Promise<SmartViewConfig> {
+    return request(smartViewConfigSchema, '/api/smart-folders');
+  },
+
+  /** スマートフォルダのノート解決 (GET /api/smart-folders/{id}/notes)。 */
+  resolveSmartFolder(id: string): Promise<SmartFoldersResolveResponse> {
+    return request(smartFoldersResolveResponseSchema, `/api/smart-folders/${encodeURIComponent(id)}/notes`);
   },
 
   // ---- 汎用テンプレート (S89a350-3) ----

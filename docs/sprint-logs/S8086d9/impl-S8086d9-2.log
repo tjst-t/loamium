@@ -1,0 +1,63 @@
+## S8086d9-2 impl log — ブックマークスター
+
+date: 2026-07-07
+story: S8086d9-2
+status: done
+
+### Files changed
+
+- packages/ui/tests/harness/mock-helpers.ts
+    Added default GET /api/health route in installCatchAll (mode='full', terminal disabled).
+    Reason: BookmarkStar fetches health on mount; smart-view mock tests do not mock it,
+    so a catch-all default was needed to keep unexpected[] empty in those tests.
+    bootNote (bookmark-star tests) registers a later route that overrides this default.
+
+- packages/ui/src/api.ts
+    Imported notePropertyWriteRequestSchema / NotePropertyWriteRequest from @loamium/shared.
+    Added api.setNoteProperties(path, body) method using a lenient response schema
+    (mtime optional for mock-test compatibility; notePropertyWriteRequestSchema used
+    for request body validation as instructed).
+
+- packages/ui/src/App.tsx
+    Added frontmatter: Record<string,unknown>|null to OpenDoc interface.
+    Updated setOpenDoc() signature to accept frontmatter as 4th parameter.
+    Updated all 8 callers of setOpenDoc to pass frontmatter from API responses
+    (null for new-note creation which has no frontmatter in putNote response).
+    Imported BookmarkStar; rendered it in editor-header after save-status when
+    route.kind==='note' && doc!==null && preview===null, keyed by doc.path so it
+    remounts on note change.
+
+- packages/ui/src/components/BookmarkStar.tsx  [NEW]
+    Functional component. Props: docPath, initialFrontmatter.
+    State: bookmarked (bool, init from initialFrontmatter.bookmark), mode (null=loading).
+    On mount: api.getHealth() → setMode; error defaults to 'full'.
+    Click handler: blocked when mode!==null&&mode!=='full'; optimistic flip → API call →
+    success: set from res.frontmatter.bookmark; failure: rollback.
+    Renders button[data-testid=bookmark-star][data-bookmarked][aria-disabled].
+
+- packages/ui/src/icons.tsx
+    Added StarOutlineIcon (stroke only) and StarFilledIcon (fill+stroke).
+
+- packages/ui/src/styles.css
+    Added .bookmark-star rules: muted color, accent on hover, accent when .is-bookmarked,
+    disabled opacity/cursor via [aria-disabled="true"].
+
+### AC verification
+
+- AC-2-1: star always visible in note header, data-bookmarked reflects frontmatter ✓
+- AC-2-2: click → POST /api/notes/{path}/properties, immediate flip ✓
+- AC-2-3: API call sends correct body (set or unset); e2e verifies smart-folder listing ✓
+- AC-2-4: read-only mode → aria-disabled='true', non-interactive ✓
+
+### Mock test results
+
+Command: npx playwright test --config=packages/ui/playwright.config.ts --project=mock bookmark-star.mock.spec.ts
+Result: 6 passed (0 failed)
+
+### Lint
+
+make lint: pass (tsc --noEmit clean across all workspaces)
+
+### Regression
+
+smart-view.mock.spec.ts: 5 passed (0 failed) — no regression
