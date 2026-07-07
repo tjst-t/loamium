@@ -2,7 +2,7 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "S32940c",
+    "current_sprint": "S8086d9",
     "total": 26,
     "done": 24,
     "in_progress": 0,
