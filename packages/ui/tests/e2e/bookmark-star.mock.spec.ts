@@ -11,6 +11,8 @@ const ROOT = 'bm-mock';
 const NOTE_PATH = `${ROOT}/target.md`;
 const BODY = '# Target\n\n本文ターゲット\n';
 
+type PropReq = { set?: Record<string, unknown>; unset?: string[] };
+
 function noteResponse(frontmatter: Record<string, unknown> | null): Record<string, unknown> {
   const fmBlock = frontmatter
     ? `---\n${Object.entries(frontmatter).map(([k, v]) => `${k}: ${String(v)}`).join('\n')}\n---\n`
@@ -58,32 +60,32 @@ test('[MOCK] スター: frontmatter.bookmark=true は塗り表示', async ({ pag
 
 test('[MOCK] スター: 未ブックマークのクリックは set{bookmark:true} を送る', async ({ page }) => {
   const unexpected = await bootNote(page, null);
-  let captured: { set?: Record<string, unknown>; unset?: string[] } | null = null;
+  const captured: { value: PropReq | null } = { value: null };
   await page.route(`**/api/notes/${ROOT}/target.md/properties`, (route) => {
-    captured = route.request().postDataJSON() as typeof captured;
+    captured.value = route.request().postDataJSON() as PropReq;
     void route.fulfill(json({ path: NOTE_PATH, frontmatter: { bookmark: true } }));
   });
   await page.goto(openNoteUrl());
   await page.getByTestId('bookmark-star').click();
   await expect(page.getByTestId('bookmark-star')).toHaveAttribute('data-bookmarked', 'true');
-  expect(captured).not.toBeNull();
-  expect(captured?.set?.bookmark).toBe(true);
+  expect(captured.value).not.toBeNull();
+  expect(captured.value?.set?.bookmark).toBe(true);
   expect(unexpected).toEqual([]);
 });
 
 test('[MOCK] スター: ブックマーク済のクリックは unset[bookmark] を送る', async ({ page }) => {
   const unexpected = await bootNote(page, { bookmark: true });
-  let captured: { set?: Record<string, unknown>; unset?: string[] } | null = null;
+  const captured: { value: PropReq | null } = { value: null };
   await page.route(`**/api/notes/${ROOT}/target.md/properties`, (route) => {
-    captured = route.request().postDataJSON() as typeof captured;
+    captured.value = route.request().postDataJSON() as PropReq;
     void route.fulfill(json({ path: NOTE_PATH, frontmatter: null }));
   });
   await page.goto(openNoteUrl());
   await expect(page.getByTestId('bookmark-star')).toHaveAttribute('data-bookmarked', 'true');
   await page.getByTestId('bookmark-star').click();
   await expect(page.getByTestId('bookmark-star')).toHaveAttribute('data-bookmarked', 'false');
-  expect(captured).not.toBeNull();
-  expect(captured?.unset).toContain('bookmark');
+  expect(captured.value).not.toBeNull();
+  expect(captured.value?.unset).toContain('bookmark');
   expect(unexpected).toEqual([]);
 });
 
