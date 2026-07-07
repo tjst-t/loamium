@@ -69,6 +69,24 @@
       "reference": "sprint-run.md ウェーブ規則 / DESIGN_PRINCIPLES priority 2(データ安全)",
       "adr_ref": "none",
       "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-07T15:36:02Z",
+      "category": "infra",
+      "title": "node-pty を遅延ロード化(サーバー起動をネイティブモジュール非依存に)",
+      "detail": "terminal.ts が node-pty を静的 import していたため、ネイティブ pty.node がロードできない環境ではサーバーが起動できず全 acceptance/e2e が動かなかった。ターミナルは既定無効のオプトイン機能なので、実際に pty を spawn する瞬間まで createRequire で遅延ロードするよう変更。ターミナル無効(テスト既定)では node-pty に一切触れない。23/24 acceptance ファイルが green 化。",
+      "reference": "DESIGN_PRINCIPLES priority 2(任意機能がコアを壊さない)",
+      "adr_ref": "none",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-07T15:36:02Z",
+      "category": "env_limitation",
+      "title": "terminal.spec.ts はこのサンドボックスで実行不可(GLIBC 不整合)",
+      "detail": "node-pty のネイティブ pty.node は GLIBC_2.42 を要求し、システム libc と不整合でロード不可。ターミナル機能を実際に spawn する tests/acceptance/terminal.spec.ts(7 tests)はこの環境では pass できない。これは環境制約でありスマートフォルダ実装とは無関係(main でも同様に失敗する)。smart-folder の検証(α/β)は terminal に依存しない。verify では terminal.spec.ts を既知の環境 skip として扱い、偽 pass にはしない。",
+      "reference": "test-discipline(偽装しない)",
+      "adr_ref": "none",
+      "drift_flag": "none"
     }
   ]
 }
