@@ -1,6 +1,11 @@
 {
   "sprint": "S32940c",
-  "touched_adrs": ["ADR-0001", "ADR-0002", "ADR-0003", "ADR-0004"],
+  "touched_adrs": [
+    "ADR-0001",
+    "ADR-0002",
+    "ADR-0003",
+    "ADR-0004"
+  ],
   "decisions": [
     {
       "timestamp": "2026-07-07T14:53:41Z",
@@ -53,6 +58,15 @@
       "title": "ビュー切替はサイドバーローカル状態(localStorage)、ルート化しない",
       "detail": "物理/スマートの切替は中央ペインを変えない UI 状態のため localStorage に永続。URL ルートやタブは増やさない。",
       "reference": "DESIGN_PRINCIPLES ui_ux(タブを増やす UI は採らない / ナビゲーションはルーティング)",
+      "adr_ref": "none",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-07T15:22:27Z",
+      "category": "process",
+      "title": "α の Story は逐次単一ウェーブ(base tree)で実行",
+      "detail": "S32940c-1/2/3 は packages/shared/schemas.ts と packages/cli/main.ts を共有し相互独立でないため、並列 worktree ではなく sprint branch 上で 1 Story ずつ逐次実装する(sprint-run のウェーブ規則=重複 Story は後続ウェーブに一致)。deps は base に導入済みで worktree 再インストールを回避。各 Story は sonnet leaf サブエージェントに委譲。",
+      "reference": "sprint-run.md ウェーブ規則 / DESIGN_PRINCIPLES priority 2(データ安全)",
       "adr_ref": "none",
       "drift_flag": "none"
     }
