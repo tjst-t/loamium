@@ -666,6 +666,19 @@ code {
 }
 .task-checkbox svg { width: 10px; height: 10px; }
 
+/* 箇条書きドット (- / * / + をライブプレビューで装飾表示) */
+.cm-list-bullet {
+  display: inline-block;
+  color: var(--accent);
+  font-size: 0.9em;
+  line-height: 1;
+  /* 元のマーカー 1 文字と同じ横幅を保ち、本文のインデントを崩さない */
+  width: 1ch;
+  text-align: center;
+  vertical-align: baseline;
+  user-select: none;
+}
+
 /* ==========================================================================
    S9ab6c3 — ライブプレビュー (wikilink / fence-widget / math)
    prototype/editor.html 準拠
@@ -3199,11 +3212,13 @@ button.callout-title { cursor: pointer; }
   padding: 8px 10px;
   border-radius: 7px;
   font-size: 13px;
+  color: var(--text);
 }
 .newnote-menu .nm-item:hover { background: var(--bg-hover); }
-.newnote-menu .nm-item svg { width: 15px; height: 15px; color: var(--text-faint); flex-shrink: 0; }
-.newnote-menu .nm-item .nm-sub { display: block; font-size: 11px; color: var(--text-faint); }
-.newnote-menu .nm-item .nm-main { flex: 1; min-width: 0; }
+.newnote-menu .nm-item svg { width: 15px; height: 15px; color: var(--text-muted); flex-shrink: 0; }
+.newnote-menu .nm-item:hover svg { color: var(--accent); }
+.newnote-menu .nm-item .nm-sub { display: block; font-size: 11px; color: var(--text-muted); }
+.newnote-menu .nm-item .nm-main { flex: 1; min-width: 0; color: var(--text); }
 .newnote-menu .nm-sep { border-top: 1px solid var(--border); margin: 4px 6px; }
 
 /* テンプレート選択 (picker) — palette 系を流用 */

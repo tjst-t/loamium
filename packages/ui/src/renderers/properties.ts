@@ -1382,7 +1382,12 @@ export function renderEmptyPropertiesEntry(
   const commitFirst = (key: string, type: BuiltinPropertyType): void => {
     const entry = makeNewEntry(type, key, '');
     const block = serializeFrontmatterBlock([entry]);
-    if (block !== null) handlers.commit(block);
+    if (block !== null) {
+      // 空ノートへの初回追加時は詳細を自動展開する。既定は畳み (S87f4b7-1-AC1)
+      // だが、追加直後にすぐ値を入力できるよう開いておく。
+      propsOpenState.set(options?.notePath ?? '', true);
+      handlers.commit(block);
+    }
   };
 
   const menu = createAddMenu({

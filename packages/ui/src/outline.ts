@@ -7,9 +7,12 @@
  * - 折りたたみ: 子行を持つリスト行のガターに fold-toggle を表示し、
  *   サブツリー (ListItem ノードの残り行) を折りたたむ。placeholder は
  *   fold-pill (「… N 行」)。
- * - チェックボックス: - [ ] / - [x] の TaskMarker をクリック可能な
- *   ウィジェットに置換 (カーソル行はソース表示)。トグルはドキュメント編集
- *   なので、既存の自動保存フローでピュア Markdown としてファイルに載る。
+ * - チェックボックス: - [ ] / - [x] を ListItem のマーカー直後から直接検出し、
+ *   クリック可能なウィジェットに置換する (カーソル行はソース表示)。トグルは
+ *   ドキュメント編集なので、既存の自動保存フローでピュア Markdown としてファイル
+ *   に載る。空タスク `- [ ]` も取りこぼさない。
+ * - 箇条書きドット: - / * / + のマーカーを深さ別の装飾ドット (• / ◦ / ▪) に
+ *   置換する (カーソル行はソース表示)。数字リストは素のまま。
  *
  * リスト行判定は lezer-markdown の構文木 (ListItem) で行う (decisions.json I2)。
  */
@@ -262,7 +265,47 @@ class TaskCheckboxWidget extends WidgetType {
   }
 }
 
-function buildCheckboxDecorations(view: EditorView): DecorationSet {
+/** 箇条書きマーカー (- / * / +) を深さ別の装飾ドットへ置換するウィジェット。 */
+class BulletWidget extends WidgetType {
+  constructor(readonly glyph: string) {
+    super();
+  }
+
+  override eq(other: BulletWidget): boolean {
+    return other.glyph === this.glyph;
+  }
+
+  override toDOM(): HTMLElement {
+    const span = document.createElement('span');
+    span.className = 'cm-list-bullet';
+    span.setAttribute('aria-hidden', 'true');
+    span.textContent = this.glyph;
+    return span;
+  }
+}
+
+/** 入れ子深さ別のドット (0: • / 1: ◦ / 2: ▪ で循環)。 */
+const BULLET_GLYPHS = ['•', '◦', '▪'];
+
+/** ListItem の入れ子深さ (0 始まり = 祖先の List ノード数 - 1)。 */
+function listDepth(node: SyntaxNode): number {
+  let lists = 0;
+  for (let p = node.parent; p !== null; p = p.parent) {
+    if (p.name === 'BulletList' || p.name === 'OrderedList') lists++;
+  }
+  return Math.max(0, lists - 1);
+}
+
+/**
+ * リスト装飾 (チェックボックス + 箇条書きドット) を構築する。
+ *
+ * チェックボックス判定は lezer の `TaskMarker` に頼らず、ListItem のマーカー直後の
+ * 行頭 `[ ]` / `[x]` / `[X]` を直接見る。lezer-markdown の TaskList は `]` の直後に
+ * 空白を要求するため、`- [ ]` (末尾 = 空タスク) や `- [x]` (リンクとして誤解析) を
+ * 取りこぼす。これが「TODO がチェックボックスにならない場合がある」の原因だった。
+ * ListItem 経由なのでコードフェンス内などは自然に除外される。
+ */
+function buildListDecorations(view: EditorView): DecorationSet {
   const widgets: ReturnType<Decoration['range']>[] = [];
   const state = view.state;
   const active = activeLines(state);
@@ -271,28 +314,61 @@ function buildCheckboxDecorations(view: EditorView): DecorationSet {
       from,
       to,
       enter(node) {
-        if (node.name !== 'TaskMarker') return;
+        if (node.name !== 'ListItem') return;
         const line = state.doc.lineAt(node.from);
         if (active.has(line.number)) return; // カーソル行はソース表示
-        const text = state.doc.sliceString(node.from, node.to);
-        const checked = /\[[xX]\]/.test(text);
-        widgets.push(
-          Decoration.replace({
-            widget: new TaskCheckboxWidget(checked, line.number),
-          }).range(node.from, node.to),
-        );
+        // ListItem 直下の ListMark (- / * / + / 1. …) を探す。
+        let markFrom = -1;
+        let markTo = -1;
+        const cur = node.node.cursor();
+        if (cur.firstChild()) {
+          do {
+            if (cur.name === 'ListMark') {
+              markFrom = cur.from;
+              markTo = cur.to;
+              break;
+            }
+          } while (cur.nextSibling());
+        }
+        if (markTo < 0) return;
+        const markChar = state.doc.sliceString(markFrom, markFrom + 1);
+        const isBullet = markChar === '-' || markChar === '*' || markChar === '+';
+        // マーカー直後〜行末からタスク記法 `[ ]` を直接検出 (空白/EOL が続くもの限定)。
+        const rest = state.doc.sliceString(markTo, line.to);
+        const task = /^\s+\[([ xX])\](?=\s|$)/.exec(rest);
+        if (task !== null) {
+          const bracketFrom = markTo + task[0].length - 3;
+          const checked = task[1] === 'x' || task[1] === 'X';
+          // 箇条書きタスクはマーカー("- "等)を隠してチェックボックス単独にする。
+          if (isBullet) {
+            widgets.push(Decoration.replace({}).range(markFrom, bracketFrom));
+          }
+          widgets.push(
+            Decoration.replace({
+              widget: new TaskCheckboxWidget(checked, line.number),
+            }).range(bracketFrom, bracketFrom + 3),
+          );
+          return;
+        }
+        // 通常の箇条書き: マーカー文字を深さ別の装飾ドットへ置換 (数字リストは素のまま)。
+        if (isBullet) {
+          const glyph = BULLET_GLYPHS[listDepth(node.node) % BULLET_GLYPHS.length] ?? '•';
+          widgets.push(
+            Decoration.replace({ widget: new BulletWidget(glyph) }).range(markFrom, markTo),
+          );
+        }
       },
     });
   }
   return Decoration.set(widgets, true);
 }
 
-const checkboxPlugin = ViewPlugin.fromClass(
+const listDecoPlugin = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet;
 
     constructor(view: EditorView) {
-      this.decorations = buildCheckboxDecorations(view);
+      this.decorations = buildListDecorations(view);
     }
 
     update(update: ViewUpdate): void {
@@ -302,7 +378,7 @@ const checkboxPlugin = ViewPlugin.fromClass(
         update.viewportChanged ||
         syntaxTree(update.state) !== syntaxTree(update.startState)
       ) {
-        this.decorations = buildCheckboxDecorations(update.view);
+        this.decorations = buildListDecorations(update.view);
       }
     }
   },
@@ -311,5 +387,5 @@ const checkboxPlugin = ViewPlugin.fromClass(
 
 /** アウトライン操作一式 (Editor に登録する) */
 export function outlineExtension(): Extension {
-  return [outlineFolding, outlineFoldGutter, outlineKeymap, checkboxPlugin];
+  return [outlineFolding, outlineFoldGutter, outlineKeymap, listDecoPlugin];
 }

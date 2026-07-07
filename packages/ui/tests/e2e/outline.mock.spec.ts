@@ -143,3 +143,43 @@ test('[MOCK] fold-toggle は子を持つリスト行だけに出る', async ({ p
   await expect(page.locator('[data-testid="fold-toggle"][data-line="1"]')).toHaveCount(0);
   expect(unexpected).toEqual([]);
 });
+
+// fix: 空タスク `- [ ]` / 素の `- [x]` もチェックボックスになる + 箇条書きはドット装飾
+const TASK_LIST_CONTENT = [
+  '# タスク',
+  '',
+  '- ふつうの箇条書き',
+  '- [ ]', // 本文が無い空タスク (lezer の TaskMarker は取りこぼす)
+  '- [x]', // 本文が無い完了タスク (lezer はリンクとして誤解析する)
+  '',
+].join('\n');
+
+test('[MOCK] 空タスク/素の完了タスクもチェックボックスになり、箇条書きはドット装飾される', async ({
+  page,
+}) => {
+  const unexpected = await installCatchAll(page);
+  await page.route('**/api/notes', (route) => {
+    void route.fulfill(
+      json({ notes: [{ path: JOURNAL_PATH, title: DATE, tags: [], folder: 'journals' }] }),
+    );
+  });
+  await page.route('**/api/journal', (route) => {
+    void route.fulfill(json(journal(TASK_LIST_CONTENT)));
+  });
+  await page.goto(readHarnessState().uiUrl);
+  await expect(page.getByTestId('editor')).toContainText('ふつうの箇条書き');
+
+  // 見出し行にカーソルを置き、リスト行を非アクティブ (装飾表示) にする
+  await editorLine(page, 'タスク').click();
+
+  // 空タスク・素の完了タスクの両方がチェックボックスとして描画される (計 2)
+  await expect(page.getByTestId('task-checkbox')).toHaveCount(2);
+  // うち 1 つ (- [x]) は checked
+  await expect(page.locator('[data-testid="task-checkbox"].checked')).toHaveCount(1);
+
+  // 通常の箇条書き行はドット (•) に置換される。タスク行のマーカーは隠すので 1 つだけ
+  await expect(page.locator('.cm-list-bullet')).toHaveCount(1);
+  await expect(page.locator('.cm-list-bullet').first()).toHaveText('•');
+
+  expect(unexpected).toEqual([]);
+});
