@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "S8086d9",
-    "total": 26,
+    "current_sprint": "S7b2f22",
+    "total": 27,
     "done": 25,
     "in_progress": 0,
-    "remaining": 1,
-    "percentage": 96
+    "remaining": 2,
+    "percentage": 92
   },
   "execution_order": [
     "Sd63ad1",
@@ -35,7 +35,8 @@
     "S89a350",
     "S67ea41",
     "S32940c",
-    "S8086d9"
+    "S8086d9",
+    "S7b2f22"
   ],
   "sprints": {
     "Sd63ad1": {
@@ -2594,6 +2595,92 @@
           "tasks": {}
         }
       }
+    },
+    "S7b2f22": {
+      "title": "スマートフォルダ作成・編集 UI — サイドバーからの authoring",
+      "status": "pending",
+      "description": "スマートビューに作成/編集/削除/並べ替えの UI を追加する。バックエンド PUT /api/smart-folders は S32940c で実装済み。UI クライアント putSmartFolders + フォーム(プリセット→DQL 生成 + 生 DQL + pin パス + アイコン)を足す。ADR-0001/0003/0004 準拠。autopilot review ③(新規スコープ)。",
+      "milestone": true,
+      "stories": {
+        "S7b2f22-1": {
+          "title": "スマートフォルダの作成・編集・削除・並べ替え UI",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "スマートフォルダを使う自分として、サイドバーからスマートフォルダを作成・編集・削除・並べ替えしたい。なぜなら、API や CLI を使わず UI 内で論理ビューを組み立てたいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S7b2f22-1-1",
+              "description": "スマートビューのヘッダに「+」ボタンがあり、押すと作成フォームが開く。名前・アイコン・種別(query/pin)を指定できる。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S7b2f22-1-2",
+              "description": "query 種別でプリセット(最近更新N件/特定タグ/journal直近N件/未完了TODO)を選ぶと対応する DQL が自動生成され、生 DQL も直接編集できる。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S7b2f22-1-3",
+              "description": "pin 種別でノートのパスを指定でき、保存すると pin 要素として追加される。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S7b2f22-1-4",
+              "description": "アイコンを組み込みセット(名前)または絵文字から選べ、保存した要素にそのアイコンが描画される。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S7b2f22-1-5",
+              "description": "保存すると PUT /api/smart-folders で永続し、スマートビューに新規項目が即反映される。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S7b2f22-1-6",
+              "description": "既存項目を編集(フォーム再オープン)・削除でき、上/下で並べ替えできる。変更は PUT で永続し表示順に反映される。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S7b2f22-1-7",
+              "description": "read-only / append-only モードでは作成/編集/削除/並べ替えの導線が無効化される。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S7b2f22-1-1": {
+              "title": "putSmartFolders クライアント",
+              "description": "api.ts に putSmartFolders(config) を追加(PUT /api/smart-folders、shared smartViewConfigSchema 利用)",
+              "status": "pending"
+            },
+            "S7b2f22-1-2": {
+              "title": "SmartFolderForm",
+              "description": "作成/編集共用フォーム: 名前/アイコンピッカー/種別、query プリセット→DQL 生成 + 生 DQL 編集、pin パス入力",
+              "status": "pending"
+            },
+            "S7b2f22-1-3": {
+              "title": "SmartView authoring 統合",
+              "description": "+ボタン、各項目の編集/削除/並べ替えコントロール、PUT 呼び出し + 再取得",
+              "status": "pending"
+            },
+            "S7b2f22-1-4": {
+              "title": "権限ガード",
+              "description": "mode!==full で authoring 導線を無効化(health 参照)",
+              "status": "pending"
+            },
+            "S7b2f22-1-5": {
+              "title": "mock + e2e テスト",
+              "description": "作成(プリセット/生DQL/pin)・アイコン・保存反映・編集/削除/並べ替え・read-only を検証",
+              "status": "pending"
+            }
+          }
+        }
+      }
     }
   },
   "dependencies": {
@@ -2747,6 +2834,12 @@
         "S32940c"
       ],
       "reason": "スマートビュー UI は S32940c の smart-folders / properties API と DQL 拡張に依存する"
+    },
+    "S7b2f22": {
+      "depends_on": [
+        "S8086d9"
+      ],
+      "reason": "作成 UI は S8086d9 の SmartView/api クライアントと S32940c の PUT /api/smart-folders を使う"
     }
   },
   "backlog": [
