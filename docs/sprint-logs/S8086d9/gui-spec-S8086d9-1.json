@@ -1,0 +1,41 @@
+{
+  "sprint": "S8086d9",
+  "story": "S8086d9-1",
+  "state_diagram": "stateDiagram-v2\n    [*] --> Physical: 初期表示 (localStorage 既定 = physical)\n    Physical --> Smart: sidebar-view-smart クリック (localStorage 保存)\n    Smart --> Physical: sidebar-view-physical クリック (localStorage 保存)\n    state Smart {\n        [*] --> LoadingDefs: GET /api/smart-folders\n        LoadingDefs --> EmptyView: items 空\n        LoadingDefs --> Populated: items あり\n        LoadingDefs --> ViewError: 取得失敗 (5xx/破損)\n        state Populated {\n            [*] --> Collapsed\n            Collapsed --> Resolving: query フォルダ展開 (GET /{id}/notes)\n            Resolving --> Expanded: 解決成功\n            Resolving --> FolderError: 解決失敗\n            Expanded --> Collapsed: 再クリックで折りたたみ\n        }\n    }",
+  "scenarios": {
+    "entry_point": "サイドバーヘッダの sidebar-view-smart トグル (中央ペインは変えないローカル UI 状態)",
+    "happy_path": "ユーザーが sidebar-view-smart をクリック → スマートビューが定義を読み込み、query フォルダと pin 葉を描画 → query フォルダを展開すると解決結果(NoteMeta)が並ぶ → ノートをクリックすると /n/{path} で開く",
+    "data_states": {
+      "empty": "items が空: smart-view-empty(「スマートフォルダがありません」+ 作成導線)",
+      "loading": "定義取得中: smart-view-loading。query 展開中はフォルダ内 smart-folder-loading",
+      "error": "定義取得失敗: smart-view-error(再試行導線)。query 解決失敗はフォルダ内 smart-folder-error に留まりアプリ全体は壊さない"
+    },
+    "edge_cases": [
+      "未知アイコン名は絵文字等としてそのまま描画(data-icon にそのまま入る)",
+      "存在しない pin パスは非活性/欠損表示(サーバ側で解決結果から除外)",
+      "物理ビューは従来どおり(回帰なし)。切替は中央ペインのノートを閉じない"
+    ],
+    "success_feedback": "選択中ビューのトグルが aria-pressed=true。query 展開で結果が即描画",
+    "failure_feedback": "smart-view-error / smart-folder-error のインライン表示。物理ビューへは常に戻れる"
+  },
+  "endpoint_contracts": [
+    {"path": "/api/smart-folders", "method": "GET", "registered": false, "request_fields": null, "response_fields": {"version": "number", "items": "SmartViewItem[] (kind: 'pin'|'query')"}},
+    {"path": "/api/smart-folders/{id}/notes", "method": "GET", "registered": false, "request_fields": null, "response_fields": {"notes": "NoteMeta[] {path,title,tags,folder,mtime?,size?}"}},
+    {"path": "/api/notes", "method": "GET", "registered": true, "request_fields": null, "response_fields": {"notes": "NoteMeta[]"}}
+  ],
+  "testid_contract": {
+    "sidebar-view-physical": "物理ビュー切替ボタン (aria-pressed)",
+    "sidebar-view-smart": "スマートビュー切替ボタン (aria-pressed)",
+    "file-tree": "物理フォルダツリー (既存)",
+    "smart-view": "スマートビューのコンテナ",
+    "smart-view-empty / smart-view-loading / smart-view-error": "ビュー全体の状態",
+    "smart-folder": "query フォルダ (data-id, aria-expanded)。内部に smart-folder-icon(data-icon), smart-folder-loading, smart-folder-error",
+    "smart-note": "query 解決結果のノート行 (data-path)",
+    "smart-pin": "pin の葉 (data-id, data-path)。内部に smart-folder-icon(data-icon)"
+  },
+  "registered_false_note": "GET /api/smart-folders と /{id}/notes は Sprint S32940c(α-2)で実装される。β は α 完了後に実装・検証する(ROADMAP 依存 S8086d9→S32940c)。",
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/smart-view.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/smart-view.mock.spec.ts"
+  }
+}

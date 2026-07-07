@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": null,
-    "total": 24,
+    "current_sprint": "S32940c",
+    "total": 26,
     "done": 23,
     "in_progress": 0,
-    "remaining": 1,
-    "percentage": 96
+    "remaining": 3,
+    "percentage": 88
   },
   "execution_order": [
     "Sd63ad1",
@@ -33,7 +33,9 @@
     "S45fa45",
     "Sd13ab1",
     "S89a350",
-    "S67ea41"
+    "S67ea41",
+    "S32940c",
+    "S8086d9"
   ],
   "sprints": {
     "Sd63ad1": {
@@ -2293,6 +2295,305 @@
           }
         }
       }
+    },
+    "S32940c": {
+      "title": "スマートフォルダ基盤 — DQL拡張 + 定義/解決API + プロパティ書込API + CLI",
+      "status": "pending",
+      "description": "スマートビュー機能のバックエンド契約(ADR-0001/0002/0003/0004)を REST + CLI で実装する。既存 DQL に LIMIT と未完了タスク・フィールドを加算し、スマートフォルダ定義(.loamium/smart-folders.json, git 追跡)の CRUD/解決、frontmatter プロパティのワンショット書込(スター基盤)を提供する。API-first(DESIGN_PRINCIPLES priority 3)。",
+      "milestone": false,
+      "stories": {
+        "S32940c-1": {
+          "title": "DQL 拡張(LIMIT + 未完了タスク・フィールド)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート整理をする自分として、DQL で『最近更新 N 件』や『未完了 TODO を含むノート』を表現したい。なぜなら、スマートフォルダやノート内 dataview で件数とタスク有無で絞り込めると便利だから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S32940c-1-1",
+              "description": "LIST/TABLE/TASK に `LIMIT n`(n は正整数)を付けると、SORT 適用後の先頭 n 件に結果が制限される",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S32940c-1-2",
+              "description": "ノート単位フィールド file.open_tasks(未完了タスク数)と file.tasks(総数)が解決され、`LIST WHERE file.open_tasks` が未完了タスクを持つノートのみを返す",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S32940c-1-3",
+              "description": "LIMIT・新フィールドを使わない既存クエリの結果は不変(後方互換)。負値/非整数の LIMIT は位置情報付きエラーで拒否される",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S32940c-1-4",
+              "description": "POST /api/query が LIMIT・新フィールドを受理し、同 API を利用する既存 dataview レンダラがそのまま恩恵を受ける",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S32940c-1-5",
+              "description": "dql.ts のパーサ/評価器に境界ユニットテストがある(LIMIT 0/巨大 n/負・非整数拒否/タスク0件ノート/未完了0件)",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S32940c-1-1": {
+              "title": "LIMIT 句のパース",
+              "description": "DqlQuery AST に limit: number|null を追加し、CLAUSE_KEYWORDS に limit を足してパーサに LIMIT 句を実装",
+              "status": "pending"
+            },
+            "S32940c-1-2": {
+              "title": "タスク有無フィールド",
+              "description": "noteField に file.open_tasks / file.tasks を追加(QueryableNote.tasks から計算)。truthy 検査可能な数値",
+              "status": "pending"
+            },
+            "S32940c-1-3": {
+              "title": "LIMIT 適用",
+              "description": "executeQuery で SORT 後に先頭 n 件へ slice。境界(0/負/非整数)の扱いを定義",
+              "status": "pending"
+            },
+            "S32940c-1-4": {
+              "title": "共有型と API 経路",
+              "description": "packages/shared の型更新、POST /api/query が新構文を受理することを確認",
+              "status": "pending"
+            },
+            "S32940c-1-5": {
+              "title": "ユニットテスト",
+              "description": "dql.test.ts に LIMIT/タスクフィールド/後方互換の境界ケースを追加",
+              "status": "pending"
+            }
+          }
+        },
+        "S32940c-2": {
+          "title": "スマートフォルダ定義・解決 API + CLI",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "自分やエージェントとして、スマートフォルダ定義を保存・取得し、フォルダを開いたら中身のファイル一覧を得たい。なぜなら、サイドバーや CLI から同じ論理ビューを再現できると便利だから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S32940c-2-1",
+              "description": "GET /api/smart-folders が {version, items[]} を返す。定義ファイルの欠損/破損時は空 items にフォールバックしログを残す(クラッシュしない)",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S32940c-2-2",
+              "description": "PUT /api/smart-folders が定義を全置換(zod 検証、.loamium/smart-folders.json に 2-space JSON でアトミック書込)。監査ログ smart-folders.write を記録し、read-only/append-only モードでは 403",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S32940c-2-3",
+              "description": "GET /api/smart-folders/{id}/notes が解決結果 NoteMeta[] を返す(query→executeQuery、pin→当該1件)。存在しない pin は結果から除外しファイルは壊さない",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S32940c-2-4",
+              "description": "item スキーマは pin|query の判別ユニオン(packages/shared, zod)。pin.path は normalizeVaultPath を通し .. 脱出/隠しセグメントを拒否、query.dql は parseQuery で検証。不正定義の PUT は 4xx",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S32940c-2-5",
+              "description": ".gitignore が `.loamium/*` + `!/.loamium/smart-folders.json` になり、定義ファイルのみ git 追跡され他の .loamium/* は無視のまま",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S32940c-2-6",
+              "description": "CLI が 1:1 対応する: `loamium smart-folders`(GET) / `loamium smart-folders set <json>`(PUT) / `loamium smart-folder <id>`(解決)。--json で生 JSON 出力",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S32940c-2-1": {
+              "title": "共有スキーマ",
+              "description": "SmartViewConfig / SmartViewItem(kind: pin|query)の zod スキーマ + 型を packages/shared に定義",
+              "status": "pending"
+            },
+            "S32940c-2-2": {
+              "title": "定義 CRUD ルート",
+              "description": "smartFoldersRoutes(GET/PUT)。.loamium/smart-folders.json の寛容 read + アトミック write(property-types 流儀)、監査・権限結線",
+              "status": "pending"
+            },
+            "S32940c-2-3": {
+              "title": "解決エンドポイント",
+              "description": "GET /api/smart-folders/{id}/notes。query→VaultIndex.queryNotes()+executeQuery、pin→NoteMeta 解決 + 存在確認",
+              "status": "pending"
+            },
+            "S32940c-2-4": {
+              "title": ".gitignore 更新",
+              "description": "`.loamium/` を `.loamium/*` に変更し `!/.loamium/smart-folders.json` を追加(ディレクトリ除外だと再包含不可のため)",
+              "status": "pending"
+            },
+            "S32940c-2-5": {
+              "title": "CLI サブコマンド",
+              "description": "smart-folders / smart-folders set / smart-folder <id> を Commander で追加(apiFetch/putJson)",
+              "status": "pending"
+            },
+            "S32940c-2-6": {
+              "title": "受け入れテスト",
+              "description": "real HTTP + CLI subprocess で AC を網羅(tests/acceptance)",
+              "status": "pending"
+            }
+          }
+        },
+        "S32940c-3": {
+          "title": "frontmatter プロパティ書込 API + CLI(スター基盤)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "自分として、ノートの frontmatter プロパティをワンショットで付与・削除したい。なぜなら、ブックマークなどの状態をノート本文を壊さず安全に書けることが大事だから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S32940c-3-1",
+              "description": "POST /api/notes/{path}/properties が body {set?, unset?} で frontmatter トップレベルキーを追加/更新/削除できる",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S32940c-3-2",
+              "description": "書込は round-trip 安全 — 本文と既存プロパティを保持し対象キーのみ変更、全キー削除時は frontmatter ブロックごと除去。preserve 不能な frontmatter は 4xx で拒否しファイルを変更しない(priority 2)",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S32940c-3-3",
+              "description": "監査ログ note.property.write を記録し、read-only/append-only モードでは 403",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S32940c-3-4",
+              "description": "CLI が 1:1 対応する: `loamium prop set <path> <key> <value>` / `loamium prop unset <path> <key>`",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S32940c-3-5",
+              "description": "bookmark:true を付与したノートが `LIST WHERE bookmark` の結果に現れ、解除すると消える(DQL 拡張・定義 API と結合した end-to-end)",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S32940c-3-1": {
+              "title": "properties 書込ルート",
+              "description": "notes ルートに POST /api/notes/{path}/properties。リクエスト zod(set/unset)を shared に定義",
+              "status": "pending"
+            },
+            "S32940c-3-2": {
+              "title": "round-trip 書換",
+              "description": "parseNote + PropEntry モデル + serializeFrontmatterBlock で set/unset を実装。preserve 不能時 4xx、空で frontmatter ブロック除去",
+              "status": "pending"
+            },
+            "S32940c-3-3": {
+              "title": "監査/権限",
+              "description": "note.property.write を監査、read-only/append-only で 403 になるようミドルウェア結線",
+              "status": "pending"
+            },
+            "S32940c-3-4": {
+              "title": "CLI prop",
+              "description": "prop set/unset サブコマンドを追加",
+              "status": "pending"
+            },
+            "S32940c-3-5": {
+              "title": "受け入れテスト",
+              "description": "round-trip 保持、bookmark 付与→WHERE bookmark 出現→解除で消滅を real HTTP + CLI で検証",
+              "status": "pending"
+            }
+          }
+        }
+      }
+    },
+    "S8086d9": {
+      "title": "スマートビュー UI — 物理/スマート切替・スマートフォルダ描画・ブックマークスター",
+      "status": "pending",
+      "description": "スマートフォルダ基盤(S32940c)の上に、サイドバーの物理/スマート ビュー切替とスマートフォルダ描画、ノートヘッダのブックマークスターを実装する。GUI Story のため sprint plan 時に GUI spec(状態図 + エンドポイント契約 + Playwright mock/E2E)を導出する。ADR-0003/0004。",
+      "milestone": true,
+      "stories": {
+        "S8086d9-1": {
+          "title": "サイドバー 物理/スマート ビュー切替 + スマートフォルダ描画",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノートを探す自分として、サイドバーを物理フォルダビューとスマートビューで切り替えたい。なぜなら、クエリで動的に集めた論理的なファイル群からもノートにアクセスできると便利だから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S8086d9-1-1",
+              "description": "サイドバーヘッダのトグルで物理↔スマートを切替でき、選択は localStorage に永続してリロード後も維持される",
+              "test": "[AC-S8086d9-1-1] packages/ui/tests/e2e/smart-view.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S8086d9-1-2",
+              "description": "スマートビューが定義を描画する: query 要素は展開で GET /api/smart-folders/{id}/notes の結果を一覧表示、pin 要素はクリック可能な葉として表示",
+              "test": "[AC-S8086d9-1-2] packages/ui/tests/e2e/smart-view.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S8086d9-1-3",
+              "description": "各要素のアイコンがカスタム設定で描画される(組み込みアイコン名 or 絵文字フォールバック、未設定時は kind 既定)",
+              "test": "[AC-S8086d9-1-3] packages/ui/tests/e2e/smart-view.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S8086d9-1-4",
+              "description": "一覧のノートをクリックすると既存ルーティングでそのノートを開く。空/読み込み中/エラー(定義破損・API 失敗)状態を表示する",
+              "test": "[AC-S8086d9-1-4] packages/ui/tests/e2e/smart-view.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S8086d9-1-5",
+              "description": "物理ビューは従来どおり表示される(回帰なし)",
+              "test": "[AC-S8086d9-1-5] packages/ui/tests/e2e/smart-view.e2e.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {}
+        },
+        "S8086d9-2": {
+          "title": "ブックマークスター(ノートヘッダ)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノートを読む自分として、ページ右上のスターをクリックしてブックマークを付けたい。なぜなら、後から見返すノートをワンクリックで集められると便利だから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S8086d9-2-1",
+              "description": "ノートヘッダ右上にスターが常時表示される(bookmark プロパティが無いノートでも)。bookmark:true なら塗り、無ければ枠のみ",
+              "test": "[AC-S8086d9-2-1] packages/ui/tests/e2e/bookmark-star.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S8086d9-2-2",
+              "description": "スターをクリックすると POST /api/notes/{path}/properties 経由で bookmark を付与/解除し、表示が即時に切り替わる",
+              "test": "[AC-S8086d9-2-2] packages/ui/tests/e2e/bookmark-star.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S8086d9-2-3",
+              "description": "ブックマークしたノートが `LIST WHERE bookmark` を使うスマートフォルダに現れ、解除で消える",
+              "test": "[AC-S8086d9-2-3] packages/ui/tests/e2e/bookmark-star.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S8086d9-2-4",
+              "description": "read-only モードではスターが無効化される(書込不可と整合)",
+              "test": "[AC-S8086d9-2-4] packages/ui/tests/e2e/bookmark-star.mock.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {}
+        }
+      }
     }
   },
   "dependencies": {
@@ -2440,6 +2741,12 @@
         "S87f4b7"
       ],
       "reason": "S87f4b7 のプロパティ UI(折りたたみ/意味型/型ピッカー)を改訂する"
+    },
+    "S8086d9": {
+      "depends_on": [
+        "S32940c"
+      ],
+      "reason": "スマートビュー UI は S32940c の smart-folders / properties API と DQL 拡張に依存する"
     }
   },
   "backlog": [

@@ -1,0 +1,60 @@
+{
+  "sprint": "S32940c",
+  "touched_adrs": ["ADR-0001", "ADR-0002", "ADR-0003", "ADR-0004"],
+  "decisions": [
+    {
+      "timestamp": "2026-07-07T14:53:41Z",
+      "category": "planning",
+      "title": "スマートフォルダ機能を 2 Sprint に分割(基盤 α → UI β)",
+      "detail": "バックエンド契約(DQL 拡張・定義/解決 API・プロパティ書込 API・CLI)を S32940c、UI(ビュー切替・スター)を S8086d9 に分け、β を α に依存させた。GUI E2E は実サーバを要するため、API を先に固めてから UI に進む。",
+      "reference": "DESIGN_PRINCIPLES priority 3(REST API を先に、UI/CLI はそれを叩く)/ architecture",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-07T14:53:41Z",
+      "category": "planning",
+      "title": "クエリは既存 DQL を再利用し LIMIT + タスク有無フィールドを加算",
+      "detail": "新クエリ言語を作らず dql.ts を拡張。LIMIT n 句と file.open_tasks/file.tasks を追加し、ノート内 dataview フェンスと共有。加算のみで後方互換。",
+      "reference": "ADR-0001 / priority 4(Obsidian 互換)/ priority 5(シンプルさ)",
+      "adr_ref": "ADR-0001",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-07T14:53:41Z",
+      "category": "planning",
+      "title": "定義は .loamium/smart-folders.json を git 追跡(gitignore を .loamium/* + 再包含に変更)",
+      "detail": "定義は再構築不能なユーザー設定のため git 追跡。ディレクトリ除外だと再包含できないため .gitignore を `.loamium/*` + `!/.loamium/smart-folders.json` にする。他の .loamium/* は使い捨てのまま。",
+      "reference": "ADR-0002 / priority 6(.loamium は使い捨て)への明示的例外",
+      "adr_ref": "ADR-0002",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-07T14:53:41Z",
+      "category": "planning",
+      "title": "スマートビュー要素は pin | query の判別ユニオン(pins は不採用)",
+      "detail": "1 枚指名は pin(葉)、集約はすべて query。手動複数リスト pins はブックマークが property+query に移ったため採用しない。ユーザー確認済み。",
+      "reference": "ADR-0003 / ADR-0004 / priority 5",
+      "adr_ref": "ADR-0003",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-07T14:53:41Z",
+      "category": "planning",
+      "title": "ブックマークは frontmatter bookmark プロパティ + 汎用プロパティ書込 API",
+      "detail": "bookmark 所属はノート frontmatter に載せ LIST WHERE bookmark で解決(DQL 変更不要)。書込は汎用 POST /api/notes/{path}/properties(round-trip 安全)。スター UI は β で bookmark 専用ボタンのみ実装(汎用トグル UI は後回し、ユーザー確認済み)。",
+      "reference": "ADR-0004 / priority 1(ピュア Markdown)/ priority 2(データ安全性)/ priority 5",
+      "adr_ref": "ADR-0004",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-07T14:53:41Z",
+      "category": "planning",
+      "title": "ビュー切替はサイドバーローカル状態(localStorage)、ルート化しない",
+      "detail": "物理/スマートの切替は中央ペインを変えない UI 状態のため localStorage に永続。URL ルートやタブは増やさない。",
+      "reference": "DESIGN_PRINCIPLES ui_ux(タブを増やす UI は採らない / ナビゲーションはルーティング)",
+      "adr_ref": "none",
+      "drift_flag": "none"
+    }
+  ]
+}

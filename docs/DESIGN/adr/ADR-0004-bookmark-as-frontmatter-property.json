@@ -1,0 +1,43 @@
+{
+  "id": "ADR-0004",
+  "title": "ブックマークは frontmatter プロパティ bookmark: true で表現し、ノート右上のスターで toggle する",
+  "status": "accepted",
+  "date": "2026-07-07",
+  "context": "スマートビューの『ブックマーク』を、ADR-0003 当初の手動 pins リスト(.loamium 内の paths[])ではなく、ノート自身の frontmatter プロパティ bookmark: true で表現したい。frontmatter は VISION/PRINCIPLES でデータモデルの第一級市民であり、bookmark: true は純粋で Obsidian 互換な Markdown としてノート本体に載る — 設定ファイルの pins リストより priority 1(ピュア Markdown の正本性)に強く沿う。状態がノートと一緒に旅し、.loamium キャッシュ全消しでも失われず、DQL で問い合わせできる。\n\n付随して、各ノートのヘッダ右上(パンくず行の右端。プロパティが未存在のときも常時表示)にスターボタンを置き、1 クリックで bookmark プロパティを自動付与/解除できるようにする。これは UI 起点の frontmatter への書き込みを導入するため、priority 2(データ安全性)と round-trip 安全性の担保が要件になる。",
+  "alternatives": [
+    {
+      "name": "frontmatter bookmark: true + query + スター toggle(採用)",
+      "tradeoff": "純 Markdown・状態がノートに載り持ち運べる・queryable・任意プロパティに一般化可。ただしノートへの書き込みが発生する"
+    },
+    {
+      "name": "手動 pins リスト(.loamium/smart-folders.json、ADR-0003 当初案)",
+      "tradeoff": "ノートを書き換えないが、状態がノート外に置かれ持ち運べず、queryable でなく、手動保守になる"
+    },
+    {
+      "name": "専用ブックマーク索引ノート(Obsidian bookmarks.json 風)",
+      "tradeoff": "一元リストだが非ノート成果物で、ノート単位での可視/発見性がない"
+    }
+  ],
+  "decision": "ブックマーク所属はノート自身の frontmatter プロパティ bookmark: true で表す。ブックマークのスマートフォルダは query 要素(LIST WHERE bookmark)。ノートヘッダ右上のスター(未存在時も常時表示)が、既存の round-trip 安全な frontmatter 書き込み経路(parseNote + PropEntry モデル + serializeFrontmatterBlock)を通じて bookmark プロパティを付与/解除する。プロパティキーは特別扱いせず汎用の frontmatter boolean トグル機構とし、将来他のプロパティにも再利用できる形にする。",
+  "consequences": [
+    "+ ブックマーク状態が標準 YAML frontmatter としてノートに載る — ピュア Markdown・Obsidian 互換・ファイルと一緒に旅し .loamium 全消しでも残る(priority 1)",
+    "+ queryable/合成可能: LIST WHERE bookmark、`FROM #project WHERE bookmark` のような組合せも既存 DQL でそのまま動く(DQL 拡張不要)",
+    "+ 手動 pins 要素(ADR-0003)がブックマーク用途では不要になり、集約は property+query に一本化",
+    "+ スター toggle は parseNote + PropEntry モデル + serializeFrontmatterBlock(round-trip 検証済み)を再利用 — 新シリアライザ不要、本文は byte 安全のまま(priority 2)",
+    "- toggle はノートファイルへの書き込み(mtime 更新・監査ログ対象)。read-only は不可 — read-only/append-only モードでは 403 で拒否",
+    "- 破損/複雑な frontmatter を持つノートでも round-trip が保証できないなら、破壊せず拒否する(priority 2: 迷ったらファイルを守る)",
+    "解除は bookmark キー自体を削除する(bookmark: false を残さない)。最後のプロパティを消したら frontmatter ブロックごと除去(serializeFrontmatterBlock が null を返す)"
+  ],
+  "reversibility_cost": "low",
+  "affects": [
+    "packages/ui note header (star toggle)",
+    "packages/server routes/notes.ts (frontmatter property write)",
+    "packages/shared frontmatter.ts (PropEntry round-trip)",
+    "packages/shared/src/dql.ts (WHERE bookmark — 変更不要)",
+    "packages/cli",
+    "Smart Folder feature"
+  ],
+  "supersedes": null,
+  "superseded_by": null,
+  "notes": "この決定により ADR-0003 の pins 要素は落とす(要素 = pin | query の 2 種)。bookmark は汎用 frontmatter プロパティの一例に過ぎず、スターは『frontmatter boolean を 1 クリックで toggle する』汎用機構の最初の利用者と位置づける。書き込みは監査ログ(op 候補: note.property.write)に記録。"
+}

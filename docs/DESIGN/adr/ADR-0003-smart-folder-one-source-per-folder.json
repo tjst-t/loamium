@@ -1,0 +1,41 @@
+{
+  "id": "ADR-0003",
+  "title": "スマートビューの要素は pin(葉) / query(フォルダ) の 2 種、順序付き配列",
+  "status": "accepted",
+  "date": "2026-07-07",
+  "context": "スマートビューはクエリ駆動のグループ(recent / tag / journal / todo / bookmark)と、手動で指名した単一ノート(index / MOC / ダッシュボードの『指名』)を並べて見せる必要がある。当初は pin(単一の葉)/ pins(手動複数フォルダ)/ query(クエリフォルダ)の 3 種を検討したが、ADR-0004 でブックマークを frontmatter プロパティ + query に寄せた結果、手動複数集約(pins)の主用途が消えた。任意集約もプロパティ + query で表現できるため、要素モデルを簡素化する(priority 5: シンプルさ > 汎用性)。これはデータモデル契約であり、UI・API・CLI がエンコード/デコードする形を固定する。",
+  "alternatives": [
+    {
+      "name": "要素 = pin | query の 2 種(採用)",
+      "tradeoff": "1 枚指名は pin、集約はすべて query(プロパティ/タグ/日付/mtime)。概念が最小で描画も一意。任意 N 枚を「プロパティ無し」でまとめたい時だけひと手間"
+    },
+    {
+      "name": "pin | pins | query の 3 種",
+      "tradeoff": "手動複数フォルダ pins も持つ。柔軟だが、集約は property+query(ADR-0004)で足り冗長。概念が増える"
+    },
+    {
+      "name": "すべて query(pin も query 化)",
+      "tradeoff": "純粋だが、1 枚固定を file.path = 特定パス で表すのは DQL に過剰・脆く、指名操作が素直でない"
+    }
+  ],
+  "decision": "スマートビューは順序付きの SmartViewItem 配列。各要素は判別キー kind によりちょうど 1 種 — pin(単一ノートの葉、フォルダに包まない)/ query(DQL 結果の名前つきフォルダ)。手動複数集約(pins)は持たず、集約はプロパティ + query に寄せる(例: ブックマーク = LIST WHERE bookmark、ADR-0004)。index/MOC/ダッシュボードの 1 枚指名は pin。各要素は任意にカスタマイズ可能な icon を持てる。",
+  "consequences": [
+    "+ 概念が pin と query の 2 つに減る(priority 5)。集約はすべて query に一本化され、意味論が一貫",
+    "+ ブックマーク/コレクションは note の frontmatter に状態が載り、ファイルと一緒に旅する(ADR-0004)",
+    "+ 各要素は kind で 1 通りに描画され、UI/API/CLI の 1:1 対応が明快。判別ユニオンで加算拡張(将来 pins 復活やネスト)も容易",
+    "- 任意 N 枚を「プロパティを付けずに」まとめたい場合は、各ノートに 1 プロパティ足すか pin を複数並べる",
+    "- MVP はフラット(入れ子なし)。ネストしたスマートフォルダは先送り",
+    "各要素の icon はカスタマイズ可能(組み込みアイコン名 + 絵文字フォールバック)。可逆な UI/設定フィールドのため ADR 化せず data.json の契約で扱う",
+    "ネストは利用実態で必要が見えたら再検討(tentative)"
+  ],
+  "reversibility_cost": "low",
+  "affects": [
+    "packages/shared/src/schemas.ts (smart-folder schema)",
+    "packages/ui sidebar (FileTree / App)",
+    "packages/server smart-folder routes",
+    "packages/cli"
+  ],
+  "supersedes": null,
+  "superseded_by": null,
+  "notes": "source を item にネストせず、kind を item 直下に置いたフラットな判別ユニオンにする: kind: 'pin' | 'query'。将来 pins やネストを足しても加算・後方互換を保てる。pins を落とした経緯は ADR-0004 を参照。"
+}

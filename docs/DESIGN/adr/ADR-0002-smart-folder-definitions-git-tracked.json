@@ -1,0 +1,43 @@
+{
+  "id": "ADR-0002",
+  "title": "スマートフォルダ定義は永続・Git 追跡される設定とする(『.loamium は使い捨て』の明示的例外)",
+  "status": "accepted",
+  "date": "2026-07-07",
+  "context": "DESIGN_PRINCIPLES priority 6 と VISION は、.loamium/ をインデックスキャッシュ等の『使い捨て(消しても安全)・.gitignore』領域と定義している(.gitignore:8 で .loamium/ を無視)。しかしスマートフォルダ定義は再構築不能なユーザー設定であり、失うと保存したビューが消える。ユーザーはこれを vault と一緒に(clone / 別マシンへ)持ち運びたい可能性がある。\n\n既に property-types(.loamium/property-types.json)が『使い捨てでない設定』を .loamium 配下に置く前例を作っており、原則との緊張は顕在化している。スマートフォルダ定義の保存先と Git 同期可否を明示的に決める必要がある。",
+  "alternatives": [
+    {
+      "name": ".loamium/smart-folders.json を Git 追跡する(採用)",
+      "tradeoff": "vault と一緒に旅する / property-types と同じ配置。ただし『.loamium は使い捨て』不変条件を破るため、この例外を明文化する必要がある"
+    },
+    {
+      "name": ".loamium/smart-folders.json のまま gitignore",
+      "tradeoff": "原則と無衝突・property-types と完全同型だが、clone や .loamium 全消しで定義が消え持ち運べない"
+    },
+    {
+      "name": "vault 直下に smart-folders.json を置く",
+      "tradeoff": "明確に追跡・永続だが、非ノートファイルがユーザーの vault 表面(Obsidian でも見える)に露出し雑然とする。隠し設定にならない"
+    },
+    {
+      "name": "各スマートフォルダを 1 ノート内 dataview フェンスで表現",
+      "tradeoff": "純 Markdown 完結だが、順序・ピン留めの表現に別途レジストリが要り、手動ピンを素直に表現できない"
+    }
+  ],
+  "decision": "スマートフォルダ定義は .loamium/smart-folders.json に保存し、このファイルは .gitignore から除外して Git 追跡する。これは『.loamium は使い捨て』不変条件に対する、明示的かつ文書化された例外として受け入れる(再構築不能なユーザー設定であり、破棄可能なインデックスではないため)。",
+  "consequences": [
+    "+ 保存したビューが .loamium キャッシュ全消しを生き延び、vault の clone / 別マシンへ一緒に旅する",
+    "+ 配置は property-types.json の前例(.loamium 配下の寛容 read / merge-write JSON)を踏襲",
+    "- 『.loamium は消しても安全』という記述が文字通りには成り立たなくなる。CLAUDE.md / docs に設定例外(smart-folders.json、および実質 property-types.json)を明記する必要がある",
+    "- .gitignore を『無視ディレクトリ内の 1 ファイルだけ再包含』する形に直す必要がある。Git 仕様上ディレクトリごと除外していると再包含できないため、`.loamium/` を `.loamium/*` に変え、続けて `!/.loamium/smart-folders.json` を足す",
+    "インデックスキャッシュ・audit.log は引き続き使い捨て・無視のまま。追跡するのは明示列挙した設定ファイルのみ"
+  ],
+  "reversibility_cost": "low",
+  "affects": [
+    ".gitignore",
+    "packages/server (config persistence / smart-folder routes)",
+    "CLAUDE.md",
+    "docs"
+  ],
+  "supersedes": null,
+  "superseded_by": null,
+  "notes": "破損 JSON の扱いは property-types の寛容パターンを踏襲(パース失敗→空にフォールバック + stderr ログ、アプリは落とさない)。ただしスキーマ検証は zod で行い UI にエラーを返せるようにする。"
+}

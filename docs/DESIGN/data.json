@@ -1,0 +1,108 @@
+{
+  "$comment": "スマートフォルダ機能の永続データ・API 契約のスケッチ。全体の DDL/OpenAPI ではなく、他コンポーネントがエンコード/デコードする load-bearing な形のみを固定する。関連 ADR: ADR-0001(DQL 再利用), ADR-0002(定義の永続化), ADR-0003(要素 = pin/query の 2 種), ADR-0004(bookmark = frontmatter プロパティ + スター toggle)。",
+  "datastores": [
+    {
+      "name": ".loamium/smart-folders.json",
+      "purpose": "スマートビューの定義(順序付き SmartViewItem 配列)。再構築不能なユーザー設定。",
+      "consistency": "strong(単一ライタ、ファイル全体をアトミックに置換)",
+      "backup": "vault の Git 履歴(ADR-0002 により .gitignore から除外し追跡)。破損時は寛容 read で空にフォールバックしログ(property-types 前例)。"
+    },
+    {
+      "name": "ノート frontmatter(bookmark 等のプロパティ)",
+      "purpose": "ブックマーク所属など『集約用の状態』はノート自身の frontmatter プロパティに載せる(ADR-0004)。正本は各 .md ファイル。",
+      "consistency": "ファイルが正。書き込みは round-trip 安全な frontmatter 経路のみ(parseNote + PropEntry モデル + serializeFrontmatterBlock)。",
+      "backup": "vault の Git 履歴(ノート本体と一体)"
+    },
+    {
+      "name": "VaultIndex(インメモリ)",
+      "purpose": "クエリ解決の供給源。既存の使い捨てインデックス(noteIndex.ts)。スマートフォルダ用に新設しない。",
+      "consistency": "ファイルが正・インデックスは追従(chokidar + write-through)。DESIGN_PRINCIPLES priority 6。",
+      "backup": "不要(ファイルシステムから常に再構築可能)"
+    }
+  ],
+  "schemas": [
+    {
+      "entity": "SmartViewConfig",
+      "stored_in": ".loamium/smart-folders.json",
+      "table": "(JSON ファイル 1 本)",
+      "fields": [
+        {"name": "version", "type": "number", "notes": "スキーマ版。マイグレーション用。初版 = 1"},
+        {"name": "items", "type": "SmartViewItem[]", "notes": "表示順 = 配列順。フラット(入れ子なし、ADR-0003)"}
+      ],
+      "invariants": [
+        "items[].id は config 内で一意(安定キー、kebab-case 推奨)",
+        "正本は UTF-8 / LF、2-space インデント JSON(property-types.json と同形式)",
+        "書き込みはファイル全体の置換(部分マージしない — 順序が意味を持つため)"
+      ]
+    },
+    {
+      "entity": "SmartViewItem",
+      "stored_in": ".loamium/smart-folders.json",
+      "table": "SmartViewConfig.items[](kind によるフラットな判別可能ユニオン)",
+      "fields": [
+        {"name": "kind='pin'", "type": "{ kind:'pin', id, name?, icon?, path: string }", "notes": "単一ノートの葉。フォルダに包まず直接描画。name 省略時はノート title を表示。index/MOC/ダッシュボードの 1 枚指名(ADR-0003)"},
+        {"name": "kind='query'", "type": "{ kind:'query', id, name, icon?, dql: string }", "notes": "DQL 結果の名前つきフォルダ。dql が正本(ADR-0001)。集約はすべてこれ(recent/tag/journal/todo/bookmark)。例: 'LIST WHERE bookmark SORT file.mtime DESC'"},
+        {"name": "id", "type": "string", "notes": "全 kind 共通。安定キー。URL/CLI 参照・並べ替えに使う"},
+        {"name": "name", "type": "string", "notes": "表示名(日本語可)。pin は任意(既定=title)、query は必須"},
+        {"name": "icon", "type": "string?", "notes": "全 kind 共通・カスタマイズ可能。組み込みアイコン名(clock/star/bookmark/hash/calendar/check-square/file-text/folder/search/pin/flame/inbox 等)。未知の文字列は絵文字等としてそのまま描画(⭐📌🔥 可)。省略時は kind 既定(pin→file-text, query→search)"}
+      ],
+      "invariants": [
+        "kind はちょうど 1 つ(pin / query)。手動複数集約(pins)は持たない — 集約は property+query に寄せる(ADR-0004)",
+        "pin.path は normalizeVaultPath を通す(.. 脱出・隠しセグメント禁止、NFC)",
+        "query.dql は parseQuery で構文検証可能な DQL 文字列であること",
+        "解決時に存在しない pin は結果から落とすか missing フラグを付す(ファイルを壊さない — priority 2)",
+        "icon はプラグイン機構を作らない(priority 5)。組み込み名 or 素の文字(絵文字)フォールバックのみ"
+      ]
+    },
+    {
+      "entity": "ブックマーク状態(ノート frontmatter)",
+      "stored_in": "各 .md ファイルの YAML frontmatter",
+      "table": "(スキーマ実体なし — 標準 frontmatter キー)",
+      "fields": [
+        {"name": "bookmark", "type": "boolean", "notes": "true でブックマーク。解除時はキー自体を削除(false を残さない)。ADR-0004"}
+      ],
+      "invariants": [
+        "bookmark は特別扱いしない汎用 frontmatter boolean。DQL の WHERE bookmark(truthy 検査)でそのまま解決 — DQL 拡張は不要",
+        "書き込みは round-trip 安全な経路のみ。preserve できないなら破壊せず拒否(priority 2)"
+      ]
+    }
+  ],
+  "design_indexes": [
+    {
+      "name": "smart-folder 解決の再利用インデックス",
+      "purpose": "query 種の解決は VaultIndex.queryNotes() のスナップショット + executeQuery(純関数)を使い回す。専用インデックスは作らない。",
+      "kind": "in-memory snapshot",
+      "note": "pin 種は path を NoteMeta に解決するだけ(インデックス参照 + 存在確認)"
+    }
+  ],
+  "api_contracts": [
+    {
+      "group": "Smart Folders",
+      "base_path": "/api/smart-folders",
+      "summary": "スマートビュー定義の CRUD と解決。REST と CLI は 1:1(priority 3)。書き込みは監査ログ対象(op: 'smart-folders.write')。read-only / append-only モードでは PUT を 403。",
+      "endpoints": [
+        {"method": "GET", "path": "/api/smart-folders", "summary": "定義一式を返す { version, items[] }。CLI: `loamium smart-folders`"},
+        {"method": "PUT", "path": "/api/smart-folders", "summary": "定義一式を全置換(zod 検証、アトミック書き込み)。CLI: `loamium smart-folders set <json>`"},
+        {"method": "GET", "path": "/api/smart-folders/{id}/notes", "summary": "1 要素を NoteMeta[] に解決。query→executeQuery、pin→当該 1 件。CLI: `loamium smart-folder <id>`"}
+      ]
+    },
+    {
+      "group": "Note properties (frontmatter)",
+      "base_path": "/api/notes/{path}/properties",
+      "summary": "ノート frontmatter のトップレベルキーを round-trip 安全に upsert/削除する汎用経路(ADR-0004)。スターボタンと WYSIWYG プロパティパネルの共通の書き込み口。書き込み系のため監査ログ(op 候補: 'note.property.write')、read-only/append-only では 403。preserve 不能なら破壊せず 4xx。",
+      "endpoints": [
+        {"method": "POST", "path": "/api/notes/{path}/properties", "summary": "body { set?: Record<string,scalar>, unset?: string[] } でキーを追加/更新/削除。スターは set {bookmark:true} / unset ['bookmark']。CLI: `loamium prop set <path> <key> <value>` / `loamium prop unset <path> <key>`"}
+      ]
+    },
+    {
+      "group": "DQL 拡張(既存契約への加算、ADR-0001)",
+      "base_path": "/api/query",
+      "summary": "スマートフォルダとノート内 ```dataview``` フェンスが共有する DQL への後方互換な追加。既存 POST /api/query の挙動は不変(追加のみ)。bookmark は既存 WHERE truthy で解決できるため DQL 変更不要。",
+      "endpoints": [
+        {"method": "POST", "path": "/api/query", "summary": "LIMIT 句を追加(DqlQuery に limit: number|null)。ノート単位の未完了タスク・フィールドを追加(候補: file.tasks=総数, file.open_tasks=未完了数。いずれも truthy 検査可能な数値)。両方 Obsidian 互換を意識"}
+      ]
+    }
+  ],
+  "event_contracts": [],
+  "versioning_policy": "SmartViewConfig.version でスキーマ版を管理。サーバは read 時に旧版を前方マイグレート。破損/未知版は寛容 read(空フォールバック + ログ)でアプリを落とさない一方、PUT は zod で厳格検証しエラーを返す。SmartViewItem の kind ユニオン(pin|query)と DQL 拡張(LIMIT / タスク・フィールド)は加算のみで既存定義・クエリ・フェンスを壊さない。ブックマークはノート frontmatter に載るためスキーマ版管理の対象外(標準 Markdown)。"
+}
