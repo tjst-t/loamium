@@ -18,6 +18,9 @@
  *   list [--tag] [--folder]              GET    /api/notes[?tag=&folder=]
  *   tags                                 GET    /api/tags
  *   new --template <n> [--var k=v ...]   POST   /api/templates/{name}/instantiate
+ *   smart-folders                        GET    /api/smart-folders (定義一式取得)
+ *   smart-folders set <json-file>        PUT    /api/smart-folders (定義全置換)
+ *   smart-folder <id>                    GET    /api/smart-folders/{id}/notes (解決)
  *
  * 出力規約 (AC-S0c9a48-1-2):
  * - 成功: exit 0、結果を stdout へ。--json で API レスポンスの生 JSON をそのまま出す
@@ -41,6 +44,8 @@ import {
   queryResponseSchema,
   searchResponseSchema,
   tagsResponseSchema,
+  smartViewConfigSchema,
+  smartFoldersResolveResponseSchema,
 } from '@loamium/shared';
 import {
   apiFetch,
@@ -373,6 +378,75 @@ function buildProgram(): Command {
         const res = parseAs(result, tagsResponseSchema, 'tags');
         for (const t of res.tags) {
           println(`${t.tag}\t${t.count}`);
+        }
+      });
+    });
+
+  // ---- スマートフォルダ (S32940c-2) ------------------------------------------
+
+  // smart-folders コマンド: GET /api/smart-folders + set サブコマンド (PUT)
+  const smartFoldersCmd = new Command('smart-folders');
+  smartFoldersCmd
+    .description('スマートフォルダ定義を管理する (GET /api/smart-folders)')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, '/api/smart-folders');
+      output(opts, result, () => {
+        const res = parseAs(result, smartViewConfigSchema, 'smart-folders');
+        for (const item of res.items) {
+          println(`${item.id}\t${item.kind}\t${item.name ?? ''}`);
+        }
+      });
+    });
+
+  // smart-folders set <json-file> (PUT /api/smart-folders)
+  smartFoldersCmd
+    .command('set')
+    .description('スマートフォルダ定義を全置換する (PUT /api/smart-folders)')
+    .argument('<json-file>', '定義 JSON ファイルのローカルパス')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (jsonFile: string, opts: JsonOpt) => {
+      let raw: string;
+      try {
+        raw = await readFile(jsonFile, 'utf8');
+      } catch (err) {
+        const code =
+          err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT'
+            ? 'local_file_not_found'
+            : 'local_read_error';
+        throw new CliError(code, `could not read local file: ${jsonFile}`);
+      }
+      let body: unknown;
+      try {
+        body = JSON.parse(raw) as unknown;
+      } catch {
+        throw new CliError('invalid_json', `file is not valid JSON: ${jsonFile}`);
+      }
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, '/api/smart-folders', putJson(body));
+      output(opts, result, () => {
+        const res = parseAs(result, smartViewConfigSchema, 'smart-folders set');
+        println(`saved ${String(res.items.length)} smart folder item(s)`);
+      });
+    });
+
+  program.addCommand(smartFoldersCmd);
+
+  // smart-folder <id> (GET /api/smart-folders/{id}/notes)
+  sub('smart-folder', 'スマートフォルダの内容 (NoteMeta) を解決する (GET /api/smart-folders/{id}/notes)')
+    .argument('<id>', 'スマートフォルダの id')
+    .action(async (id: string, opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, `/api/smart-folders/${encodeURIComponent(id)}/notes`);
+      output(opts, result, () => {
+        const res = parseAs(result, smartFoldersResolveResponseSchema, 'smart-folder');
+        for (const n of res.notes) {
+          println(n.path);
         }
       });
     });

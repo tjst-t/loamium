@@ -52,6 +52,7 @@ export function deriveOp(method: string, reqPath: string): string {
     if (method === 'DELETE') return 'file.delete';
   }
   if (reqPath === '/api/property-types' && method === 'PUT') return 'property-types.write';
+  if (reqPath === '/api/smart-folders' && method === 'PUT') return 'smart-folders.write';
   return `${method.toLowerCase()}.unknown`;
 }
 

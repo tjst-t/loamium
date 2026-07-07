@@ -3,6 +3,8 @@
  * server と (将来の) cli / ui で共有する (DESIGN_PRINCIPLES coding_conventions)。
  */
 import { z } from 'zod';
+import { isValidVaultPath } from './path.js';
+import { parseQuery, DqlParseError } from './dql.js';
 
 // ---- 権限モード ----
 
@@ -516,6 +518,85 @@ export const terminalServerMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('exit'), exitCode: z.number() }),
 ]);
 export type TerminalServerMessage = z.infer<typeof terminalServerMessageSchema>;
+
+// ---- スマートフォルダ定義 (ADR-0002 / ADR-0003 — S32940c-2) ----
+
+/**
+ * スマートフォルダ要素 — kind='pin': 単一ノートの葉。
+ * pin.path は normalizeVaultPath で検証済みのファイルシステム安全な vault 相対パス。
+ * (ADR-0003: pin / query の 2 種のみ)
+ */
+export const smartViewPinItemSchema = z.object({
+  kind: z.literal('pin'),
+  id: z.string().min(1, 'id must not be empty'),
+  name: z.string().optional(),
+  icon: z.string().optional(),
+  path: z
+    .string()
+    .min(1, 'pin.path must not be empty')
+    .refine(isValidVaultPath, {
+      message:
+        'pin.path is not a valid vault path (path traversal, hidden segments, or empty not allowed)',
+    }),
+});
+export type SmartViewPinItem = z.infer<typeof smartViewPinItemSchema>;
+
+/**
+ * スマートフォルダ要素 — kind='query': DQL 結果の名前付きフォルダ。
+ * query.dql は parseQuery で構文検証済みの DQL 文字列 (ADR-0001)。
+ */
+export const smartViewQueryItemSchema = z.object({
+  kind: z.literal('query'),
+  id: z.string().min(1, 'id must not be empty'),
+  name: z.string().min(1, 'query.name must not be empty'),
+  icon: z.string().optional(),
+  dql: z
+    .string()
+    .min(1, 'query.dql must not be empty')
+    .refine(
+      (dql) => {
+        try {
+          parseQuery(dql);
+          return true;
+        } catch (err) {
+          if (err instanceof DqlParseError) return false;
+          return false;
+        }
+      },
+      { message: 'query.dql is not valid DQL syntax' },
+    ),
+});
+export type SmartViewQueryItem = z.infer<typeof smartViewQueryItemSchema>;
+
+/**
+ * スマートフォルダ要素 (discriminated union on kind)。
+ * ADR-0003: pin | query の 2 種のみ (pins / 混在なし)。
+ */
+export const smartViewItemSchema = z.discriminatedUnion('kind', [
+  smartViewPinItemSchema,
+  smartViewQueryItemSchema,
+]);
+export type SmartViewItem = z.infer<typeof smartViewItemSchema>;
+
+/**
+ * スマートフォルダ定義一式 (.loamium/smart-folders.json)。
+ * version: スキーマ版 (初版 = 1)、items: 表示順の SmartViewItem 配列。
+ * ADR-0002: git 追跡対象 (ユーザー設定の正本)。
+ */
+export const smartViewConfigSchema = z.object({
+  version: z.number().int().min(1, 'version must be a positive integer'),
+  items: z.array(smartViewItemSchema),
+});
+export type SmartViewConfig = z.infer<typeof smartViewConfigSchema>;
+
+/**
+ * GET /api/smart-folders/{id}/notes のレスポンス。
+ * query → executeQuery、pin → 当該 1 件 (存在しなければ空配列)。
+ */
+export const smartFoldersResolveResponseSchema = z.object({
+  notes: z.array(noteMetaSchema),
+});
+export type SmartFoldersResolveResponse = z.infer<typeof smartFoldersResolveResponseSchema>;
 
 // ---- 監査ログ (JSONL 1 行分) ----
 

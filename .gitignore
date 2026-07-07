@@ -5,7 +5,8 @@ reports/
 .ui.pid
 .env
 dev-vault/
-.loamium/
+.loamium/*
+!/.loamium/smart-folders.json
 *.log
 .claude/worktrees/
 .claude/autopilot-*.lock
