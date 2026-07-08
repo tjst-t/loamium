@@ -1,0 +1,80 @@
+{
+  "sprint": "S7b2f22",
+  "run_at": "2026-07-08T00:25:15Z",
+  "server_command": "npx playwright test --config=packages/ui/playwright.config.ts",
+  "summary": {
+    "total": 16,
+    "pass": 16,
+    "fail": 0,
+    "skip": 0,
+    "note": "editor mock 10 (incl. added real read-only per-item test) + editor e2e 6. Regression: smart-view mock/e2e 10, bookmark mock 6, full mock project 174 — all pass. make lint 0."
+  },
+  "tests": [
+    {
+      "name": "[AC-S7b2f22-1-*] editor mock (form/preset-DQL/pin/icon/save-body/edit-prefill/read-only incl items)",
+      "file": "packages/ui/tests/e2e/smart-folder-editor.mock.spec.ts",
+      "story": "S7b2f22-1",
+      "acceptance_criteria": [
+        "AC-S7b2f22-1-1",
+        "AC-S7b2f22-1-2",
+        "AC-S7b2f22-1-3",
+        "AC-S7b2f22-1-4",
+        "AC-S7b2f22-1-5",
+        "AC-S7b2f22-1-6",
+        "AC-S7b2f22-1-7"
+      ],
+      "status": "pass"
+    },
+    {
+      "name": "[AC-S7b2f22-1-*] editor e2e (create/edit/reorder/delete persisted)",
+      "file": "packages/ui/tests/e2e/smart-folder-editor.e2e.spec.ts",
+      "story": "S7b2f22-1",
+      "acceptance_criteria": [
+        "AC-S7b2f22-1-1",
+        "AC-S7b2f22-1-3",
+        "AC-S7b2f22-1-5",
+        "AC-S7b2f22-1-6"
+      ],
+      "status": "pass"
+    }
+  ],
+  "diff_coverage": {
+    "surfaces": [
+      {
+        "type": "gui",
+        "identifier": "smart-view-add + SmartFolderForm (sf-form*) + per-item edit/delete/moveup/movedown",
+        "introduced_in_files": [
+          "packages/ui/src/components/SmartFolderForm.tsx",
+          "packages/ui/src/components/SmartView.tsx"
+        ],
+        "resolution": "covered",
+        "test": "smart-folder-editor.{mock,e2e}.spec.ts"
+      },
+      {
+        "type": "api_client",
+        "identifier": "api.putSmartFolders",
+        "introduced_in_files": [
+          "packages/ui/src/api.ts"
+        ],
+        "resolution": "covered",
+        "test": "editor specs (PUT body asserted)"
+      }
+    ]
+  },
+  "done_judgment": [
+    {
+      "story_id": "S7b2f22-1",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "n/a",
+        "guard3_mock_mode_not_real_smoke": "n/a",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "pass",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    }
+  ]
+}
