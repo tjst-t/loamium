@@ -1,0 +1,33 @@
+{
+  "sprint": "Sebf6b0",
+  "verifier": "independent read-only sub-agent",
+  "run_at": "2026-07-08T04:20:15Z",
+  "verdict": "all_pass",
+  "per_ac_all_pass": true,
+  "adr_conformance": {
+    "ADR-0003": "conforms (pin|query union intact)",
+    "ADR-0005": "conforms (pin.path via normalizeVaultFilePath; folder resolve; note-pin unchanged)"
+  },
+  "forbidden_degradations": [],
+  "existing_test_change": "legit_fix (AC-S7b2f22-1-5 pin path notes/example.md→notes/alpha.md: focus loads notes so validation runs; assertion equally strong)",
+  "overlooked_by_autopilot": [
+    {
+      "item": "2-3 note-pin: no explicit negative assertion that aria-expanded is absent (code correct)",
+      "severity": "low"
+    },
+    {
+      "item": "2-2 PUT-block is asserted via error text, not an unexpected-call capture",
+      "severity": "low"
+    },
+    {
+      "item": "folder-pin existence validation is client-side only; server accepts any safe path (empty resolve) — ADR-0005 documented tradeoff",
+      "severity": "low"
+    },
+    {
+      "item": "3-3 template flow tested shallowly (picker appears; instantiate covered by existing tests)",
+      "severity": "low"
+    }
+  ],
+  "lint": "pass",
+  "tests": "64 new + regression all pass"
+}
