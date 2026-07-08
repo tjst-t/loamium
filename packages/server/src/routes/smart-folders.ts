@@ -16,7 +16,7 @@ import path from 'node:path';
 import {
   DqlParseError,
   executeQuery,
-  normalizeVaultPath,
+  normalizeVaultFilePath,
   parseQuery,
   smartViewConfigSchema,
   VaultPathError,
@@ -72,14 +72,15 @@ export function smartFoldersRoutes(config: ServerConfig, index: VaultIndex): Hon
     const body = await parseBody(c, smartViewConfigSchema);
     if (!body.ok) return body.response;
 
-    // pin.path を正規化 (NFC / .md 補完)。zod refine で isValidVaultPath 済みなので
-    // normalizeVaultPath は失敗しないはずだが、defense in depth で try/catch する。
+    // pin.path を正規化 (NFC)。ADR-0005: pin.path はノートパス (.md) またはフォルダパス
+    // (no .md) を指せる。normalizeVaultFilePath を使うことで .md を補完せず、
+    // traversal・隠しセグメントのみ拒否する (フォルダパスを保持する)。
     const normalizedItems: SmartViewConfig['items'] = [];
     for (const item of body.data.items) {
       if (item.kind === 'pin') {
         let normalized: string;
         try {
-          normalized = normalizeVaultPath(item.path);
+          normalized = normalizeVaultFilePath(item.path);
         } catch (err) {
           const msg = err instanceof VaultPathError ? err.message : String(err);
           return errorJson(c, 400, 'invalid_path', `pin "${item.id}": ${msg}`);
@@ -143,9 +144,29 @@ export function smartFoldersRoutes(config: ServerConfig, index: VaultIndex): Hon
         return meta !== undefined ? [meta] : [];
       });
     } else {
-      // pin: 単一ノートを解決。存在しない pin は除外 (ファイルを壊さない — priority 2)
+      // pin: ノートまたはフォルダを解決 (ADR-0005)。
+      // 1. 完全一致するノートパスがあれば単一 NoteMeta を返す (後方互換)。
+      // 2. なければ、item.path をフォルダとみなしてインデックス内の
+      //    note.folder === folderPath || note.folder.startsWith(folderPath + '/')
+      //    で配下ノートを列挙する (path 昇順で安定)。
+      // 3. いずれも存在しない場合は空配列 (エラーにならない — priority 2)。
       const meta = noteMetaMap.get(item.path);
-      notes = meta !== undefined ? [meta] : [];
+      if (meta !== undefined) {
+        // ノート pin (後方互換)
+        notes = [meta];
+      } else {
+        // フォルダ pin: インデックス内からフォルダ配下のノートを収集
+        const folderPath = item.path;
+        const folderNotes: NoteMeta[] = [];
+        for (const n of noteMetaMap.values()) {
+          if (n.folder === folderPath || n.folder.startsWith(folderPath + '/')) {
+            folderNotes.push(n);
+          }
+        }
+        // path 昇順で安定ソート
+        folderNotes.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+        notes = folderNotes;
+      }
     }
 
     const res: SmartFoldersResolveResponse = { notes };

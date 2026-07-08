@@ -3,7 +3,7 @@
  * server と (将来の) cli / ui で共有する (DESIGN_PRINCIPLES coding_conventions)。
  */
 import { z } from 'zod';
-import { isValidVaultPath } from './path.js';
+import { normalizeVaultFilePath, VaultPathError } from './path.js';
 import { parseQuery, DqlParseError } from './dql.js';
 
 // ---- 権限モード ----
@@ -522,9 +522,30 @@ export type TerminalServerMessage = z.infer<typeof terminalServerMessageSchema>;
 // ---- スマートフォルダ定義 (ADR-0002 / ADR-0003 — S32940c-2) ----
 
 /**
- * スマートフォルダ要素 — kind='pin': 単一ノートの葉。
- * pin.path は normalizeVaultPath で検証済みのファイルシステム安全な vault 相対パス。
- * (ADR-0003: pin / query の 2 種のみ)
+ * pin.path がノートパス (.md) またはフォルダパス (no .md) として有効かを検証する。
+ * ADR-0005: pin はノートまたは物理フォルダを対象にできる (後方互換)。
+ * - ノートパス ("note.md" や ".md" 拡張子付き): isValidVaultPath で検証 (NFC・traversal 拒否)
+ * - フォルダパス ("projects" や "projects/sub"): normalizeVaultFilePath で検証 (traversal・隠しセグメント拒否)
+ * どちらの形式も `..`・絶対パス・隠しセグメントは拒否する。
+ */
+function isValidPinPath(input: string): boolean {
+  if (typeof input !== 'string' || input.length === 0) return false;
+  // normalizeVaultFilePath はノートパス (.md 付き) もフォルダパスも受け入れる
+  // (traversal / hidden / absolute を拒否する点は normalizeVaultPath と同一)
+  try {
+    normalizeVaultFilePath(input);
+    return true;
+  } catch (err) {
+    if (err instanceof VaultPathError) return false;
+    return false;
+  }
+}
+
+/**
+ * スマートフォルダ要素 — kind='pin': 単一ノートの葉、またはフォルダの配下ノート一覧。
+ * pin.path はノートパス (.md) またはフォルダパス (no .md) を指せる (ADR-0005)。
+ * パスは normalizeVaultFilePath で検証済みのファイルシステム安全な vault 相対パス。
+ * (ADR-0003: pin / query の 2 種のみ — ADR-0005 で pin の対象をフォルダまで拡張)
  */
 export const smartViewPinItemSchema = z.object({
   kind: z.literal('pin'),
@@ -534,7 +555,7 @@ export const smartViewPinItemSchema = z.object({
   path: z
     .string()
     .min(1, 'pin.path must not be empty')
-    .refine(isValidVaultPath, {
+    .refine(isValidPinPath, {
       message:
         'pin.path is not a valid vault path (path traversal, hidden segments, or empty not allowed)',
     }),

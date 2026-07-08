@@ -353,6 +353,125 @@ describe('[AC-S32940c-2-2] read-only モードでは PUT を 403 (scenario-2)', 
   });
 });
 
+// ── Story Sebf6b0-1: フォルダ pin 解決 (ADR-0005) ────────────────────────────
+
+describe('[AC-Sebf6b0-1-1][AC-Sebf6b0-1-2] フォルダ pin の解決 — 配下ノートを返す', () => {
+  it('フォルダ pin は配下 (サブフォルダ含む) の全ノートを path 昇順で返す', async () => {
+    // vault にノートを作成
+    await seedNote('projects/a.md', '# Project A\n');
+    await seedNote('projects/sub/b.md', '# Project Sub B\n');
+    await seedNote('note.md', '# Top note\n');
+    server = await startServer({ vault });
+
+    const config = {
+      version: 1,
+      items: [
+        { kind: 'pin', id: 'projpin', name: 'Projects', path: 'projects' },
+        { kind: 'pin', id: 'notepin', name: 'Top Note', path: 'note.md' },
+      ],
+    };
+    const putResult = await putConfig(server.baseUrl, config);
+    expect(putResult.status).toBe(200); // [AC-Sebf6b0-1-schema] フォルダパスの PUT が受け入れられる
+
+    // フォルダ pin: projects/a.md と projects/sub/b.md が返り、note.md は含まれない
+    const { status, body } = await resolveFolder(server.baseUrl, 'projpin');
+    expect(status).toBe(200);
+    const parsed = smartFoldersResolveResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      const paths = parsed.data.notes.map((n) => n.path);
+      expect(paths).toContain('projects/a.md');
+      expect(paths).toContain('projects/sub/b.md');
+      expect(paths).not.toContain('note.md');
+      // path 昇順で安定ソートされている
+      expect(paths).toEqual([...paths].sort());
+    }
+  });
+
+  it('ノート pin は後方互換で単一 NoteMeta を返す [AC-Sebf6b0-1-2]', async () => {
+    await seedNote('projects/a.md', '# Project A\n');
+    await seedNote('note.md', '# Top note\n');
+    server = await startServer({ vault });
+
+    const config = {
+      version: 1,
+      items: [
+        { kind: 'pin', id: 'projpin', name: 'Projects', path: 'projects' },
+        { kind: 'pin', id: 'notepin', name: 'Top Note', path: 'note.md' },
+      ],
+    };
+    await putConfig(server.baseUrl, config);
+
+    const { status, body } = await resolveFolder(server.baseUrl, 'notepin');
+    expect(status).toBe(200);
+    const parsed = smartFoldersResolveResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.notes).toHaveLength(1);
+      expect(parsed.data.notes[0]?.path).toBe('note.md');
+    }
+  });
+
+  it('存在しないフォルダへのフォルダ pin は空配列を返す (エラーにならない) [AC-Sebf6b0-1-2]', async () => {
+    server = await startServer({ vault });
+
+    const config = {
+      version: 1,
+      items: [{ kind: 'pin', id: 'nope', name: 'No Such Folder', path: 'nonexistent-folder' }],
+    };
+    await putConfig(server.baseUrl, config);
+
+    const { status, body } = await resolveFolder(server.baseUrl, 'nope');
+    expect(status).toBe(200);
+    const parsed = smartFoldersResolveResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.notes).toHaveLength(0);
+    }
+  });
+});
+
+describe('[AC-Sebf6b0-1-schema] PUT /api/smart-folders — フォルダパスの pin.path を受け入れる', () => {
+  it('フォルダパス (拡張子なし) の pin.path を持つ設定の PUT が 200 を返す', async () => {
+    server = await startServer({ vault });
+
+    const config = {
+      version: 1,
+      items: [
+        { kind: 'pin', id: 'fold1', name: 'Projects Folder', path: 'projects' },
+        { kind: 'pin', id: 'fold2', name: 'Nested Folder', path: 'projects/sub' },
+        { kind: 'pin', id: 'note1', name: 'Note Pin', path: 'Dashboard.md' },
+      ],
+    };
+    const { status } = await putConfig(server.baseUrl, config);
+    expect(status).toBe(200);
+  });
+
+  it('path traversal を含むフォルダパスは 4xx で拒否される', async () => {
+    server = await startServer({ vault });
+
+    const config = {
+      version: 1,
+      items: [{ kind: 'pin', id: 'bad', name: 'Bad', path: '../escape' }],
+    };
+    const { status } = await putConfig(server.baseUrl, config);
+    expect(status).toBeGreaterThanOrEqual(400);
+    expect(status).toBeLessThan(500);
+  });
+
+  it('隠しセグメントを含むフォルダパスは 4xx で拒否される', async () => {
+    server = await startServer({ vault });
+
+    const config = {
+      version: 1,
+      items: [{ kind: 'pin', id: 'hidden', name: 'Hidden', path: '.loamium' }],
+    };
+    const { status } = await putConfig(server.baseUrl, config);
+    expect(status).toBeGreaterThanOrEqual(400);
+    expect(status).toBeLessThan(500);
+  });
+});
+
 describe('[AC-S32940c-2-5] .gitignore — smart-folders.json は git 追跡対象 (scenario-3)', () => {
   it('git check-ignore で smart-folders.json は無視されない (exit code 1)', async () => {
     // このテストはリポジトリの .gitignore を見る (vault ではなくリポジトリ)

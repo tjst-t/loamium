@@ -1,11 +1,11 @@
 /**
- * スマートフォルダ 作成/編集フォーム (S7b2f22-1 / S7b2f22-2)。
+ * スマートフォルダ 作成/編集フォーム (S7b2f22-1 / S7b2f22-2 / Sebf6b0-2)。
  *
  * testid 契約:
  *   sf-form, sf-form-name, sf-form-icon, sf-form-kind-query, sf-form-kind-pin,
  *   sf-form-preset, sf-form-preset-n, sf-form-preset-tag, sf-form-dql,
  *   sf-form-path, sf-form-path-option (data-path), sf-form-icon-option (data-icon),
- *   sf-form-save, sf-form-cancel.
+ *   sf-form-error, sf-form-save, sf-form-cancel.
  *
  * プリセット → DQL 変換 (ADR-0001: DQL 文字列が正本):
  *   recent(N) → LIST SORT file.mtime DESC LIMIT {N}
@@ -13,11 +13,41 @@
  *   journal(N)→ LIST FROM "journals" SORT file.name DESC LIMIT {N}
  *   todo      → LIST WHERE file.open_tasks SORT file.mtime DESC
  *   custom    → ユーザーが直接入力した DQL 文字列
+ *
+ * Sebf6b0-2: pin パスコンボボックスはノートに加えてフォルダ候補も表示する。
+ *   フォルダ候補: notes の folder フィールドから派生 (祖先フォルダを含む)。
+ *   パスが `.md` 末尾 → note-pin (葉)。それ以外 → folder-pin (展開可能)。
+ *   保存時: パスが既存ノートパスでも既存フォルダでもない場合はエラーを表示してブロック。
  */
 import { useEffect, useRef, useState, type ChangeEvent, type JSX } from 'react';
-import type { NoteMeta, SmartViewItem } from '@loamium/shared';
+import type { NoteMeta, SmartViewItem, TagCount } from '@loamium/shared';
+import { filterTagSuggestions } from '@loamium/shared';
 import { api } from '../api.js';
+import { FolderIcon } from '../icons.js';
 import { BUILTIN_ICON_NAMES, SmartIcon } from './SmartIcons.js';
+
+// --------------------------------------------------------------------------
+// フォルダ候補の派生
+// --------------------------------------------------------------------------
+
+/**
+ * notes のリストからフォルダ候補を導出する。
+ * 各ノートの folder フィールド + その祖先フォルダを収集し、
+ * ルート直下 ("") は除く (意味を持たないため)。
+ */
+export function deriveFolderCandidates(notes: NoteMeta[]): string[] {
+  const folderSet = new Set<string>();
+  for (const note of notes) {
+    const f = note.folder;
+    if (f === '') continue;
+    // folder とその祖先を追加
+    const parts = f.split('/');
+    for (let i = 1; i <= parts.length; i++) {
+      folderSet.add(parts.slice(0, i).join('/'));
+    }
+  }
+  return Array.from(folderSet).sort();
+}
 
 // --------------------------------------------------------------------------
 // プリセット / DQL 生成
@@ -121,7 +151,37 @@ export function SmartFolderForm({
     setIconOpen(false);
   };
 
-  // --- パスコンボボックス ---
+  // --- タグコンボボックス (Sebf6b0-4 AC-4-1) ---
+  const [tags, setTags] = useState<TagCount[] | null>(null);
+  const [tagOpen, setTagOpen] = useState(false);
+  const tagBlurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const loadTags = (): void => {
+    if (tags !== null) return;
+    void api.getTags().then(
+      (res) => setTags(res.tags),
+      () => setTags([]),
+    );
+  };
+
+  const tagSuggestions = filterTagSuggestions(tags ?? [], presetTag);
+  // タグコンボは既存タグ候補のみ (isCreate の新規作成項目は除外 — フォーム用)
+  const filteredTagSuggestions = tagSuggestions.filter((s) => !s.isCreate);
+
+  const handleTagFocus = (): void => {
+    if (tagBlurTimerRef.current !== null) clearTimeout(tagBlurTimerRef.current);
+    loadTags();
+    setTagOpen(true);
+  };
+  const handleTagBlur = (): void => {
+    tagBlurTimerRef.current = setTimeout(() => setTagOpen(false), 150);
+  };
+  const selectTag = (tag: string): void => {
+    setPresetTag(tag);
+    setTagOpen(false);
+  };
+
+  // --- パスコンボボックス (Sebf6b0-2: ノート + フォルダ候補) ---
   const [notes, setNotes] = useState<NoteMeta[] | null>(null);
   const [pathOpen, setPathOpen] = useState(false);
   const pathBlurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -134,18 +194,35 @@ export function SmartFolderForm({
     );
   };
 
+  // ノートパスの Set (存在検証用)
+  const notePathSet = new Set(notes?.map((n) => n.path) ?? []);
+  // フォルダ候補 (notes から導出)
+  const folderCandidates = notes === null ? [] : deriveFolderCandidates(notes);
+  const folderSet = new Set(folderCandidates);
+
+  const q = path.toLowerCase().trim();
+
   const filteredNotes =
     notes === null
       ? []
       : notes
           .filter((n) => {
-            const q = path.toLowerCase().trim();
             if (q.length === 0) return true;
             return (
               n.path.toLowerCase().includes(q) || n.title.toLowerCase().includes(q)
             );
           })
-          .slice(0, 20);
+          .slice(0, 15);
+
+  const filteredFolders =
+    notes === null
+      ? []
+      : folderCandidates
+          .filter((f) => {
+            if (q.length === 0) return true;
+            return f.toLowerCase().includes(q);
+          })
+          .slice(0, 10);
 
   const handlePathFocus = (): void => {
     if (pathBlurTimerRef.current !== null) clearTimeout(pathBlurTimerRef.current);
@@ -166,6 +243,7 @@ export function SmartFolderForm({
     return () => {
       if (iconBlurTimerRef.current !== null) clearTimeout(iconBlurTimerRef.current);
       if (pathBlurTimerRef.current !== null) clearTimeout(pathBlurTimerRef.current);
+      if (tagBlurTimerRef.current !== null) clearTimeout(tagBlurTimerRef.current);
     };
   }, []);
 
@@ -203,6 +281,16 @@ export function SmartFolderForm({
       if (!trimPath) {
         setError('パスを入力してください');
         return;
+      }
+      // Sebf6b0-2 AC-2-2: ノートパスまたはフォルダパスとして存在するか検証
+      // notes がロード済みの場合のみ検証 (未ロードなら楽観的に通過)
+      if (notes !== null) {
+        const isExistingNote = notePathSet.has(trimPath);
+        const isExistingFolder = folderSet.has(trimPath);
+        if (!isExistingNote && !isExistingFolder) {
+          setError('存在しないパスです');
+          return;
+        }
       }
     }
 
@@ -354,18 +442,43 @@ export function SmartFolderForm({
             </div>
           )}
 
-          {/* タグ名 */}
+          {/* タグ名 (コンボボックス — Sebf6b0-4 AC-4-1) */}
           {preset === 'tag' && (
             <div className="sf-form-row">
               <label className="sf-form-label">タグ名</label>
-              <input
-                type="text"
-                className="sf-form-input"
-                data-testid="sf-form-preset-tag"
-                value={presetTag}
-                placeholder="example"
-                onChange={(e) => setPresetTag(e.target.value)}
-              />
+              <div className="sf-form-combobox">
+                <input
+                  type="text"
+                  className="sf-form-input"
+                  data-testid="sf-form-preset-tag"
+                  value={presetTag}
+                  placeholder="example"
+                  onFocus={handleTagFocus}
+                  onBlur={handleTagBlur}
+                  onChange={(e) => {
+                    setPresetTag(e.target.value);
+                    setTagOpen(true);
+                  }}
+                />
+                {tagOpen && filteredTagSuggestions.length > 0 && (
+                  <div className="sf-form-dropdown">
+                    {filteredTagSuggestions.map((s) => (
+                      <button
+                        key={s.tag}
+                        type="button"
+                        className="sf-form-option"
+                        data-testid="sf-form-preset-tag-option"
+                        onMouseDown={(e) => { e.preventDefault(); selectTag(s.tag); }}
+                      >
+                        <span className="sf-form-option-path">#{s.tag}</span>
+                        {s.count > 0 && (
+                          <span className="sf-form-option-title">{s.count}</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -383,7 +496,7 @@ export function SmartFolderForm({
         </>
       )}
 
-      {/* pin フィールド (パスコンボボックス) */}
+      {/* pin フィールド (パスコンボボックス — Sebf6b0-2: フォルダ + ノート候補) */}
       {kind === 'pin' && (
         <div className="sf-form-row">
           <label className="sf-form-label">パス</label>
@@ -393,7 +506,7 @@ export function SmartFolderForm({
               className="sf-form-input"
               data-testid="sf-form-path"
               value={path}
-              placeholder="notes/example.md"
+              placeholder="notes/example.md または projects/"
               onFocus={handlePathFocus}
               onBlur={handlePathBlur}
               onChange={(e) => {
@@ -402,8 +515,23 @@ export function SmartFolderForm({
                 setPathOpen(true);
               }}
             />
-            {pathOpen && filteredNotes.length > 0 && (
+            {pathOpen && (filteredFolders.length > 0 || filteredNotes.length > 0) && (
               <div className="sf-form-dropdown">
+                {/* フォルダ候補 (視覚的に区別: FolderIcon + 末尾 /) */}
+                {filteredFolders.map((folder) => (
+                  <button
+                    key={`folder:${folder}`}
+                    type="button"
+                    className="sf-form-option sf-form-option-folder"
+                    data-testid="sf-form-path-option"
+                    data-path={folder}
+                    onMouseDown={(e) => { e.preventDefault(); selectPath(folder); }}
+                  >
+                    <FolderIcon className="sf-form-option-icon" />
+                    <span className="sf-form-option-path">{folder}/</span>
+                  </button>
+                ))}
+                {/* ノート候補 */}
                 {filteredNotes.map((note) => (
                   <button
                     key={note.path}
@@ -425,7 +553,7 @@ export function SmartFolderForm({
         </div>
       )}
 
-      {error !== null && <div className="sf-form-error">{error}</div>}
+      {error !== null && <div className="sf-form-error" data-testid="sf-form-error">{error}</div>}
 
       <div className="sf-form-actions">
         <button

@@ -4,10 +4,10 @@
   "progress": {
     "current_sprint": "Sebf6b0",
     "total": 28,
-    "done": 26,
+    "done": 27,
     "in_progress": 0,
-    "remaining": 2,
-    "percentage": 92
+    "remaining": 1,
+    "percentage": 96
   },
   "execution_order": [
     "Sd63ad1",
@@ -2776,13 +2776,13 @@
     },
     "Sebf6b0": {
       "title": "スマートフォルダ拡張 — フォルダpin・ファイル作成・タグ補完・機能ガイド",
-      "status": "pending",
+      "status": "done",
       "description": "フォルダ pin(ADR-0005)、pin 存在検証、スマートビューからのファイル作成(新規/テンプレート・パスにフォルダ補完)、フォーム内タグ補完、機能ガイドへのスマートフォルダ使い方追加。バックエンドはフォルダ pin 解決のみ拡張、残りは UI。",
       "milestone": true,
       "stories": {
         "Sebf6b0-1": {
           "title": "フォルダ pin の解決(バックエンド)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "スマートフォルダを使う自分として、フォルダを pin したときにその配下のノート一覧を得たい。なぜなら、使うフォルダをそのまま論理ビューに置きたいから。",
@@ -2791,31 +2791,31 @@
               "id": "AC-Sebf6b0-1-1",
               "description": "GET /api/smart-folders/{id}/notes は pin.path が物理フォルダのとき、その配下(サブフォルダ含む)の .md ノートを NoteMeta[] で返す。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sebf6b0-1-2",
               "description": "pin.path がノートのときは従来どおり単一 NoteMeta を返す(後方互換)。存在しない path は空配列(ファイルを壊さない)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sebf6b0-1-1": {
               "title": "フォルダ pin 解決",
               "description": "smart-folders.ts の pin 解決を拡張: path がフォルダなら index から folder 配下ノートを列挙(executeQuery FROM \"folder\" 相当 or 直接フィルタ)。ノートは従来どおり。",
-              "status": "pending"
+              "status": "done"
             },
             "Sebf6b0-1-2": {
               "title": "受け入れテスト",
               "description": "tests/acceptance/smart-folders.spec.ts にフォルダ pin 解決 + note pin 後方互換ケースを追加。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sebf6b0-2": {
           "title": "フォルダ pin UI + 存在検証",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "スマートフォルダを作る自分として、pin にフォルダも選べて、存在しないパスは作成時に弾いてほしい。なぜなら、実在するファイル/フォルダだけを確実に置きたいから。",
@@ -2824,42 +2824,42 @@
               "id": "AC-Sebf6b0-2-1",
               "description": "pin のパスコンボボックスが既存ノートに加えて物理フォルダも候補として絞り込み表示する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sebf6b0-2-2",
               "description": "存在しないファイル/フォルダのパスで pin を保存しようとすると作成ダイアログ内でエラー表示し保存できない。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sebf6b0-2-3",
               "description": "フォルダ pin はスマートビューで展開可能なフォルダとして描画され、展開で配下ノートを表示する。ノート pin は葉のまま。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sebf6b0-2-1": {
               "title": "フォルダ候補 + 検証",
               "description": "SmartFolderForm の pin コンボボックスに派生フォルダを候補追加。保存前に path が実在ノート/フォルダかを検証、非実在は sf-form-error 表示で弾く。",
-              "status": "pending"
+              "status": "done"
             },
             "Sebf6b0-2-2": {
               "title": "フォルダ pin 描画",
               "description": "SmartView: フォルダ pin を展開フォルダ(smart-folder 相当、resolve で配下ノート)として描画。ノート pin は従来の葉。",
-              "status": "pending"
+              "status": "done"
             },
             "Sebf6b0-2-3": {
               "title": "テスト",
               "description": "mock/e2e: フォルダ候補・非実在弾き・フォルダ pin 展開。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sebf6b0-3": {
           "title": "スマートビューからのファイル作成(新規/テンプレート)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノートを増やす自分として、スマートビューのヘッダからも新規ファイルやテンプレートでノートを作りたい。なぜなら、ビューを切り替えずに素早く作成したいから。",
@@ -2868,42 +2868,42 @@
               "id": "AC-Sebf6b0-3-1",
               "description": "「+」ボタンの横にファイル作成ボタンがあり、押すと『新規ファイル』か『テンプレートから』を選べる。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sebf6b0-3-2",
               "description": "『新規ファイル』はファイルパスを指定でき、既存フォルダがサジェスト/絞り込みされる。作成すると当該ノートが開く。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sebf6b0-3-3",
               "description": "『テンプレートから』は既存のテンプレート作成フロー(TemplatePicker/TemplateModal)を開く。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sebf6b0-3-1": {
               "title": "作成ボタン + メニュー",
               "description": "smart-view-header に smart-view-newfile ボタン + メニュー(新規ファイル/テンプレート)。既存 createNote / TemplatePicker を再利用。",
-              "status": "pending"
+              "status": "done"
             },
             "Sebf6b0-3-2": {
               "title": "パス入力(フォルダ補完)",
               "description": "新規ファイルのパス入力にフォルダ補完コンボボックス。PUT /api/notes で作成し開く。",
-              "status": "pending"
+              "status": "done"
             },
             "Sebf6b0-3-3": {
               "title": "テスト",
               "description": "mock/e2e: メニュー・新規ファイル作成(フォルダ補完)・テンプレート起動。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sebf6b0-4": {
           "title": "フォーム タグ補完 + 機能ガイド",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "スマートフォルダを作る自分として、タグプリセットで既存タグをサジェスト/絞り込みで選び、使い方をガイドで確認したい。なぜなら、タグを覚えていなくても選べて、機能を学べるから。",
@@ -2912,25 +2912,25 @@
               "id": "AC-Sebf6b0-4-1",
               "description": "タグプリセットのタグ入力が既存タグ(GET /api/tags)をサジェスト/絞り込み表示し、選択できる。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sebf6b0-4-2",
               "description": "機能ガイド(ウェルカム/空状態)にスマートフォルダの使い方セクションが表示される。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sebf6b0-4-1": {
               "title": "タグ補完",
               "description": "sf-form-preset-tag を tag-suggest(GET /api/tags + filterTagSuggestions)のコンボボックス化。",
-              "status": "pending"
+              "status": "done"
             },
             "Sebf6b0-4-2": {
               "title": "機能ガイド",
               "description": "App.tsx の空状態にスマートフォルダの使い方セクション(作成/フォルダpin/クエリ/ブックマーク)を追加。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }

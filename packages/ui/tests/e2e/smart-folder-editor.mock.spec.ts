@@ -249,7 +249,10 @@ test('[AC-S7b2f22-1-5] pin 保存: PUT に正しい kind/path が送られる', 
   await openForm(page);
 
   await page.getByTestId('sf-form-kind-pin').click();
-  await page.getByTestId('sf-form-path').fill('notes/example.md');
+  // notes/alpha.md は boot モックに含まれる有効なパス (Sebf6b0-2: 存在検証により有効なパスが必要)
+  await page.getByTestId('sf-form-path').focus();
+  await page.getByTestId('sf-form-path').fill('notes/alpha.md');
+  await page.getByTestId('sf-form-name').click(); // ドロップダウンを閉じる
   await page.getByTestId('sf-form-save').click();
 
   await expect(page.getByTestId('sf-form')).not.toBeVisible();
@@ -258,7 +261,7 @@ test('[AC-S7b2f22-1-5] pin 保存: PUT に正しい kind/path が送られる', 
   const items = capturedBody!.items as Array<{ kind: string; path: string }>;
   expect(items).toHaveLength(1);
   expect(items[0]?.kind).toBe('pin');
-  expect(items[0]?.path).toBe('notes/example.md');
+  expect(items[0]?.path).toBe('notes/alpha.md');
 
   expect(unexpected).toEqual([]);
 });
@@ -712,4 +715,521 @@ test('[AC-S7b2f22-1-7] read-only では項目があっても旧ボタン類が�
   await expect(page.getByTestId('smart-folder-movedown')).toHaveCount(0);
 
   expect(unexpected).toEqual([]);
+});
+
+// --------------------------------------------------------------------------
+// [AC-Sebf6b0-2-1] フォルダ候補が pin コンボボックスに表示される
+// --------------------------------------------------------------------------
+
+test('[AC-Sebf6b0-2-1] sf-form-path に "proj" を入力するとフォルダ候補が表示される', async ({
+  page,
+}) => {
+  // boot の notes: journals/2026-07-08.md (folder=journals), notes/alpha.md (folder=notes), notes/beta.md (folder=notes)
+  // ここでは projects/ フォルダ配下のノートを返すように上書き
+  const unexpected = await installCatchAll(page);
+  await page.route('**/api/notes', (route) => {
+    void route.fulfill(
+      json({
+        notes: [
+          { path: 'projects/design.md', title: 'Design', tags: [], folder: 'projects' },
+          { path: 'projects/sub/detail.md', title: 'Detail', tags: [], folder: 'projects/sub' },
+          { path: 'notes/alpha.md', title: 'Alpha', tags: [], folder: 'notes' },
+        ],
+      }),
+    );
+  });
+  await page.route('**/api/journal**', (route) => {
+    const body = `# ${TODAY}\n\nアンカー\n`;
+    void route.fulfill(
+      json({
+        date: TODAY,
+        path: JOURNAL_PATH,
+        content: body,
+        frontmatter: null,
+        body,
+        created: false,
+        mtime: 1000,
+      }),
+    );
+  });
+  await page.route('**/api/smart-folders', (route) => {
+    void route.fulfill(json({ version: 1, items: [] }));
+  });
+
+  await page.goto(readHarnessState().uiUrl);
+  await openForm(page);
+  await page.getByTestId('sf-form-kind-pin').click();
+  await expect(page.getByTestId('sf-form-path')).toBeVisible();
+
+  // フォーカスしてノートをロード
+  await page.getByTestId('sf-form-path').focus();
+  // "proj" でフィルタ → フォルダ候補 "projects" が表示される
+  await page.getByTestId('sf-form-path').fill('proj');
+
+  const folderOption = page.locator('[data-testid="sf-form-path-option"][data-path="projects"]');
+  await expect(folderOption).toBeVisible({ timeout: 5000 });
+
+  // クリックでパスが入力される (末尾 / なしのパスが設定される)
+  await folderOption.click();
+  await expect(page.getByTestId('sf-form-path')).toHaveValue('projects');
+
+  // ドロップダウンが閉じる
+  await expect(page.locator('[data-testid="sf-form-path-option"]')).toHaveCount(0);
+
+  expect(unexpected).toEqual([]);
+});
+
+test('[AC-Sebf6b0-2-1] 祖先フォルダも候補に含まれる (projects/sub → projects も表示)', async ({
+  page,
+}) => {
+  const unexpected = await installCatchAll(page);
+  await page.route('**/api/notes', (route) => {
+    void route.fulfill(
+      json({
+        notes: [
+          { path: 'projects/sub/detail.md', title: 'Detail', tags: [], folder: 'projects/sub' },
+        ],
+      }),
+    );
+  });
+  await page.route('**/api/journal**', (route) => {
+    const body = `# ${TODAY}\n\n`;
+    void route.fulfill(
+      json({
+        date: TODAY,
+        path: JOURNAL_PATH,
+        content: body,
+        frontmatter: null,
+        body,
+        created: false,
+        mtime: 1000,
+      }),
+    );
+  });
+  await page.route('**/api/smart-folders', (route) => {
+    void route.fulfill(json({ version: 1, items: [] }));
+  });
+
+  await page.goto(readHarnessState().uiUrl);
+  await openForm(page);
+  await page.getByTestId('sf-form-kind-pin').click();
+  await page.getByTestId('sf-form-path').focus();
+
+  // 入力なしで全候補を表示
+  await page.getByTestId('sf-form-path').fill('');
+
+  // projects と projects/sub 両方が表示される
+  await expect(page.locator('[data-testid="sf-form-path-option"][data-path="projects"]')).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('[data-testid="sf-form-path-option"][data-path="projects/sub"]')).toBeVisible();
+
+  expect(unexpected).toEqual([]);
+});
+
+// --------------------------------------------------------------------------
+// [AC-Sebf6b0-2-2] 存在しないパスでエラー表示
+// --------------------------------------------------------------------------
+
+test('[AC-Sebf6b0-2-2] 存在しないパスで保存するとエラーが表示されフォームが閉じない', async ({
+  page,
+}) => {
+  const unexpected = await installCatchAll(page);
+  await page.route('**/api/notes', (route) => {
+    void route.fulfill(
+      json({
+        notes: [
+          { path: 'notes/alpha.md', title: 'Alpha', tags: [], folder: 'notes' },
+        ],
+      }),
+    );
+  });
+  await page.route('**/api/journal**', (route) => {
+    const body = `# ${TODAY}\n\n`;
+    void route.fulfill(
+      json({
+        date: TODAY,
+        path: JOURNAL_PATH,
+        content: body,
+        frontmatter: null,
+        body,
+        created: false,
+        mtime: 1000,
+      }),
+    );
+  });
+  await page.route('**/api/smart-folders', (route) => {
+    // PUT は来てはいけない → fulfill のみ GET 用
+    if (route.request().method() === 'PUT') {
+      // このテストでは PUT が呼ばれるべきでない
+      void route.fulfill({ status: 500, body: 'should not PUT' });
+    } else {
+      void route.fulfill(json({ version: 1, items: [] }));
+    }
+  });
+
+  await page.goto(readHarnessState().uiUrl);
+  await openForm(page);
+  await page.getByTestId('sf-form-kind-pin').click();
+
+  // notes をロードするためにフォーカス
+  await page.getByTestId('sf-form-path').focus();
+  // 存在しないパスを入力
+  await page.getByTestId('sf-form-path').fill('nope/none');
+  // ドロップダウンを閉じるために名前フィールドをクリック
+  await page.getByTestId('sf-form-name').click();
+
+  // 保存を試みる
+  await page.getByTestId('sf-form-save').click();
+
+  // エラーが表示される
+  await expect(page.getByTestId('sf-form-error')).toBeVisible();
+  await expect(page.getByTestId('sf-form-error')).toContainText('存在しないパスです');
+
+  // フォームは閉じていない
+  await expect(page.getByTestId('sf-form')).toBeVisible();
+
+  expect(unexpected).toEqual([]);
+});
+
+test('[AC-Sebf6b0-2-2] 存在するノートパスなら保存できる', async ({ page }) => {
+  const unexpected = await installCatchAll(page);
+
+  type SfBody = { version: number; items: Array<Record<string, unknown>> };
+  let capturedBody: SfBody | null = null;
+
+  await page.route('**/api/notes', (route) => {
+    void route.fulfill(
+      json({
+        notes: [
+          { path: 'notes/alpha.md', title: 'Alpha', tags: [], folder: 'notes' },
+        ],
+      }),
+    );
+  });
+  await page.route('**/api/journal**', (route) => {
+    const body = `# ${TODAY}\n\n`;
+    void route.fulfill(
+      json({
+        date: TODAY,
+        path: JOURNAL_PATH,
+        content: body,
+        frontmatter: null,
+        body,
+        created: false,
+        mtime: 1000,
+      }),
+    );
+  });
+  await page.route('**/api/smart-folders', (route) => {
+    if (route.request().method() === 'PUT') {
+      capturedBody = route.request().postDataJSON() as SfBody;
+      void route.fulfill(json({ version: 1, items: capturedBody.items }));
+    } else {
+      void route.fulfill(json({ version: 1, items: [] }));
+    }
+  });
+
+  await page.goto(readHarnessState().uiUrl);
+  await openForm(page);
+  await page.getByTestId('sf-form-kind-pin').click();
+
+  // 注意: ノートをロードするためにフォーカスが必要
+  await page.getByTestId('sf-form-path').focus();
+  await page.getByTestId('sf-form-path').fill('notes/alpha.md');
+  await page.getByTestId('sf-form-name').click();
+  await page.getByTestId('sf-form-save').click();
+
+  // エラーなく保存できる
+  await expect(page.getByTestId('sf-form-error')).toHaveCount(0);
+  await expect(page.getByTestId('sf-form')).not.toBeVisible();
+  expect(capturedBody).not.toBeNull();
+
+  expect(unexpected).toEqual([]);
+});
+
+test('[AC-Sebf6b0-2-2] 存在するフォルダパスなら保存できる', async ({ page }) => {
+  const unexpected = await installCatchAll(page);
+
+  type SfBody = { version: number; items: Array<Record<string, unknown>> };
+  let capturedBody: SfBody | null = null;
+
+  await page.route('**/api/notes', (route) => {
+    void route.fulfill(
+      json({
+        notes: [
+          { path: 'projects/design.md', title: 'Design', tags: [], folder: 'projects' },
+        ],
+      }),
+    );
+  });
+  await page.route('**/api/journal**', (route) => {
+    const body = `# ${TODAY}\n\n`;
+    void route.fulfill(
+      json({
+        date: TODAY,
+        path: JOURNAL_PATH,
+        content: body,
+        frontmatter: null,
+        body,
+        created: false,
+        mtime: 1000,
+      }),
+    );
+  });
+  await page.route('**/api/smart-folders', (route) => {
+    if (route.request().method() === 'PUT') {
+      capturedBody = route.request().postDataJSON() as SfBody;
+      void route.fulfill(json({ version: 1, items: capturedBody.items }));
+    } else {
+      void route.fulfill(json({ version: 1, items: [] }));
+    }
+  });
+
+  await page.goto(readHarnessState().uiUrl);
+  await openForm(page);
+  await page.getByTestId('sf-form-kind-pin').click();
+
+  await page.getByTestId('sf-form-path').focus();
+  await page.getByTestId('sf-form-path').fill('projects');
+  await page.getByTestId('sf-form-name').click();
+  await page.getByTestId('sf-form-save').click();
+
+  // エラーなく保存できる
+  await expect(page.getByTestId('sf-form-error')).toHaveCount(0);
+  await expect(page.getByTestId('sf-form')).not.toBeVisible();
+  expect(capturedBody).not.toBeNull();
+  const items = capturedBody!.items as Array<{ kind: string; path: string }>;
+  expect(items[0]?.path).toBe('projects');
+
+  expect(unexpected).toEqual([]);
+});
+
+// --------------------------------------------------------------------------
+// [AC-Sebf6b0-2-3] folder-pin の展開 (mock)
+// --------------------------------------------------------------------------
+
+test('[AC-Sebf6b0-2-3] folder-pin (path not .md) は展開可能行として描画される', async ({
+  page,
+}) => {
+  const unexpected = await installCatchAll(page);
+  await page.route('**/api/notes', (route) => {
+    void route.fulfill(json({ notes: [] }));
+  });
+  await page.route('**/api/journal**', (route) => {
+    const body = `# ${TODAY}\n\n`;
+    void route.fulfill(
+      json({
+        date: TODAY,
+        path: JOURNAL_PATH,
+        content: body,
+        frontmatter: null,
+        body,
+        created: false,
+        mtime: 1000,
+      }),
+    );
+  });
+  await page.route('**/api/smart-folders', (route) => {
+    void route.fulfill(
+      json({
+        version: 1,
+        items: [
+          { kind: 'pin', id: 'fp-1', name: 'Projects フォルダ', path: 'projects' },
+          { kind: 'pin', id: 'np-1', name: 'Alpha ノート', path: 'notes/alpha.md' },
+        ],
+      }),
+    );
+  });
+  await page.route('**/api/smart-folders/fp-1/notes', (route) => {
+    void route.fulfill(
+      json({
+        notes: [
+          { path: 'projects/design.md', title: 'Design', tags: [], folder: 'projects' },
+          { path: 'projects/plan.md', title: 'Plan', tags: [], folder: 'projects' },
+        ],
+      }),
+    );
+  });
+
+  await page.goto(readHarnessState().uiUrl);
+  await page.getByTestId('sidebar-view-smart').click();
+
+  // folder-pin は smart-pin testid を持ち aria-expanded がある
+  const folderPin = page.locator('[data-testid="smart-pin"][data-id="fp-1"]');
+  await expect(folderPin).toBeVisible();
+  await expect(folderPin).toHaveAttribute('aria-expanded', 'false');
+
+  // note-pin は smart-pin testid を持つが aria-expanded がない
+  const notePin = page.locator('[data-testid="smart-pin"][data-id="np-1"]');
+  await expect(notePin).toBeVisible();
+
+  // folder-pin を展開
+  await folderPin.locator('button').first().click();
+  await expect(folderPin).toHaveAttribute('aria-expanded', 'true');
+
+  // 配下のノートが表示される
+  await expect(
+    page.locator('[data-testid="smart-note"][data-path="projects/design.md"]'),
+  ).toBeVisible({ timeout: 5000 });
+  await expect(
+    page.locator('[data-testid="smart-note"][data-path="projects/plan.md"]'),
+  ).toBeVisible();
+
+  expect(unexpected).toEqual([]);
+});
+
+// --------------------------------------------------------------------------
+// [AC-Sebf6b0-3-1] smart-view-newfile ボタンとメニュー (mock)
+// --------------------------------------------------------------------------
+
+test('[AC-Sebf6b0-3-1] smart-view-newfile が full モードのみ表示され、クリックでメニューが開く', async ({
+  page,
+}) => {
+  const unexpected = await boot(page);
+  await page.route('**/api/smart-folders', (route) =>
+    void route.fulfill(json({ version: 1, items: [] })),
+  );
+
+  await page.goto(readHarnessState().uiUrl);
+  await page.getByTestId('sidebar-view-smart').click();
+
+  // full モードでは smart-view-newfile が visible
+  await expect(page.getByTestId('smart-view-newfile')).toBeVisible();
+
+  // クリックでメニューが開く
+  await page.getByTestId('smart-view-newfile').click();
+  await expect(page.getByTestId('smart-newfile-menu')).toBeVisible();
+  await expect(page.getByTestId('smart-newfile-blank')).toBeVisible();
+  await expect(page.getByTestId('smart-newfile-template')).toBeVisible();
+
+  expect(unexpected).toEqual([]);
+});
+
+test('[AC-Sebf6b0-3-1] read-only では smart-view-newfile が表示されない', async ({
+  page,
+}) => {
+  const unexpected = await boot(page);
+  await page.route('**/api/health', (route) =>
+    void route.fulfill(
+      json({ status: 'ok', mode: 'read-only', terminal: { enabled: false, reason: null } }),
+    ),
+  );
+  await page.route('**/api/smart-folders', (route) =>
+    void route.fulfill(json({ version: 1, items: [] })),
+  );
+
+  await page.goto(readHarnessState().uiUrl);
+  await page.getByTestId('sidebar-view-smart').click();
+
+  await expect(page.getByTestId('smart-view-newfile')).toHaveCount(0);
+
+  expect(unexpected).toEqual([]);
+});
+
+// --------------------------------------------------------------------------
+// [AC-Sebf6b0-3-3] smart-newfile-template がテンプレートピッカーを開く (mock)
+// --------------------------------------------------------------------------
+
+test('[AC-Sebf6b0-3-3] smart-newfile-template クリックでテンプレートピッカーが開く', async ({
+  page,
+}) => {
+  const unexpected = await boot(page);
+  await page.route('**/api/smart-folders', (route) =>
+    void route.fulfill(json({ version: 1, items: [] })),
+  );
+  await page.route('**/api/templates', (route) =>
+    void route.fulfill(json({ templates: [] })),
+  );
+
+  await page.goto(readHarnessState().uiUrl);
+  await page.getByTestId('sidebar-view-smart').click();
+
+  await page.getByTestId('smart-view-newfile').click();
+  await expect(page.getByTestId('smart-newfile-menu')).toBeVisible();
+
+  await page.getByTestId('smart-newfile-template').click();
+
+  // テンプレートピッカーが開く
+  await expect(page.getByTestId('template-picker')).toBeVisible({ timeout: 5000 });
+
+  expect(unexpected).toEqual([]);
+});
+
+// --------------------------------------------------------------------------
+// [AC-Sebf6b0-4-1] タグ補完 (mock)
+// --------------------------------------------------------------------------
+
+test('[AC-Sebf6b0-4-1] タグプリセット選択後、sf-form-preset-tag にタイプするとタグ候補が出てクリックで入力される', async ({
+  page,
+}) => {
+  const unexpected = await boot(page);
+  // boot の後に登録してタグ一覧を返す (後勝ち)
+  await page.route('**/api/tags', (route) =>
+    void route.fulfill(
+      json({
+        tags: [
+          { tag: 'typescript', count: 5 },
+          { tag: 'javascript', count: 3 },
+          { tag: 'todo', count: 10 },
+        ],
+      }),
+    ),
+  );
+  await page.route('**/api/smart-folders', (route) =>
+    void route.fulfill(json({ version: 1, items: [] })),
+  );
+
+  await page.goto(readHarnessState().uiUrl);
+  await openForm(page);
+
+  // タグプリセットを選択
+  await page.selectOption('[data-testid="sf-form-preset"]', 'tag');
+  await expect(page.getByTestId('sf-form-preset-tag')).toBeVisible();
+
+  // フォーカスしてタグ候補をロード
+  await page.getByTestId('sf-form-preset-tag').focus();
+
+  // 'type' と入力して 'typescript' を絞り込む
+  await page.getByTestId('sf-form-preset-tag').fill('type');
+  const option = page.locator('[data-testid="sf-form-preset-tag-option"]').first();
+  await expect(option).toBeVisible({ timeout: 5000 });
+  await expect(option).toContainText('typescript');
+
+  // クリックで入力される
+  await option.click();
+  await expect(page.getByTestId('sf-form-preset-tag')).toHaveValue('typescript');
+
+  // DQL が更新される
+  await expect(page.getByTestId('sf-form-dql')).toHaveValue('LIST FROM #typescript');
+
+  // 候補が閉じる
+  await expect(page.locator('[data-testid="sf-form-preset-tag-option"]')).toHaveCount(0);
+
+  expect(unexpected).toEqual([]);
+});
+
+// --------------------------------------------------------------------------
+// [AC-Sebf6b0-4-2] スマートフォルダガイドが空状態に表示される (mock)
+// --------------------------------------------------------------------------
+
+test('[AC-Sebf6b0-4-2] 空状態に smart-folder-guide セクションが表示される', async ({
+  page,
+}) => {
+  const unexpected = await installCatchAll(page);
+  // ジャーナル取得を失敗させて empty state を確実に表示させる
+  await page.route('**/api/notes', (route) =>
+    void route.fulfill(json({ notes: [] })),
+  );
+  await page.route('**/api/journal**', (route) =>
+    void route.fulfill(json({ error: 'io_error', message: 'disk unavailable' }, 500)),
+  );
+  await page.route('**/api/smart-folders', (route) =>
+    void route.fulfill(json({ version: 1, items: [] })),
+  );
+
+  await page.goto(readHarnessState().uiUrl);
+
+  // empty state が表示される (journal 取得失敗)
+  await expect(page.getByTestId('editor-empty-state')).toBeVisible();
+  await expect(page.getByTestId('smart-folder-guide')).toBeVisible();
+  await expect(page.getByTestId('smart-folder-guide')).toContainText('スマートフォルダの使い方');
 });

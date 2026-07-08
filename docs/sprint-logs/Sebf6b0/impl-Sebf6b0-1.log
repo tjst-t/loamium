@@ -1,0 +1,44 @@
+Story: Sebf6b0-1 — フォルダ pin の解決 (バックエンド)
+Date: 2026-07-08
+Branch: autopilot/smart-folder/Sebf6b0
+
+## Changes
+
+### packages/shared/src/schemas.ts
+- Replaced `import { isValidVaultPath }` with `import { normalizeVaultFilePath, VaultPathError }`.
+- Added `isValidPinPath()` helper: validates pin.path as either a note path (.md) or a folder path
+  (no .md) using `normalizeVaultFilePath` — rejects traversal/hidden/absolute; does NOT append .md.
+- Updated `smartViewPinItemSchema` to use `isValidPinPath` instead of `isValidVaultPath`, allowing
+  folder paths (e.g. "projects", "projects/sub") in addition to note paths (e.g. "note.md").
+- Backward compatible: existing .md note-pin paths remain valid.
+
+### packages/server/src/routes/smart-folders.ts
+- PUT handler: replaced `normalizeVaultPath` (which appended .md) with `normalizeVaultFilePath`
+  (which preserves folder paths without .md). This ensures folder paths like "projects" are stored
+  as-is, not incorrectly turned into "projects.md".
+- GET /api/smart-folders/{id}/notes (pin branch): extended resolution logic:
+  1. If noteMetaMap has an exact match for item.path → single NoteMeta (backward compatible note-pin).
+  2. Else treat item.path as a folder: collect all notes where
+     `n.folder === folderPath || n.folder.startsWith(folderPath + '/')`.
+     Sort by path ascending for a stable result.
+  3. Neither match → empty array (never errors).
+
+## Tests (tests/acceptance/smart-folders.spec.ts)
+Added 8 new tests in 2 describe blocks tagged [AC-Sebf6b0-1-*]:
+
+[AC-Sebf6b0-1-1][AC-Sebf6b0-1-2]:
+- "フォルダ pin は配下 (サブフォルダ含む) の全ノートを path 昇順で返す"
+  Seeds projects/a.md, projects/sub/b.md, note.md. Asserts projpin returns both projects/ notes,
+  not note.md. Also verifies PUT 200 (schema acceptance of folder path).
+- "ノート pin は後方互換で単一 NoteMeta を返す [AC-Sebf6b0-1-2]"
+- "存在しないフォルダへのフォルダ pin は空配列を返す [AC-Sebf6b0-1-2]"
+
+[AC-Sebf6b0-1-schema]:
+- "フォルダパス (拡張子なし) の pin.path を持つ設定の PUT が 200 を返す"
+- "path traversal を含むフォルダパスは 4xx で拒否される"
+- "隠しセグメントを含むフォルダパスは 4xx で拒否される"
+
+## Test Results
+- `make lint`: PASS (0 errors)
+- `npx vitest run tests/acceptance/smart-folders.spec.ts`: 22/22 PASS (14 pre-existing + 8 new)
+- `npx vitest run packages/shared`: 247/247 PASS

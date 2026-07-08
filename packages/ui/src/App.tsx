@@ -89,6 +89,7 @@ type DialogState =
   | { type: 'delete'; path: string }
   | { type: 'rename-file'; path: string }
   | { type: 'delete-file'; path: string }
+  | { type: 'smart-newfile' }
   | null;
 
 interface MenuState {
@@ -193,6 +194,13 @@ export function App(): JSX.Element {
   // ---- スマートビュー: モード + 作成フォームトリガー ----
   const [smartViewMode, setSmartViewMode] = useState<PermissionMode | null>(null);
   const [smartAddTrigger, setSmartAddTrigger] = useState(0);
+  // ---- スマートビュー: 新規ファイルメニュー (Sebf6b0-3) ----
+  const [smartNewFileMenuOpen, setSmartNewFileMenuOpen] = useState(false);
+  // 新規ファイルダイアログ用: パス入力値 + フォルダ候補
+  const [smartNewFilePath, setSmartNewFilePath] = useState('');
+  const [smartNewFileNotes, setSmartNewFileNotes] = useState<NoteMeta[] | null>(null);
+  const [smartNewFilePathOpen, setSmartNewFilePathOpen] = useState(false);
+  const smartNewFilePathBlurRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ---- サイドバー: ノート一覧と添付 ----
   const [notes, setNotes] = useState<NoteMeta[] | null>(null);
@@ -837,6 +845,53 @@ export function App(): JSX.Element {
     void refreshTemplates();
   }, [refreshTemplates]);
 
+  /** スマートビュー ▸ 新規ファイル → テンプレートから (Sebf6b0-3 AC-3-3) */
+  const openSmartNewFileTemplate = useCallback((): void => {
+    setSmartNewFileMenuOpen(false);
+    setDialog(null);
+    setTemplates(null);
+    setTemplatesError(null);
+    setPickerOpen(true);
+    void refreshTemplates();
+  }, [refreshTemplates]);
+
+  /**
+   * スマートビュー ▸ 新規ファイル → 空のノート作成 (Sebf6b0-3 AC-3-2)。
+   * フォルダ候補はノート一覧から derive する。
+   */
+  const loadSmartNewFileNotes = useCallback((): void => {
+    if (smartNewFileNotes !== null) return;
+    void api.listNotes().then(
+      (res) => setSmartNewFileNotes(res.notes),
+      () => setSmartNewFileNotes([]),
+    );
+  }, [smartNewFileNotes]);
+
+  const createSmartNewNote = useCallback(async (): Promise<void> => {
+    const trimPath = smartNewFilePath.trim();
+    if (!trimPath) return;
+    // パスに .md が付いていなければ追加する
+    const notePath = trimPath.endsWith('.md') ? trimPath : `${trimPath}.md`;
+    setDialog(null);
+    setSmartNewFilePath('');
+    setSmartNewFileNotes(null);
+    try {
+      const res = await api.putNote(notePath, '', 0);
+      await refreshNotes();
+      expandAncestors(dirnameOf(res.path));
+      setOpenDoc(res.path, '', res.mtime, null);
+      applyHistory({ kind: 'note', path: res.path }, 'push');
+      setAppError(null);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        setAppError(`同名のノートが既に存在します — ${notePath}`);
+        void refreshNotes();
+      } else {
+        setAppError(`ノートを作成できませんでした — ${errMessage(err)}`);
+      }
+    }
+  }, [smartNewFilePath, applyHistory, expandAncestors, refreshNotes, setOpenDoc]);
+
   /**
    * モーダル確定 → instantiate API → 解決先パス(衝突時は連番)に作成されたノートを開く。
    * 失敗 (不足変数の 4xx など) は throw して呼び出し元 (モーダル) がインライン表示する。
@@ -1136,7 +1191,7 @@ export function App(): JSX.Element {
             </button>
           </span>
           {sidebarView === 'smart' && smartViewMode === 'full' && (
-            <span className="actions">
+            <span className="actions" style={{ position: 'relative' }}>
               <button
                 className="icon-btn smart-view-add-btn"
                 data-testid="smart-view-add"
@@ -1145,6 +1200,59 @@ export function App(): JSX.Element {
               >
                 +
               </button>
+              <button
+                className="icon-btn"
+                data-testid="smart-view-newfile"
+                title="新規ファイルを作成"
+                aria-haspopup="menu"
+                aria-expanded={smartNewFileMenuOpen}
+                onClick={() => setSmartNewFileMenuOpen((v) => !v)}
+              >
+                <DocumentIcon />
+              </button>
+              {smartNewFileMenuOpen && (
+                <>
+                  <div
+                    className="newnote-menu-scrim"
+                    onMouseDown={() => setSmartNewFileMenuOpen(false)}
+                  />
+                  <div
+                    className="newnote-menu"
+                    data-testid="smart-newfile-menu"
+                    role="menu"
+                    style={{ top: 26, right: 0 }}
+                  >
+                    <button
+                      className="nm-item"
+                      data-testid="smart-newfile-blank"
+                      role="menuitem"
+                      onClick={() => {
+                        setSmartNewFileMenuOpen(false);
+                        setSmartNewFilePath('');
+                        setSmartNewFileNotes(null);
+                        setDialog({ type: 'smart-newfile' });
+                      }}
+                    >
+                      <DocumentIcon />
+                      <span className="nm-main">
+                        新規ファイル<span className="nm-sub">空のノートを作成</span>
+                      </span>
+                    </button>
+                    <div className="nm-sep" />
+                    <button
+                      className="nm-item"
+                      data-testid="smart-newfile-template"
+                      role="menuitem"
+                      onClick={openSmartNewFileTemplate}
+                    >
+                      <DocumentIcon />
+                      <span className="nm-main">
+                        テンプレートから<span className="nm-sub">templates/ から選ぶ</span>
+                      </span>
+                    </button>
+                  </div>
+                </>
+              )}
             </span>
           )}
           {sidebarView === 'physical' && (
@@ -1397,6 +1505,24 @@ export function App(): JSX.Element {
                 リスト行で <kbd>Tab</kbd> インデント
               </span>
             </div>
+            <div className="smart-folder-guide" data-testid="smart-folder-guide">
+              <h3>スマートフォルダの使い方</h3>
+              <ul>
+                <li>
+                  <strong>スマートビュー切替</strong> — サイドバー上部の「スマート」タブを選ぶと
+                  スマートビューに切り替わります。
+                </li>
+                <li>
+                  <strong>スマートフォルダ作成</strong> — スマートビューの <code>+</code> ボタンで
+                  クエリ（最近更新・タグ・未完了 TODO など）または
+                  ピン留め（ノート・フォルダ）を追加できます。
+                </li>
+                <li>
+                  <strong>ブックマーク ★</strong> — 開いているノートのヘッダの ★ を押すと
+                  そのノートをブックマーク登録できます。スマートビューで一覧できます。
+                </li>
+              </ul>
+            </div>
           </div>
         )}
 
@@ -1515,6 +1641,111 @@ export function App(): JSX.Element {
           onCancel={() => setDialog(null)}
         />
       )}
+
+      {dialog?.type === 'smart-newfile' && (() => {
+        // フォルダ候補: SmartFolderForm と同じ deriveFolderCandidates を再利用
+        const q = smartNewFilePath.toLowerCase().trim();
+        const folderCandidates: string[] = smartNewFileNotes === null
+          ? []
+          : (() => {
+              const folderSet = new Set<string>();
+              for (const note of smartNewFileNotes) {
+                const f = note.folder;
+                if (f === '') continue;
+                const parts = f.split('/');
+                for (let i = 1; i <= parts.length; i++) {
+                  folderSet.add(parts.slice(0, i).join('/'));
+                }
+              }
+              return Array.from(folderSet).sort();
+            })();
+        const filteredFolders = folderCandidates
+          .filter((f) => q.length === 0 || f.toLowerCase().includes(q))
+          .slice(0, 15);
+        return (
+          <div className="dialog-backdrop" data-testid="smart-newfile-dialog" role="dialog" aria-modal="true">
+            <div className="dialog-panel">
+              <h3 className="dialog-title">新規ファイル</h3>
+              <div className="dialog-body">
+                <div className="sf-form-combobox" style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    className="dialog-input"
+                    data-testid="smart-newfile-path"
+                    placeholder="folder/note-name (拡張子 .md は自動補完)"
+                    value={smartNewFilePath}
+                    autoFocus
+                    onFocus={() => {
+                      if (smartNewFilePathBlurRef.current !== null) clearTimeout(smartNewFilePathBlurRef.current);
+                      loadSmartNewFileNotes();
+                      setSmartNewFilePathOpen(true);
+                    }}
+                    onBlur={() => {
+                      smartNewFilePathBlurRef.current = setTimeout(() => setSmartNewFilePathOpen(false), 150);
+                    }}
+                    onChange={(e) => {
+                      setSmartNewFilePath(e.target.value);
+                      setSmartNewFilePathOpen(true);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void createSmartNewNote();
+                      if (e.key === 'Escape') {
+                        setDialog(null);
+                        setSmartNewFilePath('');
+                        setSmartNewFileNotes(null);
+                      }
+                    }}
+                  />
+                  {smartNewFilePathOpen && filteredFolders.length > 0 && (
+                    <div className="sf-form-dropdown">
+                      {filteredFolders.map((folder) => (
+                        <button
+                          key={folder}
+                          type="button"
+                          className="sf-form-option"
+                          data-testid="smart-newfile-path-option"
+                          data-path={folder}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setSmartNewFilePath(folder + '/');
+                            setSmartNewFilePathOpen(false);
+                            if (smartNewFilePathBlurRef.current !== null) clearTimeout(smartNewFilePathBlurRef.current);
+                          }}
+                        >
+                          <span>{folder}/</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="dialog-actions">
+                <button
+                  type="button"
+                  className="btn"
+                  data-testid="smart-newfile-cancel"
+                  onClick={() => {
+                    setDialog(null);
+                    setSmartNewFilePath('');
+                    setSmartNewFileNotes(null);
+                  }}
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="button"
+                  className="btn primary"
+                  data-testid="smart-newfile-create"
+                  disabled={smartNewFilePath.trim() === ''}
+                  onClick={() => void createSmartNewNote()}
+                >
+                  作成
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {dialog?.type === 'new-folder' && (
         <NameDialog
