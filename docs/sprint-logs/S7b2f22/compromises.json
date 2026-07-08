@@ -1,0 +1,14 @@
+{
+  "milestone_summary": {
+    "stopped_at": "milestone_S7b2f22",
+    "compromises": [],
+    "compromises_note": "独立 verifier は forbidden-degradation なしと確認。指摘(SmartPin クリック脆弱性・AC-1-7 の空リストテスト)は妥協ではなくレビュー修正として即対応済み。",
+    "blockers_encountered": [],
+    "scope_changes": [
+      {
+        "type": "new_scope_added",
+        "summary": "作成 UI が β のスコープ外だったため、autopilot review ③ として新 Sprint S7b2f22 を追加・実装(ユーザー要望)。"
+      }
+    ]
+  }
+}

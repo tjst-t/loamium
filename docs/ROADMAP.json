@@ -2904,6 +2904,18 @@
       "description": "star は mode!==full で無効化(read-only はテスト済、append-only 未テスト)。AC-S8086d9-2-4 のテストにタグ付与。",
       "added_in": "S8086d9",
       "reason": "traceability/coverage"
+    },
+    {
+      "title": "スマートフォルダ: 生 DQL 直接編集のテスト",
+      "description": "プリセット選択後に sf-form-dql を直接編集して保存するパスの mock/e2e テスト。実装は存在(verifier コード確認済)。",
+      "added_in": "S7b2f22",
+      "reason": "test coverage debt (low)"
+    },
+    {
+      "title": "スマートフォルダ: movedown のテスト",
+      "description": "並べ替え下移動(smart-folder-movedown)のテスト。moveup のみ被覆。実装は対称で正しい。",
+      "added_in": "S7b2f22",
+      "reason": "test coverage debt (low)"
     }
   ]
 }
