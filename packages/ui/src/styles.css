@@ -2011,6 +2011,185 @@ button.callout-title { cursor: pointer; }
 .smart-icon.svg-icon svg { width: 14px; height: 14px; }
 .smart-icon.emoji-icon { font-size: 13px; }
 
+/* ---- スマートフォルダ 作成/編集 authoring UI (S7b2f22-1) ------------------ */
+
+/* smart-folder-header: toggle ボタン + action ボタンを横並びにする */
+.smart-folder-header {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+.smart-folder-header .smart-folder-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* smart-pin-row: nav ボタン + action ボタンを横並びにする */
+.smart-pin-row {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+.smart-pin-row .smart-pin-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* アイテムごとのアクションボタン群 */
+.smart-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+  padding-right: 4px;
+}
+
+.smart-item-btn {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: var(--text-faint);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.smart-item-btn svg { width: 12px; height: 12px; }
+.smart-item-btn:hover { background: var(--bg-hover); color: var(--text); }
+.smart-item-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.smart-item-btn.danger:hover { color: var(--danger); }
+
+/* smart-view authoring ヘッダ (+ボタン) */
+.smart-view-authoring-header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px 8px 2px;
+}
+.smart-view-add-btn {
+  font-size: 18px;
+  font-weight: 300;
+  line-height: 1;
+}
+
+/* スマートフォルダ作成/編集フォーム (ダイアログ内) */
+.sf-dialog {
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.sf-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.sf-form-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sf-form-row-col {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.sf-form-label {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  min-width: 60px;
+  flex-shrink: 0;
+}
+.sf-form-row-col .sf-form-label { margin-bottom: 2px; min-width: auto; }
+
+.sf-form-input {
+  flex: 1;
+  font-family: inherit;
+  font-size: 13.5px;
+  padding: 6px 10px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 8px;
+  outline: none;
+  color: var(--text);
+  background: var(--bg-editor);
+  min-width: 0;
+}
+.sf-form-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.sf-form-input-n { max-width: 90px; flex: none; }
+
+.sf-form-select {
+  flex: 1;
+  font-family: inherit;
+  font-size: 13.5px;
+  padding: 6px 10px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 8px;
+  outline: none;
+  color: var(--text);
+  background: var(--bg-editor);
+  min-width: 0;
+}
+.sf-form-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.sf-form-textarea {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 8px;
+  outline: none;
+  color: var(--text);
+  background: var(--bg-editor);
+  resize: vertical;
+  line-height: 1.5;
+}
+.sf-form-textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.sf-form-kind-row { display: flex; gap: 6px; }
+
+.sf-form-kind-btn {
+  padding: 4px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: 7px;
+  border: 1.5px solid var(--border-strong);
+  color: var(--text-muted);
+  background: var(--bg-editor);
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.sf-form-kind-btn.active,
+.sf-form-kind-btn[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.sf-form-error {
+  font-size: 12.5px;
+  color: var(--danger);
+  padding: 2px 0;
+}
+
+.sf-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 /* ---- 右サイドバー トグル(バックリンク | Claude) (Sf1a90a-2) --------------- */
 .seg-toggle {
   display: inline-flex;

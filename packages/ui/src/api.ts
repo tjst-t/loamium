@@ -304,6 +304,15 @@ export const api = {
     return request(smartViewConfigSchema, '/api/smart-folders');
   },
 
+  /** スマートフォルダ定義一式を保存 (PUT /api/smart-folders — S7b2f22-1)。 */
+  putSmartFolders(config: SmartViewConfig): Promise<SmartViewConfig> {
+    return request(smartViewConfigSchema, '/api/smart-folders', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+  },
+
   /** スマートフォルダのノート解決 (GET /api/smart-folders/{id}/notes)。 */
   resolveSmartFolder(id: string): Promise<SmartFoldersResolveResponse> {
     return request(smartFoldersResolveResponseSchema, `/api/smart-folders/${encodeURIComponent(id)}/notes`);
