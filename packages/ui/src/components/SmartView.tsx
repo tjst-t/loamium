@@ -1,27 +1,36 @@
 /**
- * スマートビュー (S8086d9-1)。
+ * スマートビュー (S8086d9-1 / S7b2f22-1)。
  *
  * サイドバーのスマートビューモードで描画されるコンポーネント。
  * GET /api/smart-folders で定義一式を取得し、pin / query の 2 種類を描画する。
  * - query フォルダ: collapsed 既定。展開時に GET /api/smart-folders/{id}/notes を呼ぶ。
  * - pin 葉: クリックでノートを開く。
  *
- * testid 契約 (gui-spec-S8086d9-1.json testid_contract 参照):
+ * S7b2f22-1 追加 — 作成/編集/削除/並べ替え UI:
+ *   GET /api/health でモードを確認し、full 時のみ作成/編集/削除/並べ替えを有効化する。
+ *   変更は PUT /api/smart-folders で永続し、直後に再取得して表示に反映する。
+ *
+ * testid 契約 (gui-spec-S8086d9-1.json + S7b2f22-1 追加分):
  *   smart-view, smart-view-loading, smart-view-error, smart-view-empty,
  *   smart-folder (data-id, aria-expanded), smart-folder-icon (data-icon),
  *   smart-folder-loading, smart-folder-error,
- *   smart-note (data-path), smart-pin (data-id, data-path)
+ *   smart-note (data-path), smart-pin (data-id, data-path),
+ *   smart-view-add,
+ *   smart-folder-edit, smart-folder-delete, smart-folder-moveup, smart-folder-movedown
  */
 import { useCallback, useEffect, useState, type JSX } from 'react';
-import type { NoteMeta, SmartViewItem } from '@loamium/shared';
+import type { NoteMeta, PermissionMode, SmartViewItem } from '@loamium/shared';
 import { api } from '../api.js';
 import {
   ChevronDownIcon,
   FileIcon,
   FolderIcon,
+  PencilIcon,
   SearchIcon,
+  TrashIcon,
   WarnTriangleIcon,
 } from '../icons.js';
+import { SmartFolderForm } from './SmartFolderForm.js';
 
 // --------------------------------------------------------------------------
 // アイコンマップ (ビルトイン名 → JSX) — 未知の文字列は絵文字としてそのまま描画
@@ -146,6 +155,60 @@ function SmartIcon({ icon }: { icon: string }): JSX.Element {
 }
 
 // --------------------------------------------------------------------------
+// アクションボタン共通
+// --------------------------------------------------------------------------
+
+interface ItemActions {
+  onEdit: () => void;
+  onDelete: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+}
+
+function ItemActionButtons({ actions }: { actions: ItemActions }): JSX.Element {
+  return (
+    <div className="smart-item-actions">
+      <button
+        className="smart-item-btn"
+        data-testid="smart-folder-edit"
+        title="編集"
+        onClick={(e) => { e.stopPropagation(); actions.onEdit(); }}
+      >
+        <PencilIcon />
+      </button>
+      <button
+        className="smart-item-btn"
+        data-testid="smart-folder-moveup"
+        title="上へ"
+        disabled={!actions.canMoveUp}
+        onClick={(e) => { e.stopPropagation(); actions.onMoveUp(); }}
+      >
+        ↑
+      </button>
+      <button
+        className="smart-item-btn"
+        data-testid="smart-folder-movedown"
+        title="下へ"
+        disabled={!actions.canMoveDown}
+        onClick={(e) => { e.stopPropagation(); actions.onMoveDown(); }}
+      >
+        ↓
+      </button>
+      <button
+        className="smart-item-btn danger"
+        data-testid="smart-folder-delete"
+        title="削除"
+        onClick={(e) => { e.stopPropagation(); actions.onDelete(); }}
+      >
+        <TrashIcon />
+      </button>
+    </div>
+  );
+}
+
+// --------------------------------------------------------------------------
 // query フォルダ内のノート行
 // --------------------------------------------------------------------------
 
@@ -182,9 +245,10 @@ type FolderLoadState =
 interface SmartFolderProps {
   item: Extract<SmartViewItem, { kind: 'query' }>;
   onOpenNote: (path: string) => void;
+  actions?: ItemActions;
 }
 
-function SmartFolder({ item, onOpenNote }: SmartFolderProps): JSX.Element {
+function SmartFolder({ item, onOpenNote, actions }: SmartFolderProps): JSX.Element {
   const [expanded, setExpanded] = useState(false);
   const [loadState, setLoadState] = useState<FolderLoadState>({ kind: 'idle' });
 
@@ -215,14 +279,17 @@ function SmartFolder({ item, onOpenNote }: SmartFolderProps): JSX.Element {
       data-id={item.id}
       aria-expanded={expanded}
     >
-      <button
-        className="tree-item smart-folder-btn"
-        onClick={toggle}
-      >
-        <ChevronDownIcon className={expanded ? 'chev' : 'chev closed'} />
-        <SmartIcon icon={iconStr} />
-        <span className="name">{item.name}</span>
-      </button>
+      <div className="smart-folder-header">
+        <button
+          className="tree-item smart-folder-btn"
+          onClick={toggle}
+        >
+          <ChevronDownIcon className={expanded ? 'chev' : 'chev closed'} />
+          <SmartIcon icon={iconStr} />
+          <span className="name">{item.name}</span>
+        </button>
+        {actions !== undefined && <ItemActionButtons actions={actions} />}
+      </div>
       {expanded && (
         <div className="tree-children smart-folder-body">
           {loadState.kind === 'loading' && (
@@ -253,22 +320,28 @@ function SmartFolder({ item, onOpenNote }: SmartFolderProps): JSX.Element {
 interface SmartPinProps {
   item: Extract<SmartViewItem, { kind: 'pin' }>;
   onOpenNote: (path: string) => void;
+  actions?: ItemActions;
 }
 
-function SmartPin({ item, onOpenNote }: SmartPinProps): JSX.Element {
+function SmartPin({ item, onOpenNote, actions }: SmartPinProps): JSX.Element {
   const iconStr = item.icon ?? 'file-text';
   return (
-    <button
-      className="tree-item smart-pin-btn"
+    <div
+      className="smart-pin-row"
       data-testid="smart-pin"
       data-id={item.id}
       data-path={item.path}
-      onClick={() => onOpenNote(item.path)}
-      title={item.name ?? item.path}
     >
-      <SmartIcon icon={iconStr} />
-      <span className="name">{item.name ?? item.path}</span>
-    </button>
+      <button
+        className="tree-item smart-pin-btn"
+        onClick={() => onOpenNote(item.path)}
+        title={item.name ?? item.path}
+      >
+        <SmartIcon icon={iconStr} />
+        <span className="name">{item.name ?? item.path}</span>
+      </button>
+      {actions !== undefined && <ItemActionButtons actions={actions} />}
+    </div>
   );
 }
 
@@ -286,12 +359,37 @@ type ViewLoadState =
   | { kind: 'error'; message: string }
   | { kind: 'loaded'; items: SmartViewItem[] };
 
+type FormMode =
+  | null
+  | { type: 'create' }
+  | { type: 'edit'; item: SmartViewItem };
+
 export function SmartView({ onOpenNote, onSwitchToPhysical }: SmartViewProps): JSX.Element {
   const [viewState, setViewState] = useState<ViewLoadState>({ kind: 'loading' });
+  const [mode, setMode] = useState<PermissionMode | null>(null);
+  const [formMode, setFormMode] = useState<FormMode>(null);
+  const [refreshCount, setRefreshCount] = useState(0);
 
+  // health チェック (モード確認) — マウント時 1 回
   useEffect(() => {
     let cancelled = false;
-    setViewState({ kind: 'loading' });
+    api.getHealth().then(
+      (res) => {
+        if (!cancelled) setMode(res.mode);
+      },
+      () => {
+        // health 取得失敗時はフルモードとして扱う (楽観的フォールバック)
+        if (!cancelled) setMode('full');
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // スマートフォルダ一覧取得 + refresh
+  useEffect(() => {
+    let cancelled = false;
     api.listSmartFolders().then(
       (cfg) => {
         if (!cancelled) setViewState({ kind: 'loaded', items: cfg.items });
@@ -306,55 +404,196 @@ export function SmartView({ onOpenNote, onSwitchToPhysical }: SmartViewProps): J
     return () => {
       cancelled = true;
     };
+  }, [refreshCount]);
+
+  const refresh = useCallback((): void => {
+    setRefreshCount((c) => c + 1);
   }, []);
 
-  if (viewState.kind === 'loading') {
-    return (
-      <div className="tree smart-view" data-testid="smart-view">
-        <div className="smart-view-state" data-testid="smart-view-loading">
-          読み込み中…
-        </div>
-      </div>
-    );
-  }
+  const closeForm = useCallback((): void => {
+    setFormMode(null);
+  }, []);
 
-  if (viewState.kind === 'error') {
-    return (
-      <div className="tree smart-view" data-testid="smart-view">
-        <div className="smart-view-state smart-view-state-error" data-testid="smart-view-error">
-          <WarnTriangleIcon />
-          <span>スマートフォルダの読み込みに失敗しました</span>
-          <button
-            className="smart-view-retry"
-            onClick={onSwitchToPhysical}
-          >
-            物理ビューへ戻る
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // アイテムリストの変更を PUT して再取得
+  const handleMutation = useCallback(
+    (newItems: SmartViewItem[]): void => {
+      void api.putSmartFolders({ version: 1, items: newItems }).then(
+        () => {
+          setFormMode(null);
+          refresh();
+        },
+        (err: unknown) => {
+          // 失敗時はコンソールに出力するのみ (ビュー状態は維持)
+          // eslint-disable-next-line no-console
+          console.error('putSmartFolders failed', err);
+        },
+      );
+    },
+    [refresh],
+  );
 
-  const { items } = viewState;
+  // フォームから保存 (新規 or 編集)
+  const saveForm = useCallback(
+    (newItem: SmartViewItem): void => {
+      if (viewState.kind !== 'loaded') return;
+      const existingIdx = viewState.items.findIndex((i) => i.id === newItem.id);
+      const newItems =
+        existingIdx >= 0
+          ? viewState.items.map((i) => (i.id === newItem.id ? newItem : i))
+          : [...viewState.items, newItem];
+      handleMutation(newItems);
+    },
+    [viewState, handleMutation],
+  );
 
-  if (items.length === 0) {
-    return (
-      <div className="tree smart-view" data-testid="smart-view">
-        <div className="smart-view-state" data-testid="smart-view-empty">
-          <span>スマートフォルダがありません</span>
-        </div>
-      </div>
-    );
-  }
+  // 削除
+  const deleteItem = useCallback(
+    (id: string): void => {
+      if (viewState.kind !== 'loaded') return;
+      handleMutation(viewState.items.filter((i) => i.id !== id));
+    },
+    [viewState, handleMutation],
+  );
+
+  // 並べ替え
+  const moveItem = useCallback(
+    (id: string, dir: 'up' | 'down'): void => {
+      if (viewState.kind !== 'loaded') return;
+      const idx = viewState.items.findIndex((i) => i.id === id);
+      if (idx < 0) return;
+      const swapIdx = dir === 'up' ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= viewState.items.length) return;
+      const newItems = [...viewState.items];
+      const itemA = newItems[idx];
+      const itemB = newItems[swapIdx];
+      if (itemA === undefined || itemB === undefined) return;
+      newItems[idx] = itemB;
+      newItems[swapIdx] = itemA;
+      handleMutation(newItems);
+    },
+    [viewState, handleMutation],
+  );
+
+  // 編集時は自分の ID を除いた既存 ID セット
+  const editingId = formMode?.type === 'edit' ? formMode.item.id : null;
+  const existingIds = new Set(
+    viewState.kind === 'loaded'
+      ? viewState.items
+          .filter((i) => editingId === null || i.id !== editingId)
+          .map((i) => i.id)
+      : [],
+  );
+
+  const isFull = mode === 'full';
 
   return (
-    <div className="tree smart-view" data-testid="smart-view">
-      {items.map((item) => {
-        if (item.kind === 'query') {
-          return <SmartFolder key={item.id} item={item} onOpenNote={onOpenNote} />;
-        }
-        return <SmartPin key={item.id} item={item} onOpenNote={onOpenNote} />;
-      })}
-    </div>
+    <>
+      {/* 作成/編集フォーム (ダイアログ) */}
+      {formMode !== null && (
+        <div className="dialog-backdrop" onClick={closeForm}>
+          <div
+            className="dialog sf-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={
+              formMode.type === 'create'
+                ? 'スマートフォルダを追加'
+                : 'スマートフォルダを編集'
+            }
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2>
+              {formMode.type === 'create'
+                ? 'スマートフォルダを追加'
+                : 'スマートフォルダを編集'}
+            </h2>
+            <SmartFolderForm
+              {...(formMode.type === 'edit' ? { initial: formMode.item } : {})}
+              existingIds={existingIds}
+              onSave={saveForm}
+              onCancel={closeForm}
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="tree smart-view" data-testid="smart-view">
+        {/* authoring ヘッダ — full モード時のみ */}
+        {isFull && (
+          <div className="smart-view-authoring-header">
+            <button
+              className="icon-btn smart-view-add-btn"
+              data-testid="smart-view-add"
+              title="スマートフォルダを追加"
+              onClick={() => setFormMode({ type: 'create' })}
+            >
+              +
+            </button>
+          </div>
+        )}
+
+        {/* ローディング */}
+        {viewState.kind === 'loading' && (
+          <div className="smart-view-state" data-testid="smart-view-loading">
+            読み込み中…
+          </div>
+        )}
+
+        {/* エラー */}
+        {viewState.kind === 'error' && (
+          <div className="smart-view-state smart-view-state-error" data-testid="smart-view-error">
+            <WarnTriangleIcon />
+            <span>スマートフォルダの読み込みに失敗しました</span>
+            <button
+              className="smart-view-retry"
+              onClick={onSwitchToPhysical}
+            >
+              物理ビューへ戻る
+            </button>
+          </div>
+        )}
+
+        {/* 空状態 */}
+        {viewState.kind === 'loaded' && viewState.items.length === 0 && (
+          <div className="smart-view-state" data-testid="smart-view-empty">
+            <span>スマートフォルダがありません</span>
+          </div>
+        )}
+
+        {/* アイテム一覧 */}
+        {viewState.kind === 'loaded' &&
+          viewState.items.map((item, idx) => {
+            const actions: ItemActions | undefined = isFull
+              ? {
+                  onEdit: () => setFormMode({ type: 'edit', item }),
+                  onDelete: () => deleteItem(item.id),
+                  onMoveUp: () => moveItem(item.id, 'up'),
+                  onMoveDown: () => moveItem(item.id, 'down'),
+                  canMoveUp: idx > 0,
+                  canMoveDown: idx < viewState.items.length - 1,
+                }
+              : undefined;
+
+            if (item.kind === 'query') {
+              return (
+                <SmartFolder
+                  key={item.id}
+                  item={item}
+                  onOpenNote={onOpenNote}
+                  {...(actions !== undefined ? { actions } : {})}
+                />
+              );
+            }
+            return (
+              <SmartPin
+                key={item.id}
+                item={item}
+                onOpenNote={onOpenNote}
+                {...(actions !== undefined ? { actions } : {})}
+              />
+            );
+          })}
+      </div>
+    </>
   );
 }
