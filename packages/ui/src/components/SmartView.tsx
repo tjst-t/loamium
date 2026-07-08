@@ -331,10 +331,12 @@ function SmartPin({ item, onOpenNote, actions }: SmartPinProps): JSX.Element {
       data-testid="smart-pin"
       data-id={item.id}
       data-path={item.path}
+      onClick={() => onOpenNote(item.path)}
     >
       <button
+        type="button"
         className="tree-item smart-pin-btn"
-        onClick={() => onOpenNote(item.path)}
+        onClick={(e) => { e.stopPropagation(); onOpenNote(item.path); }}
         title={item.name ?? item.path}
       >
         <SmartIcon icon={iconStr} />
