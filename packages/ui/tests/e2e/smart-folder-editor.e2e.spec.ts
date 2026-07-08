@@ -478,3 +478,58 @@ test.describe('スマートフォルダ作成/編集/削除/並べ替え (S7b2f2
     ).toBeVisible({ timeout: 15_000 });
   });
 });
+
+// --------------------------------------------------------------------------
+// Sebf6b0-3 スマートビューからのファイル作成 (E2E)
+// --------------------------------------------------------------------------
+
+test.describe('スマートビューからのファイル作成 (Sebf6b0-3)', () => {
+  test.beforeEach(async () => {
+    await putNote(`${ROOT}/alpha.md`, '# Alpha\n\n本文アルファ\n');
+    await putNote(`${ROOT}/sub/existing.md`, '# Existing\n\n本文\n');
+    await putSmartFolders({ version: 1, items: [] });
+  });
+
+  test.afterEach(async () => {
+    await putSmartFolders({ version: 1, items: [] });
+  });
+
+  // -----------------------------------------------------------------------
+  // [AC-Sebf6b0-3-2] 空のノート作成 → 開く (E2E)
+  // -----------------------------------------------------------------------
+  test('[AC-Sebf6b0-3-2] smart-newfile-blank → パス入力 → フォルダ補完 → 作成 → ノートが開く', async ({
+    page,
+  }) => {
+    await page.goto(state().uiUrl);
+    await page.getByTestId('sidebar-view-smart').click();
+
+    // smart-view-newfile ボタンをクリック
+    await expect(page.getByTestId('smart-view-newfile')).toBeVisible();
+    await page.getByTestId('smart-view-newfile').click();
+    await expect(page.getByTestId('smart-newfile-menu')).toBeVisible();
+
+    // 「新規ファイル」を選択
+    await page.getByTestId('smart-newfile-blank').click();
+    await expect(page.getByTestId('smart-newfile-dialog')).toBeVisible();
+
+    // パス入力 + フォルダ補完
+    await page.getByTestId('smart-newfile-path').focus();
+    await page.getByTestId('smart-newfile-path').fill(`${ROOT}/sub`);
+
+    // フォルダ候補が表示される (sfe-e2e/sub)
+    const folderOpt = page.locator(`[data-testid="smart-newfile-path-option"][data-path="${ROOT}/sub"]`);
+    await expect(folderOpt).toBeVisible({ timeout: 5000 });
+    await folderOpt.click();
+    // フォルダを選択後にファイル名を追加
+    await page.getByTestId('smart-newfile-path').fill(`${ROOT}/sub/new-note`);
+
+    // 作成ボタンをクリック
+    await page.getByTestId('smart-newfile-create').click();
+
+    // ダイアログが閉じる
+    await expect(page.getByTestId('smart-newfile-dialog')).toHaveCount(0);
+
+    // 新しいノートが開く (URL は末尾 .md を除いた /n/{path})
+    await expect(page).toHaveURL(new RegExp(`/n/${ROOT}/sub/new-note`), { timeout: 15_000 });
+  });
+});

@@ -20,7 +20,8 @@
  *   保存時: パスが既存ノートパスでも既存フォルダでもない場合はエラーを表示してブロック。
  */
 import { useEffect, useRef, useState, type ChangeEvent, type JSX } from 'react';
-import type { NoteMeta, SmartViewItem } from '@loamium/shared';
+import type { NoteMeta, SmartViewItem, TagCount } from '@loamium/shared';
+import { filterTagSuggestions } from '@loamium/shared';
 import { api } from '../api.js';
 import { FolderIcon } from '../icons.js';
 import { BUILTIN_ICON_NAMES, SmartIcon } from './SmartIcons.js';
@@ -150,6 +151,36 @@ export function SmartFolderForm({
     setIconOpen(false);
   };
 
+  // --- タグコンボボックス (Sebf6b0-4 AC-4-1) ---
+  const [tags, setTags] = useState<TagCount[] | null>(null);
+  const [tagOpen, setTagOpen] = useState(false);
+  const tagBlurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const loadTags = (): void => {
+    if (tags !== null) return;
+    void api.getTags().then(
+      (res) => setTags(res.tags),
+      () => setTags([]),
+    );
+  };
+
+  const tagSuggestions = filterTagSuggestions(tags ?? [], presetTag);
+  // タグコンボは既存タグ候補のみ (isCreate の新規作成項目は除外 — フォーム用)
+  const filteredTagSuggestions = tagSuggestions.filter((s) => !s.isCreate);
+
+  const handleTagFocus = (): void => {
+    if (tagBlurTimerRef.current !== null) clearTimeout(tagBlurTimerRef.current);
+    loadTags();
+    setTagOpen(true);
+  };
+  const handleTagBlur = (): void => {
+    tagBlurTimerRef.current = setTimeout(() => setTagOpen(false), 150);
+  };
+  const selectTag = (tag: string): void => {
+    setPresetTag(tag);
+    setTagOpen(false);
+  };
+
   // --- パスコンボボックス (Sebf6b0-2: ノート + フォルダ候補) ---
   const [notes, setNotes] = useState<NoteMeta[] | null>(null);
   const [pathOpen, setPathOpen] = useState(false);
@@ -212,6 +243,7 @@ export function SmartFolderForm({
     return () => {
       if (iconBlurTimerRef.current !== null) clearTimeout(iconBlurTimerRef.current);
       if (pathBlurTimerRef.current !== null) clearTimeout(pathBlurTimerRef.current);
+      if (tagBlurTimerRef.current !== null) clearTimeout(tagBlurTimerRef.current);
     };
   }, []);
 
@@ -410,18 +442,43 @@ export function SmartFolderForm({
             </div>
           )}
 
-          {/* タグ名 */}
+          {/* タグ名 (コンボボックス — Sebf6b0-4 AC-4-1) */}
           {preset === 'tag' && (
             <div className="sf-form-row">
               <label className="sf-form-label">タグ名</label>
-              <input
-                type="text"
-                className="sf-form-input"
-                data-testid="sf-form-preset-tag"
-                value={presetTag}
-                placeholder="example"
-                onChange={(e) => setPresetTag(e.target.value)}
-              />
+              <div className="sf-form-combobox">
+                <input
+                  type="text"
+                  className="sf-form-input"
+                  data-testid="sf-form-preset-tag"
+                  value={presetTag}
+                  placeholder="example"
+                  onFocus={handleTagFocus}
+                  onBlur={handleTagBlur}
+                  onChange={(e) => {
+                    setPresetTag(e.target.value);
+                    setTagOpen(true);
+                  }}
+                />
+                {tagOpen && filteredTagSuggestions.length > 0 && (
+                  <div className="sf-form-dropdown">
+                    {filteredTagSuggestions.map((s) => (
+                      <button
+                        key={s.tag}
+                        type="button"
+                        className="sf-form-option"
+                        data-testid="sf-form-preset-tag-option"
+                        onMouseDown={(e) => { e.preventDefault(); selectTag(s.tag); }}
+                      >
+                        <span className="sf-form-option-path">#{s.tag}</span>
+                        {s.count > 0 && (
+                          <span className="sf-form-option-title">{s.count}</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
