@@ -2679,8 +2679,99 @@
               "status": "done"
             }
           }
+        },
+        "S7b2f22-2": {
+          "title": "スマートフォルダ UI 改善 — pin/アイコン絞り込み・+配置・削除確認・DnD/コンテキストメニュー",
+          "status": "done",
+          "added_in_review": "refine-1",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "スマートフォルダを編集する自分として、pin とアイコンを絞り込みで選び、「+」を揃った位置に置き、削除は確認付き、並べ替えはドラッグ、編集/削除は右クリックで行いたい。なぜなら、素の入力やボタン列より素早く安全に操作できるから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S7b2f22-2-1",
+              "description": "pin パス入力がインクリメンタル絞り込みになり、既存ノートを候補として表示し選択できる(自由入力も可)。",
+              "test": "[null] packages/ui/tests/e2e/smart-folder-editor.{mock,e2e}.spec.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-S7b2f22-2-2",
+              "description": "アイコン入力がインクリメンタル絞り込みになり、組み込みアイコン名を候補表示し選択でき、絵文字も入力できる。",
+              "test": "[null] packages/ui/tests/e2e/smart-folder-editor.{mock,e2e}.spec.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-S7b2f22-2-3",
+              "description": "「+」ボタンがノート/スマート トグルと同じ行・同じ高さに配置される。",
+              "test": "[null] packages/ui/tests/e2e/smart-folder-editor.{mock,e2e}.spec.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-S7b2f22-2-4",
+              "description": "スマートフォルダ削除時に確認ダイアログが出て、確定で削除・キャンセルで維持される。",
+              "test": "[null] packages/ui/tests/e2e/smart-folder-editor.{mock,e2e}.spec.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-S7b2f22-2-5",
+              "description": "項目の並べ替えがマウスのドラッグ&ドロップでできる(順序が永続する)。",
+              "test": "[null] packages/ui/tests/e2e/smart-folder-editor.{mock,e2e}.spec.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-S7b2f22-2-6",
+              "description": "項目の編集・削除が右クリックのコンテキストメニューから行える。インラインの編集/削除/上下ボタンは廃止。",
+              "test": "[null] packages/ui/tests/e2e/smart-folder-editor.{mock,e2e}.spec.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-S7b2f22-2-7",
+              "description": "read-only/append-only では作成/編集/削除/並べ替えの導線(+ / コンテキストメニュー / ドラッグ)が無効化される。",
+              "test": "[null] packages/ui/tests/e2e/smart-folder-editor.{mock,e2e}.spec.ts",
+              "status": "pass"
+            }
+          ],
+          "tasks": {
+            "S7b2f22-2-1": {
+              "title": "pin パス絞り込みコンボボックス",
+              "description": "api.listNotes() 候補を substring 絞り込み。sf-form-path 入力 + sf-form-path-option 候補。自由入力可。",
+              "status": "done"
+            },
+            "S7b2f22-2-2": {
+              "title": "アイコン絞り込みコンボボックス",
+              "description": "組み込みアイコン名を絞り込み。sf-form-icon 入力 + sf-form-icon-option 候補。絵文字自由入力可。",
+              "status": "done"
+            },
+            "S7b2f22-2-3": {
+              "title": "+ をヘッダ行へ",
+              "description": "smart-view-add をノート/スマート トグルと同じ行・高さに配置(smart モード時)。",
+              "status": "done"
+            },
+            "S7b2f22-2-4": {
+              "title": "削除確認ダイアログ",
+              "description": "smart-delete-dialog + smart-delete-confirm / smart-delete-cancel。",
+              "status": "done"
+            },
+            "S7b2f22-2-5": {
+              "title": "DnD 並べ替え + コンテキストメニュー",
+              "description": "行を draggable にしドロップで並べ替え→PUT。右クリックで smart-context-menu(smart-context-edit / smart-context-delete)。旧インラインボタン撤去。",
+              "status": "done"
+            },
+            "S7b2f22-2-6": {
+              "title": "テスト更新",
+              "description": "editor mock/e2e を新 UI に更新(旧 moveup/movedown/edit/delete ボタン依存を DnD + context menu + confirm に置換)。新 AC を被覆。",
+              "status": "done"
+            }
+          }
         }
-      }
+      },
+      "corrections": [
+        {
+          "type": "fix_story",
+          "milestone": "S7b2f22",
+          "ref": "S7b2f22-2"
+        }
+      ]
     }
   },
   "dependencies": {

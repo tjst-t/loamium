@@ -1,10 +1,11 @@
 /**
- * スマートフォルダ 作成/編集フォーム (S7b2f22-1)。
+ * スマートフォルダ 作成/編集フォーム (S7b2f22-1 / S7b2f22-2)。
  *
  * testid 契約:
  *   sf-form, sf-form-name, sf-form-icon, sf-form-kind-query, sf-form-kind-pin,
  *   sf-form-preset, sf-form-preset-n, sf-form-preset-tag, sf-form-dql,
- *   sf-form-path, sf-form-save, sf-form-cancel.
+ *   sf-form-path, sf-form-path-option (data-path), sf-form-icon-option (data-icon),
+ *   sf-form-save, sf-form-cancel.
  *
  * プリセット → DQL 変換 (ADR-0001: DQL 文字列が正本):
  *   recent(N) → LIST SORT file.mtime DESC LIMIT {N}
@@ -13,8 +14,10 @@
  *   todo      → LIST WHERE file.open_tasks SORT file.mtime DESC
  *   custom    → ユーザーが直接入力した DQL 文字列
  */
-import { useState, type ChangeEvent, type JSX } from 'react';
-import type { SmartViewItem } from '@loamium/shared';
+import { useEffect, useRef, useState, type ChangeEvent, type JSX } from 'react';
+import type { NoteMeta, SmartViewItem } from '@loamium/shared';
+import { api } from '../api.js';
+import { BUILTIN_ICON_NAMES, SmartIcon } from './SmartIcons.js';
 
 // --------------------------------------------------------------------------
 // プリセット / DQL 生成
@@ -98,6 +101,74 @@ export function SmartFolderForm({
 
   const [error, setError] = useState<string | null>(null);
 
+  // --- アイコンコンボボックス ---
+  const [iconOpen, setIconOpen] = useState(false);
+  const iconBlurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const filteredIcons = BUILTIN_ICON_NAMES.filter((n) =>
+    n.includes(icon.toLowerCase().trim()),
+  );
+
+  const handleIconFocus = (): void => {
+    if (iconBlurTimerRef.current !== null) clearTimeout(iconBlurTimerRef.current);
+    setIconOpen(true);
+  };
+  const handleIconBlur = (): void => {
+    iconBlurTimerRef.current = setTimeout(() => setIconOpen(false), 150);
+  };
+  const selectIcon = (name: string): void => {
+    setIcon(name);
+    setIconOpen(false);
+  };
+
+  // --- パスコンボボックス ---
+  const [notes, setNotes] = useState<NoteMeta[] | null>(null);
+  const [pathOpen, setPathOpen] = useState(false);
+  const pathBlurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const loadNotes = (): void => {
+    if (notes !== null) return;
+    void api.listNotes().then(
+      (res) => setNotes(res.notes),
+      () => setNotes([]),
+    );
+  };
+
+  const filteredNotes =
+    notes === null
+      ? []
+      : notes
+          .filter((n) => {
+            const q = path.toLowerCase().trim();
+            if (q.length === 0) return true;
+            return (
+              n.path.toLowerCase().includes(q) || n.title.toLowerCase().includes(q)
+            );
+          })
+          .slice(0, 20);
+
+  const handlePathFocus = (): void => {
+    if (pathBlurTimerRef.current !== null) clearTimeout(pathBlurTimerRef.current);
+    loadNotes();
+    setPathOpen(true);
+  };
+  const handlePathBlur = (): void => {
+    pathBlurTimerRef.current = setTimeout(() => setPathOpen(false), 150);
+  };
+  const selectPath = (p: string): void => {
+    setPath(p);
+    setError(null);
+    setPathOpen(false);
+  };
+
+  // クリーンアップ
+  useEffect(() => {
+    return () => {
+      if (iconBlurTimerRef.current !== null) clearTimeout(iconBlurTimerRef.current);
+      if (pathBlurTimerRef.current !== null) clearTimeout(pathBlurTimerRef.current);
+    };
+  }, []);
+
   // プリセットが custom 以外なら自動生成、custom なら入力値
   const computedDql: string =
     preset === 'custom' ? customDql : buildDql(preset, presetN, presetTag);
@@ -176,17 +247,41 @@ export function SmartFolderForm({
         />
       </div>
 
-      {/* アイコン */}
+      {/* アイコン (コンボボックス) */}
       <div className="sf-form-row">
         <label className="sf-form-label">アイコン</label>
-        <input
-          type="text"
-          className="sf-form-input"
-          data-testid="sf-form-icon"
-          value={icon}
-          placeholder="clock / star / 📝 など"
-          onChange={(e) => setIcon(e.target.value)}
-        />
+        <div className="sf-form-combobox">
+          <input
+            type="text"
+            className="sf-form-input"
+            data-testid="sf-form-icon"
+            value={icon}
+            placeholder="clock / star / 📝 など"
+            onFocus={handleIconFocus}
+            onBlur={handleIconBlur}
+            onChange={(e) => {
+              setIcon(e.target.value);
+              setIconOpen(true);
+            }}
+          />
+          {iconOpen && filteredIcons.length > 0 && (
+            <div className="sf-form-dropdown">
+              {filteredIcons.map((iconName) => (
+                <button
+                  key={iconName}
+                  type="button"
+                  className="sf-form-option"
+                  data-testid="sf-form-icon-option"
+                  data-icon={iconName}
+                  onMouseDown={(e) => { e.preventDefault(); selectIcon(iconName); }}
+                >
+                  <SmartIcon icon={iconName} />
+                  <span>{iconName}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 種別 */}
@@ -288,21 +383,45 @@ export function SmartFolderForm({
         </>
       )}
 
-      {/* pin フィールド */}
+      {/* pin フィールド (パスコンボボックス) */}
       {kind === 'pin' && (
         <div className="sf-form-row">
           <label className="sf-form-label">パス</label>
-          <input
-            type="text"
-            className="sf-form-input"
-            data-testid="sf-form-path"
-            value={path}
-            placeholder="notes/example.md"
-            onChange={(e) => {
-              setPath(e.target.value);
-              setError(null);
-            }}
-          />
+          <div className="sf-form-combobox">
+            <input
+              type="text"
+              className="sf-form-input"
+              data-testid="sf-form-path"
+              value={path}
+              placeholder="notes/example.md"
+              onFocus={handlePathFocus}
+              onBlur={handlePathBlur}
+              onChange={(e) => {
+                setPath(e.target.value);
+                setError(null);
+                setPathOpen(true);
+              }}
+            />
+            {pathOpen && filteredNotes.length > 0 && (
+              <div className="sf-form-dropdown">
+                {filteredNotes.map((note) => (
+                  <button
+                    key={note.path}
+                    type="button"
+                    className="sf-form-option"
+                    data-testid="sf-form-path-option"
+                    data-path={note.path}
+                    onMouseDown={(e) => { e.preventDefault(); selectPath(note.path); }}
+                  >
+                    <span className="sf-form-option-path">{note.path}</span>
+                    {note.title !== note.path && note.title !== '' && (
+                      <span className="sf-form-option-title">{note.title}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

@@ -76,5 +76,26 @@
         "overall": "ok"
       }
     }
+  ],
+  "refine": [
+    {
+      "story": "S7b2f22-2",
+      "run_at": "2026-07-08T02:45:26Z",
+      "verdict": "pass",
+      "summary": "editor mock 19 + e2e 9、full mock 184、regression e2e(smart-view/bookmark)8 — all pass。lint 0。forbidden-degradation スキャン none。",
+      "changes": [
+        "pin/icon インクリメンタル絞り込みコンボボックス",
+        "+ をトグルと同じヘッダ行へ",
+        "削除確認ダイアログ",
+        "DnD 並べ替え",
+        "右クリック編集/削除コンテキストメニュー(旧インラインボタン撤去)"
+      ],
+      "done_judgment": {
+        "guard1": "pass",
+        "guard6": "pass",
+        "guard7": "pass",
+        "overall": "ok"
+      }
+    }
   ]
 }

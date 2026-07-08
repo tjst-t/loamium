@@ -1,7 +1,7 @@
 /**
- * Story S7b2f22-1 E2E — スマートフォルダ作成/編集/削除/並べ替え UI。
+ * Story S7b2f22-1 + S7b2f22-2 E2E — スマートフォルダ 作成/編集/削除/DnD/コンテキストメニュー UI。
  *
- * test-discipline Rule 2/4: 実ブラウザ → 実 Vite → 実サーバー → 実ファイルシステム。
+ * 実ブラウザ → 実 Vite → 実サーバー → 実ファイルシステム。
  * 一意プレフィックス (sfe-e2e) で共有 vault の他テストと衝突しない。
  * smart-folders.json は vault グローバルなので afterEach で空に戻す。
  */
@@ -41,7 +41,7 @@ async function getSmartFolders(): Promise<{ version: number; items: unknown[] }>
   return res.json() as Promise<{ version: number; items: unknown[] }>;
 }
 
-test.describe('スマートフォルダ作成/編集/削除/並べ替え', () => {
+test.describe('スマートフォルダ作成/編集/削除/並べ替え (S7b2f22-1+S7b2f22-2)', () => {
   test.beforeEach(async () => {
     await putNote(`${ROOT}/alpha.md`, '# Alpha\n\n本文アルファ\n');
     await putNote(`${ROOT}/beta.md`, '# Beta\n\n本文ベータ\n');
@@ -54,7 +54,7 @@ test.describe('スマートフォルダ作成/編集/削除/並べ替え', () =>
   });
 
   // -----------------------------------------------------------------------
-  // [AC-S7b2f22-1-1][AC-S7b2f22-1-5] query フォルダ作成 → 即反映 → reload 永続
+  // [AC-S7b2f22-1-1][AC-S7b2f22-1-4][AC-S7b2f22-1-5] query 作成 + 解決 + 永続
   // -----------------------------------------------------------------------
   test('[AC-S7b2f22-1-1][AC-S7b2f22-1-2][AC-S7b2f22-1-4][AC-S7b2f22-1-5] query フォルダを作成し解決・永続する', async ({
     page,
@@ -63,11 +63,9 @@ test.describe('スマートフォルダ作成/編集/削除/並べ替え', () =>
     await page.getByTestId('sidebar-view-smart').click();
     await expect(page.getByTestId('smart-view-add')).toBeVisible();
 
-    // フォームを開く
     await page.getByTestId('smart-view-add').click();
     await expect(page.getByTestId('sf-form')).toBeVisible();
 
-    // recent-5 / icon=clock
     await page.getByTestId('sf-form-name').fill('直近ノート');
     await page.getByTestId('sf-form-icon').fill('clock');
     await page.selectOption('[data-testid="sf-form-preset"]', 'recent');
@@ -79,7 +77,6 @@ test.describe('スマートフォルダ作成/編集/削除/並べ替え', () =>
     await page.getByTestId('sf-form-save').click();
     await expect(page.getByTestId('sf-form')).not.toBeVisible();
 
-    // スマートビューに即反映
     const folder = page.locator('[data-testid="smart-folder"]').first();
     await expect(folder).toBeVisible();
     await expect(folder.locator('[data-testid="smart-folder-icon"]')).toHaveAttribute(
@@ -87,7 +84,7 @@ test.describe('スマートフォルダ作成/編集/削除/並べ替え', () =>
       'clock',
     );
 
-    // フォルダを展開して解決結果を確認
+    // フォルダ展開して解決
     await folder.locator('button.smart-folder-btn').click();
     await expect(
       page.locator(`[data-testid="smart-note"][data-path="${ROOT}/alpha.md"]`),
@@ -100,7 +97,7 @@ test.describe('スマートフォルダ作成/編集/削除/並べ替え', () =>
   });
 
   // -----------------------------------------------------------------------
-  // [AC-S7b2f22-1-3] pin 作成
+  // [AC-S7b2f22-1-3][AC-S7b2f22-1-5] pin 作成
   // -----------------------------------------------------------------------
   test('[AC-S7b2f22-1-3][AC-S7b2f22-1-5] pin を作成しスマートビューに表示・永続する', async ({
     page,
@@ -110,21 +107,20 @@ test.describe('スマートフォルダ作成/編集/削除/並べ替え', () =>
     await page.getByTestId('smart-view-add').click();
     await expect(page.getByTestId('sf-form')).toBeVisible();
 
-    // pin 種別に切替
     await page.getByTestId('sf-form-kind-pin').click();
     await expect(page.getByTestId('sf-form-path')).toBeVisible();
 
     await page.getByTestId('sf-form-name').fill('ピン留め');
     await page.getByTestId('sf-form-path').fill(`${ROOT}/pinned.md`);
+    // パスドロップダウンを閉じてから保存 (マッチするオプションが Save ボタンを覆う場合がある)
+    await page.getByTestId('sf-form-name').click();
     await page.getByTestId('sf-form-save').click();
     await expect(page.getByTestId('sf-form')).not.toBeVisible();
 
-    // pin が表示される
     await expect(
       page.locator(`[data-testid="smart-pin"][data-path="${ROOT}/pinned.md"]`),
     ).toBeVisible();
 
-    // reload で永続確認
     await page.reload();
     await page.getByTestId('sidebar-view-smart').click();
     await expect(
@@ -133,97 +129,83 @@ test.describe('スマートフォルダ作成/編集/削除/並べ替え', () =>
   });
 
   // -----------------------------------------------------------------------
-  // [AC-S7b2f22-1-6] 編集 — 名前変更 → 永続
+  // [AC-S7b2f22-2-1] pin パスピッカー (実ノート)
   // -----------------------------------------------------------------------
-  test('[AC-S7b2f22-1-6] 既存アイテムを編集し名前を変更すると永続する', async ({ page }) => {
-    // 事前にアイテムを追加
-    await putSmartFolders({
-      version: 1,
-      items: [
-        {
-          kind: 'query',
-          id: 'sfe-edit',
-          name: '変更前',
-          icon: 'search',
-          dql: `LIST FROM "${ROOT}" SORT file.name ASC`,
-        },
-      ],
-    });
-
+  test('[AC-S7b2f22-2-1] sf-form-path でノート候補が表示され、クリックで選択できる', async ({
+    page,
+  }) => {
     await page.goto(state().uiUrl);
     await page.getByTestId('sidebar-view-smart').click();
-    await expect(
-      page.locator('[data-testid="smart-folder"][data-id="sfe-edit"]'),
-    ).toBeVisible();
+    await page.getByTestId('smart-view-add').click();
+    await page.getByTestId('sf-form-kind-pin').click();
+    await expect(page.getByTestId('sf-form-path')).toBeVisible();
 
-    // 編集ボタン
-    await page
-      .locator('[data-testid="smart-folder"][data-id="sfe-edit"]')
-      .getByTestId('smart-folder-edit')
-      .click();
-    await expect(page.getByTestId('sf-form')).toBeVisible();
-    await expect(page.getByTestId('sf-form-name')).toHaveValue('変更前');
+    // 'alpha' でフィルタ → sfe-e2e/alpha.md が候補に出る
+    await page.getByTestId('sf-form-path').focus();
+    await page.getByTestId('sf-form-path').fill('alpha');
 
-    // 名前を変更して保存
-    await page.getByTestId('sf-form-name').fill('変更後');
+    const option = page.locator('[data-testid="sf-form-path-option"]').first();
+    await expect(option).toBeVisible({ timeout: 5000 });
+    await expect(option).toHaveAttribute('data-path', `${ROOT}/alpha.md`);
+
+    await option.click();
+    await expect(page.getByTestId('sf-form-path')).toHaveValue(`${ROOT}/alpha.md`);
+    await expect(page.locator('[data-testid="sf-form-path-option"]')).toHaveCount(0);
+  });
+
+  // -----------------------------------------------------------------------
+  // [AC-S7b2f22-2-2] アイコンピッカー (実際に選択して保存)
+  // -----------------------------------------------------------------------
+  test('[AC-S7b2f22-2-2] アイコンピッカーで選択した icon が保存される', async ({ page }) => {
+    await page.goto(state().uiUrl);
+    await page.getByTestId('sidebar-view-smart').click();
+    await page.getByTestId('smart-view-add').click();
+
+    await page.getByTestId('sf-form-name').fill('スターフォルダ');
+
+    // icon ピッカーで 'star' を選択
+    await page.getByTestId('sf-form-icon').focus();
+    await page.getByTestId('sf-form-icon').fill('star');
+    const iconOpt = page.locator('[data-testid="sf-form-icon-option"][data-icon="star"]');
+    await expect(iconOpt).toBeVisible();
+    await iconOpt.click();
+    await expect(page.getByTestId('sf-form-icon')).toHaveValue('star');
+
+    await page.selectOption('[data-testid="sf-form-preset"]', 'todo');
     await page.getByTestId('sf-form-save').click();
     await expect(page.getByTestId('sf-form')).not.toBeVisible();
 
-    // 名前が更新されている
     await expect(
-      page.locator('[data-testid="smart-folder"][data-id="sfe-edit"]'),
-    ).toContainText('変更後');
+      page.locator('[data-testid="smart-folder-icon"][data-icon="star"]'),
+    ).toBeVisible();
 
     // reload で永続確認
     await page.reload();
     await page.getByTestId('sidebar-view-smart').click();
     await expect(
-      page.locator('[data-testid="smart-folder"][data-id="sfe-edit"]'),
-    ).toContainText('変更後');
+      page.locator('[data-testid="smart-folder-icon"][data-icon="star"]'),
+    ).toBeVisible();
   });
 
   // -----------------------------------------------------------------------
-  // [AC-S7b2f22-1-6] 並べ替え (moveup / movedown) → 永続
+  // [AC-S7b2f22-2-3] + ボタンの配置
   // -----------------------------------------------------------------------
-  test('[AC-S7b2f22-1-6] 並べ替えボタンで順序を変更すると永続する', async ({ page }) => {
-    await putSmartFolders({
-      version: 1,
-      items: [
-        { kind: 'query', id: 'sfe-a', name: 'A フォルダ', dql: 'LIST' },
-        { kind: 'query', id: 'sfe-b', name: 'B フォルダ', dql: 'LIST' },
-        { kind: 'query', id: 'sfe-c', name: 'C フォルダ', dql: 'LIST' },
-      ],
-    });
-
+  test('[AC-S7b2f22-2-3] smart-view-add はノート/スマートトグルと同じ行にある', async ({
+    page,
+  }) => {
     await page.goto(state().uiUrl);
     await page.getByTestId('sidebar-view-smart').click();
+    await expect(page.getByTestId('smart-view-add')).toBeVisible();
 
-    // 並び順確認: A, B, C
-    const folders = page.locator('[data-testid="smart-folder"]');
-    await expect(folders.first()).toContainText('A フォルダ');
-
-    // B フォルダを上へ移動 (B が A の前に来る)
-    await page
-      .locator('[data-testid="smart-folder"][data-id="sfe-b"]')
-      .getByTestId('smart-folder-moveup')
-      .click();
-
-    // 並び: B, A, C になる
-    await expect(folders.first()).toContainText('B フォルダ');
-    await expect(folders.nth(1)).toContainText('A フォルダ');
-
-    // reload で永続確認
-    await page.reload();
-    await page.getByTestId('sidebar-view-smart').click();
-    await expect(
-      page.locator('[data-testid="smart-folder"]').first(),
-    ).toContainText('B フォルダ');
+    const header = page.getByTestId('smart-view-header');
+    await expect(header.getByTestId('sidebar-view-smart')).toBeVisible();
+    await expect(header.getByTestId('smart-view-add')).toBeVisible();
   });
 
   // -----------------------------------------------------------------------
-  // [AC-S7b2f22-1-6] 削除 → 永続
+  // [AC-S7b2f22-2-4] 削除確認ダイアログ → 永続
   // -----------------------------------------------------------------------
-  test('[AC-S7b2f22-1-6] アイテムを削除すると永続する', async ({ page }) => {
+  test('[AC-S7b2f22-2-4] 右クリック削除→確認→永続する', async ({ page }) => {
     await putSmartFolders({
       version: 1,
       items: [
@@ -238,17 +220,21 @@ test.describe('スマートフォルダ作成/編集/削除/並べ替え', () =>
       page.locator('[data-testid="smart-folder"][data-id="sfe-del"]'),
     ).toBeVisible();
 
-    // 削除ボタン
+    // 右クリック → 削除
     await page
       .locator('[data-testid="smart-folder"][data-id="sfe-del"]')
-      .getByTestId('smart-folder-delete')
-      .click();
+      .click({ button: 'right' });
+    await expect(page.getByTestId('smart-context-menu')).toBeVisible();
+    await page.getByTestId('smart-context-delete').click();
 
-    // 削除対象が消える
+    // 確認ダイアログ
+    await expect(page.getByTestId('smart-delete-dialog')).toBeVisible();
+    await page.getByTestId('smart-delete-confirm').click();
+
+    // アイテムが消える
     await expect(
       page.locator('[data-testid="smart-folder"][data-id="sfe-del"]'),
     ).toHaveCount(0);
-    // 残す方は残る
     await expect(
       page.locator('[data-testid="smart-folder"][data-id="sfe-keep"]'),
     ).toBeVisible();
@@ -270,15 +256,102 @@ test.describe('スマートフォルダ作成/編集/削除/並べ替え', () =>
   });
 
   // -----------------------------------------------------------------------
-  // [AC-S7b2f22-1-7] read-only モードでは編集 UI が存在しない
+  // [AC-S7b2f22-2-5] DnD 並べ替え → 永続
   // -----------------------------------------------------------------------
-  test('[AC-S7b2f22-1-7] read-only / append-only モードでは編集 UI が非表示', async ({
+  test('[AC-S7b2f22-2-5] ドラッグ&ドロップで並べ替えると永続する', async ({ page }) => {
+    await putSmartFolders({
+      version: 1,
+      items: [
+        { kind: 'query', id: 'sfe-a', name: 'A フォルダ', dql: 'LIST' },
+        { kind: 'query', id: 'sfe-b', name: 'B フォルダ', dql: 'LIST' },
+        { kind: 'query', id: 'sfe-c', name: 'C フォルダ', dql: 'LIST' },
+      ],
+    });
+
+    await page.goto(state().uiUrl);
+    await page.getByTestId('sidebar-view-smart').click();
+
+    const folders = page.locator('[data-testid="smart-folder"]');
+    await expect(folders.first()).toContainText('A フォルダ');
+
+    // A を B の位置へドラッグ
+    const srcEl = page.locator('[data-testid="smart-folder"][data-id="sfe-a"]');
+    const tgtEl = page.locator('[data-testid="smart-folder"][data-id="sfe-b"]');
+    await srcEl.dragTo(tgtEl);
+
+    // 順序が変わっている (B が先に来る)
+    await expect(async () => {
+      const allFolders = page.locator('[data-testid="smart-folder"]');
+      const first = await allFolders.first().getAttribute('data-id');
+      expect(first).toBe('sfe-b');
+    }).toPass({ timeout: 5000 });
+
+    // reload で永続確認
+    await page.reload();
+    await page.getByTestId('sidebar-view-smart').click();
+    const reloadedFolders = page.locator('[data-testid="smart-folder"]');
+    const firstId = await reloadedFolders.first().getAttribute('data-id');
+    expect(firstId).toBe('sfe-b');
+  });
+
+  // -----------------------------------------------------------------------
+  // [AC-S7b2f22-2-6] 右クリック → 編集 → 永続
+  // -----------------------------------------------------------------------
+  test('[AC-S7b2f22-2-6] 右クリック編集でフォームが prefill され、保存すると永続する', async ({
     page,
   }) => {
-    // E2E サーバーは full モードで起動。ここでは append-only サーバーをテストするのは難しいため、
-    // 実サーバーの full モードで smart-view-add, edit/delete ボタンが見えることを確認し、
-    // AC-7 の mock 版 (smart-folder-editor.mock.spec.ts) で非表示を担保する。
+    await putSmartFolders({
+      version: 1,
+      items: [
+        {
+          kind: 'query',
+          id: 'sfe-edit',
+          name: '変更前',
+          icon: 'search',
+          dql: `LIST FROM "${ROOT}" SORT file.name ASC`,
+        },
+      ],
+    });
 
+    await page.goto(state().uiUrl);
+    await page.getByTestId('sidebar-view-smart').click();
+    await expect(
+      page.locator('[data-testid="smart-folder"][data-id="sfe-edit"]'),
+    ).toBeVisible();
+
+    // 右クリック → 編集
+    await page
+      .locator('[data-testid="smart-folder"][data-id="sfe-edit"]')
+      .click({ button: 'right' });
+    await expect(page.getByTestId('smart-context-menu')).toBeVisible();
+    await page.getByTestId('smart-context-edit').click();
+
+    await expect(page.getByTestId('sf-form')).toBeVisible();
+    await expect(page.getByTestId('sf-form-name')).toHaveValue('変更前');
+
+    // 名前を変更して保存
+    await page.getByTestId('sf-form-name').fill('変更後');
+    await page.getByTestId('sf-form-save').click();
+    await expect(page.getByTestId('sf-form')).not.toBeVisible();
+
+    await expect(
+      page.locator('[data-testid="smart-folder"][data-id="sfe-edit"]'),
+    ).toContainText('変更後');
+
+    // reload で永続確認
+    await page.reload();
+    await page.getByTestId('sidebar-view-smart').click();
+    await expect(
+      page.locator('[data-testid="smart-folder"][data-id="sfe-edit"]'),
+    ).toContainText('変更後');
+  });
+
+  // -----------------------------------------------------------------------
+  // [AC-S7b2f22-2-7] full モードでは編集 UI が存在する
+  // -----------------------------------------------------------------------
+  test('[AC-S7b2f22-2-7] full モードでは smart-view-add と右クリックメニューが利用可能', async ({
+    page,
+  }) => {
     await putSmartFolders({
       version: 1,
       items: [{ kind: 'query', id: 'sfe-ro', name: 'ビュー確認', dql: 'LIST' }],
@@ -288,16 +361,16 @@ test.describe('スマートフォルダ作成/編集/削除/並べ替え', () =>
     await page.getByTestId('sidebar-view-smart').click();
     await expect(page.getByTestId('smart-view-add')).toBeVisible();
 
-    // full モードでは編集ボタンが存在する
-    await expect(
-      page
-        .locator('[data-testid="smart-folder"][data-id="sfe-ro"]')
-        .getByTestId('smart-folder-edit'),
-    ).toBeVisible();
-    await expect(
-      page
-        .locator('[data-testid="smart-folder"][data-id="sfe-ro"]')
-        .getByTestId('smart-folder-delete'),
-    ).toBeVisible();
+    // full モードでは右クリックメニューに編集/削除がある
+    await page
+      .locator('[data-testid="smart-folder"][data-id="sfe-ro"]')
+      .click({ button: 'right' });
+    await expect(page.getByTestId('smart-context-menu')).toBeVisible();
+    await expect(page.getByTestId('smart-context-edit')).toBeVisible();
+    await expect(page.getByTestId('smart-context-delete')).toBeVisible();
+
+    // 閉じる
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('smart-context-menu')).toHaveCount(0);
   });
 });
