@@ -1664,8 +1664,8 @@ export function App(): JSX.Element {
           .slice(0, 15);
         return (
           <div className="dialog-backdrop" data-testid="smart-newfile-dialog" role="dialog" aria-modal="true">
-            <div className="dialog-panel">
-              <h3 className="dialog-title">新規ファイル</h3>
+            <div className="dialog" onClick={(e) => e.stopPropagation()}>
+              <h2>新規ファイル</h2>
               <div className="dialog-body">
                 <div className="sf-form-combobox" style={{ position: 'relative' }}>
                   <input

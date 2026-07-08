@@ -2076,8 +2076,10 @@ button.callout-title { cursor: pointer; }
 
 /* スマートフォルダ作成/編集フォーム (ダイアログ内) */
 .sf-dialog {
-  max-height: 85vh;
-  overflow-y: auto;
+  /* コンボボックスの absolute ドロップダウンがモーダル外へオーバーレイできるよう
+     overflow を切らない。max-height + overflow-y:auto だとドロップダウンがクリップされ、
+     モーダル側に不要なスクロールバーが出る (フォームは短いので clip 不要)。 */
+  overflow: visible;
 }
 
 .sf-form {
@@ -2230,6 +2232,10 @@ button.callout-title { cursor: pointer; }
 }
 .sf-form-option:hover { background: var(--bg-hover); }
 .sf-form-option .smart-icon { flex-shrink: 0; }
+/* 候補行のアイコン(FolderIcon 等 raw svg)は必ず小さく固定する
+   — 未指定だと SVG が本来サイズで巨大描画されてドロップダウンが崩れる */
+.sf-form-option svg { width: 15px; height: 15px; flex-shrink: 0; }
+.sf-form-option-icon { color: var(--text-muted); }
 .sf-form-option-path { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sf-form-option-title { font-size: 11.5px; color: var(--text-faint); margin-left: 4px; }
 
