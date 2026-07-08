@@ -21,6 +21,7 @@ import {
   todayJournalDate,
   type FileMeta,
   type NoteMeta,
+  type PermissionMode,
   type PropertyKeyCount,
   type PropertyTypeDef,
   type TagCount,
@@ -188,6 +189,10 @@ export function App(): JSX.Element {
     setSidebarView(mode);
     localStorage.setItem('loamium.sidebarView', mode);
   }, []);
+
+  // ---- スマートビュー: モード + 作成フォームトリガー ----
+  const [smartViewMode, setSmartViewMode] = useState<PermissionMode | null>(null);
+  const [smartAddTrigger, setSmartAddTrigger] = useState(0);
 
   // ---- サイドバー: ノート一覧と添付 ----
   const [notes, setNotes] = useState<NoteMeta[] | null>(null);
@@ -1109,7 +1114,7 @@ export function App(): JSX.Element {
           }}
         />
 
-        <div className="tree-section-title">
+        <div className="tree-section-title" data-testid="smart-view-header">
           <span className="sidebar-view-toggle">
             <button
               className={`sidebar-view-btn${sidebarView === 'physical' ? ' active' : ''}`}
@@ -1130,6 +1135,18 @@ export function App(): JSX.Element {
               スマート
             </button>
           </span>
+          {sidebarView === 'smart' && smartViewMode === 'full' && (
+            <span className="actions">
+              <button
+                className="icon-btn smart-view-add-btn"
+                data-testid="smart-view-add"
+                title="スマートフォルダを追加"
+                onClick={() => setSmartAddTrigger((c) => c + 1)}
+              >
+                +
+              </button>
+            </span>
+          )}
           {sidebarView === 'physical' && (
             <span className="actions" style={{ position: 'relative' }}>
               <button
@@ -1197,6 +1214,8 @@ export function App(): JSX.Element {
           <SmartView
             onOpenNote={(path) => void openNotePath(path)}
             onSwitchToPhysical={() => switchSidebarView('physical')}
+            triggerAdd={smartAddTrigger}
+            onModeChange={setSmartViewMode}
           />
         ) : (
           <FileTree

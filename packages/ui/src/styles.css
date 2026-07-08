@@ -2190,6 +2190,53 @@ button.callout-title { cursor: pointer; }
   margin-top: 4px;
 }
 
+/* ---- スマートフォルダフォーム コンボボックス (S7b2f22-2) -------------------- */
+.sf-form-combobox {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.sf-form-combobox .sf-form-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+.sf-form-dropdown {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  right: 0;
+  background: var(--bg-editor);
+  border: 1.5px solid var(--border-strong);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  z-index: 110;
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+.sf-form-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text);
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  font-family: inherit;
+}
+.sf-form-option:hover { background: var(--bg-hover); }
+.sf-form-option .smart-icon { flex-shrink: 0; }
+.sf-form-option-path { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sf-form-option-title { font-size: 11.5px; color: var(--text-faint); margin-left: 4px; }
+
+/* ---- スマートアイテム DnD ドラッグ affordance (S7b2f22-2) ------------------- */
+.smart-drag-item { cursor: grab; }
+.smart-drag-item:active { cursor: grabbing; opacity: 0.75; }
+
 /* ---- 右サイドバー トグル(バックリンク | Claude) (Sf1a90a-2) --------------- */
 .seg-toggle {
   display: inline-flex;
