@@ -18,9 +18,11 @@ export interface BookmarkStarProps {
   docPath: string;
   /** 初回表示時の frontmatter (サーバーから取得済み) */
   initialFrontmatter: Record<string, unknown> | null;
+  /** ブックマーク操作成功後に呼ばれるコールバック (editor content の同期用) */
+  onChanged?: () => void;
 }
 
-export function BookmarkStar({ docPath, initialFrontmatter }: BookmarkStarProps): JSX.Element {
+export function BookmarkStar({ docPath, initialFrontmatter, onChanged }: BookmarkStarProps): JSX.Element {
   const [bookmarked, setBookmarked] = useState<boolean>(
     Boolean(initialFrontmatter?.bookmark),
   );
@@ -60,6 +62,8 @@ export function BookmarkStar({ docPath, initialFrontmatter }: BookmarkStarProps)
       (res) => {
         // サーバー応答の frontmatter で確定
         setBookmarked(Boolean(res.frontmatter?.bookmark));
+        // 成功後: 呼び出し元 (App) にエディタ内容の再取得を依頼する
+        onChanged?.();
       },
       () => {
         // 失敗時はロールバック

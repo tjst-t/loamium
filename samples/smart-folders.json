@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "items": [
+    { "kind": "query", "id": "recent", "name": "最近の更新", "icon": "clock", "dql": "LIST SORT file.mtime DESC LIMIT 10" },
+    { "kind": "query", "id": "bookmarks", "name": "ブックマーク", "icon": "star", "dql": "LIST WHERE bookmark SORT file.mtime DESC" },
+    { "kind": "query", "id": "journal", "name": "最近のジャーナル", "icon": "calendar", "dql": "LIST FROM \"journals\" SORT file.name DESC LIMIT 7" },
+    { "kind": "query", "id": "todos", "name": "未完了TODO", "icon": "flame", "dql": "LIST WHERE file.open_tasks SORT file.mtime DESC" }
+  ]
+}

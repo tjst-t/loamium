@@ -81,6 +81,21 @@ test.describe('bookmark star', () => {
     await expect(page.getByTestId('bookmark-star')).toHaveAttribute('data-bookmarked', 'false');
   });
 
+  test('[AC-S8086d9-2-4] ブックマーク付与後エディタ内容に bookmark: true が反映され、解除後に消える', async ({ page }) => {
+    await page.goto(`${state().uiUrl}/n/${ROOT}/target`);
+    await expect(page.getByTestId('editor')).toContainText('本文ターゲット');
+
+    // ブックマーク付与 → エディタの内容に frontmatter が現れる
+    await page.getByTestId('bookmark-star').click();
+    await expect(page.getByTestId('bookmark-star')).toHaveAttribute('data-bookmarked', 'true');
+    await expect(page.getByTestId('editor')).toContainText('bookmark: true');
+
+    // 解除 → エディタから bookmark: true が消える
+    await page.getByTestId('bookmark-star').click();
+    await expect(page.getByTestId('bookmark-star')).toHaveAttribute('data-bookmarked', 'false');
+    await expect(page.getByTestId('editor')).not.toContainText('bookmark: true');
+  });
+
   test('[AC-S8086d9-2-3] ブックマークすると LIST WHERE bookmark のスマートフォルダに現れ、解除で消える', async ({ page }) => {
     await page.goto(`${state().uiUrl}/n/${ROOT}/target`);
     await expect(page.getByTestId('editor')).toContainText('本文ターゲット');
