@@ -1,0 +1,14 @@
+{
+  "milestone_summary": {
+    "stopped_at": "milestone_Sebf6b0",
+    "compromises": [],
+    "compromises_note": "独立 verifier は forbidden-degradation なしと確認(妥協ゼロ)。",
+    "blockers_encountered": [],
+    "scope_changes": [
+      {
+        "type": "new_scope_added",
+        "summary": "milestone review ②/③ のユーザー要望として、フォルダpin(ADR-0005)・pin存在検証・スマートビューからのファイル作成・タグ補完・機能ガイドを Sprint Sebf6b0 として追加実装。"
+      }
+    ]
+  }
+}
