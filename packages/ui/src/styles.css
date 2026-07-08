@@ -2243,6 +2243,17 @@ button.callout-title { cursor: pointer; }
 .smart-drag-item { cursor: grab; }
 .smart-drag-item:active { cursor: grabbing; opacity: 0.75; }
 
+/* ドロップ挿入位置インジケーター */
+.smart-drop-indicator {
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+  margin: 1px 4px;
+  pointer-events: none;
+}
+.smart-drop-before { border-top: 2px solid var(--accent); }
+.smart-drop-after { border-bottom: 2px solid var(--accent); }
+
 /* ---- 右サイドバー トグル(バックリンク | Claude) (Sf1a90a-2) --------------- */
 .seg-toggle {
   display: inline-flex;

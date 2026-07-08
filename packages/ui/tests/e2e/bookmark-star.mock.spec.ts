@@ -111,3 +111,69 @@ test('[MOCK] スター: 書込失敗(500)は楽観更新をロールバックし
   await expect(page.getByTestId('editor')).toContainText('本文ターゲット');
   expect(unexpected).toEqual([]);
 });
+
+test('[MOCK] スター: ブックマーク成功後にエディタが再取得されプロパティパネルに bookmark が現れる', async ({ page }) => {
+  // bootNote は呼ばず、このテスト専用でモック全体を組み立てる
+  const unexpected = await installCatchAll(page);
+  await page.route('**/api/health', (route) =>
+    void route.fulfill(json({ status: 'ok', mode: 'full', terminal: { enabled: false, reason: null } })),
+  );
+  await page.route('**/api/notes', (route) =>
+    void route.fulfill(json({ notes: [{ path: NOTE_PATH, title: 'Target', tags: [], folder: ROOT }] })),
+  );
+
+  // getNote の呼び出しを順番管理: 初回=frontmatter なし、2回目以降=bookmark:true
+  let getNoteCallCount = 0;
+  await page.route(`**/api/notes/${ROOT}/target.md`, (route) => {
+    getNoteCallCount++;
+    const fm = getNoteCallCount === 1 ? null : { bookmark: true };
+    void route.fulfill(json(noteResponse(fm)));
+  });
+  await page.route(`**/api/notes/${ROOT}/target.md/properties`, (route) => {
+    void route.fulfill(json({ path: NOTE_PATH, frontmatter: { bookmark: true } }));
+  });
+
+  await page.goto(openNoteUrl());
+  await expect(page.getByTestId('editor')).toContainText('本文ターゲット');
+  // 初期状態: frontmatter なし → プロパティパネルは存在しない
+  await expect(page.getByTestId('properties-widget')).toHaveCount(0);
+
+  await page.getByTestId('bookmark-star').click();
+  await expect(page.getByTestId('bookmark-star')).toHaveAttribute('data-bookmarked', 'true');
+  // onChanged → getNote → setOpenDoc → エディタが bookmark:true frontmatter 付きで更新される
+  // → プロパティパネルが現れる (これが editor content 同期の証拠)
+  await expect(page.getByTestId('properties-widget')).toBeVisible({ timeout: 5000 });
+  expect(unexpected).toEqual([]);
+});
+
+test('[MOCK] スター: ブックマーク解除後にエディタが再取得されプロパティパネルが消える', async ({ page }) => {
+  const unexpected = await installCatchAll(page);
+  await page.route('**/api/health', (route) =>
+    void route.fulfill(json({ status: 'ok', mode: 'full', terminal: { enabled: false, reason: null } })),
+  );
+  await page.route('**/api/notes', (route) =>
+    void route.fulfill(json({ notes: [{ path: NOTE_PATH, title: 'Target', tags: [], folder: ROOT }] })),
+  );
+
+  // 初回取得はブックマーク済み、2回目以降はなし
+  let getNoteCallCount = 0;
+  await page.route(`**/api/notes/${ROOT}/target.md`, (route) => {
+    getNoteCallCount++;
+    const fm = getNoteCallCount === 1 ? { bookmark: true } : null;
+    void route.fulfill(json(noteResponse(fm)));
+  });
+  await page.route(`**/api/notes/${ROOT}/target.md/properties`, (route) => {
+    void route.fulfill(json({ path: NOTE_PATH, frontmatter: null }));
+  });
+
+  await page.goto(openNoteUrl());
+  await expect(page.getByTestId('bookmark-star')).toHaveAttribute('data-bookmarked', 'true');
+  // 初期状態: bookmark:true frontmatter → プロパティパネルが表示されている
+  await expect(page.getByTestId('properties-widget')).toBeVisible({ timeout: 5000 });
+
+  await page.getByTestId('bookmark-star').click();
+  await expect(page.getByTestId('bookmark-star')).toHaveAttribute('data-bookmarked', 'false');
+  // onChanged → getNote → setOpenDoc → frontmatter なしで更新 → プロパティパネルが消える
+  await expect(page.getByTestId('properties-widget')).toHaveCount(0, { timeout: 5000 });
+  expect(unexpected).toEqual([]);
+});

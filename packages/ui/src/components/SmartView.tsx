@@ -220,6 +220,10 @@ interface DragItemProps {
   onDragStart: (e: ReactDragEvent<HTMLElement>) => void;
   onDragOver: (e: ReactDragEvent<HTMLElement>) => void;
   onDrop: (e: ReactDragEvent<HTMLElement>) => void;
+  onDragLeave: (e: ReactDragEvent<HTMLElement>) => void;
+  onDragEnd: (e: ReactDragEvent<HTMLElement>) => void;
+  /** このアイテムが現在のドロップターゲットか */
+  dropIndicator: 'before' | 'after' | null;
 }
 
 interface SmartFolderProps {
@@ -253,9 +257,11 @@ function SmartFolder({ item, onOpenNote, onContextMenu, dragProps }: SmartFolder
     });
   }, [item.id, loadState.kind]);
 
+  const dropIndicator = dragProps?.dropIndicator ?? null;
+
   return (
     <div
-      className={`smart-folder-wrap${dragProps?.draggable === true ? ' smart-drag-item' : ''}`}
+      className={`smart-folder-wrap${dragProps?.draggable === true ? ' smart-drag-item' : ''}${dropIndicator === 'before' ? ' smart-drop-before' : dropIndicator === 'after' ? ' smart-drop-after' : ''}`}
       data-testid="smart-folder"
       data-id={item.id}
       aria-expanded={expanded}
@@ -263,8 +269,11 @@ function SmartFolder({ item, onOpenNote, onContextMenu, dragProps }: SmartFolder
       onDragStart={dragProps?.onDragStart}
       onDragOver={dragProps?.onDragOver}
       onDrop={dragProps?.onDrop}
+      onDragLeave={dragProps?.onDragLeave}
+      onDragEnd={dragProps?.onDragEnd}
       onContextMenu={onContextMenu !== undefined ? (e) => onContextMenu(e, item) : undefined}
     >
+      {dropIndicator === 'before' && <div className="smart-drop-indicator" data-testid="smart-drop-indicator" />}
       <div className="smart-folder-header">
         <button
           className="tree-item smart-folder-btn"
@@ -294,6 +303,7 @@ function SmartFolder({ item, onOpenNote, onContextMenu, dragProps }: SmartFolder
             ))}
         </div>
       )}
+      {dropIndicator === 'after' && <div className="smart-drop-indicator" data-testid="smart-drop-indicator" />}
     </div>
   );
 }
@@ -311,9 +321,10 @@ interface SmartPinProps {
 
 function SmartPin({ item, onOpenNote, onContextMenu, dragProps }: SmartPinProps): JSX.Element {
   const iconStr = item.icon ?? 'file-text';
+  const dropIndicator = dragProps?.dropIndicator ?? null;
   return (
     <div
-      className={`smart-pin-row${dragProps?.draggable === true ? ' smart-drag-item' : ''}`}
+      className={`smart-pin-row${dragProps?.draggable === true ? ' smart-drag-item' : ''}${dropIndicator === 'before' ? ' smart-drop-before' : dropIndicator === 'after' ? ' smart-drop-after' : ''}`}
       data-testid="smart-pin"
       data-id={item.id}
       data-path={item.path}
@@ -321,9 +332,12 @@ function SmartPin({ item, onOpenNote, onContextMenu, dragProps }: SmartPinProps)
       onDragStart={dragProps?.onDragStart}
       onDragOver={dragProps?.onDragOver}
       onDrop={dragProps?.onDrop}
+      onDragLeave={dragProps?.onDragLeave}
+      onDragEnd={dragProps?.onDragEnd}
       onContextMenu={onContextMenu !== undefined ? (e) => onContextMenu(e, item) : undefined}
       onClick={() => onOpenNote(item.path)}
     >
+      {dropIndicator === 'before' && <div className="smart-drop-indicator" data-testid="smart-drop-indicator" />}
       <button
         type="button"
         className="tree-item smart-pin-btn"
@@ -333,6 +347,7 @@ function SmartPin({ item, onOpenNote, onContextMenu, dragProps }: SmartPinProps)
         <SmartIcon icon={iconStr} />
         <span className="name">{item.name ?? item.path}</span>
       </button>
+      {dropIndicator === 'after' && <div className="smart-drop-indicator" data-testid="smart-drop-indicator" />}
     </div>
   );
 }
@@ -376,9 +391,11 @@ function SmartFolderPin({
     });
   }, [item.id, loadState.kind]);
 
+  const dropIndicator = dragProps?.dropIndicator ?? null;
+
   return (
     <div
-      className={`smart-pin-row smart-folder-pin${dragProps?.draggable === true ? ' smart-drag-item' : ''}`}
+      className={`smart-folder-wrap${dragProps?.draggable === true ? ' smart-drag-item' : ''}${dropIndicator === 'before' ? ' smart-drop-before' : dropIndicator === 'after' ? ' smart-drop-after' : ''}`}
       data-testid="smart-pin"
       data-id={item.id}
       data-path={item.path}
@@ -387,12 +404,15 @@ function SmartFolderPin({
       onDragStart={dragProps?.onDragStart}
       onDragOver={dragProps?.onDragOver}
       onDrop={dragProps?.onDrop}
+      onDragLeave={dragProps?.onDragLeave}
+      onDragEnd={dragProps?.onDragEnd}
       onContextMenu={onContextMenu !== undefined ? (e) => onContextMenu(e, item) : undefined}
     >
+      {dropIndicator === 'before' && <div className="smart-drop-indicator" data-testid="smart-drop-indicator" />}
       <div className="smart-folder-header">
         <button
           type="button"
-          className="tree-item smart-pin-btn"
+          className="tree-item smart-folder-btn"
           onClick={toggle}
           title={item.name ?? item.path}
         >
@@ -420,6 +440,7 @@ function SmartFolderPin({
             ))}
         </div>
       )}
+      {dropIndicator === 'after' && <div className="smart-drop-indicator" data-testid="smart-drop-indicator" />}
     </div>
   );
 }
@@ -457,6 +478,8 @@ export function SmartView({ onOpenNote, onSwitchToPhysical, triggerAdd, onModeCh
 
   // DnD 用
   const dragSrcIdRef = useRef<string | null>(null);
+  /** ドロップ挿入位置インジケーター: id=null は非表示 */
+  const [dropTarget, setDropTarget] = useState<{ id: string; position: 'before' | 'after' } | null>(null);
 
   // onModeChange は描画ごとに新しい参照になる可能性があるため ref で保持
   const onModeChangeRef = useRef(onModeChange);
@@ -573,15 +596,32 @@ export function SmartView({ onOpenNote, onSwitchToPhysical, triggerAdd, onModeCh
     [],
   );
 
-  const handleDragOver = useCallback((e: ReactDragEvent<HTMLElement>): void => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+  const handleDragOver = useCallback(
+    (id: string) =>
+      (e: ReactDragEvent<HTMLElement>): void => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        // ドロップ挿入位置を計算して indicator を更新する
+        const el = e.currentTarget as HTMLElement;
+        const rect = el.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        const position: 'before' | 'after' = e.clientY < midY ? 'before' : 'after';
+        setDropTarget((prev) =>
+          prev?.id === id && prev.position === position ? prev : { id, position },
+        );
+      },
+    [],
+  );
+
+  const clearDropTarget = useCallback((): void => {
+    setDropTarget(null);
   }, []);
 
   const handleDrop = useCallback(
     (targetId: string) =>
       (e: ReactDragEvent<HTMLElement>): void => {
         e.preventDefault();
+        setDropTarget(null);
         const srcId = dragSrcIdRef.current;
         dragSrcIdRef.current = null;
         if (srcId === null || srcId === targetId) return;
@@ -725,8 +765,11 @@ export function SmartView({ onOpenNote, onSwitchToPhysical, triggerAdd, onModeCh
               ? {
                   draggable: true,
                   onDragStart: handleDragStart(item.id),
-                  onDragOver: handleDragOver,
+                  onDragOver: handleDragOver(item.id),
                   onDrop: handleDrop(item.id),
+                  onDragLeave: clearDropTarget,
+                  onDragEnd: clearDropTarget,
+                  dropIndicator: dropTarget?.id === item.id ? (dropTarget.position) : null,
                 }
               : undefined;
 

@@ -60,6 +60,7 @@ import {
   LinkIcon,
   NewNoteIcon,
   NewFolderIcon,
+  PlusIcon,
   SearchIcon,
   UploadIcon,
   WarnTriangleIcon,
@@ -1193,14 +1194,6 @@ export function App(): JSX.Element {
           {sidebarView === 'smart' && smartViewMode === 'full' && (
             <span className="actions" style={{ position: 'relative' }}>
               <button
-                className="icon-btn smart-view-add-btn"
-                data-testid="smart-view-add"
-                title="スマートフォルダを追加"
-                onClick={() => setSmartAddTrigger((c) => c + 1)}
-              >
-                +
-              </button>
-              <button
                 className="icon-btn"
                 data-testid="smart-view-newfile"
                 title="新規ファイルを作成"
@@ -1208,7 +1201,15 @@ export function App(): JSX.Element {
                 aria-expanded={smartNewFileMenuOpen}
                 onClick={() => setSmartNewFileMenuOpen((v) => !v)}
               >
-                <DocumentIcon />
+                <NewNoteIcon />
+              </button>
+              <button
+                className="icon-btn"
+                data-testid="smart-view-add"
+                title="スマートフォルダを追加"
+                onClick={() => setSmartAddTrigger((c) => c + 1)}
+              >
+                <PlusIcon />
               </button>
               {smartNewFileMenuOpen && (
                 <>
@@ -1422,6 +1423,14 @@ export function App(): JSX.Element {
               key={doc.path}
               docPath={doc.path}
               initialFrontmatter={doc.frontmatter}
+              onChanged={() => {
+                const currentDoc = docRef.current;
+                if (currentDoc === null) return;
+                void api.getNote(currentDoc.path).then(
+                  (res) => { setOpenDoc(res.path, res.content, res.mtime, res.frontmatter); },
+                  () => { /* ノート再取得失敗時はエディタ表示をそのまま維持する */ },
+                );
+              }}
             />
           )}
         </div>

@@ -81,6 +81,27 @@ test.describe('bookmark star', () => {
     await expect(page.getByTestId('bookmark-star')).toHaveAttribute('data-bookmarked', 'false');
   });
 
+  test('[AC-S8086d9-2-4] ブックマーク付与でエディタが再取得され frontmatter に bookmark が現れ、解除後に消える', async ({ page }) => {
+    // frontmatter は live-preview でプロパティパネル (properties-widget) として描画される。
+    // スター toggle 後にエディタが再取得され、この widget が現れる/消えることを検証する
+    // (= 開いているエディタが disk の変更に同期している証拠)。
+    await page.goto(`${state().uiUrl}/n/${ROOT}/target`);
+    await expect(page.getByTestId('editor')).toContainText('本文ターゲット');
+    // 付与前: frontmatter 無し → プロパティパネルは無い
+    await expect(page.getByTestId('properties-widget')).toHaveCount(0);
+
+    // 付与 → エディタが再取得され bookmark プロパティのパネルが現れる
+    await page.getByTestId('bookmark-star').click();
+    await expect(page.getByTestId('bookmark-star')).toHaveAttribute('data-bookmarked', 'true');
+    await expect(page.getByTestId('properties-widget')).toBeVisible();
+    await expect(page.getByTestId('properties-widget')).toContainText('bookmark');
+
+    // 解除 → frontmatter が空になりパネルが消える (エディタ内容が同期している)
+    await page.getByTestId('bookmark-star').click();
+    await expect(page.getByTestId('bookmark-star')).toHaveAttribute('data-bookmarked', 'false');
+    await expect(page.getByTestId('properties-widget')).toHaveCount(0);
+  });
+
   test('[AC-S8086d9-2-3] ブックマークすると LIST WHERE bookmark のスマートフォルダに現れ、解除で消える', async ({ page }) => {
     await page.goto(`${state().uiUrl}/n/${ROOT}/target`);
     await expect(page.getByTestId('editor')).toContainText('本文ターゲット');
