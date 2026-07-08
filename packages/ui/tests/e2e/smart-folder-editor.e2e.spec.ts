@@ -373,4 +373,108 @@ test.describe('スマートフォルダ作成/編集/削除/並べ替え (S7b2f2
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('smart-context-menu')).toHaveCount(0);
   });
+
+  // -----------------------------------------------------------------------
+  // [AC-Sebf6b0-2-3] folder-pin の展開 + note-pin は葉 (E2E + 永続)
+  // -----------------------------------------------------------------------
+  test('[AC-Sebf6b0-2-3] folder-pin を展開すると配下ノートが表示され、note-pin は葉のまま。永続確認', async ({
+    page,
+  }) => {
+    // フォルダ配下のノートを作成
+    await putNote(`${ROOT}/sub/note-a.md`, '# Note A\n\n本文A\n');
+    await putNote(`${ROOT}/sub/note-b.md`, '# Note B\n\n本文B\n');
+    await putNote(`${ROOT}/pinned.md`, '# Pinned\n\nピン留めノート\n');
+
+    // folder-pin (sfe-fp) と note-pin (sfe-np) を設定
+    await putSmartFolders({
+      version: 1,
+      items: [
+        { kind: 'pin', id: 'sfe-fp', name: 'Sub フォルダ', path: `${ROOT}/sub` },
+        { kind: 'pin', id: 'sfe-np', name: 'Pinned ノート', path: `${ROOT}/pinned.md` },
+      ],
+    });
+
+    await page.goto(state().uiUrl);
+    await page.getByTestId('sidebar-view-smart').click();
+
+    // folder-pin: aria-expanded を持つ展開可能行として描画
+    const folderPin = page.locator('[data-testid="smart-pin"][data-id="sfe-fp"]');
+    await expect(folderPin).toBeVisible();
+    await expect(folderPin).toHaveAttribute('aria-expanded', 'false');
+
+    // note-pin: smart-pin として描画 (aria-expanded なし)
+    const notePin = page.locator('[data-testid="smart-pin"][data-id="sfe-np"]');
+    await expect(notePin).toBeVisible();
+
+    // folder-pin を展開 → 配下ノートが表示される
+    await folderPin.locator('button').first().click();
+    await expect(folderPin).toHaveAttribute('aria-expanded', 'true');
+
+    await expect(
+      page.locator(`[data-testid="smart-note"][data-path="${ROOT}/sub/note-a.md"]`),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.locator(`[data-testid="smart-note"][data-path="${ROOT}/sub/note-b.md"]`),
+    ).toBeVisible();
+
+    // reload で永続確認
+    await page.reload();
+    await page.getByTestId('sidebar-view-smart').click();
+
+    // folder-pin が残っている
+    await expect(
+      page.locator('[data-testid="smart-pin"][data-id="sfe-fp"]'),
+    ).toBeVisible();
+    // note-pin が残っている
+    await expect(
+      page.locator('[data-testid="smart-pin"][data-id="sfe-np"]'),
+    ).toBeVisible();
+  });
+
+  // -----------------------------------------------------------------------
+  // [AC-Sebf6b0-2-1][AC-Sebf6b0-2-2] folder-pin 作成フロー (フォルダ候補 + 検証)
+  // -----------------------------------------------------------------------
+  test('[AC-Sebf6b0-2-1][AC-Sebf6b0-2-2] フォルダ候補から選択して folder-pin を作成できる', async ({
+    page,
+  }) => {
+    // フォルダ配下のノートを先に作成 (フォルダ候補が出るように)
+    await putNote(`${ROOT}/docs/readme.md`, '# Readme\n\n説明\n');
+    await putNote(`${ROOT}/docs/guide.md`, '# Guide\n\nガイド\n');
+
+    await page.goto(state().uiUrl);
+    await page.getByTestId('sidebar-view-smart').click();
+    await page.getByTestId('smart-view-add').click();
+    await expect(page.getByTestId('sf-form')).toBeVisible();
+
+    await page.getByTestId('sf-form-kind-pin').click();
+    await expect(page.getByTestId('sf-form-path')).toBeVisible();
+
+    // "docs" でフィルタ → ROOT/docs フォルダ候補が出る
+    await page.getByTestId('sf-form-path').focus();
+    await page.getByTestId('sf-form-path').fill(`${ROOT}`);
+
+    // ROOT/docs フォルダオプションが表示される
+    const folderOpt = page.locator(`[data-testid="sf-form-path-option"][data-path="${ROOT}/docs"]`);
+    await expect(folderOpt).toBeVisible({ timeout: 5000 });
+    await folderOpt.click();
+    await expect(page.getByTestId('sf-form-path')).toHaveValue(`${ROOT}/docs`);
+
+    // 保存 → エラーなし
+    await page.getByTestId('sf-form-name').click();
+    await page.getByTestId('sf-form-save').click();
+    await expect(page.getByTestId('sf-form-error')).toHaveCount(0);
+    await expect(page.getByTestId('sf-form')).not.toBeVisible();
+
+    // folder-pin が描画される
+    await expect(
+      page.locator(`[data-testid="smart-pin"][data-path="${ROOT}/docs"]`),
+    ).toBeVisible();
+
+    // 展開して配下ノートを確認
+    const fp = page.locator(`[data-testid="smart-pin"][data-path="${ROOT}/docs"]`);
+    await fp.locator('button').first().click();
+    await expect(
+      page.locator(`[data-testid="smart-note"][data-path="${ROOT}/docs/readme.md"]`),
+    ).toBeVisible({ timeout: 15_000 });
+  });
 });

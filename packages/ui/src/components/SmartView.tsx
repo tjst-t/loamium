@@ -1,10 +1,12 @@
 /**
- * スマートビュー (S8086d9-1 / S7b2f22-1 / S7b2f22-2)。
+ * スマートビュー (S8086d9-1 / S7b2f22-1 / S7b2f22-2 / Sebf6b0-2)。
  *
  * サイドバーのスマートビューモードで描画されるコンポーネント。
  * GET /api/smart-folders で定義一式を取得し、pin / query の 2 種類を描画する。
  * - query フォルダ: collapsed 既定。展開時に GET /api/smart-folders/{id}/notes を呼ぶ。
- * - pin 葉: クリックでノートを開く。
+ * - pin 葉 (note-pin, path ends .md): クリックでノートを開く。
+ * - pin フォルダ (folder-pin, path not ends .md): 展開可能行。展開時に
+ *     GET /api/smart-folders/{id}/notes を呼ぶ。
  *
  * S7b2f22-1 追加 — 作成/編集/削除/並べ替え UI:
  *   GET /api/health でモードを確認し、full 時のみ authoring を有効化する。
@@ -15,6 +17,10 @@
  *   - 削除確認ダイアログ (smart-delete-dialog)
  *   - HTML5 DnD 並べ替え (draggable 属性 + dragstart/dragover/drop)
  *   - +ボタンは App.tsx のヘッダ行へ移動 (triggerAdd prop で起動)
+ *
+ * Sebf6b0-2 追加:
+ *   - folder-pin (pin.path not ending in .md) を展開可能行として描画。
+ *   - note-pin (pin.path ending in .md) は従来どおり葉として描画。
  *
  * testid 契約:
  *   smart-view, smart-view-loading, smart-view-error, smart-view-empty,
@@ -327,6 +333,93 @@ function SmartPin({ item, onOpenNote, onContextMenu, dragProps }: SmartPinProps)
         <SmartIcon icon={iconStr} />
         <span className="name">{item.name ?? item.path}</span>
       </button>
+    </div>
+  );
+}
+
+// --------------------------------------------------------------------------
+// folder-pin (Sebf6b0-2 AC-2-3): pin.path が .md 以外 → 展開可能フォルダ行
+// --------------------------------------------------------------------------
+
+interface SmartFolderPinProps {
+  item: Extract<SmartViewItem, { kind: 'pin' }>;
+  onOpenNote: (path: string) => void;
+  onContextMenu?: (e: ReactMouseEvent<HTMLElement>, item: SmartViewItem) => void;
+  dragProps?: DragItemProps;
+}
+
+function SmartFolderPin({
+  item,
+  onOpenNote,
+  onContextMenu,
+  dragProps,
+}: SmartFolderPinProps): JSX.Element {
+  const [expanded, setExpanded] = useState(false);
+  const [loadState, setLoadState] = useState<FolderLoadState>({ kind: 'idle' });
+
+  const iconStr = item.icon ?? 'folder';
+
+  const toggle = useCallback((): void => {
+    setExpanded((prev) => {
+      const next = !prev;
+      if (next && loadState.kind === 'idle') {
+        setLoadState({ kind: 'loading' });
+        api.resolveSmartFolder(item.id).then(
+          (res) => setLoadState({ kind: 'loaded', notes: res.notes }),
+          (err: unknown) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            setLoadState({ kind: 'error', message: msg });
+          },
+        );
+      }
+      return next;
+    });
+  }, [item.id, loadState.kind]);
+
+  return (
+    <div
+      className={`smart-pin-row smart-folder-pin${dragProps?.draggable === true ? ' smart-drag-item' : ''}`}
+      data-testid="smart-pin"
+      data-id={item.id}
+      data-path={item.path}
+      aria-expanded={expanded}
+      draggable={dragProps?.draggable}
+      onDragStart={dragProps?.onDragStart}
+      onDragOver={dragProps?.onDragOver}
+      onDrop={dragProps?.onDrop}
+      onContextMenu={onContextMenu !== undefined ? (e) => onContextMenu(e, item) : undefined}
+    >
+      <div className="smart-folder-header">
+        <button
+          type="button"
+          className="tree-item smart-pin-btn"
+          onClick={toggle}
+          title={item.name ?? item.path}
+        >
+          <ChevronDownIcon className={expanded ? 'chev' : 'chev closed'} />
+          <SmartIcon icon={iconStr} />
+          <span className="name">{item.name ?? item.path}</span>
+        </button>
+      </div>
+      {expanded && (
+        <div className="tree-children smart-folder-body">
+          {loadState.kind === 'loading' && (
+            <div className="smart-folder-state" data-testid="smart-folder-loading">
+              読み込み中…
+            </div>
+          )}
+          {loadState.kind === 'error' && (
+            <div className="smart-folder-state smart-folder-state-error" data-testid="smart-folder-error">
+              <WarnTriangleIcon />
+              <span>取得に失敗しました</span>
+            </div>
+          )}
+          {loadState.kind === 'loaded' &&
+            loadState.notes.map((note) => (
+              <SmartNoteRow key={note.path} note={note} onOpenNote={onOpenNote} />
+            ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -648,6 +741,19 @@ export function SmartView({ onOpenNote, onSwitchToPhysical, triggerAdd, onModeCh
                 />
               );
             }
+            // Sebf6b0-2 AC-2-3: folder-pin (path not ending .md) → expandable
+            if (!item.path.endsWith('.md')) {
+              return (
+                <SmartFolderPin
+                  key={item.id}
+                  item={item}
+                  onOpenNote={onOpenNote}
+                  {...(isFull ? { onContextMenu: handleContextMenu } : {})}
+                  {...(dragProps !== undefined ? { dragProps } : {})}
+                />
+              );
+            }
+            // note-pin (path ends .md) → clickable leaf
             return (
               <SmartPin
                 key={item.id}
