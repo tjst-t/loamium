@@ -9,8 +9,8 @@ Backend: Hono / Frontend: React + CodeMirror 6 (lezer-markdown) / 検索: Fuse.j
 
 ## Commands
 
-- `make serve` — API サーバーをバックグラウンド起動 (portman 管理)
-- `make serve-ui` — UI 開発サーバーをバックグラウンド起動 (portman 管理)
+- `make serve` — API + UI 開発サーバーをまとめてバックグラウンド起動 (portman 管理。`.env` があれば自動読込)
+- `make serve-ui` — UI 開発サーバーのみをバックグラウンド起動 (portman 管理)
 - `make stop` — サーバー停止
 - `make test` — 全 workspace のテスト実行 (JUnit XML を `reports/` に出力)
 - `make test-ui` — UI の Playwright テスト (mock + e2e。実サーバー/Vite はハーネスが一時 vault で自動起動)

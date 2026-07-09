@@ -1,6 +1,14 @@
 PROJECT_NAME := loamium
+
+# ローカル起動設定 (.env, git 管理外) があれば読み込む。KEY=value 形式 (make 互換)。
+# HOST / LOAMIUM_TERMINAL / LOAMIUM_TERMINAL_ALLOWED_ORIGINS / LOAMIUM_UI_ALLOWED_HOSTS
+# などをここに書いておけば毎回コマンドに渡さなくてよい (テンプレは .env.example)。
+# -include なので存在しなくてもエラーにしない。export で全変数を子プロセスへ渡す。
+-include .env
+export
+
 DEV_VAULT ?= $(CURDIR)/dev-vault
-# デフォルトはローカルのみ。LAN からアクセスするなら `make serve HOST=0.0.0.0` (無認証なので注意)
+# デフォルトはローカルのみ。LAN からアクセスするなら `make serve HOST=0.0.0.0` か .env で HOST=0.0.0.0 (無認証なので注意)
 HOST ?= 127.0.0.1
 
 # make は /bin/sh でレシピを実行するため、portman が /usr/local/bin にあっても
@@ -31,6 +39,9 @@ serve:
 		echo $$! > .server.pid; \
 	}
 	@sleep 2 && tail -1 .server.log || true
+	@# API に続けて UI 開発サーバーも起動する (make serve だけで一式立ち上げる)。
+	@# UI だけ起動したい場合は従来どおり make serve-ui を直接呼べる。
+	@$(MAKE) --no-print-directory serve-ui
 
 serve-ui:
 	@if [ -f .ui.pid ] && kill -0 $$(cat .ui.pid) 2>/dev/null; then \
