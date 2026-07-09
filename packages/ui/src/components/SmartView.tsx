@@ -673,6 +673,15 @@ export function SmartView({ onOpenNote, onSwitchToPhysical, triggerAdd, onModeCh
           .map((i) => i.id)
       : [],
   );
+  // 名前重複チェック用 (自分の名前は除外)
+  const existingNames = new Set(
+    viewState.kind === 'loaded'
+      ? viewState.items
+          .filter((i) => editingId === null || i.id !== editingId)
+          .map((i) => (i.name ?? '').trim())
+          .filter((n) => n !== '')
+      : [],
+  );
 
   const isFull = mode === 'full';
 
@@ -700,6 +709,7 @@ export function SmartView({ onOpenNote, onSwitchToPhysical, triggerAdd, onModeCh
             <SmartFolderForm
               {...(formMode.type === 'edit' ? { initial: formMode.item } : {})}
               existingIds={existingIds}
+              existingNames={existingNames}
               onSave={saveForm}
               onCancel={closeForm}
             />

@@ -2244,15 +2244,16 @@ button.callout-title { cursor: pointer; }
 .smart-drag-item:active { cursor: grabbing; opacity: 0.75; }
 
 /* ドロップ挿入位置インジケーター */
+/* ドロップ先インジケータ: 二重線 + 淡いアクセント色 */
 .smart-drop-indicator {
-  height: 2px;
-  background: var(--accent);
-  border-radius: 1px;
+  height: 0;
+  background: none;
+  border-top: 3px double color-mix(in srgb, var(--accent) 40%, transparent);
   margin: 1px 4px;
   pointer-events: none;
 }
-.smart-drop-before { border-top: 2px solid var(--accent); }
-.smart-drop-after { border-bottom: 2px solid var(--accent); }
+.smart-drop-before { border-top: 3px double color-mix(in srgb, var(--accent) 40%, transparent); }
+.smart-drop-after { border-bottom: 3px double color-mix(in srgb, var(--accent) 40%, transparent); }
 
 /* ---- 右サイドバー トグル(バックリンク | Claude) (Sf1a90a-2) --------------- */
 .seg-toggle {
