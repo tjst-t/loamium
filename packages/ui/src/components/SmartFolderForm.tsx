@@ -98,6 +98,8 @@ export interface SmartFolderFormProps {
   initial?: SmartViewItem;
   /** ID 重複チェック用 (編集中の自 ID は除外済みで渡すこと) */
   existingIds: ReadonlySet<string>;
+  /** 名前重複チェック用 (編集中の自分の名前は除外済みで渡すこと) */
+  existingNames: ReadonlySet<string>;
   onSave: (item: SmartViewItem) => void;
   onCancel: () => void;
 }
@@ -105,6 +107,7 @@ export interface SmartFolderFormProps {
 export function SmartFolderForm({
   initial,
   existingIds,
+  existingNames,
   onSave,
   onCancel,
 }: SmartFolderFormProps): JSX.Element {
@@ -292,6 +295,12 @@ export function SmartFolderForm({
           return;
         }
       }
+    }
+
+    // 同名のスマートフォルダを禁止 (重複作成防止)
+    if (trimName && existingNames.has(trimName)) {
+      setError('同じ名前のスマートフォルダが既にあります');
+      return;
     }
 
     const id = isEdit
