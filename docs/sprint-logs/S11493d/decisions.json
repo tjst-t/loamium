@@ -38,5 +38,10 @@
     "decision": "共有タグクリックハンドラは packages/ui/src/tag-click.ts として抽出し、openSearch({q:'',tag,folder:'',sort:'updated'}) を単一関数に集約する",
     "rationale": "renderers は DOM ベースのモジュールであり React context を直接参照できない。純関数 (tag: string, openSearch: (p: SearchParams) => void) => void として型付けし、App.tsx から各 renderer のオプションへコールバックとして渡す。これにより renderer が UI ルーティングに直接依存することを避けられる (priority 3)。",
     "reference": "DESIGN_PRINCIPLES: priority 3 (API/CLI 安定), priority 5 (シンプルさ)"
+  },
+  {
+    "decision": "GFM Markdown table (table.ts) のセル内 #tag テキストはタグチップとして描画しない (S11493d-4 の配線対象外)",
+    "rationale": "table.ts の renderCellBody は appendInlineMarkdown を使って GFM インライン記法 (太字・コード・[[リンク]] 等) を描画する。セル内テキストとして書かれた '#tag' はプレーンテキストのまま表示される。タグチップとして扱うには GFM テーブルの semantics を超えた専用パースが必要であり、ピュア Markdown の正本を維持する priority 1 に反する副作用も生じる。 'table-cell tags' という要件は dataview.ts の TABLE クエリ結果の array セル (dv-tag チップ) を指すと解釈し、そちらで対応済み。GFM テーブルは対象外とする。",
+    "reference": "DESIGN_PRINCIPLES: priority 1 (ピュア Markdown), S11493d-4 (AC-S11493d-4-3 の免責条件)"
   }
 ]

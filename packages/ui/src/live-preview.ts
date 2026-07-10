@@ -330,6 +330,8 @@ class PropertiesBlockWidget extends WidgetType {
     readonly propertyKeys: readonly PropertyKeyCount[],
     /** 新規キーの型永続化 (Sd13ab1-2)。安定参照なので eq 対象外。 */
     readonly persistType: ((key: string, def: PropertyTypeDef) => void) | null,
+    /** タグチップクリック → タグ検索ナビゲーション (S11493d-4)。安定参照なので eq 対象外。 */
+    readonly onTagClick: ((tag: string) => void) | null = null,
   ) {
     super();
   }
@@ -438,6 +440,7 @@ class PropertiesBlockWidget extends WidgetType {
         getTags: () => this.tagEnv?.getTags() ?? null,
         getPropertyKeys: () => this.propertyKeys,
         ...(this.persistType !== null ? { persistType: this.persistType } : {}),
+        ...(this.onTagClick !== null ? { onTagClick: this.onTagClick } : {}),
       });
     } catch (err: unknown) {
       el = document.createElement('div');
@@ -512,6 +515,7 @@ function buildBlockDecorations(state: EditorState): DecorationSet {
   const doc = state.doc;
   // block ルール (embed 等) へ渡すエディタ環境 — 既存の wikilink 環境を再利用する
   const wlEnv = state.facet(wikilinkEnvFacet);
+  const tagEnvForRender = state.facet(tagSuggestEnvFacet);
   const renderEnv: RenderEnv = {
     getNotePaths: () => notePathsOf(state),
     openNote: (path) => wlEnv?.openNote(path),
@@ -524,6 +528,8 @@ function buildBlockDecorations(state: EditorState): DecorationSet {
         wlEnv?.openNote(path);
       }
     },
+    // タグクリック → タグ検索ナビゲーション (S11493d-4)。未注入なら何も起こらない。
+    openTag: (tag) => tagEnvForRender?.openTag(tag),
   };
   const blockCtx: RenderContext = { notePath, env: renderEnv, embedChain: [notePath] };
   /** fence が占有した行 (block レジストリの走査から除外) */
@@ -572,6 +578,7 @@ function buildBlockDecorations(state: EditorState): DecorationSet {
                 tagEnv,
                 propertyKeys,
                 persistType,
+                renderEnv.openTag !== undefined ? renderEnv.openTag : null,
               ),
               block: true,
             }).range(doc.line(1).from, doc.line(closeLine).to),

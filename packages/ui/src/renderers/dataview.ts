@@ -85,7 +85,7 @@ function renderList(rows: ListQueryRow[], ctx: RenderContext): HTMLElement {
   return list;
 }
 
-function renderCell(value: TableCellValue): HTMLElement {
+function renderCell(value: TableCellValue, ctx: RenderContext): HTMLElement {
   const td = document.createElement('td');
   if (value === null) {
     td.textContent = '';
@@ -94,7 +94,18 @@ function renderCell(value: TableCellValue): HTMLElement {
     for (const v of value) {
       const chip = document.createElement('span');
       chip.className = 'dv-tag';
+      chip.setAttribute('data-testid', 'dataview-tag');
+      chip.setAttribute('data-tag', v);
       chip.textContent = `#${v}`;
+      // タグクリック → タグ検索ナビゲーション (S11493d-4)。
+      // click はフェンス行に届かない場合があるため wireNavigation と同じ mousedown を使う。
+      if (ctx.env?.openTag !== undefined) {
+        const tagVal = v;
+        const openTag = ctx.env.openTag.bind(ctx.env);
+        wireNavigation(chip, () => openTag(tagVal));
+        chip.style.cursor = 'pointer';
+        chip.title = `#${tagVal} で検索`;
+      }
       td.append(chip);
     }
   } else {
@@ -126,7 +137,7 @@ function renderTable(fields: string[], rows: { path: string; title: string; valu
     wireNavigation(link, () => ctx.env?.openNote(row.path));
     noteTd.append(link);
     tr.append(noteTd);
-    for (const value of row.values) tr.append(renderCell(value));
+    for (const value of row.values) tr.append(renderCell(value, ctx));
     tbody.append(tr);
   }
   table.append(thead, tbody);

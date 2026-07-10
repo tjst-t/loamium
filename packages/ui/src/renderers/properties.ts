@@ -72,6 +72,11 @@ export interface PropertiesRenderOptions {
    * その場の追加のみ (型は永続化されない)。
    */
   persistType?: (key: string, def: PropertyTypeDef) => void;
+  /**
+   * タグチップクリック時のハンドラ (S11493d-4 — tags 型チップのみ)。
+   * 未指定時は何も起こらない (既存動作を変えない・ADDITIVE)。
+   */
+  onTagClick?: (tag: string) => void;
 }
 
 /** コミット後の widget へフォーカス復元を配送する CustomEvent 名。detail: PropsFocusTarget */
@@ -275,6 +280,7 @@ export function renderProperties(
   const typeDefs = options?.typeDefs ?? {};
   const notePathKey = options?.notePath ?? '';
   const openNoteLink = options?.openNoteLink;
+  const onTagClick = options?.onTagClick;
 
   const resolve = (entry: PropEntry): ResolvedPropertyType =>
     entry.kind === 'raw'
@@ -811,6 +817,25 @@ export function renderProperties(
       const text = document.createElement('span');
       text.textContent = type === 'tags' ? `#${scalarText(item)}` : scalarText(item);
       chip.append(text);
+      // タグチップクリック → タグ検索ナビゲーション (S11493d-4)。
+      // 削除ボタン上は除外する。editable でない読み取り専用時も同様に有効。
+      if (type === 'tags' && onTagClick !== undefined) {
+        const tagVal = scalarText(item);
+        chip.style.cursor = 'pointer';
+        chip.setAttribute('title', `#${tagVal} で検索`);
+        chip.addEventListener('mousedown', (e) => {
+          // 削除ボタン上のクリックは除外する
+          if (e.target instanceof Element && e.target.closest('[data-testid="properties-chip-remove"]') !== null) return;
+          e.preventDefault();
+          e.stopPropagation();
+        });
+        chip.addEventListener('click', (e) => {
+          if (e.target instanceof Element && e.target.closest('[data-testid="properties-chip-remove"]') !== null) return;
+          e.preventDefault();
+          e.stopPropagation();
+          onTagClick(tagVal);
+        });
+      }
       if (editable) {
         const del = document.createElement('button');
         del.type = 'button';

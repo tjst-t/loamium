@@ -36,6 +36,7 @@ import {
   type Route,
   type SearchParams,
 } from './router.js';
+import { makeTagClickHandler } from './tag-click.js';
 import { BookmarkStar } from './components/BookmarkStar.js';
 import { Editor } from './components/Editor.js';
 import { FilePreview } from './components/FilePreview.js';
@@ -560,6 +561,13 @@ export function App(): JSX.Element {
     },
     [applyHistory, saveNow],
   );
+
+  /**
+   * タグクリック共通ハンドラ (S11493d-4)。
+   * InfoPanel / properties.ts / dataview.ts / table.ts / Editor(onOpenTag) へ注入する。
+   * openSearch を一度だけラップして作成 (openSearch が変わるたびに再生成される)。
+   */
+  const handleTagClick = useCallback(makeTagClickHandler(openSearch), [openSearch]);
 
   /**
    * 添付ファイルのプレビューを開く (Sf53ad6-2: ツリーの tree-file クリック)。
@@ -1473,7 +1481,7 @@ export function App(): JSX.Element {
             onOpenNoteAtLine={(path, line) => void openNoteAtLine(path, line)}
             onCreateAndOpenNote={(target) => void createNoteFromLink(target, true)}
             onCreateNote={(target) => void createNoteFromLink(target, false)}
-            onOpenTag={(tag) => openSearch({ q: '', tag, folder: '', sort: 'updated' })}
+            onOpenTag={handleTagClick}
             onUploadFiles={uploadFiles}
             onDragActive={setDragActive}
           />
@@ -1565,7 +1573,7 @@ export function App(): JSX.Element {
             setSeek({ line, token: seekCounterRef.current });
           }
         }}
-        onSearchTag={(tag) => openSearch({ q: '', tag, folder: '', sort: 'updated' })}
+        onSearchTag={handleTagClick}
         hidden={route.kind === 'search'}
       />
 
