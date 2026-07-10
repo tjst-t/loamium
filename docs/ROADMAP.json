@@ -2,11 +2,11 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": null,
+    "current_sprint": "Sa8ee62",
     "total": 31,
     "done": 30,
-    "in_progress": 0,
-    "remaining": 1,
+    "in_progress": 1,
+    "remaining": 0,
     "percentage": 96
   },
   "execution_order": [
@@ -3211,7 +3211,7 @@
     },
     "Sa8ee62": {
       "title": "ノートエクスポート (PDF/HTML) — ADR-0001",
-      "status": "pending",
+      "status": "in_progress",
       "description": "サーバー側の単一パイプラインで Markdown→HTML→PDF を生成(ADR-0001 準拠・headless Chromium)。REST と CLI が 1:1 で共有し、右パネルの ⋯ アクションメニューから PDF を出力する。",
       "milestone": true,
       "stories": {
