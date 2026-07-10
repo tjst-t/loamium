@@ -3120,7 +3120,7 @@
         },
         "S11493d-3": {
           "title": "Outgoing links セクション + 既存バックリンクの統合",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、このノートが張るリンク(未解決を区別)と、このノートへのバックリンクを同じインフォパネル内で見たい。なぜなら、リンクの行き先と参照元を 1 か所で辿りたいから。",
@@ -3129,36 +3129,36 @@
               "id": "AC-S11493d-3-1",
               "description": "Outgoing links セクションが meta API の outgoingLinks を表示し、未解決リンク(resolvedPath=null)を別スタイルで区別する。解決済みはクリックで該当ノートを開く。",
               "test": "[AC-S11493d-3-1] in packages/ui/tests/e2e/info-panel.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S11493d-3-2",
               "description": "既存のバックリンク表示をインフォパネル内の 1 セクションとして統合し、件数バッジはインフォタブに維持する。Claude タブと xterm セッションは従来どおり不変。",
               "test": "[AC-S11493d-3-2] in packages/ui/tests/e2e/info-panel.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S11493d-3-3",
               "description": "mock(未解決リンクの区別表示・バッジ件数)と e2e(未解決/解決の描画、バックリンク click→open、バッジ)を用意する。",
               "test": "[AC-S11493d-3-3] in packages/ui/tests/e2e/info-panel.mock.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S11493d-3-t1": {
               "title": "Outgoing links セクション",
               "description": "未解決を別スタイル。解決済みは onOpenNote。",
-              "status": "pending"
+              "status": "done"
             },
             "S11493d-3-t2": {
               "title": "既存バックリンクをセクション化して統合",
               "description": "現行 backlink-panel をインフォ内へ移設。バッジ維持・Claude 不変。",
-              "status": "pending"
+              "status": "done"
             },
             "S11493d-3-t3": {
               "title": "mock + e2e テスト追従",
               "description": "",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
