@@ -23,6 +23,7 @@
  *   smart-folders                        GET    /api/smart-folders (定義一式取得)
  *   smart-folders set <json-file>        PUT    /api/smart-folders (定義全置換)
  *   smart-folder <id>                    GET    /api/smart-folders/{id}/notes (解決)
+ *   note-meta <path>                     GET    /api/notes/{path}/meta (ノートメタ集約)
  *
  * 出力規約 (AC-S0c9a48-1-2):
  * - 成功: exit 0、結果を stdout へ。--json で API レスポンスの生 JSON をそのまま出す
@@ -44,6 +45,7 @@ import {
   noteRenameResponseSchema,
   noteResponseSchema,
   noteWriteResponseSchema,
+  noteMetaResponseSchema,
   parsePropInput,
   queryResponseSchema,
   searchResponseSchema,
@@ -508,6 +510,39 @@ function buildProgram(): Command {
         const res = parseAs(result, smartFoldersResolveResponseSchema, 'smart-folder');
         for (const n of res.notes) {
           println(n.path);
+        }
+      });
+    });
+
+  // ---- ノートメタ集約 (S11493d-1) ----
+
+  // note-meta <path> (GET /api/notes/{path}/meta)
+  sub('note-meta', 'ノートのメタ情報 (見出し・リンク・タグ・字数) を取得する (GET /api/notes/{path}/meta)')
+    .argument('<path>', 'vault 相対パス (例: projects/hydra.md)')
+    .action(async (path: string, opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, `/api/notes/${encodeNotePath(path)}/meta`);
+      output(opts, result, () => {
+        const res = parseAs(result, noteMetaResponseSchema, 'note-meta');
+        println(`path:      ${res.path}`);
+        println(`mtime:     ${String(res.mtime)}`);
+        println(`wordCount: ${String(res.wordCount)}`);
+        println(`charCount: ${String(res.charCount)}`);
+        if (res.tags.length > 0) {
+          println(`tags:      ${res.tags.join(', ')}`);
+        }
+        if (res.headings.length > 0) {
+          println('headings:');
+          for (const h of res.headings) {
+            println(`  ${'#'.repeat(h.level)} ${h.text} (line ${String(h.line)})`);
+          }
+        }
+        if (res.outgoingLinks.length > 0) {
+          println('links:');
+          for (const l of res.outgoingLinks) {
+            const resolved = l.resolvedPath !== null ? l.resolvedPath : '(unresolved)';
+            println(`  ${l.target} -> ${resolved}`);
+          }
         }
       });
     });

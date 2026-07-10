@@ -206,6 +206,11 @@ export class VaultIndex {
     return { text: content.slice(lineStart, lineEnd), line: lineNo };
   }
 
+  /** vault 内の全ノートパスを返す (リンク解決に使う — S11493d-1)。 */
+  notePaths(): string[] {
+    return [...this.notes.keys()];
+  }
+
   /** ノート一覧 (tag / folder フィルタ)。パス昇順。 */
   listNotes(filter: { tag?: string; folder?: string } = {}): NoteMeta[] {
     const tagKey = filter.tag
