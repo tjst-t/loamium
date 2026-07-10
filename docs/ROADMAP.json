@@ -3164,7 +3164,7 @@
         },
         "S11493d-4": {
           "title": "タグクリック → タグ検索の全表示箇所への統一",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "added_in": "prototype-review",
@@ -3174,36 +3174,36 @@
               "id": "AC-S11493d-4-1",
               "description": "タグクリックで /search?tag=<タグ> へ遷移する共有ハンドラを用意し、タグを表示する全 UI 箇所に適用する:インフォパネル Tags セクション / frontmatter プロパティ描画の tags チップ / dataview の tag チップ / テーブルセルのタグ / エディタ内インライン #tag(既存 onOpenTag を踏襲し統一)。",
               "test": "[AC-S11493d-4-1] in packages/ui/tests/e2e/tag-navigation.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S11493d-4-2",
               "description": "遷移先の詳細検索ページがその tag でフィルタした結果を表示し、URL クエリに tag が同期する(既存 openSearch / SearchParams / /search?tag= を利用)。",
               "test": "[AC-S11493d-4-2] in packages/ui/tests/e2e/tag-navigation.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S11493d-4-3",
               "description": "代表箇所(プロパティ tags チップ・dataview tag・インフォパネル Tags)のクリック→ /search?tag=... 遷移と結果反映を e2e で検証する。CodeMirror 内インライン #tag が実装制約で対象外になる場合は decisions.json に記録する。",
               "test": "[AC-S11493d-4-3] in packages/ui/tests/e2e/tag-navigation.mock.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S11493d-4-t1": {
               "title": "共有タグクリックハンドラの抽出",
               "description": "openSearch({q:'',tag,folder:'',sort:'updated'}) を単一ヘルパに集約し UI 全体で再利用。",
-              "status": "pending"
+              "status": "done"
             },
             "S11493d-4-t2": {
               "title": "各タグ描画箇所へ適用",
               "description": "properties/dataview/table 描画のタグチップ、インフォパネル Tags、エディタ inline #tag を共有ハンドラへ配線。",
-              "status": "pending"
+              "status": "done"
             },
             "S11493d-4-t3": {
               "title": "e2e/mock テスト",
               "description": "代表箇所のクリック→/search?tag= 遷移と結果反映。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
