@@ -13,6 +13,7 @@ import {
   journalResponseSchema,
   noteDeleteResponseSchema,
   noteListResponseSchema,
+  noteMetaResponseSchema,
   noteRenameResponseSchema,
   notePropertyWriteRequestSchema,
   noteResponseSchema,
@@ -47,6 +48,7 @@ import {
   type JournalResponse,
   type NoteDeleteResponse,
   type NoteListResponse,
+  type NoteMetaResponse,
   type NoteRenameResponse,
   type NotePropertyWriteRequest,
   type NoteResponse,
@@ -170,6 +172,11 @@ export const api = {
 
   getNote(path: string): Promise<NoteResponse> {
     return request(noteResponseSchema, `/api/notes/${encodeNotePath(path)}`);
+  },
+
+  /** ノート 1 件のメタ情報 (見出し・タグ・frontmatter 等) を取得する (S11493d-1)。 */
+  getNoteMeta(path: string): Promise<NoteMetaResponse> {
+    return request(noteMetaResponseSchema, `/api/notes/${encodeNotePath(path)}/meta`);
   },
 
   putNote(path: string, content: string, baseMtime?: number): Promise<NoteWriteResponse> {

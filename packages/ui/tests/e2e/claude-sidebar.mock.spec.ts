@@ -144,18 +144,19 @@ test('[MOCK] トグル — aria-selected が同期し、バックリンクへ戻
   });
   await openApp(page, { enabled: true, reason: null, cmd: 'claude' });
 
-  // 既定はバックリンク表示
-  await expect(page.getByTestId('right-tab-backlinks')).toHaveAttribute('aria-selected', 'true');
+  // 既定はインフォ表示 (S11493d-2: right-tab-backlinks → right-tab-info)
+  await expect(page.getByTestId('right-tab-info')).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('right-tab-claude')).toHaveAttribute('aria-selected', 'false');
-  await expect(page.getByTestId('backlink-panel')).toBeVisible();
+  // S11493d-2: backlink-panel → info-panel
+  await expect(page.getByTestId('info-panel')).toBeVisible();
 
   await page.getByTestId('right-tab-claude').click();
   await expect(page.getByTestId('right-tab-claude')).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByTestId('right-tab-backlinks')).toHaveAttribute('aria-selected', 'false');
+  await expect(page.getByTestId('right-tab-info')).toHaveAttribute('aria-selected', 'false');
   await expect(page.getByTestId('terminal')).toBeVisible();
 
-  await page.getByTestId('right-tab-backlinks').click();
-  await expect(page.getByTestId('right-tab-backlinks')).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByTestId('backlink-panel')).toBeVisible();
+  await page.getByTestId('right-tab-info').click();
+  await expect(page.getByTestId('right-tab-info')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('info-panel')).toBeVisible();
   await expect(page.getByTestId('terminal')).toBeHidden();
 });
