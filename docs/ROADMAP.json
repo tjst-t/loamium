@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "S11493d",
+    "current_sprint": null,
     "total": 31,
-    "done": 29,
-    "in_progress": 1,
+    "done": 30,
+    "in_progress": 0,
     "remaining": 1,
-    "percentage": 93
+    "percentage": 96
   },
   "execution_order": [
     "Sd63ad1",
@@ -3026,7 +3026,7 @@
     },
     "S11493d": {
       "title": "インフォパネル (Tier 1) — 右サイドバーの情報化",
-      "status": "in_progress",
+      "status": "done",
       "description": "右サイドバーの「バックリンク」タブを「インフォ」に格上げし、Outline / Properties / Outgoing links / Tags / メタ情報の折りたたみセクションを積む。ノートメタ集約 API を追加する。",
       "milestone": false,
       "stories": {
@@ -3564,6 +3564,13 @@
       "description": "並べ替え下移動(smart-folder-movedown)のテスト。moveup のみ被覆。実装は対称で正しい。",
       "added_in": "S7b2f22",
       "reason": "test coverage debt (low)"
+    },
+    {
+      "title": "real-server acceptance specs の直列化 (parallel port 競合の flake 解消)",
+      "description": "terminal/health 等の実サーバー acceptance spec が vitest 並列実行下でポート競合し非決定的に flake する(--no-file-parallelism では 647/647 green)。実サーバー spec を直列化するか poolOptions で隔離する。",
+      "added_in": "S11493d verify",
+      "reason": "テストインフラ債務。S11493d のコードとは無関係",
+      "status": "pending"
     }
   ]
 }
