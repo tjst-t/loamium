@@ -3089,7 +3089,7 @@
             },
             {
               "id": "AC-S11493d-2-2",
-              "description": "Outline は見出しツリーを表示しクリックで該当行へ移動。Properties は frontmatter を key-value 表示(空なら非表示)。Tags はチップ表示でクリックすると /search へ遷移。メタ情報は単語数・文字数・更新日時を表示する。",
+              "description": "Outline は見出しツリーを表示しクリックで該当行へ移動。Properties は frontmatter を key-value 表示するが tags キーは除外する(タグは専用 Tags セクションが frontmatter+本文 #tag を集約して担う)。Tags はチップ表示、メタ情報は単語数・文字数・更新日時を表示する。",
               "test": "[AC-S11493d-2-2] in packages/ui/tests/e2e/info-panel.e2e.spec.ts",
               "status": "pending"
             },
@@ -3158,6 +3158,51 @@
             "S11493d-3-t3": {
               "title": "mock + e2e テスト追従",
               "description": "",
+              "status": "pending"
+            }
+          }
+        },
+        "S11493d-4": {
+          "title": "タグクリック → タグ検索の全表示箇所への統一",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in": "prototype-review",
+          "user_story": "ノート利用者として、アプリ内でタグを表示するどの場所でも、クリックすれば詳細検索(/search)のそのタグでの結果に遷移したい。なぜなら、タグからのノート回遊を一貫した操作で行いたいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S11493d-4-1",
+              "description": "タグクリックで /search?tag=<タグ> へ遷移する共有ハンドラを用意し、タグを表示する全 UI 箇所に適用する:インフォパネル Tags セクション / frontmatter プロパティ描画の tags チップ / dataview の tag チップ / テーブルセルのタグ / エディタ内インライン #tag(既存 onOpenTag を踏襲し統一)。",
+              "test": "[AC-S11493d-4-1] in packages/ui/tests/e2e/tag-navigation.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S11493d-4-2",
+              "description": "遷移先の詳細検索ページがその tag でフィルタした結果を表示し、URL クエリに tag が同期する(既存 openSearch / SearchParams / /search?tag= を利用)。",
+              "test": "[AC-S11493d-4-2] in packages/ui/tests/e2e/tag-navigation.e2e.spec.ts",
+              "status": "pending"
+            },
+            {
+              "id": "AC-S11493d-4-3",
+              "description": "代表箇所(プロパティ tags チップ・dataview tag・インフォパネル Tags)のクリック→ /search?tag=... 遷移と結果反映を e2e で検証する。CodeMirror 内インライン #tag が実装制約で対象外になる場合は decisions.json に記録する。",
+              "test": "[AC-S11493d-4-3] in packages/ui/tests/e2e/tag-navigation.mock.spec.ts",
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S11493d-4-t1": {
+              "title": "共有タグクリックハンドラの抽出",
+              "description": "openSearch({q:'',tag,folder:'',sort:'updated'}) を単一ヘルパに集約し UI 全体で再利用。",
+              "status": "pending"
+            },
+            "S11493d-4-t2": {
+              "title": "各タグ描画箇所へ適用",
+              "description": "properties/dataview/table 描画のタグチップ、インフォパネル Tags、エディタ inline #tag を共有ハンドラへ配線。",
+              "status": "pending"
+            },
+            "S11493d-4-t3": {
+              "title": "e2e/mock テスト",
+              "description": "代表箇所のクリック→/search?tag= 遷移と結果反映。",
               "status": "pending"
             }
           }

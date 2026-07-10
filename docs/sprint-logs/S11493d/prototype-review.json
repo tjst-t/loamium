@@ -1,0 +1,16 @@
+{
+  "sprint_range": ["S11493d", "Sa8ee62"],
+  "screens": [
+    {"file": "prototype/info-panel.html", "story": "S11493d-2", "feedback_rounds": 1, "approved": true},
+    {"file": "prototype/info-panel.html", "story": "S11493d-3", "feedback_rounds": 1, "approved": true},
+    {"file": "prototype/info-panel.html", "story": "Sa8ee62-2", "feedback_rounds": 1, "approved": true},
+    {"file": "prototype/info-panel-empty.html", "story": "S11493d-2", "feedback_rounds": 1, "approved": true}
+  ],
+  "design_decisions": [
+    "右サイドバーの「バックリンク」タブを「インフォ」に格上げし、Outline/Properties/Tags/メタ情報/Outgoing links/Backlinks の折りたたみセクションを積む",
+    "タグは Tags セクションに一本化し Properties からは tags キーを除外(frontmatter+本文 #tag の集約を Tags が担う) — ユーザーレビューで重複解消",
+    "未解決 Outgoing link は破線+アンバー「未解決」バッジで解決済みと明確に区別",
+    "⋯ アクションメニュー: PDF エクスポート / Copy link / Copy path",
+    "タグクリック→ /search?tag= 遷移を全タグ表示箇所へ統一する方針を追加 (新ストーリー S11493d-4)"
+  ]
+}

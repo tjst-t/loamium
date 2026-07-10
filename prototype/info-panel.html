@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loamium — インフォパネル(右サイドバー)</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- ================= 左: サイドバー ================= -->
+  <aside class="sidebar" data-testid="sidebar">
+    <div class="sidebar-header">
+      <div class="vault-badge">L</div>
+      <div class="vault-name">loamium-notes</div>
+      <button class="icon-btn" data-testid="sidebar-search" title="検索 (Ctrl+K)">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.4"/><path d="M10.4 10.4L14 14"/></svg>
+      </button>
+      <button class="icon-btn" data-testid="sidebar-settings" title="設定">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4"/></svg>
+      </button>
+    </div>
+
+    <div class="tree-section-title">
+      <span>ノート</span>
+      <span class="actions">
+        <button class="icon-btn" data-testid="sidebar-new-note" title="新規ノート">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 1.8h5.2L12.2 4.8v4.2M9.2 1.8v3h3M8 11v4M6 13h4"/></svg>
+        </button>
+      </span>
+    </div>
+    <div class="tree" data-testid="file-tree">
+      <button class="tree-item active" data-testid="tree-item" data-path="meetings/議事録 2026-07-10.md">
+        <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+        <span class="name">議事録 2026-07-10</span>
+      </button>
+      <button class="tree-item" data-testid="tree-item" data-path="projects/project-x.md">
+        <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+        <span class="name">project-x</span>
+      </button>
+      <button class="tree-item" data-testid="tree-item" data-path="weekly/週次まとめ 2026-W28.md">
+        <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+        <span class="name">週次まとめ 2026-W28</span>
+      </button>
+      <button class="tree-item" data-testid="tree-item" data-path="journals/2026-07-10.md">
+        <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+        <span class="name">2026-07-10</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ================= 中央: エディタ ================= -->
+  <main class="workspace">
+    <div class="editor-header">
+      <div class="nav-group">
+        <button class="nav-btn" data-testid="nav-back" title="戻る"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg></button>
+        <button class="nav-btn" data-testid="nav-forward" disabled title="進む"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg></button>
+      </div>
+      <nav class="route-crumbs" data-testid="route-display" aria-label="現在のルート">
+        <span class="route-token">/n/</span>
+        <span>meetings</span><span class="sep">/</span><span class="current">議事録 2026-07-10</span>
+      </nav>
+      <div class="save-status" data-testid="save-status" data-state="saved">
+        <span class="dot"></span><span>保存済み</span>
+      </div>
+    </div>
+
+    <div class="cm-scroll">
+      <div class="cm-editor" data-testid="editor">
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h1">議事録 2026-07-10</span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h2">参加者</span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">•</span> 辻下 拓実、田中 美咲、Andreessen Takahashi</span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h2">議題</span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">1.</span> <span class="wikilink" data-testid="wikilink" data-target="projects/project-x.md">project-x</span> Q3 マイルストーン確認</span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">2.</span> インフラコスト削減提案</span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h2">決定事項</span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">•</span> Q3 デモを 8/1 に設定</span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">•</span> コスト試算を田中が担当(来週まで)</span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+        <div class="cm-line active-line"><span class="gutter"></span><span class="cm-content md-h2">TODO<span class="caret"></span></span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><button class="task-checkbox" data-testid="task-checkbox" data-line="15" aria-label="未完了タスク"></button><span>田中: インフラコスト試算 (期限: 2026-07-17)</span></span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><button class="task-checkbox" data-testid="task-checkbox" data-line="16" aria-label="未完了タスク"></button><span>辻下: デモ環境構築 <span class="wikilink wikilink-broken" data-testid="wikilink-broken" data-target="まだ無いノート.md">まだ無いノート</span> 参照</span></span></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= 右: インフォパネル ================= -->
+  <aside class="panel" data-testid="right-sidebar">
+    <div class="panel-header">
+      <div class="seg-toggle" role="tablist" aria-label="右サイドバー切替">
+        <button class="seg-btn" data-testid="right-tab-info" aria-selected="true" role="tab">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="5.5"/><path d="M8 7.5v4M8 5.5h.01"/></svg>
+          インフォ
+          <span class="count" data-testid="backlink-count">2</span>
+        </button>
+        <button class="seg-btn" data-testid="right-tab-claude" aria-selected="false" role="tab" onclick="location.href='claude-sidebar.html'">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.8" y="2.5" width="12.4" height="11" rx="1.5"/><path d="M4.5 6l2.5 2-2.5 2M8.5 10.5h3"/></svg>
+          Claude
+        </button>
+      </div>
+
+      <!-- ⋯ アクションメニュー -->
+      <div class="info-actions-wrap">
+        <button class="icon-btn" data-testid="info-actions-btn" title="アクション" onclick="toggleActionsMenu(this)" aria-expanded="false" aria-haspopup="true">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg>
+        </button>
+        <div class="info-actions-menu" data-testid="info-actions-menu" role="menu" aria-label="ノートアクション">
+          <button class="menu-item" data-testid="action-export-pdf" role="menuitem">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/><path d="M5.5 10h5M5.5 12h3"/></svg>
+            PDF エクスポート
+          </button>
+          <button class="menu-item" data-testid="action-copy-link" role="menuitem">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6.5 9.5l3-3M5 7l-2 2a2.5 2.5 0 003.5 3.5l2-2M11 9l2-2A2.5 2.5 0 009.5 3.5l-2 2"/></svg>
+            Copy link
+            <span class="menu-item-hint">[[議事録 2026-07-10]]</span>
+          </button>
+          <button class="menu-item" data-testid="action-copy-path" role="menuitem">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="5" width="9" height="9" rx="1.5"/><path d="M5 5V3.5A1.5 1.5 0 016.5 2H12a1.5 1.5 0 011.5 1.5V9A1.5 1.5 0 0112 10.5H10.5"/></svg>
+            Copy path
+            <span class="menu-item-hint">meetings/…</span>
+          </button>
+        </div>
+      </div>
+
+      <button class="icon-btn" data-testid="right-sidebar-toggle" title="サイドバーを閉じる" style="margin-left:4px;">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 3l5 5-5 5"/></svg>
+      </button>
+    </div>
+
+    <!-- インフォパネル本体 -->
+    <div class="panel-body" data-testid="info-panel">
+
+      <!-- 1. 目次 (Outline) -->
+      <details class="info-section" open>
+        <summary class="info-section-header" data-testid="info-section-toggle" data-section="outline">
+          <span class="info-section-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 4h10M3 8h7M3 12h5"/></svg>
+          </span>
+          <span class="info-section-title">目次</span>
+          <span class="info-section-count">4</span>
+          <svg class="info-section-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        </summary>
+        <div class="info-section-body" data-testid="info-section-body" data-section="outline">
+          <button class="outline-item" data-testid="outline-item" data-line="3" data-level="2">
+            <span class="outline-indent" style="--depth:0"></span>
+            <span class="outline-label">参加者</span>
+          </button>
+          <button class="outline-item" data-testid="outline-item" data-line="6" data-level="2">
+            <span class="outline-indent" style="--depth:0"></span>
+            <span class="outline-label">議題</span>
+          </button>
+          <button class="outline-item" data-testid="outline-item" data-line="10" data-level="2">
+            <span class="outline-indent" style="--depth:0"></span>
+            <span class="outline-label">決定事項</span>
+          </button>
+          <button class="outline-item" data-testid="outline-item" data-line="14" data-level="2">
+            <span class="outline-indent" style="--depth:0"></span>
+            <span class="outline-label">TODO</span>
+          </button>
+        </div>
+      </details>
+
+      <!-- 2. プロパティ (Properties) -->
+      <details class="info-section" open>
+        <summary class="info-section-header" data-testid="info-section-toggle" data-section="properties">
+          <span class="info-section-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 6h6M5 9h4"/></svg>
+          </span>
+          <span class="info-section-title">プロパティ</span>
+          <span class="info-section-count">3</span>
+          <svg class="info-section-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        </summary>
+        <div class="info-section-body" data-testid="info-section-body" data-section="properties">
+          <div class="property-row" data-testid="property-row" data-key="type">
+            <span class="property-key">type</span>
+            <span class="property-value">議事録</span>
+          </div>
+          <div class="property-row" data-testid="property-row" data-key="date">
+            <span class="property-key">date</span>
+            <span class="property-value">2026-07-10</span>
+          </div>
+          <div class="property-row" data-testid="property-row" data-key="status">
+            <span class="property-key">status</span>
+            <span class="property-value">draft</span>
+          </div>
+        </div>
+      </details>
+
+      <!-- 3. タグ -->
+      <details class="info-section" open>
+        <summary class="info-section-header" data-testid="info-section-toggle" data-section="tags">
+          <span class="info-section-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 9l5 5 7-7-3.5-3.5L8 5l-3 2-3 2z"/><circle cx="11" cy="5" r="1.3" fill="currentColor" stroke="none"/></svg>
+          </span>
+          <span class="info-section-title">タグ</span>
+          <span class="info-section-count">2</span>
+          <svg class="info-section-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        </summary>
+        <div class="info-section-body" data-testid="info-section-body" data-section="tags">
+          <div class="tags-chip-row">
+            <button class="tag-chip clickable" data-testid="tag-chip" data-tag="会議" title="#会議 で検索">
+              <span class="tag-chip-hash">#</span>会議
+            </button>
+            <button class="tag-chip clickable" data-testid="tag-chip" data-tag="project-x" title="#project-x で検索">
+              <span class="tag-chip-hash">#</span>project-x
+            </button>
+          </div>
+        </div>
+      </details>
+
+      <!-- 4. メタ情報 -->
+      <details class="info-section" open>
+        <summary class="info-section-header" data-testid="info-section-toggle" data-section="meta">
+          <span class="info-section-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3.5l2.5 1.5"/></svg>
+          </span>
+          <span class="info-section-title">メタ情報</span>
+          <svg class="info-section-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        </summary>
+        <div class="info-section-body" data-testid="info-section-body" data-section="meta">
+          <div class="meta-row" data-testid="meta-wordcount">
+            <span class="meta-label">単語数</span>
+            <span class="meta-value">148</span>
+          </div>
+          <div class="meta-row" data-testid="meta-charcount">
+            <span class="meta-label">文字数</span>
+            <span class="meta-value">312</span>
+          </div>
+          <div class="meta-row" data-testid="meta-mtime">
+            <span class="meta-label">更新日時</span>
+            <span class="meta-value">2026-07-10 14:32</span>
+          </div>
+        </div>
+      </details>
+
+      <!-- 5. アウトゴーイングリンク -->
+      <details class="info-section" open>
+        <summary class="info-section-header" data-testid="info-section-toggle" data-section="outgoing">
+          <span class="info-section-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6.5 9.5l3-3M5 7l-2 2a2.5 2.5 0 003.5 3.5l2-2M11 9l2-2A2.5 2.5 0 009.5 3.5l-2 2"/></svg>
+          </span>
+          <span class="info-section-title">アウトゴーイングリンク</span>
+          <span class="info-section-count">2</span>
+          <svg class="info-section-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        </summary>
+        <div class="info-section-body" data-testid="info-section-body" data-section="outgoing">
+          <!-- 解決済みリンク -->
+          <button class="outgoing-link resolved" data-testid="outgoing-link" data-target="project-x" data-resolved="true">
+            <svg class="outgoing-link-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+            <span class="outgoing-link-label">project-x</span>
+            <svg class="outgoing-link-arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+          </button>
+          <!-- 未解決リンク -->
+          <button class="outgoing-link unresolved" data-testid="outgoing-link" data-target="まだ無いノート" data-resolved="false">
+            <svg class="outgoing-link-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+            <span class="outgoing-link-label">まだ無いノート</span>
+            <span class="unresolved-badge">未解決</span>
+          </button>
+        </div>
+      </details>
+
+      <!-- 6. バックリンク -->
+      <details class="info-section" open>
+        <summary class="info-section-header" data-testid="info-section-toggle" data-section="backlinks">
+          <span class="info-section-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9.5 6.5l-3 3M11 9l2-2A2.5 2.5 0 009.5 3.5l-2 2M5 7l-2 2a2.5 2.5 0 003.5 3.5l2-2"/></svg>
+          </span>
+          <span class="info-section-title">バックリンク</span>
+          <span class="info-section-count">2</span>
+          <svg class="info-section-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        </summary>
+        <div class="info-section-body" data-testid="info-section-body" data-section="backlinks">
+          <button class="backlink-item" data-testid="backlink-item" data-source="weekly/週次まとめ 2026-W28.md">
+            <div class="backlink-source">
+              <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+              週次まとめ 2026-W28
+            </div>
+            <div class="backlink-context">今週の主要決定: <mark>議事録 2026-07-10</mark> にてデモ日時が 8/1 に確定。</div>
+          </button>
+          <button class="backlink-item" data-testid="backlink-item" data-source="projects/project-x.md">
+            <div class="backlink-source">
+              <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+              project-x
+            </div>
+            <div class="backlink-context">直近の <mark>議事録 2026-07-10</mark> より: Q3 デモを 2026-08-01 に設定。</div>
+          </button>
+        </div>
+      </details>
+
+    </div><!-- /panel-body / info-panel -->
+  </aside>
+
+</div>
+
+<a class="proto-chip" href="index.html">← プロトタイプ一覧</a>
+
+<!-- Empty state バリアントへのリンク -->
+<div class="proto-note" style="position: fixed; left: 18px; bottom: 14px; z-index: 130; margin: 0; max-width: 480px;">
+  <span class="tag">PROTO</span>
+  インフォパネル(populated state)。⋯ メニューは <strong>details/summary</strong> で開閉。各セクションは <code>&lt;details open&gt;</code> で折りたたみ可。
+  <br>バリアント:
+  <a href="info-panel-empty.html" style="color:var(--accent);font-weight:600;">empty state →</a>
+</div>
+
+<script>
+function toggleActionsMenu(btn) {
+  const menu = btn.nextElementSibling;
+  const isOpen = btn.getAttribute('aria-expanded') === 'true';
+  btn.setAttribute('aria-expanded', String(!isOpen));
+  menu.classList.toggle('open', !isOpen);
+
+  if (!isOpen) {
+    // 外側クリックで閉じる
+    function onOutside(e) {
+      if (!btn.contains(e.target) && !menu.contains(e.target)) {
+        btn.setAttribute('aria-expanded', 'false');
+        menu.classList.remove('open');
+        document.removeEventListener('click', onOutside, true);
+      }
+    }
+    document.addEventListener('click', onOutside, true);
+  }
+}
+
+document.querySelector('[data-testid="nav-back"]').addEventListener('click', () => history.back());
+</script>
+</body>
+</html>
