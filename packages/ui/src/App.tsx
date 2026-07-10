@@ -1551,12 +1551,21 @@ export function App(): JSX.Element {
         )}
       </main>
 
-      {/* ================= 右: サイドバー (バックリンク | Claude) ================= */}
+      {/* ================= 右: サイドバー (インフォ | Claude) ================= */}
       {/* /search では非表示 (AC-Sa629e2-3-3)。unmount しない — xterm セッション維持 */}
       <RightSidebar
         notePath={route.kind === 'note' ? (doc?.path ?? null) : null}
         refreshToken={backlinksToken}
         onOpenNote={(path) => void openNotePath(path)}
+        onJumpToLine={(line) => {
+          // 現在のノートの指定行へジャンプ (Outline クリック)。
+          // 別ノートへは遷移しない — 常に開いているノート内スクロール。
+          if (doc !== null) {
+            seekCounterRef.current += 1;
+            setSeek({ line, token: seekCounterRef.current });
+          }
+        }}
+        onSearchTag={(tag) => openSearch({ q: '', tag, folder: '', sort: 'updated' })}
         hidden={route.kind === 'search'}
       />
 
