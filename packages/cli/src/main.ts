@@ -30,7 +30,7 @@
  * - 失敗: 非 0 exit、stderr に 1 行 JSON {"error","message"} (機械可読 + 人間可読 message)
  *   exit 1 = API / 接続エラー、exit 2 = 使い方エラー (引数不足・不明コマンド等)
  */
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { Command, CommanderError } from 'commander';
 import {
@@ -546,6 +546,37 @@ function buildProgram(): Command {
         }
       });
     });
+
+  // ---- エクスポート (ADR-0006 / Sa8ee62-1) ----
+
+  // export <path> (GET /api/notes/{path}/export?format=pdf|html)
+  // バイナリ (PDF) を扱うため --json を持たない (sub() を使わない)
+  program.addCommand(
+    new Command('export')
+      .description('ノートを PDF または HTML にエクスポートする (GET /api/notes/{path}/export)')
+      .argument('<path>', 'vault 相対パス (例: projects/hydra.md)')
+      .option('--format <format>', 'エクスポート形式: pdf | html (既定: pdf)', 'pdf')
+      .option('-o, --output <file>', '出力ファイルパス (省略時は stdout へ出力)')
+      .action(async (path: string, opts: { format: string; output?: string }) => {
+        if (opts.format !== 'pdf' && opts.format !== 'html') {
+          fail('usage', `--format に無効な値が指定されました: "${opts.format}" (pdf | html のいずれか)`, 2);
+        }
+        const base = await resolveBaseUrl();
+        const url = `/api/notes/${encodeNotePath(path)}/export?format=${encodeURIComponent(opts.format)}`;
+        const bytes = await apiFetchBytes(base, url);
+
+        if (opts.output !== undefined) {
+          // ファイル出力 (binary-safe)
+          await writeFile(opts.output, bytes);
+          println(`exported ${path} to ${opts.output}`);
+        } else {
+          // stdout へ流す (バイナリ — PDF / HTML 両対応)
+          await new Promise<void>((resolve, reject) => {
+            process.stdout.write(bytes, (err) => (err ? reject(err) : resolve()));
+          });
+        }
+      }),
+  );
 
   return program;
 }

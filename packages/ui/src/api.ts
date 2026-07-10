@@ -334,6 +334,15 @@ export const api = {
   },
 
   /**
+   * ノートエクスポート URL を構築する (GET /api/notes/{path}/export?format=...) (Sa8ee62-2)。
+   * 実際の fetch は呼び出し元 (fetch → Blob → createObjectURL) で行う。
+   * format: 'pdf' | 'html'
+   */
+  exportNoteUrl(path: string, format: 'pdf' | 'html'): string {
+    return `/api/notes/${encodeNotePath(path)}/export?format=${encodeURIComponent(format)}`;
+  },
+
+  /**
    * テンプレートをインスタンス化する (POST /api/templates/{name}/instantiate)。
    * 不足変数は ApiError(status 400, code 'missing_vars') で送出する。
    * date は {{date:...}} の基準日を上書きする (YYYY-MM-DD)。

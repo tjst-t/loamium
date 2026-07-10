@@ -167,6 +167,7 @@ function ArrowRightIcon(): JSX.Element {
 
 function ActionsMenu({ notePath }: { notePath: string | null }): JSX.Element {
   const [open, setOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const toggle = (): void => setOpen((v) => !v);
 
@@ -190,6 +191,38 @@ function ActionsMenu({ notePath }: { notePath: string | null }): JSX.Element {
   const handleCopyPath = (): void => {
     if (notePath === null) return;
     void copyToClipboard(notePath);
+  };
+
+  const handleExportPdf = (): void => {
+    if (notePath === null || exporting) return;
+    close();
+    setExporting(true);
+    const url = api.exportNoteUrl(notePath, 'pdf');
+    fetch(url)
+      .then((res) => {
+        if (!res.ok) {
+          console.error(`PDF エクスポート失敗: HTTP ${String(res.status)}`);
+          return null;
+        }
+        return res.blob();
+      })
+      .then((blob) => {
+        if (blob === null) return;
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.download = `${noteTitle(notePath)}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(objectUrl);
+      })
+      .catch((err: unknown) => {
+        console.error('PDF エクスポートエラー:', err);
+      })
+      .finally(() => {
+        setExporting(false);
+      });
   };
 
   return (
@@ -227,8 +260,8 @@ function ActionsMenu({ notePath }: { notePath: string | null }): JSX.Element {
           className="menu-item"
           data-testid="action-export-pdf"
           role="menuitem"
-          disabled
-          onClick={close}
+          disabled={notePath === null || exporting}
+          onClick={handleExportPdf}
         >
           <PdfIcon />
           PDF エクスポート

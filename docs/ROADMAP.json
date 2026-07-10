@@ -4,10 +4,10 @@
   "progress": {
     "current_sprint": null,
     "total": 31,
-    "done": 30,
+    "done": 31,
     "in_progress": 0,
-    "remaining": 1,
-    "percentage": 96
+    "remaining": 0,
+    "percentage": 100
   },
   "execution_order": [
     "Sd63ad1",
@@ -3211,13 +3211,13 @@
     },
     "Sa8ee62": {
       "title": "ノートエクスポート (PDF/HTML) — ADR-0001",
-      "status": "pending",
+      "status": "done",
       "description": "サーバー側の単一パイプラインで Markdown→HTML→PDF を生成(ADR-0001 準拠・headless Chromium)。REST と CLI が 1:1 で共有し、右パネルの ⋯ アクションメニューから PDF を出力する。",
       "milestone": true,
       "stories": {
         "Sa8ee62-1": {
           "title": "サーバー側エクスポートパイプライン (REST + CLI)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート/エージェント利用者として、ノートを PDF・HTML に書き出したい。なぜなら、清書した成果物を共有・印刷したいから。",
@@ -3226,42 +3226,42 @@
               "id": "AC-Sa8ee62-1-1",
               "description": "GET /api/notes/{path}/export?format=pdf|html がサーバー側の単一パイプライン(Markdown→HTML→PDF)で成果物を返す(ADR-0001。PDF は headless Chromium)。format 既定 pdf、不正 format は 400。",
               "test": "[AC-Sa8ee62-1-1] in tests/acceptance/export.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sa8ee62-1-2",
               "description": "CLI `loamium export <path> --format pdf|html -o <out>` が同じパイプラインで成果物を書き出す(REST/CLI 1:1)。export 実行は .loamium/audit.log に記録する。",
               "test": "[AC-Sa8ee62-1-2] in tests/acceptance/export.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sa8ee62-1-3",
               "description": "HTML 出力は決定論的でユニットテストで内容を検証。PDF は %PDF- マジックバイトと非空サイズを検証する統合テスト。正本 Markdown へは一切書き戻さない(ピュア Markdown 原則)。",
               "test": "[AC-Sa8ee62-1-3] in tests/acceptance/export.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sa8ee62-1-t1": {
               "title": "Markdown→HTML レンダラ(テーマ CSS)",
               "description": "既存パーサ資産を使い決定論的 HTML を生成。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa8ee62-1-t2": {
               "title": "HTML→PDF(headless Chromium)",
               "description": "ADR-0001。レンダラ実体(playwright 等)選定は run のローカル判断。CI 不可なら HTML 先行・PDF 後続。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa8ee62-1-t3": {
               "title": "REST /export + CLI export + audit",
               "description": "format バリデーション、1:1、監査ログ、テスト。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sa8ee62-2": {
           "title": "⋯ アクションメニュー(エクスポート / リンクコピー)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、右パネルの ⋯ メニューから PDF エクスポートやリンクコピーをしたい。なぜなら、開いているノートに対する操作をその場で完結させたいから。",
@@ -3270,36 +3270,36 @@
               "id": "AC-Sa8ee62-2-1",
               "description": "右パネル(インフォ)ヘッダに ⋯ メニューがあり、PDF エクスポート / Copy link([[title]]) / Copy path を選べる。",
               "test": "[AC-Sa8ee62-2-1] in packages/ui/tests/e2e/export-menu.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sa8ee62-2-2",
               "description": "PDF エクスポートは export API を叩き成果物をダウンロード(ブラウザ保存)する。Copy 系はクリップボードへ書き込む。",
               "test": "[AC-Sa8ee62-2-2] in packages/ui/tests/e2e/export-menu.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sa8ee62-2-3",
               "description": "mock(メニュー開閉・各項目の API/clipboard 呼び出し)と e2e(実サーバーで PDF エクスポートが 200 で PDF を返す)を用意する。",
               "test": "[AC-Sa8ee62-2-3] in packages/ui/tests/e2e/export-menu.mock.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sa8ee62-2-t1": {
               "title": "⋯ メニュー UI",
               "description": "インフォパネルヘッダにメニュー。項目とハンドラ。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa8ee62-2-t2": {
               "title": "エクスポート/コピー配線",
               "description": "export API ダウンロード、clipboard 書込。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa8ee62-2-t3": {
               "title": "mock + e2e テスト",
               "description": "",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
