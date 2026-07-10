@@ -2,11 +2,11 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": null,
+    "current_sprint": "S11493d",
     "total": 31,
     "done": 29,
-    "in_progress": 0,
-    "remaining": 2,
+    "in_progress": 1,
+    "remaining": 1,
     "percentage": 93
   },
   "execution_order": [
@@ -3026,7 +3026,7 @@
     },
     "S11493d": {
       "title": "インフォパネル (Tier 1) — 右サイドバーの情報化",
-      "status": "pending",
+      "status": "in_progress",
       "description": "右サイドバーの「バックリンク」タブを「インフォ」に格上げし、Outline / Properties / Outgoing links / Tags / メタ情報の折りたたみセクションを積む。ノートメタ集約 API を追加する。",
       "milestone": false,
       "stories": {
