@@ -1045,6 +1045,82 @@ code {
   word-break: break-all;
 }
 
+/* ---- Info panel: outgoing links (S11493d-3) -------------------------------- */
+
+.outgoing-link {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 5px 7px;
+  border-radius: 6px;
+  font-size: 13px;
+  text-align: left;
+  margin-bottom: 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.outgoing-link-ico {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  color: var(--text-faint);
+}
+
+.outgoing-link-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.outgoing-link-arrow {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  color: var(--text-faint);
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+/* 解決済みリンク */
+.outgoing-link.resolved {
+  color: var(--link);
+}
+.outgoing-link.resolved:hover {
+  background: var(--accent-soft);
+}
+.outgoing-link.resolved:hover .outgoing-link-arrow { opacity: 1; }
+.outgoing-link.resolved:hover .outgoing-link-ico { color: var(--accent); }
+
+/* 未解決リンク — 点線アンダーライン + muted + 「未解決」バッジ */
+.outgoing-link.unresolved {
+  color: var(--text-muted);
+  cursor: default;
+}
+.outgoing-link.unresolved:hover {
+  background: var(--warn-soft);
+}
+.outgoing-link.unresolved .outgoing-link-label {
+  text-decoration: underline dashed var(--text-faint);
+  text-underline-offset: 3px;
+}
+.outgoing-link.unresolved:hover .outgoing-link-label { text-decoration: none; }
+
+.unresolved-badge {
+  flex-shrink: 0;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--warn);
+  background: var(--warn-soft);
+  border: 1px solid #ecd9b0;
+  border-radius: 6px;
+  padding: 1px 7px;
+  letter-spacing: 0.02em;
+}
+
 .dialog .link-update-note {
   display: flex;
   gap: 9px;

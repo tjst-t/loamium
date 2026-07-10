@@ -29,6 +29,7 @@ function journal(content: string): Record<string, unknown> {
 function metaResp(overrides: Partial<{
   path: string;
   headings: { level: number; text: string; line: number }[];
+  outgoingLinks: { target: string; resolvedPath: string | null; raw: string }[];
   tags: string[];
   frontmatter: Record<string, unknown> | null;
   mtime: number;
@@ -38,7 +39,7 @@ function metaResp(overrides: Partial<{
   return {
     path: overrides.path ?? JOURNAL_PATH,
     headings: overrides.headings ?? [],
-    outgoingLinks: [],
+    outgoingLinks: overrides.outgoingLinks ?? [],
     tags: overrides.tags ?? [],
     frontmatter: overrides.frontmatter !== undefined ? overrides.frontmatter : null,
     mtime: overrides.mtime ?? 1_720_569_120_000,
@@ -336,4 +337,241 @@ test('[AC-S11493d-2-1] backlink-count バッジが 0 件時は非表示', async 
   // バッジが DOM に存在するが非表示
   await expect(badge).toBeAttached();
   await expect(badge).not.toBeVisible();
+});
+
+// ---- [AC-S11493d-3-1] アウトゴーイングリンクセクション ----
+
+test('[AC-S11493d-3-1] outgoing セクションが outgoingLinks を描画する (解決済み + 未解決)', async ({
+  page,
+}) => {
+  await openApp(
+    page,
+    metaResp({
+      outgoingLinks: [
+        { target: 'project-x', resolvedPath: 'projects/project-x.md', raw: '[[project-x]]' },
+        { target: 'まだ無いノート', resolvedPath: null, raw: '[[まだ無いノート]]' },
+      ],
+    }),
+  );
+
+  // セクション toggle + body が存在する
+  await expect(
+    page.locator('[data-testid="info-section-toggle"][data-section="outgoing"]'),
+  ).toBeAttached();
+  await expect(
+    page.locator('[data-testid="info-section-body"][data-section="outgoing"]'),
+  ).toBeAttached();
+
+  // 解決済みリンク
+  const resolvedLink = page.locator('[data-testid="outgoing-link"][data-target="project-x"]');
+  await expect(resolvedLink).toBeVisible();
+  await expect(resolvedLink).toHaveAttribute('data-resolved', 'true');
+  await expect(resolvedLink).toContainText('project-x');
+
+  // 未解決リンク — 「未解決」バッジ
+  const unresolvedLink = page.locator('[data-testid="outgoing-link"][data-target="まだ無いノート"]');
+  await expect(unresolvedLink).toBeVisible();
+  await expect(unresolvedLink).toHaveAttribute('data-resolved', 'false');
+  await expect(unresolvedLink).toContainText('未解決');
+});
+
+test('[AC-S11493d-3-1] 解決済みアウトゴーイングリンクのクリックでノートが開く', async ({
+  page,
+}) => {
+  const unexpected = await installCatchAll(page);
+  await page.route('**/api/notes', (route) => {
+    void route.fulfill(json({
+      notes: [
+        { path: JOURNAL_PATH, title: 'journal', tags: [], folder: 'journals' },
+        { path: 'projects/project-x.md', title: 'project-x', tags: [], folder: 'projects' },
+      ],
+    }));
+  });
+  await page.route('**/api/journal', (route) => {
+    void route.fulfill(json(journal('本文テスト。\n')));
+  });
+  await page.route('**/api/notes/**/meta', (route) => {
+    void route.fulfill(json({
+      ...metaResp({}),
+      outgoingLinks: [
+        { target: 'project-x', resolvedPath: 'projects/project-x.md', raw: '[[project-x]]' },
+      ],
+    }));
+  });
+  // project-x を GET した場合
+  await page.route('**/api/notes/projects/project-x.md', (route) => {
+    void route.fulfill(json({
+      path: 'projects/project-x.md',
+      content: '# project-x\n\n内容\n',
+      frontmatter: null,
+      body: '# project-x\n\n内容\n',
+      mtime: 2_000_000,
+    }));
+  });
+
+  await page.goto(readHarnessState().uiUrl);
+  await expect(page.getByTestId('editor')).toContainText('本文テスト');
+
+  // 解決済みリンクをクリック
+  const resolvedLink = page.locator('[data-testid="outgoing-link"][data-target="project-x"]');
+  await expect(resolvedLink).toBeVisible();
+  await resolvedLink.click();
+
+  // route-display が project-x を含む
+  await expect(page.getByTestId('route-display')).toContainText('project-x');
+  expect(unexpected).toEqual([]);
+});
+
+test('[AC-S11493d-3-1] 未解決アウトゴーイングリンクはクリックしても遷移しない', async ({
+  page,
+}) => {
+  await openApp(
+    page,
+    {
+      ...metaResp({}),
+      outgoingLinks: [
+        { target: 'まだ無いノート', resolvedPath: null, raw: '[[まだ無いノート]]' },
+      ],
+    },
+  );
+
+  const unresolvedLink = page.locator('[data-testid="outgoing-link"][data-target="まだ無いノート"]');
+  await expect(unresolvedLink).toBeVisible();
+  await expect(unresolvedLink).toHaveAttribute('data-resolved', 'false');
+
+  // 未解決リンクは aria-disabled かつ onClick なし → クリックしても遷移しない
+  await expect(unresolvedLink).toHaveAttribute('aria-disabled', 'true');
+  // force:true でクリックしても route-display は変わらない
+  const routeBefore = await page.getByTestId('route-display').textContent();
+  await unresolvedLink.click({ force: true });
+  const routeAfter = await page.getByTestId('route-display').textContent();
+  expect(routeAfter).toEqual(routeBefore);
+});
+
+test('[AC-S11493d-3-1] アウトゴーイングリンクなしの場合 empty state が表示される', async ({
+  page,
+}) => {
+  await openApp(page, metaResp({}));
+  // installCatchAll の default meta は outgoingLinks: [] で応答
+
+  const outgoingBody = page.locator('[data-testid="info-section-body"][data-section="outgoing"]');
+  await expect(outgoingBody).toContainText('[[リンク]] なし');
+  await expect(page.getByTestId('outgoing-link')).toHaveCount(0);
+});
+
+// ---- [AC-S11493d-3-2] バックリンクセクション統合 ----
+
+test('[AC-S11493d-3-2] バックリンクが info-section[backlinks] 内に表示される', async ({
+  page,
+}) => {
+  const unexpected = await installCatchAll(page);
+  await page.route('**/api/notes', (route) => {
+    void route.fulfill(json({ notes: [] }));
+  });
+  await page.route('**/api/journal', (route) => {
+    void route.fulfill(json(journal('本文テスト。\n')));
+  });
+  await page.route('**/api/backlinks*', (route) => {
+    void route.fulfill(json({
+      path: JOURNAL_PATH,
+      backlinks: [
+        {
+          source: 'weekly/週次.md',
+          links: [{ raw: `[[${JOURNAL_PATH}]]`, heading: null, line: 3, context: `参照: [[${JOURNAL_PATH}]]` }],
+        },
+      ],
+    }));
+  });
+
+  await page.goto(readHarnessState().uiUrl);
+  await expect(page.getByTestId('editor')).toContainText('本文テスト');
+
+  // backlink-count バッジが出るまで待つ (backlinks 取得完了の合図)
+  await expect(page.getByTestId('backlink-count')).toBeVisible({ timeout: 5_000 });
+
+  // backlinks セクション toggle/body が存在する
+  await expect(
+    page.locator('[data-testid="info-section-toggle"][data-section="backlinks"]'),
+  ).toBeAttached();
+  await expect(
+    page.locator('[data-testid="info-section-body"][data-section="backlinks"]'),
+  ).toBeAttached();
+
+  // backlink-item が section 内に表示される
+  const backlinkBody = page.locator('[data-testid="info-section-body"][data-section="backlinks"]');
+  await expect(backlinkBody.getByTestId('backlink-item')).toHaveCount(1);
+  await expect(backlinkBody.locator('[data-testid="backlink-item"][data-source="weekly/週次.md"]')).toBeVisible();
+  expect(unexpected).toEqual([]);
+});
+
+test('[AC-S11493d-3-2] バックリンクゼロのとき backlink-empty が section 内に表示される', async ({
+  page,
+}) => {
+  await openApp(page, metaResp({}));
+  // mock-helpers の default で backlinks: [] が返る
+
+  const backlinkBody = page.locator('[data-testid="info-section-body"][data-section="backlinks"]');
+  await expect(backlinkBody.getByTestId('backlink-empty')).toBeVisible();
+});
+
+test('[AC-S11493d-3-2] バックリンクエラー時 backlink-error が section 内に表示される', async ({
+  page,
+}) => {
+  const unexpected = await installCatchAll(page);
+  await page.route('**/api/notes', (route) => {
+    void route.fulfill(json({ notes: [] }));
+  });
+  await page.route('**/api/journal', (route) => {
+    void route.fulfill(json(journal('本文テスト。\n')));
+  });
+  await page.route('**/api/backlinks*', (route) => {
+    void route.fulfill(json({ error: 'internal', message: 'boom' }, 500));
+  });
+
+  await page.goto(readHarnessState().uiUrl);
+  await expect(page.getByTestId('editor')).toContainText('本文テスト');
+
+  const backlinkBody = page.locator('[data-testid="info-section-body"][data-section="backlinks"]');
+  await expect(backlinkBody.getByTestId('backlink-error')).toBeVisible();
+  await expect(backlinkBody.getByTestId('backlink-error')).toContainText('取得できませんでした');
+  expect(unexpected).toEqual([]);
+});
+
+// ---- [AC-S11493d-3-3] バッジカウントは right-tab-info に残る ----
+
+test('[AC-S11493d-3-3] backlink-count バッジが right-tab-info に表示される', async ({
+  page,
+}) => {
+  const unexpected = await installCatchAll(page);
+  await page.route('**/api/notes', (route) => {
+    void route.fulfill(json({ notes: [] }));
+  });
+  await page.route('**/api/journal', (route) => {
+    void route.fulfill(json(journal('本文テスト。\n')));
+  });
+  await page.route('**/api/backlinks*', (route) => {
+    void route.fulfill(json({
+      path: JOURNAL_PATH,
+      backlinks: [
+        {
+          source: 'a.md',
+          links: [{ raw: '[[x]]', heading: null, line: 1, context: '[[x]]' }],
+        },
+        {
+          source: 'b.md',
+          links: [{ raw: '[[x]]', heading: null, line: 2, context: '[[x]]' }],
+        },
+      ],
+    }));
+  });
+
+  await page.goto(readHarnessState().uiUrl);
+  await expect(page.getByTestId('editor')).toContainText('本文テスト');
+
+  // backlink-count バッジが right-tab-info 内にある (backlinks 取得完了後)
+  const tabInfo = page.getByTestId('right-tab-info');
+  const badge = tabInfo.getByTestId('backlink-count');
+  await expect(badge).toBeVisible({ timeout: 5_000 });
+  await expect(badge).toHaveText('2');
+  expect(unexpected).toEqual([]);
 });

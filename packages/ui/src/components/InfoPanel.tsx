@@ -1,19 +1,21 @@
 /**
- * インフォパネル (S11493d-2)。
+ * インフォパネル (S11493d-2/3)。
  * 右サイドバーの「インフォ」タブのコンテンツ本体。
  *
- * セクション構成 (この Story):
+ * セクション構成:
  *   1. 目次 (Outline) — 見出しツリー、クリックでエディタ行ジャンプ
  *   2. プロパティ (Properties) — frontmatter key-value (tags キーは除外)
  *   3. タグ (Tags) — frontmatter+本文 #tag 集約チップ、クリックで /search
  *   4. メタ情報 — 単語数/文字数/更新日時
- *   [バックリンクは親 RightSidebar から引き継ぎ。Outgoing/Backlinks セクション化は S11493d-3]
+ *   5. アウトゴーイングリンク — 解決済み(クリック可)/未解決(点線+未解決バッジ)
+ *   6. バックリンク — 参照元一覧 (RightSidebar からプロップで受け取る)
  *
  * 折りたたみは <details>/<summary> で実装 (プロトタイプ準拠)。
  */
 import { useEffect, useState, type JSX } from 'react';
-import { noteTitle, type NoteMetaResponse } from '@loamium/shared';
+import { noteTitle, type NoteMetaResponse, type OutgoingLink, type BacklinkSource } from '@loamium/shared';
 import { api, ApiError } from '../api.js';
+import { DocumentIcon, LinkIcon } from '../icons.js';
 
 export interface InfoPanelProps {
   /** 開いているノートの vault 相対パス (null = ノート未オープン) */
@@ -24,8 +26,12 @@ export interface InfoPanelProps {
   onJumpToLine: (line: number) => void;
   /** tag-chip クリック時: /search?tag=xxx へ遷移 */
   onSearchTag: (tag: string) => void;
-  /** バックリンク項目のレンダリング (RightSidebar から注入) */
-  children?: React.ReactNode;
+  /** 解決済みアウトゴーイングリンク / バックリンク項目クリック時: そのノートを開く */
+  onOpenNote: (path: string) => void;
+  /** バックリンク一覧 (RightSidebar で取得し注入) */
+  backlinks: BacklinkSource[] | null;
+  /** バックリンク取得エラーメッセージ (null = 正常) */
+  backlinkError: string | null;
 }
 
 /** mtime (ms epoch) を "YYYY-MM-DD HH:mm" にフォーマット */
@@ -80,6 +86,22 @@ function MetaIcon(): JSX.Element {
   );
 }
 
+function OutgoingIcon(): JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <path d="M6.5 9.5l3-3M5 7l-2 2a2.5 2.5 0 003.5 3.5l2-2M11 9l2-2A2.5 2.5 0 009.5 3.5l-2 2" />
+    </svg>
+  );
+}
+
+function BacklinksIcon(): JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <path d="M9.5 6.5l-3 3M11 9l2-2A2.5 2.5 0 009.5 3.5l-2 2M5 7l-2 2a2.5 2.5 0 003.5 3.5l2-2" />
+    </svg>
+  );
+}
+
 function ChevronDown(): JSX.Element {
   return (
     <svg
@@ -129,6 +151,14 @@ function CopyPathIcon(): JSX.Element {
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
       <rect x="2" y="5" width="9" height="9" rx="1.5" />
       <path d="M5 5V3.5A1.5 1.5 0 016.5 2H12a1.5 1.5 0 011.5 1.5V9A1.5 1.5 0 0112 10.5H10.5" />
+    </svg>
+  );
+}
+
+function ArrowRightIcon(): JSX.Element {
+  return (
+    <svg className="outgoing-link-arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 8h10M9 4l4 4-4 4" />
     </svg>
   );
 }
@@ -232,6 +262,54 @@ function ActionsMenu({ notePath }: { notePath: string | null }): JSX.Element {
   );
 }
 
+// ---- アウトゴーイングリンク 1 件 ----
+
+function OutgoingLinkItem({
+  link,
+  onOpenNote,
+}: {
+  link: OutgoingLink;
+  onOpenNote: (path: string) => void;
+}): JSX.Element {
+  const resolved = link.resolvedPath !== null;
+  return (
+    <button
+      className={`outgoing-link ${resolved ? 'resolved' : 'unresolved'}`}
+      data-testid="outgoing-link"
+      data-target={link.target}
+      data-resolved={String(resolved)}
+      onClick={resolved ? () => { onOpenNote(link.resolvedPath as string); } : undefined}
+      tabIndex={resolved ? undefined : -1}
+      aria-disabled={!resolved}
+    >
+      <svg className="outgoing-link-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3">
+        <path d="M4 1.8h5.2L12.2 4.8v9.4H4z" />
+        <path d="M9.2 1.8v3h3" />
+      </svg>
+      <span className="outgoing-link-label">{link.target}</span>
+      {resolved ? (
+        <ArrowRightIcon />
+      ) : (
+        <span className="unresolved-badge">未解決</span>
+      )}
+    </button>
+  );
+}
+
+// ---- コンテキスト行のリンク原文を <mark> で強調 ----
+
+function contextWithMark(context: string, raw: string): JSX.Element {
+  const idx = context.indexOf(raw);
+  if (idx === -1) return <>{context}</>;
+  return (
+    <>
+      {context.slice(0, idx)}
+      <mark>{raw}</mark>
+      {context.slice(idx + raw.length)}
+    </>
+  );
+}
+
 // ---- InfoPanel 本体 ----
 
 export function InfoPanel({
@@ -239,7 +317,9 @@ export function InfoPanel({
   refreshToken,
   onJumpToLine,
   onSearchTag,
-  children,
+  onOpenNote,
+  backlinks,
+  backlinkError,
 }: InfoPanelProps): JSX.Element {
   const [meta, setMeta] = useState<NoteMetaResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -273,13 +353,39 @@ export function InfoPanel({
     };
   }, [notePath, refreshToken]);
 
+  // バックリンクのフラット化
+  const backlinkItems =
+    backlinks?.flatMap((src) => src.links.map((link) => ({ source: src.source, link }))) ?? [];
+
   if (notePath === null) {
     return (
       <div className="panel-body" data-testid="info-panel">
         <div className="panel-empty">
           ノートを開くと、ここにインフォが表示されます。
         </div>
-        {children}
+        {/* バックリンク (ノート未オープン) */}
+        <details className="info-section" open>
+          <summary
+            className="info-section-header"
+            data-testid="info-section-toggle"
+            data-section="backlinks"
+          >
+            <span className="info-section-icon"><BacklinksIcon /></span>
+            <span className="info-section-title">バックリンク</span>
+            <ChevronDown />
+          </summary>
+          <div
+            className="info-section-body"
+            data-testid="info-section-body"
+            data-section="backlinks"
+          >
+            <div className="panel-empty" data-testid="backlink-empty">
+              <LinkIcon />
+              <br />
+              ノートを開くと、ここに参照元が表示されます。
+            </div>
+          </div>
+        </details>
       </div>
     );
   }
@@ -292,7 +398,8 @@ export function InfoPanel({
           <br />
           <span className="detail">{error}</span>
         </div>
-        {children}
+        {/* バックリンク (メタエラー時も表示) */}
+        {renderBacklinksSection(notePath, backlinkItems, backlinkError, onOpenNote)}
       </div>
     );
   }
@@ -309,6 +416,7 @@ export function InfoPanel({
   const mtime = meta?.mtime ?? null;
   const wordCount = meta?.wordCount ?? 0;
   const charCount = meta?.charCount ?? 0;
+  const outgoingLinks = meta?.outgoingLinks ?? [];
 
   return (
     <div className="panel-body" data-testid="info-panel">
@@ -470,10 +578,103 @@ export function InfoPanel({
         </div>
       </details>
 
-      {/* S11493d-3 でアウトゴーイングリンク / バックリンクのセクションをここに追加する。
-          現在はバックリンクを親 RightSidebar から children として受け取る。 */}
-      {children}
+      {/* 5. アウトゴーイングリンク (S11493d-3) */}
+      <details className="info-section" open>
+        <summary
+          className="info-section-header"
+          data-testid="info-section-toggle"
+          data-section="outgoing"
+        >
+          <span className="info-section-icon"><OutgoingIcon /></span>
+          <span className="info-section-title">アウトゴーイングリンク</span>
+          {outgoingLinks.length > 0 && (
+            <span className="info-section-count">{outgoingLinks.length}</span>
+          )}
+          <ChevronDown />
+        </summary>
+        <div
+          className="info-section-body"
+          data-testid="info-section-body"
+          data-section="outgoing"
+        >
+          {outgoingLinks.length === 0 ? (
+            <div className="info-section-empty">[[リンク]] なし</div>
+          ) : (
+            outgoingLinks.map((link) => (
+              <OutgoingLinkItem
+                key={link.target}
+                link={link}
+                onOpenNote={onOpenNote}
+              />
+            ))
+          )}
+        </div>
+      </details>
+
+      {/* 6. バックリンク (S11493d-3) */}
+      {renderBacklinksSection(notePath, backlinkItems, backlinkError, onOpenNote)}
     </div>
+  );
+}
+
+/** バックリンクセクション (<details>) を描画するヘルパー */
+function renderBacklinksSection(
+  notePath: string,
+  items: { source: string; link: { line: number; raw: string; context: string } }[],
+  backlinkError: string | null,
+  onOpenNote: (path: string) => void,
+): JSX.Element {
+  return (
+    <details className="info-section" open>
+      <summary
+        className="info-section-header"
+        data-testid="info-section-toggle"
+        data-section="backlinks"
+      >
+        <span className="info-section-icon"><BacklinksIcon /></span>
+        <span className="info-section-title">バックリンク</span>
+        {items.length > 0 && (
+          <span className="info-section-count">{items.length}</span>
+        )}
+        <ChevronDown />
+      </summary>
+      <div
+        className="info-section-body"
+        data-testid="info-section-body"
+        data-section="backlinks"
+      >
+        {backlinkError !== null ? (
+          <div className="panel-empty" data-testid="backlink-error">
+            バックリンクを取得できませんでした。
+            <br />
+            <span className="detail">{backlinkError}</span>
+          </div>
+        ) : items.length === 0 ? (
+          <div className="panel-empty" data-testid="backlink-empty">
+            <LinkIcon />
+            <br />
+            このノートへのバックリンクはまだありません。ほかのノートから{' '}
+            <code>[[{noteTitle(notePath)}]]</code> でリンクすると、ここに参照元が表示されます。
+          </div>
+        ) : (
+          items.map(({ source, link }, i) => (
+            <button
+              key={`${source}:${String(link.line)}:${String(i)}`}
+              className="backlink-item"
+              data-testid="backlink-item"
+              data-source={source}
+              onClick={() => onOpenNote(source)}
+            >
+              <span className="backlink-source">
+                <DocumentIcon />
+                {noteTitle(source)}
+              </span>
+              <span className="backlink-context">{contextWithMark(link.context, link.raw)}</span>
+            </button>
+          ))
+        )}
+      </div>
+    </details>
   );
 }
 

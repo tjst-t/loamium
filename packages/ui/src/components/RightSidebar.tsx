@@ -1,5 +1,5 @@
 /**
- * 右サイドバー — インフォ ⇄ Claude のトグル (S11493d-2 / prototype/info-panel.html)。
+ * 右サイドバー — インフォ ⇄ Claude のトグル (S11493d-2/3 / prototype/info-panel.html)。
  *
  * - seg-toggle で right-tab-info / right-tab-claude を切り替える (aria-selected)。
  * - Claude 表示中もメインのノートは見えたまま (メインを占有しない — DESIGN_PRINCIPLES)。
@@ -7,16 +7,15 @@
  *   以後はトグルで display 切替のみ — xterm セッションを維持する (AC-Sf1a90a-2-1)。
  * - right-sidebar-toggle でサイドバー自体を開閉する。
  * - バックリンク取得はここで行い、件数バッジ (backlink-count) はタブに常時出す。
- * - インフォパネル (InfoPanel) はメタ API (S11493d-1) を消費し、4 セクションを表示する。
- *   S11493d-3 でアウトゴーイング/バックリンクをセクション化するまでの暫定として、
- *   バックリンクリストは InfoPanel の children として渡す。
+ *   バックリンクデータは InfoPanel に props として渡す (S11493d-3)。
+ * - インフォパネル (InfoPanel) はメタ API (S11493d-1) を消費し、全セクションを表示する。
  */
 import { useEffect, useState, type JSX } from 'react';
-import { noteTitle, type BacklinkSource } from '@loamium/shared';
+import { type BacklinkSource } from '@loamium/shared';
 import { api, ApiError } from '../api.js';
 import { TerminalPane, type TerminalStatus } from './TerminalPane.js';
 import { InfoPanel, ActionsMenu } from './InfoPanel.js';
-import { ChevronRightIcon, DocumentIcon, LinkIcon, TerminalIcon } from '../icons.js';
+import { ChevronRightIcon, TerminalIcon } from '../icons.js';
 
 export type RightTab = 'info' | 'claude';
 
@@ -25,7 +24,7 @@ export interface RightSidebarProps {
   notePath: string | null;
   /** 増えるたびにバックリンクを再取得する (保存成功時に App がインクリメント) */
   refreshToken: number;
-  /** 参照元クリックでそのノートを開く */
+  /** 参照元クリック / 解決済みアウトゴーイングリンクのクリックでそのノートを開く */
   onOpenNote: (path: string) => void;
   /**
    * outline-item クリック: 現在ノートの指定行へジャンプする。
@@ -42,19 +41,6 @@ export interface RightSidebarProps {
    * unmount ではなく display:none — Claude (xterm) のセッションは維持される。
    */
   hidden?: boolean;
-}
-
-/** コンテキスト行中のリンク原文 (raw) を <mark> で強調する。 */
-function contextWithMark(context: string, raw: string): JSX.Element {
-  const idx = context.indexOf(raw);
-  if (idx === -1) return <>{context}</>;
-  return (
-    <>
-      {context.slice(0, idx)}
-      <mark>{raw}</mark>
-      {context.slice(idx + raw.length)}
-    </>
-  );
 }
 
 export function RightSidebar({
@@ -90,6 +76,7 @@ export function RightSidebar({
       (err: unknown) => {
         if (cancelled) return;
         setBacklinkError(err instanceof ApiError ? `${err.code}: ${err.message}` : String(err));
+        setBacklinks(null);
       },
     );
     return () => {
@@ -108,48 +95,6 @@ export function RightSidebar({
 
   // /search では表示しない (display:none — マウントは維持し xterm セッションを守る)
   const hiddenStyle = hidden ? ({ display: 'none' } as const) : undefined;
-
-  // バックリンクリストのレンダリング (InfoPanel の children として渡す)
-  const backlinkBody = (
-    <>
-      {backlinkError !== null ? (
-        <div className="panel-empty" data-testid="backlink-error">
-          バックリンクを取得できませんでした。
-          <br />
-          <span className="detail">{backlinkError}</span>
-        </div>
-      ) : notePath === null || items.length === 0 ? (
-        <div className="panel-empty" data-testid="backlink-empty">
-          <LinkIcon />
-          <br />
-          {notePath === null ? (
-            'ノートを開くと、ここに参照元が表示されます。'
-          ) : (
-            <>
-              このノートへのバックリンクはまだありません。ほかのノートから{' '}
-              <code>[[{noteTitle(notePath)}]]</code> でリンクすると、ここに参照元が表示されます。
-            </>
-          )}
-        </div>
-      ) : (
-        items.map(({ source, link }, i) => (
-          <button
-            key={`${source}:${String(link.line)}:${String(i)}`}
-            className="backlink-item"
-            data-testid="backlink-item"
-            data-source={source}
-            onClick={() => onOpenNote(source)}
-          >
-            <span className="backlink-source">
-              <DocumentIcon />
-              {noteTitle(source)}
-            </span>
-            <span className="backlink-context">{contextWithMark(link.context, link.raw)}</span>
-          </button>
-        ))
-      )}
-    </>
-  );
 
   if (collapsed) {
     return (
@@ -229,9 +174,10 @@ export function RightSidebar({
           refreshToken={refreshToken}
           onJumpToLine={(line) => onJumpToLine?.(line)}
           onSearchTag={(tag) => onSearchTag?.(tag)}
-        >
-          {backlinkBody}
-        </InfoPanel>
+          onOpenNote={onOpenNote}
+          backlinks={backlinks}
+          backlinkError={backlinkError}
+        />
       </div>
 
       {/* Claude (初回に開いてからマウント — トグルでセッション維持) */}

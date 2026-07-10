@@ -163,3 +163,111 @@ test('[AC-S11493d-2-3] frontmatter なしの空ノートで properties セクシ
     page.locator('[data-testid="info-section-body"][data-section="tags"]'),
   ).toContainText('タグなし');
 });
+
+// ---- [AC-S11493d-3-1/2/3] アウトゴーイングリンク + バックリンクセクション統合 ----
+
+test('[AC-S11493d-3-1] outgoing セクションに解決済み/未解決リンクが区別して表示される', async ({
+  page,
+}) => {
+  // リンク先ノートを作成
+  await putNote('outgoing-target.md', '# ターゲット\n本文\n');
+  // アウトゴーイングリンクを含むノートを作成 (解決済み + 未解決)
+  await putNote(
+    'outgoing-source.md',
+    '# ソース\n\n[[outgoing-target]] と [[存在しないノート]] へのリンク。\n',
+  );
+
+  await page.goto(state().uiUrl);
+  await page.locator('[data-testid="tree-item"][data-path="outgoing-source.md"]').click();
+  await expect(page.getByTestId('editor')).toContainText('ソース');
+
+  // outgoing セクション toggle/body の存在
+  await expect(
+    page.locator('[data-testid="info-section-toggle"][data-section="outgoing"]'),
+  ).toBeAttached({ timeout: 5_000 });
+
+  // 解決済みリンク
+  const resolvedLink = page.locator('[data-testid="outgoing-link"][data-target="outgoing-target"]');
+  await expect(resolvedLink).toBeVisible({ timeout: 5_000 });
+  await expect(resolvedLink).toHaveAttribute('data-resolved', 'true');
+
+  // 未解決リンク (存在しないノート) — 「未解決」バッジが付く
+  const unresolvedLink = page.locator('[data-testid="outgoing-link"][data-resolved="false"]');
+  await expect(unresolvedLink).toBeVisible();
+  await expect(unresolvedLink).toContainText('未解決');
+});
+
+test('[AC-S11493d-3-1] 解決済みアウトゴーイングリンクのクリックでノートが開く', async ({
+  page,
+}) => {
+  await putNote('ol-dest.md', '# デスティネーション\n本文。\n');
+  await putNote('ol-src.md', '# ソース\n\n[[ol-dest]] へのリンク。\n');
+
+  await page.goto(state().uiUrl);
+  await page.locator('[data-testid="tree-item"][data-path="ol-src.md"]').click();
+  await expect(page.getByTestId('editor')).toContainText('ソース');
+
+  const resolvedLink = page.locator('[data-testid="outgoing-link"][data-target="ol-dest"]');
+  await expect(resolvedLink).toBeVisible({ timeout: 5_000 });
+  await resolvedLink.click();
+
+  // デスティネーションノートが開く
+  await expect(page.getByTestId('route-display')).toContainText('ol-dest', { timeout: 5_000 });
+  await expect(page.getByTestId('editor')).toContainText('デスティネーション');
+});
+
+test('[AC-S11493d-3-2] バックリンクが info-section[backlinks] 内の backlink-item として表示される', async ({
+  page,
+}) => {
+  await putNote('bl-dest-s3.md', '# バックリンク対象\n本文。\n');
+  await putNote('bl-src-s3.md', '参照: [[bl-dest-s3]] を見てください。\n');
+
+  await page.goto(state().uiUrl);
+  await page.locator('[data-testid="tree-item"][data-path="bl-dest-s3.md"]').click();
+  await expect(page.getByTestId('editor')).toContainText('バックリンク対象');
+
+  // backlinks セクション toggle/body が存在する
+  await expect(
+    page.locator('[data-testid="info-section-toggle"][data-section="backlinks"]'),
+  ).toBeAttached({ timeout: 5_000 });
+
+  // backlink-item が section 内に表示
+  const backlinkBody = page.locator('[data-testid="info-section-body"][data-section="backlinks"]');
+  await expect(
+    backlinkBody.locator('[data-testid="backlink-item"][data-source="bl-src-s3.md"]'),
+  ).toBeVisible({ timeout: 5_000 });
+});
+
+test('[AC-S11493d-3-2] backlink-item クリックで参照元ノートが開く', async ({ page }) => {
+  await putNote('bl-ref-dest.md', '# 参照対象\n本文。\n');
+  await putNote('bl-ref-src.md', '[[bl-ref-dest]] への参照。\n');
+
+  await page.goto(state().uiUrl);
+  await page.locator('[data-testid="tree-item"][data-path="bl-ref-dest.md"]').click();
+  await expect(page.getByTestId('editor')).toContainText('参照対象');
+
+  const backlinkItem = page.locator('[data-testid="backlink-item"][data-source="bl-ref-src.md"]');
+  await expect(backlinkItem).toBeVisible({ timeout: 5_000 });
+  await backlinkItem.click();
+
+  // 参照元ノートが開く
+  await expect(page.getByTestId('route-display')).toContainText('bl-ref-src', { timeout: 5_000 });
+});
+
+test('[AC-S11493d-3-3] backlink-count バッジが right-tab-info にあり件数が正しい', async ({
+  page,
+}) => {
+  await putNote('badge-dest.md', '# バッジテスト\n本文。\n');
+  await putNote('badge-src-1.md', '[[badge-dest]] その1。\n');
+  await putNote('badge-src-2.md', '[[badge-dest]] その2。\n');
+
+  await page.goto(state().uiUrl);
+  await page.locator('[data-testid="tree-item"][data-path="badge-dest.md"]').click();
+  await expect(page.getByTestId('editor')).toContainText('バッジテスト');
+
+  // backlink-count バッジが right-tab-info 内にある
+  const tabInfo = page.getByTestId('right-tab-info');
+  const badge = tabInfo.getByTestId('backlink-count');
+  await expect(badge).toBeVisible({ timeout: 5_000 });
+  await expect(badge).toHaveText('2');
+});
