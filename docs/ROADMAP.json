@@ -3076,7 +3076,7 @@
         },
         "S11493d-2": {
           "title": "インフォタブ格上げ + 基本セクション (Outline/Properties/Tags/メタ情報)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、右サイドバーで開いているノートの目次・プロパティ・タグ・メタ情報を折りたたみセクションで一覧したい。なぜなら、ノートの構造と素性をエディタから離れず把握したいから。",
@@ -3085,36 +3085,36 @@
               "id": "AC-S11493d-2-1",
               "description": "右サイドバーのタブが「インフォ | Claude」になり(旧「バックリンク」を「インフォ」に格上げ)、インフォタブに折りたたみ可能なセクション(Outline / Properties / Tags / メタ情報)が積まれる。",
               "test": "[AC-S11493d-2-1] in packages/ui/tests/e2e/info-panel.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S11493d-2-2",
               "description": "Outline は見出しツリーを表示しクリックで該当行へ移動。Properties は frontmatter を key-value 表示するが tags キーは除外する(タグは専用 Tags セクションが frontmatter+本文 #tag を集約して担う)。Tags はチップ表示、メタ情報は単語数・文字数・更新日時を表示する。",
               "test": "[AC-S11493d-2-2] in packages/ui/tests/e2e/info-panel.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S11493d-2-3",
               "description": "mock テスト(空ノート/大量見出し/frontmatter 無し等のエッジ)と e2e テスト(実サーバーの meta API から描画・Outline ジャンプ・Tags クリック遷移)を用意する。",
               "test": "[AC-S11493d-2-3] in packages/ui/tests/e2e/info-panel.mock.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S11493d-2-t1": {
               "title": "RightSidebar をタブ格上げ + セクション枠",
               "description": "seg-toggle を インフォ|Claude に。折りたたみセクションコンポーネント。",
-              "status": "pending"
+              "status": "done"
             },
             "S11493d-2-t2": {
               "title": "Outline/Properties/Tags/メタ情報 セクション実装",
               "description": "meta API を購読して描画。Outline ジャンプは CodeMirror へスクロール。",
-              "status": "pending"
+              "status": "done"
             },
             "S11493d-2-t3": {
               "title": "mock + e2e テスト",
               "description": "エッジは mock、AC は e2e。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
