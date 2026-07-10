@@ -19,7 +19,8 @@ export interface TerminalConfig {
    * CSWSH Origin 検査で追加許可するオリジン (LOAMIUM_TERMINAL_ALLOWED_ORIGINS、
    * カンマ区切り)。ループバック + same-origin に加えて、ここに列挙した Origin
    * (例: http://10.10.254.36:8203) からの WS 接続を許可する。既定は空 (従来どおり
-   * ループバック運用のみ)。各要素は URL.origin へ正規化済み (scheme://host[:port])。
+   * ループバック運用のみ)。各要素は URL.origin へ正規化済み (scheme://host[:port])、
+   * または `*.example.com` 形式のサブドメインワイルドカード。
    */
   allowedOrigins: string[];
 }
@@ -38,9 +39,36 @@ export interface ServerConfig {
 export const DEFAULT_TERMINAL_CMD = 'claude';
 
 /**
- * LOAMIUM_TERMINAL_ALLOWED_ORIGINS (カンマ区切り) を URL.origin の配列へ正規化する。
- * 空要素・空白は捨て、パース不能な値も捨てる (壊れた設定でガードを緩めない)。
- * 例: "http://10.10.254.36:8203, https://notes.lan" → ["http://10.10.254.36:8203", "https://notes.lan"]
+ * サブドメインワイルドカード `*.example.com` / `https://*.example.com` を正規化する。
+ * ワイルドカードでなければ null。base が単一ラベル (`*.net` 等の TLD 全体開放) や
+ * 不正文字を含む危険な指定も null で弾く (壊れた/広すぎる設定でガードを緩めない)。
+ */
+function isWildcardShaped(entry: string): boolean {
+  const sep = entry.indexOf('://');
+  const hostPart = sep === -1 ? entry : entry.slice(sep + 3);
+  return hostPart.startsWith('*.');
+}
+
+function normalizeWildcardOrigin(entry: string): string | null {
+  const lower = entry.toLowerCase();
+  const sep = lower.indexOf('://');
+  const scheme = sep === -1 ? null : lower.slice(0, sep);
+  const hostPart = sep === -1 ? lower : lower.slice(sep + 3);
+  const base = hostPart.slice(2);
+  // base は最低 2 ラベル (ドット必須) を要求し、*.net のような TLD 全体開放を防ぐ
+  if (!base.includes('.') || base.startsWith('.') || base.endsWith('.')) return null;
+  if (scheme !== null && scheme !== 'http' && scheme !== 'https') return null;
+  if (/[^a-z0-9.-]/.test(base)) return null; // 不正文字
+  return scheme === null ? `*.${base}` : `${scheme}://*.${base}`;
+}
+
+/**
+ * LOAMIUM_TERMINAL_ALLOWED_ORIGINS (カンマ区切り) を許可エントリ配列へ正規化する。
+ * 通常オリジンは URL.origin へ畳む。`*.example.com` 形式はサブドメインワイルドカード
+ * として保持する (照合は isAllowedOrigin)。空要素・空白・パース不能な値は捨てる
+ * (壊れた設定でガードを緩めない)。
+ * 例: "http://10.10.254.36:8203, https://*.tjstkm.net"
+ *     → ["http://10.10.254.36:8203", "https://*.tjstkm.net"]
  */
 export function parseAllowedOrigins(raw: string | undefined): string[] {
   if (raw === undefined || raw.trim() === '') return [];
@@ -48,6 +76,12 @@ export function parseAllowedOrigins(raw: string | undefined): string[] {
   for (const part of raw.split(',')) {
     const trimmed = part.trim();
     if (trimmed === '') continue;
+    if (isWildcardShaped(trimmed)) {
+      // ワイルドカード指定は検証を通ったものだけ採用し、失敗しても URL parse に落とさない
+      const wildcard = normalizeWildcardOrigin(trimmed);
+      if (wildcard !== null) out.push(wildcard);
+      continue;
+    }
     try {
       out.push(new URL(trimmed).origin);
     } catch {

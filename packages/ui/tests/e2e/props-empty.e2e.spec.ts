@@ -61,7 +61,11 @@ test('[AC-Sd13ab1-3-2] frontmatter 無しノートに追加入口が出て、押
   // 最初のプロパティに status を選ぶ → frontmatter (--- ブロック) が生成される
   await page.getByTestId('property-add-filter').fill('status');
   await page.locator('[data-testid="property-add-known"][data-key="status"]').click();
-  await expect(page.getByTestId('properties-widget')).toBeVisible();
+  const widget = page.getByTestId('properties-widget');
+  await expect(widget).toBeVisible();
+  // 空ノートへの初回追加時は詳細が自動で開き、すぐ値を入力できる (fix: 自動展開)
+  await expect(widget).toHaveAttribute('data-open', 'true');
+  await expect(widget.locator('[data-testid="properties-row"][data-key="status"]')).toBeVisible();
 
   await editorLine(page, '本文のみ').click();
   await save(page);

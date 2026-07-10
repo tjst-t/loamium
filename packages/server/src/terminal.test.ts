@@ -46,4 +46,23 @@ describe('isAllowedOrigin', () => {
   it('壊れた Origin は拒否する', () => {
     expect(isAllowedOrigin('not-a-url', HOST)).toBe(false);
   });
+
+  it('サブドメインワイルドカードは配下のサブドメインを許可する (port 任意)', () => {
+    const allow = ['*.tjstkm.net'];
+    expect(isAllowedOrigin('https://notes.tjstkm.net', HOST, allow)).toBe(true);
+    expect(isAllowedOrigin('http://a.b.tjstkm.net:8443', HOST, allow)).toBe(true);
+    // apex 自体はサブドメインでないので拒否
+    expect(isAllowedOrigin('https://tjstkm.net', HOST, allow)).toBe(false);
+    // サフィックス偽装 (eviltjstkm.net) はドット境界不一致で拒否
+    expect(isAllowedOrigin('https://eviltjstkm.net', HOST, allow)).toBe(false);
+    // 別ドメインは拒否
+    expect(isAllowedOrigin('https://notes.example.com', HOST, allow)).toBe(false);
+  });
+
+  it('scheme 付きワイルドカードは scheme を限定する', () => {
+    const allow = ['https://*.tjstkm.net'];
+    expect(isAllowedOrigin('https://notes.tjstkm.net', HOST, allow)).toBe(true);
+    // http は許可 scheme (https) と不一致なので拒否
+    expect(isAllowedOrigin('http://notes.tjstkm.net', HOST, allow)).toBe(false);
+  });
 });

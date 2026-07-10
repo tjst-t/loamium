@@ -82,7 +82,8 @@ export function killAllTerminalSessions(): void {
  * - Origin の host が Host と完全一致する same-origin は許可
  * - Origin の hostname がループバック (localhost / 127.0.0.1 / ::1) なら許可
  *   (ローカルで配信された UI / プロキシ経由の正規アクセス)
- * - LOAMIUM_TERMINAL_ALLOWED_ORIGINS に列挙した Origin と一致すれば許可 (S79c210-3)
+ * - LOAMIUM_TERMINAL_ALLOWED_ORIGINS に列挙した Origin と一致すれば許可 (S79c210-3)。
+ *   `*.example.com` 形式はそのサブドメイン全体を許可する (apex や別ドメインは弾く)
  * - それ以外 (遠隔サイトの Origin) は拒否
  *
  * 注: LOAMIUM_HOST=0.0.0.0 で LAN 公開した場合、LAN の別オリジンからのアクセスは
@@ -107,7 +108,25 @@ export function isAllowedOrigin(
   }
   if (host !== undefined && url.host === host) return true; // 完全一致 same-origin
   if (LOOPBACK_HOSTS.has(url.hostname)) return true; // ローカル配信の UI
-  return allowedOrigins.includes(url.origin); // 明示許可リスト (LAN オリジン等)
+  return allowedOrigins.some((entry) => originMatchesAllowed(url, entry)); // 明示許可リスト
+}
+
+/**
+ * 許可エントリと Origin URL の一致判定。
+ * - 通常エントリ: URL.origin の完全一致 (scheme+host+port)
+ * - ワイルドカード `*.base` / `scheme://*.base`: base のサブドメインにのみ一致する。
+ *   ドット境界でのみ一致するため apex (base 自体) や eviltjstkm.net は弾く。port は任意、
+ *   scheme を明示した場合はその scheme に限定する。
+ */
+function originMatchesAllowed(url: URL, entry: string): boolean {
+  const sep = entry.indexOf('://');
+  const hostPart = sep === -1 ? entry : entry.slice(sep + 3);
+  if (!hostPart.startsWith('*.')) return url.origin === entry; // 通常エントリは完全一致
+  const scheme = sep === -1 ? null : entry.slice(0, sep);
+  if (scheme !== null && url.protocol !== `${scheme}:`) return false;
+  const base = hostPart.slice(2);
+  const host = url.hostname.toLowerCase();
+  return host.endsWith(`.${base}`) && host.length > base.length + 1;
 }
 
 /**

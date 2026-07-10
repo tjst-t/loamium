@@ -25,6 +25,21 @@ describe('parseAllowedOrigins', () => {
   it('パース不能なオリジンは無視する (壊れた設定でガードを緩めない)', () => {
     expect(parseAllowedOrigins('not-a-url, http://ok.lan')).toEqual(['http://ok.lan']);
   });
+
+  it('サブドメインワイルドカードを保持する (scheme 有無・大小文字を正規化)', () => {
+    expect(parseAllowedOrigins('*.tjstkm.net')).toEqual(['*.tjstkm.net']);
+    expect(parseAllowedOrigins('https://*.TjstKm.net')).toEqual(['https://*.tjstkm.net']);
+    expect(parseAllowedOrigins('*.tjstkm.net, http://10.10.254.36:8203')).toEqual([
+      '*.tjstkm.net',
+      'http://10.10.254.36:8203',
+    ]);
+  });
+
+  it('TLD 全体 (*.net) や不正なワイルドカードは弾く', () => {
+    expect(parseAllowedOrigins('*.net')).toEqual([]);
+    expect(parseAllowedOrigins('ftp://*.tjstkm.net')).toEqual([]);
+    expect(parseAllowedOrigins('*.tjstkm .net')).toEqual([]);
+  });
 });
 
 describe('terminalConfigFromEnv allowedOrigins', () => {

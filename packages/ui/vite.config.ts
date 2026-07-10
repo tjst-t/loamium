@@ -30,19 +30,35 @@ function apiTarget(): string {
  * リバースプロキシ (Caddy 等) のサブドメイン経由で開くと、既定では
  * "Blocked request. This host is not allowed" になるため、環境変数で許可する。
  *
- *   LOAMIUM_UI_ALLOWED_HOSTS=all           … すべてのホストを許可 (保護を無効化)
- *   LOAMIUM_UI_ALLOWED_HOSTS=.example.com  … example.com と全サブドメインを許可
+ *   LOAMIUM_UI_ALLOWED_HOSTS=all              … すべてのホストを許可 (保護を無効化)
+ *   LOAMIUM_UI_ALLOWED_HOSTS=.example.com     … example.com と全サブドメインを許可
+ *   LOAMIUM_UI_ALLOWED_HOSTS=*.example.com    … 同上 (ターミナル側 ORIGINS と同じ記法も可)
+ *   LOAMIUM_UI_ALLOWED_HOSTS=https://*.example.com … scheme 付き origin 形式も可 (host だけ使う)
  *   LOAMIUM_UI_ALLOWED_HOSTS=a.example.com,b.example.com  … カンマ区切りで個別に
- *   未設定                                  … 既定 (localhost / IP アドレスのみ。ドメインは拒否)
+ *   未設定                                     … 既定 (localhost / IP アドレスのみ。ドメインは拒否)
  */
-function allowedHosts(): true | string[] {
-  const raw = process.env.LOAMIUM_UI_ALLOWED_HOSTS?.trim();
-  if (raw === undefined || raw === '') return [];
-  if (raw === 'all' || raw === 'true' || raw === '*') return true;
-  return raw
+function normalizeUiAllowedHost(entry: string): string {
+  // origin 形式 (https://host) で貼られたら host 部だけ取る
+  const sep = entry.indexOf('://');
+  const host = sep === -1 ? entry : entry.slice(sep + 3);
+  // ターミナル側 LOAMIUM_TERMINAL_ALLOWED_ORIGINS の "*.example.com" 記法を
+  // Vite が解釈する先頭ドット ".example.com" へ変換する (記法を統一)
+  return host.startsWith('*.') ? host.slice(1) : host;
+}
+
+export function parseUiAllowedHosts(raw: string | undefined): true | string[] {
+  const trimmed = raw?.trim();
+  if (trimmed === undefined || trimmed === '') return [];
+  if (trimmed === 'all' || trimmed === 'true' || trimmed === '*') return true;
+  return trimmed
     .split(',')
     .map((h) => h.trim())
-    .filter((h) => h !== '');
+    .filter((h) => h !== '')
+    .map(normalizeUiAllowedHost);
+}
+
+function allowedHosts(): true | string[] {
+  return parseUiAllowedHosts(process.env.LOAMIUM_UI_ALLOWED_HOSTS);
 }
 
 export default defineConfig({

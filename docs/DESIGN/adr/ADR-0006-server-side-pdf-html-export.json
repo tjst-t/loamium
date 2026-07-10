@@ -1,0 +1,41 @@
+{
+  "id": "ADR-0006",
+  "title": "ノートのエクスポート (PDF/HTML) はサーバー側でレンダリングする",
+  "status": "accepted",
+  "date": "2026-07-09",
+  "context": "右パネル (RightSidebar) のアクションメニューから、開いているノートを PDF (および将来的に HTML) として書き出す操作を追加したい。Loamium は REST API と CLI が 1:1 対応する原則を持ち (CLAUDE.md)、正本は常にピュア Markdown 文字列である。エクスポート成果物 (PDF) は保存されない派生物なので Markdown 純度の原則には抵触しないが、どこで Markdown→PDF 変換を行うかは、見た目 (テーマ・フォント・改ページ) の制御性、CLI からの出力可否、依存の増加、テスト容易性を左右する load-bearing な契約である。UI 側 (window.print) で完結させるとブラウザ依存で CLI から同じ成果物を出せず 1:1 原則を崩す。サーバー側に変換責務を置くと API/CLI の両方から同一パイプラインで出力でき、テーマも一元管理できる。",
+  "alternatives": [
+    {
+      "name": "サーバーで生成 (Markdown→HTML→PDF, headless Chromium)",
+      "tradeoff": "見た目を CSS で完全制御でき、REST/CLI が同一パイプラインを共有し 1:1 原則を保てる。代償として headless ブラウザ (playwright/puppeteer 等) への依存とバイナリ実行が増える。"
+    },
+    {
+      "name": "ブラウザ印刷 (クライアント window.print)",
+      "tradeoff": "追加依存ゼロで即実装できるが、体裁がブラウザの印刷ダイアログ任せで再現性が低く、CLI から同じ PDF を出せないため REST/CLI 1:1 原則を満たせない。"
+    },
+    {
+      "name": "外部 pandoc に委譲",
+      "tradeoff": "多形式・高品質だが pandoc (+LaTeX) の外部インストールが前提で、環境非依存のポータビリティが下がる。"
+    }
+  ],
+  "decision": "Markdown→HTML→PDF の変換はサーバー側の単一エクスポートパイプラインで行い、REST エンドポイントと CLI コマンドの双方がそれを共有する。PDF レンダリングは headless Chromium 系を採用する。",
+  "consequences": [
+    "+ REST API と CLI が同一の成果物を出力でき、1:1 対応原則を維持できる",
+    "+ 体裁 (テーマ CSS・フォント・改ページ) をサーバー側で一元管理・バージョン管理できる",
+    "+ 変換ロジックにユニット/統合テストを書けて再現性が担保される",
+    "+ 将来 HTML / 他形式のエクスポートを同じパイプラインに追加しやすい",
+    "- headless ブラウザ (playwright/puppeteer 等) への依存とインストールサイズが増える",
+    "- サーバー実行環境で Chromium が動く前提が必要 (CI・デプロイ先の制約になりうる)",
+    "エクスポート成果物は保存しない派生物。正本 Markdown には一切書き戻さない (ピュア Markdown 原則)",
+    "書き込み系ではないが、エクスポート API を叩いた事実は監査ログ方針の対象になるか要検討"
+  ],
+  "reversibility_cost": "medium",
+  "affects": [
+    "server",
+    "cli",
+    "ui"
+  ],
+  "supersedes": null,
+  "superseded_by": null,
+  "notes": "レンダラ実体 (playwright vs puppeteer vs weasyprint 等) の選定は sprint plan/run のローカル判断でよい — 本 ADR が固めるのは『変換責務はサーバーの単一パイプラインに置き、REST/CLI が共有する』という契約のみ。CI で Chromium が重い/動かない場合は、HTML エクスポートのみ先行しサーバー PDF を後追いする段階導入を検討する。"
+}

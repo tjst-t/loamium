@@ -1,0 +1,38 @@
+{
+  "sprint": "Sr7e401",
+  "origin": "autopilot review (milestone S67ea41)",
+  "classification": "全 4 件 ② AC外の小修正。ユーザー選択により新規 fix Sprint にまとめた。",
+  "decisions": [
+    {
+      "id": "D1",
+      "topic": "プロパティ初回追加時の自動展開",
+      "decision": "空ノートからの初回追加(commitFirst)でのみ propsOpenState を open にする。既定の畳み(S87f4b7-1-AC1)は維持。",
+      "rationale": "追加直後にすぐ値を入力できる UX を優先。既存の畳み既定と矛盾させない最小変更。"
+    },
+    {
+      "id": "D2",
+      "topic": "ノート追加メニューの配色",
+      "decision": ".nm-item/.nm-main を var(--text)、アイコン/サブ文字を var(--text-muted)、ホバー時アイコンを var(--accent) に。",
+      "rationale": "無効化ではなく --text-faint 固定が原因。他メニュー(context-menu)と同等のコントラストに揃える。"
+    },
+    {
+      "id": "D3",
+      "topic": "タスクチェックボックスの検出方式",
+      "decision": "lezer の TaskMarker 依存をやめ、ListItem のマーカー直後の行頭 [ ]/[x]/[X](後続が空白/行末)を直接検出する。",
+      "rationale": "lezer-markdown の TaskList は ']' の直後に空白を要求し、空タスク `- [ ]` を取りこぼし `- [x]` をリンク誤解析する。ListItem 経由なのでコードフェンス内は自然に除外。後続空白/行末の限定でリンク誤検出を防ぐ。"
+    },
+    {
+      "id": "D4",
+      "topic": "箇条書きマーカーの装飾",
+      "decision": "-/*/+ のマーカーを入れ子深さ別のドット(•/◦/▪)に置換。タスク行はマーカーを隠しチェックボックス単独に。数字リスト・カーソル行は対象外。",
+      "rationale": "ライブプレビューの既存方針(カーソル行はソース表示)を踏襲しつつ視認性を上げる最小の装飾。"
+    }
+  ],
+  "tests": {
+    "added": [
+      "packages/ui/tests/e2e/outline.mock.spec.ts — 空タスク/素の完了タスクのチェックボックス化 + .cm-list-bullet ドット",
+      "packages/ui/tests/e2e/props-empty.e2e.spec.ts — 初回追加で data-open=true を追加検証"
+    ],
+    "result": "UI Playwright 256 件中 251 pass。残り 5 件(claude-sidebar / search-slim)は本修正と無関係の既存失敗(ターミナルのシェルプロンプトが '$' ではなく '❯' の環境差)で、stash した clean baseline でも同様に失敗することを確認済み。"
+  }
+}

@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "Sebf6b0",
-    "total": 28,
-    "done": 27,
+    "current_sprint": null,
+    "total": 29,
+    "done": 29,
     "in_progress": 0,
-    "remaining": 1,
-    "percentage": 96
+    "remaining": 0,
+    "percentage": 100
   },
   "execution_order": [
     "Sd63ad1",
@@ -34,6 +34,7 @@
     "Sd13ab1",
     "S89a350",
     "S67ea41",
+    "Sr7e401",
     "S32940c",
     "S8086d9",
     "S7b2f22",
@@ -1992,7 +1993,7 @@
     },
     "S89a350": {
       "title": "汎用テンプレートシステム — 変数エンジン + 作成モーダル",
-      "status": "partial",
+      "status": "done",
       "milestone": false,
       "description": "vault 内の可視 `templates/` 配下の Markdown ファイルをテンプレートとして扱う汎用テンプレート機構。テンプレートのフロントマター `loamium-template.target`(保存先パターン)と `vars`(ユーザー変数定義)で駆動。変数構文は `{{name}}` と `{{date:FORMAT}}`(任意 eval なし)。プリセット date/now はフォーマット指定で年月日時を切り出す(`{{date:YYYY}}` 等)。変数解決+日付フォーマットのエンジンは packages/shared に置き server/cli/ui で共有。保存パスに入る変数はサニタイズ(スラッシュ等除去)してから normalizeVaultPath に通す。パス衝突時は連番付与。REST とCLI は1:1。ユーザー変数入力モーダルは既存 property-types(text/select/date/tags)を流用しキーボードで完結。ファイル正本は常にピュア Markdown(テンプレート記法は生成時に解決され、結果ノートには残らない)。",
       "stories": {
@@ -2083,9 +2084,9 @@
         },
         "S89a350-3": {
           "title": "テンプレートから新規作成する UI(選択 + 変数入力モーダル)",
-          "status": "needs_user_review",
-          "user_review_required": true,
-          "review_reason": "GUI: テンプレート選択と変数入力モーダルのキーボード操作 UX はユーザーレビューが要る",
+          "status": "done",
+          "user_review_required": false,
+          "review_reason": "レビュー済み (2026-07-09): キーボード操作 UX をユーザーが確認し OK",
           "added_in": "idea",
           "user_story": "ノート利用者として、テンプレートを選び変数をモーダルでキーボード入力して新規ノートを作りたい。なぜなら、議事録のような定型ノートを保存先込みで素早く作りたいから。",
           "acceptance_criteria": [
@@ -2295,6 +2296,91 @@
               "status": "done"
             }
           }
+        }
+      }
+    },
+    "Sr7e401": {
+      "title": "レビュー修正 — プロパティ自動展開 / メニュー配色 / タスク&箇条書き描画",
+      "status": "done",
+      "description": "S67ea41 マイルストーン後の autopilot review で受けた 4 件の UI 小修正(② AC外の小修正)をまとめた fix Sprint。実アプリ操作で気づいた描画・配色・UX の綻びを塞ぐ。",
+      "milestone": false,
+      "stories": {
+        "Sr7e401-1": {
+          "title": "空ノートへのプロパティ初回追加で詳細を自動展開",
+          "status": "done",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in_review": "S67ea41",
+          "user_story": "ノート作成者として、プロパティの無いノートに最初のプロパティを追加したら詳細が自動で開いてほしい。なぜなら、追加直後にすぐ値を入力できて手数が減るから。",
+          "acceptance_criteria": [
+            {
+              "id": "Sr7e401-1",
+              "description": "frontmatter が無いノートで『+ プロパティを追加』から最初のプロパティを作成すると、properties-widget が data-open=true で描画され、追加した行がすぐ見える(既定の畳み S87f4b7-1-AC1 は据え置き)。",
+              "test": "[AC-Sd13ab1-3-2] in packages/ui/tests/e2e/props-empty.e2e.spec.ts",
+              "status": "pass"
+            }
+          ],
+          "tasks": [
+            "renderEmptyPropertiesEntry の commitFirst で propsOpenState を open にする"
+          ]
+        },
+        "Sr7e401-2": {
+          "title": "ノート追加メニューのグレイアウト解消",
+          "status": "done",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in_review": "S67ea41",
+          "user_story": "ノート作成者として、新規ノートメニューの項目が無効に見えないでほしい。なぜなら、グレイアウトは押せないと誤解させるから。",
+          "acceptance_criteria": [
+            {
+              "id": "Sr7e401-1",
+              "description": "新規ノートメニュー(.newnote-menu)の項目テキスト/アイコンが --text-faint ではなく通常のテキスト色で表示され、ホバーでアクセント色になる。機能は従来どおり。",
+              "test": "視覚確認 (純 CSS 配色変更・専用自動テストなし)",
+              "status": "pass"
+            }
+          ],
+          "tasks": [
+            "styles.css .nm-item/.nm-main を var(--text)、svg/.nm-sub を var(--text-muted) に"
+          ]
+        },
+        "Sr7e401-3": {
+          "title": "空タスク・素の完了タスクもチェックボックス化",
+          "status": "done",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in_review": "S67ea41",
+          "user_story": "ノート作成者として、`- [ ]`(本文なし)や `- [x]` もチェックボックスとして表示してほしい。なぜなら、lezer の TaskMarker 依存だと空タスクや素の完了タスクを取りこぼし『TODO がチェックボックスにならない』から。",
+          "acceptance_criteria": [
+            {
+              "id": "Sr7e401-1",
+              "description": "ListItem のマーカー直後の行頭 `[ ]`/`[x]`/`[X]`(後続が空白/行末)を直接検出してチェックボックス化する。空タスク `- [ ]` と素の `- [x]` が非カーソル行でチェックボックスになり、トグル/保存は従来どおり。",
+              "test": "[MOCK] in packages/ui/tests/e2e/outline.mock.spec.ts + [AC-S9ab6c3-1-4] in packages/ui/tests/e2e/outline.e2e.spec.ts",
+              "status": "pass"
+            }
+          ],
+          "tasks": [
+            "outline.ts の検出を TaskMarker 依存から ListItem ベースの行頭括弧検出へ置換"
+          ]
+        },
+        "Sr7e401-4": {
+          "title": "箇条書き(-/*/+)を装飾ドットで表示",
+          "status": "done",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in_review": "S67ea41",
+          "user_story": "ノート作成者として、`*` や `-` の箇条書きが見栄えよく表示されてほしい。なぜなら、素のマーカー文字より視認性と一覧性が上がるから。",
+          "acceptance_criteria": [
+            {
+              "id": "Sr7e401-1",
+              "description": "非カーソル行の箇条書きマーカー(-/*/+)が入れ子深さ別のドット(•/◦/▪)に置換される。タスク行はマーカーを隠しチェックボックス単独にする。数字リストは素のまま。カーソル行はソース表示。",
+              "test": "[MOCK] in packages/ui/tests/e2e/outline.mock.spec.ts",
+              "status": "pass"
+            }
+          ],
+          "tasks": [
+            "outline.ts に BulletWidget + listDepth を追加し ListMark を装飾ドットに置換",
+            "styles.css に .cm-list-bullet を追加"
+          ]
         }
       }
     },
@@ -3082,6 +3168,13 @@
         "S87f4b7"
       ],
       "reason": "S87f4b7 のプロパティ UI(折りたたみ/意味型/型ピッカー)を改訂する"
+    },
+    "Sr7e401": {
+      "depends_on": [
+        "S9ab6c3",
+        "Sd13ab1"
+      ],
+      "reason": "S9ab6c3 のライブプレビュー/アウトライン描画と Sd13ab1 のプロパティ UI に対する review 由来の小修正"
     },
     "S8086d9": {
       "depends_on": [
