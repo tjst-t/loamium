@@ -122,6 +122,9 @@ function escapeHtml(text: string): string {
 
 // ---- HTML → PDF (headless Chromium / playwright) ---------------------------
 
+/** PDF レンダのハング上限 (ms)。launch / setContent に適用する。 */
+const PDF_RENDER_TIMEOUT_MS = 20_000;
+
 /**
  * htmlToPdf — 完全な HTML 文字列を PDF バッファに変換する。
  *
@@ -139,11 +142,14 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
   const browser = await playwright.chromium.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    // ハング防止の明示的上限 (verifier concern)。既定 30s より短く固定する。
+    timeout: PDF_RENDER_TIMEOUT_MS,
   });
   try {
     const page = await browser.newPage();
     try {
-      await page.setContent(html, { waitUntil: 'networkidle' });
+      // 自己完結 HTML (外部リソースなし) 前提。timeout でレンダのハングを上限で切る。
+      await page.setContent(html, { waitUntil: 'networkidle', timeout: PDF_RENDER_TIMEOUT_MS });
       const pdfBuffer = await page.pdf({
         format: 'A4',
         printBackground: true,

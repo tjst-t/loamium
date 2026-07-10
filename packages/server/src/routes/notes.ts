@@ -146,24 +146,29 @@ export function notesRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
         return errorJson(c, 404, 'not_found', `note not found: ${rel}`);
       }
 
-      // 監査ログ記録 (AC-Sa8ee62-1-2: エクスポートは read-class だが audit は必須)
-      await writeAuditEntry(config, {
-        ts: new Date().toISOString(),
-        op: 'note.export',
-        path: rel,
-        mode: config.mode,
-        result: 'ok',
-        status: 200,
-      });
-
       const html = markdownToHtml(content);
 
+      // 監査ログは成果物の生成に成功してから記録する (AC-Sa8ee62-1-2)。
+      // PDF 生成 (htmlToPdf) が失敗した場合に result:'ok' を残さないため、
+      // 各成功パスの直前で 1 回だけ書く (audit 整合性 — 失敗を成功として記録しない)。
+      const auditExportOk = (): Promise<void> =>
+        writeAuditEntry(config, {
+          ts: new Date().toISOString(),
+          op: 'note.export',
+          path: rel,
+          mode: config.mode,
+          result: 'ok',
+          status: 200,
+        });
+
       if (format === 'html') {
+        await auditExportOk();
         return c.text(html, 200, { 'content-type': 'text/html; charset=utf-8' });
       }
 
       // format === 'pdf' — headless Chromium で PDF を生成
       const pdfBuffer = await htmlToPdf(html);
+      await auditExportOk();
       return new Response(pdfBuffer, {
         status: 200,
         headers: {
