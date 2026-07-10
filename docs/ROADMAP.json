@@ -3261,7 +3261,7 @@
         },
         "Sa8ee62-2": {
           "title": "⋯ アクションメニュー(エクスポート / リンクコピー)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、右パネルの ⋯ メニューから PDF エクスポートやリンクコピーをしたい。なぜなら、開いているノートに対する操作をその場で完結させたいから。",
@@ -3270,36 +3270,36 @@
               "id": "AC-Sa8ee62-2-1",
               "description": "右パネル(インフォ)ヘッダに ⋯ メニューがあり、PDF エクスポート / Copy link([[title]]) / Copy path を選べる。",
               "test": "[AC-Sa8ee62-2-1] in packages/ui/tests/e2e/export-menu.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sa8ee62-2-2",
               "description": "PDF エクスポートは export API を叩き成果物をダウンロード(ブラウザ保存)する。Copy 系はクリップボードへ書き込む。",
               "test": "[AC-Sa8ee62-2-2] in packages/ui/tests/e2e/export-menu.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sa8ee62-2-3",
               "description": "mock(メニュー開閉・各項目の API/clipboard 呼び出し)と e2e(実サーバーで PDF エクスポートが 200 で PDF を返す)を用意する。",
               "test": "[AC-Sa8ee62-2-3] in packages/ui/tests/e2e/export-menu.mock.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sa8ee62-2-t1": {
               "title": "⋯ メニュー UI",
               "description": "インフォパネルヘッダにメニュー。項目とハンドラ。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa8ee62-2-t2": {
               "title": "エクスポート/コピー配線",
               "description": "export API ダウンロード、clipboard 書込。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa8ee62-2-t3": {
               "title": "mock + e2e テスト",
               "description": "",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
