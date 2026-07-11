@@ -36,8 +36,10 @@ import {
   type CommandsResponse,
 } from '@loamium/shared';
 import type { ServerConfig } from '../config.js';
-import { listNoteFiles, noteMtime, readNote, writeNote } from '../vault.js';
+import { listNoteFiles, readNote, writeNote } from '../vault.js';
 import { errorJson, parseBody, setAudit, type AppEnv } from '../http.js';
+import { writeAuditEntry } from '../audit.js';
+import { firstFreePath } from '../vault-paths.js';
 
 const COMMANDS_DIR = 'commands';
 const COMMANDS_PREFIX = `${COMMANDS_DIR}/`;
@@ -71,18 +73,6 @@ function summaryFor(rel: string, content: string): CommandSummary {
   return summary;
 }
 
-/** vault 相対パスに連番 (_2, _3, ...) を付けて最初の空きパスを返す (templates と同挙動)。 */
-async function firstFreePath(vaultRoot: string, rel: string): Promise<string> {
-  if ((await noteMtime(vaultRoot, rel)) === null) return rel;
-  const dot = rel.toLowerCase().lastIndexOf('.md');
-  const stem = dot === -1 ? rel : rel.slice(0, dot);
-  const ext = dot === -1 ? '' : rel.slice(dot);
-  for (let n = 2; n <= 9999; n++) {
-    const candidate = `${stem}_${String(n)}${ext}`;
-    if ((await noteMtime(vaultRoot, candidate)) === null) return candidate;
-  }
-  throw new Error(`no free path for ${rel} (suffix _2.._9999 all taken)`);
-}
 
 export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
@@ -269,6 +259,14 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
           }
 
           await writeNote(config.vaultRoot, rel, newContent);
+          await writeAuditEntry(config, {
+            ts: new Date().toISOString(),
+            op: 'journal-append.write',
+            path: rel,
+            mode: config.mode,
+            result: 'ok',
+            status: 200,
+          });
 
           const stepResult: CommandStepResult = { kind, ok: true, path: rel };
           results.push(stepResult);
@@ -288,14 +286,18 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
             now,
           }).text;
 
-          // target path 検証 [AC-Sd22b1f-2-2]
+          // target path 検証 [AC-Sd22b1f-2-2] — traversal/hidden-segment は 400 で即拒否
           let rel: string;
           try {
             rel = normalizeVaultPath(targetRaw);
           } catch (err) {
             if (err instanceof VaultPathError) {
-              results.push({ kind, ok: false, error: `invalid target path: ${err.message}` });
-              break;
+              return errorJson(
+                c,
+                400,
+                'invalid_target_path',
+                `invalid target path in step: ${err.message}`,
+              );
             }
             throw err;
           }
@@ -307,6 +309,14 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
           }
 
           await writeNote(config.vaultRoot, rel, appendText(existing, contentResolved));
+          await writeAuditEntry(config, {
+            ts: new Date().toISOString(),
+            op: 'note-append.write',
+            path: rel,
+            mode: config.mode,
+            result: 'ok',
+            status: 200,
+          });
 
           const stepResult: CommandStepResult = { kind, ok: true, path: rel };
           results.push(stepResult);
@@ -326,14 +336,18 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
             now,
           }).text;
 
-          // target path 検証 [AC-Sd22b1f-2-2]
+          // target path 検証 [AC-Sd22b1f-2-2] — traversal/hidden-segment は 400 で即拒否
           let destRaw: string;
           try {
             destRaw = normalizeVaultPath(targetRaw);
           } catch (err) {
             if (err instanceof VaultPathError) {
-              results.push({ kind, ok: false, error: `invalid target path: ${err.message}` });
-              break;
+              return errorJson(
+                c,
+                400,
+                'invalid_target_path',
+                `invalid target path in step: ${err.message}`,
+              );
             }
             throw err;
           }
@@ -341,6 +355,14 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
           // 衝突時は連番サフィックス [AC-Sd22b1f-2-4]
           const dest = await firstFreePath(config.vaultRoot, destRaw);
           await writeNote(config.vaultRoot, dest, contentResolved);
+          await writeAuditEntry(config, {
+            ts: new Date().toISOString(),
+            op: 'note-create.write',
+            path: dest,
+            mode: config.mode,
+            result: 'ok',
+            status: 200,
+          });
 
           const stepResult: CommandStepResult = { kind, ok: true, path: dest };
           results.push(stepResult);
@@ -363,18 +385,18 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
             }
           }
 
-          // テンプレートパスを正規化
+          // テンプレートパスを正規化 — traversal/hidden-segment は 400 で即拒否
           let templatePath: string;
           try {
             templatePath = normalizeVaultPath(`templates/${templateNameRaw}`);
           } catch (err) {
             if (err instanceof VaultPathError) {
-              results.push({
-                kind,
-                ok: false,
-                error: `invalid template path: ${err.message}`,
-              });
-              break;
+              return errorJson(
+                c,
+                400,
+                'invalid_target_path',
+                `invalid target path in step: ${err.message}`,
+              );
             }
             throw err;
           }
@@ -407,17 +429,18 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
             pathMode: true,
           });
 
+          // 展開後 target path 検証 — traversal/hidden-segment は 400 で即拒否
           let destRaw: string;
           try {
             destRaw = normalizeVaultPath(targetRes.text);
           } catch (err) {
             if (err instanceof VaultPathError) {
-              results.push({
-                kind,
-                ok: false,
-                error: `resolved template target is not a valid vault path: "${targetRes.text}" (${err instanceof Error ? err.message : String(err)})`,
-              });
-              break;
+              return errorJson(
+                c,
+                400,
+                'invalid_target_path',
+                `invalid target path in step: resolved template target is not a valid vault path: "${targetRes.text}" (${err instanceof Error ? err.message : String(err)})`,
+              );
             }
             throw err;
           }
@@ -428,6 +451,14 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
 
           const dest = await firstFreePath(config.vaultRoot, destRaw);
           await writeNote(config.vaultRoot, dest, bodyRes.text);
+          await writeAuditEntry(config, {
+            ts: new Date().toISOString(),
+            op: 'template-instantiate.write',
+            path: dest,
+            mode: config.mode,
+            result: 'ok',
+            status: 200,
+          });
 
           const stepResult: CommandStepResult = { kind, ok: true, path: dest };
           results.push(stepResult);

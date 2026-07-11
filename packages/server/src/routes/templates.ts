@@ -30,8 +30,9 @@ import {
   type TemplatesResponse,
 } from '@loamium/shared';
 import type { ServerConfig } from '../config.js';
-import { listNoteFiles, noteMtime, readNote, writeNote } from '../vault.js';
+import { listNoteFiles, readNote, writeNote } from '../vault.js';
 import { errorJson, parseBody, setAudit, type AppEnv } from '../http.js';
+import { firstFreePath } from '../vault-paths.js';
 
 const TEMPLATES_DIR = 'templates';
 const TEMPLATES_PREFIX = `${TEMPLATES_DIR}/`;
@@ -43,19 +44,6 @@ function summaryFor(rel: string, content: string): TemplateSummary {
   const summary: TemplateSummary = { name, path: rel, target: cfg.target, vars: cfg.vars };
   if (cfg.description !== undefined) summary.description = cfg.description;
   return summary;
-}
-
-/** vault 相対パスに連番 (_2, _3, ...) を付けて最初の空きパスを返す。 */
-async function firstFreePath(vaultRoot: string, rel: string): Promise<string> {
-  if ((await noteMtime(vaultRoot, rel)) === null) return rel;
-  const dot = rel.toLowerCase().lastIndexOf('.md');
-  const stem = dot === -1 ? rel : rel.slice(0, dot);
-  const ext = dot === -1 ? '' : rel.slice(dot);
-  for (let n = 2; n <= 9999; n++) {
-    const candidate = `${stem}_${String(n)}${ext}`;
-    if ((await noteMtime(vaultRoot, candidate)) === null) return candidate;
-  }
-  throw new Error(`no free path for ${rel} (suffix _2.._9999 all taken)`);
 }
 
 /** URL パスから {name} を取り出して templates/{name}.md へ正規化する。 */

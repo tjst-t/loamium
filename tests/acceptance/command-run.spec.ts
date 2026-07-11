@@ -310,20 +310,34 @@ describe('[AC-Sd22b1f-2] command run — full mode', () => {
     expect(typeof parsed.data.results[0]?.error).toBe('string');
   });
 
-  it('[AC-Sd22b1f-2-2] path traversal in expanded target → step fails with error', async () => {
+  it('[AC-Sd22b1f-2-2] path traversal in expanded target → 400 invalid_target_path', async () => {
+    // AC-Sd22b1f-2-2: 展開後の target が .. 脱出・隠しセグメントを含む場合は 400 で即拒否
     const { status, body } = await runCommand(server, 'traversal-test', {});
-    // path traversal はステップ実行時に path エラーとして拾い、ok:false で返す
-    // (ステップ失敗は 200 + ok:false または 400 — 実装に合わせてチェック)
-    // 実装: VaultPathError → results に push して break → 200 or 400
-    // AC 仕様: "path traversal=4xx" のため 4xx も許容する
-    const isValid = status === 200 || status === 400;
-    expect(isValid, `unexpected status: ${status}`).toBe(true);
-    if (status === 200) {
-      const parsed = commandRunResponseSchema.safeParse(body);
-      expect(parsed.success).toBe(true);
-      if (!parsed.success) throw new Error('unreachable');
-      expect(parsed.data.results[0]?.ok).toBe(false);
-    }
+    expect(status).toBe(400);
+    const b = body as { error: string; message: string };
+    expect(b.error).toBe('invalid_target_path');
+    expect(typeof b.message).toBe('string');
+  });
+
+  /** hidden/dot セグメントの traversal コマンドも追加で確認 */
+  it('[AC-Sd22b1f-2-2] hidden segment in expanded target → 400 invalid_target_path', async () => {
+    // .hidden セグメントを含む target も 400 で拒否
+    await putNote(server, 'commands/hidden-seg-test.md', [
+      '---',
+      'loamium-command:',
+      '  name: hidden-seg-test',
+      '  steps:',
+      '    - kind: note-create',
+      '      target: ".hidden/secret.md"',
+      '      content: "secret"',
+      '---',
+      '',
+    ].join('\n'));
+    const { status, body } = await runCommand(server, 'hidden-seg-test', {});
+    expect(status).toBe(400);
+    const b = body as { error: string; message: string };
+    expect(b.error).toBe('invalid_target_path');
+    expect(typeof b.message).toBe('string');
   });
 
   // -----------------------------------------------------------------------
@@ -363,11 +377,36 @@ describe('[AC-Sd22b1f-2] command run — full mode', () => {
     const lines = await readAuditLog(server.vault);
     const commandRunEntries = lines.filter((l) => l.op === 'command.run');
     expect(commandRunEntries.length).toBeGreaterThan(0);
-    // result: ok, mode: full
-    for (const entry of commandRunEntries) {
-      expect(entry.result).toBe('ok');
+    // 成功した run は result: ok, mode: full — path traversal 400 は result: error なので除外
+    const successEntries = commandRunEntries.filter((l) => l.result === 'ok');
+    expect(successEntries.length).toBeGreaterThan(0);
+    for (const entry of successEntries) {
       expect(entry.mode).toBe('full');
     }
+  });
+
+  it('[AC-Sd22b1f-2-3] multi-step run records per-step write entries in audit log', async () => {
+    // create-todo: note-create (todos/audit-step-test.md) + journal-append の 2 ステップ
+    const { status } = await runCommand(server, 'create-todo', { title: 'audit-step-test' });
+    expect(status).toBe(200);
+
+    const lines = await readAuditLog(server.vault);
+    // note-create.write エントリが存在し、パスが一致すること
+    const noteCreateEntry = lines.find(
+      (l) => l.op === 'note-create.write' && l.path === 'todos/audit-step-test.md',
+    );
+    expect(
+      noteCreateEntry,
+      'note-create.write entry for todos/audit-step-test.md not found in audit log',
+    ).toBeDefined();
+    expect(noteCreateEntry?.result).toBe('ok');
+
+    // journal-append.write エントリが存在すること
+    const journalWriteEntries = lines.filter((l) => l.op === 'journal-append.write');
+    expect(
+      journalWriteEntries.length,
+      'journal-append.write entries not found in audit log',
+    ).toBeGreaterThan(0);
   });
 });
 
@@ -396,11 +435,13 @@ describe('[AC-Sd22b1f-2-3] read-only mode rejects command run', () => {
     expect(b.error).toBe('forbidden');
   });
 
-  it('[AC-Sd22b1f-2-3] denied run is recorded in audit log with result:denied', async () => {
+  it('[AC-Sd22b1f-2-3] denied run is recorded in audit log with result:denied and op:command.run', async () => {
     const lines = await readAuditLog(server.vault);
     const denied = lines.filter((l) => l.result === 'denied');
     expect(denied.length).toBeGreaterThan(0);
     expect(denied.some((l) => l.status === 403)).toBe(true);
+    // F-3: deriveOp must return 'command.run' for read-only denial
+    expect(denied.some((l) => l.op === 'command.run')).toBe(true);
   });
 });
 
