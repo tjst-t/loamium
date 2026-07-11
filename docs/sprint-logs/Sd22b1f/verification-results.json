@@ -1,0 +1,48 @@
+{
+  "sprint": "Sd22b1f",
+  "title": "スマートコマンド基盤 — 定義スキーマ/一覧・実行エンジン・journal section 追記 + CLI",
+  "machine_status": {
+    "lint": {
+      "command": "make lint",
+      "status": "pass",
+      "exit": 0
+    },
+    "test": {
+      "command": "make test",
+      "status": "pass",
+      "exit": 0,
+      "passed": 756,
+      "failed": 0,
+      "note": "node-pty を distro gcc-13 でリビルド後、terminal 含む全 756 テスト通過。以前の 7 失敗は Nix gcc-15 が GLIBC_2.42 にリンクした環境要因で、修復済み。"
+    },
+    "ui-tests": {
+      "command": "make test-ui",
+      "status": "not_run",
+      "reason": "Sd22b1f は非 GUI。Sde7a63(パレット UI)で実行予定。"
+    }
+  },
+  "sprint_tests": {
+    "status": "pass",
+    "suites": [
+      "commands.spec.ts(12)",
+      "command-run.spec.ts(18)",
+      "journal-section.spec.ts(8)",
+      "create-todo-section.spec.ts(4)",
+      "loamium-command.test.ts(30)",
+      "journal-section.test.ts(10)"
+    ],
+    "total": 82,
+    "failed": 0
+  },
+  "verifier": {
+    "verdict": "PASS_WITH_CONCERNS",
+    "report": "independent verifier (read-only): AC 全 conforms、forbidden-action なし、ADR-0008/0009/data.json 準拠、テスト authentic。concerns は low のみ(全て修正済み: section min(1) 整合 / dead code 除去 / 監査テスト自己完結化)。"
+  },
+  "done_judgment": {
+    "guard_4_priority9_exception": "n/a (no exception claimed)",
+    "guard_5_call_path": "pass (POST /api/commands/run → step helpers exist; verifier confirmed call paths)",
+    "guard_6_deferred_comment_residue": "pass (none)",
+    "overall": "PASS: 全 Story AC 達成・実テスト green、make lint pass、make test 756/756 pass、独立検証者 PASS_WITH_CONCERNS(low 全対応)。マージ可。"
+  },
+  "environment_fix": "node-pty のネイティブモジュールは既定の Nix gcc-15.2.0 だと GLIBC_2.42 にリンクし runtime glibc 2.39 でロード不可。CC=/usr/bin/gcc-13 CXX=/usr/bin/g++-13 で npm rebuild node-pty すると GLIBC_2.34 にリンクしロード可能。"
+}

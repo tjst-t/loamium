@@ -15,6 +15,7 @@ import { Hono } from 'hono';
 import {
   appendText,
   applyJournalTemplate,
+  insertUnderHeading,
   isValidJournalDate,
   journalAppendRequestSchema,
   journalDateToLocalDate,
@@ -91,7 +92,17 @@ export function journalRoutes(config: ServerConfig): Hono<AppEnv> {
 
     const existing = await readNote(config.vaultRoot, rel);
     const created = existing === null;
-    await writeNote(config.vaultRoot, rel, appendText(existing ?? '', body.data.content));
+
+    let newContent: string;
+    if (body.data.section !== undefined && body.data.section !== '') {
+      // section 指定: 見出し配下の末尾に挿入する [AC-Sd22b1f-3-1]
+      newContent = insertUnderHeading(existing ?? '', body.data.section, body.data.content);
+    } else {
+      // section なし: 従来どおりファイル末尾に追記する (後方互換)
+      newContent = appendText(existing ?? '', body.data.content);
+    }
+
+    await writeNote(config.vaultRoot, rel, newContent);
 
     const res: JournalAppendResponse = { date, path: rel, created };
     return c.json(res, created ? 201 : 200);

@@ -52,6 +52,8 @@ import {
   tagsResponseSchema,
   smartViewConfigSchema,
   smartFoldersResolveResponseSchema,
+  commandsResponseSchema,
+  commandRunResponseSchema,
 } from '@loamium/shared';
 import {
   apiFetch,
@@ -203,13 +205,21 @@ function buildProgram(): Command {
       });
     });
 
-  sub('journal-append', 'デイリージャーナル末尾に追記する (POST /api/journal/append)')
-    .argument('<content>', '追記するテキスト')
+  sub(
+    'journal-append',
+    // Note: content that starts with "-" (e.g. "- [ ] task") must be passed after
+    // the "--" end-of-options separator to avoid Commander treating it as an option flag.
+    // Example: loamium journal-append --section Todo -- "- [ ] task"
+    'デイリージャーナル末尾に追記する (POST /api/journal/append)\n  Note: "-" で始まる content は -- 区切り後に渡す: loamium journal-append --section Todo -- "- [ ] task"',
+  )
+    .argument('<content>', '追記するテキスト ("-" 始まりの場合は -- 区切り後に渡す)')
     .argument('[date]', 'YYYY-MM-DD (省略時は今日)')
-    .action(async (content: string, date: string | undefined, opts: JsonOpt) => {
+    .option('--section <heading>', '挿入先 ATX 見出しテキスト (指定時は見出し配下の末尾に挿入、見出しが無ければ末尾に追記) [AC-Sd22b1f-3-2]')
+    .action(async (content: string, date: string | undefined, opts: JsonOpt & { section?: string }) => {
       const base = await resolveBaseUrl();
-      const body: { content: string; date?: string } = { content };
+      const body: { content: string; date?: string; section?: string } = { content };
       if (date !== undefined) body.date = date;
+      if (opts.section !== undefined) body.section = opts.section;
       const result = await apiFetch(base, '/api/journal/append', postJson(body));
       output(opts, result, () => {
         const res = parseAs(result, journalAppendResponseSchema, 'journal-append');
@@ -546,6 +556,85 @@ function buildProgram(): Command {
         }
       });
     });
+
+  // ---- スマートコマンド一覧 (Sd22b1f-1) ----
+
+  // commands (GET /api/commands)
+  sub('commands', 'スマートコマンド定義を一覧する (GET /api/commands)')
+    .action(async (opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, '/api/commands');
+      output(opts, result, () => {
+        const res = parseAs(result, commandsResponseSchema, 'commands');
+        for (const cmd of res.commands) {
+          if (cmd.valid) {
+            const desc = cmd.description !== undefined ? `\t${cmd.description}` : '';
+            println(`${cmd.name}\t${cmd.path}${desc}`);
+          } else {
+            println(`${cmd.name}\t${cmd.path}\t[INVALID] ${cmd.error}`);
+          }
+        }
+      });
+    });
+
+  // ---- スマートコマンド実行 (Sd22b1f-2) ----
+
+  // command run <name> --param k=v (POST /api/commands/{name}/run)
+  // [AC-Sd22b1f-2-4]
+  const commandCmd = new Command('command');
+  commandCmd
+    .description('スマートコマンドを実行する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} });
+
+  commandCmd
+    .command('run')
+    .description('コマンドをステップ順に実行する (POST /api/commands/{name}/run)')
+    .argument('<name>', 'コマンド名 (commands/ 配下のファイル名、拡張子なし)')
+    .option(
+      '--param <key=value>',
+      'パラメータの指定 (複数回指定可。例: --param title=メモ)',
+      (value: string, acc: string[]) => [...acc, value],
+      [] as string[],
+    )
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (name: string, opts: JsonOpt & { param: string[] }) => {
+      const params: Record<string, string> = {};
+      for (const kv of opts.param) {
+        const eq = kv.indexOf('=');
+        if (eq <= 0) {
+          fail('usage', `--param の形式が不正です (key=value を期待): "${kv}"`, 2);
+        }
+        params[kv.slice(0, eq)] = kv.slice(eq + 1);
+      }
+      const encodedName = name
+        .split('/')
+        .map((seg) => encodeURIComponent(seg))
+        .join('/');
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(
+        base,
+        `/api/commands/${encodedName}/run`,
+        postJson({ params }),
+      );
+      output(opts, result, () => {
+        const res = parseAs(result, commandRunResponseSchema, 'command run');
+        for (const step of res.results) {
+          if (step.ok) {
+            println(`ok\t${step.kind}${step.path !== undefined ? `\t${step.path}` : ''}`);
+          } else {
+            println(`fail\t${step.kind}\t${step.error ?? ''}`);
+          }
+        }
+        if (res.openPath !== undefined) {
+          println(`open\t${res.openPath}`);
+        }
+      });
+    });
+
+  program.addCommand(commandCmd);
 
   // ---- エクスポート (ADR-0006 / Sa8ee62-1) ----
 

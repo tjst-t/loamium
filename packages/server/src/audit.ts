@@ -37,6 +37,11 @@ export async function writeAuditEntry(config: ServerConfig, entry: AuditEntry): 
 /** ハンドラが実行されなかった場合 (403 拒否・400 パス不正) の op 推定。 */
 export function deriveOp(method: string, reqPath: string): string {
   if (reqPath === '/api/journal/append') return 'journal.append';
+  if (
+    method === 'POST' &&
+    reqPath.startsWith('/api/commands/') &&
+    reqPath.endsWith('/run')
+  ) return 'command.run';
   if (reqPath.startsWith('/api/notes/')) {
     if (method === 'PUT') return 'note.write';
     if (method === 'DELETE') return 'note.delete';

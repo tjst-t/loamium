@@ -1,0 +1,44 @@
+verify-fix: Sd22b1f — post-sprint lint/test fix pass
+Date: 2026-07-11
+
+=== FIXES APPLIED ===
+
+1. [BLOCKING] tests/acceptance/commands.spec.ts — TS2339 discriminated union narrowing
+   - Lines 132–143: narrowed on `entry.valid === true/false` before accessing
+     `.description`, `.params` (valid:true fields) and `.error` (valid:false field).
+   - No `as` casts; uses `if (entry.valid === true) { ... } else { throw ... }` pattern.
+
+2. [cross-schema] packages/shared/src/loamium-command.ts — journalAppendStepSchema.section
+   - Added `.min(1)` to `section` field to match `journalAppendRequestSchema.section`.
+   - No tests send `section: ""` in a step, so no test adjustments needed.
+
+3. [dead code] packages/server/src/routes/commands.ts
+   - Removed unreachable `if (config.mode === 'read-only')` 403 block inside the run handler.
+   - permissionMiddleware already blocks read-only before the handler is reached.
+   - Updated comment to explain: "read-only → permissionMiddleware が既に 403 を返すためここには到達しない".
+   - read-only test still passes (403 is returned by middleware).
+
+4. [audit test] tests/acceptance/command-run.spec.ts
+   - "[AC-Sd22b1f-2-3] run records command.run in audit log": made self-contained.
+   - Test now runs its own command (`create-todo` with title `audit-self-contained`),
+     captures audit log count before/after, and asserts count increased.
+   - No longer relies on "前のテストで既に記録されているはず".
+
+=== VERIFICATION RESULTS ===
+
+make lint:
+  EXIT 0 — no TypeScript errors (all 4 workspaces + tests/tsconfig.json clean)
+
+npx vitest run [6 spec files]:
+  Test Files  6 passed (6)
+  Tests       82 passed (82)
+  Duration    ~4.26s
+  No failures, no skips.
+
+Files verified:
+  - tests/acceptance/commands.spec.ts (12 tests)
+  - tests/acceptance/command-run.spec.ts (18 tests)
+  - tests/acceptance/journal-section.spec.ts (8 tests)
+  - tests/acceptance/create-todo-section.spec.ts (4 tests)
+  - packages/shared/src/loamium-command.test.ts (30 tests)
+  - packages/shared/src/journal-section.test.ts (10 tests)

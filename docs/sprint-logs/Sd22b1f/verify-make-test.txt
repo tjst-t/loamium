@@ -1,0 +1,158 @@
+npm test
+
+> loamium@0.1.0 test
+> vitest run
+
+
+ RUN  v3.2.6 /home/ubuntu/worktrees/github.com/tjst-t/loamium/smart-command
+
+ ✓ tests/acceptance/smart-folders.spec.ts (22 tests) 9702ms
+   ✓ [AC-S32940c-2-1] GET /api/smart-folders — 欠損ファイルは空フォールバック > 定義ファイル未作成でも 200 かつ {version:1, items:[]} が返る  554ms
+   ✓ [AC-S32940c-2-1] GET /api/smart-folders — 欠損ファイルは空フォールバック > 破損した JSON でも 200 かつ empty フォールバック (never 500)  477ms
+   ✓ [AC-S32940c-2-2] PUT /api/smart-folders — アトミック書き込み + 監査ログ > 有効な定義を PUT すると 200 + ファイル作成 + 監査ログ smart-folders.write  496ms
+   ✓ [AC-S32940c-2-2] PUT /api/smart-folders — アトミック書き込み + 監査ログ > PUT した定義は GET で同じ内容が返る (scenario-1 step 3)  624ms
+   ✓ [AC-S32940c-2-3] GET /api/smart-folders/{id}/notes — クエリ・ピン解決 > query 種は executeQuery 経由で NoteMeta[] が返る (scenario-1 step 4)  618ms
+   ✓ [AC-S32940c-2-3] GET /api/smart-folders/{id}/notes — クエリ・ピン解決 > pin 種 — 存在するノートは NoteMeta 1 件で返る  439ms
+   ✓ [AC-S32940c-2-3] GET /api/smart-folders/{id}/notes — クエリ・ピン解決 > pin 種 — 存在しない pin は結果から除外 (エラーにならない、ファイルを壊さない) [scenario-1 step 6]  409ms
+   ✓ [AC-S32940c-2-3] GET /api/smart-folders/{id}/notes — クエリ・ピン解決 > 未知の id は 404 が返る  416ms
+   ✓ [AC-S32940c-2-4] zod スキーマ検証 — 不正定義は 4xx でファイル不変 > ../escape.md を含む pin.path は 4xx でファイル未変更 (scenario-1 step 5)  527ms
+   ✓ [AC-S32940c-2-4] zod スキーマ検証 — 不正定義は 4xx でファイル不変 > 無効な DQL (query.dql) は 4xx でファイル未変更  439ms
+   ✓ [AC-S32940c-2-4] zod スキーマ検証 — 不正定義は 4xx でファイル不変 > kind 以外の不正な body (版なし・items 欠落) も 4xx  434ms
+   ✓ [AC-S32940c-2-2] read-only モードでは PUT を 403 (scenario-2) > read-only サーバーでは PUT /api/smart-folders が 403 (scenario-2 step 1)  411ms
+   ✓ [AC-S32940c-2-2] read-only モードでは PUT を 403 (scenario-2) > read-only モードでも GET /api/smart-folders は 200 (scenario-2 step 2)  427ms
+   ✓ [AC-S32940c-2-2] read-only モードでは PUT を 403 (scenario-2) > append-only モードでも PUT /api/smart-folders は 403 (書込は full のみ)  431ms
+   ✓ [AC-Sebf6b0-1-1][AC-Sebf6b0-1-2] フォルダ pin の解決 — 配下ノートを返す > フォルダ pin は配下 (サブフォルダ含む) の全ノートを path 昇順で返す  578ms
+   ✓ [AC-Sebf6b0-1-1][AC-Sebf6b0-1-2] フォルダ pin の解決 — 配下ノートを返す > ノート pin は後方互換で単一 NoteMeta を返す [AC-Sebf6b0-1-2]  538ms
+   ✓ [AC-Sebf6b0-1-1][AC-Sebf6b0-1-2] フォルダ pin の解決 — 配下ノートを返す > 存在しないフォルダへのフォルダ pin は空配列を返す (エラーにならない) [AC-Sebf6b0-1-2]  532ms
+   ✓ [AC-Sebf6b0-1-schema] PUT /api/smart-folders — フォルダパスの pin.path を受け入れる > フォルダパス (拡張子なし) の pin.path を持つ設定の PUT が 200 を返す  494ms
+   ✓ [AC-Sebf6b0-1-schema] PUT /api/smart-folders — フォルダパスの pin.path を受け入れる > path traversal を含むフォルダパスは 4xx で拒否される  423ms
+   ✓ [AC-Sebf6b0-1-schema] PUT /api/smart-folders — フォルダパスの pin.path を受け入れる > 隠しセグメントを含むフォルダパスは 4xx で拒否される  423ms
+ ✓ tests/acceptance/cli.spec.ts (16 tests) 11449ms
+   ✓ [AC-S0c9a48-1-1] loamium の 10 サブコマンドが API と 1:1 で動作する > write → read → append → patch のノート往復 (ファイルにも反映される)  1949ms
+   ✓ [AC-S0c9a48-1-1] loamium の 10 サブコマンドが API と 1:1 で動作する > journal が今日の YYYY-MM-DD.md を自動生成し、journal-append が追記する (日付指定込み)  1349ms
+   ✓ [AC-S0c9a48-1-1] loamium の 10 サブコマンドが API と 1:1 で動作する > search / backlinks / list / tags がインデックス系 API と 1:1 で動作する  1920ms
+   ✓ [AC-S0c9a48-1-1] loamium の 10 サブコマンドが API と 1:1 で動作する > --json フラグで API レスポンスの生 JSON をそのまま stdout に出す (全系統)  1154ms
+   ✓ [AC-S0c9a48-1-1] サーバー URL の解決順: LOAMIUM_URL → portman → デフォルト > LOAMIUM_URL 未設定なら portman port --name loamium のポートで解決される  304ms
+   ✓ [AC-S0c9a48-1-1] サーバー URL の解決順: LOAMIUM_URL → portman → デフォルト > LOAMIUM_URL は portman より優先される  311ms
+   ✓ [AC-S0c9a48-1-2] 成功は exit 0 + stdout、失敗は非 0 + stderr に機械可読エラー > patch の old 不在 / 曖昧一致はサーバーの機械可読コードを透過する  757ms
+   ✓ [AC-S0c9a48-1-2] 成功は exit 0 + stdout、失敗は非 0 + stderr に機械可読エラー > vault 外パス (../ / 絶対パス) は invalid_path で拒否される  397ms
+   ✓ [AC-S0c9a48-1-2] 成功は exit 0 + stdout、失敗は非 0 + stderr に機械可読エラー > read-only モードのサーバーへの write は権限拒否 (forbidden) で非 0 終了する  663ms
+   ✓ [AC-S0c9a48-1-2] 成功は exit 0 + stdout、失敗は非 0 + stderr に機械可読エラー > 使い方エラー (引数不足・不明コマンド・不明フラグ) は exit 2 + {error: "usage"}  600ms
+ ✓ tests/acceptance/terminal.spec.ts (13 tests) 15850ms
+   ✓ [AC-Sb7f458-1-1] terminal is opt-in: LOAMIUM_TERMINAL=1 + LOAMIUM_MODE=full only > rejects WS connection when LOAMIUM_TERMINAL is not set (default disabled)  526ms
+   ✓ [AC-Sb7f458-1-1] terminal is opt-in: LOAMIUM_TERMINAL=1 + LOAMIUM_MODE=full only > rejects WS connection in read-only mode even with LOAMIUM_TERMINAL=1  566ms
+   ✓ [AC-Sb7f458-1-1] terminal is opt-in: LOAMIUM_TERMINAL=1 + LOAMIUM_MODE=full only > rejects WS connection in append-only mode even with LOAMIUM_TERMINAL=1  536ms
+   ✓ [AC-Sb7f458-1-1] terminal is opt-in: LOAMIUM_TERMINAL=1 + LOAMIUM_MODE=full only > accepts WS connection with LOAMIUM_TERMINAL=1 + mode=full and reports it via health  557ms
+   ✓ [AC-Sb7f458-1-1] terminal is opt-in: LOAMIUM_TERMINAL=1 + LOAMIUM_MODE=full only > rejects a cross-origin browser connection (CSWSH) without spawning a pty  2139ms
+   ✓ [AC-S79c210-3-1] LOAMIUM_TERMINAL_ALLOWED_ORIGINS allows listed LAN origins > accepts a listed LAN origin and still rejects an unlisted cross-origin (1008)  3540ms
+   ✓ [AC-S79c210-3-1] LOAMIUM_TERMINAL_ALLOWED_ORIGINS allows listed LAN origins > keeps rejecting all non-loopback origins when the allow-list is empty (default)  544ms
+   ✓ [AC-Sb7f458-1-2] pty session: real-shell interaction, resize, child cleanup, audit > terminates the child process when the client disconnects (SIGTERM→SIGKILL)  3068ms
+   ✓ [AC-Sb7f458-1-2] pty session: real-shell interaction, resize, child cleanup, audit > records session start/end in audit.log without recording command content  3074ms
+   ✓ [AC-Sb7f458-1-2] pty session: real-shell interaction, resize, child cleanup, audit > rejected attempts on a disabled server are audited as denied  577ms
+ ✓ tests/acceptance/note-properties.spec.ts (18 tests) 4826ms
+   ✓ [AC-S32940c-3-3] 監査ログと権限 (scenario-2) > scenario-2-step-1: full mode → 200 + audit.log has note.property.write  500ms
+   ✓ [AC-S32940c-3-3] 監査ログと権限 (scenario-2) > scenario-2-step-2: read-only mode → 403, file unchanged  451ms
+   ✓ [AC-S32940c-3-3] 監査ログと権限 (scenario-2) > append-only mode → 403, file unchanged [AC-S32940c-3-3]  399ms
+   ✓ [AC-S32940c-3-5] E2E: bookmark → LIST WHERE bookmark (scenario-4) > scenario-4-step-2: after prop unset bookmark, LIST WHERE bookmark excludes note  319ms
+ ✓ tests/acceptance/export.spec.ts (27 tests) 8306ms
+   ✓ [AC-Sa8ee62-1-1] GET /api/notes/{path}/export — PDF > format=pdf — 200 と application/pdf を返す  939ms
+   ✓ [AC-Sa8ee62-1-1] GET /api/notes/{path}/export — PDF > format=pdf — レスポンスボディが %PDF- マジックバイトで始まる [AC-Sa8ee62-1-3]  687ms
+   ✓ [AC-Sa8ee62-1-1] GET /api/notes/{path}/export — PDF > format=pdf — PDF サイズが非ゼロ (実際に内容がある) [AC-Sa8ee62-1-3]  677ms
+   ✓ [AC-Sa8ee62-1-1] GET /api/notes/{path}/export — PDF > format=pdf — content-disposition に attachment が含まれる  659ms
+   ✓ [AC-Sa8ee62-1-1] GET /api/notes/{path}/export — PDF > format=pdf (デフォルト) — format クエリパラメータを省略すると PDF を返す  646ms
+   ✓ [AC-Sa8ee62-1-3] vault ファイル無改変 > PDF エクスポート後も vault の .md ファイルバイトが変化しない  654ms
+   ✓ [AC-Sa8ee62-1-2] CLI loamium export <path> > --format pdf -o <file> — ファイルが %PDF- で始まる PDF として書き出される [AC-Sa8ee62-1-3]  979ms
+   ✓ [AC-Sa8ee62-1-2] CLI loamium export <path> > --format pdf -o <file> — stdout にはファイルパスのメッセージが出る  1001ms
+ ✓ tests/acceptance/command-run.spec.ts (18 tests) 3472ms
+ ✓ tests/acceptance/property-keys.spec.ts (8 tests) 4410ms
+   ✓ [AC-Sd13ab1-2-4] vault 横断のプロパティキー集約 (件数付き) > 全ノートの frontmatter キーを件数付きで集約する (tags() と同型)  558ms
+   ✓ [AC-Sd13ab1-2-4] vault 横断のプロパティキー集約 (件数付き) > あるノートで作った任意キー(hoge)が別ノートの候補として集約に出る  584ms
+   ✓ [AC-Sd13ab1-2-4] vault 横断のプロパティキー集約 (件数付き) > chokidar による外部追加 (API を経由しない frontmatter) にも追従する  837ms
+   ✓ [AC-Sd13ab1-2-4] vault 横断のプロパティキー集約 (件数付き) > read-only モードでも GET /api/property-keys は許可される (read 分類)  473ms
+   ✓ [AC-Sd13ab1-2-3] 新規キーの型を property-types.json へ永続化 (D方式の横断固定) > PUT /api/property-types で型を永続化し、別ファイルで同じ型に解決される  519ms
+   ✓ [AC-Sd13ab1-2-3] 新規キーの型を property-types.json へ永続化 (D方式の横断固定) > 既存の型定義を保ったまま 1 キー分だけマージ書き込みする  511ms
+   ✓ [AC-Sd13ab1-2-3] 新規キーの型を property-types.json へ永続化 (D方式の横断固定) > read-only モードでは PUT /api/property-types が 403 で拒否される (mutate 分類)  455ms
+   ✓ [AC-Sd13ab1-2-3] 新規キーの型を property-types.json へ永続化 (D方式の横断固定) > 書き込み系 PUT は監査ログ (.loamium/audit.log) に記録される  472ms
+ ✓ tests/acceptance/note-meta.spec.ts (25 tests) 3316ms
+   ✓ [AC-S11493d-1-1] GET /api/notes/{path}/meta > wordCount はフェンス内のコードを除外した値になる  536ms
+ ✓ tests/acceptance/cli-upload.spec.ts (8 tests) 3392ms
+   ✓ [AC-Sf53ad6-1-3] loamium upload <ローカルファイル> [vault内パス] (REST 1:1) > 既存パスへは conflict (exit 1)、--overwrite なら上書きできる  560ms
+   ✓ [AC-Sf53ad6-1-3] loamium upload <ローカルファイル> [vault内パス] (REST 1:1) > .md へのアップロードはサーバーの use_notes_api がそのまま透過する (exit 1)  371ms
+   ✓ [AC-Sf53ad6-1-3] loamium upload <ローカルファイル> [vault内パス] (REST 1:1) > loamium files が添付一覧を返す (GET /api/files と 1:1)  559ms
+ ✓ tests/acceptance/property-types.spec.ts (6 tests) 3249ms
+   ✓ [AC-S87f4b7-2-1] 意味型の解決 + JSON定義による上書き > 内蔵ヒューリスティックがキー名/値の形から意味型を解決する  498ms
+   ✓ [AC-S87f4b7-2-1] 意味型の解決 + JSON定義による上書き > .loamium/property-types.json のキー→型定義でヒューリスティックを上書きする  500ms
+   ✓ [AC-S87f4b7-2-1] 意味型の解決 + JSON定義による上書き > read-only モードでも GET /api/property-types は許可される (read 分類)  615ms
+   ✓ [AC-S87f4b7-2-3] 壊れた JSON でもクラッシュせずフォールバック / 型情報は非永続 > 壊れた JSON はサーバーが 200 で {} を返し、ヒューリスティックへフォールバック  641ms
+   ✓ [AC-S87f4b7-2-3] 壊れた JSON でもクラッシュせずフォールバック / 型情報は非永続 > 一部が壊れた JSON は妥当なエントリだけ採用する  506ms
+   ✓ [AC-S87f4b7-2-3] 壊れた JSON でもクラッシュせずフォールバック / 型情報は非永続 > 型定義を読んでもノートファイル (.md) には型情報が書かれない (ピュア Markdown)  486ms
+ ✓ tests/acceptance/smart-folders-cli.spec.ts (8 tests) 3138ms
+   ✓ [AC-S32940c-2-6] CLI 1:1 対応 — smart-folders / smart-folder コマンド (scenario-4) > smart-folders set <json-file> が PUT /api/smart-folders と 1:1 (scenario-4 step 1)  307ms
+   ✓ [AC-S32940c-2-6] CLI 1:1 対応 — smart-folders / smart-folder コマンド (scenario-4) > smart-folders set で空定義に戻せる (cleanup)  570ms
+   ✓ [AC-S32940c-2-6] CLI 1:1 対応 — smart-folders / smart-folder コマンド (scenario-4) > 存在しない id で smart-folder は exit 1 + stderr に機械可読エラー  308ms
+ ✓ tests/acceptance/files.spec.ts (11 tests) 2602ms
+ ✓ tests/acceptance/commands.spec.ts (12 tests) 3008ms
+   ✓ [AC-Sd22b1f-1-2] GET /api/commands > commands/ が空の vault では { commands: [] } を 200 で返す  480ms
+   ✓ [AC-Sd22b1f-1-2] GET /api/commands > [AC-Sd22b1f-1-2] 非UTF-8バイナリファイルがあっても GET /api/commands は 200 を返す  504ms
+   ✓ [AC-Sd22b1f-1-3] CLI loamium commands > サーバー未起動の場合は exit 1 + server_unreachable エラー  318ms
+ ✓ tests/acceptance/journal-template.spec.ts (7 tests) 2738ms
+ ✓ tests/acceptance/cli-new.spec.ts (7 tests) 2419ms
+ ✓ tests/acceptance/cli-query.spec.ts (7 tests) 2712ms
+   ✓ [AC-Sb1593c-1-3] loamium query が API と 1:1 で動作する > LIST from #tag: 対象ノートのパスを 1 行ずつ出力する  300ms
+   ✓ [AC-Sb1593c-1-3] loamium query が API と 1:1 で動作する > TASK: path:line: [x] text 形式で出力する  535ms
+ ✓ tests/acceptance/journal-section.spec.ts (8 tests) 2210ms
+   ✓ [AC-Sd22b1f-3-2] CLI journal-append --section > [AC-Sd22b1f-3-2] --json output works with --section  329ms
+ ✓ tests/acceptance/files-upload.spec.ts (14 tests) 2035ms
+   ✓ [AC-Sf53ad6-1-1] read-only / append-only モードのアップロードは 403 > mode=read-only は 403 forbidden (denied が監査ログに残り、ファイルは作られない)  483ms
+   ✓ [AC-Sf53ad6-1-1] read-only / append-only モードのアップロードは 403 > mode=append-only も 403 (アップロードは追記ではない)  491ms
+ ✓ tests/acceptance/rename.spec.ts (11 tests) 1911ms
+   ✓ [AC-S6fbf45-3-1] POST /api/notes/{path}/rename が vault 内の全 [[旧名]] を書き換える > read-only モードでは 403 で拒否され、監査ログに denied が残る  498ms
+ ✓ tests/acceptance/watch.spec.ts (5 tests) 1741ms
+   ✓ [AC-S31ba00-3-1] external file changes are reflected in search and backlinks > picks up an external deletion (gone from search and backlinks)  335ms
+ ✓ tests/acceptance/files-manage.spec.ts (7 tests) 1622ms
+   ✓ DELETE /api/files/{path} — 添付削除 > read-only モードでは 403 で削除されない  523ms
+ ✓ tests/acceptance/audit-permissions.spec.ts (9 tests) 1675ms
+ ✓ tests/acceptance/query.spec.ts (12 tests) 1459ms
+   ✓ [AC-Sb1593c-1-1] POST /api/query — LIST / TABLE / TASK + from / where / sort > read-only モードでも POST /api/query は実行できる (純読み取り)  548ms
+ ✓ tests/acceptance/notes-crud.spec.ts (21 tests) 698ms
+ ✓ tests/acceptance/templates.spec.ts (12 tests) 1110ms
+   ✓ [AC-S89a350-2-3] 書き込みは監査ログに記録される > read-only モードでは instantiate が 403 で拒否される (mutate 分類)  486ms
+ ✓ tests/acceptance/samples.spec.ts (3 tests) 690ms
+ ✓ tests/acceptance/journal.spec.ts (7 tests) 623ms
+ ✓ tests/acceptance/files-list.spec.ts (3 tests) 554ms
+ ✓ tests/acceptance/query-limit.spec.ts (6 tests) 621ms
+ ✓ tests/acceptance/create-todo-section.spec.ts (4 tests) 607ms
+ ✓ tests/acceptance/search.spec.ts (11 tests) 587ms
+ ✓ packages/shared/src/template-note.test.ts (9 tests) 15ms
+ ✓ packages/ui/tests/unit/embed.spec.ts (12 tests) 108ms
+ ✓ tests/acceptance/backlinks.spec.ts (7 tests) 653ms
+ ✓ packages/shared/src/extract.test.ts (47 tests) 32ms
+ ✓ packages/shared/src/frontmatter.test.ts (21 tests) 26ms
+ ✓ tests/acceptance/skill.spec.ts (12 tests) 15ms
+ ✓ packages/shared/src/dql.test.ts (51 tests) 39ms
+ ✓ packages/shared/src/noteMeta.test.ts (28 tests) 21ms
+ ✓ packages/shared/src/markdown.test.ts (8 tests) 24ms
+ ✓ packages/shared/src/loamium-command.test.ts (30 tests) 13ms
+ ✓ packages/shared/src/props-keyfirst.test.ts (7 tests) 8ms
+ ✓ packages/shared/src/property-types.test.ts (14 tests) 9ms
+ ✓ packages/shared/src/template.test.ts (20 tests) 11ms
+ ✓ packages/ui/tests/unit/table.spec.ts (21 tests) 6ms
+ ✓ packages/ui/tests/unit/router.spec.ts (15 tests) 5ms
+ ✓ packages/shared/src/links.test.ts (22 tests) 5ms
+ ✓ packages/shared/src/path.test.ts (15 tests) 5ms
+ ✓ packages/shared/src/journal.test.ts (12 tests) 5ms
+ ✓ packages/shared/src/tag-suggest.test.ts (8 tests) 6ms
+ ✓ packages/ui/tests/unit/registry.spec.ts (5 tests) 4ms
+ ✓ packages/ui/tests/unit/file-preview.spec.ts (6 tests) 4ms
+ ✓ packages/shared/src/journal-section.test.ts (10 tests) 4ms
+ ✓ packages/server/src/config.test.ts (8 tests) 4ms
+ ✓ packages/shared/src/sections.test.ts (7 tests) 3ms
+ ✓ packages/server/src/terminal.test.ts (9 tests) 3ms
+ ✓ packages/shared/src/text.test.ts (6 tests) 3ms
+
+ Test Files  57 passed (57)
+      Tests  756 passed (756)
+   Start at  15:10:17
+   Duration  39.49s (transform 1.09s, setup 0ms, collect 3.60s, tests 103.76s, environment 10ms, prepare 3.41s)
+
+JUNIT report written to /home/ubuntu/worktrees/github.com/tjst-t/loamium/smart-command/reports/junit.xml

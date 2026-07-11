@@ -9,6 +9,7 @@ import { filesRoutes } from './routes/files.js';
 import { propertyTypesRoutes } from './routes/property-types.js';
 import { templatesRoutes } from './routes/templates.js';
 import { smartFoldersRoutes } from './routes/smart-folders.js';
+import { commandsRoutes } from './routes/commands.js';
 import { auditMiddleware } from './audit.js';
 import { permissionMiddleware } from './permissions.js';
 import { indexSyncMiddleware } from './indexSync.js';
@@ -51,6 +52,8 @@ export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv>
   app.route('/', templatesRoutes(config));
   // スマートフォルダ定義 CRUD・解決 (S32940c-2)
   app.route('/', smartFoldersRoutes(config, index));
+  // スマートコマンド定義一覧 (Sd22b1f-1)
+  app.route('/', commandsRoutes(config));
 
   return app;
 }

@@ -5,6 +5,7 @@
 import { z } from 'zod';
 import { normalizeVaultFilePath, VaultPathError } from './path.js';
 import { parseQuery, DqlParseError } from './dql.js';
+import { commandParamSchema } from './loamium-command.js';
 
 // ---- 権限モード ----
 
@@ -48,6 +49,14 @@ export type NoteRenameRequest = z.infer<typeof noteRenameRequestSchema>;
 export const journalAppendRequestSchema = z.object({
   content: z.string().min(1, 'content must not be empty'),
   date: z.string().optional(),
+  /**
+   * ATX 見出しテキスト (例: "Todo")。指定時、対象見出し配下の末尾に挿入する。
+   * 見出しが存在しなければファイル末尾に見出しごと追記する (insertUnderHeading と同挙動)。
+   * 省略時は従来通りファイル末尾に追記する (appendText — 後方互換)。
+   * 空文字列は拒否する (min(1))。section="" を省略扱いにするのではなく、スキーマ境界で弾く。
+   * [AC-Sd22b1f-3-1]
+   */
+  section: z.string().min(1).optional(),
 });
 export type JournalAppendRequest = z.infer<typeof journalAppendRequestSchema>;
 
@@ -705,3 +714,79 @@ export const auditEntrySchema = z.object({
   status: z.number(),
 });
 export type AuditEntry = z.infer<typeof auditEntrySchema>;
+
+// ---- スマートコマンド一覧 (GET /api/commands — Sd22b1f-1) ----
+
+/**
+ * GET /api/commands が返すコマンド 1 件のサマリ。
+ * valid:false の場合も一覧に含め、error フィールドで原因を示す (寛容 read)。
+ */
+export const commandSummarySchema = z.discriminatedUnion('valid', [
+  z.object({
+    /** コマンド識別名 (loamium-command.name、省略時はファイル名拡張子なし)。 */
+    name: z.string(),
+    /** コマンドファイルの vault 相対パス (commands/xxx.md)。 */
+    path: z.string(),
+    /** 人間向け説明 (loamium-command.description)。 */
+    description: z.string().optional(),
+    /** パラメータ定義 (loamium-command.params)。 */
+    params: z.array(commandParamSchema),
+    /** 常に true (正常定義)。 */
+    valid: z.literal(true),
+  }),
+  z.object({
+    /** ファイル名 (拡張子なし)。frontmatter が壊れているためファイル名から導出。 */
+    name: z.string(),
+    /** コマンドファイルの vault 相対パス。 */
+    path: z.string(),
+    /** 常に false (無効定義)。 */
+    valid: z.literal(false),
+    /** 壊れた原因の人間可読メッセージ。 */
+    error: z.string(),
+  }),
+]);
+export type CommandSummary = z.infer<typeof commandSummarySchema>;
+
+export const commandsResponseSchema = z.object({
+  commands: z.array(commandSummarySchema),
+});
+export type CommandsResponse = z.infer<typeof commandsResponseSchema>;
+
+// ---- スマートコマンド実行 (POST /api/commands/{name}/run — Sd22b1f-2) ----
+
+/**
+ * POST /api/commands/{name}/run のリクエストボディ。
+ * params: コマンドパラメータの名前→値マップ。
+ */
+export const commandRunRequestSchema = z.object({
+  params: z.record(z.string(), z.string()).optional().default({}),
+});
+export type CommandRunRequest = z.infer<typeof commandRunRequestSchema>;
+
+/**
+ * ステップ 1 件の実行結果。
+ * - ok: true の場合は成功 (path は書き込んだパス)
+ * - ok: false の場合は失敗 (error に失敗理由)
+ */
+export const commandStepResultSchema = z.object({
+  /** ステップ kind (journal-append / note-append / note-create / template-instantiate) */
+  kind: z.string(),
+  /** 成功 = true / 失敗 = false */
+  ok: z.boolean(),
+  /** 書き込んだ vault 相対パス (成功かつ path が確定したステップのみ) */
+  path: z.string().optional(),
+  /** 失敗理由 (ok:false のみ) */
+  error: z.string().optional(),
+});
+export type CommandStepResult = z.infer<typeof commandStepResultSchema>;
+
+/**
+ * POST /api/commands/{name}/run のレスポンス。
+ * - results: ステップごとの実行結果 (実行したぶんのみ、最初の失敗で停止)
+ * - openPath: open:true が指定されたステップが書き込んだパス (UI 遷移用)
+ */
+export const commandRunResponseSchema = z.object({
+  results: z.array(commandStepResultSchema),
+  openPath: z.string().optional(),
+});
+export type CommandRunResponse = z.infer<typeof commandRunResponseSchema>;
