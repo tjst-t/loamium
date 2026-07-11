@@ -3361,7 +3361,7 @@
         },
         "Sd22b1f-2": {
           "title": "実行エンジン(POST run + 権限/監査 + CLI)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "自分として、定義したコマンドをパラメータ 1 セットで実行し、追記・ノート作成・テンプレート展開の複数ステップを一括で走らせたい。なぜなら、定型ワークフローを毎回手作業で繰り返したくないから。",
@@ -3370,47 +3370,47 @@
               "id": "AC-Sd22b1f-2-1",
               "description": "POST /api/commands/{name}/run(body {params})が steps を順次同期実行し、ステップ毎の結果(kind, ok, path?, error?)と openPath? を返す。content/target/template/vars 値/section は resolveTemplate(params + {{date:}}/{{now:}})で展開される。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sd22b1f-2-2",
               "description": "最初の失敗ステップで停止し、完了済みステップの結果と失敗理由を返す(ロールバックなし)。必須 param 不足は 400 {error:'missing_params', missing[]}。展開後の target は normalizeVaultPath で再検証され `..` 脱出・隠しセグメントは 4xx で拒否される。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sd22b1f-2-3",
               "description": "read-only モードでは run 全体が 403。append-only モードでは v1 の 4 ステップ種のみで構成されたコマンドが許可される。実行は監査ログに command.run + 各ステップの書き込みとして記録される。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sd22b1f-2-4",
               "description": "note-create は既存パスを上書きせず連番サフィックスで新規作成する(templates と同挙動)。CLI `loamium command run <name> --param k=v`(複数指定可)が 1:1 で動く。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sd22b1f-2-1": {
               "title": "ステップ実行器",
               "description": "packages/server にコマンド実行器を実装: steps を逐次実行、resolveTemplate 展開、展開後パスの再検証、結果集約(最初のエラーで停止)。既存の journal/note/template 実装を呼び出す(重複実装しない)。",
-              "status": "pending"
+              "status": "done"
             },
             "Sd22b1f-2-2": {
               "title": "run ルート + 権限/監査",
               "description": "POST /api/commands/{name}/run を追加。append-only 判定はコマンドのステップ構成で行い、setAudit('command.run') + 各ステップの書き込み記録を通す。",
-              "status": "pending"
+              "status": "done"
             },
             "Sd22b1f-2-3": {
               "title": "CLI command run",
               "description": "packages/cli に command run サブコマンド(--param k=v の複数パース)を追加(1:1 対応)。",
-              "status": "pending"
+              "status": "done"
             },
             "Sd22b1f-2-4": {
               "title": "受け入れテスト",
               "description": "tests/acceptance/commands.spec.ts を実 HTTP クライアントで作成: 正常系(複数ステップ)/失敗停止/missing_params/パス検証/権限モード。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
