@@ -205,8 +205,14 @@ function buildProgram(): Command {
       });
     });
 
-  sub('journal-append', 'デイリージャーナル末尾に追記する (POST /api/journal/append)')
-    .argument('<content>', '追記するテキスト')
+  sub(
+    'journal-append',
+    // Note: content that starts with "-" (e.g. "- [ ] task") must be passed after
+    // the "--" end-of-options separator to avoid Commander treating it as an option flag.
+    // Example: loamium journal-append --section Todo -- "- [ ] task"
+    'デイリージャーナル末尾に追記する (POST /api/journal/append)\n  Note: "-" で始まる content は -- 区切り後に渡す: loamium journal-append --section Todo -- "- [ ] task"',
+  )
+    .argument('<content>', '追記するテキスト ("-" 始まりの場合は -- 区切り後に渡す)')
     .argument('[date]', 'YYYY-MM-DD (省略時は今日)')
     .option('--section <heading>', '挿入先 ATX 見出しテキスト (指定時は見出し配下の末尾に挿入、見出しが無ければ末尾に追記) [AC-Sd22b1f-3-2]')
     .action(async (content: string, date: string | undefined, opts: JsonOpt & { section?: string }) => {

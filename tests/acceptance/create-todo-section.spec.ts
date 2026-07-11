@@ -21,6 +21,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { z } from 'zod';
 import { commandRunResponseSchema } from '@loamium/shared';
 import {
   cleanupVault,
@@ -238,7 +239,8 @@ describe('[AC-Sd22b1f-3-3] create-todo section コマンド実証', () => {
       due: '2026-07-31',
     });
     expect(status).toBe(400);
-    const b = body as { error: string; missing: string[] };
+    const missingParamsSchema = z.object({ error: z.string(), missing: z.array(z.string()) });
+    const b = missingParamsSchema.parse(body);
     expect(b.error).toBe('missing_params');
     expect(b.missing).toContain('summary');
   });

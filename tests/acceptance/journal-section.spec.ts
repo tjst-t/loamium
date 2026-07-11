@@ -193,13 +193,11 @@ describe('[AC-Sd22b1f-3-2] CLI journal-append --section', () => {
 
   const today = localToday();
 
-  it('[AC-Sd22b1f-3-2] --section inserts under heading via CLI', async () => {
+  it('[AC-Sd22b1f-3-2] --section inserts under heading via CLI (non-dash content)', async () => {
     // 既存ジャーナルに ## Todo 見出しを仕込む
     await putNote(server, `journals/${today}.md`, '# 日記\n\n## Todo\n\n既存CLIタスク\n');
 
-    // Note: CLI content that starts with '-' would be misinterpreted by Commander
-    // as an option flag. Use content that does not start with '-' in CLI tests.
-    // REST API handles '- [ ] ...' content directly (no Commander parsing involved).
+    // Non-dash content works without "--" separator.
     const result = await runCli(
       ['journal-append', 'CLIから追記したタスク', '--section', 'Todo'],
       { env: { LOAMIUM_URL: server.baseUrl } },
@@ -216,6 +214,31 @@ describe('[AC-Sd22b1f-3-2] CLI journal-append --section', () => {
     const existingIdx = raw.indexOf('既存CLIタスク');
     const cliIdx = raw.indexOf('CLIから追記したタスク');
     expect(cliIdx).toBeGreaterThan(existingIdx);
+  });
+
+  it('[AC-Sd22b1f-3-2] dash-leading content "- [ ] task" works via -- separator', async () => {
+    // Real markdown task line starting with '-'. Commander would interpret this as
+    // an unknown option flag without the "--" end-of-options separator.
+    // Convention: loamium journal-append --section <heading> -- "- [ ] task"
+    // The "--" separator tells Commander to stop option-parsing; subsequent args
+    // are treated as positional arguments.
+    const date = '2026-05-03';
+    await putNote(server, `journals/${date}.md`, '# 日記\n\n## Todo\n\n');
+
+    const result = await runCli(
+      ['journal-append', '--section', 'Todo', '--', '- [ ] dashタスク', date],
+      { env: { LOAMIUM_URL: server.baseUrl } },
+    );
+    expect(result.code).toBe(0);
+    expect(result.stderr).toBe('');
+
+    const raw = await readJournal(server.vault, date);
+    // The exact task line must appear under ## Todo
+    expect(raw).toContain('- [ ] dashタスク');
+    // Must be under ## Todo (the only heading)
+    const taskIdx = raw.indexOf('- [ ] dashタスク');
+    const headingIdx = raw.indexOf('## Todo');
+    expect(taskIdx).toBeGreaterThan(headingIdx);
   });
 
   it('[AC-Sd22b1f-3-2] --section with absent heading: appends heading + text via CLI', async () => {

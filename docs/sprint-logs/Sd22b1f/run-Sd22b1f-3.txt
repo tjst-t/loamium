@@ -11,18 +11,50 @@ Implemented Story Sd22b1f-3 in full:
 5. Created tests/acceptance/journal-section.spec.ts (AC-Sd22b1f-3-1, AC-Sd22b1f-3-2)
 6. Created tests/acceptance/create-todo-section.spec.ts (AC-Sd22b1f-3-3)
 
+== Review Fixes (2026-07-11) ==
+
+Finding 2 (schema boundary — section 空文字拒否):
+  packages/shared/src/schemas.ts: section: z.string().min(1).optional()
+  空文字列はスキーマ境界で拒否する (server 側 route guard は後方互換で残す)。
+
+Finding 1 (型安全化 — naked `as` cast 除去):
+  tests/acceptance/create-todo-section.spec.ts: body as {...} を
+  z.object({ error: z.string(), missing: z.array(z.string()) }).parse(body) に置換。
+  zod parse なので型安全 + 実行時検証も兼ねる。
+
+Finding 3/4 (CLI dash-leading content — -- 区切り経由で実証):
+  Commander.js の仕様: positional 引数が "-" で始まる場合は unknown option エラー。
+  解決策: `--` end-of-options separator を使う (Commander v12 の標準機能)。
+    loamium journal-append --section Todo -- "- [ ] task"
+    loamium journal-append -- "- [ ] task" 2026-01-01
+  <content> positional インターフェースは変更しない (AC-Sd22b1f-3-2 どおり)。
+  -- の後は content、その次に [date] を渡せる (両方とも positional として正しく処理される)。
+
+  CLI source (packages/cli/src/main.ts):
+    - journal-append の description に -- 規約を明記するコメント + help テキスト追加。
+    - <content> の argument description に「"-" 始まりの場合は -- 区切り後に渡す」を追記。
+
+  Test (tests/acceptance/journal-section.spec.ts):
+    - 既存の non-dash テストはタイトルを "(non-dash content)" と明確化。
+    - 新規テストケース追加:
+      '[AC-Sd22b1f-3-2] dash-leading content "- [ ] task" works via -- separator'
+      → `['journal-append', '--section', 'Todo', '--', '- [ ] dashタスク', date]` で呼び出し
+      → readJournal でファイルを読み、"- [ ] dashタスク" が ## Todo 配下に存在することをアサート。
+
 == Files Changed ==
-- packages/shared/src/schemas.ts: journalAppendRequestSchema now has section?: string
+
+- packages/shared/src/schemas.ts: section: z.string().min(1).optional() + JSDoc 更新
 - packages/server/src/routes/journal.ts: POST /api/journal/append uses insertUnderHeading when section present, appendText otherwise (backward compat)
-- packages/cli/src/main.ts: journal-append subcommand gains --section <heading> option
+- packages/cli/src/main.ts: journal-append description に -- 規約を追加; argument description 更新
 - packages/shared/src/journal-section.test.ts: tagged tests with [AC-Sd22b1f-3-1], added NFD/NFC normalization test, added duplicate heading first-match test
-- tests/acceptance/journal-section.spec.ts: new file (7 tests)
-- tests/acceptance/create-todo-section.spec.ts: new file (4 tests)
+- tests/acceptance/journal-section.spec.ts: 8 tests (1 renamed + 1 new dash-content test)
+- tests/acceptance/create-todo-section.spec.ts: naked `as` cast → z.object().parse()
 
 == Test Results ==
+
 Unit tests (npx vitest run packages/shared/src/): 315 passed, 0 failed
-Acceptance tests combined: 36 passed, 0 failed
-  - journal-section.spec.ts: 7 passed
+Acceptance tests combined: 37 passed, 0 failed
+  - journal-section.spec.ts: 8 passed (7 original + 1 new dash-content)
   - command-run.spec.ts: 18 passed
   - create-todo-section.spec.ts: 4 passed
   - journal.spec.ts: 7 passed
@@ -38,10 +70,12 @@ journal-append content template ("- [ ] {{summary}}"), so the line is clean
 regardless of whether due is provided. A separate fixture (create-todo-with-due)
 documents the verbatim-token behavior explicitly in test code with assertions.
 
-== CLI Note ==
-Commander.js interprets content starting with "-" as an option flag.
-CLI acceptance tests use content that does not start with "-" to avoid this.
-REST API tests use "- [ ] ..." content freely (no Commander parsing involved).
-This is a known Commander limitation, not a bug in our code.
+== CLI dash-content convention ==
+Positional content starting with "-" must be passed after the "--" end-of-options
+separator. This is the standard POSIX/Commander convention:
+  loamium journal-append --section Todo -- "- [ ] task"
+  loamium journal-append -- "- [ ] task" 2026-01-01
+The <content> positional interface is NOT changed. The "--" is purely an invocation
+convention required when content begins with "-".
 
 == No out-of-scope findings ==

@@ -53,9 +53,10 @@ export const journalAppendRequestSchema = z.object({
    * ATX 見出しテキスト (例: "Todo")。指定時、対象見出し配下の末尾に挿入する。
    * 見出しが存在しなければファイル末尾に見出しごと追記する (insertUnderHeading と同挙動)。
    * 省略時は従来通りファイル末尾に追記する (appendText — 後方互換)。
+   * 空文字列は拒否する (min(1))。section="" を省略扱いにするのではなく、スキーマ境界で弾く。
    * [AC-Sd22b1f-3-1]
    */
-  section: z.string().optional(),
+  section: z.string().min(1).optional(),
 });
 export type JournalAppendRequest = z.infer<typeof journalAppendRequestSchema>;
 
