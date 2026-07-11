@@ -3078,7 +3078,7 @@
         },
         "S53409d-2": {
           "title": "エージェント接続とチャット対話",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ユーザーとして、OpenAI / Anthropic 互換エンドポイント・モデル・API キーを設定し、右パネルのチャットでエージェントと対話をしたい。なぜなら、好きな LLM(ローカル含む)で vault について質問したいから。",
@@ -3087,53 +3087,53 @@
               "id": "AC-S53409d-2-1",
               "description": "接続設定は .loamium/agent.json(baseUrl / api 種別(openai互換|anthropic互換)/ model。apiKey は $ENV_VAR 参照可)+ 環境変数で行え、zod で検証される。未設定時チャットペインは設定手順ガイドを表示する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S53409d-2-2",
               "description": "チャット送信でサーバー内の pi セッションが応答し、SSE でトークンがストリーミング表示される。応答中は中断ボタンで停止できる。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S53409d-2-3",
               "description": "セッションは .loamium/agent-sessions/ に JSONL 永続化され、ペイン再訪・リロード後も直近セッションの続きから対話できる。新規セッションの開始もできる。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S53409d-2-4",
               "description": "認証失敗・接続不能等のエラーはチャット内に人間可読で表示され、サーバープロセスは落ちない。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S53409d-2-5",
               "description": "GUI 規約: チャットペインの全インタラクティブ要素に data-testid が付与され、agent-chat.mock.spec.ts が sprint run で、agent-chat.e2e.spec.ts([AC-*] タグ付き)が sprint verify で全パスする。",
               "test": "packages/ui/tests/e2e/agent-chat.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S53409d-2-1": {
               "title": "接続設定ローダー",
               "description": "shared に agent 設定 zod スキーマ。server で .loamium/agent.json + 環境変数を読込・$ENV_VAR 解決・検証。未設定/不正時は機能フラグ off で /api/health に反映。",
-              "status": "pending"
+              "status": "done"
             },
             "S53409d-2-2": {
               "title": "pi SDK 組み込み + agent API",
               "description": "@earendil-works/pi-coding-agent を server に導入。createAgentSession(noTools:'all')、SessionManager を .loamium/agent-sessions/ に向ける。POST /api/agent/sessions(作成)、POST /api/agent/sessions/{id}/messages(SSE ストリーム)、GET /api/agent/sessions(一覧)、中断(AbortController)。",
-              "status": "pending"
+              "status": "done"
             },
             "S53409d-2-3": {
               "title": "チャットペイン UI",
               "description": "RightSidebar のタブを Claude→エージェントに置換。メッセージ一覧 + 入力欄 + 送信/中断、SSE 受信でストリーミング描画、新規セッション開始、未設定時ガイド、エラー表示。",
-              "status": "pending"
+              "status": "done"
             },
             "S53409d-2-4": {
               "title": "テスト",
               "description": "mock テスト(未設定ガイド/送信/ストリーミング/中断/エラー)。e2e はローカル OpenAI 互換スタブサーバーを実 HTTP で立てて実サーバー経由で検証。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
