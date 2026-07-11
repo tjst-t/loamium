@@ -42,7 +42,8 @@ export const journalAppendStepSchema = z.object({
   kind: z.literal('journal-append'),
   content: z.string(),
   date: z.string().optional(),
-  section: z.string().optional(),
+  /** 空文字列は拒否 (journalAppendRequestSchema の section と整合)。 */
+  section: z.string().min(1).optional(),
   open: z.boolean().optional(),
 });
 export type JournalAppendStep = z.infer<typeof journalAppendStepSchema>;

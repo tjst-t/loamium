@@ -176,16 +176,9 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
     }
 
     // 5. 権限チェック [AC-Sd22b1f-2-3]
-    // read-only → 403。append-only → v1 4 種のみで構成されたコマンドを許可
+    // read-only → permissionMiddleware が既に 403 を返すためここには到達しない。
+    // append-only → v1 4 種のみで構成されたコマンドを許可
     // (ADR-0009: append-only では append 系 = v1 の 4 種すべてが許可される)
-    if (config.mode === 'read-only') {
-      return errorJson(
-        c,
-        403,
-        'forbidden',
-        'mode=read-only: command run is not allowed',
-      );
-    }
     // append-only では v1 4 種のみ許可。v1 以外の kind は検証エラーになるため
     // ここに到達した時点では 4 種のいずれかのみ — 追加チェック不要。
     // (ADR-0009: "append-only では append 系ステップ(journal-append / note-append /

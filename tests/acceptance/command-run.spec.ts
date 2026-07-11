@@ -373,11 +373,19 @@ describe('[AC-Sd22b1f-2] command run — full mode', () => {
   // -----------------------------------------------------------------------
 
   it('[AC-Sd22b1f-2-3] run records command.run in audit log', async () => {
-    // 監査ログがあること (前のテストで既に記録されているはず)
-    const lines = await readAuditLog(server.vault);
-    const commandRunEntries = lines.filter((l) => l.op === 'command.run');
-    expect(commandRunEntries.length).toBeGreaterThan(0);
-    // 成功した run は result: ok, mode: full — path traversal 400 は result: error なので除外
+    // このテスト自身でコマンドを実行し、監査ログに command.run が記録されることを確認する
+    // (テスト順序に依存しない自己完結テスト)
+    const before = await readAuditLog(server.vault);
+    const beforeCount = before.filter((l) => l.op === 'command.run').length;
+
+    const { status } = await runCommand(server, 'create-todo', { title: 'audit-self-contained' });
+    expect(status).toBe(200);
+
+    const after = await readAuditLog(server.vault);
+    const commandRunEntries = after.filter((l) => l.op === 'command.run');
+    // このテスト自身が実行した run が新たに記録されているはず
+    expect(commandRunEntries.length).toBeGreaterThan(beforeCount);
+    // 成功した run は result: ok, mode: full
     const successEntries = commandRunEntries.filter((l) => l.result === 'ok');
     expect(successEntries.length).toBeGreaterThan(0);
     for (const entry of successEntries) {

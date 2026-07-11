@@ -129,9 +129,14 @@ describe('[AC-Sd22b1f-1-2] GET /api/commands', () => {
     expect(todo).toBeDefined();
     expect(todo?.valid).toBe(true);
     expect(todo?.path).toBe('commands/create-todo.md');
-    expect(todo?.description).toBe('Todo を作成してジャーナルに追記する');
-    expect(Array.isArray(todo?.params)).toBe(true);
-    expect(todo?.params).toHaveLength(1);
+    // Narrow the discriminated union before accessing valid:true-only fields
+    if (todo?.valid === true) {
+      expect(todo.description).toBe('Todo を作成してジャーナルに追記する');
+      expect(Array.isArray(todo.params)).toBe(true);
+      expect(todo.params).toHaveLength(1);
+    } else {
+      throw new Error('expected todo command to be valid:true');
+    }
   });
 
   it('壊れた frontmatter のコマンドは valid:false + error で一覧に含まれる (200 維持)', async () => {
@@ -139,8 +144,13 @@ describe('[AC-Sd22b1f-1-2] GET /api/commands', () => {
     const broken = commands.find((c) => c.path === 'commands/broken.md');
     expect(broken).toBeDefined();
     expect(broken?.valid).toBe(false);
-    expect(typeof broken?.error).toBe('string');
-    expect((broken?.error ?? '').length).toBeGreaterThan(0);
+    // Narrow the discriminated union before accessing valid:false-only fields
+    if (broken?.valid === false) {
+      expect(typeof broken.error).toBe('string');
+      expect(broken.error.length).toBeGreaterThan(0);
+    } else {
+      throw new Error('expected broken command to be valid:false');
+    }
   });
 
   it('steps が空のコマンドは valid:false になる', async () => {
