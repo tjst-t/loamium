@@ -743,3 +743,42 @@ export const commandsResponseSchema = z.object({
   commands: z.array(commandSummarySchema),
 });
 export type CommandsResponse = z.infer<typeof commandsResponseSchema>;
+
+// ---- スマートコマンド実行 (POST /api/commands/{name}/run — Sd22b1f-2) ----
+
+/**
+ * POST /api/commands/{name}/run のリクエストボディ。
+ * params: コマンドパラメータの名前→値マップ。
+ */
+export const commandRunRequestSchema = z.object({
+  params: z.record(z.string(), z.string()).optional().default({}),
+});
+export type CommandRunRequest = z.infer<typeof commandRunRequestSchema>;
+
+/**
+ * ステップ 1 件の実行結果。
+ * - ok: true の場合は成功 (path は書き込んだパス)
+ * - ok: false の場合は失敗 (error に失敗理由)
+ */
+export const commandStepResultSchema = z.object({
+  /** ステップ kind (journal-append / note-append / note-create / template-instantiate) */
+  kind: z.string(),
+  /** 成功 = true / 失敗 = false */
+  ok: z.boolean(),
+  /** 書き込んだ vault 相対パス (成功かつ path が確定したステップのみ) */
+  path: z.string().optional(),
+  /** 失敗理由 (ok:false のみ) */
+  error: z.string().optional(),
+});
+export type CommandStepResult = z.infer<typeof commandStepResultSchema>;
+
+/**
+ * POST /api/commands/{name}/run のレスポンス。
+ * - results: ステップごとの実行結果 (実行したぶんのみ、最初の失敗で停止)
+ * - openPath: open:true が指定されたステップが書き込んだパス (UI 遷移用)
+ */
+export const commandRunResponseSchema = z.object({
+  results: z.array(commandStepResultSchema),
+  openPath: z.string().optional(),
+});
+export type CommandRunResponse = z.infer<typeof commandRunResponseSchema>;

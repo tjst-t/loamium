@@ -141,3 +141,4 @@ export {
   type CommandStep,
   type LoamiumCommand,
 } from './loamium-command.js';
+export { insertUnderHeading } from './journal-section.js';

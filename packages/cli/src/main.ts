@@ -53,6 +53,7 @@ import {
   smartViewConfigSchema,
   smartFoldersResolveResponseSchema,
   commandsResponseSchema,
+  commandRunResponseSchema,
 } from '@loamium/shared';
 import {
   apiFetch,
@@ -567,6 +568,65 @@ function buildProgram(): Command {
         }
       });
     });
+
+  // ---- スマートコマンド実行 (Sd22b1f-2) ----
+
+  // command run <name> --param k=v (POST /api/commands/{name}/run)
+  // [AC-Sd22b1f-2-4]
+  const commandCmd = new Command('command');
+  commandCmd
+    .description('スマートコマンドを実行する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} });
+
+  commandCmd
+    .command('run')
+    .description('コマンドをステップ順に実行する (POST /api/commands/{name}/run)')
+    .argument('<name>', 'コマンド名 (commands/ 配下のファイル名、拡張子なし)')
+    .option(
+      '--param <key=value>',
+      'パラメータの指定 (複数回指定可。例: --param title=メモ)',
+      (value: string, acc: string[]) => [...acc, value],
+      [] as string[],
+    )
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (name: string, opts: JsonOpt & { param: string[] }) => {
+      const params: Record<string, string> = {};
+      for (const kv of opts.param) {
+        const eq = kv.indexOf('=');
+        if (eq <= 0) {
+          fail('usage', `--param の形式が不正です (key=value を期待): "${kv}"`, 2);
+        }
+        params[kv.slice(0, eq)] = kv.slice(eq + 1);
+      }
+      const encodedName = name
+        .split('/')
+        .map((seg) => encodeURIComponent(seg))
+        .join('/');
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(
+        base,
+        `/api/commands/${encodedName}/run`,
+        postJson({ params }),
+      );
+      output(opts, result, () => {
+        const res = parseAs(result, commandRunResponseSchema, 'command run');
+        for (const step of res.results) {
+          if (step.ok) {
+            println(`ok\t${step.kind}${step.path !== undefined ? `\t${step.path}` : ''}`);
+          } else {
+            println(`fail\t${step.kind}\t${step.error ?? ''}`);
+          }
+        }
+        if (res.openPath !== undefined) {
+          println(`open\t${res.openPath}`);
+        }
+      });
+    });
+
+  program.addCommand(commandCmd);
 
   // ---- エクスポート (ADR-0006 / Sa8ee62-1) ----
 
