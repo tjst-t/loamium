@@ -21,8 +21,7 @@ const WRITE_METHODS = new Set(['PUT', 'POST', 'DELETE']);
 
 /**
  * 監査ログへ 1 エントリを直接 append する。
- * HTTP ミドルウェアを通らないイベント (WS ターミナルセッションの開始/終了 —
- * Sb7f458-1-2) が使う。書き込み失敗は API/セッションを止めない (stderr のみ)。
+ * HTTP ミドルウェアを通らない書き込みイベントが使う。書き込み失敗は API を止めない (stderr のみ)。
  */
 export async function writeAuditEntry(config: ServerConfig, entry: AuditEntry): Promise<void> {
   const auditDir = path.join(config.vaultRoot, '.loamium');

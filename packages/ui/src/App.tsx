@@ -2,7 +2,7 @@
  * Loamium UI ルート (Sf1a90a で刷新)。
  *
  * シェル: 左サイドバー (直近ファイル) / 中央メイン 1 画面 / 右サイドバー
- * (バックリンク ⇄ Claude トグル)。タブは廃止し、ブラウザ的ルーティング
+ * (バックリンク)。タブは廃止し、ブラウザ的ルーティング
  * (History API — router.ts) に統一した。ノート=/n/{path}、アセット一覧=/files。
  *
  * - 起動時は URL に従って着地 (未指定は今日のジャーナル — DESIGN_PRINCIPLES ui_ux)。
@@ -1551,8 +1551,8 @@ export function App(): JSX.Element {
         )}
       </main>
 
-      {/* ================= 右: サイドバー (バックリンク | Claude) ================= */}
-      {/* /search では非表示 (AC-Sa629e2-3-3)。unmount しない — xterm セッション維持 */}
+      {/* ================= 右: サイドバー (バックリンク) ================= */}
+      {/* /search では非表示 (AC-Sa629e2-3-3)。unmount しない — スクロール位置維持 */}
       <RightSidebar
         notePath={route.kind === 'note' ? (doc?.path ?? null) : null}
         refreshToken={backlinksToken}

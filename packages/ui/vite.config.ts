@@ -71,7 +71,7 @@ export default defineConfig({
       '/api': {
         target: apiTarget(),
         changeOrigin: true,
-        // WS /api/terminal (Sb7f458) も同じプロキシで通す
+        // ws: true — 将来の WS エンドポイント用に維持
         ws: true,
       },
     },
