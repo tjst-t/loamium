@@ -3139,7 +3139,7 @@
         },
         "S53409d-3": {
           "title": "vault 読み取りツールと出典付き回答",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ユーザーとして、エージェントに vault 内を検索・参照させて出典付きの回答を得たい。なぜなら、自分のノートに基づく信頼できる答えが欲しいから。",
@@ -3148,48 +3148,48 @@
               "id": "AC-S53409d-3-1",
               "description": "エージェントに渡るツールは search / query(DQL)/ read / backlinks / tags のみ(ADR-0008)。bash・ファイル書き込み等の pi 組み込みツールはセッションに存在しない。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S53409d-3-2",
               "description": "ツール実行はチャット UI 上で可視化される(実行中インジケータとツール名・引数要約の表示)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S53409d-3-3",
               "description": "エージェント回答中の [[リンク]] はクリックで当該ノートのルートに遷移する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S53409d-3-4",
               "description": "ツールはサーバー内部のサービス層を直接呼び、vault ルート外パスはパス正規化ユーティリティで拒否される。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S53409d-3-5",
               "description": "GUI 規約: ツールチップ・リンク要素に data-testid が付与され、agent-tools.mock.spec.ts が sprint run で、agent-tools.e2e.spec.ts([AC-*] タグ付き)が sprint verify で全パスする。",
               "test": "packages/ui/tests/e2e/agent-tools.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S53409d-3-1": {
               "title": "読み取りツール定義",
               "description": "defineTool(TypeBox)で search/query/read/backlinks/tags を実装し内部サービスを直呼び。パスは packages/shared の正規化ユーティリティ経由。ツール一覧が read 系のみであることのユニットテスト。",
-              "status": "pending"
+              "status": "done"
             },
             "S53409d-3-2": {
               "title": "ツール可視化 + [[リンク]] 遷移",
               "description": "チャットメッセージに tool_execution_start/end を反映(インジケータ+要約)。アシスタント本文の [[WikiLink]] を既存リンク解決でルーティングし click 遷移。",
-              "status": "pending"
+              "status": "done"
             },
             "S53409d-3-3": {
               "title": "テスト",
               "description": "mock: ツール実行表示・リンク遷移。ユニット: パス脱出拒否・ツールセット固定。e2e: スタブ LLM にツール呼び出しを応答させ search→回答→リンク遷移を通す。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
