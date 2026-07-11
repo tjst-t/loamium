@@ -51,7 +51,7 @@ function buildArgsSummary(toolName: string, args: unknown): string {
     case 'read':
     case 'backlinks': {
       const p = typeof a['path'] === 'string' ? a['path'] : '';
-      return p;
+      return p.slice(0, 120);
     }
     case 'query': {
       const d = typeof a['dql'] === 'string' ? a['dql'] : '';

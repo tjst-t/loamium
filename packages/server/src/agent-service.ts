@@ -270,10 +270,18 @@ export async function openPiSession(
   return session;
 }
 
-/** sessionFile パスからセッション ID を推定する (ファイル名 = <id>.jsonl)。 */
+/** sessionFile パスからセッション ID を推定する (ファイル名 = <id>.jsonl)。
+ * basename が validateSessionId を通らない場合は null を返す (Map キーとして使用しない)。
+ */
 function getSessionIdFromFile(sessionFile: string): string | null {
   const base = path.basename(sessionFile, '.jsonl');
-  return base || null;
+  if (!base) return null;
+  try {
+    validateSessionId(base);
+    return base;
+  } catch {
+    return null;
+  }
 }
 
 /** active キャッシュからセッションを取得する。 */
