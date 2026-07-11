@@ -13,6 +13,7 @@ import {
   journalResponseSchema,
   noteDeleteResponseSchema,
   noteListResponseSchema,
+  noteMetaResponseSchema,
   noteRenameResponseSchema,
   notePropertyWriteRequestSchema,
   noteResponseSchema,
@@ -47,6 +48,7 @@ import {
   type JournalResponse,
   type NoteDeleteResponse,
   type NoteListResponse,
+  type NoteMetaResponse,
   type NoteRenameResponse,
   type NotePropertyWriteRequest,
   type NoteResponse,
@@ -170,6 +172,11 @@ export const api = {
 
   getNote(path: string): Promise<NoteResponse> {
     return request(noteResponseSchema, `/api/notes/${encodeNotePath(path)}`);
+  },
+
+  /** ノート 1 件のメタ情報 (見出し・タグ・frontmatter 等) を取得する (S11493d-1)。 */
+  getNoteMeta(path: string): Promise<NoteMetaResponse> {
+    return request(noteMetaResponseSchema, `/api/notes/${encodeNotePath(path)}/meta`);
   },
 
   putNote(path: string, content: string, baseMtime?: number): Promise<NoteWriteResponse> {
@@ -324,6 +331,15 @@ export const api = {
   async listTemplates(): Promise<TemplateSummary[]> {
     const res = await request(templatesResponseSchema, '/api/templates');
     return res.templates;
+  },
+
+  /**
+   * ノートエクスポート URL を構築する (GET /api/notes/{path}/export?format=...) (Sa8ee62-2)。
+   * 実際の fetch は呼び出し元 (fetch → Blob → createObjectURL) で行う。
+   * format: 'pdf' | 'html'
+   */
+  exportNoteUrl(path: string, format: 'pdf' | 'html'): string {
+    return `/api/notes/${encodeNotePath(path)}/export?format=${encodeURIComponent(format)}`;
   },
 
   /**

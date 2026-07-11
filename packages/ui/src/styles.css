@@ -401,6 +401,57 @@ a { color: var(--link); text-decoration: none; }
 
 .panel-body { flex: 1; overflow-y: auto; padding: 0 8px 16px; }
 
+/* ⋯ アクションメニュー (InfoPanel — S11493d-2)。閉じているときは flow から外し、
+   パネルヘッダの高さを増やさない (display:none。position:absolute で開く)。 */
+.info-actions-wrap {
+  position: relative;
+  margin-left: auto;
+}
+.info-actions-menu {
+  display: none;
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 4px);
+  right: 0;
+  width: 220px;
+  background: var(--bg-editor);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  padding: 5px;
+}
+.info-actions-menu.open { display: block; }
+.info-actions-menu .menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text);
+}
+.info-actions-menu .menu-item:hover { background: var(--bg-hover); }
+.info-actions-menu .menu-item:disabled { opacity: 0.45; cursor: default; }
+.info-actions-menu .menu-item:disabled:hover { background: transparent; }
+.info-actions-menu .menu-item svg {
+  width: 14px;
+  height: 14px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+.menu-item-hint {
+  margin-left: auto;
+  font-size: 10.5px;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90px;
+}
+
 .panel-empty {
   padding: 28px 16px;
   text-align: center;
@@ -1043,6 +1094,82 @@ code {
   font-size: 11px;
   color: var(--text-faint);
   word-break: break-all;
+}
+
+/* ---- Info panel: outgoing links (S11493d-3) -------------------------------- */
+
+.outgoing-link {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 5px 7px;
+  border-radius: 6px;
+  font-size: 13px;
+  text-align: left;
+  margin-bottom: 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.outgoing-link-ico {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  color: var(--text-faint);
+}
+
+.outgoing-link-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.outgoing-link-arrow {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  color: var(--text-faint);
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+/* 解決済みリンク */
+.outgoing-link.resolved {
+  color: var(--link);
+}
+.outgoing-link.resolved:hover {
+  background: var(--accent-soft);
+}
+.outgoing-link.resolved:hover .outgoing-link-arrow { opacity: 1; }
+.outgoing-link.resolved:hover .outgoing-link-ico { color: var(--accent); }
+
+/* 未解決リンク — 点線アンダーライン + muted + 「未解決」バッジ */
+.outgoing-link.unresolved {
+  color: var(--text-muted);
+  cursor: default;
+}
+.outgoing-link.unresolved:hover {
+  background: var(--warn-soft);
+}
+.outgoing-link.unresolved .outgoing-link-label {
+  text-decoration: underline dashed var(--text-faint);
+  text-underline-offset: 3px;
+}
+.outgoing-link.unresolved:hover .outgoing-link-label { text-decoration: none; }
+
+.unresolved-badge {
+  flex-shrink: 0;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--warn);
+  background: var(--warn-soft);
+  border: 1px solid #ecd9b0;
+  border-radius: 6px;
+  padding: 1px 7px;
+  letter-spacing: 0.02em;
 }
 
 .dialog .link-update-note {
@@ -2285,6 +2412,8 @@ button.callout-title { cursor: pointer; }
   font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .seg-btn svg { width: 13px; height: 13px; }
 .seg-btn:hover { color: var(--text); }
@@ -3838,3 +3967,171 @@ button.callout-title { cursor: pointer; }
 .bookmark-star[aria-disabled="true"]:hover {
   background: none;
 }
+
+/* ==========================================================================
+   インフォパネル (右サイドバー — S11493d) のセクション CSS + アイコン再発防止
+   ========================================================================== */
+
+/* 【再発防止】パネル内のインライン SVG に既定サイズ 16px を与える防御的フォールバック。
+   :where() で詳細度 0 のため、個別アイコン CSS (.info-section-icon svg など、
+   .panel-empty svg=28px 含む) が必ず上書きできる。プロトタイプ CSS の移植漏れで
+   width/height 指定なしの SVG が巨大化する回帰 (⋯メニュー・セクションアイコン等で
+   実際に発生) を、以後どのアイコンでも自動的に防ぐ。左右両サイドバーに適用する。 */
+.panel :where(svg),
+.sidebar :where(svg) { width: 16px; height: 16px; }
+
+.info-section { border-bottom: 1px solid var(--border); }
+.info-section:last-child { border-bottom: none; }
+.info-section[open] .info-section-chev { transform: rotate(0deg); }
+.info-section:not([open]) .info-section-chev { transform: rotate(-90deg); }
+
+.info-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 10px 7px 8px;
+  cursor: pointer;
+  list-style: none;
+  border-radius: 6px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.info-section-header::-webkit-details-marker { display: none; }
+.info-section-header::marker { display: none; }
+.info-section-header:hover { background: var(--bg-hover); }
+
+.info-section-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--text-faint);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.info-section-icon svg { width: 13px; height: 13px; }
+
+.info-section-title {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.info-section-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-faint);
+  background: var(--bg-hover);
+  border-radius: 9px;
+  padding: 0 6px;
+  flex-shrink: 0;
+}
+.info-section-chev {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  color: var(--text-faint);
+  transition: transform 0.12s;
+}
+
+.tags-chip-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 6px 2px; }
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  border-radius: 10px;
+  padding: 2px 10px 2px 8px;
+  white-space: nowrap;
+}
+.tag-chip.clickable { cursor: pointer; }
+.tag-chip.clickable:hover { background: color-mix(in srgb, var(--accent) 18%, #fff); }
+.tag-chip-hash { color: var(--accent); opacity: 0.7; font-size: 10px; font-weight: 700; }
+
+.meta-row {
+  display: flex;
+  align-items: center;
+  padding: 4px 6px;
+  font-size: 12.5px;
+  border-radius: 4px;
+}
+.meta-row:hover { background: var(--bg-hover); }
+.meta-label { min-width: 68px; flex-shrink: 0; color: var(--text-faint); font-size: 11.5px; font-weight: 600; }
+.meta-value { color: var(--text); font-variant-numeric: tabular-nums; }
+
+.info-section-body { padding: 2px 8px 10px; }
+.info-section-empty {
+  padding: 8px 6px;
+  font-size: 12px;
+  color: var(--text-faint);
+  font-style: italic;
+  line-height: 1.6;
+}
+.info-section-empty code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--code-bg);
+  border-radius: 3px;
+  padding: 0 4px;
+  font-style: normal;
+}
+
+/* 目次 (Outline) — 各見出しを 1 行ずつ・レベルでインデント */
+.outline-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 3px 6px;
+  border-radius: 5px;
+  font-size: 13px;
+  color: var(--text);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  gap: 4px;
+}
+.outline-item:hover { background: var(--bg-hover); color: var(--accent); }
+.outline-indent {
+  display: inline-block;
+  width: calc(var(--depth, 0) * 14px);
+  flex-shrink: 0;
+}
+.outline-label { overflow: hidden; text-overflow: ellipsis; font-size: 12.5px; }
+.outline-item[data-level="1"] .outline-label { font-weight: 700; font-size: 13px; }
+.outline-item[data-level="2"] .outline-label { font-weight: 600; color: var(--text); }
+.outline-item[data-level="3"] .outline-label { color: var(--text-muted); }
+
+/* プロパティ (Properties) */
+.property-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.property-row:hover { background: var(--bg-hover); }
+.property-key {
+  min-width: 64px;
+  max-width: 88px;
+  flex-shrink: 0;
+  color: var(--text-faint);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-top: 1px;
+}
+.property-value { flex: 1; min-width: 0; color: var(--text); word-break: break-word; }
+.property-value .tag-chip { font-size: 11px; padding: 1px 8px 1px 6px; }

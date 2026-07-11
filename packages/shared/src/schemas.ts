@@ -644,6 +644,56 @@ export const notePropertyWriteResponseSchema = z.object({
 });
 export type NotePropertyWriteResponse = z.infer<typeof notePropertyWriteResponseSchema>;
 
+// ---- ノートメタ集約 (GET /api/notes/{path}/meta — S11493d-1) ----
+
+export const noteHeadingSchema = z.object({
+  /** 見出しレベル (1–6) */
+  level: z.number().int().min(1).max(6),
+  /** 見出しテキスト (先頭 # と空白を除いたもの) */
+  text: z.string(),
+  /** ノート全体における 1 始まりの行番号 */
+  line: z.number().int().positive(),
+});
+export type NoteHeading = z.infer<typeof noteHeadingSchema>;
+
+export const outgoingLinkSchema = z.object({
+  /** リンクターゲット (NFC 正規化済み。heading / alias を除く) */
+  target: z.string(),
+  /**
+   * target を vault 内パスに解決した結果。解決できなければ null (壊れたリンク)。
+   */
+  resolvedPath: z.string().nullable(),
+  /** リンク元テキスト全体 (例: "[[note#heading|別名]]") */
+  raw: z.string(),
+});
+export type OutgoingLink = z.infer<typeof outgoingLinkSchema>;
+
+/**
+ * GET /api/notes/{path}/meta のレスポンス。
+ * ノート 1 件のメタ情報を ONE リクエストで返す (AC-S11493d-1-1)。
+ */
+export const noteMetaResponseSchema = z.object({
+  /** vault 相対パス (NFC 正規化) */
+  path: z.string(),
+  /** ATX 見出し一覧 (frontmatter・code-fence 除外、出現順) */
+  headings: z.array(noteHeadingSchema),
+  /** アウトゴーイングリンク一覧 (ターゲットで重複除去、出現順) */
+  outgoingLinks: z.array(outgoingLinkSchema),
+  /** インライン #tag + frontmatter tags (NFC 正規化・# なし・重複除去) */
+  tags: z.array(z.string()),
+  /** パース済み frontmatter (無ければ null) */
+  frontmatter: frontmatterSchema,
+  /** ファイルの mtime (ms epoch) */
+  mtime: z.number(),
+  /**
+   * ワード数 (frontmatter・code-fence 除外。CJK 文字は 1 文字 = 1 ワード)。
+   */
+  wordCount: z.number().int().nonnegative(),
+  /** 文字数 (frontmatter・code-fence 除外。スペース・改行を含む Unicode コードポイント数) */
+  charCount: z.number().int().nonnegative(),
+});
+export type NoteMetaResponse = z.infer<typeof noteMetaResponseSchema>;
+
 // ---- 監査ログ (JSONL 1 行分) ----
 
 export const auditEntrySchema = z.object({
