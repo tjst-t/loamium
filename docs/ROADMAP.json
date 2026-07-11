@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "Sd22b1f",
+    "current_sprint": "Sde7a63",
     "total": 34,
-    "done": 31,
+    "done": 32,
     "in_progress": 0,
-    "remaining": 3,
-    "percentage": 91
+    "remaining": 2,
+    "percentage": 94
   },
   "execution_order": [
     "Sd63ad1",
@@ -3312,7 +3312,7 @@
       "title": "スマートコマンド基盤 — 定義スキーマ/一覧・実行エンジン・journal section 追記 + CLI",
       "description": "ADR-0008/0009 準拠。LoamiumCommand/CommandStep zod スキーマ(shared)、GET /api/commands(寛容 read)、POST /api/commands/{name}/run(同期実行・4 ステップ種・resolveTemplate 展開・権限/監査)、journal-append の section 拡張、CLI 1:1(commands / command run / journal-append --section)。UI なし。",
       "milestone": false,
-      "status": "in_progress",
+      "status": "done",
       "depends_on": null,
       "stories": {
         "Sd22b1f-1": {
