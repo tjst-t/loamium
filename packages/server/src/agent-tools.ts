@@ -2,7 +2,7 @@
  * Loamium エージェント用読み取り専用ツール群 (S53409d-3 / ADR-0008)。
  *
  * ADR-0008 決定: エージェントに渡すツールは Loamium のノート操作 API のみ。
- * 第 1 リリースでは読み取り系 5 種のみ: search / query / read / backlinks / tags。
+ * 第 1 リリースでは読み取り系 5 種のみ: search / query / read_note / backlinks / tags。
  * write 系ツールは別 Story で追加する。
  *
  * 全ツール共通制約:
@@ -119,11 +119,11 @@ export function createVaultReadTools(
     },
   });
 
-  // ---- read -------------------------------------------------------------------
+  // ---- read_note --------------------------------------------------------------
 
   const readTool = defineTool({
-    name: 'read',
-    label: 'ノート読み取り',
+    name: 'read_note',
+    label: 'vault 内のノートを読む',
     description:
       'vault 内のノートを Markdown 原文で取得する。パスは vault ルートからの相対パス (.md 拡張子あり/なし両可)。',
     parameters: Type.Object({
@@ -202,4 +202,4 @@ export function createVaultReadTools(
 }
 
 /** ツール名の固定セット (ADR-0008 に記録されたツール境界)。sorted */
-export const VAULT_READ_TOOL_NAMES = ['backlinks', 'query', 'read', 'search', 'tags'] as const;
+export const VAULT_READ_TOOL_NAMES = ['backlinks', 'query', 'read_note', 'search', 'tags'] as const;

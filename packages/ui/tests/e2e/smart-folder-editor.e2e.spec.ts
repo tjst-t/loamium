@@ -144,9 +144,10 @@ test.describe('スマートフォルダ作成/編集/削除/並べ替え (S7b2f2
     await page.getByTestId('sf-form-path').focus();
     await page.getByTestId('sf-form-path').fill('alpha');
 
-    const option = page.locator('[data-testid="sf-form-path-option"]').first();
+    // 期待するノートを data-path で直接指定する (フルスイートでは他テストの
+    // fixture ノートも 'alpha' に一致しうるため、.first() の順序に依存しない)。
+    const option = page.locator(`[data-testid="sf-form-path-option"][data-path="${ROOT}/alpha.md"]`);
     await expect(option).toBeVisible({ timeout: 5000 });
-    await expect(option).toHaveAttribute('data-path', `${ROOT}/alpha.md`);
 
     await option.click();
     await expect(page.getByTestId('sf-form-path')).toHaveValue(`${ROOT}/alpha.md`);

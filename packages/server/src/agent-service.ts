@@ -7,8 +7,12 @@
  *   公開する (ADR-0008)。noTools:'all' は customTools も含め全ツールを抑制するため NG。
  *   pi SDK 内部: allowedToolNames = new Set(options.tools) でフィルタリングされ、
  *   カスタムツールも isAllowedTool(name) を通るため empty-set では全ブロックになる。
- *   allowlist に 5 ツール名を渡すことで built-in (bash/edit/write/find/grep/ls) を
+ *   allowlist に 5 ツール名を渡すことで built-in (bash/edit/write/find/grep/ls/read) を
  *   排除しつつカスタムツールのみ LLM に広告できる。(sdk.js:132, agent-session.js:1916)
+ * - excludeTools: PI_BUILTIN_TOOL_NAMES — defense-in-depth。カスタムツール名 read_note が
+ *   pi 組み込み read と衝突しなくなったため、allowlist と組み合わせて組み込みを二重に排除する。
+ *   pi SDK: isAllowedTool = (!allowedNames || allowedNames.has(name)) && !excludedNames.has(name)
+ *   (sdk.js:133-135, agent-session.js:1916)。excludeTools は CreateAgentSessionOptions の公開 API。
  * - 監査ログへのエントリ書き込みは routes 側が行う。
  *
  * pi SDK 実 API (v0.80.x):
@@ -49,6 +53,13 @@ import {
 import { agentConfigSchema, type AgentConfig } from '@loamium/shared';
 import type { ServerConfig } from './config.js';
 import { createVaultReadTools, VAULT_READ_TOOL_NAMES } from './agent-tools.js';
+
+/**
+ * pi-coding-agent 組み込みツール名 (ToolName = "read"|"bash"|"edit"|"write"|"grep"|"find"|"ls")。
+ * allToolNames は node_modules/@earendil-works/pi-coding-agent/dist/core/tools/index.js で確認。
+ * excludeTools に渡して defense-in-depth — allowlist と二重に組み込みを排除する (ADR-0008)。
+ */
+const PI_BUILTIN_TOOL_NAMES = ['read', 'bash', 'edit', 'write', 'grep', 'find', 'ls'] as const;
 import type { VaultIndex } from './noteIndex.js';
 
 // ---- 設定読込 ---------------------------------------------------------------
@@ -219,10 +230,11 @@ export async function createPiSession(
     sessionManager: sm,
     // ADR-0008: Loamium 独自 5 ツールのみを LLM に広告する。
     // noTools:'all' は customTools も含め全ツールを抑制するため使用しない。
-    // tools に allowlist を渡すことで built-in (bash/edit/write/等) を排除し
-    // カスタムツールのみが isAllowedTool() を通過して LLM に広告される。
-    // (pi-coding-agent/dist/core/sdk.js:132, agent-session.js:1916)
+    // tools に allowlist を渡すことで built-in を排除しカスタムツールのみ広告される。
+    // excludeTools は defense-in-depth — allowlist 変更時でも組み込みが漏れない。
+    // (pi-coding-agent/dist/core/sdk.js:132-135, agent-session.js:1916)
     tools: [...VAULT_READ_TOOL_NAMES],
+    excludeTools: [...PI_BUILTIN_TOOL_NAMES],
     customTools: [...customTools],
   });
 
@@ -261,8 +273,9 @@ export async function openPiSession(
     authStorage,
     modelRegistry,
     sessionManager: sm,
-    // ADR-0008: 同上 — built-in を排除しカスタムツールのみ広告する allowlist。
+    // ADR-0008: 同上 — built-in を排除しカスタムツールのみ広告する allowlist + excludeTools。
     tools: [...VAULT_READ_TOOL_NAMES],
+    excludeTools: [...PI_BUILTIN_TOOL_NAMES],
     customTools: [...customTools],
   });
 

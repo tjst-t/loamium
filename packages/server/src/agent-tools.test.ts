@@ -1,8 +1,8 @@
 /**
  * エージェントツール境界テスト (S53409d-3)。
  *
- * AC-S53409d-3-1: ツールセットが read 系 5 種のみ (ADR-0008)。
- * AC-S53409d-3-4: read / backlinks ツールが vault 脱出パスを拒否する。
+ * AC-S53409d-3-1: ツールセットが read 系 5 種のみ (ADR-0008)。カスタム read ツールは read_note に改名。
+ * AC-S53409d-3-4: read_note / backlinks ツールが vault 脱出パスを拒否する。
  */
 import { describe, expect, it, beforeEach } from 'vitest';
 import { tmpdir } from 'node:os';
@@ -44,14 +44,14 @@ describe('createVaultReadTools', () => {
   // ここでは unit として確認できない。代わりに:
   //   1. createVaultReadTools() が返すツール名を直接アサート (下記 2 テスト)
   //   2. LLM への実リクエストを実測するガードは e2e (agent-tools.e2e.spec.ts) が担う
-  //      — AC-3-1: advertisedTools === ['backlinks','query','read','search','tags']
+  //      — AC-3-1: advertisedTools === ['backlinks','query','read_note','search','tags']
   //      — このアサートは削除・弱体化しないこと (ADR-0008 の回帰防止)。
 
   it('[AC-S53409d-3-1] 生成されるツール名は ADR-0008 で定義された 5 種のみ (sorted)', () => {
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual([...VAULT_READ_TOOL_NAMES].sort());
-    // 明示的に 5 種であることを確認
-    expect(names).toEqual(['backlinks', 'query', 'read', 'search', 'tags']);
+    // 明示的に 5 種であることを確認 (カスタム read ツールは read_note に改名: ADR-0008 collision 排除)
+    expect(names).toEqual(['backlinks', 'query', 'read_note', 'search', 'tags']);
   });
 
   it('[AC-S53409d-3-1] ツール名に write/bash/shell/edit 等は含まれない', () => {
@@ -64,8 +64,8 @@ describe('createVaultReadTools', () => {
 
   // ---- AC-S53409d-3-4: パス脱出拒否 -------------------------------------------
 
-  it('[AC-S53409d-3-4] read ツールが "../../../etc/passwd" を拒否しエラーテキストを返す', async () => {
-    const readTool = tools.find((t) => t.name === 'read');
+  it('[AC-S53409d-3-4] read_note ツールが "../../../etc/passwd" を拒否しエラーテキストを返す', async () => {
+    const readTool = tools.find((t) => t.name === 'read_note');
     expect(readTool).toBeDefined();
     if (!readTool) return;
 
@@ -92,8 +92,8 @@ describe('createVaultReadTools', () => {
     expect(text).toMatch(/パスエラー|traversal/i);
   });
 
-  it('[AC-S53409d-3-4] read ツールが隠しパス ".loamium/agent.json" を拒否する', async () => {
-    const readTool = tools.find((t) => t.name === 'read');
+  it('[AC-S53409d-3-4] read_note ツールが隠しパス ".loamium/agent.json" を拒否する', async () => {
+    const readTool = tools.find((t) => t.name === 'read_note');
     expect(readTool).toBeDefined();
     if (!readTool) return;
 
@@ -133,11 +133,11 @@ describe('createVaultReadTools', () => {
     expect(text).toMatch(/設計|アーキテクチャ/);
   });
 
-  it('read ツールが存在するノートのコンテンツを返す', async () => {
+  it('read_note ツールが存在するノートのコンテンツを返す', async () => {
     const content = '# テストノート\n\n本文テスト。\n';
     await writeFile(path.join(vaultRoot, 'test-note.md'), content, 'utf8');
 
-    const readTool = tools.find((t) => t.name === 'read');
+    const readTool = tools.find((t) => t.name === 'read_note');
     expect(readTool).toBeDefined();
     if (!readTool) return;
 
@@ -146,8 +146,8 @@ describe('createVaultReadTools', () => {
     expect(text).toContain('本文テスト');
   });
 
-  it('read ツールが存在しないノートに対してエラーテキストを返す', async () => {
-    const readTool = tools.find((t) => t.name === 'read');
+  it('read_note ツールが存在しないノートに対してエラーテキストを返す', async () => {
+    const readTool = tools.find((t) => t.name === 'read_note');
     expect(readTool).toBeDefined();
     if (!readTool) return;
 

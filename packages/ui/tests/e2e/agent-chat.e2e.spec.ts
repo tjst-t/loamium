@@ -54,7 +54,9 @@ function startStubLlm(): Promise<number> {
       });
       const chunk = (content: string): string =>
         `data: ${JSON.stringify({ choices: [{ index: 0, delta: { content }, finish_reason: null }] })}\n\n`;
-      // 100ms 間隔で送ることで「応答中 (中断ボタン表示)」状態を実ブラウザから観測可能にする
+      // ストリームを緩やかに刻み、DONE まで ~1.4s 開けることで「応答中 (中断ボタン表示)」
+      // 状態が Playwright のポーリングで確実に観測できる窓を確保する (フルスイート負荷下の
+      // タイミング flaky を防ぐ — 200ms 窓では取り逃していた)。
       res.write(chunk(STUB_REPLY.slice(0, 6)));
       setTimeout(() => {
         res.write(chunk(STUB_REPLY.slice(6)));
@@ -64,8 +66,8 @@ function startStubLlm(): Promise<number> {
           );
           res.write('data: [DONE]\n\n');
           res.end();
-        }, 100);
-      }, 100);
+        }, 800);
+      }, 600);
     });
   });
   return new Promise((resolve) => {

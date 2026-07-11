@@ -48,7 +48,7 @@ function buildArgsSummary(toolName: string, args: unknown): string {
       const q = typeof a['query'] === 'string' ? a['query'] : '';
       return JSON.stringify(q);
     }
-    case 'read':
+    case 'read_note':
     case 'backlinks': {
       const p = typeof a['path'] === 'string' ? a['path'] : '';
       return p.slice(0, 120);
