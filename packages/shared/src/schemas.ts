@@ -49,6 +49,13 @@ export type NoteRenameRequest = z.infer<typeof noteRenameRequestSchema>;
 export const journalAppendRequestSchema = z.object({
   content: z.string().min(1, 'content must not be empty'),
   date: z.string().optional(),
+  /**
+   * ATX 見出しテキスト (例: "Todo")。指定時、対象見出し配下の末尾に挿入する。
+   * 見出しが存在しなければファイル末尾に見出しごと追記する (insertUnderHeading と同挙動)。
+   * 省略時は従来通りファイル末尾に追記する (appendText — 後方互換)。
+   * [AC-Sd22b1f-3-1]
+   */
+  section: z.string().optional(),
 });
 export type JournalAppendRequest = z.infer<typeof journalAppendRequestSchema>;
 

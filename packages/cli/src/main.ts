@@ -208,10 +208,12 @@ function buildProgram(): Command {
   sub('journal-append', 'デイリージャーナル末尾に追記する (POST /api/journal/append)')
     .argument('<content>', '追記するテキスト')
     .argument('[date]', 'YYYY-MM-DD (省略時は今日)')
-    .action(async (content: string, date: string | undefined, opts: JsonOpt) => {
+    .option('--section <heading>', '挿入先 ATX 見出しテキスト (指定時は見出し配下の末尾に挿入、見出しが無ければ末尾に追記) [AC-Sd22b1f-3-2]')
+    .action(async (content: string, date: string | undefined, opts: JsonOpt & { section?: string }) => {
       const base = await resolveBaseUrl();
-      const body: { content: string; date?: string } = { content };
+      const body: { content: string; date?: string; section?: string } = { content };
       if (date !== undefined) body.date = date;
+      if (opts.section !== undefined) body.section = opts.section;
       const result = await apiFetch(base, '/api/journal/append', postJson(body));
       output(opts, result, () => {
         const res = parseAs(result, journalAppendResponseSchema, 'journal-append');
