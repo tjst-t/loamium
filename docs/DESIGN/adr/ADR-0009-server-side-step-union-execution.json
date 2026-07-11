@@ -1,0 +1,41 @@
+{
+  "id": "ADR-0009",
+  "title": "スマートコマンドはサーバー側で同期実行し、ステップ語彙は閉じた判別可能ユニオンとする(v1 は決定的操作のみ)",
+  "status": "accepted",
+  "date": "2026-07-10",
+  "context": "スマートコマンドのワークフロー実行をどこで行うかは、REST API と CLI の 1:1 対応(priority 3)・監査ログ・権限モード(read-only / append-only / full)がすべてサーバー側に実装されていることに制約される。クライアント側オーケストレーションでは CLI/エージェントから同じコマンドを 1 発で実行できず、実行経路を 2 本持てば監査・権限の一貫性維持が複雑化する。また、ステップを自由スクリプト化することは『プラグイン API を作らない』(forbidden)に抵触する。\n\nAI Agent 連携は現在 Pi Agent の組み込みが別ブランチで進行中であり、長時間実行ステップ(非同期ジョブ)の設計判断はその統合を待つのが妥当。v1 のステップはすべて決定的かつ短時間で完了する操作に限定できるため、同期実行で足りる。",
+  "alternatives": [
+    {
+      "name": "クライアント側オーケストレーション(UI が既存 API を順番に呼ぶ)",
+      "tradeoff": "実装は速いが CLI/エージェントから 1 発実行できず、REST/CLI 1:1 原則から外れる"
+    },
+    {
+      "name": "共有ライブラリ + サーバー/UI 両対応",
+      "tradeoff": "柔軟だが実行経路が 2 本になり、監査ログ・権限モードの一貫性維持が複雑化する"
+    },
+    {
+      "name": "ステップの自由スクリプティング(JS 式・任意コマンド実行)",
+      "tradeoff": "表現力は最大だがプラグイン API 禁止(forbidden)とシンプルさ優先(priority 5)に抵触"
+    },
+    {
+      "name": "サーバー側同期実行 + 閉じたステップ・ユニオン(採用)",
+      "tradeoff": "REST/CLI 1:1・監査・権限が単一経路に乗る。表現力はステップ語彙の加算拡張で賄う"
+    }
+  ],
+  "decision": "POST /api/commands/{name}/run(body: {params})がステップ列をサーバー側で順次同期実行してステップ毎の結果(書き込んだ path 等)を返し、CLI は loamium command run <name> --param k=v で 1:1 対応する。ステップは kind による閉じた判別可能ユニオンで、v1 語彙は journal-append(content, date?, section?)/ note-append(target, content)/ note-create(target, content。上書きせず連番サフィックス)/ template-instantiate(template, vars)の 4 種。全文字列フィールドは params + date/now を文脈に resolveTemplate で展開する。",
+  "consequences": [
+    "+ REST/CLI 1:1・監査ログ・権限モードが既存の単一経路に乗る(command.run + 各ステップの書き込みを監査記録)",
+    "+ ステップ語彙は加算的に拡張できる(未知 kind は検証エラーであり、既存定義を壊さない)",
+    "+ journal-append の section 指定(当該見出し配下の末尾へ挿入)は journal API の新規能力として追加され、『create todo → Journal の Todo 一覧に追記』を実現する。単発の journal-append API/CLI からも使えるようにする",
+    "+ ステップの open: true フラグは実行結果の openPath に反映され UI が遷移する(CLI は無視)。『開く』をステップ型にせず、ナビゲーションをクライアント責務に保つ",
+    "- 失敗モデルは『逐次実行・最初のエラーで停止・ロールバックなし』。実行済みステップは残る(どこまで完了したかをレスポンスで返す)。vault は Git 管理なので復旧可能とみなし、シンプル側に倒す(priority 5)",
+    "- 権限モードとの整合: read-only では run を 403。append-only では append 系ステップ(journal-append / note-append / note-create / template-instantiate = 新規作成)のみで構成されたコマンドを許可し、mutate を含むものは 403",
+    "- agent-run ステップは予約のみで v1 に含めない。Pi Agent 統合後に別 ADR で追加する(その際に非同期ジョブモデル・進捗通知を判断)。目玉ユースケース(議事録まとめ)はそれまで後回しになる",
+    "- 同期実行のため、将来長時間ステップが入る場合は run API の互換を保ったまま非同期ジョブへ拡張する設計判断が必要になる"
+  ],
+  "reversibility_cost": "medium",
+  "affects": ["packages/server", "packages/cli", "packages/shared", "packages/ui"],
+  "supersedes": null,
+  "superseded_by": null,
+  "notes": "Pi Agent 統合(別ブランチ)がマージされたら agent-run ステップの ADR を起こすこと。その ADR では 非同期ジョブ管理(状態・失敗時挙動・結果のファイル書き込み)を扱う。GET /api/commands(一覧)はパレット(ADR-0007)の動的エントリ供給源を兼ねる。"
+}

@@ -1,0 +1,37 @@
+{
+  "id": "ADR-0008",
+  "title": "スマートコマンド定義は vault 内 Markdown(commands/*.md + loamium-command frontmatter)として保存する",
+  "status": "accepted",
+  "date": "2026-07-10",
+  "context": "スマートコマンド(複数機能を組み合わせたユーザー定義ワークフロー、ADR-0009)の定義は、再構築不能なユーザー資産であり Git 追跡が必要という点でスマートフォルダ定義(ADR-0002)と同じ力学を持つ。しかしスマートフォルダが UI 設定のツリー(短い構造化データ)であるのに対し、スマートコマンドは AI プロンプトや挿入テンプレートなど長文の本文を持つ文書的データである。JSON に長文を押し込むと編集専用 UI が別途必要になる。\n\n一方、既存の templates/ 機能は『vault 内 .md + frontmatter キー loamium-template(target / vars)+ 本文がテンプレート』という前例を確立しており、パラメータ定義(TemplateVarDef)と変数展開エンジン(resolveTemplate: {{var}} / {{date:FMT}} / {{now:FMT}})も packages/shared に既にある。ピュア Markdown 原則(priority 1)と Obsidian 互換(priority 4)の下では、frontmatter は第一級市民であり、未知キーを持つ普通のノートは Obsidian でもそのまま開ける。",
+  "alternatives": [
+    {
+      "name": ".loamium/smart-commands.json(ADR-0002 のスマートフォルダ方式)",
+      "tradeoff": "構造化データとしては素直だが、プロンプト等の長文が JSON 文字列になり、編集専用 UI が別途必要"
+    },
+    {
+      "name": "ハイブリッド(ワークフロー構造は JSON、プロンプト本文は vault ノート参照)",
+      "tradeoff": "関心は分離できるが定義が 2 箇所に分かれ、コマンド 1 個の可搬性・コピー容易性が落ちる"
+    },
+    {
+      "name": "vault 内 Markdown: commands/*.md + loamium-command frontmatter(採用)",
+      "tradeoff": "Loamium 自身で編集でき templates/ の前例に乗れる。YAML がスキーマになるため厳格検証が必要"
+    }
+  ],
+  "decision": "スマートコマンド 1 個 = vault の commands/ 配下の .md ファイル 1 本とし、frontmatter キー loamium-command に {name?, description?, params[], steps[]} を、本文にステップから参照される挿入テキスト/プロンプトを置く。params は templates の TemplateVarDef と同型(name / label / required / default、type: string | text | date)、変数展開は既存 resolveTemplate を再利用する。",
+  "consequences": [
+    "+ コマンドを Loamium 自身(普通のノート編集)で作成・編集でき、専用エディタ UI が不要",
+    "+ vault と一体で Git 管理される(履歴・バックアップ・機器間同期がノートと同じ経路)",
+    "+ エージェントが既存のノート読み書き API/CLI でコマンドを作成・編集できる(新 API 不要)",
+    "+ ファイル 1 本で自己完結するため、コマンドのコピー・共有・他 vault への移植が容易",
+    "+ Obsidian で開いても frontmatter + 本文の普通のノートに見える(互換原則 OK、独自記法なし)",
+    "- frontmatter(YAML)がワークフロースキーマになるため、zod による厳格検証と、一覧時の寛容 read(壊れた定義は『無効』として表示しアプリを落とさない)の両立が必要",
+    "- templates/ に続き commands/ が予約フォルダになる(vault の暗黙構造が 1 つ増える)",
+    "- 定義形式を将来変更する場合、ユーザーの .md ファイル群の移行が必要(frontmatter に version は持たず、スキーマ拡張は加算のみとする)"
+  ],
+  "reversibility_cost": "medium",
+  "affects": ["packages/shared", "packages/server", "packages/cli", "packages/ui"],
+  "supersedes": null,
+  "superseded_by": null,
+  "notes": "loamium-command キーの steps スキーマは ADR-0009 が定める。params の type: text(複数行)は既存 TemplateVarDef にない場合の加算拡張であり、templates 側でも使えるよう shared に置く。"
+}

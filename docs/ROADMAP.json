@@ -3,11 +3,11 @@
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
     "current_sprint": "S11493d",
-    "total": 31,
+    "total": 34,
     "done": 29,
     "in_progress": 1,
-    "remaining": 1,
-    "percentage": 93
+    "remaining": 4,
+    "percentage": 85
   },
   "execution_order": [
     "Sd63ad1",
@@ -40,7 +40,10 @@
     "S7b2f22",
     "Sebf6b0",
     "S11493d",
-    "Sa8ee62"
+    "Sa8ee62",
+    "Sd22b1f",
+    "Sde7a63",
+    "S5a66e4"
   ],
   "sprints": {
     "Sd63ad1": {
@@ -3304,6 +3307,308 @@
           }
         }
       }
+    },
+    "Sd22b1f": {
+      "title": "スマートコマンド基盤 — 定義スキーマ/一覧・実行エンジン・journal section 追記 + CLI",
+      "description": "ADR-0008/0009 準拠。LoamiumCommand/CommandStep zod スキーマ(shared)、GET /api/commands(寛容 read)、POST /api/commands/{name}/run(同期実行・4 ステップ種・resolveTemplate 展開・権限/監査)、journal-append の section 拡張、CLI 1:1(commands / command run / journal-append --section)。UI なし。",
+      "milestone": false,
+      "status": "pending",
+      "depends_on": null,
+      "stories": {
+        "Sd22b1f-1": {
+          "title": "定義スキーマと一覧(shared スキーマ + GET /api/commands + CLI)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "エージェントおよび自分として、commands/*.md に書いたワークフロー定義を Loamium に認識させたい。なぜなら、コマンドを普通のノートとして作成・編集し、vault と一体で Git 管理したいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sd22b1f-1-1",
+              "description": "packages/shared に loamium-command frontmatter の zod スキーマ(LoamiumCommand: name?/description?/params[]/steps[]。CommandStep: journal-append|note-append|note-create|template-instantiate の判別ユニオン + 共通 open?。params は TemplateVarDef 同型 + type: string|text|date)とパース関数があり、正常系・未知 kind・型不一致のユニットテストが通る。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd22b1f-1-2",
+              "description": "GET /api/commands が commands/*.md を寛容 read で列挙し { commands: [{name, path, description, params, valid, error?}] } を返す。frontmatter が壊れたファイルも valid:false + error で一覧に含まれ、200 を維持する(アプリを落とさない)。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd22b1f-1-3",
+              "description": "CLI `loamium commands` が同一エンドポイントを叩き、1:1 の一覧(無効定義のマーク含む)を出力する。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sd22b1f-1-1": {
+              "title": "shared スキーマ + パーサ",
+              "description": "packages/shared に loamiumCommandSchema / commandStepSchema(zod 判別ユニオン)と frontmatter 抽出関数を追加。ユニットテスト(正常系・未知 kind・params 型・壊れ YAML)を書く。",
+              "status": "pending"
+            },
+            "Sd22b1f-1-2": {
+              "title": "一覧 API(寛容 read)",
+              "description": "packages/server に routes/commands.ts を新設し GET /api/commands を実装。commands/ 配下を列挙し CommandSummary 化。壊れた定義は valid:false でマーク。",
+              "status": "pending"
+            },
+            "Sd22b1f-1-3": {
+              "title": "CLI commands サブコマンド",
+              "description": "packages/cli に commands サブコマンドを追加(1:1 対応)。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sd22b1f-2": {
+          "title": "実行エンジン(POST run + 権限/監査 + CLI)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "自分として、定義したコマンドをパラメータ 1 セットで実行し、追記・ノート作成・テンプレート展開の複数ステップを一括で走らせたい。なぜなら、定型ワークフローを毎回手作業で繰り返したくないから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sd22b1f-2-1",
+              "description": "POST /api/commands/{name}/run(body {params})が steps を順次同期実行し、ステップ毎の結果(kind, ok, path?, error?)と openPath? を返す。content/target/template/vars 値/section は resolveTemplate(params + {{date:}}/{{now:}})で展開される。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd22b1f-2-2",
+              "description": "最初の失敗ステップで停止し、完了済みステップの結果と失敗理由を返す(ロールバックなし)。必須 param 不足は 400 {error:'missing_params', missing[]}。展開後の target は normalizeVaultPath で再検証され `..` 脱出・隠しセグメントは 4xx で拒否される。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd22b1f-2-3",
+              "description": "read-only モードでは run 全体が 403。append-only モードでは v1 の 4 ステップ種のみで構成されたコマンドが許可される。実行は監査ログに command.run + 各ステップの書き込みとして記録される。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd22b1f-2-4",
+              "description": "note-create は既存パスを上書きせず連番サフィックスで新規作成する(templates と同挙動)。CLI `loamium command run <name> --param k=v`(複数指定可)が 1:1 で動く。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sd22b1f-2-1": {
+              "title": "ステップ実行器",
+              "description": "packages/server にコマンド実行器を実装: steps を逐次実行、resolveTemplate 展開、展開後パスの再検証、結果集約(最初のエラーで停止)。既存の journal/note/template 実装を呼び出す(重複実装しない)。",
+              "status": "pending"
+            },
+            "Sd22b1f-2-2": {
+              "title": "run ルート + 権限/監査",
+              "description": "POST /api/commands/{name}/run を追加。append-only 判定はコマンドのステップ構成で行い、setAudit('command.run') + 各ステップの書き込み記録を通す。",
+              "status": "pending"
+            },
+            "Sd22b1f-2-3": {
+              "title": "CLI command run",
+              "description": "packages/cli に command run サブコマンド(--param k=v の複数パース)を追加(1:1 対応)。",
+              "status": "pending"
+            },
+            "Sd22b1f-2-4": {
+              "title": "受け入れテスト",
+              "description": "tests/acceptance/commands.spec.ts を実 HTTP クライアントで作成: 正常系(複数ステップ)/失敗停止/missing_params/パス検証/権限モード。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sd22b1f-3": {
+          "title": "journal-append の section 対応 + create todo 実証",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "自分として、create todo コマンドで期限(任意)・概要・詳細を入力すると、今日のジャーナルの Todo 一覧セクションに追記されるようにしたい。なぜなら、日々のタスクを 1 箇所に集約したいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sd22b1f-3-1",
+              "description": "POST /api/journal/append が section?: string を受け、当該見出し(NFC 正規化のテキスト一致)配下の末尾に挿入する。見出しが無ければファイル末尾に見出しごと追記。section 省略時の挙動は従来と不変。挿入ロジック(shared)はユニットテストを持つ。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd22b1f-3-2",
+              "description": "CLI `loamium journal-append <content> [date] --section <heading>` が 1:1 で動く。journal-append ステップ(kind='journal-append')の section も同じ実装を共有する。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd22b1f-3-3",
+              "description": "create-todo コマンド定義(テストフィクスチャ)を run すると、今日のジャーナルの指定セクションに `- [ ] {{summary}}` 形式の行が追記される受け入れテストが通る(期限パラメータ省略時も正しく展開される)。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sd22b1f-3-1": {
+              "title": "section 挿入ユーティリティ",
+              "description": "packages/shared に「見出し配下末尾への挿入」関数を追加(NFC 一致、見出し不在時は末尾に見出しごと追記)。ユニットテスト必須(Markdown 加工 + ジャーナル日付処理)。",
+              "status": "pending"
+            },
+            "Sd22b1f-3-2": {
+              "title": "journal API/CLI の section 拡張",
+              "description": "POST /api/journal/append に section? を追加し、CLI に --section オプションを追加。既存クライアントの後方互換を保つ(オプショナル追加のみ)。",
+              "status": "pending"
+            },
+            "Sd22b1f-3-3": {
+              "title": "create-todo 受け入れテスト",
+              "description": "フィクスチャ vault に commands/create-todo.md を置き、run → ジャーナル Todo セクション追記を end-to-end で検証。",
+              "status": "pending"
+            }
+          }
+        }
+      }
+    },
+    "Sde7a63": {
+      "title": "統合コマンドパレット — Ctrl-K 拡張・コマンドレジストリ・スマートコマンド実行 UI",
+      "milestone": true,
+      "status": "pending",
+      "depends_on": null,
+      "description": "ADR-0007 準拠。UI コマンドレジストリ(builtin + smart)、Ctrl-K パレットの 3 セクション化(ノート/全文/コマンド)、'>' コマンド専用モード、スマートコマンドのパラメータフォーム → 実行 → openPath 遷移。GUI Sprint(gui-spec + prototype 対象。prototype はユーザー確認必須)。",
+      "stories": {
+        "Sde7a63-1": {
+          "title": "コマンドレジストリ + 組み込みコマンド",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "自分として、Ctrl-K からノート作成・テンプレートからの作成・スマートフォルダ作成・詳細検索・今日のジャーナルなどの操作を起動したい。なぜなら、機能を暗記せずに 1 つの入口から全操作に到達したいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sde7a63-1-1",
+              "description": "UI にコマンドレジストリ({id, title, keywords, icon, source:'builtin'|'smart', run})が導入され、Ctrl-K のバインドと組み込みコマンドの起動がレジストリ経由になる(App.tsx 直書きの解消。registries.ts のパターン踏襲)。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sde7a63-1-2",
+              "description": "パレットに「コマンド」セクションが追加され、クエリで title/keywords を絞り込み、Enter/クリックで実行できる。既存のノート/全文セクション・キーボードナビ(↑↓/Enter/Esc)・IME 挙動は退行しない。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sde7a63-1-3",
+              "description": "組み込みコマンドとして最低限: 新規ノート作成 / テンプレートからノート作成 / スマートフォルダ作成 / 詳細検索を開く / 今日のジャーナルを開く、がパレットから動作する(既存モーダル・ルーティングへ接続)。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sde7a63-1-1": {
+              "title": "コマンドレジストリ実装",
+              "description": "packages/ui に commands レジストリモジュール(登録関数 + 型)を追加し、Ctrl-K バインドと組み込みコマンドを移設する。",
+              "status": "pending"
+            },
+            "Sde7a63-1-2": {
+              "title": "パレットのコマンドセクション",
+              "description": "SearchPalette にコマンドセクションを追加(絞り込み・ナビ・IME 維持)。",
+              "status": "pending"
+            },
+            "Sde7a63-1-3": {
+              "title": "組み込みコマンド接続 + mock テスト",
+              "description": "5 種の組み込みコマンドを既存機能に接続し、mock tests(*.mock.spec.ts)を書く。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sde7a63-2": {
+          "title": "'>' コマンド専用モード",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "自分として、パレットで '>' から入力を始めたらコマンドだけに絞り込みたい。なぜなら、ノートや全文の検索結果に混ざらず素早くコマンドを選びたいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sde7a63-2-1",
+              "description": "先頭 '>' でコマンド専用モードになり(ノート/全文セクション非表示、'>' 以降がコマンドクエリ)、'>' を消すと通常モードへ戻る。プレフィックス→モードの対応は 1 箇所に集約される(ADR-0007 notes)。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sde7a63-2-2",
+              "description": "プレースホルダ等でモードが視覚的に判別でき、専用モードでもキーボードナビ・Esc・IME が機能する。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sde7a63-2-1": {
+              "title": "モード判定と表示切替",
+              "description": "プレフィックス判定を一元化し、コマンド専用モードの表示/復帰を実装。",
+              "status": "pending"
+            },
+            "Sde7a63-2-2": {
+              "title": "mock テスト",
+              "description": "'>' モードの遷移・復帰・IME ケースの mock tests。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sde7a63-3": {
+          "title": "スマートコマンドの実行(フォーム → run → 遷移)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "自分として、commands/ に定義したスマートコマンドをパレットから選び、パラメータフォームに入力して Enter で実行したい。なぜなら、create todo のような定型ワークフローを数秒で完了させたいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sde7a63-3-1",
+              "description": "GET /api/commands のコマンドが source='smart' としてパレットに表示される。valid:false の定義は選択不可で、無効の理由が確認できる。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sde7a63-3-2",
+              "description": "params を持つコマンドは選択後にパラメータフォームモーダル(required 検証、type:text は複数行、type:date は日付入力、default 反映)を表示し、Enter/実行ボタンで POST /api/commands/{name}/run を呼ぶ。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sde7a63-3-3",
+              "description": "成功時、openPath があれば該当ノートへ遷移し完了が分かる。失敗時はどのステップで失敗したか・完了済みステップが表示される。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sde7a63-3-4",
+              "description": "create todo の一連(Ctrl-K → '>' 絞り込み → フォーム入力 → 実行 → ジャーナルの Todo セクションに追記反映)が実サーバーの E2E テストで通る。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sde7a63-3-1": {
+              "title": "smart エントリ供給",
+              "description": "GET /api/commands の API クライアント(zod 検証)とレジストリへの動的登録。",
+              "status": "pending"
+            },
+            "Sde7a63-3-2": {
+              "title": "パラメータフォームモーダル",
+              "description": "TemplateModal と同型のフォーム(required/text/date/default)を実装。",
+              "status": "pending"
+            },
+            "Sde7a63-3-3": {
+              "title": "実行と結果 UI",
+              "description": "run 呼び出し、openPath 遷移、ステップ単位の失敗表示。",
+              "status": "pending"
+            },
+            "Sde7a63-3-4": {
+              "title": "E2E + mock テスト",
+              "description": "create todo E2E(*.e2e.spec.ts、実サーバー)+ エラー系 mock tests。",
+              "status": "pending"
+            }
+          }
+        }
+      }
+    },
+    "S5a66e4": {
+      "title": "agent-run ステップ — Pi Agent 連携ワークフロー",
+      "description": "議事録まとめ等、AI Agent を起動するステップ種を実行エンジンに追加する(ADR-0009 の予約に対応)。Pi Agent 統合のマージ後、非同期ジョブモデル(状態管理・失敗時挙動・結果のファイル書き込み)を design adr で決定してから詳細化する。",
+      "milestone": false,
+      "status": "pending",
+      "depends_on": null,
+      "detail_level": "coarse",
+      "stories": {}
     }
   },
   "dependencies": {
@@ -3488,6 +3793,25 @@
         "S11493d"
       ],
       "reason": "エクスポートの ⋯ アクションメニューは S11493d のインフォパネルヘッダに載る。ADR-0001(サーバー側エクスポート)準拠"
+    },
+    "Sd22b1f": {
+      "depends_on": [
+        "S89a350"
+      ],
+      "reason": "params は TemplateVarDef 同型、変数展開は resolveTemplate(S89a350)を再利用する(ADR-0008)"
+    },
+    "Sde7a63": {
+      "depends_on": [
+        "Sd22b1f",
+        "Sbd061c"
+      ],
+      "reason": "パレットは既存 SearchPalette(Sbd061c)の拡張。smart エントリと実行は Sd22b1f の GET /api/commands / POST run を使う(ADR-0007)"
+    },
+    "S5a66e4": {
+      "depends_on": [
+        "Sd22b1f"
+      ],
+      "reason": "実行エンジンのステップ・ユニオンに agent-run を加算する。Pi Agent 統合のマージ + agent-run ADR の追加が前提(ADR-0009 notes)"
     }
   },
   "backlog": [
@@ -3564,6 +3888,18 @@
       "description": "並べ替え下移動(smart-folder-movedown)のテスト。moveup のみ被覆。実装は対称で正しい。",
       "added_in": "S7b2f22",
       "reason": "test coverage debt (low)"
+    },
+    {
+      "title": "組み込み「新規コマンド作成」コマンド(commands/ scaffolding)",
+      "description": "パレットから commands/ 用のテンプレートで新しいスマートコマンド定義の雛形を作る組み込みコマンド。テンプレート機構(S89a350)の再利用で薄く実装できる見込み。",
+      "added_in": "roadmap-generation",
+      "reason": "コマンド作成体験の改善。v1 スコープ(基盤 + パレット)の後で十分"
+    },
+    {
+      "title": "スラッシュメニューとコマンドレジストリの語彙共有の検討",
+      "description": "エディタ内挿入(SLASH_COMMANDS ハードコード配列)とコマンドレジストリの語彙・型を共有できるか検討(ADR-0007 consequences で統合しないと決めたが、共有の余地は残すとした)。",
+      "added_in": "roadmap-generation",
+      "reason": "重複語彙の整理。機能価値より保守性のため優先度低"
     }
   ]
 }
