@@ -645,7 +645,7 @@ test('[AC-S7b2f22-2-7] read-only では smart-view-add が非表示', async ({ p
   const unexpected = await boot(page);
   await page.route('**/api/health', (route) =>
     void route.fulfill(
-      json({ status: 'ok', mode: 'read-only', terminal: { enabled: false, reason: null } }),
+      json({ status: 'ok', mode: 'read-only', }),
     ),
   );
   await page.route('**/api/smart-folders', (route) =>
@@ -664,7 +664,7 @@ test('[AC-S7b2f22-2-7] append-only モードでも smart-view-add が非表示',
   const unexpected = await boot(page);
   await page.route('**/api/health', (route) =>
     void route.fulfill(
-      json({ status: 'ok', mode: 'append-only', terminal: { enabled: false, reason: null } }),
+      json({ status: 'ok', mode: 'append-only', }),
     ),
   );
   await page.route('**/api/smart-folders', (route) =>
@@ -685,7 +685,7 @@ test('[AC-S7b2f22-2-7] read-only では右クリックしてもコンテキス�
   const unexpected = await boot(page);
   await page.route('**/api/health', (route) =>
     void route.fulfill(
-      json({ status: 'ok', mode: 'read-only', terminal: { enabled: false, reason: null } }),
+      json({ status: 'ok', mode: 'read-only', }),
     ),
   );
   await page.route('**/api/smart-folders', (route) =>
@@ -732,7 +732,7 @@ test('[AC-S7b2f22-1-7] read-only では項目があっても旧ボタン類が�
   const unexpected = await boot(page);
   await page.route('**/api/health', (route) =>
     void route.fulfill(
-      json({ status: 'ok', mode: 'read-only', terminal: { enabled: false, reason: null } }),
+      json({ status: 'ok', mode: 'read-only', }),
     ),
   );
   await page.route('**/api/smart-folders', (route) =>
@@ -1157,7 +1157,7 @@ test('[AC-Sebf6b0-3-1] read-only では smart-view-newfile が表示されない
   const unexpected = await boot(page);
   await page.route('**/api/health', (route) =>
     void route.fulfill(
-      json({ status: 'ok', mode: 'read-only', terminal: { enabled: false, reason: null } }),
+      json({ status: 'ok', mode: 'read-only', }),
     ),
   );
   await page.route('**/api/smart-folders', (route) =>

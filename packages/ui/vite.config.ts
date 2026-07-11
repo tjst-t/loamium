@@ -41,7 +41,7 @@ function normalizeUiAllowedHost(entry: string): string {
   // origin 形式 (https://host) で貼られたら host 部だけ取る
   const sep = entry.indexOf('://');
   const host = sep === -1 ? entry : entry.slice(sep + 3);
-  // ターミナル側 LOAMIUM_TERMINAL_ALLOWED_ORIGINS の "*.example.com" 記法を
+  // LOAMIUM_UI_ALLOWED_HOSTS の "*.example.com" 記法を
   // Vite が解釈する先頭ドット ".example.com" へ変換する (記法を統一)
   return host.startsWith('*.') ? host.slice(1) : host;
 }

@@ -220,15 +220,6 @@ export function FolderIcon({ className }: IconProps): JSX.Element {
   );
 }
 
-export function TerminalIcon({ className }: IconProps): JSX.Element {
-  return (
-    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="1.8" y="2.5" width="12.4" height="11" rx="1.5" />
-      <path d="M4.5 6l2.5 2-2.5 2M8.5 10.5h3" />
-    </svg>
-  );
-}
-
 /** ブックマークスター: 輪郭のみ (未ブックマーク状態) */
 export function StarOutlineIcon({ className }: IconProps): JSX.Element {
   return (

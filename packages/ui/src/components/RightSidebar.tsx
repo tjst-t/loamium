@@ -1,20 +1,17 @@
 /**
- * 右サイドバー — バックリンク ⇄ Claude のトグル (Sf1a90a-2 / prototype/claude-sidebar.html)。
+ * 右サイドバー — バックリンクパネル (Sf1a90a-2 / S53409d-1)。
  *
- * - seg-toggle で right-tab-backlinks / right-tab-claude を切り替える (aria-selected)。
- * - Claude 表示中もメインのノートは見えたまま (メインを占有しない — DESIGN_PRINCIPLES)。
- * - TerminalPane (claude-panel) は初回に Claude を開いた時点で一度だけマウントし、
- *   以後はトグルで display 切替のみ — xterm セッションを維持する (AC-Sf1a90a-2-1)。
+ * - ターミナル (Claude) タブは ADR-0007 により廃止 (S53409d-1)。
+ * - バックリンクタブのみ。
  * - right-sidebar-toggle でサイドバー自体を開閉する。
  * - バックリンク取得はここで行い、件数バッジ (backlink-count) はタブに常時出す。
  */
 import { useEffect, useState, type JSX } from 'react';
 import { noteTitle, type BacklinkSource } from '@loamium/shared';
 import { api, ApiError } from '../api.js';
-import { TerminalPane, type TerminalStatus } from './TerminalPane.js';
-import { ChevronRightIcon, DocumentIcon, LinkIcon, TerminalIcon } from '../icons.js';
+import { ChevronRightIcon, DocumentIcon, LinkIcon } from '../icons.js';
 
-export type RightTab = 'backlinks' | 'claude';
+export type RightTab = 'backlinks';
 
 export interface RightSidebarProps {
   /** 開いているノートの vault 相対パス (null = ノート未オープン) */
@@ -25,7 +22,7 @@ export interface RightSidebarProps {
   onOpenNote: (path: string) => void;
   /**
    * true のときサイドバー全体を非表示にする (Sa629e2-3: /search ルート)。
-   * unmount ではなく display:none — Claude (xterm) のセッションは維持される。
+   * unmount ではなく display:none。
    */
   hidden?: boolean;
 }
@@ -49,11 +46,7 @@ export function RightSidebar({
   onOpenNote,
   hidden = false,
 }: RightSidebarProps): JSX.Element {
-  const [tab, setTab] = useState<RightTab>('backlinks');
   const [collapsed, setCollapsed] = useState(false);
-  /** 一度 Claude を開いたら unmount しない (トグルでセッションを切らない) */
-  const [claudeMounted, setClaudeMounted] = useState(false);
-  const [terminalStatus, setTerminalStatus] = useState<TerminalStatus>('loading');
 
   const [backlinks, setBacklinks] = useState<BacklinkSource[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -85,12 +78,7 @@ export function RightSidebar({
     backlinks?.flatMap((src) => src.links.map((link) => ({ source: src.source, link }))) ?? [];
   const countKnown = notePath !== null && backlinks !== null && error === null;
 
-  const selectClaude = (): void => {
-    setClaudeMounted(true);
-    setTab('claude');
-  };
-
-  // /search では表示しない (display:none — マウントは維持し xterm セッションを守る)
+  // /search では表示しない (display:none — マウントは維持)
   const hiddenStyle = hidden ? ({ display: 'none' } as const) : undefined;
 
   if (collapsed) {
@@ -115,11 +103,10 @@ export function RightSidebar({
       <div className="panel-header">
         <div className="seg-toggle" role="tablist" aria-label="右サイドバー切替">
           <button
-            className={`seg-btn${tab === 'backlinks' ? ' active' : ''}`}
+            className="seg-btn active"
             data-testid="right-tab-backlinks"
             role="tab"
-            aria-selected={tab === 'backlinks'}
-            onClick={() => setTab('backlinks')}
+            aria-selected={true}
           >
             <LinkIcon />
             バックリンク
@@ -128,17 +115,6 @@ export function RightSidebar({
                 {items.length}
               </span>
             )}
-          </button>
-          <button
-            className={`seg-btn${tab === 'claude' ? ' active' : ''}`}
-            data-testid="right-tab-claude"
-            role="tab"
-            aria-selected={tab === 'claude'}
-            onClick={selectClaude}
-          >
-            <TerminalIcon />
-            Claude
-            <span className={`live-dot${terminalStatus === 'connected' ? '' : ' off'}`} />
           </button>
         </div>
         <button
@@ -152,11 +128,10 @@ export function RightSidebar({
         </button>
       </div>
 
-      {/* バックリンク本体 (Claude 表示中は隠すが unmount はしない) */}
+      {/* バックリンク本体 */}
       <div
         className="panel-body"
         data-testid="backlink-panel"
-        style={{ display: tab === 'backlinks' ? 'block' : 'none' }}
       >
         {error !== null ? (
           <div className="panel-empty" data-testid="backlink-error">
@@ -195,15 +170,6 @@ export function RightSidebar({
           ))
         )}
       </div>
-
-      {/* Claude (初回に開いてからマウント — トグルでセッション維持) */}
-      {claudeMounted && (
-        <TerminalPane
-          active={tab === 'claude'}
-          onStatusChange={setTerminalStatus}
-          onCmdDetected={() => undefined}
-        />
-      )}
     </aside>
   );
 }

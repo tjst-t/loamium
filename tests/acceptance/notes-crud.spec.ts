@@ -278,15 +278,14 @@ describe('[AC-Sd63ad1-1-3] path traversal rejection and UTF-8/LF storage', () =>
 });
 
 describe('health endpoint', () => {
-  it('GET /api/health returns ok with the permission mode and terminal flag', async () => {
+  it('GET /api/health returns ok with the permission mode', async () => {
     const res = await fetch(`${server.baseUrl}/api/health`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { status: string; mode: string };
-    // terminal は Sb7f458 の additive 拡張 (このハーネスは LOAMIUM_TERMINAL 未設定なので無効)
+    // terminal フィールドは ADR-0007 により廃止 (S53409d-1)
     expect(body).toEqual({
       status: 'ok',
       mode: 'full',
-      terminal: { enabled: false, reason: 'terminal_env_not_set' },
     });
   });
 });

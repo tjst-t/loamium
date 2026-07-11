@@ -18,16 +18,9 @@ export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv>
   const app = new Hono<AppEnv>();
 
   app.get('/api/health', (c) => {
-    // terminal は機能フラグ (Sb7f458-2) — UI が無効理由の表示・WS 接続可否の判定に使う。
-    // cmd は有効時のみ返す (無効サーバーの構成情報は最小限に)
     const res: HealthResponse = {
       status: 'ok',
       mode: config.mode,
-      terminal: {
-        enabled: config.terminal.enabled,
-        reason: config.terminal.reason,
-        ...(config.terminal.enabled ? { cmd: config.terminal.cmd } : {}),
-      },
     };
     return c.json(res);
   });
