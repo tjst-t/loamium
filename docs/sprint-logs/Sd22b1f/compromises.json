@@ -1,0 +1,9 @@
+{
+  "sprint": "Sd22b1f",
+  "compromises": [
+    { "severity": "low", "category": "cli_ux", "summary": "CLI journal-append の先頭 - content は `--` セパレータ必須(Commander 制約)。-- 経由で動作・テスト済み・ヘルプ明記。backlog 記録済み。", "recorded": "backlog" },
+    { "severity": "low", "category": "environmental", "summary": "この VM で terminal.spec.ts(7件)が node-pty ネイティブモジュール未ロードで失敗。Sd22b1f 対象外・CI では通過。full-suite 機械ゲート red の原因。", "recorded": "verification-results" },
+    { "severity": "low", "category": "perf_debt", "summary": "note-meta の parseNote 5回集約 backlog(S11493d 由来、main 実装側の話)。", "recorded": "backlog" }
+  ],
+  "overlooked_by_autopilot": []
+}
