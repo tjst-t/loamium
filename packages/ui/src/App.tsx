@@ -1558,6 +1558,7 @@ export function App(): JSX.Element {
         refreshToken={backlinksToken}
         onOpenNote={(path) => void openNotePath(path)}
         hidden={route.kind === 'search'}
+        notes={notes}
       />
 
       {/* ================= ポップアップ ================= */}

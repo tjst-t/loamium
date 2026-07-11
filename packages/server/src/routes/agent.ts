@@ -30,8 +30,41 @@ import {
 import { parseBody, errorJson, setAudit, type AppEnv } from '../http.js';
 import { agentSendMessageRequestSchema } from '@loamium/shared';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
+import type { VaultIndex } from '../noteIndex.js';
 
-export function agentRoutes(config: ServerConfig): Hono<AppEnv> {
+/**
+ * ツール引数から短い要約文字列を生成する (SSE tool_start の argsSummary フィールド)。
+ *
+ * - search  → クエリ文字列 (ダブルクォート付き)
+ * - read / backlinks → パス文字列
+ * - query   → DQL 文字列 (先頭 60 文字)
+ * - tags    → '' (引数なし)
+ * - unknown → JSON フォールバック
+ */
+function buildArgsSummary(toolName: string, args: unknown): string {
+  const a = (typeof args === 'object' && args !== null) ? (args as Record<string, unknown>) : {};
+  switch (toolName) {
+    case 'search': {
+      const q = typeof a['query'] === 'string' ? a['query'] : '';
+      return JSON.stringify(q);
+    }
+    case 'read':
+    case 'backlinks': {
+      const p = typeof a['path'] === 'string' ? a['path'] : '';
+      return p;
+    }
+    case 'query': {
+      const d = typeof a['dql'] === 'string' ? a['dql'] : '';
+      return d.slice(0, 60);
+    }
+    case 'tags':
+      return '';
+    default:
+      return JSON.stringify(a).slice(0, 80);
+  }
+}
+
+export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
   // ---- GET /api/agent/sessions -----------------------------------------------
@@ -51,7 +84,7 @@ export function agentRoutes(config: ServerConfig): Hono<AppEnv> {
 
     let session;
     try {
-      session = await createPiSession(config.vaultRoot, configResult.config);
+      session = await createPiSession(config.vaultRoot, configResult.config, index);
     } catch (err) {
       return errorJson(c, 500, 'session_create_failed', String(err));
     }
@@ -86,7 +119,7 @@ export function agentRoutes(config: ServerConfig): Hono<AppEnv> {
       return c.json({ id: sessionId, messages: [] });
     }
     try {
-      const session = await getSessionFromDisk(sessionId, config.vaultRoot, configResult.config);
+      const session = await getSessionFromDisk(sessionId, config.vaultRoot, configResult.config, index);
       const messages = extractSessionMessages(session);
       return c.json({ id: sessionId, messages });
     } catch {
@@ -177,7 +210,7 @@ export function agentRoutes(config: ServerConfig): Hono<AppEnv> {
               await sendEvent({ type: 'text_delta', text: ae.delta });
             }
           } else if (event.type === 'tool_execution_start') {
-            const argsSummary = JSON.stringify(event.args ?? {}).slice(0, 80);
+            const argsSummary = buildArgsSummary(event.toolName, event.args);
             await sendEvent({
               type: 'tool_start',
               toolCallId: event.toolCallId,

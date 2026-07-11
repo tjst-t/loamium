@@ -1,0 +1,196 @@
+/**
+ * エージェントツール境界テスト (S53409d-3)。
+ *
+ * AC-S53409d-3-1: ツールセットが read 系 5 種のみ (ADR-0008)。
+ * AC-S53409d-3-4: read / backlinks ツールが vault 脱出パスを拒否する。
+ */
+import { describe, expect, it, beforeEach } from 'vitest';
+import { tmpdir } from 'node:os';
+import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
+import path from 'node:path';
+import { VaultIndex } from './noteIndex.js';
+import { createVaultReadTools, VAULT_READ_TOOL_NAMES } from './agent-tools.js';
+
+// ---- テスト用ヘルパー ----------------------------------------------------------
+
+/** ダミーの AbortSignal を返す。 */
+const noSignal = undefined;
+/** ダミーの onUpdate を返す。 */
+const noUpdate = undefined;
+
+/**
+ * テスト用ミニマル ExtensionContext。
+ * ツール execute() の第 5 引数だが、vault 読み取りツールは使用しないため空オブジェクトで十分。
+ */
+const fakeCtx = {} as Parameters<ReturnType<typeof createVaultReadTools>[number]['execute']>[4];
+
+// ---- テスト ------------------------------------------------------------------
+
+describe('createVaultReadTools', () => {
+  let vaultRoot: string;
+  let index: VaultIndex;
+  let tools: ReturnType<typeof createVaultReadTools>;
+
+  beforeEach(async () => {
+    vaultRoot = await mkdtemp(path.join(tmpdir(), 'loamium-agent-tools-test-'));
+    index = new VaultIndex(vaultRoot);
+    tools = createVaultReadTools(index, vaultRoot);
+  });
+
+  // ---- AC-S53409d-3-1: ツールセット固定 ----------------------------------------
+  //
+  // pi SDK の AgentSession.getActiveToolNames() で「セッションに登録されたツール名」を
+  // イントロスペクトできるが、createAgentSession() は model/auth 等の外部依存が必要なため
+  // ここでは unit として確認できない。代わりに:
+  //   1. createVaultReadTools() が返すツール名を直接アサート (下記 2 テスト)
+  //   2. LLM への実リクエストを実測するガードは e2e (agent-tools.e2e.spec.ts) が担う
+  //      — AC-3-1: advertisedTools === ['backlinks','query','read','search','tags']
+  //      — このアサートは削除・弱体化しないこと (ADR-0008 の回帰防止)。
+
+  it('[AC-S53409d-3-1] 生成されるツール名は ADR-0008 で定義された 5 種のみ (sorted)', () => {
+    const names = tools.map((t) => t.name).sort();
+    expect(names).toEqual([...VAULT_READ_TOOL_NAMES].sort());
+    // 明示的に 5 種であることを確認
+    expect(names).toEqual(['backlinks', 'query', 'read', 'search', 'tags']);
+  });
+
+  it('[AC-S53409d-3-1] ツール名に write/bash/shell/edit 等は含まれない', () => {
+    const names = tools.map((t) => t.name);
+    const forbidden = ['write', 'bash', 'edit', 'shell', 'find', 'grep', 'ls', 'journal-append'];
+    for (const f of forbidden) {
+      expect(names).not.toContain(f);
+    }
+  });
+
+  // ---- AC-S53409d-3-4: パス脱出拒否 -------------------------------------------
+
+  it('[AC-S53409d-3-4] read ツールが "../../../etc/passwd" を拒否しエラーテキストを返す', async () => {
+    const readTool = tools.find((t) => t.name === 'read');
+    expect(readTool).toBeDefined();
+    if (!readTool) return;
+
+    const result = await readTool.execute('tc-1', { path: '../../../etc/passwd' }, noSignal, noUpdate, fakeCtx);
+    expect(result.content).toHaveLength(1);
+    expect(result.content[0]?.type).toBe('text');
+    const text = (result.content[0] as { type: 'text'; text: string }).text;
+    expect(text).toMatch(/パスエラー|traversal/i);
+  });
+
+  it('[AC-S53409d-3-4] backlinks ツールが vault 脱出パスを拒否しエラーテキストを返す', async () => {
+    const backlinksTool = tools.find((t) => t.name === 'backlinks');
+    expect(backlinksTool).toBeDefined();
+    if (!backlinksTool) return;
+
+    const result = await backlinksTool.execute(
+      'tc-2',
+      { path: '../../etc/shadow' },
+      noSignal,
+      noUpdate,
+      fakeCtx,
+    );
+    const text = (result.content[0] as { type: 'text'; text: string } | undefined)?.text ?? '';
+    expect(text).toMatch(/パスエラー|traversal/i);
+  });
+
+  it('[AC-S53409d-3-4] read ツールが隠しパス ".loamium/agent.json" を拒否する', async () => {
+    const readTool = tools.find((t) => t.name === 'read');
+    expect(readTool).toBeDefined();
+    if (!readTool) return;
+
+    const result = await readTool.execute('tc-3', { path: '.loamium/agent.json' }, noSignal, noUpdate, fakeCtx);
+    const text = (result.content[0] as { type: 'text'; text: string } | undefined)?.text ?? '';
+    // hidden segment (.loamium) は VaultPathError で拒否される
+    expect(text).toMatch(/パスエラー|hidden|traversal/i);
+  });
+
+  // ---- 正常系テスト -----------------------------------------------------------
+
+  it('search ツールが vault 内のノートを検索できる', async () => {
+    // ノートをファイルシステムに作成してインデックスを更新
+    const noteContent = '# 設計メモ\n\nアーキテクチャの設計について。\n';
+    await writeFile(path.join(vaultRoot, 'design.md'), noteContent, 'utf8');
+    await index.refreshFile('design.md');
+
+    const searchTool = tools.find((t) => t.name === 'search');
+    expect(searchTool).toBeDefined();
+    if (!searchTool) return;
+
+    const result = await searchTool.execute('tc-s1', { query: '設計' }, noSignal, noUpdate, fakeCtx);
+    const text = (result.content[0] as { type: 'text'; text: string }).text;
+    expect(text).toContain('design');
+  });
+
+  it('tags ツールが vault のタグ一覧を返す', async () => {
+    await writeFile(path.join(vaultRoot, 'tagged.md'), '# tagged\n\n#設計 #アーキテクチャ\n', 'utf8');
+    await index.refreshFile('tagged.md');
+
+    const tagsTool = tools.find((t) => t.name === 'tags');
+    expect(tagsTool).toBeDefined();
+    if (!tagsTool) return;
+
+    const result = await tagsTool.execute('tc-t1', {}, noSignal, noUpdate, fakeCtx);
+    const text = (result.content[0] as { type: 'text'; text: string }).text;
+    expect(text).toMatch(/設計|アーキテクチャ/);
+  });
+
+  it('read ツールが存在するノートのコンテンツを返す', async () => {
+    const content = '# テストノート\n\n本文テスト。\n';
+    await writeFile(path.join(vaultRoot, 'test-note.md'), content, 'utf8');
+
+    const readTool = tools.find((t) => t.name === 'read');
+    expect(readTool).toBeDefined();
+    if (!readTool) return;
+
+    const result = await readTool.execute('tc-r1', { path: 'test-note.md' }, noSignal, noUpdate, fakeCtx);
+    const text = (result.content[0] as { type: 'text'; text: string }).text;
+    expect(text).toContain('本文テスト');
+  });
+
+  it('read ツールが存在しないノートに対してエラーテキストを返す', async () => {
+    const readTool = tools.find((t) => t.name === 'read');
+    expect(readTool).toBeDefined();
+    if (!readTool) return;
+
+    const result = await readTool.execute('tc-r2', { path: 'nonexistent.md' }, noSignal, noUpdate, fakeCtx);
+    const text = (result.content[0] as { type: 'text'; text: string }).text;
+    expect(text).toMatch(/見つかりません|not found/i);
+  });
+
+  it('backlinks ツールが指定ノートへのバックリンクを返す', async () => {
+    await mkdir(path.join(vaultRoot, 'subdir'), { recursive: true });
+    await writeFile(path.join(vaultRoot, 'target.md'), '# ターゲット\n', 'utf8');
+    await writeFile(path.join(vaultRoot, 'source.md'), '# ソース\n\n[[target]] を参照。\n', 'utf8');
+    await index.build();
+
+    const backlinksTool = tools.find((t) => t.name === 'backlinks');
+    expect(backlinksTool).toBeDefined();
+    if (!backlinksTool) return;
+
+    const result = await backlinksTool.execute('tc-b1', { path: 'target.md' }, noSignal, noUpdate, fakeCtx);
+    const text = (result.content[0] as { type: 'text'; text: string }).text;
+    expect(text).toContain('source');
+  });
+
+  it('query ツールが DQL クエリを実行できる', async () => {
+    await writeFile(path.join(vaultRoot, 'note1.md'), '# Note 1\n\n#design\n', 'utf8');
+    await index.build();
+
+    const queryTool = tools.find((t) => t.name === 'query');
+    expect(queryTool).toBeDefined();
+    if (!queryTool) return;
+
+    const result = await queryTool.execute('tc-q1', { dql: 'LIST' }, noSignal, noUpdate, fakeCtx);
+    const text = (result.content[0] as { type: 'text'; text: string }).text;
+    expect(text).toContain('note1');
+  });
+
+  it('query ツールが DQL 構文エラーをスローせずエラーテキストで返す', async () => {
+    const queryTool = tools.find((t) => t.name === 'query');
+    expect(queryTool).toBeDefined();
+    if (!queryTool) return;
+
+    const result = await queryTool.execute('tc-q2', { dql: 'INVALID QUERY' }, noSignal, noUpdate, fakeCtx);
+    const text = (result.content[0] as { type: 'text'; text: string }).text;
+    expect(text).toMatch(/構文エラー|error/i);
+  });
+});

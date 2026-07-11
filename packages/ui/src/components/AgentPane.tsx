@@ -1,5 +1,5 @@
 /**
- * エージェントチャットペイン (S53409d-2)。
+ * エージェントチャットペイン (S53409d-2 / S53409d-3)。
  *
  * 状態:
  *   unconfigured — agent.json 未設定: セットアップガイドを表示。入力欄なし。
@@ -7,30 +7,44 @@
  *   streaming    — SSE 受信中: 送信→中断に切替、入力欄無効。
  *   error        — SSE error イベント受信: エラーバブル表示、入力欄再有効化。
  *
- * data-testid 一覧 (gui-spec-S53409d-2.json):
+ * data-testid 一覧 (gui-spec-S53409d-2.json / gui-spec-S53409d-3.json):
  *   agent-pane (+ data-agent-status), agent-setup-guide,
  *   agent-new-session, agent-messages,
  *   agent-msg-user, agent-msg-assistant, agent-error,
- *   agent-input, agent-send, agent-abort
+ *   agent-input, agent-send, agent-abort,
+ *   agent-tool-chip (完了ツールチップ), agent-tool-chip-running (実行中チップ),
+ *   agent-wikilink (存在するノートへのリンク), agent-wikilink-broken (不在ノートリンク)
  */
 import {
   useEffect,
   useRef,
   useState,
   useCallback,
+  useMemo,
   type JSX,
   type KeyboardEvent,
 } from 'react';
-import type { HealthResponse } from '@loamium/shared';
+import type { HealthResponse, NoteMeta } from '@loamium/shared';
 
 // ---- 型 -----------------------------------------------------------------------
 
 type AgentStatus = 'unconfigured' | 'ready' | 'streaming';
 
+/** ツールチップ状態 */
+interface ToolChipItem {
+  toolCallId: string;
+  name: string;
+  argsSummary: string;
+  /** tool_end を受信したか */
+  done: boolean;
+}
+
 interface AgentMessageItem {
   role: 'user' | 'assistant';
   content: string;
   error?: string; // エラーバブルとして表示
+  /** このメッセージで実行されたツール一覧 */
+  tools: ToolChipItem[];
 }
 
 // ---- API ヘルパー ------------------------------------------------------------
@@ -105,13 +119,128 @@ async function* readSseStream(response: Response): AsyncGenerator<SseEvent> {
   }
 }
 
+// ---- [[WikiLink]] レンダリング ------------------------------------------------
+
+/** [[target]] または [[target|alias]] を解析する。 */
+function parseWikilinks(text: string): Array<{ type: 'text'; value: string } | { type: 'link'; target: string; display: string }> {
+  const parts: Array<{ type: 'text'; value: string } | { type: 'link'; target: string; display: string }> = [];
+  const re = /\[\[([^\]]+)\]\]/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) {
+      parts.push({ type: 'text', value: text.slice(last, m.index) });
+    }
+    const inner = m[1] ?? '';
+    const pipeIdx = inner.indexOf('|');
+    const target = pipeIdx !== -1 ? inner.slice(0, pipeIdx) : inner;
+    const display = pipeIdx !== -1 ? inner.slice(pipeIdx + 1) : inner;
+    parts.push({ type: 'link', target, display });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) {
+    parts.push({ type: 'text', value: text.slice(last) });
+  }
+  return parts;
+}
+
+/**
+ * アシスタントメッセージのテキスト中の [[リンク]] を解決してレンダリングする。
+ * 存在するノートは agent-wikilink (クリックでナビゲート)、不在は agent-wikilink-broken。
+ */
+function AssistantText({
+  content,
+  notePaths,
+  onOpenNote,
+}: {
+  content: string;
+  notePaths: ReadonlySet<string>;
+  onOpenNote: (path: string) => void;
+}): JSX.Element {
+  const parts = useMemo(() => parseWikilinks(content), [content]);
+
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.type === 'text') {
+          return <span key={i}>{part.value}</span>;
+        }
+        // リンクターゲットを解決: .md なし → .md を付与してノートパスと照合
+        const target = part.target;
+        const targetMd = target.endsWith('.md') ? target : `${target}.md`;
+        const exists = notePaths.has(targetMd) || notePaths.has(target);
+        if (exists) {
+          const resolvedPath = notePaths.has(targetMd) ? targetMd : target;
+          return (
+            <span
+              key={i}
+              data-testid="agent-wikilink"
+              className="agent-wikilink"
+              role="link"
+              tabIndex={0}
+              onClick={() => onOpenNote(resolvedPath)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onOpenNote(resolvedPath);
+                }
+              }}
+            >
+              {part.display}
+            </span>
+          );
+        } else {
+          return (
+            <span
+              key={i}
+              data-testid="agent-wikilink-broken"
+              className="agent-wikilink broken"
+              title={`ノートが見つかりません: ${target}`}
+            >
+              {part.display}
+            </span>
+          );
+        }
+      })}
+    </>
+  );
+}
+
+// ---- ツールチップ ------------------------------------------------------------
+
+function ToolChip({ chip }: { chip: ToolChipItem }): JSX.Element {
+  if (!chip.done) {
+    return (
+      <span className="agent-tool-chip running" data-testid="agent-tool-chip-running">
+        <span className="agent-tool-spinner" aria-hidden="true" />
+        <span className="agent-tool-name">{chip.name}</span>
+        {chip.argsSummary !== '' && (
+          <span className="agent-tool-args">{chip.argsSummary}</span>
+        )}
+      </span>
+    );
+  }
+  return (
+    <span className="agent-tool-chip" data-testid="agent-tool-chip">
+      <span className="agent-tool-name">{chip.name}</span>
+      {chip.argsSummary !== '' && (
+        <span className="agent-tool-args">{chip.argsSummary}</span>
+      )}
+    </span>
+  );
+}
+
 // ---- コンポーネント ----------------------------------------------------------
 
 export interface AgentPaneProps {
   health: HealthResponse | null;
+  /** vault のノート一覧 (wikilink 解決用) */
+  notes?: NoteMeta[] | null;
+  /** ノートを開くナビゲーション (wikilink クリック時) */
+  onOpenNote?: (path: string) => void;
 }
 
-export function AgentPane({ health }: AgentPaneProps): JSX.Element {
+export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps): JSX.Element {
   const agentEnabled = health?.agent?.enabled ?? false;
 
   const [status, setStatus] = useState<AgentStatus>(agentEnabled ? 'ready' : 'unconfigured');
@@ -122,6 +251,26 @@ export function AgentPane({ health }: AgentPaneProps): JSX.Element {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // ノートパスのセット (wikilink 解決用)
+  const notePaths = useMemo<ReadonlySet<string>>(
+    () => new Set((notes ?? []).map((n) => n.path)),
+    [notes],
+  );
+
+  // onOpenNote デフォルト (URL 直接遷移フォールバック)
+  const handleOpenNote = useCallback(
+    (notePath: string) => {
+      if (onOpenNote) {
+        onOpenNote(notePath);
+      } else {
+        const noExt = notePath.replace(/\.md$/, '');
+        const encoded = noExt.split('/').map(encodeURIComponent).join('/');
+        window.history.pushState({}, '', `/n/${encoded}`);
+      }
+    },
+    [onOpenNote],
+  );
 
   // ---- 初期化 ---------------------------------------------------------------
 
@@ -149,11 +298,21 @@ export function AgentPane({ health }: AgentPaneProps): JSX.Element {
           setSessionId(latest.id);
           const detail = (await apiGet(`/api/agent/sessions/${latest.id}`)) as {
             id: string;
-            messages: { role: 'user' | 'assistant'; content: string; tools: unknown[] }[];
+            messages: {
+              role: 'user' | 'assistant';
+              content: string;
+              tools: { name: string; argsSummary: string; status: 'running' | 'done' }[];
+            }[];
           };
           const restored: AgentMessageItem[] = detail.messages.map((m) => ({
             role: m.role,
             content: m.content,
+            tools: (m.tools ?? []).map((t) => ({
+              toolCallId: `restored-${t.name}`,
+              name: t.name,
+              argsSummary: t.argsSummary,
+              done: true,
+            })),
           }));
           setMessages(restored);
           setStatus('ready');
@@ -195,7 +354,7 @@ export function AgentPane({ health }: AgentPaneProps): JSX.Element {
     const text = inputText.trim();
     if (!text || !sessionId || status === 'streaming') return;
 
-    setMessages((prev) => [...prev, { role: 'user', content: text }]);
+    setMessages((prev) => [...prev, { role: 'user', content: text, tools: [] }]);
     setInputText('');
     setStatus('streaming');
 
@@ -207,7 +366,7 @@ export function AgentPane({ health }: AgentPaneProps): JSX.Element {
       let assistantIdx = -1;
       setMessages((prev) => {
         assistantIdx = prev.length;
-        return [...prev, { role: 'assistant', content: '' }];
+        return [...prev, { role: 'assistant', content: '', tools: [] }];
       });
 
       try {
@@ -223,7 +382,7 @@ export function AgentPane({ health }: AgentPaneProps): JSX.Element {
           setMessages((prev) => {
             const next = [...prev];
             if (assistantIdx >= 0 && assistantIdx < next.length) {
-              next[assistantIdx] = { role: 'assistant', content: '', error: errMsg };
+              next[assistantIdx] = { role: 'assistant', content: '', tools: [], error: errMsg };
             }
             return next;
           });
@@ -241,6 +400,34 @@ export function AgentPane({ health }: AgentPaneProps): JSX.Element {
               const item = next[assistantIdx];
               if (item) {
                 next[assistantIdx] = { ...item, content: item.content + event.text };
+              }
+              return next;
+            });
+          } else if (event.type === 'tool_start' && event.toolCallId && event.name) {
+            const chip: ToolChipItem = {
+              toolCallId: event.toolCallId,
+              name: event.name,
+              argsSummary: event.argsSummary ?? '',
+              done: false,
+            };
+            setMessages((prev) => {
+              const next = [...prev];
+              const item = next[assistantIdx];
+              if (item) {
+                next[assistantIdx] = { ...item, tools: [...item.tools, chip] };
+              }
+              return next;
+            });
+          } else if (event.type === 'tool_end' && event.toolCallId) {
+            const tid = event.toolCallId;
+            setMessages((prev) => {
+              const next = [...prev];
+              const item = next[assistantIdx];
+              if (item) {
+                const updatedTools = item.tools.map((c) =>
+                  c.toolCallId === tid ? { ...c, done: true } : c,
+                );
+                next[assistantIdx] = { ...item, tools: updatedTools };
               }
               return next;
             });
@@ -406,8 +593,21 @@ export function AgentPane({ health }: AgentPaneProps): JSX.Element {
               className="agent-msg-assistant"
               data-testid="agent-msg-assistant"
             >
-              {msg.content}
-              {isStreaming && idx === messages.length - 1 && msg.content.length === 0 && (
+              {/* ツールチップ (メッセージ上部) */}
+              {msg.tools.length > 0 && (
+                <div className="agent-tool-chips">
+                  {msg.tools.map((chip) => (
+                    <ToolChip key={chip.toolCallId} chip={chip} />
+                  ))}
+                </div>
+              )}
+              {/* メッセージ本文 ([[リンク]] 解決付き) */}
+              <AssistantText
+                content={msg.content}
+                notePaths={notePaths}
+                onOpenNote={handleOpenNote}
+              />
+              {isStreaming && idx === messages.length - 1 && msg.content.length === 0 && msg.tools.length === 0 && (
                 <span className="agent-streaming-caret" />
               )}
             </div>

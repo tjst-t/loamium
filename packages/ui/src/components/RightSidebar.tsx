@@ -7,7 +7,7 @@
  * - バックリンク取得はここで行い、件数バッジ (backlink-count) はタブに常時出す。
  */
 import { useEffect, useState, type JSX } from 'react';
-import { noteTitle, type BacklinkSource, type HealthResponse } from '@loamium/shared';
+import { noteTitle, type BacklinkSource, type HealthResponse, type NoteMeta } from '@loamium/shared';
 import { api, ApiError } from '../api.js';
 import { ChevronRightIcon, DocumentIcon, LinkIcon } from '../icons.js';
 import { AgentPane } from './AgentPane.js';
@@ -26,6 +26,8 @@ export interface RightSidebarProps {
    * unmount ではなく display:none。
    */
   hidden?: boolean;
+  /** vault のノート一覧 (エージェントペインの [[wikilink]] 解決用) */
+  notes?: NoteMeta[] | null;
 }
 
 /** コンテキスト行中のリンク原文 (raw) を <mark> で強調する。 */
@@ -55,6 +57,7 @@ export function RightSidebar({
   refreshToken,
   onOpenNote,
   hidden = false,
+  notes = null,
 }: RightSidebarProps): JSX.Element {
   const [collapsed, setCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState<RightTab>('backlinks');
@@ -214,7 +217,7 @@ export function RightSidebar({
 
       {/* エージェントペイン */}
       {activeTab === 'agent' && (
-        <AgentPane health={health} />
+        <AgentPane health={health} notes={notes} onOpenNote={onOpenNote} />
       )}
     </aside>
   );

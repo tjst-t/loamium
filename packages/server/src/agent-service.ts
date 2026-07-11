@@ -3,11 +3,16 @@
  *
  * - .loamium/agent.json を遅延読込し pi SDK のセッションを作成する。
  * - セッションは .loamium/agent-sessions/ 下の JSONL ファイルに永続化する。
- * - noTools:'all' — Story 3 でツールを追加するまでテキスト応答のみ。
+ * - tools: VAULT_READ_TOOL_NAMES — pi SDK の allowlist 機能を使い Loamium 独自 5 ツールのみ
+ *   公開する (ADR-0008)。noTools:'all' は customTools も含め全ツールを抑制するため NG。
+ *   pi SDK 内部: allowedToolNames = new Set(options.tools) でフィルタリングされ、
+ *   カスタムツールも isAllowedTool(name) を通るため empty-set では全ブロックになる。
+ *   allowlist に 5 ツール名を渡すことで built-in (bash/edit/write/find/grep/ls) を
+ *   排除しつつカスタムツールのみ LLM に広告できる。(sdk.js:132, agent-session.js:1916)
  * - 監査ログへのエントリ書き込みは routes 側が行う。
  *
  * pi SDK 実 API (v0.80.x):
- *   - createAgentSession({ noTools:'all', sessionManager, authStorage, modelRegistry })
+ *   - createAgentSession({ tools:[...names], customTools:[...], sessionManager, authStorage, modelRegistry })
  *   - session.subscribe(listener: AgentSessionEventListener) → unsubscribe fn
  *   - session.prompt(text) → Promise<void>
  *   - session.abort() → Promise<void>
@@ -43,6 +48,8 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { agentConfigSchema, type AgentConfig } from '@loamium/shared';
 import type { ServerConfig } from './config.js';
+import { createVaultReadTools, VAULT_READ_TOOL_NAMES } from './agent-tools.js';
+import type { VaultIndex } from './noteIndex.js';
 
 // ---- 設定読込 ---------------------------------------------------------------
 
@@ -186,10 +193,12 @@ function buildModelRegistry(config: AgentConfig): {
 /**
  * セッションを新規作成する (disk-backed JSONL)。
  * config は遅延読込済みを渡す。
+ * index は vault 読み取りツール (ADR-0008) のクロージャへ渡す。
  */
 export async function createPiSession(
   vaultRoot: string,
   config: AgentConfig,
+  index: VaultIndex,
 ): Promise<AgentSession> {
   const { authStorage, modelRegistry, model } = buildModelRegistry(config);
   if (!model) {
@@ -201,12 +210,20 @@ export async function createPiSession(
 
   const sm = SessionManager.create(vaultRoot, dir);
 
+  const customTools = createVaultReadTools(index, vaultRoot);
+
   const { session } = await createAgentSession({
     model,
     authStorage,
     modelRegistry,
     sessionManager: sm,
-    noTools: 'all',
+    // ADR-0008: Loamium 独自 5 ツールのみを LLM に広告する。
+    // noTools:'all' は customTools も含め全ツールを抑制するため使用しない。
+    // tools に allowlist を渡すことで built-in (bash/edit/write/等) を排除し
+    // カスタムツールのみが isAllowedTool() を通過して LLM に広告される。
+    // (pi-coding-agent/dist/core/sdk.js:132, agent-session.js:1916)
+    tools: [...VAULT_READ_TOOL_NAMES],
+    customTools: [...customTools],
   });
 
   activeSessionsById.set(session.sessionId, session);
@@ -216,11 +233,13 @@ export async function createPiSession(
 /**
  * 既存セッションを開く (disk-backed。AgentSession はファイルから復元)。
  * config は遅延読込済みを渡す。
+ * index は vault 読み取りツール (ADR-0008) のクロージャへ渡す。
  */
 export async function openPiSession(
   sessionFile: string,
   vaultRoot: string,
   config: AgentConfig,
+  index: VaultIndex,
 ): Promise<AgentSession> {
   // 既に active なら再利用
   const existingSessionId = getSessionIdFromFile(sessionFile);
@@ -235,12 +254,16 @@ export async function openPiSession(
   const dir = sessionDir(vaultRoot);
   const sm = SessionManager.open(sessionFile, dir);
 
+  const customTools = createVaultReadTools(index, vaultRoot);
+
   const { session } = await createAgentSession({
     model,
     authStorage,
     modelRegistry,
     sessionManager: sm,
-    noTools: 'all',
+    // ADR-0008: 同上 — built-in を排除しカスタムツールのみ広告する allowlist。
+    tools: [...VAULT_READ_TOOL_NAMES],
+    customTools: [...customTools],
   });
 
   activeSessionsById.set(session.sessionId, session);
@@ -271,6 +294,7 @@ export async function getSessionFromDisk(
   sessionId: string,
   vaultRoot: string,
   config: AgentConfig,
+  index: VaultIndex,
 ): Promise<AgentSession> {
   // キャッシュ優先
   const cached = activeSessionsById.get(sessionId);
@@ -286,7 +310,7 @@ export async function getSessionFromDisk(
     throw new Error(`session file path escapes sessions directory: ${sessionId}`);
   }
 
-  return openPiSession(sessionFile, vaultRoot, config);
+  return openPiSession(sessionFile, vaultRoot, config, index);
 }
 
 /** セッションディレクトリ下のすべてのセッション一覧を返す。 */

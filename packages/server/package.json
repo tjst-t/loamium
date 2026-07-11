@@ -14,6 +14,7 @@
     "@loamium/shared": "*",
     "chokidar": "^5.0.0",
     "fuse.js": "^7.4.2",
-    "hono": "^4.7.0"
+    "hono": "^4.7.0",
+    "typebox": "^1.1.38"
   }
 }
