@@ -5,6 +5,7 @@
 import { z } from 'zod';
 import { normalizeVaultFilePath, VaultPathError } from './path.js';
 import { parseQuery, DqlParseError } from './dql.js';
+import { commandParamSchema } from './loamium-command.js';
 
 // ---- 権限モード ----
 
@@ -721,7 +722,7 @@ export const commandSummarySchema = z.discriminatedUnion('valid', [
     /** 人間向け説明 (loamium-command.description)。 */
     description: z.string().optional(),
     /** パラメータ定義 (loamium-command.params)。 */
-    params: z.array(z.unknown()),
+    params: z.array(commandParamSchema),
     /** 常に true (正常定義)。 */
     valid: z.literal(true),
   }),

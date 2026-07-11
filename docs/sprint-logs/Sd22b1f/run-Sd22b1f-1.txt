@@ -47,3 +47,50 @@ JUNIT report written to /home/ubuntu/worktrees/github.com/tjst-t/loamium/smart-c
 shared: OK
 server: OK
 cli: OK
+
+=== Review Fix Pass — 2026-07-11T09:04:00Z ===
+Findings applied: F1 (params tightened to commandParamSchema), F2 (listCommands + --json use commandsResponseSchema.safeParse), F3 ([INVALID] same-line assertion), F4 (non-UTF8 binary fixture test added)
+
+--- Shared Unit Tests (post-fix) ---
+
+ RUN  v3.2.6 /home/ubuntu/worktrees/github.com/tjst-t/loamium/smart-command
+
+ ✓ packages/shared/src/frontmatter.test.ts (21 tests) 26ms
+ ✓ packages/shared/src/extract.test.ts (47 tests) 36ms
+ ✓ packages/shared/src/noteMeta.test.ts (28 tests) 30ms
+ ✓ packages/shared/src/dql.test.ts (51 tests) 66ms
+ ✓ packages/shared/src/loamium-command.test.ts (30 tests) 81ms
+ ✓ packages/shared/src/markdown.test.ts (8 tests) 59ms
+ ✓ packages/shared/src/template.test.ts (20 tests) 7ms
+ ✓ packages/shared/src/property-types.test.ts (14 tests) 39ms
+ ✓ packages/shared/src/template-note.test.ts (9 tests) 49ms
+ ✓ packages/shared/src/props-keyfirst.test.ts (7 tests) 6ms
+ ✓ packages/shared/src/path.test.ts (15 tests) 6ms
+ ✓ packages/shared/src/links.test.ts (22 tests) 12ms
+ ✓ packages/shared/src/journal.test.ts (12 tests) 8ms
+ ✓ packages/shared/src/tag-suggest.test.ts (8 tests) 8ms
+ ✓ packages/shared/src/sections.test.ts (7 tests) 3ms
+ ✓ packages/shared/src/text.test.ts (6 tests) 4ms
+
+ Test Files  16 passed (16)
+      Tests  305 passed (305)
+   Start at  09:03:37
+   Duration  2.90s
+
+--- Acceptance Tests (commands.spec.ts, post-fix) ---
+
+ RUN  v3.2.6 /home/ubuntu/worktrees/github.com/tjst-t/loamium/smart-command
+
+ ✓ tests/acceptance/commands.spec.ts (12 tests) 2287ms
+   ✓ [AC-Sd22b1f-1-2] GET /api/commands > commands/ が空の vault では { commands: [] } を 200 で返す  375ms
+   ✓ [AC-Sd22b1f-1-2] GET /api/commands > [AC-Sd22b1f-1-2] 非UTF-8バイナリファイルがあっても GET /api/commands は 200 を返す  382ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  09:03:44
+   Duration  2.84s
+
+--- Typecheck (post-fix) ---
+shared: OK
+server: OK
+cli: OK

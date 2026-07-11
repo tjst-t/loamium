@@ -5,8 +5,11 @@
  * テストハーネスは templates.spec.ts / cli.spec.ts と同じパターンを踏襲する。
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { cleanupVault, makeTempVault, startServer, type TestServer } from './helpers/server.js';
 import { runCli } from './helpers/cli.js';
+import { commandsResponseSchema } from '@loamium/shared';
 
 let server: TestServer;
 
@@ -98,20 +101,14 @@ afterAll(async () => {
 // [AC-Sd22b1f-1-2] GET /api/commands
 // ---------------------------------------------------------------------------
 
-interface CommandSummaryRaw {
-  name: string;
-  path: string;
-  description?: string;
-  params?: unknown[];
-  valid: boolean;
-  error?: string;
-}
-
-async function listCommands(): Promise<CommandSummaryRaw[]> {
+async function listCommands(): Promise<ReturnType<typeof commandsResponseSchema.parse>['commands']> {
   const res = await fetch(`${server.baseUrl}/api/commands`);
   expect(res.status).toBe(200);
-  const body = (await res.json()) as { commands: CommandSummaryRaw[] };
-  return body.commands;
+  const body: unknown = await res.json();
+  const parsed = commandsResponseSchema.safeParse(body);
+  expect(parsed.success, `commandsResponseSchema validation failed: ${!parsed.success ? JSON.stringify(parsed.error.issues) : ''}`).toBe(true);
+  if (!parsed.success) throw new Error('unreachable');
+  return parsed.data.commands;
 }
 
 describe('[AC-Sd22b1f-1-2] GET /api/commands', () => {
@@ -174,6 +171,36 @@ describe('[AC-Sd22b1f-1-2] GET /api/commands', () => {
       await cleanupVault(emptyVault);
     }
   });
+
+  // [AC-Sd22b1f-1-2] 非UTF-8バイナリファイルがあっても 200 を維持する (寛容 read)
+  it('[AC-Sd22b1f-1-2] 非UTF-8バイナリファイルがあっても GET /api/commands は 200 を返す', async () => {
+    // PUT API は UTF-8 を強制するため、直接 fs.writeFile でバイナリを書き込む
+    const binaryVault = await makeTempVault();
+    const binaryServer = await startServer({ vault: binaryVault });
+    try {
+      // commands/ ディレクトリを作成してバイナリファイルを直接置く
+      const commandsDir = path.join(binaryVault, 'commands');
+      const { mkdir } = await import('node:fs/promises');
+      await mkdir(commandsDir, { recursive: true });
+      await writeFile(
+        path.join(commandsDir, 'binary.md'),
+        Buffer.from([0xff, 0xfe, 0x00, 0x01, 0xd8, 0x00, 0xdc, 0x00]),
+      );
+      const res = await fetch(`${binaryServer.baseUrl}/api/commands`);
+      // サーバーがクラッシュせず 200 を返すことが核心
+      expect(res.status).toBe(200);
+      const body: unknown = await res.json();
+      const parsed = commandsResponseSchema.safeParse(body);
+      expect(parsed.success, `commandsResponseSchema validation failed: ${!parsed.success ? JSON.stringify(parsed.error.issues) : ''}`).toBe(true);
+      if (!parsed.success) throw new Error('unreachable');
+      // binary.md がエントリとして含まれること (valid:true/false は問わない)
+      const hasEntry = parsed.data.commands.some((c) => c.path === 'commands/binary.md');
+      expect(hasEntry).toBe(true);
+    } finally {
+      await binaryServer.stop();
+      await cleanupVault(binaryVault);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -199,17 +226,18 @@ describe('[AC-Sd22b1f-1-3] CLI loamium commands', () => {
   it('無効なコマンドは [INVALID] マーク付きで出力する', async () => {
     const result = await cli(['commands']);
     expect(result.code).toBe(0);
-    expect(result.stdout).toContain('[INVALID]');
-    // broken ファイル名が含まれる
-    expect(result.stdout).toContain('commands/broken.md');
+    const lines = result.stdout.split('\n');
+    expect(lines.some((l) => l.includes('commands/broken.md') && l.includes('[INVALID]'))).toBe(true);
   });
 
   it('--json フラグで API レスポンスの生 JSON をそのまま出力する', async () => {
     const result = await cli(['commands', '--json']);
     expect(result.code).toBe(0);
-    const parsed = JSON.parse(result.stdout) as { commands: CommandSummaryRaw[] };
-    expect(Array.isArray(parsed.commands)).toBe(true);
-    const todo = parsed.commands.find((c) => c.name === 'create-todo');
+    const raw: unknown = JSON.parse(result.stdout);
+    const parsed = commandsResponseSchema.safeParse(raw);
+    expect(parsed.success, `commandsResponseSchema validation failed: ${!parsed.success ? JSON.stringify(parsed.error.issues) : ''}`).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    const todo = parsed.data.commands.find((c) => c.name === 'create-todo');
     expect(todo?.valid).toBe(true);
   });
 
