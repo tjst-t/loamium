@@ -455,7 +455,7 @@ test('[AC-S11493d-3-1] アウトゴーイングリンクなしの場合 empty st
   // installCatchAll の default meta は outgoingLinks: [] で応答
 
   const outgoingBody = page.locator('[data-testid="info-section-body"][data-section="outgoing"]');
-  await expect(outgoingBody).toContainText('[[リンク]] なし');
+  await expect(outgoingBody).toContainText('このノートからのリンクはありません');
   await expect(page.getByTestId('outgoing-link')).toHaveCount(0);
 });
 

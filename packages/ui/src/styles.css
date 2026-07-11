@@ -4064,3 +4064,72 @@ button.callout-title { cursor: pointer; }
 .meta-row:hover { background: var(--bg-hover); }
 .meta-label { min-width: 68px; flex-shrink: 0; color: var(--text-faint); font-size: 11.5px; font-weight: 600; }
 .meta-value { color: var(--text); font-variant-numeric: tabular-nums; }
+
+.info-section-body { padding: 2px 8px 10px; }
+.info-section-empty {
+  padding: 8px 6px;
+  font-size: 12px;
+  color: var(--text-faint);
+  font-style: italic;
+  line-height: 1.6;
+}
+.info-section-empty code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--code-bg);
+  border-radius: 3px;
+  padding: 0 4px;
+  font-style: normal;
+}
+
+/* 目次 (Outline) — 各見出しを 1 行ずつ・レベルでインデント */
+.outline-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 3px 6px;
+  border-radius: 5px;
+  font-size: 13px;
+  color: var(--text);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  gap: 4px;
+}
+.outline-item:hover { background: var(--bg-hover); color: var(--accent); }
+.outline-indent {
+  display: inline-block;
+  width: calc(var(--depth, 0) * 14px);
+  flex-shrink: 0;
+}
+.outline-label { overflow: hidden; text-overflow: ellipsis; font-size: 12.5px; }
+.outline-item[data-level="1"] .outline-label { font-weight: 700; font-size: 13px; }
+.outline-item[data-level="2"] .outline-label { font-weight: 600; color: var(--text); }
+.outline-item[data-level="3"] .outline-label { color: var(--text-muted); }
+
+/* プロパティ (Properties) */
+.property-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.property-row:hover { background: var(--bg-hover); }
+.property-key {
+  min-width: 64px;
+  max-width: 88px;
+  flex-shrink: 0;
+  color: var(--text-faint);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-top: 1px;
+}
+.property-value { flex: 1; min-width: 0; color: var(--text); word-break: break-word; }
+.property-value .tag-chip { font-size: 11px; padding: 1px 8px 1px 6px; }

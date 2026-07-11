@@ -631,7 +631,9 @@ export function InfoPanel({
           data-section="outgoing"
         >
           {outgoingLinks.length === 0 ? (
-            <div className="info-section-empty">[[リンク]] なし</div>
+            <div className="info-section-empty">
+              このノートからのリンクはありません。<code>[[ノート名]]</code> で他のノートにリンクできます。
+            </div>
           ) : (
             outgoingLinks.map((link) => (
               <OutgoingLinkItem
