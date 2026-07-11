@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "S53409d",
+    "current_sprint": null,
     "total": 32,
-    "done": 29,
+    "done": 30,
     "in_progress": 0,
-    "remaining": 3,
-    "percentage": 90
+    "remaining": 2,
+    "percentage": 93
   },
   "execution_order": [
     "Sd63ad1",
@@ -3027,7 +3027,7 @@
     },
     "S53409d": {
       "title": "エージェント基盤 — Node 22 / ターミナル撤去 / pi SDK / チャット+読み取りツール",
-      "status": "pending",
+      "status": "done",
       "description": "ADR-0007/0008 の第1段。Node 22 LTS 化と旧ターミナル機構(node-pty / xterm.js / /api/terminal / TerminalPane)の完全撤去の上に、pi SDK (@earendil-works/pi-coding-agent) をサーバー内蔵し、OpenAI/Anthropic 互換エンドポイント接続・SSE チャット・vault 読み取りツール(search/query/read/backlinks/tags)・出典 [[リンク]] 遷移を提供する。書き込みツールと権限 UI は S5bd678。",
       "milestone": true,
       "detail_level": "detailed",
