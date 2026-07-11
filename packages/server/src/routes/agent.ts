@@ -25,9 +25,9 @@ import {
   extractSessionMessages,
   getActiveSession,
   updateSessionTitle,
+  validateSessionId,
 } from '../agent-service.js';
 import { parseBody, errorJson, setAudit, type AppEnv } from '../http.js';
-import { writeAuditEntry } from '../audit.js';
 import { agentSendMessageRequestSchema } from '@loamium/shared';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 
@@ -57,14 +57,6 @@ export function agentRoutes(config: ServerConfig): Hono<AppEnv> {
     }
 
     setAudit(c, 'agent.session.create', session.sessionId);
-    await writeAuditEntry(config, {
-      ts: new Date().toISOString(),
-      op: 'agent.session.create',
-      path: session.sessionId,
-      mode: config.mode,
-      result: 'ok',
-      status: 200,
-    });
 
     return c.json({ id: session.sessionId });
   });
@@ -73,6 +65,13 @@ export function agentRoutes(config: ServerConfig): Hono<AppEnv> {
 
   app.get('/api/agent/sessions/:id', async (c) => {
     const sessionId = c.req.param('id');
+
+    // セキュリティ: ファイルシステムへアクセスする前にセッション ID を検証する
+    try {
+      validateSessionId(sessionId);
+    } catch {
+      return errorJson(c, 400, 'invalid_session_id', 'session id contains invalid characters');
+    }
 
     // fast-path: active session in memory
     const active = getActiveSession(sessionId);
@@ -99,6 +98,14 @@ export function agentRoutes(config: ServerConfig): Hono<AppEnv> {
 
   app.post('/api/agent/sessions/:id/abort', async (c) => {
     const sessionId = c.req.param('id');
+
+    // セキュリティ: セッション ID を検証する (abort は in-memory Map 参照だが一貫性のため)
+    try {
+      validateSessionId(sessionId);
+    } catch {
+      return errorJson(c, 400, 'invalid_session_id', 'session id contains invalid characters');
+    }
+
     const session = getActiveSession(sessionId);
     if (session) {
       try {
@@ -115,6 +122,13 @@ export function agentRoutes(config: ServerConfig): Hono<AppEnv> {
   app.post('/api/agent/sessions/:id/messages', async (c) => {
     const sessionId = c.req.param('id');
 
+    // セキュリティ: ファイルシステムへアクセスする前にセッション ID を検証する
+    try {
+      validateSessionId(sessionId);
+    } catch {
+      return errorJson(c, 400, 'invalid_session_id', 'session id contains invalid characters');
+    }
+
     const bodyResult = await parseBody(c, agentSendMessageRequestSchema);
     if (!bodyResult.ok) return bodyResult.response;
     const { content } = bodyResult.data;
@@ -125,15 +139,8 @@ export function agentRoutes(config: ServerConfig): Hono<AppEnv> {
       return errorJson(c, 404, 'session_not_found', `session not found: ${sessionId}`);
     }
 
-    // 監査ログ (agent.message)
-    void writeAuditEntry(config, {
-      ts: new Date().toISOString(),
-      op: 'agent.message',
-      path: sessionId,
-      mode: config.mode,
-      result: 'ok',
-      status: 200,
-    });
+    // 監査ログ — auditMiddleware に任せる (直接 writeAuditEntry は呼ばない)
+    setAudit(c, 'agent.message', sessionId);
 
     // SSE ストリーム
     return stream(c, async (s) => {
@@ -156,6 +163,12 @@ export function agentRoutes(config: ServerConfig): Hono<AppEnv> {
 
       const unsubscribe = session.subscribe((event: AgentSessionEvent) => {
         if (settled) return;
+
+        if (event.type === 'agent_settled') {
+          // settled を同期的に true にセットする — waitForIdle() との競合を防ぐ
+          // (非同期 IIFE の外で先にセットしないと fallback が二重送信する)
+          settled = true;
+        }
 
         void (async () => {
           if (event.type === 'message_update') {
@@ -201,7 +214,7 @@ export function agentRoutes(config: ServerConfig): Hono<AppEnv> {
               errorMessage = event.finalError;
             }
           } else if (event.type === 'agent_settled') {
-            settled = true;
+            // settled は subscriber コールバック先頭で同期的にセット済み
             if (errorMessage !== null) {
               await sendEvent({ type: 'error', message: errorMessage });
             } else {
@@ -217,15 +230,21 @@ export function agentRoutes(config: ServerConfig): Hono<AppEnv> {
         await session.waitForIdle();
       } catch (err) {
         // prompt() 自体が throw した場合 (preflight失敗など)
-        settled = true;
+        // settled が false のときのみ送信 (abort パスや settled 後の例外を除外)
+        if (!settled) {
+          settled = true;
+          unsubscribe();
+          await sendEvent({ type: 'error', message: String(err) });
+          return;
+        }
         unsubscribe();
-        await sendEvent({ type: 'error', message: String(err) });
         return;
       }
 
       unsubscribe();
       if (!settled) {
         // agent_settled が来ていない場合 (waitForIdle が先に解決するケース)
+        settled = true;
         if (errorMessage !== null) {
           await sendEvent({ type: 'error', message: errorMessage });
         } else {

@@ -53,6 +53,13 @@ export function deriveOp(method: string, reqPath: string): string {
   }
   if (reqPath === '/api/property-types' && method === 'PUT') return 'property-types.write';
   if (reqPath === '/api/smart-folders' && method === 'PUT') return 'smart-folders.write';
+  if (reqPath.startsWith('/api/agent/sessions')) {
+    if (method === 'POST') {
+      if (reqPath === '/api/agent/sessions') return 'agent.session.create';
+      if (reqPath.endsWith('/messages')) return 'agent.message';
+      if (reqPath.endsWith('/abort')) return 'agent.session.abort';
+    }
+  }
   return `${method.toLowerCase()}.unknown`;
 }
 

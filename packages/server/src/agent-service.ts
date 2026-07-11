@@ -25,6 +25,12 @@
  *   - AuthStorage.inMemory() — no file dependency
  *   - modelRegistry.registerProvider(name, { api, baseUrl, apiKey, models:[...] })
  *   - authStorage.setRuntimeApiKey(provider, key)
+ *
+ * セキュリティ:
+ *   - セッション ID はアルファベット・数字・ハイフン・アンダースコアのみ許可する
+ *     (/^[A-Za-z0-9_-]+$/)。それ以外は 400 を返す前にファイルシステムへ
+ *     アクセスしてはならない (パストラバーサル防止)。
+ *   - validateSessionId() を通さない sessionId はいかなる場合もパス結合しない。
  */
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -109,6 +115,23 @@ function isNodeError(err: unknown): err is NodeJS.ErrnoException {
 // ---- セッション管理 ----------------------------------------------------------
 
 /**
+ * セッション ID の許可リスト正規表現。
+ * アルファベット・数字・ハイフン・アンダースコアのみ。
+ * これ以外の文字列はファイルシステムに触れる前に拒否する。
+ */
+const SESSION_ID_RE = /^[A-Za-z0-9_-]+$/;
+
+/**
+ * sessionId をバリデートし、無効なら Error を投げる。
+ * 呼び出し元は catch して 400/404 を返すこと。
+ */
+export function validateSessionId(sessionId: string): void {
+  if (!SESSION_ID_RE.test(sessionId)) {
+    throw new Error(`invalid session id: ${sessionId}`);
+  }
+}
+
+/**
  * セッションディレクトリ (vault-local)
  * .loamium/agent-sessions/ 以下に JSONL を保存する。
  */
@@ -123,17 +146,17 @@ function sessionDir(vaultRoot: string): string {
 const activeSessionsById = new Map<string, AgentSession>();
 
 /**
- * セッションを新規作成する (disk-backed JSONL)。
- * config は遅延読込済みを渡す。
+ * プロバイダ登録済みの { authStorage, modelRegistry, model } を返す共通ヘルパー。
+ * createPiSession / openPiSession の重複 ~25 行を統合する。
  */
-export async function createPiSession(
-  vaultRoot: string,
-  config: AgentConfig,
-): Promise<AgentSession> {
+function buildModelRegistry(config: AgentConfig): {
+  authStorage: ReturnType<typeof AuthStorage.inMemory>;
+  modelRegistry: ReturnType<typeof ModelRegistry.inMemory>;
+  model: ReturnType<ReturnType<typeof ModelRegistry.inMemory>['find']>;
+} {
   const authStorage = AuthStorage.inMemory();
   const modelRegistry = ModelRegistry.inMemory(authStorage);
 
-  // プロバイダ登録 (baseUrl + api adapter + model)
   const providerName = `loamium-${config.api}-${Date.now()}`;
   const apiAdapter = config.api === 'openai' ? 'openai-completions' : 'anthropic-messages';
   modelRegistry.registerProvider(providerName, {
@@ -157,6 +180,18 @@ export async function createPiSession(
   authStorage.setRuntimeApiKey(providerName, config.apiKey);
 
   const model = modelRegistry.find(providerName, config.model);
+  return { authStorage, modelRegistry, model };
+}
+
+/**
+ * セッションを新規作成する (disk-backed JSONL)。
+ * config は遅延読込済みを渡す。
+ */
+export async function createPiSession(
+  vaultRoot: string,
+  config: AgentConfig,
+): Promise<AgentSession> {
+  const { authStorage, modelRegistry, model } = buildModelRegistry(config);
   if (!model) {
     throw new Error(`model not found after registration: ${config.model}`);
   }
@@ -194,30 +229,7 @@ export async function openPiSession(
     if (existing) return existing;
   }
 
-  const authStorage = AuthStorage.inMemory();
-  const modelRegistry = ModelRegistry.inMemory(authStorage);
-
-  const providerName2 = `loamium-${config.api}-${Date.now()}`;
-  const apiAdapter2 = config.api === 'openai' ? 'openai-completions' : 'anthropic-messages';
-  modelRegistry.registerProvider(providerName2, {
-    api: apiAdapter2,
-    baseUrl: config.baseUrl,
-    apiKey: config.apiKey,
-    models: [
-      {
-        id: config.model,
-        name: config.model,
-        reasoning: false,
-        input: ['text' as const],
-        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-        contextWindow: 128_000,
-        maxTokens: 8_192,
-      },
-    ],
-  });
-  authStorage.setRuntimeApiKey(providerName2, config.apiKey);
-
-  const model = modelRegistry.find(providerName2, config.model);
+  const { authStorage, modelRegistry, model } = buildModelRegistry(config);
   if (!model) throw new Error(`model not found: ${config.model}`);
 
   const dir = sessionDir(vaultRoot);
@@ -250,6 +262,10 @@ export function getActiveSession(sessionId: string): AgentSession | undefined {
  * sessionId を指定してディスクから JSONL を開き AgentSession を返す。
  * アクティブキャッシュがあれば再利用する (disk fast-path)。
  * サーバー再起動後のセッション復元に使用する。
+ *
+ * セキュリティ: 呼び出し元で validateSessionId() を通した sessionId のみ渡すこと。
+ * 本関数でも defense-in-depth として生成パスがセッションディレクトリ内に
+ * 収まることを確認する。
  */
 export async function getSessionFromDisk(
   sessionId: string,
@@ -262,6 +278,14 @@ export async function getSessionFromDisk(
 
   const dir = sessionDir(vaultRoot);
   const sessionFile = path.join(dir, `${sessionId}.jsonl`);
+
+  // Defense-in-depth: 生成したパスが sessionsDir 内に収まることを検証する
+  const resolvedFile = path.resolve(sessionFile);
+  const resolvedDir = path.resolve(dir);
+  if (!resolvedFile.startsWith(resolvedDir + path.sep)) {
+    throw new Error(`session file path escapes sessions directory: ${sessionId}`);
+  }
+
   return openPiSession(sessionFile, vaultRoot, config);
 }
 
