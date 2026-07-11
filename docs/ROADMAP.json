@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "S53409d",
+    "current_sprint": null,
     "total": 32,
-    "done": 29,
+    "done": 30,
     "in_progress": 0,
-    "remaining": 3,
-    "percentage": 90
+    "remaining": 2,
+    "percentage": 93
   },
   "execution_order": [
     "Sd63ad1",
@@ -3027,14 +3027,14 @@
     },
     "S53409d": {
       "title": "エージェント基盤 — Node 22 / ターミナル撤去 / pi SDK / チャット+読み取りツール",
-      "status": "pending",
+      "status": "done",
       "description": "ADR-0007/0008 の第1段。Node 22 LTS 化と旧ターミナル機構(node-pty / xterm.js / /api/terminal / TerminalPane)の完全撤去の上に、pi SDK (@earendil-works/pi-coding-agent) をサーバー内蔵し、OpenAI/Anthropic 互換エンドポイント接続・SSE チャット・vault 読み取りツール(search/query/read/backlinks/tags)・出典 [[リンク]] 遷移を提供する。書き込みツールと権限 UI は S5bd678。",
       "milestone": true,
       "detail_level": "detailed",
       "stories": {
         "S53409d-1": {
           "title": "ランタイム更新と旧ターミナル機構の撤去",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "Loamium を開発・運用する自分として、Node 22 LTS への更新と旧ターミナル機構の完全撤去をしたい。なぜなら、内蔵エージェント(ADR-0007)の前提であり、EOL 済みランタイムと不要な攻撃面を除きたいから。",
@@ -3043,42 +3043,42 @@
               "id": "AC-S53409d-1-1",
               "description": "全 workspace の engines と CI が Node 22 を要求し、Node 22 上で make test / make build / make lint が green。CLAUDE.md の Tech Stack 記述も更新される。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S53409d-1-2",
               "description": "node-pty / xterm 系依存が全 package.json から消え、GET /api/terminal は 404、/api/health のレスポンスにターミナル機能フラグが含まれない。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S53409d-1-3",
               "description": "右パネルに Claude(ターミナル)タブが存在しない。LOAMIUM_TERMINAL* 環境変数は参照されず、ドキュメントからも削除される。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S53409d-1-1": {
               "title": "Node 22 化",
               "description": "全 workspace package.json engines >=22、CI / .nvmrc / Makefile / CLAUDE.md / README の Node 記述更新、依存の再インストール確認。",
-              "status": "pending"
+              "status": "done"
             },
             "S53409d-1-2": {
               "title": "ターミナル機構削除",
               "description": "server: terminal.ts・/api/terminal 登録・config.ts のターミナル設定・health の terminal フラグ・node-pty 依存を削除。shared: terminal* スキーマ削除。ui: TerminalPane.tsx・RightSidebar の Claude タブ・xterm 依存を削除。",
-              "status": "pending"
+              "status": "done"
             },
             "S53409d-1-3": {
               "title": "受け入れテスト",
               "description": "tests/acceptance: /api/terminal が 404、health に terminal キーなし。既存テストスイート全 green を確認。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S53409d-2": {
           "title": "エージェント接続とチャット対話",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ユーザーとして、OpenAI / Anthropic 互換エンドポイント・モデル・API キーを設定し、右パネルのチャットでエージェントと対話をしたい。なぜなら、好きな LLM(ローカル含む)で vault について質問したいから。",
@@ -3087,59 +3087,59 @@
               "id": "AC-S53409d-2-1",
               "description": "接続設定は .loamium/agent.json(baseUrl / api 種別(openai互換|anthropic互換)/ model。apiKey は $ENV_VAR 参照可)+ 環境変数で行え、zod で検証される。未設定時チャットペインは設定手順ガイドを表示する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S53409d-2-2",
               "description": "チャット送信でサーバー内の pi セッションが応答し、SSE でトークンがストリーミング表示される。応答中は中断ボタンで停止できる。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S53409d-2-3",
               "description": "セッションは .loamium/agent-sessions/ に JSONL 永続化され、ペイン再訪・リロード後も直近セッションの続きから対話できる。新規セッションの開始もできる。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S53409d-2-4",
               "description": "認証失敗・接続不能等のエラーはチャット内に人間可読で表示され、サーバープロセスは落ちない。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S53409d-2-5",
               "description": "GUI 規約: チャットペインの全インタラクティブ要素に data-testid が付与され、agent-chat.mock.spec.ts が sprint run で、agent-chat.e2e.spec.ts([AC-*] タグ付き)が sprint verify で全パスする。",
               "test": "packages/ui/tests/e2e/agent-chat.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S53409d-2-1": {
               "title": "接続設定ローダー",
               "description": "shared に agent 設定 zod スキーマ。server で .loamium/agent.json + 環境変数を読込・$ENV_VAR 解決・検証。未設定/不正時は機能フラグ off で /api/health に反映。",
-              "status": "pending"
+              "status": "done"
             },
             "S53409d-2-2": {
               "title": "pi SDK 組み込み + agent API",
               "description": "@earendil-works/pi-coding-agent を server に導入。createAgentSession(noTools:'all')、SessionManager を .loamium/agent-sessions/ に向ける。POST /api/agent/sessions(作成)、POST /api/agent/sessions/{id}/messages(SSE ストリーム)、GET /api/agent/sessions(一覧)、中断(AbortController)。",
-              "status": "pending"
+              "status": "done"
             },
             "S53409d-2-3": {
               "title": "チャットペイン UI",
               "description": "RightSidebar のタブを Claude→エージェントに置換。メッセージ一覧 + 入力欄 + 送信/中断、SSE 受信でストリーミング描画、新規セッション開始、未設定時ガイド、エラー表示。",
-              "status": "pending"
+              "status": "done"
             },
             "S53409d-2-4": {
               "title": "テスト",
               "description": "mock テスト(未設定ガイド/送信/ストリーミング/中断/エラー)。e2e はローカル OpenAI 互換スタブサーバーを実 HTTP で立てて実サーバー経由で検証。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S53409d-3": {
           "title": "vault 読み取りツールと出典付き回答",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ユーザーとして、エージェントに vault 内を検索・参照させて出典付きの回答を得たい。なぜなら、自分のノートに基づく信頼できる答えが欲しいから。",
@@ -3148,48 +3148,48 @@
               "id": "AC-S53409d-3-1",
               "description": "エージェントに渡るツールは search / query(DQL)/ read / backlinks / tags のみ(ADR-0008)。bash・ファイル書き込み等の pi 組み込みツールはセッションに存在しない。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S53409d-3-2",
               "description": "ツール実行はチャット UI 上で可視化される(実行中インジケータとツール名・引数要約の表示)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S53409d-3-3",
               "description": "エージェント回答中の [[リンク]] はクリックで当該ノートのルートに遷移する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S53409d-3-4",
               "description": "ツールはサーバー内部のサービス層を直接呼び、vault ルート外パスはパス正規化ユーティリティで拒否される。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S53409d-3-5",
               "description": "GUI 規約: ツールチップ・リンク要素に data-testid が付与され、agent-tools.mock.spec.ts が sprint run で、agent-tools.e2e.spec.ts([AC-*] タグ付き)が sprint verify で全パスする。",
               "test": "packages/ui/tests/e2e/agent-tools.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S53409d-3-1": {
               "title": "読み取りツール定義",
               "description": "defineTool(TypeBox)で search/query/read/backlinks/tags を実装し内部サービスを直呼び。パスは packages/shared の正規化ユーティリティ経由。ツール一覧が read 系のみであることのユニットテスト。",
-              "status": "pending"
+              "status": "done"
             },
             "S53409d-3-2": {
               "title": "ツール可視化 + [[リンク]] 遷移",
               "description": "チャットメッセージに tool_execution_start/end を反映(インジケータ+要約)。アシスタント本文の [[WikiLink]] を既存リンク解決でルーティングし click 遷移。",
-              "status": "pending"
+              "status": "done"
             },
             "S53409d-3-3": {
               "title": "テスト",
               "description": "mock: ツール実行表示・リンク遷移。ユニット: パス脱出拒否・ツールセット固定。e2e: スタブ LLM にツール呼び出しを応答させ search→回答→リンク遷移を通す。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }

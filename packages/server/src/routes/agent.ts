@@ -1,0 +1,294 @@
+/**
+ * エージェント API ルート (S53409d-2)。
+ *
+ * POST   /api/agent/sessions             新規セッション作成 → { id }
+ * GET    /api/agent/sessions             セッション一覧 → { sessions }
+ * GET    /api/agent/sessions/{id}        セッション詳細 (メッセージ履歴) → { id, messages }
+ * POST   /api/agent/sessions/{id}/messages  SSE テキスト配信
+ * POST   /api/agent/sessions/{id}/abort     中断 → { ok }
+ *
+ * SSE イベント (data: <json>\n\n):
+ *   { type:'text_delta', text }
+ *   { type:'tool_start', toolCallId, name, argsSummary }
+ *   { type:'tool_end',   toolCallId, name }
+ *   { type:'error',      message }
+ *   { type:'done' }
+ */
+import { Hono } from 'hono';
+import { stream } from 'hono/streaming';
+import type { ServerConfig } from '../config.js';
+import {
+  loadAgentConfig,
+  createPiSession,
+  listSessions,
+  getSessionFromDisk,
+  extractSessionMessages,
+  getActiveSession,
+  updateSessionTitle,
+  validateSessionId,
+} from '../agent-service.js';
+import { parseBody, errorJson, setAudit, type AppEnv } from '../http.js';
+import { agentSendMessageRequestSchema } from '@loamium/shared';
+import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
+import type { VaultIndex } from '../noteIndex.js';
+
+/**
+ * ツール引数から短い要約文字列を生成する (SSE tool_start の argsSummary フィールド)。
+ *
+ * - search  → クエリ文字列 (ダブルクォート付き)
+ * - read / backlinks → パス文字列
+ * - query   → DQL 文字列 (先頭 60 文字)
+ * - tags    → '' (引数なし)
+ * - unknown → JSON フォールバック
+ */
+function buildArgsSummary(toolName: string, args: unknown): string {
+  const a = (typeof args === 'object' && args !== null) ? (args as Record<string, unknown>) : {};
+  switch (toolName) {
+    case 'search': {
+      const q = typeof a['query'] === 'string' ? a['query'] : '';
+      return JSON.stringify(q);
+    }
+    case 'read_note':
+    case 'backlinks': {
+      const p = typeof a['path'] === 'string' ? a['path'] : '';
+      return p.slice(0, 120);
+    }
+    case 'query': {
+      const d = typeof a['dql'] === 'string' ? a['dql'] : '';
+      return d.slice(0, 60);
+    }
+    case 'tags':
+      return '';
+    default:
+      return JSON.stringify(a).slice(0, 80);
+  }
+}
+
+export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEnv> {
+  const app = new Hono<AppEnv>();
+
+  // ---- GET /api/agent/sessions -----------------------------------------------
+
+  app.get('/api/agent/sessions', async (c) => {
+    const sessions = await listSessions(config);
+    return c.json({ sessions });
+  });
+
+  // ---- POST /api/agent/sessions -----------------------------------------------
+
+  app.post('/api/agent/sessions', async (c) => {
+    const configResult = await loadAgentConfig(config.vaultRoot);
+    if (!configResult.ok) {
+      return errorJson(c, 400, configResult.reason, configResult.message);
+    }
+
+    let session;
+    try {
+      session = await createPiSession(config.vaultRoot, configResult.config, index);
+    } catch (err) {
+      return errorJson(c, 500, 'session_create_failed', String(err));
+    }
+
+    setAudit(c, 'agent.session.create', session.sessionId);
+
+    return c.json({ id: session.sessionId });
+  });
+
+  // ---- GET /api/agent/sessions/{id} ------------------------------------------
+
+  app.get('/api/agent/sessions/:id', async (c) => {
+    const sessionId = c.req.param('id');
+
+    // セキュリティ: ファイルシステムへアクセスする前にセッション ID を検証する
+    try {
+      validateSessionId(sessionId);
+    } catch {
+      return errorJson(c, 400, 'invalid_session_id', 'session id contains invalid characters');
+    }
+
+    // fast-path: active session in memory
+    const active = getActiveSession(sessionId);
+    if (active) {
+      const messages = extractSessionMessages(active);
+      return c.json({ id: sessionId, messages });
+    }
+
+    // slow-path: load from JSONL on disk (サーバー再起動後のリストア)
+    const configResult = await loadAgentConfig(config.vaultRoot);
+    if (!configResult.ok) {
+      return c.json({ id: sessionId, messages: [] });
+    }
+    try {
+      const session = await getSessionFromDisk(sessionId, config.vaultRoot, configResult.config, index);
+      const messages = extractSessionMessages(session);
+      return c.json({ id: sessionId, messages });
+    } catch {
+      return c.json({ id: sessionId, messages: [] });
+    }
+  });
+
+  // ---- POST /api/agent/sessions/{id}/abort -----------------------------------
+
+  app.post('/api/agent/sessions/:id/abort', async (c) => {
+    const sessionId = c.req.param('id');
+
+    // セキュリティ: セッション ID を検証する (abort は in-memory Map 参照だが一貫性のため)
+    try {
+      validateSessionId(sessionId);
+    } catch {
+      return errorJson(c, 400, 'invalid_session_id', 'session id contains invalid characters');
+    }
+
+    const session = getActiveSession(sessionId);
+    if (session) {
+      try {
+        await session.abort();
+      } catch {
+        // abort は best-effort
+      }
+    }
+    return c.json({ ok: true });
+  });
+
+  // ---- POST /api/agent/sessions/{id}/messages (SSE) --------------------------
+
+  app.post('/api/agent/sessions/:id/messages', async (c) => {
+    const sessionId = c.req.param('id');
+
+    // セキュリティ: ファイルシステムへアクセスする前にセッション ID を検証する
+    try {
+      validateSessionId(sessionId);
+    } catch {
+      return errorJson(c, 400, 'invalid_session_id', 'session id contains invalid characters');
+    }
+
+    const bodyResult = await parseBody(c, agentSendMessageRequestSchema);
+    if (!bodyResult.ok) return bodyResult.response;
+    const { content } = bodyResult.data;
+
+    // セッション取得 or 設定読込で失敗したらエラー
+    const session = getActiveSession(sessionId);
+    if (!session) {
+      return errorJson(c, 404, 'session_not_found', `session not found: ${sessionId}`);
+    }
+
+    // 監査ログ — auditMiddleware に任せる (直接 writeAuditEntry は呼ばない)
+    setAudit(c, 'agent.message', sessionId);
+
+    // SSE ストリーム
+    return stream(c, async (s) => {
+      // SSE ヘッダ — Hono の stream() は Content-Type を自動でセットしないため明示する
+      c.res.headers.set('Content-Type', 'text/event-stream');
+      c.res.headers.set('Cache-Control', 'no-cache');
+      c.res.headers.set('Connection', 'keep-alive');
+
+      let settled = false;
+      let errorMessage: string | null = null;
+
+      const sendEvent = async (data: Record<string, unknown>): Promise<void> => {
+        if (s.aborted) return;
+        await s.write(`data: ${JSON.stringify(data)}\n\n`);
+      };
+
+      // auto-retry は SSE ブリッジでは不要 (クライアント側が再試行を判断する)。
+      // デフォルト3回 × 指数バックオフ (合計~14秒) を防ぐために無効化する。
+      session.setAutoRetryEnabled(false);
+
+      const unsubscribe = session.subscribe((event: AgentSessionEvent) => {
+        if (settled) return;
+
+        if (event.type === 'agent_settled') {
+          // settled を同期的に true にセットする — waitForIdle() との競合を防ぐ
+          // (非同期 IIFE の外で先にセットしないと fallback が二重送信する)
+          settled = true;
+        }
+
+        void (async () => {
+          if (event.type === 'message_update') {
+            const ae = event.assistantMessageEvent;
+            if (ae.type === 'text_delta') {
+              await sendEvent({ type: 'text_delta', text: ae.delta });
+            }
+          } else if (event.type === 'tool_execution_start') {
+            const argsSummary = buildArgsSummary(event.toolName, event.args);
+            await sendEvent({
+              type: 'tool_start',
+              toolCallId: event.toolCallId,
+              name: event.toolName,
+              argsSummary,
+            });
+          } else if (event.type === 'tool_execution_end') {
+            await sendEvent({
+              type: 'tool_end',
+              toolCallId: event.toolCallId,
+              name: event.toolName,
+            });
+          } else if (event.type === 'agent_end') {
+            // agent_end はエラー (含む非リトライエラー) のとき stopReason === 'error' になる。
+            // willRetry === true ならリトライが続くので何もしない (auto_retry_end で確定)。
+            if (!event.willRetry) {
+              // 全メッセージの最後の assistant メッセージを調べてエラーを検出する
+              for (let i = event.messages.length - 1; i >= 0; i--) {
+                const msg = event.messages[i] as Record<string, unknown> | undefined;
+                if (
+                  msg !== undefined &&
+                  msg['role'] === 'assistant' &&
+                  msg['stopReason'] === 'error' &&
+                  typeof msg['errorMessage'] === 'string'
+                ) {
+                  errorMessage = msg['errorMessage'];
+                  break;
+                }
+              }
+            }
+          } else if (event.type === 'auto_retry_end') {
+            // auto-retry は無効化しているので基本来ないが、念のため
+            if (!event.success && event.finalError) {
+              errorMessage = event.finalError;
+            }
+          } else if (event.type === 'agent_settled') {
+            // settled は subscriber コールバック先頭で同期的にセット済み
+            if (errorMessage !== null) {
+              await sendEvent({ type: 'error', message: errorMessage });
+            } else {
+              await sendEvent({ type: 'done' });
+            }
+          }
+        })();
+      });
+
+      try {
+        await session.prompt(content);
+        // agent_settled が来るまで待つ (エラー時も必ず settled になる)
+        await session.waitForIdle();
+      } catch (err) {
+        // prompt() 自体が throw した場合 (preflight失敗など)
+        // settled が false のときのみ送信 (abort パスや settled 後の例外を除外)
+        if (!settled) {
+          settled = true;
+          unsubscribe();
+          await sendEvent({ type: 'error', message: String(err) });
+          return;
+        }
+        unsubscribe();
+        return;
+      }
+
+      unsubscribe();
+      if (!settled) {
+        // agent_settled が来ていない場合 (waitForIdle が先に解決するケース)
+        settled = true;
+        if (errorMessage !== null) {
+          await sendEvent({ type: 'error', message: errorMessage });
+        } else {
+          await sendEvent({ type: 'done' });
+        }
+      }
+
+      // セッションタイトルを初回ユーザーメッセージから設定する
+      void updateSessionTitle(session, config.vaultRoot);
+    });
+  });
+
+  return app;
+}

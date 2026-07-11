@@ -1,6 +1,9 @@
 {
   "sprint": "S53409d",
-  "touched_adrs": ["ADR-0007", "ADR-0008"],
+  "touched_adrs": [
+    "ADR-0007",
+    "ADR-0008"
+  ],
   "decisions": [
     {
       "timestamp": "2026-07-10T00:00:00Z",
@@ -36,6 +39,15 @@
       "detail": "エージェント e2e は実ブラウザ→実 Loamium サーバー→実 HTTP のスタブ LLM サーバーで検証する。スタブは別プロセス/別ポートの実 HTTP サーバーであり、in-process fake やネットワークモックではない (test-discipline Rule 7 の範囲内: モックするのは外部 SaaS に相当する LLM のみで、Loamium 側の経路はすべて実物)。実プロバイダ課金なしで決定的なツール呼び出し応答を返せる。",
       "reference": "test-discipline Rule 2/4/7",
       "adr_ref": "ADR-0007",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-11T00:00:00Z",
+      "category": "process",
+      "title": "S53409d の Story 実装は worktree 分離なしで順次 in-place 実行",
+      "detail": "3 Story は依存が完全直列 (1 基盤→2 接続→3 ツール) で intra-wave 並列が存在しない。worktree 分離は並列衝突回避が目的のため利点ゼロで、worktree ごとの full npm install が重複するのみ。sprint ブランチ autopilot/aiagent/S53409d 上で順次 in-place 実装し、各 Story 後にレビュー→修正→検証する。",
+      "reference": "DESIGN_PRINCIPLES priority 5 (シンプルさ > 汎用性)",
+      "adr_ref": "none",
       "drift_flag": "none"
     }
   ]

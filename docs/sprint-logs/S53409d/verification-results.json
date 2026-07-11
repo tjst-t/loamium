@@ -1,0 +1,65 @@
+{
+  "sprint": "S53409d",
+  "verified_at": "2026-07-11",
+  "machine_status": {
+    "lint": "pass",
+    "build": "pass",
+    "unit_acceptance": { "status": "pass", "tests": 585, "files": 49 },
+    "playwright": { "status": "pass", "tests": 329, "note": "mock + e2e all green; real pi path via stub LLM (agent-chat 5, agent-tools 3)" },
+    "overall_machine_status": "pass"
+  },
+  "independent_verifier": {
+    "report": "docs/sprint-logs/S53409d/verification-report.json",
+    "initial_verdict": "pass_with_concerns",
+    "concerns_addressed": [
+      "read tool name collision with pi built-in → renamed custom tool to read_note + excludeTools all 7 built-ins (defense-in-depth). ADR-0008 boundary now robust.",
+      "AC-S53409d-2-2 abort-button flaky (200ms stub window) → widened stub streaming window to ~1.4s; single-run 5/5 + full suite 329/329 green.",
+      "AC-S53409d-1-1 workspace engines → added engines node>=22 to all 4 workspace package.json. (No CI system exists in this repo; the AC's CI clause is N/A — surfaced as a finding.)"
+    ]
+  },
+  "done_judgment": {
+    "sprint_precondition_detail_level": "pass (detailed)",
+    "stories": {
+      "S53409d-1": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "n/a",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "pass",
+        "guard8_destructive_multi_version_test": "n/a",
+        "guard8_rationale": "ランタイム更新+機能撤去のみ。バージョン付きデータパスを新設しない。",
+        "overall": "ok"
+      },
+      "S53409d-2": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "n/a",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "pass",
+        "guard8_destructive_multi_version_test": "n/a",
+        "guard8_rationale": "エージェントは vault 読み取り専用。破壊的データパス非該当。",
+        "overall": "ok"
+      },
+      "S53409d-3": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "n/a",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "pass",
+        "guard8_destructive_multi_version_test": "n/a",
+        "guard8_rationale": "5 ツールは全て読み取り専用 (search/query/read_note/backlinks/tags)。書き込みなし。",
+        "overall": "ok"
+      }
+    },
+    "guard_notes": {
+      "guard5": "エージェント→ツール→VaultIndex の結合は agent-tools.e2e で実 search が実 vault に対し実行されることで存在を確認。",
+      "guard7": "touched_adrs=[ADR-0007, ADR-0008]。両 ADR は machine_check セクションを持たない (design skill 由来)。grep 確認: server src に手書き LLM HTTP クライアントなし (pi SDK 専用) = ADR-0007 準拠; agent-service は tools 許可リスト + excludeTools で組み込み全排除 = ADR-0008 準拠。independent verifier も両 ADR pass。"
+    }
+  }
+}

@@ -133,7 +133,8 @@ test.describe.serial('agent tools', () => {
 
   test('[AC-S53409d-3-1] LLM に広告されるツールは read 系 5 種のみ (実リクエストの実測)', () => {
     // 前テストで実際に LLM へ送られた tools 定義を検証する
-    expect(advertisedTools).toEqual(['backlinks', 'query', 'read', 'search', 'tags']);
+    // カスタム read ツールは read_note に改名 (ADR-0008 collision 排除)
+    expect(advertisedTools).toEqual(['backlinks', 'query', 'read_note', 'search', 'tags']);
   });
 
   test('[AC-S53409d-3-3] 回答中の [[リンク]] クリックで当該ノートへ遷移する', async ({ page }) => {

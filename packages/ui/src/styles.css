@@ -1700,136 +1700,6 @@ button.callout-title { cursor: pointer; }
   white-space: pre-wrap;
 }
 
-/* ---- ターミナルタブ (Sb7f458-2 — prototype/terminal.html) ------------------ */
-
-.workspace-tabs {
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  padding: 7px 14px 0;
-  background: var(--bg-panel);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-.wtab {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 6px 15px 7px;
-  font-size: 12.5px;
-  color: var(--text-muted);
-  border: 1px solid transparent;
-  border-bottom: none;
-  border-radius: 8px 8px 0 0;
-  background: transparent;
-  cursor: pointer;
-  max-width: 260px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.wtab:hover { color: var(--text); background: var(--bg-hover); }
-.wtab.active {
-  background: var(--bg-editor);
-  border-color: var(--border);
-  color: var(--text);
-  font-weight: 600;
-  margin-bottom: -1px;
-  padding-bottom: 8px;
-}
-.wtab svg { width: 13px; height: 13px; flex-shrink: 0; }
-.wtab .live-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--ok);
-  flex-shrink: 0;
-}
-.wtab .live-dot.off { background: var(--text-faint); }
-
-.workspace-editor {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  position: relative;
-}
-
-.terminal-wrap {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  background: var(--bg-editor);
-}
-
-/* ダークテーマはターミナルペインのみ (プロトタイプ準拠) */
-.terminal-pane {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  background: #17171f;
-  padding: 10px 12px;
-}
-.terminal-pane.is-disconnected { opacity: 0.45; }
-.terminal-host {
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-}
-.terminal-host .xterm { height: 100%; }
-
-.reconnect-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 16px;
-  background: var(--warn-soft);
-  border-bottom: 1px solid #ecd9b0;
-  color: #7a5411;
-  font-size: 12.5px;
-  flex-shrink: 0;
-}
-.reconnect-bar svg { width: 14px; height: 14px; flex-shrink: 0; }
-.reconnect-bar .btn { padding: 3px 12px; font-size: 12px; margin-left: auto; }
-/* Origin 拒否 (WS 1008) の案内バー (S79c210-3)。正常終了バーと視覚的に区別する */
-.reconnect-bar.origin-denied {
-  background: #f6dede;
-  border-bottom-color: #e6b8b8;
-  color: #8a2b2b;
-}
-.reconnect-bar.origin-denied code {
-  font-family: var(--font-mono, monospace);
-  font-size: 11.5px;
-  background: rgba(138, 43, 43, 0.12);
-  border-radius: 4px;
-  padding: 0 4px;
-}
-
-.setup-code {
-  text-align: left;
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  line-height: 1.9;
-  background: #23242b;
-  color: #e6e6ef;
-  border-radius: 10px;
-  padding: 14px 20px;
-  margin: 0 0 16px;
-  min-width: 380px;
-}
-.setup-code .cmt { color: #8b8b98; }
-.setup-code .env { color: #7ecb89; }
-
-.terminal-disabled-current {
-  margin: 0;
-  font-size: 12.5px;
-  color: var(--text-muted);
-}
-.terminal-disabled-current code {
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
 
 /* ==========================================================================
    Sf1a90a — UI シェル刷新 (ルーティングヘッダ / 直近ファイル / 右サイドバートグル)
@@ -2301,11 +2171,6 @@ button.callout-title { cursor: pointer; }
 }
 .seg-btn .live-dot.off { background: var(--text-faint); }
 
-/* 右サイドバー内 Claude(ターミナル)の寸法調整 */
-.claude-body { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-.panel .terminal-pane { padding: 12px 14px; font-size: 12px; }
-.panel .reconnect-bar { font-size: 11.5px; padding: 7px 12px; }
-.panel .setup-code { min-width: 0; font-size: 11px; padding: 12px 14px; }
 
 /* ---- 詳細検索ページ(ルート /search) (S935867-1 — prototype/search-page.html) ---- */
 
@@ -3838,3 +3703,211 @@ button.callout-title { cursor: pointer; }
 .bookmark-star[aria-disabled="true"]:hover {
   background: none;
 }
+
+/* ==== エージェントチャットペイン (S53409d-2) ==== */
+.agent-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: var(--bg-editor);
+  overflow: hidden;
+}
+.agent-session-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  font-size: 12px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.agent-session-bar .session-title {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.agent-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+}
+.agent-msg-user {
+  align-self: flex-end;
+  max-width: 88%;
+  background: var(--accent-soft);
+  border: 1px solid #e2dcf7;
+  border-radius: 12px 12px 3px 12px;
+  padding: 7px 11px;
+  font-size: 13px;
+}
+.agent-msg-assistant {
+  align-self: stretch;
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+.agent-msg-assistant p { margin: 4px 0; }
+.agent-msg-assistant ul { margin: 4px 0; padding-left: 20px; }
+.agent-error {
+  align-self: stretch;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  background: var(--danger-soft, #fdf2f2);
+  border: 1px solid #f3d5d5;
+  border-radius: 9px;
+  padding: 8px 11px;
+  font-size: 12.5px;
+  color: #9c3535;
+}
+.agent-error svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 2px; }
+.agent-streaming-caret {
+  display: inline-block;
+  width: 7px;
+  height: 14px;
+  background: var(--accent);
+  vertical-align: text-bottom;
+  margin-left: 2px;
+  animation: agent-blink 1s steps(2) infinite;
+}
+@keyframes agent-blink { 50% { opacity: 0; } }
+.agent-input-row {
+  border-top: 1px solid var(--border);
+  padding: 10px 12px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  background: var(--bg-panel);
+  flex-shrink: 0;
+}
+.agent-input {
+  flex: 1;
+  resize: none;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  background: var(--bg-editor);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 7px 10px;
+  min-height: 34px;
+  max-height: 120px;
+  color: var(--text);
+}
+.agent-input:focus { outline: none; border-color: var(--accent); }
+.agent-input:disabled { background: var(--bg-panel); color: var(--text-faint); }
+.agent-send, .agent-abort {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.agent-send { background: var(--accent); color: #fff; }
+.agent-send:hover:not(:disabled) { background: var(--accent-hover); }
+.agent-send:disabled { background: var(--bg-hover); color: var(--text-faint); cursor: default; }
+.agent-send svg, .agent-abort svg { width: 15px; height: 15px; }
+.agent-abort { background: var(--danger-soft, #fdf2f2); color: var(--danger, #c0392b); border: 1px solid #f0caca; }
+.agent-abort:hover { background: #fbe4e4; }
+.agent-hint {
+  font-size: 11px;
+  color: var(--text-faint);
+  padding: 0 14px 8px;
+  background: var(--bg-panel);
+  flex-shrink: 0;
+}
+.setup-code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg-editor);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--text);
+  margin: 8px 0;
+}
+
+/* ---- ツールチップ (S53409d-3) ------------------------------------------------ */
+
+.agent-tool-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 2px 0 8px;
+}
+
+.agent-tool-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  max-width: 100%;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 3px 9px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.agent-tool-chip.running {
+  border-color: #d9d2f2;
+  background: var(--accent-soft);
+}
+
+/* スピナー (running 状態の回転インジケーター) */
+.agent-tool-chip .agent-tool-spinner {
+  width: 11px;
+  height: 11px;
+  border: 1.6px solid #cfc6ee;
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: agent-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes agent-spin { to { transform: rotate(360deg); } }
+
+/* ツール名・引数スパン */
+.agent-tool-chip .agent-tool-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.agent-tool-chip .agent-tool-args {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+/* ---- WikiLink (S53409d-3) ---------------------------------------------------- */
+
+/* 存在するノートへのリンク */
+.agent-wikilink {
+  color: var(--link);
+  cursor: pointer;
+}
+.agent-wikilink:hover { text-decoration: underline; }
+
+/* 不在ノートへのリンク: .agent-wikilink.broken (compound) */
+.agent-wikilink.broken {
+  color: var(--danger);
+  border-bottom: 1px dashed var(--danger);
+  cursor: default;
+}
+

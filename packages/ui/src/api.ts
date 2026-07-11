@@ -122,7 +122,7 @@ async function request<S extends z.ZodTypeAny>(
 }
 
 export const api = {
-  /** 機能フラグ検出 (Sb7f458-2 — ターミナルの有効/無効と理由)。 */
+  /** GET /api/health — サーバーモード等を取得。 */
   getHealth(): Promise<HealthResponse> {
     return request(healthResponseSchema, '/api/health');
   },

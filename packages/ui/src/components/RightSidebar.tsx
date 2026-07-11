@@ -1,20 +1,18 @@
 /**
- * 右サイドバー — バックリンク ⇄ Claude のトグル (Sf1a90a-2 / prototype/claude-sidebar.html)。
+ * 右サイドバー — バックリンク + エージェントタブ (Sf1a90a-2 / S53409d-1 / S53409d-2)。
  *
- * - seg-toggle で right-tab-backlinks / right-tab-claude を切り替える (aria-selected)。
- * - Claude 表示中もメインのノートは見えたまま (メインを占有しない — DESIGN_PRINCIPLES)。
- * - TerminalPane (claude-panel) は初回に Claude を開いた時点で一度だけマウントし、
- *   以後はトグルで display 切替のみ — xterm セッションを維持する (AC-Sf1a90a-2-1)。
+ * - ターミナル (Claude) タブは ADR-0007 により廃止 (S53409d-1)。
+ * - バックリンクタブ + エージェントタブの 2 タブ seg-toggle。
  * - right-sidebar-toggle でサイドバー自体を開閉する。
  * - バックリンク取得はここで行い、件数バッジ (backlink-count) はタブに常時出す。
  */
 import { useEffect, useState, type JSX } from 'react';
-import { noteTitle, type BacklinkSource } from '@loamium/shared';
+import { noteTitle, type BacklinkSource, type HealthResponse, type NoteMeta } from '@loamium/shared';
 import { api, ApiError } from '../api.js';
-import { TerminalPane, type TerminalStatus } from './TerminalPane.js';
-import { ChevronRightIcon, DocumentIcon, LinkIcon, TerminalIcon } from '../icons.js';
+import { ChevronRightIcon, DocumentIcon, LinkIcon } from '../icons.js';
+import { AgentPane } from './AgentPane.js';
 
-export type RightTab = 'backlinks' | 'claude';
+export type RightTab = 'backlinks' | 'agent';
 
 export interface RightSidebarProps {
   /** 開いているノートの vault 相対パス (null = ノート未オープン) */
@@ -25,9 +23,11 @@ export interface RightSidebarProps {
   onOpenNote: (path: string) => void;
   /**
    * true のときサイドバー全体を非表示にする (Sa629e2-3: /search ルート)。
-   * unmount ではなく display:none — Claude (xterm) のセッションは維持される。
+   * unmount ではなく display:none。
    */
   hidden?: boolean;
+  /** vault のノート一覧 (エージェントペインの [[wikilink]] 解決用) */
+  notes?: NoteMeta[] | null;
 }
 
 /** コンテキスト行中のリンク原文 (raw) を <mark> で強調する。 */
@@ -43,20 +43,44 @@ function contextWithMark(context: string, raw: string): JSX.Element {
   );
 }
 
+/** エージェントアイコン (プロトタイプ prototype/agent-chat.html より) */
+function AgentIcon(): JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 1.8l1.4 3.3 3.4.4-2.5 2.4.7 3.5L8 9.7l-3 1.7.7-3.5L3.2 5.5l3.4-.4z" />
+    </svg>
+  );
+}
+
 export function RightSidebar({
   notePath,
   refreshToken,
   onOpenNote,
   hidden = false,
+  notes = null,
 }: RightSidebarProps): JSX.Element {
-  const [tab, setTab] = useState<RightTab>('backlinks');
   const [collapsed, setCollapsed] = useState(false);
-  /** 一度 Claude を開いたら unmount しない (トグルでセッションを切らない) */
-  const [claudeMounted, setClaudeMounted] = useState(false);
-  const [terminalStatus, setTerminalStatus] = useState<TerminalStatus>('loading');
+  const [activeTab, setActiveTab] = useState<RightTab>('backlinks');
+  const [health, setHealth] = useState<HealthResponse | null>(null);
 
   const [backlinks, setBacklinks] = useState<BacklinkSource[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // エージェント有効化状態を health から取得する
+  useEffect(() => {
+    let cancelled = false;
+    api.getHealth().then(
+      (res) => {
+        if (!cancelled) setHealth(res);
+      },
+      () => {
+        // health 取得失敗時はエージェント無効として扱う
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (notePath === null) {
@@ -85,12 +109,7 @@ export function RightSidebar({
     backlinks?.flatMap((src) => src.links.map((link) => ({ source: src.source, link }))) ?? [];
   const countKnown = notePath !== null && backlinks !== null && error === null;
 
-  const selectClaude = (): void => {
-    setClaudeMounted(true);
-    setTab('claude');
-  };
-
-  // /search では表示しない (display:none — マウントは維持し xterm セッションを守る)
+  // /search では表示しない (display:none — マウントは維持)
   const hiddenStyle = hidden ? ({ display: 'none' } as const) : undefined;
 
   if (collapsed) {
@@ -115,11 +134,11 @@ export function RightSidebar({
       <div className="panel-header">
         <div className="seg-toggle" role="tablist" aria-label="右サイドバー切替">
           <button
-            className={`seg-btn${tab === 'backlinks' ? ' active' : ''}`}
+            className={`seg-btn${activeTab === 'backlinks' ? ' active' : ''}`}
             data-testid="right-tab-backlinks"
             role="tab"
-            aria-selected={tab === 'backlinks'}
-            onClick={() => setTab('backlinks')}
+            aria-selected={activeTab === 'backlinks'}
+            onClick={() => setActiveTab('backlinks')}
           >
             <LinkIcon />
             バックリンク
@@ -130,15 +149,14 @@ export function RightSidebar({
             )}
           </button>
           <button
-            className={`seg-btn${tab === 'claude' ? ' active' : ''}`}
-            data-testid="right-tab-claude"
+            className={`seg-btn${activeTab === 'agent' ? ' active' : ''}`}
+            data-testid="right-tab-agent"
             role="tab"
-            aria-selected={tab === 'claude'}
-            onClick={selectClaude}
+            aria-selected={activeTab === 'agent'}
+            onClick={() => setActiveTab('agent')}
           >
-            <TerminalIcon />
-            Claude
-            <span className={`live-dot${terminalStatus === 'connected' ? '' : ' off'}`} />
+            <AgentIcon />
+            エージェント
           </button>
         </div>
         <button
@@ -152,57 +170,54 @@ export function RightSidebar({
         </button>
       </div>
 
-      {/* バックリンク本体 (Claude 表示中は隠すが unmount はしない) */}
-      <div
-        className="panel-body"
-        data-testid="backlink-panel"
-        style={{ display: tab === 'backlinks' ? 'block' : 'none' }}
-      >
-        {error !== null ? (
-          <div className="panel-empty" data-testid="backlink-error">
-            バックリンクを取得できませんでした。
-            <br />
-            <span className="detail">{error}</span>
-          </div>
-        ) : notePath === null || items.length === 0 ? (
-          <div className="panel-empty" data-testid="backlink-empty">
-            <LinkIcon />
-            <br />
-            {notePath === null ? (
-              'ノートを開くと、ここに参照元が表示されます。'
-            ) : (
-              <>
-                このノートへのバックリンクはまだありません。ほかのノートから{' '}
-                <code>[[{noteTitle(notePath)}]]</code> でリンクすると、ここに参照元が表示されます。
-              </>
-            )}
-          </div>
-        ) : (
-          items.map(({ source, link }, i) => (
-            <button
-              key={`${source}:${String(link.line)}:${String(i)}`}
-              className="backlink-item"
-              data-testid="backlink-item"
-              data-source={source}
-              onClick={() => onOpenNote(source)}
-            >
-              <span className="backlink-source">
-                <DocumentIcon />
-                {noteTitle(source)}
-              </span>
-              <span className="backlink-context">{contextWithMark(link.context, link.raw)}</span>
-            </button>
-          ))
-        )}
-      </div>
+      {/* バックリンク本体 */}
+      {activeTab === 'backlinks' && (
+        <div
+          className="panel-body"
+          data-testid="backlink-panel"
+        >
+          {error !== null ? (
+            <div className="panel-empty" data-testid="backlink-error">
+              バックリンクを取得できませんでした。
+              <br />
+              <span className="detail">{error}</span>
+            </div>
+          ) : notePath === null || items.length === 0 ? (
+            <div className="panel-empty" data-testid="backlink-empty">
+              <LinkIcon />
+              <br />
+              {notePath === null ? (
+                'ノートを開くと、ここに参照元が表示されます。'
+              ) : (
+                <>
+                  このノートへのバックリンクはまだありません。ほかのノートから{' '}
+                  <code>[[{noteTitle(notePath)}]]</code> でリンクすると、ここに参照元が表示されます。
+                </>
+              )}
+            </div>
+          ) : (
+            items.map(({ source, link }, i) => (
+              <button
+                key={`${source}:${String(link.line)}:${String(i)}`}
+                className="backlink-item"
+                data-testid="backlink-item"
+                data-source={source}
+                onClick={() => onOpenNote(source)}
+              >
+                <span className="backlink-source">
+                  <DocumentIcon />
+                  {noteTitle(source)}
+                </span>
+                <span className="backlink-context">{contextWithMark(link.context, link.raw)}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
 
-      {/* Claude (初回に開いてからマウント — トグルでセッション維持) */}
-      {claudeMounted && (
-        <TerminalPane
-          active={tab === 'claude'}
-          onStatusChange={setTerminalStatus}
-          onCmdDetected={() => undefined}
-        />
+      {/* エージェントペイン */}
+      {activeTab === 'agent' && (
+        <AgentPane health={health} notes={notes} onOpenNote={onOpenNote} />
       )}
     </aside>
   );

@@ -27,7 +27,7 @@ async function bootNote(
 ): Promise<string[]> {
   const unexpected = await installCatchAll(page);
   await page.route('**/api/health', (route) =>
-    void route.fulfill(json({ status: 'ok', mode, terminal: { enabled: false, reason: null } })),
+    void route.fulfill(json({ status: 'ok', mode, })),
   );
   await page.route('**/api/notes', (route) =>
     void route.fulfill(json({ notes: [{ path: NOTE_PATH, title: 'Target', tags: [], folder: ROOT }] })),
@@ -116,7 +116,7 @@ test('[MOCK] スター: ブックマーク成功後にエディタが再取得�
   // bootNote は呼ばず、このテスト専用でモック全体を組み立てる
   const unexpected = await installCatchAll(page);
   await page.route('**/api/health', (route) =>
-    void route.fulfill(json({ status: 'ok', mode: 'full', terminal: { enabled: false, reason: null } })),
+    void route.fulfill(json({ status: 'ok', mode: 'full', })),
   );
   await page.route('**/api/notes', (route) =>
     void route.fulfill(json({ notes: [{ path: NOTE_PATH, title: 'Target', tags: [], folder: ROOT }] })),
@@ -149,7 +149,7 @@ test('[MOCK] スター: ブックマーク成功後にエディタが再取得�
 test('[MOCK] スター: ブックマーク解除後にエディタが再取得されプロパティパネルが消える', async ({ page }) => {
   const unexpected = await installCatchAll(page);
   await page.route('**/api/health', (route) =>
-    void route.fulfill(json({ status: 'ok', mode: 'full', terminal: { enabled: false, reason: null } })),
+    void route.fulfill(json({ status: 'ok', mode: 'full', })),
   );
   await page.route('**/api/notes', (route) =>
     void route.fulfill(json({ notes: [{ path: NOTE_PATH, title: 'Target', tags: [], folder: ROOT }] })),

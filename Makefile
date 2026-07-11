@@ -1,7 +1,7 @@
 PROJECT_NAME := loamium
 
 # ローカル起動設定 (.env, git 管理外) があれば読み込む。KEY=value 形式 (make 互換)。
-# HOST / LOAMIUM_TERMINAL / LOAMIUM_TERMINAL_ALLOWED_ORIGINS / LOAMIUM_UI_ALLOWED_HOSTS
+# HOST / LOAMIUM_UI_ALLOWED_HOSTS
 # などをここに書いておけば毎回コマンドに渡さなくてよい (テンプレは .env.example)。
 # -include なので存在しなくてもエラーにしない。export で全変数を子プロセスへ渡す。
 -include .env

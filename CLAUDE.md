@@ -4,7 +4,7 @@
 
 ## Tech Stack
 
-TypeScript (strict), Node.js 20, npm workspaces モノレポ。
+TypeScript (strict), Node.js 22, npm workspaces モノレポ。
 Backend: Hono / Frontend: React + CodeMirror 6 (lezer-markdown) / 検索: Fuse.js / テスト: Vitest / スキーマ検証: zod
 
 ## Commands
