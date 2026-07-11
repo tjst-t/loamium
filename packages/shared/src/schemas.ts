@@ -408,11 +408,82 @@ export const templateMissingVarsResponseSchema = z.object({
 export type TemplateMissingVarsResponse = z.infer<typeof templateMissingVarsResponseSchema>;
 
 
+export const agentHealthSchema = z.object({
+  enabled: z.boolean(),
+  reason: z.enum(['not_configured', 'invalid_config']).nullable(),
+});
+export type AgentHealth = z.infer<typeof agentHealthSchema>;
+
 export const healthResponseSchema = z.object({
   status: z.literal('ok'),
   mode: permissionModeSchema,
+  /**
+   * エージェント設定の有無 (S53409d-2)。
+   * agent.json が有効な場合 enabled:true。
+   * 旧バージョンとの後方互換のため optional (未設定時は not_configured 扱い)。
+   */
+  agent: agentHealthSchema.optional(),
 });
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
+
+// ---- エージェント設定 (.loamium/agent.json — S53409d-2) ----
+
+export const agentConfigSchema = z.object({
+  api: z.enum(['openai', 'anthropic']),
+  baseUrl: z.string().min(1, 'baseUrl must not be empty'),
+  model: z.string().min(1, 'model must not be empty'),
+  apiKey: z.string().min(1, 'apiKey must not be empty'),
+});
+export type AgentConfig = z.infer<typeof agentConfigSchema>;
+
+// ---- エージェント REST API レスポンス (S53409d-2) ----
+
+export const agentSessionCreateResponseSchema = z.object({
+  id: z.string(),
+});
+export type AgentSessionCreateResponse = z.infer<typeof agentSessionCreateResponseSchema>;
+
+export const agentSessionSummarySchema = z.object({
+  id: z.string(),
+  title: z.string().nullable(),
+  updatedAt: z.number(),
+});
+export type AgentSessionSummary = z.infer<typeof agentSessionSummarySchema>;
+
+export const agentSessionListResponseSchema = z.object({
+  sessions: z.array(agentSessionSummarySchema),
+});
+export type AgentSessionListResponse = z.infer<typeof agentSessionListResponseSchema>;
+
+export const agentToolSummarySchema = z.object({
+  name: z.string(),
+  argsSummary: z.string(),
+  status: z.enum(['running', 'done']),
+});
+export type AgentToolSummary = z.infer<typeof agentToolSummarySchema>;
+
+export const agentMessageSchema = z.object({
+  role: z.enum(['user', 'assistant']),
+  content: z.string(),
+  tools: z.array(agentToolSummarySchema),
+});
+export type AgentMessage = z.infer<typeof agentMessageSchema>;
+
+export const agentSessionDetailResponseSchema = z.object({
+  id: z.string(),
+  messages: z.array(agentMessageSchema),
+});
+export type AgentSessionDetailResponse = z.infer<typeof agentSessionDetailResponseSchema>;
+
+export const agentSendMessageRequestSchema = z.object({
+  content: z.string().min(1, 'content must not be empty'),
+});
+export type AgentSendMessageRequest = z.infer<typeof agentSendMessageRequestSchema>;
+
+export const agentAbortResponseSchema = z.object({
+  ok: z.boolean(),
+});
+export type AgentAbortResponse = z.infer<typeof agentAbortResponseSchema>;
 
 // ---- 意味型スキーマ配信 (GET /api/property-types — S87f4b7-2) ----
 

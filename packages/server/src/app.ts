@@ -9,18 +9,25 @@ import { filesRoutes } from './routes/files.js';
 import { propertyTypesRoutes } from './routes/property-types.js';
 import { templatesRoutes } from './routes/templates.js';
 import { smartFoldersRoutes } from './routes/smart-folders.js';
+import { agentRoutes } from './routes/agent.js';
 import { auditMiddleware } from './audit.js';
 import { permissionMiddleware } from './permissions.js';
 import { indexSyncMiddleware } from './indexSync.js';
+import { loadAgentConfig } from './agent-service.js';
 import type { VaultIndex } from './noteIndex.js';
 
 export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
-  app.get('/api/health', (c) => {
+  app.get('/api/health', async (c) => {
+    // エージェント設定の有無を確認する (遅延読込 — 毎回ファイルを読む)
+    const agentResult = await loadAgentConfig(config.vaultRoot);
     const res: HealthResponse = {
       status: 'ok',
       mode: config.mode,
+      agent: agentResult.ok
+        ? { enabled: true, reason: null }
+        : { enabled: false, reason: agentResult.reason },
     };
     return c.json(res);
   });
@@ -44,6 +51,8 @@ export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv>
   app.route('/', templatesRoutes(config));
   // スマートフォルダ定義 CRUD・解決 (S32940c-2)
   app.route('/', smartFoldersRoutes(config, index));
+  // エージェント (S53409d-2) — 権限・監査はルート内で管理
+  app.route('/', agentRoutes(config));
 
   return app;
 }

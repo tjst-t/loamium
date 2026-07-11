@@ -1,0 +1,242 @@
+/**
+ * エージェント API ルート (S53409d-2)。
+ *
+ * POST   /api/agent/sessions             新規セッション作成 → { id }
+ * GET    /api/agent/sessions             セッション一覧 → { sessions }
+ * GET    /api/agent/sessions/{id}        セッション詳細 (メッセージ履歴) → { id, messages }
+ * POST   /api/agent/sessions/{id}/messages  SSE テキスト配信
+ * POST   /api/agent/sessions/{id}/abort     中断 → { ok }
+ *
+ * SSE イベント (data: <json>\n\n):
+ *   { type:'text_delta', text }
+ *   { type:'tool_start', toolCallId, name, argsSummary }
+ *   { type:'tool_end',   toolCallId, name }
+ *   { type:'error',      message }
+ *   { type:'done' }
+ */
+import { Hono } from 'hono';
+import { stream } from 'hono/streaming';
+import type { ServerConfig } from '../config.js';
+import {
+  loadAgentConfig,
+  createPiSession,
+  listSessions,
+  getSessionFromDisk,
+  extractSessionMessages,
+  getActiveSession,
+  updateSessionTitle,
+} from '../agent-service.js';
+import { parseBody, errorJson, setAudit, type AppEnv } from '../http.js';
+import { writeAuditEntry } from '../audit.js';
+import { agentSendMessageRequestSchema } from '@loamium/shared';
+import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
+
+export function agentRoutes(config: ServerConfig): Hono<AppEnv> {
+  const app = new Hono<AppEnv>();
+
+  // ---- GET /api/agent/sessions -----------------------------------------------
+
+  app.get('/api/agent/sessions', async (c) => {
+    const sessions = await listSessions(config);
+    return c.json({ sessions });
+  });
+
+  // ---- POST /api/agent/sessions -----------------------------------------------
+
+  app.post('/api/agent/sessions', async (c) => {
+    const configResult = await loadAgentConfig(config.vaultRoot);
+    if (!configResult.ok) {
+      return errorJson(c, 400, configResult.reason, configResult.message);
+    }
+
+    let session;
+    try {
+      session = await createPiSession(config.vaultRoot, configResult.config);
+    } catch (err) {
+      return errorJson(c, 500, 'session_create_failed', String(err));
+    }
+
+    setAudit(c, 'agent.session.create', session.sessionId);
+    await writeAuditEntry(config, {
+      ts: new Date().toISOString(),
+      op: 'agent.session.create',
+      path: session.sessionId,
+      mode: config.mode,
+      result: 'ok',
+      status: 200,
+    });
+
+    return c.json({ id: session.sessionId });
+  });
+
+  // ---- GET /api/agent/sessions/{id} ------------------------------------------
+
+  app.get('/api/agent/sessions/:id', async (c) => {
+    const sessionId = c.req.param('id');
+
+    // fast-path: active session in memory
+    const active = getActiveSession(sessionId);
+    if (active) {
+      const messages = extractSessionMessages(active);
+      return c.json({ id: sessionId, messages });
+    }
+
+    // slow-path: load from JSONL on disk (サーバー再起動後のリストア)
+    const configResult = await loadAgentConfig(config.vaultRoot);
+    if (!configResult.ok) {
+      return c.json({ id: sessionId, messages: [] });
+    }
+    try {
+      const session = await getSessionFromDisk(sessionId, config.vaultRoot, configResult.config);
+      const messages = extractSessionMessages(session);
+      return c.json({ id: sessionId, messages });
+    } catch {
+      return c.json({ id: sessionId, messages: [] });
+    }
+  });
+
+  // ---- POST /api/agent/sessions/{id}/abort -----------------------------------
+
+  app.post('/api/agent/sessions/:id/abort', async (c) => {
+    const sessionId = c.req.param('id');
+    const session = getActiveSession(sessionId);
+    if (session) {
+      try {
+        await session.abort();
+      } catch {
+        // abort は best-effort
+      }
+    }
+    return c.json({ ok: true });
+  });
+
+  // ---- POST /api/agent/sessions/{id}/messages (SSE) --------------------------
+
+  app.post('/api/agent/sessions/:id/messages', async (c) => {
+    const sessionId = c.req.param('id');
+
+    const bodyResult = await parseBody(c, agentSendMessageRequestSchema);
+    if (!bodyResult.ok) return bodyResult.response;
+    const { content } = bodyResult.data;
+
+    // セッション取得 or 設定読込で失敗したらエラー
+    const session = getActiveSession(sessionId);
+    if (!session) {
+      return errorJson(c, 404, 'session_not_found', `session not found: ${sessionId}`);
+    }
+
+    // 監査ログ (agent.message)
+    void writeAuditEntry(config, {
+      ts: new Date().toISOString(),
+      op: 'agent.message',
+      path: sessionId,
+      mode: config.mode,
+      result: 'ok',
+      status: 200,
+    });
+
+    // SSE ストリーム
+    return stream(c, async (s) => {
+      // SSE ヘッダ — Hono の stream() は Content-Type を自動でセットしないため明示する
+      c.res.headers.set('Content-Type', 'text/event-stream');
+      c.res.headers.set('Cache-Control', 'no-cache');
+      c.res.headers.set('Connection', 'keep-alive');
+
+      let settled = false;
+      let errorMessage: string | null = null;
+
+      const sendEvent = async (data: Record<string, unknown>): Promise<void> => {
+        if (s.aborted) return;
+        await s.write(`data: ${JSON.stringify(data)}\n\n`);
+      };
+
+      // auto-retry は SSE ブリッジでは不要 (クライアント側が再試行を判断する)。
+      // デフォルト3回 × 指数バックオフ (合計~14秒) を防ぐために無効化する。
+      session.setAutoRetryEnabled(false);
+
+      const unsubscribe = session.subscribe((event: AgentSessionEvent) => {
+        if (settled) return;
+
+        void (async () => {
+          if (event.type === 'message_update') {
+            const ae = event.assistantMessageEvent;
+            if (ae.type === 'text_delta') {
+              await sendEvent({ type: 'text_delta', text: ae.delta });
+            }
+          } else if (event.type === 'tool_execution_start') {
+            const argsSummary = JSON.stringify(event.args ?? {}).slice(0, 80);
+            await sendEvent({
+              type: 'tool_start',
+              toolCallId: event.toolCallId,
+              name: event.toolName,
+              argsSummary,
+            });
+          } else if (event.type === 'tool_execution_end') {
+            await sendEvent({
+              type: 'tool_end',
+              toolCallId: event.toolCallId,
+              name: event.toolName,
+            });
+          } else if (event.type === 'agent_end') {
+            // agent_end はエラー (含む非リトライエラー) のとき stopReason === 'error' になる。
+            // willRetry === true ならリトライが続くので何もしない (auto_retry_end で確定)。
+            if (!event.willRetry) {
+              // 全メッセージの最後の assistant メッセージを調べてエラーを検出する
+              for (let i = event.messages.length - 1; i >= 0; i--) {
+                const msg = event.messages[i] as Record<string, unknown> | undefined;
+                if (
+                  msg !== undefined &&
+                  msg['role'] === 'assistant' &&
+                  msg['stopReason'] === 'error' &&
+                  typeof msg['errorMessage'] === 'string'
+                ) {
+                  errorMessage = msg['errorMessage'];
+                  break;
+                }
+              }
+            }
+          } else if (event.type === 'auto_retry_end') {
+            // auto-retry は無効化しているので基本来ないが、念のため
+            if (!event.success && event.finalError) {
+              errorMessage = event.finalError;
+            }
+          } else if (event.type === 'agent_settled') {
+            settled = true;
+            if (errorMessage !== null) {
+              await sendEvent({ type: 'error', message: errorMessage });
+            } else {
+              await sendEvent({ type: 'done' });
+            }
+          }
+        })();
+      });
+
+      try {
+        await session.prompt(content);
+        // agent_settled が来るまで待つ (エラー時も必ず settled になる)
+        await session.waitForIdle();
+      } catch (err) {
+        // prompt() 自体が throw した場合 (preflight失敗など)
+        settled = true;
+        unsubscribe();
+        await sendEvent({ type: 'error', message: String(err) });
+        return;
+      }
+
+      unsubscribe();
+      if (!settled) {
+        // agent_settled が来ていない場合 (waitForIdle が先に解決するケース)
+        if (errorMessage !== null) {
+          await sendEvent({ type: 'error', message: errorMessage });
+        } else {
+          await sendEvent({ type: 'done' });
+        }
+      }
+
+      // セッションタイトルを初回ユーザーメッセージから設定する
+      void updateSessionTitle(session, config.vaultRoot);
+    });
+  });
+
+  return app;
+}

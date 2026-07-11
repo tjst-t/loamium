@@ -9,6 +9,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@earendil-works/pi-coding-agent": "^0.80.6",
     "@hono/node-server": "^1.14.0",
     "@loamium/shared": "*",
     "chokidar": "^5.0.0",
