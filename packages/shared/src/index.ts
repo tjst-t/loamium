@@ -121,3 +121,23 @@ export {
   type TemplateConfig,
 } from './template-note.js';
 export * from './schemas.js';
+export {
+  commandParamTypeSchema,
+  commandParamSchema,
+  journalAppendStepSchema,
+  noteAppendStepSchema,
+  noteCreateStepSchema,
+  templateInstantiateStepSchema,
+  commandStepSchema,
+  loamiumCommandSchema,
+  parseLoamiumCommand,
+  parseLoamiumCommandWithError,
+  type CommandParamType,
+  type CommandParam,
+  type JournalAppendStep,
+  type NoteAppendStep,
+  type NoteCreateStep,
+  type TemplateInstantiateStep,
+  type CommandStep,
+  type LoamiumCommand,
+} from './loamium-command.js';

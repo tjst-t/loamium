@@ -52,6 +52,7 @@ import {
   tagsResponseSchema,
   smartViewConfigSchema,
   smartFoldersResolveResponseSchema,
+  commandsResponseSchema,
 } from '@loamium/shared';
 import {
   apiFetch,
@@ -542,6 +543,26 @@ function buildProgram(): Command {
           for (const l of res.outgoingLinks) {
             const resolved = l.resolvedPath !== null ? l.resolvedPath : '(unresolved)';
             println(`  ${l.target} -> ${resolved}`);
+          }
+        }
+      });
+    });
+
+  // ---- スマートコマンド一覧 (Sd22b1f-1) ----
+
+  // commands (GET /api/commands)
+  sub('commands', 'スマートコマンド定義を一覧する (GET /api/commands)')
+    .action(async (opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, '/api/commands');
+      output(opts, result, () => {
+        const res = parseAs(result, commandsResponseSchema, 'commands');
+        for (const cmd of res.commands) {
+          if (cmd.valid) {
+            const desc = cmd.description !== undefined ? `\t${cmd.description}` : '';
+            println(`${cmd.name}\t${cmd.path}${desc}`);
+          } else {
+            println(`${cmd.name}\t${cmd.path}\t[INVALID] ${cmd.error}`);
           }
         }
       });

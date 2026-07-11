@@ -705,3 +705,40 @@ export const auditEntrySchema = z.object({
   status: z.number(),
 });
 export type AuditEntry = z.infer<typeof auditEntrySchema>;
+
+// ---- スマートコマンド一覧 (GET /api/commands — Sd22b1f-1) ----
+
+/**
+ * GET /api/commands が返すコマンド 1 件のサマリ。
+ * valid:false の場合も一覧に含め、error フィールドで原因を示す (寛容 read)。
+ */
+export const commandSummarySchema = z.discriminatedUnion('valid', [
+  z.object({
+    /** コマンド識別名 (loamium-command.name、省略時はファイル名拡張子なし)。 */
+    name: z.string(),
+    /** コマンドファイルの vault 相対パス (commands/xxx.md)。 */
+    path: z.string(),
+    /** 人間向け説明 (loamium-command.description)。 */
+    description: z.string().optional(),
+    /** パラメータ定義 (loamium-command.params)。 */
+    params: z.array(z.unknown()),
+    /** 常に true (正常定義)。 */
+    valid: z.literal(true),
+  }),
+  z.object({
+    /** ファイル名 (拡張子なし)。frontmatter が壊れているためファイル名から導出。 */
+    name: z.string(),
+    /** コマンドファイルの vault 相対パス。 */
+    path: z.string(),
+    /** 常に false (無効定義)。 */
+    valid: z.literal(false),
+    /** 壊れた原因の人間可読メッセージ。 */
+    error: z.string(),
+  }),
+]);
+export type CommandSummary = z.infer<typeof commandSummarySchema>;
+
+export const commandsResponseSchema = z.object({
+  commands: z.array(commandSummarySchema),
+});
+export type CommandsResponse = z.infer<typeof commandsResponseSchema>;
