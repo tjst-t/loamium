@@ -2412,6 +2412,8 @@ button.callout-title { cursor: pointer; }
   font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .seg-btn svg { width: 13px; height: 13px; }
 .seg-btn:hover { color: var(--text); }
