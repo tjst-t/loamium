@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "Sf2f114",
+    "current_sprint": "S9e64e7",
     "total": 36,
-    "done": 33,
+    "done": 34,
     "in_progress": 0,
-    "remaining": 3,
-    "percentage": 91
+    "remaining": 2,
+    "percentage": 94
   },
   "execution_order": [
     "Sd63ad1",
@@ -3616,7 +3616,7 @@
       "title": "スマートコマンド DSL v2 バックエンド — when/prop-set/note-patch/append 整理/param 型/テンプレート強化",
       "description": "ADR-0010 準拠。shared スキーマ・実行エンジン・CLI を加算拡張: when:/when-not:、note-append の section?/create? + position 一般化、prop-set・note-patch ステップ、param 型 select/note/boolean/number、{{param|fallback}}・未定義→空・相対日付。すべて v1 を壊さない加算のみ。非 GUI。",
       "milestone": false,
-      "status": "in_progress",
+      "status": "done",
       "detail_level": "detailed",
       "depends_on": null,
       "stories": {
