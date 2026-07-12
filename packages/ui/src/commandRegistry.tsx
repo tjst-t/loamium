@@ -18,7 +18,14 @@ export interface CommandEntry {
   icon: React.ReactNode;
   /** 組み込み or スマートコマンド。data-source 属性にも反映される。 */
   source: 'builtin' | 'smart';
-  /** コマンドを実行する関数。パレットを閉じてから呼ばれる。 */
+  /**
+   * valid:false のスマートコマンド向け: 選択不可 (data-disabled='true' + aria-disabled)。
+   * 省略時は false (選択可能)。
+   */
+  disabled?: boolean;
+  /** disabled=true 時のエラー理由テキスト (command-item-error-reason に表示)。 */
+  errorReason?: string;
+  /** コマンドを実行する関数。パレットを閉じてから呼ばれる。disabled=true の場合は呼ばれない。 */
   run: () => void;
 }
 

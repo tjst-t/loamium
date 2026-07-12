@@ -1,0 +1,80 @@
+Sprint Sde7a63-3 — スマートコマンド実行(フォーム → run → 遷移)
+Date: 2026-07-12
+
+## 実装概要
+
+Story Sde7a63-3 の受け入れ条件をすべて実装・検証した。
+
+### 変更ファイル
+
+1. packages/ui/src/api.ts
+   - listCommands() を commandsResponseSchema を使った実装に置換
+   - runCommand(name, params) を追加 (commandRunResponseSchema 検証)
+
+2. packages/ui/src/commandRegistry.tsx
+   - CommandEntry に disabled?: boolean, errorReason?: string を追加
+
+3. packages/ui/src/components/ParamFormModal.tsx (新規)
+   - type='string'/省略 → input[type=text]
+   - type='text' → textarea
+   - type='date' → input[type=date]
+   - required バリデーション + インラインエラー
+   - 実行成功時 onSuccess(openPath) / 失敗時 param-form-result + step-result 表示
+   - Esc: e.stopPropagation() でパレットの window listener に伝わらないよう遮断
+   - z-index: 75 (.param-form-backdrop) でパレット(z-index:70)の上に表示
+
+4. packages/ui/src/components/SearchPalette.tsx
+   - スマートコマンド非同期取得 useEffect (GET /api/commands)
+   - valid:true → params あり=フォームモーダル起動 / params なし=直接実行
+   - valid:false → disabled=true で非選択可能エントリ登録
+   - paramFormRef で Esc ハンドラがモーダル開放中はパレットを閉じないよう制御
+   - Fragment ラッパーで ParamFormModal をパレットと sibling レンダリング
+   - nextSelectableIndex() で disabled アイテムをナビゲーションでスキップ
+
+5. packages/ui/src/styles.css
+   - .palette-item.cmd-disabled, .cmd-error-reason, .cmd-source-badge.disabled
+   - .param-form-backdrop (z-index:75) + .param-modal 全サブコンポーネントスタイル
+
+6. packages/ui/tests/harness/mock-helpers.ts
+   - GET /api/commands のデフォルトモックルート追加 (既存テスト保護)
+
+7. packages/ui/tests/e2e/command-palette.mock.spec.ts
+   - AC-Sde7a63-3-1〜3-3 + Esc ふるまいのモックテスト追加 (計 +12 テスト)
+
+8. packages/ui/tests/e2e/smart-command-run.e2e.spec.ts (新規)
+   - commands/create-todo.md を vault にシードする beforeAll
+   - AC-Sde7a63-3-4 含む 4 つの E2E テスト
+
+### テスト結果
+
+make test:    756/756 passed (57 test files)
+make lint:    型エラー 0 / lint エラー 0
+
+Playwright mock:  41/41 passed (command-palette.mock.spec.ts)
+Playwright E2E:    4/4 passed (smart-command-run.e2e.spec.ts)
+
+### 技術的決定事項・ハマりポイント
+
+- e.stopPropagation() on React synthetic event in ParamFormModal stops native event
+  propagation at #root, preventing window.addEventListener('keydown') in SearchPalette
+  from firing. This is the correct fix for the Esc-closes-palette bug.
+
+- CodeMirror renders "- [ ] task" as a task widget (checkbox button). E2E テストの
+  toContainText("- [ ] ...") は失敗するため、.cm-line セレクタで生ソース行を確認する
+  アプローチに変更した。
+
+- z-index 階層: .palette-backdrop(70) < .param-form-backdrop(75)。Playwright の
+  pointer-events interception エラーを回避するために param-form-backdrop を
+  dialog-backdrop クラスではなく専用クラスで実装。
+
+- exact optionalPropertyTypes: description?: string | undefined と明示的に書く必要。
+
+### AC 充足状況
+
+AC-Sde7a63-3-1: GET /api/commands のコマンドが source='smart' で表示。
+               valid:false は data-disabled/aria-disabled/pointer-events:none + error-reason 表示。
+AC-Sde7a63-3-2: params を持つコマンドは ParamFormModal を開く。
+               type 別フィールド / required バリデーション / default 事前入力。
+AC-Sde7a63-3-3: 成功時 openPath → ノート遷移 + パレット閉鎖。
+               失敗時 param-form-result + step-result[data-kind][data-ok] 表示。
+AC-Sde7a63-3-4: Ctrl-K → > todo → create-todo → フォーム入力 → 実行 → ジャーナル Todo 追記。

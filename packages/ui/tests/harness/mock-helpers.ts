@@ -80,5 +80,10 @@ export async function installCatchAll(page: Page): Promise<string[]> {
       json({ status: 'ok', mode: 'full', terminal: { enabled: false, reason: null } }),
     );
   });
+  // GET /api/commands (スマートコマンド一覧 — Sde7a63-3)。
+  // 既定は空リスト。スマートコマンドを検証するテストは後から自前の route で上書きする。
+  await page.route('**/api/commands', (route) => {
+    void route.fulfill(json({ commands: [] }));
+  });
   return unexpected;
 }

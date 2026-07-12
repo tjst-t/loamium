@@ -784,3 +784,353 @@ test('[AC-Sde7a63-2-1][MOCK] コマンドモードで一致なしのとき空状
 
   expect(unexpected).toEqual([]);
 });
+
+// =========================================================================
+// AC-Sde7a63-3-1: スマートコマンド表示 (source=smart / valid:false 非選択)
+// =========================================================================
+
+/** GET /api/commands モックデータ */
+const SMART_COMMANDS_RESPONSE = {
+  commands: [
+    {
+      name: 'create-todo',
+      path: 'commands/create-todo.md',
+      description: '今日のジャーナル Todo セクションにタスクを追加する',
+      params: [
+        { name: 'タスク概要', type: 'string', required: true, label: 'タスク概要' },
+        { name: '期限', type: 'date', required: false, label: '期限' },
+        { name: 'タスク詳細', type: 'text', required: false, label: 'タスク詳細' },
+      ],
+      valid: true,
+    },
+    {
+      name: 'invalid-cmd',
+      path: 'commands/invalid-cmd.md',
+      valid: false,
+      error: 'loamium-command キーが見つかりません',
+    },
+  ],
+};
+
+async function openAppWithSmartCommands(
+  page: import('@playwright/test').Page,
+  opts: { searchResults?: unknown[]; smartCommands?: unknown } = {},
+): Promise<{ unexpected: string[] }> {
+  const unexpected = await installCatchAll(page);
+  await page.route('**/api/notes', (route) => {
+    void route.fulfill(json(NOTES));
+  });
+  await page.route('**/api/journal', (route) => {
+    void route.fulfill(json(journal('# ジャーナル\n\n本文。\n')));
+  });
+  await page.route('**/api/search*', (route) => {
+    const q = new URL(route.request().url()).searchParams.get('q') ?? '';
+    void route.fulfill(json({ query: q, results: opts.searchResults ?? [] }));
+  });
+  // スマートコマンド一覧をオーバーライド
+  await page.route('**/api/commands', (route) => {
+    void route.fulfill(json(opts.smartCommands ?? SMART_COMMANDS_RESPONSE));
+  });
+  await page.goto(readHarnessState().uiUrl);
+  await expect(page.getByTestId('editor')).toContainText('本文。');
+  return { unexpected };
+}
+
+test('[AC-Sde7a63-3-1][MOCK] GET /api/commands のコマンドが source=smart でパレットに表示される', async ({ page }) => {
+  const { unexpected } = await openAppWithSmartCommands(page);
+  await page.keyboard.press('Control+k');
+  await expect(page.getByTestId('command-palette')).toBeVisible();
+
+  // create-todo が source=smart で表示される
+  const smartItem = page.locator('[data-testid="command-item"][data-source="smart"][data-command-id="smart:create-todo"]');
+  await expect(smartItem).toBeVisible();
+
+  expect(unexpected).toEqual([]);
+});
+
+test('[AC-Sde7a63-3-1][MOCK] valid:false コマンドは data-disabled=true + aria-disabled=true で表示される', async ({ page }) => {
+  const { unexpected } = await openAppWithSmartCommands(page);
+  await page.keyboard.press('Control+k');
+  await expect(page.getByTestId('command-palette')).toBeVisible();
+
+  // invalid-cmd は data-disabled='true'
+  const disabledItem = page.locator('[data-testid="command-item"][data-disabled="true"]');
+  await expect(disabledItem).toBeVisible();
+  await expect(disabledItem).toHaveAttribute('aria-disabled', 'true');
+
+  // エラー理由が表示される
+  await expect(page.getByTestId('command-item-error-reason')).toBeVisible();
+  await expect(page.getByTestId('command-item-error-reason')).toContainText('loamium-command');
+
+  expect(unexpected).toEqual([]);
+});
+
+test('[AC-Sde7a63-3-1][MOCK] valid:false コマンドは pointer-events:none で選択不可', async ({ page }) => {
+  const { unexpected } = await openAppWithSmartCommands(page);
+  await page.keyboard.press('Control+k');
+  await expect(page.getByTestId('command-palette')).toBeVisible();
+
+  const disabledItem = page.locator('[data-testid="command-item"][data-disabled="true"]');
+  await expect(disabledItem).toBeVisible();
+
+  // pointer-events:none が適用されている (CSS .cmd-disabled)
+  const pointerEvents = await disabledItem.evaluate((el) => window.getComputedStyle(el).pointerEvents);
+  expect(pointerEvents).toBe('none');
+
+  expect(unexpected).toEqual([]);
+});
+
+// =========================================================================
+// AC-Sde7a63-3-2: params を持つコマンドはフォームモーダルを開く
+// =========================================================================
+
+test('[AC-Sde7a63-3-2][MOCK] params を持つ create-todo を選択するとパラメータフォームモーダルが開く', async ({ page }) => {
+  const { unexpected } = await openAppWithSmartCommands(page);
+  await page.keyboard.press('Control+k');
+  await expect(page.getByTestId('command-palette')).toBeVisible();
+
+  // create-todo をクリック
+  await page.locator('[data-testid="command-item"][data-command-id="smart:create-todo"]').click();
+
+  // パラメータフォームモーダルが表示される
+  await expect(page.getByTestId('param-form-modal')).toBeVisible();
+  await expect(page.getByTestId('param-form-modal')).toHaveAttribute('role', 'dialog');
+
+  // フォームタイトル
+  await expect(page.getByTestId('param-form-title')).toContainText('create-todo');
+
+  // パレットは引き続き visible (閉じない)
+  await expect(page.getByTestId('command-palette')).toBeVisible();
+
+  expect(unexpected).toEqual([]);
+});
+
+test('[AC-Sde7a63-3-2][MOCK] param-form-modal にパラメータフィールドが表示される (type=string/text/date)', async ({ page }) => {
+  const { unexpected } = await openAppWithSmartCommands(page);
+  await page.keyboard.press('Control+k');
+  await expect(page.getByTestId('command-palette')).toBeVisible();
+  await page.locator('[data-testid="command-item"][data-command-id="smart:create-todo"]').click();
+  await expect(page.getByTestId('param-form-modal')).toBeVisible();
+
+  // タスク概要 (type=string, required=true)
+  const summaryField = page.locator('[data-testid="param-field"][data-name="タスク概要"]');
+  await expect(summaryField).toBeVisible();
+  await expect(summaryField).toHaveAttribute('data-type', 'string');
+  await expect(summaryField).toHaveAttribute('data-required', 'true');
+
+  // type=string → input[type=text]
+  const summaryInput = page.locator('[data-testid="param-field-input"][data-name="タスク概要"]');
+  await expect(summaryInput).toBeVisible();
+  await expect(summaryInput).toHaveAttribute('type', 'text');
+
+  // 期限 (type=date, required=false)
+  const dateField = page.locator('[data-testid="param-field"][data-name="期限"]');
+  await expect(dateField).toBeVisible();
+  await expect(dateField).toHaveAttribute('data-type', 'date');
+  await expect(dateField).toHaveAttribute('data-required', 'false');
+  const dateInput = page.locator('[data-testid="param-field-input"][data-name="期限"]');
+  await expect(dateInput).toHaveAttribute('type', 'date');
+
+  // タスク詳細 (type=text = textarea)
+  const detailField = page.locator('[data-testid="param-field"][data-name="タスク詳細"]');
+  await expect(detailField).toBeVisible();
+  await expect(detailField).toHaveAttribute('data-type', 'text');
+  const detailInput = page.locator('[data-testid="param-field-input"][data-name="タスク詳細"]');
+  await expect(detailInput.locator('xpath=self::textarea')).toBeVisible();
+
+  expect(unexpected).toEqual([]);
+});
+
+test('[AC-Sde7a63-3-2][MOCK] required 未入力時は param-form-submit が aria-disabled=true', async ({ page }) => {
+  const { unexpected } = await openAppWithSmartCommands(page);
+  await page.keyboard.press('Control+k');
+  await page.locator('[data-testid="command-item"][data-command-id="smart:create-todo"]').click();
+  await expect(page.getByTestId('param-form-modal')).toBeVisible();
+
+  // タスク概要 (required) が空の状態では submit が aria-disabled
+  const submitBtn = page.getByTestId('param-form-submit');
+  await expect(submitBtn).toHaveAttribute('aria-disabled', 'true');
+
+  expect(unexpected).toEqual([]);
+});
+
+test('[AC-Sde7a63-3-2][MOCK] required 入力後は param-form-submit が有効になる', async ({ page }) => {
+  const { unexpected } = await openAppWithSmartCommands(page);
+  await page.keyboard.press('Control+k');
+  await page.locator('[data-testid="command-item"][data-command-id="smart:create-todo"]').click();
+  await expect(page.getByTestId('param-form-modal')).toBeVisible();
+
+  // タスク概要を入力
+  await page.locator('[data-testid="param-field-input"][data-name="タスク概要"]').fill('テストタスク');
+
+  // submit が有効になる
+  const submitBtn = page.getByTestId('param-form-submit');
+  await expect(submitBtn).not.toHaveAttribute('aria-disabled', 'true');
+
+  expect(unexpected).toEqual([]);
+});
+
+test('[AC-Sde7a63-3-2][MOCK] required 未入力で実行ボタン押下 → param-field-error が表示される', async ({ page }) => {
+  const { unexpected } = await openAppWithSmartCommands(page);
+  await page.keyboard.press('Control+k');
+  await page.locator('[data-testid="command-item"][data-command-id="smart:create-todo"]').click();
+  await expect(page.getByTestId('param-form-modal')).toBeVisible();
+
+  // POST は呼ばれない (クライアント側バリデーション)
+  // 実行ボタンをクリック (aria-disabled だが onClick は発火する)
+  await page.getByTestId('param-form-submit').click({ force: true });
+
+  // インラインエラーが表示される
+  const fieldError = page.locator('[data-testid="param-field-error"][data-name="タスク概要"]');
+  await expect(fieldError).toBeVisible();
+  await expect(fieldError).toContainText('タスク概要');
+
+  expect(unexpected).toEqual([]);
+});
+
+test('[AC-Sde7a63-3-2][MOCK] default 値がフィールドに事前入力される', async ({ page }) => {
+  // default 付きコマンドを返すモック
+  const commandsWithDefault = {
+    commands: [
+      {
+        name: 'with-default',
+        path: 'commands/with-default.md',
+        description: 'デフォルト値テスト',
+        params: [
+          { name: 'カテゴリ', type: 'string', required: false, default: '仕事', label: 'カテゴリ' },
+        ],
+        valid: true,
+      },
+    ],
+  };
+  const { unexpected } = await openAppWithSmartCommands(page, { smartCommands: commandsWithDefault });
+  await page.keyboard.press('Control+k');
+  await page.locator('[data-testid="command-item"][data-command-id="smart:with-default"]').click();
+  await expect(page.getByTestId('param-form-modal')).toBeVisible();
+
+  // default 値が入力済み
+  const input = page.locator('[data-testid="param-field-input"][data-name="カテゴリ"]');
+  await expect(input).toHaveValue('仕事');
+
+  expect(unexpected).toEqual([]);
+});
+
+// =========================================================================
+// AC-Sde7a63-3-3: 成功/失敗結果表示
+// =========================================================================
+
+test('[AC-Sde7a63-3-3][MOCK] POST run 成功 + openPath → パレットが閉じてノートへ遷移', async ({ page }) => {
+  const { unexpected } = await openAppWithSmartCommands(page);
+  // POST run のモック
+  await page.route('**/api/commands/create-todo/run', (route) => {
+    void route.fulfill(json({
+      results: [{ kind: 'journal-append', ok: true, path: `journals/${DATE}.md` }],
+      openPath: `journals/${DATE}.md`,
+    }));
+  });
+  // openPath がジャーナルパスの場合、getJournal が呼ばれる (App.tsx の applyNote → loadJournal)
+  await page.route('**/api/journal*', (route) => {
+    void route.fulfill(json(journal('# ジャーナル\n\n- [ ] 新機能実装\n')));
+  });
+  // ノートを開くモック (直接ノートパスの場合)
+  await page.route(`**/api/notes/journals/${DATE}.md`, (route) => {
+    void route.fulfill(json({
+      path: `journals/${DATE}.md`,
+      content: '# ジャーナル\n\n- [ ] 新機能実装\n',
+      frontmatter: null,
+      body: '# ジャーナル\n\n- [ ] 新機能実装\n',
+      mtime: 2000,
+    }));
+  });
+
+  await page.keyboard.press('Control+k');
+  await page.locator('[data-testid="command-item"][data-command-id="smart:create-todo"]').click();
+  await expect(page.getByTestId('param-form-modal')).toBeVisible();
+
+  // タスク概要を入力して実行
+  await page.locator('[data-testid="param-field-input"][data-name="タスク概要"]').fill('新機能実装');
+  await page.getByTestId('param-form-submit').click();
+
+  // パレットとモーダルが閉じる
+  await expect(page.getByTestId('param-form-modal')).toHaveCount(0);
+  await expect(page.getByTestId('command-palette')).toHaveCount(0);
+
+  expect(unexpected).toEqual([]);
+});
+
+test('[AC-Sde7a63-3-3][MOCK] POST run 失敗 → param-form-result + step-result[data-ok=false] が表示', async ({ page }) => {
+  const { unexpected } = await openAppWithSmartCommands(page);
+  // POST run が部分失敗を返すモック
+  await page.route('**/api/commands/create-todo/run', (route) => {
+    void route.fulfill(json({
+      results: [{ kind: 'journal-append', ok: false, error: 'journal not found' }],
+    }));
+  });
+
+  await page.keyboard.press('Control+k');
+  await page.locator('[data-testid="command-item"][data-command-id="smart:create-todo"]').click();
+  await expect(page.getByTestId('param-form-modal')).toBeVisible();
+
+  await page.locator('[data-testid="param-field-input"][data-name="タスク概要"]').fill('テストタスク');
+  await page.getByTestId('param-form-submit').click();
+
+  // 結果表示エリアが見える
+  await expect(page.getByTestId('param-form-result')).toBeVisible();
+
+  // 失敗ステップの step-result
+  const stepResult = page.locator('[data-testid="step-result"][data-kind="journal-append"][data-ok="false"]');
+  await expect(stepResult).toBeVisible();
+  await expect(stepResult).toContainText('journal not found');
+
+  // パレットとモーダルは引き続き表示中
+  await expect(page.getByTestId('param-form-modal')).toBeVisible();
+  await expect(page.getByTestId('command-palette')).toBeVisible();
+
+  expect(unexpected).toEqual([]);
+});
+
+// =========================================================================
+// AC-Sde7a63-3-1: '>' コマンドモードでスマートコマンドも表示される
+// =========================================================================
+
+test('[AC-Sde7a63-3-1][MOCK] コマンドモードでスマートコマンドが表示される', async ({ page }) => {
+  const { unexpected } = await openAppWithSmartCommands(page, { searchResults: [] });
+  await page.keyboard.press('Control+k');
+  await expect(page.getByTestId('command-palette')).toBeVisible();
+
+  // '>' を入力してコマンドモードへ
+  await page.getByTestId('search-input').fill('>');
+  await expect(page.getByTestId('palette-mode-command')).toBeVisible();
+
+  // スマートコマンドが表示される
+  await expect(
+    page.locator('[data-testid="command-item"][data-source="smart"]'),
+  ).toHaveCount(2); // create-todo + invalid-cmd
+
+  expect(unexpected).toEqual([]);
+});
+
+// =========================================================================
+// AC-Sde7a63-3-?: Esc でパラメータフォームを閉じてパレットへ戻る
+// =========================================================================
+
+test('[AC-Sde7a63-3][MOCK] パラメータフォームで Esc を押すとフォームが閉じてパレットへ戻る', async ({ page }) => {
+  const { unexpected } = await openAppWithSmartCommands(page);
+  await page.keyboard.press('Control+k');
+  await page.locator('[data-testid="command-item"][data-command-id="smart:create-todo"]').click();
+  await expect(page.getByTestId('param-form-modal')).toBeVisible();
+
+  // Esc でフォームを閉じる
+  await page.keyboard.press('Escape');
+
+  // フォームが閉じる
+  await expect(page.getByTestId('param-form-modal')).toHaveCount(0);
+
+  // パレットは引き続き表示
+  await expect(page.getByTestId('command-palette')).toBeVisible();
+
+  // 検索入力にフォーカスが戻る
+  await expect(page.getByTestId('search-input')).toBeFocused();
+
+  expect(unexpected).toEqual([]);
+});

@@ -1379,6 +1379,193 @@ code {
 }
 .palette-mode-badge svg { width: 11px; height: 11px; }
 
+/* disabled コマンド (valid:false — Sde7a63-3) */
+.palette-item.cmd-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.cmd-error-reason {
+  font-size: 11px;
+  color: var(--danger);
+  margin-top: 1px;
+  display: block;
+}
+.cmd-source-badge.disabled {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+/* ---- パラメータフォームモーダル (Sde7a63-3 — prototype/command-palette.html 状態 3/4) ---- */
+
+/* パラメータフォームはパレットの上に重なるため z-index をパレット (70) より高く設定 */
+.param-form-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 80px;
+  background: rgba(25, 25, 40, 0.35);
+  z-index: 75;
+}
+
+.param-modal {
+  width: 520px;
+  max-width: calc(100vw - 32px);
+  background: var(--bg-editor);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.param-modal-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.param-h-ico {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #e8f5ee;
+  color: #1f7a4d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.param-h-ico.failure {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.param-h-ico svg { width: 18px; height: 18px; }
+.param-h-main { flex: 1; min-width: 0; }
+.param-h-main h2 { margin: 0; font-size: 15.5px; }
+.param-h-main .sub { font-size: 12px; color: var(--text-muted); }
+
+.param-fields { padding: 10px 18px 6px; }
+
+.param-field-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+.param-field-row:last-child { border-bottom: none; }
+
+.param-field-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--text-muted);
+  padding-top: 6px;
+  flex-wrap: wrap;
+}
+.param-field-label .req { color: var(--danger); font-weight: 700; }
+.param-field-label .opt { font-size: 10.5px; color: var(--text-faint); }
+
+.param-field-body { min-width: 0; }
+
+.param-input {
+  width: 100%;
+  font-family: inherit;
+  font-size: 13.5px;
+  padding: 7px 11px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-editor);
+  color: var(--text);
+  outline: none;
+  box-sizing: border-box;
+}
+.param-input::placeholder { color: var(--text-faint); }
+.param-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+input[type="date"].param-input { font-family: var(--font-mono); min-width: 170px; width: auto; }
+textarea.param-input { resize: vertical; min-height: 72px; }
+
+/* invalid 状態 */
+.param-field-row.invalid .param-input,
+.param-input.invalid {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px var(--danger-soft);
+}
+.param-field-error {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--danger);
+}
+.param-field-error svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+/* 実行結果表示 */
+.param-form-result {
+  margin: 10px 18px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  font-size: 12.5px;
+}
+.param-form-result-head {
+  padding: 8px 12px;
+  font-weight: 600;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.param-form-result-head.success { background: #e8f5ee; color: #1f7a4d; }
+.param-form-result-head.failure { background: var(--danger-soft); color: var(--danger); }
+.param-form-result-head svg { width: 14px; height: 14px; }
+.step-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+.step-result svg { width: 13px; height: 13px; flex-shrink: 0; }
+.step-result[data-ok="true"] { color: var(--text-muted); }
+.step-result[data-ok="false"] { color: var(--danger); background: var(--danger-soft); }
+.step-kind {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--bg-panel);
+  border-radius: 4px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+.step-result[data-ok="false"] .step-kind { background: rgba(214, 69, 69, 0.12); }
+
+/* フッタ */
+.param-modal-foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+.param-kbd-hints { display: flex; gap: 14px; flex-wrap: wrap; }
+.param-kbd-hints span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+.param-foot-actions { margin-left: auto; display: flex; gap: 8px; }
+
 /* ---- ![[embed]] transclusion (S9e5ca4-1/2 — prototype/embed-preview.html) ---- */
 
 .embed-card {

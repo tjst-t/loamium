@@ -1,5 +1,5 @@
 /**
- * グローバル検索 + コマンドパレット (Sbd061c-1 / Sde7a63-1 / Sde7a63-2 / prototype/)。
+ * グローバル検索 + コマンドパレット (Sbd061c-1 / Sde7a63-1 / Sde7a63-2 / Sde7a63-3 / prototype/)。
  *
  * - ノート名セクション: 表示時に GET /api/notes を再取得し、クライアント側で
  *   NFC 正規化 + 大文字小文字不区別の部分一致 (タイトル / パス) フィルタ (decisions I1)。
@@ -8,12 +8,15 @@
  *   (タイトルのみ一致) はノート名セクションと重複するため出さない (decisions I2)。
  * - コマンドセクション (Sde7a63-1): getCommands() からクエリで絞り込み。
  *   空クエリでも全コマンドを表示する (edge: empty query shows commands)。
+ * - スマートコマンド (Sde7a63-3): GET /api/commands を取得して source='smart' として登録。
+ *   valid:false は data-disabled='true' で非選択可能。
  * - コマンド専用モード (Sde7a63-2): 先頭 '>' でコマンドのみに絞り込む。
  *   プレフィックス解析は palettePrefix.ts の parsePaletteInput() に集約 (ADR-0007)。
  * - IME: compositionstart〜compositionend 間は全文検索を確定しない (decisions I3)。
  * - Esc / 外側クリックで閉じる。↑↓ で選択、Enter / クリックで開く。
  */
 import {
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -26,13 +29,14 @@ import {
   type MouseEvent,
   type ReactNode,
 } from 'react';
-import type { NoteMeta, SearchResult } from '@loamium/shared';
+import type { NoteMeta, SearchResult, CommandParam } from '@loamium/shared';
 import { api, ApiError } from '../api.js';
 import { FileIcon, SearchIcon } from '../icons.js';
-import { getCommands, type CommandEntry } from '../commandRegistry.js';
+import { getCommands, registerCommand, type CommandEntry } from '../commandRegistry.js';
 import { registerBuiltinCommands } from '../builtinCommands.js';
 import type { BuiltinCommandHandlers } from '../builtinCommands.js';
 import { parsePaletteInput } from '../palettePrefix.js';
+import { ParamFormModal } from './ParamFormModal.js';
 
 const SEARCH_DEBOUNCE_MS = 200;
 const MAX_NOTE_MATCHES = 20;
@@ -47,6 +51,13 @@ export interface SearchPaletteProps {
   onOpenAdvanced: (query: string) => void;
   /** Sde7a63-1: 組み込みコマンド用ハンドラ。未指定時はコマンドセクションを省略しない (互換)。 */
   commandHandlers?: BuiltinCommandHandlers;
+}
+
+/** スマートコマンドのパラメータフォームを開くときに渡す情報 */
+interface ParamFormState {
+  commandName: string;
+  description?: string | undefined;
+  params: CommandParam[];
 }
 
 export type { BuiltinCommandHandlers };
@@ -111,6 +122,8 @@ export function SearchPalette({
   const [selected, setSelected] = useState(0);
   /** コマンドセクション: handlers が揃ったら組み込みコマンドを登録 */
   const [commands, setCommands] = useState<CommandEntry[]>([]);
+  /** Sde7a63-3: パラメータフォームモーダルの状態 (null=非表示) */
+  const [paramForm, setParamForm] = useState<ParamFormState | null>(null);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const resultsRef = useRef<HTMLDivElement | null>(null);
@@ -139,6 +152,97 @@ export function SearchPalette({
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  /**
+   * Sde7a63-3: GET /api/commands でスマートコマンドを取得してレジストリへ登録する。
+   * 組み込みコマンドは builtinCommands.tsx が登録済みのため、再登録しない。
+   * valid:false のエントリは disabled=true で登録する (非選択可能)。
+   */
+  const openNoteRef = useRef(onOpenNote);
+  openNoteRef.current = onOpenNote;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const setParamFormRef = useRef(setParamForm);
+  setParamFormRef.current = setParamForm;
+
+  useEffect(() => {
+    let cancelled = false;
+    api.listCommands().then(
+      (summaries) => {
+        if (cancelled) return;
+        for (const s of summaries) {
+          if (!s.valid) {
+            // valid:false → disabled エントリ
+            registerCommand({
+              id: `smart:${s.name}`,
+              title: s.name,
+              keywords: [],
+              icon: (
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="10" height="10" rx="2" />
+                  <path d="M6 8l2 2 3-3" />
+                </svg>
+              ),
+              source: 'smart',
+              disabled: true,
+              errorReason: s.error,
+              run: () => { /* disabled — run は呼ばれない */ },
+            });
+          } else {
+            // valid:true
+            const cmdName = s.name;
+            const cmdParams = s.params;
+            const cmdDesc = s.description;
+            registerCommand({
+              id: `smart:${cmdName}`,
+              title: cmdName,
+              keywords: [cmdName],
+              icon: (
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="10" height="10" rx="2" />
+                  <path d="M6 8l2 2 3-3" />
+                </svg>
+              ),
+              source: 'smart',
+              run: () => {
+                if (cmdParams.length === 0) {
+                  // パラメータなし → 直接実行
+                  void api.runCommand(cmdName, {}).then(
+                    (result) => {
+                      const openPath = result.openPath;
+                      onCloseRef.current();
+                      if (openPath !== undefined) openNoteRef.current(openPath);
+                    },
+                    (err: unknown) => {
+                      console.error('[loamium] smart command run failed:', err);
+                      onCloseRef.current();
+                    },
+                  );
+                } else {
+                  // パラメータあり → フォームモーダルを開く (パレットは閉じない)
+                  setParamFormRef.current({
+                    commandName: cmdName,
+                    description: cmdDesc,
+                    params: cmdParams,
+                  });
+                }
+              },
+            });
+          }
+        }
+        // レジストリから最新の全コマンドを反映
+        setCommands(getCommands());
+      },
+      (err: unknown) => {
+        // GET /api/commands 失敗はコンソールのみ (組み込みコマンドは引き続き表示)
+        console.error('[loamium] failed to load smart commands:', err);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const runSearch = useCallback((q: string): void => {
@@ -227,6 +331,10 @@ export function SearchPalette({
   );
 
   // 組み込みコマンドをレジストリへ登録 (handlers が提供された場合のみ)
+  // NOTE: registerBuiltinCommands は clearRegistry() → 再登録するため、
+  // スマートコマンドの登録 useEffect より先に走る必要がある。
+  // Sde7a63-3: 登録後に setCommands を呼び、スマートコマンドのエントリも含めた
+  // 最新のレジストリ全体を反映する。
   useEffect(() => {
     if (commandHandlers === undefined) return;
     registerBuiltinCommands(commandHandlers);
@@ -284,17 +392,40 @@ export function SearchPalette({
 
   const confirm = useCallback(
     (item: PaletteItem): void => {
-      onClose();
       if (item.kind === 'note') {
+        onClose();
         onOpenNote(item.path);
       } else if (item.kind === 'fulltext') {
+        onClose();
         onOpenNoteAtLine(item.hit.path, item.hit.line);
       } else {
-        // kind === 'command': パレットを閉じてからコマンドを実行する
+        // kind === 'command'
+        if (item.entry.disabled === true) return; // valid:false — 選択不可
+        // run() が自分でパレットを閉じる責任を持つ:
+        //   - 組み込みコマンド: handlers.onXxx() → setPaletteOpen(false) (App.tsx)
+        //   - スマートコマンド(params なし): run() → onCloseRef.current()
+        //   - スマートコマンド(params あり): run() → setParamForm (パレットは閉じない)
         item.entry.run();
       }
     },
     [onClose, onOpenNote, onOpenNoteAtLine],
+  );
+
+  /** disabled コマンドをスキップする次のインデックスを求める */
+  const nextSelectableIndex = useCallback(
+    (start: number, direction: 1 | -1): number => {
+      if (items.length === 0) return -1;
+      let idx = (start + direction + items.length) % items.length;
+      // 最大 items.length 回試みる (全件 disabled の場合を防ぐ)
+      for (let i = 0; i < items.length; i++) {
+        const item = items[idx];
+        if (item === undefined) break;
+        if (item.kind !== 'command' || item.entry.disabled !== true) return idx;
+        idx = (idx + direction + items.length) % items.length;
+      }
+      return start; // すべて disabled なら元のまま
+    },
+    [items],
   );
 
   const onInputKeyDown = useCallback(
@@ -303,24 +434,29 @@ export function SearchPalette({
       if (e.nativeEvent.isComposing || composingRef.current) return;
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        if (items.length > 0) setSelected((selectedIndex + 1) % items.length);
+        if (items.length > 0) setSelected(nextSelectableIndex(selectedIndex, 1));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        if (items.length > 0) setSelected((selectedIndex - 1 + items.length) % items.length);
+        if (items.length > 0) setSelected(nextSelectableIndex(selectedIndex, -1));
       } else if (e.key === 'Enter') {
         e.preventDefault();
         const item = selectedIndex >= 0 ? items[selectedIndex] : undefined;
         if (item !== undefined) confirm(item);
       } else if (e.key === 'Escape') {
         e.preventDefault();
+        // パラメータフォームが開いている場合は Esc をモーダルに委ねてパレットは閉じない
+        if (paramFormRef.current !== null) return;
         onClose();
       }
     },
-    [confirm, items, onClose, selectedIndex],
+    [confirm, items, nextSelectableIndex, onClose, selectedIndex],
   );
 
   // パレット表示中の Cmd/Ctrl+K 再押下は入力を全選択して再フォーカス (decisions I5)。
   // Esc はフォーカスが input の外 (候補ボタン等) にあっても閉じる。
+  // ただしパラメータフォームモーダルが開いている場合は Esc をモーダルに委ねる (パレットは閉じない)。
+  const paramFormRef = useRef<ParamFormState | null>(null);
+  paramFormRef.current = paramForm;
   useEffect(() => {
     const onKeyDown = (e: globalThis.KeyboardEvent): void => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -328,6 +464,8 @@ export function SearchPalette({
         inputRef.current?.focus();
         inputRef.current?.select();
       } else if (e.key === 'Escape' && !e.isComposing) {
+        // パラメータフォームが開いている場合は Esc をモーダル側に委ねる
+        if (paramFormRef.current !== null) return;
         onClose();
       }
     };
@@ -353,6 +491,7 @@ export function SearchPalette({
     (paletteMode === 'command' || searchedQuery === trimmed.normalize('NFC'));
 
   return (
+    <Fragment>
     <div
       className="palette-backdrop"
       data-testid="command-palette-backdrop"
@@ -446,7 +585,7 @@ export function SearchPalette({
             );
           })}
 
-          {/* ---- コマンドセクション (Sde7a63-1 / Sde7a63-2) ---- */}
+          {/* ---- コマンドセクション (Sde7a63-1 / Sde7a63-2 / Sde7a63-3) ---- */}
           {commandMatches.length > 0 && (
             <div className="palette-section-label" data-testid="palette-section-commands">
               <span>コマンド</span>
@@ -459,23 +598,35 @@ export function SearchPalette({
             const i = paletteMode === 'command'
               ? ci
               : noteMatches.length + fulltext.length + ci;
+            const isDisabled = entry.disabled === true;
             return (
               <button
                 key={`cmd:${entry.id}`}
-                className={`palette-item${selectedIndex === i ? ' selected' : ''}`}
+                className={`palette-item${selectedIndex === i && !isDisabled ? ' selected' : ''}${isDisabled ? ' cmd-disabled' : ''}`}
                 data-testid="command-item"
                 data-command-id={entry.id}
                 data-source={entry.source}
-                aria-selected={selectedIndex === i ? 'true' : undefined}
-                onClick={() => confirm({ kind: 'command', entry })}
-                onMouseMove={() => setSelected(i)}
+                data-disabled={isDisabled ? 'true' : undefined}
+                aria-selected={selectedIndex === i && !isDisabled ? 'true' : undefined}
+                aria-disabled={isDisabled ? 'true' : undefined}
+                onClick={() => {
+                  if (!isDisabled) confirm({ kind: 'command', entry });
+                }}
+                onMouseMove={() => {
+                  if (!isDisabled) setSelected(i);
+                }}
               >
                 <span className="cmd-ico">{entry.icon}</span>
                 <span className="p-main">
                   <span className="p-title">{highlight(entry.title, highlightQuery)}</span>
+                  {isDisabled && entry.errorReason !== undefined && (
+                    <span className="cmd-error-reason" data-testid="command-item-error-reason">
+                      {entry.errorReason}
+                    </span>
+                  )}
                 </span>
-                <span className={`cmd-source-badge${entry.source === 'builtin' ? ' builtin' : ''}`}>
-                  {entry.source === 'builtin' ? '組み込み' : 'スマート'}
+                <span className={`cmd-source-badge${entry.source === 'builtin' ? ' builtin' : isDisabled ? ' disabled' : ''}`}>
+                  {entry.source === 'builtin' ? '組み込み' : isDisabled ? '無効' : 'スマート'}
                 </span>
               </button>
             );
@@ -525,5 +676,29 @@ export function SearchPalette({
         </div>
       </div>
     </div>
+
+    {/* Sde7a63-3: パラメータフォームモーダル (パレットの上にオーバーレイ) */}
+    {paramForm !== null && (
+      <ParamFormModal
+        commandName={paramForm.commandName}
+        description={paramForm.description}
+        params={paramForm.params}
+        onCancel={() => {
+          // Esc / キャンセル → フォームを閉じてパレットへ戻る (パレットは閉じない)
+          setParamForm(null);
+          // パレットの検索入力へ再フォーカス
+          setTimeout(() => inputRef.current?.focus(), 0);
+        }}
+        onSuccess={(openPath) => {
+          // 成功 → パレット + フォームを閉じる
+          setParamForm(null);
+          onClose();
+          if (openPath !== undefined) {
+            onOpenNote(openPath);
+          }
+        }}
+      />
+    )}
+    </Fragment>
   );
 }
