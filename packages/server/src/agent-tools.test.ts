@@ -10,6 +10,7 @@ import { mkdtemp, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { VaultIndex } from './noteIndex.js';
 import { createVaultReadTools, VAULT_READ_TOOL_NAMES } from './agent-tools.js';
+import { AGENT_HELP_TOPICS, helpTopicNames } from './agent-help.js';
 
 // ---- テスト用ヘルパー ----------------------------------------------------------
 
@@ -47,11 +48,12 @@ describe('createVaultReadTools', () => {
   //      — AC-3-1: advertisedTools === ['backlinks','query','read_note','search','tags']
   //      — このアサートは削除・弱体化しないこと (ADR-0008 の回帰防止)。
 
-  it('[AC-S53409d-3-1] 生成されるツール名は ADR-0008 で定義された 5 種のみ (sorted)', () => {
+  it('[AC-S53409d-3-1] 生成されるツール名は VAULT_READ_TOOL_NAMES と一致する (sorted)', () => {
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual([...VAULT_READ_TOOL_NAMES].sort());
-    // 明示的に 5 種であることを確認 (カスタム read ツールは read_note に改名: ADR-0008 collision 排除)
-    expect(names).toEqual(['backlinks', 'query', 'read_note', 'search', 'tags']);
+    // カスタム read ツールは read_note に改名 (ADR-0008 collision 排除)。
+    // help は ADR-0010 で追加された読み取り系ツール。
+    expect(names).toEqual(['backlinks', 'help', 'query', 'read_note', 'search', 'tags']);
   });
 
   it('[AC-S53409d-3-1] ツール名に write/bash/shell/edit 等は含まれない', () => {
@@ -192,5 +194,58 @@ describe('createVaultReadTools', () => {
     const result = await queryTool.execute('tc-q2', { dql: 'INVALID QUERY' }, noSignal, noUpdate, fakeCtx);
     const text = (result.content[0] as { type: 'text'; text: string }).text;
     expect(text).toMatch(/構文エラー|error/i);
+  });
+
+  // ---- AC-S10a31c-2: help ツール ---------------------------------------------
+
+  it('[AC-S10a31c-2-2] help は read allowlist (VAULT_READ_TOOL_NAMES) に含まれる', () => {
+    expect(VAULT_READ_TOOL_NAMES).toContain('help');
+    const helpTool = tools.find((t) => t.name === 'help');
+    expect(helpTool).toBeDefined();
+  });
+
+  it('[AC-S10a31c-2-1] help がトピック指定でガイド本文を返す (dql)', async () => {
+    const helpTool = tools.find((t) => t.name === 'help');
+    expect(helpTool).toBeDefined();
+    if (!helpTool) return;
+
+    const result = await helpTool.execute('tc-h1', { topic: 'dql' }, noSignal, noUpdate, fakeCtx);
+    const text = (result.content[0] as { type: 'text'; text: string }).text;
+    expect(text).toBe(AGENT_HELP_TOPICS['dql']);
+    expect(text).toMatch(/DQL/);
+  });
+
+  it('[AC-S10a31c-2-1] help がトピック名の大文字小文字・前後空白を無視して解決する', async () => {
+    const helpTool = tools.find((t) => t.name === 'help');
+    if (!helpTool) return;
+
+    const result = await helpTool.execute('tc-h2', { topic: '  Wikilink  ' }, noSignal, noUpdate, fakeCtx);
+    const text = (result.content[0] as { type: 'text'; text: string }).text;
+    expect(text).toBe(AGENT_HELP_TOPICS['wikilink']);
+  });
+
+  it('[AC-S10a31c-2-1] help がトピック未指定のとき利用可能トピック一覧を返す (エラーにしない)', async () => {
+    const helpTool = tools.find((t) => t.name === 'help');
+    if (!helpTool) return;
+
+    const result = await helpTool.execute('tc-h3', {}, noSignal, noUpdate, fakeCtx);
+    const text = (result.content[0] as { type: 'text'; text: string }).text;
+    // details.error は立てない (通常の成功結果)
+    expect(result.details.error).toBeUndefined();
+    for (const name of helpTopicNames()) {
+      expect(text).toContain(name);
+    }
+  });
+
+  it('[AC-S10a31c-2-1] help が未知トピックのとき利用可能トピック一覧を返す (エラーにしない)', async () => {
+    const helpTool = tools.find((t) => t.name === 'help');
+    if (!helpTool) return;
+
+    const result = await helpTool.execute('tc-h4', { topic: 'no-such-topic' }, noSignal, noUpdate, fakeCtx);
+    const text = (result.content[0] as { type: 'text'; text: string }).text;
+    expect(result.details.error).toBeUndefined();
+    for (const name of helpTopicNames()) {
+      expect(text).toContain(name);
+    }
   });
 });

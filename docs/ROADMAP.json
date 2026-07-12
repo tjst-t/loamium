@@ -4,10 +4,10 @@
   "progress": {
     "current_sprint": null,
     "total": 35,
-    "done": 30,
+    "done": 31,
     "in_progress": 0,
-    "remaining": 5,
-    "percentage": 85
+    "remaining": 4,
+    "percentage": 89
   },
   "execution_order": [
     "Sd63ad1",
@@ -3216,11 +3216,78 @@
     },
     "S10a31c": {
       "title": "エージェントのシステムプロンプト + help ツール(オンデマンド知識)",
-      "status": "pending",
+      "status": "done",
       "milestone": false,
-      "detail_level": "coarse",
+      "detail_level": "detailed",
       "description": "Loamium がコードで base システムプロンプト(役割=この vault の読み書きノート補助 / 絶対制約=ピュア Markdown・[[リンク]]出典・与えたツールのみ・権限と機密領域の尊重・日本語簡潔 / 出力スタイル)を pi の systemPromptOverride で注入。DQL・テンプレート・DataView・frontmatter 等の詳細な使い方は base に入れず help ツール(トピック指定でガイド本文を返す)でオンデマンド供給。ガイドは Loamium 同梱・バージョン管理。ADR-0010。",
-      "stories": {}
+      "stories": {
+        "S10a31c-1": {
+          "title": "base システムプロンプトのコード注入",
+          "status": "done",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "エージェント利用者として、Loamium のエージェントが自分の役割(この vault の読み書きノート補助)と絶対制約を理解した状態で応答してほしい。なぜなら、現状モデルは自前の既定ペルソナで動き『ファイルの読み書き・コマンド実行もできる』と誤認するから(ADR-0010)。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S10a31c-1-1",
+              "description": "Loamium がコードで生成した base システムプロンプトが pi セッションに注入される(createPiSession / openPiSession の両経路)。エージェントの実効システムプロンプトに役割・絶対制約・出力スタイルが含まれる",
+              "test": "[AC-S10a31c-1-1] in packages/server/src/agent-prompt.test.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-S10a31c-1-2",
+              "description": "base プロンプトには「役割=この vault の読み書きノート補助」「ピュア Markdown」「[[リンク]]出典」「与えられたツールのみ使用」「権限と機密領域の尊重」「日本語で簡潔」が明文で含まれ、DQL/テンプレート/DataView 等の詳細な使い方は含まれない(常時=base / 詳細=help の責務分界)",
+              "test": "[AC-S10a31c-1-2] in packages/server/src/agent-prompt.test.ts",
+              "status": "pass"
+            }
+          ],
+          "tasks": {
+            "S10a31c-1-1": {
+              "title": "base プロンプト生成の純関数",
+              "description": "buildAgentSystemPrompt() を agent-prompt.ts に実装。役割・絶対制約・出力スタイルのみ(詳細知識は含めない)。ユニットテストで文言の存在/非存在を検証。",
+              "status": "done"
+            },
+            "S10a31c-1-2": {
+              "title": "pi への systemPromptOverride 注入",
+              "description": "createAgentSession に resourceLoader を渡し getSystemPrompt() が base プロンプトを返すよう配線(agent-session.js:708 経路)。createPiSession/openPiSession 両方。既存の allowlist/excludeTools は維持。",
+              "status": "done"
+            }
+          }
+        },
+        "S10a31c-2": {
+          "title": "help ツール(オンデマンド知識)",
+          "status": "done",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "エージェントとして、DQL 文法やテンプレート形式など細かい使い方が必要になったとき help ツールでガイドを取得したい。なぜなら、全部をシステムプロンプトに詰めるとコンテキストを圧迫し陳腐化するから(ADR-0010)。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S10a31c-2-1",
+              "description": "help ツールが LLM に広告され、トピック指定(dql / template / dataview / wikilink / journal 等)でガイド本文を返す。トピック未指定・未知トピックのときは利用可能トピック一覧を返す(エラーにしない)",
+              "test": "[AC-S10a31c-2-1] in packages/server/src/agent-tools.test.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-S10a31c-2-2",
+              "description": "help は読み取り系ツールに分類され、read allowlist(VAULT_READ_TOOL_NAMES 相当)に含まれてどの権限セットでも利用可能。ガイド本文は Loamium 同梱・バージョン管理される(コード内 or 同梱ファイル)",
+              "test": "[AC-S10a31c-2-2] in packages/server/src/agent-tools.test.ts",
+              "status": "pass"
+            }
+          ],
+          "tasks": {
+            "S10a31c-2-1": {
+              "title": "help ガイド本文の同梱",
+              "description": "agent-help.ts にトピック→ガイド本文のマップ(dql/template/dataview/wikilink/journal/frontmatter)を実装。本文は既存 shared の DQL/テンプレート仕様に整合。",
+              "status": "done"
+            },
+            "S10a31c-2-2": {
+              "title": "help ツール定義と allowlist 追加",
+              "description": "defineTool で help を実装し createVaultReadTools に追加、VAULT_READ_TOOL_NAMES に help を追加。未知/未指定トピックはトピック一覧を返す。ユニットテスト。",
+              "status": "done"
+            }
+          }
+        }
+      }
     },
     "Sf4ee2f": {
       "title": "エージェントの機密領域(deny リスト)",

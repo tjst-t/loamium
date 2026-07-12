@@ -20,6 +20,7 @@ import {
   DqlParseError,
 } from '@loamium/shared';
 import { readNote } from './vault.js';
+import { resolveHelpTopic, helpTopicNames } from './agent-help.js';
 import type { VaultIndex } from './noteIndex.js';
 
 // ---- 型エイリアス ---------------------------------------------------------------
@@ -198,8 +199,31 @@ export function createVaultReadTools(
     },
   });
 
-  return [searchTool, queryTool, readTool, backlinksTool, tagsTool] as const;
+  // ---- help -------------------------------------------------------------------
+  //
+  // S10a31c-2 / ADR-0010: DQL / テンプレート / DataView 等の詳細な使い方は
+  // base システムプロンプトに常駐させず、この help ツールがトピック指定で供給する。
+  // 読み取り系ツールに分類され (vault へ書き込まない)、read allowlist に含める。
+
+  const helpTool = defineTool({
+    name: 'help',
+    label: 'Loamium ガイド',
+    description:
+      `Loamium の使い方ガイドをトピック指定で返す。トピック: ${helpTopicNames().join(', ')}。` +
+      'topic を省略・未知トピック指定した場合は利用可能なトピック一覧を返す。DQL 文法・テンプレート・[[リンク]]・ジャーナル等を調べたいときに使う。',
+    parameters: Type.Object({
+      topic: Type.Optional(
+        Type.String({ description: `ガイドトピック名 (例: ${helpTopicNames().join(' / ')})` }),
+      ),
+    }),
+    async execute(_toolCallId, params): Promise<{ content: { type: 'text'; text: string }[]; details: ToolDetails }> {
+      const body = resolveHelpTopic(params.topic);
+      return textResult(body);
+    },
+  });
+
+  return [searchTool, queryTool, readTool, backlinksTool, tagsTool, helpTool] as const;
 }
 
-/** ツール名の固定セット (ADR-0008 に記録されたツール境界)。sorted */
-export const VAULT_READ_TOOL_NAMES = ['backlinks', 'query', 'read_note', 'search', 'tags'] as const;
+/** ツール名の固定セット (ADR-0008 / ADR-0010 に記録されたツール境界)。sorted */
+export const VAULT_READ_TOOL_NAMES = ['backlinks', 'help', 'query', 'read_note', 'search', 'tags'] as const;

@@ -48,11 +48,14 @@ import {
   SessionManager,
   AuthStorage,
   ModelRegistry,
+  DefaultResourceLoader,
   type AgentSession,
+  type ResourceLoader,
 } from '@earendil-works/pi-coding-agent';
 import { agentConfigSchema, type AgentConfig } from '@loamium/shared';
 import type { ServerConfig } from './config.js';
 import { createVaultReadTools, VAULT_READ_TOOL_NAMES } from './agent-tools.js';
+import { buildAgentSystemPrompt } from './agent-prompt.js';
 
 /**
  * pi-coding-agent 組み込みツール名 (ToolName = "read"|"bash"|"edit"|"write"|"grep"|"find"|"ls")。
@@ -202,6 +205,33 @@ function buildModelRegistry(config: AgentConfig): {
 }
 
 /**
+ * base システムプロンプトを注入する resourceLoader を生成する (S10a31c-1 / ADR-0010)。
+ *
+ * pi SDK は createAgentSession に resourceLoader が渡されないと DefaultResourceLoader を
+ * 内部生成し、実効システムプロンプトは空になる (agent-session.js:708 の getSystemPrompt() が
+ * undefined → buildSystemPrompt の default が使われる)。ここでは DefaultResourceLoader を
+ * systemPrompt = base プロンプトで構築し、Loamium 固有の base プロンプトを注入する。
+ *
+ * cwd/agentDir 由来のプロジェクト常駐リソース (extensions/skills/prompts/themes/
+ * context files) は Loamium では使わないため noExtensions 等ですべて抑制し、
+ * reload() で確定させたものを返す。
+ */
+async function buildAgentResourceLoader(vaultRoot: string): Promise<ResourceLoader> {
+  const loader = new DefaultResourceLoader({
+    cwd: vaultRoot,
+    agentDir: sessionDir(vaultRoot),
+    systemPrompt: buildAgentSystemPrompt(),
+    noExtensions: true,
+    noSkills: true,
+    noPromptTemplates: true,
+    noThemes: true,
+    noContextFiles: true,
+  });
+  await loader.reload();
+  return loader;
+}
+
+/**
  * セッションを新規作成する (disk-backed JSONL)。
  * config は遅延読込済みを渡す。
  * index は vault 読み取りツール (ADR-0008) のクロージャへ渡す。
@@ -222,13 +252,16 @@ export async function createPiSession(
   const sm = SessionManager.create(vaultRoot, dir);
 
   const customTools = createVaultReadTools(index, vaultRoot);
+  const resourceLoader = await buildAgentResourceLoader(vaultRoot);
 
   const { session } = await createAgentSession({
     model,
     authStorage,
     modelRegistry,
     sessionManager: sm,
-    // ADR-0008: Loamium 独自 5 ツールのみを LLM に広告する。
+    // ADR-0010: Loamium がコードで生成した base システムプロンプトを注入する。
+    resourceLoader,
+    // ADR-0008: Loamium 独自ツールのみを LLM に広告する。
     // noTools:'all' は customTools も含め全ツールを抑制するため使用しない。
     // tools に allowlist を渡すことで built-in を排除しカスタムツールのみ広告される。
     // excludeTools は defense-in-depth — allowlist 変更時でも組み込みが漏れない。
@@ -267,12 +300,15 @@ export async function openPiSession(
   const sm = SessionManager.open(sessionFile, dir);
 
   const customTools = createVaultReadTools(index, vaultRoot);
+  const resourceLoader = await buildAgentResourceLoader(vaultRoot);
 
   const { session } = await createAgentSession({
     model,
     authStorage,
     modelRegistry,
     sessionManager: sm,
+    // ADR-0010: 同上 — base システムプロンプトを注入する。
+    resourceLoader,
     // ADR-0008: 同上 — built-in を排除しカスタムツールのみ広告する allowlist + excludeTools。
     tools: [...VAULT_READ_TOOL_NAMES],
     excludeTools: [...PI_BUILTIN_TOOL_NAMES],

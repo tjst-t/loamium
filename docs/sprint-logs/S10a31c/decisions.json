@@ -1,0 +1,23 @@
+{
+  "sprint": "S10a31c",
+  "decisions": [
+    {
+      "id": "S10a31c-D1",
+      "title": "coarse→detailed 詳細化: 2 ストーリー(base プロンプト注入 / help ツール)",
+      "rationale": "ADR-0010 の『土台=コード注入 systemPromptOverride、詳細=help ツール』の分離契約をそのまま2ストーリーに対応させた。",
+      "reference": "ADR-0010; DESIGN_PRINCIPLES priority 1 (ピュア Markdown), priority 3 (エージェント操作性)"
+    },
+    {
+      "id": "S10a31c-D2",
+      "title": "systemPrompt 注入は custom resourceLoader.getSystemPrompt() 経由",
+      "rationale": "pi SDK の CreateAgentSessionOptions に customPrompt 直接指定は無く、agent-session.js:708 が resourceLoader.getSystemPrompt() を buildSystemPrompt の customPrompt に渡す(=default を置換)ため、これが唯一の注入点。DefaultResourceLoader は main から未 export のため最小 ResourceLoader スタブ実装で getSystemPrompt のみ base を返す。",
+      "reference": "ADR-0010 notes (実文言は sprint ローカル判断)"
+    },
+    {
+      "id": "S10a31c-D3",
+      "title": "help はコード同梱のトピックマップとして実装(vault ファイル依存にしない)",
+      "rationale": "ADR-0010『ガイドは Loamium 同梱・バージョン管理』。ユーザーが消せない安定土台にするためコード内マップとする。",
+      "reference": "ADR-0010 decision"
+    }
+  ]
+}

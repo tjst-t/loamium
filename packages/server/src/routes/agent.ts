@@ -58,6 +58,10 @@ function buildArgsSummary(toolName: string, args: unknown): string {
       const d = typeof a['dql'] === 'string' ? a['dql'] : '';
       return d.slice(0, 60);
     }
+    case 'help': {
+      const t = typeof a['topic'] === 'string' ? a['topic'] : '';
+      return t.slice(0, 40);
+    }
     case 'tags':
       return '';
     default:
