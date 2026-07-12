@@ -3913,6 +3913,12 @@
       "description": "`- [ ] task` のような先頭 - の content は Commander 制約で `--` セパレータ必須(`journal-append --section Todo -- \"- [ ] task\"`)。現状は -- 経由で動作・テスト済み・ヘルプに明記。より親切な代替(例: --content オプション追加)は将来検討。AC は <content> 位置引数を指定のため変更せず。",
       "added_in": "Sd22b1f-3",
       "reason": "CLI UX (low); create-todo ワークフローは run 経由で影響なし"
+    },
+    {
+      "title": "スマートコマンド一覧をパレット再オープン時に再フェッチ",
+      "description": "GET /api/commands はパレット mount 時に取得。アプリ起動中に commands/*.md を新規作成しても、パレット再オープンで確実に再取得されるか(SearchPalette の unmount/remount 依存)を検証・保証する。独立検証者が指摘。",
+      "added_in": "Sde7a63",
+      "reason": "UX (low); 新規スマートコマンド作成直後の反映"
     }
   ]
 }
