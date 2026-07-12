@@ -3513,7 +3513,7 @@
         },
         "Sde7a63-2": {
           "title": "'>' コマンド専用モード",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "自分として、パレットで '>' から入力を始めたらコマンドだけに絞り込みたい。なぜなら、ノートや全文の検索結果に混ざらず素早くコマンドを選びたいから。",
@@ -3522,25 +3522,25 @@
               "id": "AC-Sde7a63-2-1",
               "description": "先頭 '>' でコマンド専用モードになり(ノート/全文セクション非表示、'>' 以降がコマンドクエリ)、'>' を消すと通常モードへ戻る。プレフィックス→モードの対応は 1 箇所に集約される(ADR-0007 notes)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sde7a63-2-2",
               "description": "プレースホルダ等でモードが視覚的に判別でき、専用モードでもキーボードナビ・Esc・IME が機能する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sde7a63-2-1": {
               "title": "モード判定と表示切替",
               "description": "プレフィックス判定を一元化し、コマンド専用モードの表示/復帰を実装。",
-              "status": "pending"
+              "status": "done"
             },
             "Sde7a63-2-2": {
               "title": "mock テスト",
               "description": "'>' モードの遷移・復帰・IME ケースの mock tests。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
