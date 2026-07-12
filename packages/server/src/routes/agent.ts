@@ -166,10 +166,20 @@ export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
     if (!bodyResult.ok) return bodyResult.response;
     const { content } = bodyResult.data;
 
-    // セッション取得 or 設定読込で失敗したらエラー
-    const session = getActiveSession(sessionId);
+    // fast-path: メモリ内アクティブセッション。
+    // slow-path: サーバー再起動後などアクティブに無い場合は JSONL からリハイドレートして
+    // 継続送信できるようにする (GET 詳細と同じ復元経路。これが無いと復元セッションへの送信が 404)。
+    let session = getActiveSession(sessionId);
     if (!session) {
-      return errorJson(c, 404, 'session_not_found', `session not found: ${sessionId}`);
+      const configResult = await loadAgentConfig(config.vaultRoot);
+      if (!configResult.ok) {
+        return errorJson(c, 400, 'agent_not_configured', 'agent is not configured');
+      }
+      try {
+        session = await getSessionFromDisk(sessionId, config.vaultRoot, configResult.config, index);
+      } catch {
+        return errorJson(c, 404, 'session_not_found', `session not found: ${sessionId}`);
+      }
     }
 
     // 監査ログ — auditMiddleware に任せる (直接 writeAuditEntry は呼ばない)

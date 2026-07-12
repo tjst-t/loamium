@@ -322,16 +322,26 @@ export async function getSessionFromDisk(
   if (cached) return cached;
 
   const dir = sessionDir(vaultRoot);
-  const sessionFile = path.join(dir, `${sessionId}.jsonl`);
 
-  // Defense-in-depth: 生成したパスが sessionsDir 内に収まることを検証する
-  const resolvedFile = path.resolve(sessionFile);
+  // pi の JSONL ファイル名は `<timestamp>_<id>.jsonl` であり `<id>.jsonl` ではない。
+  // よって id からパスを組み立てず、SessionManager.list() が返す SessionInfo.path で
+  // 実ファイルを解決する。id 一致が無ければ「実在しないセッション」= 呼び出し元で 404。
+  // (これを怠ると存在しないパスに対し SessionManager.open が空セッションを新規作成し、
+  //  復元のつもりが履歴を失って空セッションを作る — 未知 ID も 200 になる。)
+  const infos = await SessionManager.list(vaultRoot, dir);
+  const info = infos.find((i) => i.id === sessionId);
+  if (!info) {
+    throw new Error(`session not found on disk: ${sessionId}`);
+  }
+
+  // Defense-in-depth: 解決したパスが sessionsDir 内に収まることを検証する
+  const resolvedFile = path.resolve(info.path);
   const resolvedDir = path.resolve(dir);
   if (!resolvedFile.startsWith(resolvedDir + path.sep)) {
     throw new Error(`session file path escapes sessions directory: ${sessionId}`);
   }
 
-  return openPiSession(sessionFile, vaultRoot, config, index);
+  return openPiSession(info.path, vaultRoot, config, index);
 }
 
 /** セッションディレクトリ下のすべてのセッション一覧を返す。 */
