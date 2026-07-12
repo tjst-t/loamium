@@ -13,7 +13,8 @@
  *   param-form-modal, param-form-modal-backdrop, param-form-title,
  *   param-field[data-name][data-type][data-required],
  *   param-field-input[data-name], param-field-error[data-name],
- *   param-form-submit, param-form-cancel,
+ *   param-form-submit, param-form-cancel (フッタのキャンセル/閉じるボタン),
+ *   param-form-close (ヘッダ右端のアイコンボタン),
  *   param-form-result, step-result[data-kind][data-ok]
  */
 import {
@@ -200,7 +201,7 @@ export function ParamFormModal({
           </div>
           <button
             className="icon-btn"
-            data-testid="param-form-cancel"
+            data-testid="param-form-close"
             title={hasResult ? '閉じる (Esc)' : 'キャンセル (Esc)'}
             onClick={onCancel}
           >
@@ -353,6 +354,8 @@ export function ParamFormModal({
             <button className="btn" data-testid="param-form-cancel" onClick={onCancel}>
               {hasResult ? '閉じる' : 'キャンセル'}
             </button>
+            {/* aria-disabled (not native disabled) を使うことで onClick が発火し、
+                required 未入力時にインラインエラーを表示できる (F-2: 意図的) */}
             <button
               className="btn primary"
               data-testid="param-form-submit"

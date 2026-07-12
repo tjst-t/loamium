@@ -9,7 +9,7 @@
  * コマンド ID は gui-spec-Sde7a63-1.json の testid_contract に一致させる。
  */
 import React from 'react';
-import { registerCommand, clearRegistry } from './commandRegistry.js';
+import { registerCommand } from './commandRegistry.js';
 
 // --- アイコン (prototype/command-palette.html の inline SVG を React JSX で再現) ---
 
@@ -75,13 +75,14 @@ export interface BuiltinCommandHandlers {
 /**
  * 組み込みコマンド 5 件をレジストリに登録する。
  * SearchPalette の useEffect で handlers が揃ったタイミングで呼ぶ。
- * 再マウントのたびに clearRegistry → register を繰り返す
- * (handlers は closures で最新状態をキャプチャしているため)。
+ * registerCommand は Map ベースの upsert (同 ID で上書き) なので、
+ * clearRegistry() を呼ばずに再登録しても重複しない。
+ * スマートコマンド (source='smart') は別 useEffect が登録するため、
+ * ここでクリアすると消えてしまう — clearRegistry() は呼ばない。
  *
  * @param handlers App.tsx から注入されるコールバック群
  */
 export function registerBuiltinCommands(handlers: BuiltinCommandHandlers): void {
-  clearRegistry();
 
   registerCommand({
     id: 'new-note',

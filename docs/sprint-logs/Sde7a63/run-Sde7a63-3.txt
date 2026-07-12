@@ -78,3 +78,45 @@ AC-Sde7a63-3-2: params を持つコマンドは ParamFormModal を開く。
 AC-Sde7a63-3-3: 成功時 openPath → ノート遷移 + パレット閉鎖。
                失敗時 param-form-result + step-result[data-kind][data-ok] 表示。
 AC-Sde7a63-3-4: Ctrl-K → > todo → create-todo → フォーム入力 → 実行 → ジャーナル Todo 追記。
+
+---
+
+## レビュー修正 (2026-07-12) — F-1 / D-1 / D-2
+
+### F-1: data-testid 重複解消 (ParamFormModal.tsx)
+
+- ヘッダのアイコンボタン: data-testid="param-form-cancel" → data-testid="param-form-close" に改名。
+- フッタのキャンセル/閉じるボタンは data-testid="param-form-cancel" のまま維持。
+- testid_contract コメントを param-form-close / param-form-cancel の説明に更新。
+- 既存テストはヘッダボタンを参照していなかったため変更なし (grep で確認済み)。
+
+### D-1: builtin 再登録が smart コマンドを消さない (builtinCommands.tsx)
+
+解決方針: PREFERRED (upsert 方式)。
+- commandRegistry.tsx はすでに Map ベースの upsert (registerCommand = Map.set)。
+- registerBuiltinCommands() から clearRegistry() 呼び出しを削除。
+- 5 件の builtin を同 ID で再登録しても重複しない; smart コマンドは別キー (smart:xxx) なので共存。
+- import から clearRegistry も削除 (unused import 解消)。
+- 不変条件の保証: [D-1][MOCK] テストで、スマートコマンドロード後に builtin 5 件 + smart 2 件 = 7 件が
+  同時にパレットに表示されることを DOM レベルで検証。
+
+### D-2: keyboard が disabled アイテムをスキップ (command-palette.mock.spec.ts)
+
+タグ [AC-Sde7a63-3-1][MOCK]:
+- valid:false (invalid-cmd) があるスマートコマンドセットでパレットを開く。
+- ArrowDown を count 回押して全アイテムを走査。
+- ループ内で毎回 disabled アイテム ([data-disabled='true']) が aria-selected='true' でないことをアサート。
+- nextSelectableIndex() によるスキップが機能していることを DOM で証明。
+
+### F-2: submit ボタン aria-disabled (意図的、変更なし)
+
+aria-disabled (native disabled ではない) を使うことで onClick が発火し、
+required 未入力時にインラインエラーを表示できる設計。コード内にコメントを追記。
+
+### 再検証結果
+
+Playwright mock: 43/43 passed (command-palette.mock.spec.ts) [+2 新規]
+search-palette mock: 6/6 passed (回帰なし)
+Playwright E2E: 4/4 passed (smart-command-run.e2e.spec.ts)
+tsc --noEmit: エラー 0
+make lint: エラー 0
