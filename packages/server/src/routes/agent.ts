@@ -140,7 +140,7 @@ export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
     try {
       // createPiSession は成功後に caps をセッション権限ストアへ永続化する。
       session = await createPiSession(
-        config.vaultRoot,
+        config,
         configResult.config,
         index,
         effectiveCaps,
@@ -194,10 +194,9 @@ export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
     try {
       const session = await getSessionFromDisk(
         sessionId,
-        config.vaultRoot,
+        config,
         configResult.config,
         index,
-        config.mode,
       );
       const messages = extractSessionMessages(session);
       return c.json({ id: sessionId, messages, effectivePermissions });
@@ -291,10 +290,9 @@ export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
       try {
         session = await getSessionFromDisk(
           sessionId,
-          config.vaultRoot,
+          config,
           configResult.config,
           index,
-          config.mode,
         );
       } catch {
         return errorJson(c, 404, 'session_not_found', `session not found: ${sessionId}`);

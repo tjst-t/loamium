@@ -13,7 +13,9 @@
  *   pi 組み込み read と衝突しなくなったため、allowlist と組み合わせて組み込みを二重に排除する。
  *   pi SDK: isAllowedTool = (!allowedNames || allowedNames.has(name)) && !excludedNames.has(name)
  *   (sdk.js:133-135, agent-session.js:1916)。excludeTools は CreateAgentSessionOptions の公開 API。
- * - 監査ログへのエントリ書き込みは routes 側が行う。
+ * - REST の監査ログエントリは routes 側 (auditMiddleware) が行う。エージェント書き込み
+ *   ツールは HTTP を通らないため、各ツールが note-service 経由の成功時に writeAuditEntry を
+ *   直接呼ぶ (ADR-0012 / agent-write-tools.ts)。
  *
  * pi SDK 実 API (v0.80.x):
  *   - createAgentSession({ tools:[...names], customTools:[...], sessionManager, authStorage, modelRegistry })
@@ -63,6 +65,7 @@ import {
 import type { ServerConfig } from './config.js';
 import type { PermissionMode } from '@loamium/shared';
 import { createVaultReadTools } from './agent-tools.js';
+import { createVaultWriteTools } from './agent-write-tools.js';
 import { loadAgentPrivacy } from './agent-privacy.js';
 import { loadSessionPerms, saveSessionPerms } from './agent-session-perms.js';
 import { buildAgentSystemPrompt } from './agent-prompt.js';
@@ -275,11 +278,12 @@ async function buildAgentResourceLoader(vaultRoot: string): Promise<ResourceLoad
  * 副作用: 成功後 (sessionId 確定後) に caps をセッション権限ストアへ永続化する。
  */
 export async function createPiSession(
-  vaultRoot: string,
+  serverConfig: ServerConfig,
   config: AgentConfig,
   index: VaultIndex,
   caps?: Capability[],
 ): Promise<AgentSession> {
+  const vaultRoot = serverConfig.vaultRoot;
   const effectiveCaps = caps ?? resolvePermissions(config.permissions);
 
   const { authStorage, modelRegistry, model } = buildModelRegistry(config);
@@ -294,7 +298,12 @@ export async function createPiSession(
 
   // ADR-0014: 機密領域 deny リストをセッション生成時にロードし共通フィルタへ配線する。
   const { isDenied } = await loadAgentPrivacy(vaultRoot);
-  const customTools = createVaultReadTools(index, vaultRoot, isDenied);
+  // ADR-0008/0012: read ツール + (有効ケーパビリティに含まれる) 書き込みツールを連結する。
+  // 書き込みツールは REST と同一の note-service を経由する (ADR-0012)。
+  const customTools = [
+    ...createVaultReadTools(index, vaultRoot, isDenied),
+    ...createVaultWriteTools(serverConfig, index, isDenied, effectiveCaps),
+  ];
   const resourceLoader = await buildAgentResourceLoader(vaultRoot);
 
   const { session } = await createAgentSession({
@@ -310,11 +319,10 @@ export async function createPiSession(
     // excludeTools は defense-in-depth — allowlist 変更時でも組み込みが漏れない。
     // (pi-coding-agent/dist/core/sdk.js:132-135, agent-session.js:1916)
     //
-    // 重要 (S5bd678 Story 1): 書き込みツール本体は未実装。deriveToolNames が返す
-    // 書き込みツール名 (note_create 等) に対応する customTool はまだ存在しないため、
-    // customTools には read 系 6 種 + help のみを渡す。allowlist に書き込みツール名が
-    // 入っても、対応 customTool が無ければ pi は広告しない (実害なし)。Story 2 で
-    // customTools に書き込みツールが追加される前提で、allowlist 導出だけ先に正しくしておく。
+    // S5bd678 Story 2 (ADR-0012): customTools は read 系 6 種 + help に加え、有効
+    // ケーパビリティに含まれる書き込みツール (note_create 等) を含む。書き込みツールは
+    // REST と同一の note-service を経由する。allowlist (deriveToolNames) と customTools の
+    // 両方が同じ effectiveCaps から導出されるため、広告と実行の集合が一致する。
     tools: deriveToolNames(effectiveCaps),
     excludeTools: [...PI_BUILTIN_TOOL_NAMES],
     customTools: [...customTools],
@@ -341,11 +349,12 @@ export async function createPiSession(
  */
 export async function openPiSession(
   sessionFile: string,
-  vaultRoot: string,
+  serverConfig: ServerConfig,
   config: AgentConfig,
   index: VaultIndex,
-  mode: PermissionMode,
 ): Promise<AgentSession> {
+  const vaultRoot = serverConfig.vaultRoot;
+  const mode = serverConfig.mode;
   // 既に active なら再利用
   const existingSessionId = getSessionIdFromFile(sessionFile);
   if (existingSessionId) {
@@ -367,7 +376,11 @@ export async function openPiSession(
 
   // ADR-0014: 同上 — 既存セッションを開くたびに最新の deny リストを反映する。
   const { isDenied } = await loadAgentPrivacy(vaultRoot);
-  const customTools = createVaultReadTools(index, vaultRoot, isDenied);
+  // ADR-0008/0012: read + 書き込みツール (復元した実効ケーパビリティ分のみ広告)。
+  const customTools = [
+    ...createVaultReadTools(index, vaultRoot, isDenied),
+    ...createVaultWriteTools(serverConfig, index, isDenied, effectiveCaps),
+  ];
   const resourceLoader = await buildAgentResourceLoader(vaultRoot);
 
   const { session } = await createAgentSession({
@@ -377,9 +390,8 @@ export async function openPiSession(
     sessionManager: sm,
     // ADR-0010: 同上 — base システムプロンプトを注入する。
     resourceLoader,
-    // ADR-0008/0011: 復元した実効ケーパビリティから allowlist を導出する。
-    // customTools は read 系 6 種 + help のみ (書き込みツールは Story 2 で追加、
-    // それまで allowlist に名前が入っても対応 customTool 無しで広告されない)。
+    // ADR-0008/0011/0012: 復元した実効ケーパビリティから allowlist を導出し、
+    // 同じ集合から read + 書き込み customTools を生成する (広告と実行が一致)。
     tools: deriveToolNames(effectiveCaps),
     excludeTools: [...PI_BUILTIN_TOOL_NAMES],
     customTools: [...customTools],
@@ -419,11 +431,11 @@ export function getActiveSession(sessionId: string): AgentSession | undefined {
  */
 export async function getSessionFromDisk(
   sessionId: string,
-  vaultRoot: string,
+  serverConfig: ServerConfig,
   config: AgentConfig,
   index: VaultIndex,
-  mode: PermissionMode,
 ): Promise<AgentSession> {
+  const vaultRoot = serverConfig.vaultRoot;
   // キャッシュ優先
   const cached = activeSessionsById.get(sessionId);
   if (cached) return cached;
@@ -448,7 +460,7 @@ export async function getSessionFromDisk(
     throw new Error(`session file path escapes sessions directory: ${sessionId}`);
   }
 
-  return openPiSession(info.path, vaultRoot, config, index, mode);
+  return openPiSession(info.path, serverConfig, config, index);
 }
 
 /** セッションディレクトリ下のすべてのセッション一覧を返す。 */

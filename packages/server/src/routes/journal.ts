@@ -13,7 +13,6 @@
  */
 import { Hono } from 'hono';
 import {
-  appendText,
   applyJournalTemplate,
   isValidJournalDate,
   journalAppendRequestSchema,
@@ -27,6 +26,7 @@ import {
 } from '@loamium/shared';
 import type { ServerConfig } from '../config.js';
 import { noteMtime, readNote, writeNote } from '../vault.js';
+import { appendToJournal } from '../note-service.js';
 import { errorJson, parseBody, setAudit, type AppEnv } from '../http.js';
 
 export function journalRoutes(config: ServerConfig): Hono<AppEnv> {
@@ -86,12 +86,15 @@ export function journalRoutes(config: ServerConfig): Hono<AppEnv> {
     if (!isValidJournalDate(date)) {
       return errorJson(c, 400, 'invalid_date', `invalid date: "${date}" (expected YYYY-MM-DD)`);
     }
+    // audit パスは note-service に入る前に確定させる (振る舞い不変)。
     const rel = journalPath(date);
     setAudit(c, 'journal.append', rel);
 
-    const existing = await readNote(config.vaultRoot, rel);
-    const created = existing === null;
-    await writeNote(config.vaultRoot, rel, appendText(existing ?? '', body.data.content));
+    // ADR-0012: ジャーナル追記も note-service に集約 (REST/CLI/エージェント同一経路)。
+    // date は検証済み。appendToJournal は追記結果 (created 判定込み) を返す。
+    const { result } = await appendToJournal(config, date, body.data.content);
+    // appendToJournal は追記 (常に成功 or I/O 例外を伝播)。判別型の created を使う。
+    const created = result.ok ? result.created : false;
 
     const res: JournalAppendResponse = { date, path: rel, created };
     return c.json(res, created ? 201 : 200);

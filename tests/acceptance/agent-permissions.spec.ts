@@ -39,11 +39,14 @@ type DetailResponse = {
 };
 
 async function createSession(baseUrl: string, permissions?: unknown): Promise<string> {
-  const res = await fetch(`${baseUrl}/api/agent/sessions`, {
+  const init: RequestInit = {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: permissions === undefined ? undefined : JSON.stringify({ permissions }),
-  });
+  };
+  if (permissions !== undefined) {
+    init.body = JSON.stringify({ permissions });
+  }
+  const res = await fetch(`${baseUrl}/api/agent/sessions`, init);
   expect(res.status).toBe(200);
   const { id } = (await res.json()) as { id: string };
   expect(id).toBeTruthy();
