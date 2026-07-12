@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "Sde7a63",
+    "current_sprint": "S5a66e4",
     "total": 34,
-    "done": 32,
+    "done": 33,
     "in_progress": 0,
-    "remaining": 2,
-    "percentage": 94
+    "remaining": 1,
+    "percentage": 97
   },
   "execution_order": [
     "Sd63ad1",
@@ -3463,13 +3463,13 @@
     "Sde7a63": {
       "title": "統合コマンドパレット — Ctrl-K 拡張・コマンドレジストリ・スマートコマンド実行 UI",
       "milestone": true,
-      "status": "pending",
+      "status": "done",
       "depends_on": null,
       "description": "ADR-0007 準拠。UI コマンドレジストリ(builtin + smart)、Ctrl-K パレットの 3 セクション化(ノート/全文/コマンド)、'>' コマンド専用モード、スマートコマンドのパラメータフォーム → 実行 → openPath 遷移。GUI Sprint(gui-spec + prototype 対象。prototype はユーザー確認必須)。",
       "stories": {
         "Sde7a63-1": {
           "title": "コマンドレジストリ + 組み込みコマンド",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "自分として、Ctrl-K からノート作成・テンプレートからの作成・スマートフォルダ作成・詳細検索・今日のジャーナルなどの操作を起動したい。なぜなら、機能を暗記せずに 1 つの入口から全操作に到達したいから。",
@@ -3478,42 +3478,42 @@
               "id": "AC-Sde7a63-1-1",
               "description": "UI にコマンドレジストリ({id, title, keywords, icon, source:'builtin'|'smart', run})が導入され、Ctrl-K のバインドと組み込みコマンドの起動がレジストリ経由になる(App.tsx 直書きの解消。registries.ts のパターン踏襲)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sde7a63-1-2",
               "description": "パレットに「コマンド」セクションが追加され、クエリで title/keywords を絞り込み、Enter/クリックで実行できる。既存のノート/全文セクション・キーボードナビ(↑↓/Enter/Esc)・IME 挙動は退行しない。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sde7a63-1-3",
               "description": "組み込みコマンドとして最低限: 新規ノート作成 / テンプレートからノート作成 / スマートフォルダ作成 / 詳細検索を開く / 今日のジャーナルを開く、がパレットから動作する(既存モーダル・ルーティングへ接続)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sde7a63-1-1": {
               "title": "コマンドレジストリ実装",
               "description": "packages/ui に commands レジストリモジュール(登録関数 + 型)を追加し、Ctrl-K バインドと組み込みコマンドを移設する。",
-              "status": "pending"
+              "status": "done"
             },
             "Sde7a63-1-2": {
               "title": "パレットのコマンドセクション",
               "description": "SearchPalette にコマンドセクションを追加(絞り込み・ナビ・IME 維持)。",
-              "status": "pending"
+              "status": "done"
             },
             "Sde7a63-1-3": {
               "title": "組み込みコマンド接続 + mock テスト",
               "description": "5 種の組み込みコマンドを既存機能に接続し、mock tests(*.mock.spec.ts)を書く。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sde7a63-2": {
           "title": "'>' コマンド専用モード",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "自分として、パレットで '>' から入力を始めたらコマンドだけに絞り込みたい。なぜなら、ノートや全文の検索結果に混ざらず素早くコマンドを選びたいから。",
@@ -3522,31 +3522,31 @@
               "id": "AC-Sde7a63-2-1",
               "description": "先頭 '>' でコマンド専用モードになり(ノート/全文セクション非表示、'>' 以降がコマンドクエリ)、'>' を消すと通常モードへ戻る。プレフィックス→モードの対応は 1 箇所に集約される(ADR-0007 notes)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sde7a63-2-2",
               "description": "プレースホルダ等でモードが視覚的に判別でき、専用モードでもキーボードナビ・Esc・IME が機能する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sde7a63-2-1": {
               "title": "モード判定と表示切替",
               "description": "プレフィックス判定を一元化し、コマンド専用モードの表示/復帰を実装。",
-              "status": "pending"
+              "status": "done"
             },
             "Sde7a63-2-2": {
               "title": "mock テスト",
               "description": "'>' モードの遷移・復帰・IME ケースの mock tests。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sde7a63-3": {
           "title": "スマートコマンドの実行(フォーム → run → 遷移)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "自分として、commands/ に定義したスマートコマンドをパレットから選び、パラメータフォームに入力して Enter で実行したい。なぜなら、create todo のような定型ワークフローを数秒で完了させたいから。",
@@ -3555,47 +3555,47 @@
               "id": "AC-Sde7a63-3-1",
               "description": "GET /api/commands のコマンドが source='smart' としてパレットに表示される。valid:false の定義は選択不可で、無効の理由が確認できる。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sde7a63-3-2",
               "description": "params を持つコマンドは選択後にパラメータフォームモーダル(required 検証、type:text は複数行、type:date は日付入力、default 反映)を表示し、Enter/実行ボタンで POST /api/commands/{name}/run を呼ぶ。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sde7a63-3-3",
               "description": "成功時、openPath があれば該当ノートへ遷移し完了が分かる。失敗時はどのステップで失敗したか・完了済みステップが表示される。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sde7a63-3-4",
               "description": "create todo の一連(Ctrl-K → '>' 絞り込み → フォーム入力 → 実行 → ジャーナルの Todo セクションに追記反映)が実サーバーの E2E テストで通る。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sde7a63-3-1": {
               "title": "smart エントリ供給",
               "description": "GET /api/commands の API クライアント(zod 検証)とレジストリへの動的登録。",
-              "status": "pending"
+              "status": "done"
             },
             "Sde7a63-3-2": {
               "title": "パラメータフォームモーダル",
               "description": "TemplateModal と同型のフォーム(required/text/date/default)を実装。",
-              "status": "pending"
+              "status": "done"
             },
             "Sde7a63-3-3": {
               "title": "実行と結果 UI",
               "description": "run 呼び出し、openPath 遷移、ステップ単位の失敗表示。",
-              "status": "pending"
+              "status": "done"
             },
             "Sde7a63-3-4": {
               "title": "E2E + mock テスト",
               "description": "create todo E2E(*.e2e.spec.ts、実サーバー)+ エラー系 mock tests。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
@@ -3913,6 +3913,12 @@
       "description": "`- [ ] task` のような先頭 - の content は Commander 制約で `--` セパレータ必須(`journal-append --section Todo -- \"- [ ] task\"`)。現状は -- 経由で動作・テスト済み・ヘルプに明記。より親切な代替(例: --content オプション追加)は将来検討。AC は <content> 位置引数を指定のため変更せず。",
       "added_in": "Sd22b1f-3",
       "reason": "CLI UX (low); create-todo ワークフローは run 経由で影響なし"
+    },
+    {
+      "title": "スマートコマンド一覧をパレット再オープン時に再フェッチ",
+      "description": "GET /api/commands はパレット mount 時に取得。アプリ起動中に commands/*.md を新規作成しても、パレット再オープンで確実に再取得されるか(SearchPalette の unmount/remount 依存)を検証・保証する。独立検証者が指摘。",
+      "added_in": "Sde7a63",
+      "reason": "UX (low); 新規スマートコマンド作成直後の反映"
     }
   ]
 }

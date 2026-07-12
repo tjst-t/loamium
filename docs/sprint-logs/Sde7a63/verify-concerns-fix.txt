@@ -1,0 +1,58 @@
+verify-concerns-fix — Sde7a63
+2026-07-12
+
+# F-1: disabled Enter テスト実質化
+
+Before: test claimed "Enter も実行しない" but never pressed Enter.
+
+After: test now:
+1. Opens palette, traverses all 7 items with ArrowDown, asserts disabled item never gets aria-selected='true'.
+2. Fills search input with '> invalid' to enter command-mode showing ONLY invalid-cmd (1 item, all-disabled).
+3. Installs route intercept for POST /api/commands/invalid-cmd/run.
+4. Presses ArrowDown — nextSelectableIndex returns start (all-disabled fallback, no selection change).
+5. Presses Enter — confirm() finds item at selectedIndex, but item.entry.disabled===true so returns early; run() is NOT called.
+6. Asserts: command-palette is still visible (palette did not close), runCalls array is empty (zero POST calls), disabled item still has no aria-selected.
+
+# F-2: create-todo E2E Todo セクション検証
+
+Before: only checked that taskSummary text appears in a .cm-line in the editor (CodeMirror DOM).
+
+After: additionally:
+- Imports readFile from node:fs/promises.
+- After palette closes, fetches GET /api/journal to obtain the journal's `path` field.
+- Reads raw Markdown from disk: readFile(path.join(vault, journalData.path), 'utf8').
+- Splits raw text into lines, finds index of '## Todo' heading.
+- Collects section lines between '## Todo' and the next heading.
+- Asserts sectionLines.some(l => l.includes('- [ ] 新機能実装チェック')) is true.
+Method: raw file read from vault disk (not API body field).
+
+# F-3: 陳腐化コメント修正 (SearchPalette.tsx ~line 334)
+
+Old comment said "registerBuiltinCommands は clearRegistry() → 再登録するため、スマートコマンドの登録 useEffect より先に走る必要がある"
+
+New comment: "registerBuiltinCommands は upsert (id キーで上書き) で登録するため、スマートコマンドと共存できる。clearRegistry() は呼ばれないので登録順序の制約はない。"
+
+# F-4: date default テスト追加
+
+Added two new tests tagged [AC-Sde7a63-3-2]:
+- "type:date で default なし → 今日の日付が事前入力される"
+  Creates a command with a date param and no default.
+  Evaluates todayDateStr() in the browser (matching ParamFormModal's initialValue logic).
+  Asserts date input has value === today's YYYY-MM-DD.
+- "type:date で default あり → default 値が事前入力される (今日の日付ではない)"
+  Creates a command with default: '2099-12-31'.
+  Asserts date input has value '2099-12-31' (not today).
+
+# Test results
+
+Mock: 51 passed (0 failed / 0 skipped)
+  - command-palette.mock.spec.ts: 45 tests
+  - search-palette.mock.spec.ts: 6 tests
+
+E2E: 24 passed (0 failed / 0 skipped)
+  - smart-command-run.e2e.spec.ts: 4 tests (incl. Todo section raw-file assertion)
+  - command-palette.e2e.spec.ts: 17 tests
+  - search-palette.e2e.spec.ts: 3 tests
+
+tsc --noEmit: PASS (all workspaces)
+make lint: PASS

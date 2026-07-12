@@ -1,0 +1,104 @@
+{
+  "story_id": "Sde7a63-2",
+  "story_title": "'>' コマンド専用モード — プレフィックスでコマンドのみに絞り込み",
+  "state_diagram": "stateDiagram-v2\n    [*] --> Closed\n    Closed --> NormalMode : Ctrl-K (パレット open)\n    NormalMode --> CommandMode : 先頭 '>' を入力\n    CommandMode --> NormalMode : '>' を削除(先頭 '>' がなくなる)\n    CommandMode --> Closed : Esc\n    NormalMode --> Closed : Esc\n    CommandMode --> CommandMode : '>' 以降のクエリを変更(絞り込み更新)\n    CommandMode --> CommandSelected : ↑↓ で候補移動\n    CommandSelected --> CommandMode : ↑↓ で候補変更\n    CommandSelected --> CommandExecuted : Enter / クリック(params なし)\n    CommandSelected --> ParamForm : Enter / クリック(params あり — Story 3 の責務)\n    CommandExecuted --> Closed : 実行完了\n    Closed --> CommandMode : Ctrl-K 後すぐ '>' を入力",
+  "scenarios": [
+    {
+      "name": "happy_path_enter_command_mode",
+      "description": "通常モードで '>' を入力するとコマンド専用モードになり、ノート/全文セクションが非表示になる。",
+      "steps": [
+        "Ctrl-K でパレットを開く",
+        "search-input に '>' を入力",
+        "palette-mode-command が visible (モードインジケーター)",
+        "palette-section-notes が非表示",
+        "palette-section-fulltext が非表示",
+        "palette-section-commands が visible",
+        "command-item が全件表示される(クエリなし)"
+      ]
+    },
+    {
+      "name": "happy_path_command_mode_filter",
+      "description": "'> todo' と入力すると 'todo' に一致するコマンドのみ絞り込まれる。",
+      "steps": [
+        "Ctrl-K でパレットを開く",
+        "search-input に '> todo' と入力",
+        "palette-mode-command が visible",
+        "command-item[data-command-id='create-todo'] が visible",
+        "他のコマンドは非表示(title/keywords に 'todo' を含まないもの)",
+        "'> todo' の '>' を削除して 'todo' にすると通常モードへ戻り全セクション表示"
+      ]
+    },
+    {
+      "name": "happy_path_return_to_normal_mode",
+      "description": "'>' を削除すると通常モードへ復帰し、ノート/全文セクションが再度表示される。",
+      "steps": [
+        "search-input に '> 議事録' と入力",
+        "コマンドモード: コマンドセクションのみ visible",
+        "Backspace を押して '議事録' にする",
+        "通常モードへ復帰",
+        "palette-section-notes が visible",
+        "palette-section-fulltext が visible"
+      ]
+    },
+    {
+      "name": "happy_path_placeholder_shows_mode",
+      "description": "コマンドモード中は input の placeholder がモードを示すテキストに変わる。",
+      "steps": [
+        "Ctrl-K でパレットを開く",
+        "search-input の placeholder が '検索またはコマンドを入力…'",
+        "'>' を入力",
+        "search-input の placeholder が 'コマンドを入力…' に変わる"
+      ]
+    },
+    {
+      "name": "happy_path_esc_closes_from_command_mode",
+      "description": "コマンドモード中に Esc を押すとパレットが閉じる(モードを戻さず直接閉じる)。",
+      "steps": [
+        "Ctrl-K でパレットを開き '> 議事録' と入力",
+        "Esc を押す",
+        "command-palette が非表示になる"
+      ]
+    },
+    {
+      "name": "edge_ime_in_command_mode",
+      "description": "コマンドモード中の IME 変換も Sde7a63-1 と同様にガードされる。",
+      "steps": [
+        "search-input に '> ' と入力後、日本語 IME を開始",
+        "compositionstart 発火 — コマンド絞り込みを更新しない",
+        "compositionend で確定後、コマンド絞り込みが更新される"
+      ]
+    },
+    {
+      "name": "edge_prefix_centralized",
+      "description": "プレフィックス→モードのマッピングは getPrefixMode() 1 箇所にまとめられており、'>' が取り除かれた文字列がコマンドクエリとして使われる。",
+      "steps": [
+        "search-input に '> create' と入力",
+        "getPrefixMode('>  create') → { mode: 'command', query: ' create' } (先頭 '>' 除去後のテキスト)",
+        "command-item が 'create' でインクリメンタル絞り込みされる"
+      ]
+    }
+  ],
+  "testid_contract": [
+    "command-palette (継続)",
+    "command-palette-backdrop (継続)",
+    "search-input (継続。コマンドモード時は placeholder 変更)",
+    "palette-mode-command (コマンドモード中に visible になるモードインジケーター要素)",
+    "palette-section-commands (継続。コマンドモードでは常に visible)",
+    "palette-section-notes (コマンドモード中は非表示 / 通常モードで visible)",
+    "palette-section-fulltext (コマンドモード中は非表示 / 通常モードで visible)",
+    "command-item[data-command-id][data-source](継続)"
+  ],
+  "endpoint_contracts": [],
+  "test_files": {
+    "mock": "packages/ui/tests/e2e/command-palette.mock.spec.ts",
+    "e2e": "packages/ui/tests/e2e/command-palette.e2e.spec.ts"
+  },
+  "prototype_paths": [
+    "prototype/command-palette.html"
+  ],
+  "files_expected": [
+    "packages/ui/src/components/SearchPalette.tsx (Sde7a63-1 の拡張に '>' モード分岐を追加)",
+    "packages/ui/src/palettePrefix.ts (新規。getPrefixMode(input) → { mode, query } のユーティリティ。ADR-0007: プレフィックス対応は 1 箇所に集約)"
+  ],
+  "planning_notes": "Sde7a63-1 完了後に着手。SearchPalette.tsx の query state を palettePrefix.ts の getPrefixMode で処理し、mode を派生させる。mode が 'command' のとき items にノート/全文候補を含めず、コマンドのみをフィルタする。palette-mode-command は input 行の右端(または input 下)に小さなバッジとして表示する。Sde7a63-3 とは独立しているが、-3 は -2 のコマンドモードと -1 のレジストリの両方に依存するため、-2 と -3 は直列実行が望ましい(-2 完了後 -3 着手)。"
+}

@@ -1,0 +1,8 @@
+{
+  "sprint": "Sde7a63",
+  "compromises": [
+    {"severity":"low","category":"test_flakiness","summary":"tests/acceptance/watch.spec.ts(chokidar 外部監視)と tests/e2e/smart-folder-editor.e2e.spec.ts が full-suite 負荷下でフレーク(単独では pass)。Sde7a63 未変更・既存の問題。","recorded":"verification-results + backlog 候補"},
+    {"severity":"low","category":"ux_limitation","summary":"スマートコマンド一覧はパレット mount 時フェッチ。起動中の新規コマンド作成の即時反映は再オープン依存。","recorded":"backlog"}
+  ],
+  "overlooked_by_autopilot": []
+}

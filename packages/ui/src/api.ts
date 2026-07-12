@@ -31,6 +31,8 @@ import {
   tagsResponseSchema,
   templateInstantiateResponseSchema,
   templatesResponseSchema,
+  commandsResponseSchema,
+  commandRunResponseSchema,
   type TemplateInstantiateResponse,
   type TemplateSummary,
   type PropertyKeyCount,
@@ -55,6 +57,8 @@ import {
   type NoteWriteResponse,
   type QueryResponse,
   type SearchResponse,
+  type CommandRunResponse,
+  type CommandSummary,
 } from '@loamium/shared';
 
 export class ApiError extends Error {
@@ -362,6 +366,30 @@ export const api = {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
+    });
+  },
+
+  // ---- スマートコマンド (Sde7a63-1 / Sde7a63-3) ----
+
+  /**
+   * スマートコマンド一覧を取得する (GET /api/commands — Sd22b1f-1)。
+   * valid:true の定義は params 付き、valid:false は error 付きで返る。
+   */
+  async listCommands(): Promise<CommandSummary[]> {
+    const res = await request(commandsResponseSchema, '/api/commands');
+    return res.commands;
+  },
+
+  /**
+   * スマートコマンドを実行する (POST /api/commands/{name}/run — Sd22b1f-2)。
+   * params: コマンドパラメータの名前→値マップ。
+   * レスポンスは commandRunResponseSchema で検証する。
+   */
+  runCommand(name: string, params: Record<string, string>): Promise<CommandRunResponse> {
+    return request(commandRunResponseSchema, `/api/commands/${encodeURIComponent(name)}/run`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ params }),
     });
   },
 };

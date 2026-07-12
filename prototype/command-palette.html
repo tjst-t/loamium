@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loamium — 統合コマンドパレット(Sde7a63)</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* ============================================================
+     SVG アイコンサイズ基底ガード
+     (過去失敗事例: inline SVG がサイズ指定なしで巨大化する)
+     ============================================================ */
+  :where(svg) { width: 16px; height: 16px; }
+
+  /* -------- コマンドセクション固有スタイル -------- */
+
+  /* source=smart を示すバッジ */
+  .cmd-source-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    background: #e8f5ee;
+    color: #1f7a4d;
+    border-radius: 5px;
+    padding: 0 5px;
+    flex-shrink: 0;
+  }
+  .cmd-source-badge.builtin {
+    background: var(--accent-soft);
+    color: var(--accent-hover);
+  }
+
+  /* disabled コマンド(valid:false) */
+  .palette-item.cmd-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+  .palette-item.cmd-disabled .cmd-error-reason {
+    font-size: 11px;
+    color: var(--danger);
+    margin-top: 1px;
+  }
+
+  /* コマンドモードバッジ(input 行右端) */
+  .palette-mode-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-hover);
+    background: var(--accent-soft);
+    border-radius: 6px;
+    padding: 2px 8px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .palette-mode-badge svg { width: 11px; height: 11px; }
+
+  /* コマンドアイコン(コマンド行の左) */
+  .cmd-ico {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .cmd-ico svg { width: 14px; height: 14px; }
+  .palette-item.selected .cmd-ico {
+    background: rgba(110,86,207,0.2);
+  }
+
+  /* -------- パラメータフォームモーダル -------- */
+
+  .param-modal {
+    width: 520px;
+    max-width: calc(100vw - 32px);
+    background: var(--bg-editor);
+    border-radius: 14px;
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .param-modal-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 18px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .param-h-ico {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: #e8f5ee;
+    color: #1f7a4d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .param-h-ico svg { width: 18px; height: 18px; }
+  .param-h-main { flex: 1; min-width: 0; }
+  .param-h-main h2 { margin: 0; font-size: 15.5px; }
+  .param-h-main .sub { font-size: 12px; color: var(--text-muted); }
+
+  .param-fields { padding: 10px 18px 6px; }
+
+  .param-field-row {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 12px;
+    align-items: start;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .param-field-row:last-child { border-bottom: none; }
+
+  .param-field-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    color: var(--text-muted);
+    padding-top: 6px;
+  }
+  .param-field-label .req { color: var(--danger); font-weight: 700; }
+  .param-field-label .opt { font-size: 10.5px; color: var(--text-faint); }
+
+  .param-field-body { min-width: 0; }
+
+  .param-input {
+    width: 100%;
+    font-family: inherit;
+    font-size: 13.5px;
+    padding: 7px 11px;
+    border: 1.5px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--bg-editor);
+    color: var(--text);
+    outline: none;
+    box-sizing: border-box;
+  }
+  .param-input::placeholder { color: var(--text-faint); }
+  .param-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  input[type="date"].param-input { font-family: var(--font-mono); min-width: 170px; width: auto; }
+  textarea.param-input { resize: vertical; min-height: 72px; }
+
+  /* エラー表示 */
+  .param-field-row.invalid .param-input {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px var(--danger-soft);
+  }
+  .param-field-error {
+    display: none;
+    align-items: center;
+    gap: 5px;
+    margin-top: 6px;
+    font-size: 11.5px;
+    color: var(--danger);
+  }
+  .param-field-error svg { width: 13px; height: 13px; flex-shrink: 0; }
+  .param-field-row.invalid .param-field-error { display: flex; }
+
+  /* 実行結果表示 */
+  .param-form-result {
+    margin: 10px 18px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    font-size: 12.5px;
+  }
+  .param-form-result-head {
+    padding: 8px 12px;
+    font-weight: 600;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .param-form-result-head.success { background: #e8f5ee; color: #1f7a4d; }
+  .param-form-result-head.failure { background: var(--danger-soft); color: var(--danger); }
+  .param-form-result-head svg { width: 14px; height: 14px; }
+  .step-result {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .step-result svg { width: 13px; height: 13px; flex-shrink: 0; }
+  .step-result[data-ok="true"] { color: var(--text-muted); }
+  .step-result[data-ok="false"] { color: var(--danger); background: var(--danger-soft); }
+  .step-kind {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--bg-panel);
+    border-radius: 4px;
+    padding: 1px 6px;
+    flex-shrink: 0;
+  }
+  .step-result[data-ok="false"] .step-kind { background: rgba(214,69,69,0.12); }
+
+  /* フッタ */
+  .param-modal-foot {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-panel);
+  }
+  .param-kbd-hints { display: flex; gap: 14px; flex-wrap: wrap; }
+  .param-kbd-hints span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    color: var(--text-faint);
+  }
+  .param-foot-actions { margin-left: auto; display: flex; gap: 8px; }
+  .param-submit-btn[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* -------- 状態ラベル(セクション見出し) -------- */
+  .state-section {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 24px 20px;
+  }
+  .state-section:first-child { padding-top: 48px; }
+  .state-section + .state-section { padding-top: 0; }
+
+  .state-heading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 0 18px;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .state-heading .line { flex: 1; border-top: 1px solid var(--border); }
+  .state-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--accent-soft);
+    color: var(--accent-hover);
+    border-radius: 8px;
+    padding: 2px 10px;
+  }
+  .palette-advanced {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    padding: 3px 10px;
+    border-radius: 6px;
+    border: none;
+    background: none;
+    cursor: pointer;
+  }
+  .palette-advanced:hover { background: var(--accent-soft); }
+  .palette-advanced svg { width: 13px; height: 13px; }
+  .palette-error {
+    padding: 12px 16px;
+    font-size: 12.5px;
+    color: var(--danger);
+    background: var(--danger-soft);
+    border-radius: 8px;
+    margin: 6px;
+  }
+
+  /* 背景ページのぼかし */
+  .page-bg {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    display: flex;
+    background: var(--bg-app);
+  }
+  .page-bg .bg-sidebar {
+    width: 264px;
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border);
+  }
+  .page-bg .bg-workspace { flex: 1; background: var(--bg-editor); }
+  .page-bg .bg-panel { width: 300px; background: var(--bg-panel); border-left: 1px solid var(--border); }
+</style>
+</head>
+<!--
+  ============================================================================
+  統合コマンドパレット プロトタイプ (Sprint Sde7a63)
+  ADR-0007: Ctrl-K を 3 セクション + '>' モードに拡張
+
+  状態カタログ(上から順に):
+    1. デフォルトパレット  — Ctrl-K・空/'議事録'クエリ。3 セクション(ノート/全文/コマンド)
+       組み込みコマンド(source=builtin) + スマートコマンド(source=smart、valid:true) +
+       valid:false の非選択コマンドを含む
+    2. '>' コマンド専用モード — '> todo' 入力、コマンドのみ表示
+    3. パラメータフォームモーダル — 'create-todo' 選択後のフォーム(入力中状態)
+    4. 実行失敗状態 — step-result[data-ok='false'] の表示例
+
+  data-testid 契約(Sde7a63 追加分):
+    command-palette            … パレットダイアログ (role=dialog aria-label='コマンドパレット')
+    command-palette-backdrop   … 背景
+    search-input               … 入力欄(既存踏襲)
+    palette-mode-command       … コマンドモードバッジ
+    palette-section-notes      … ノートセクション見出し
+    palette-section-fulltext   … 全文セクション見出し
+    palette-section-commands   … コマンドセクション見出し
+    command-item               … コマンド候補行。data-command-id / data-source='builtin'|'smart'
+    command-item.cmd-disabled  … valid:false(aria-disabled='true', pointer-events:none)
+    command-item-error-reason  … valid:false の理由テキスト(command-item 内子要素)
+    param-form-modal           … パラメータ入力モーダル
+    param-form-modal-backdrop  … 背景
+    param-form-title           … モーダルタイトル
+    param-field                … パラメータ行コンテナ(data-name / data-type / data-required)
+    param-field-input          … 入力欄(data-name)
+    param-field-error          … インラインエラー(data-name)
+    param-form-submit          … 実行ボタン
+    param-form-cancel          … キャンセル
+    param-form-result          … 実行結果エリア
+    step-result                … ステップ 1 件(data-kind / data-ok)
+  ============================================================================
+-->
+<body>
+
+<!-- ============================================================
+     ページ背景(3ペインシェルのシルエット)
+     ============================================================ -->
+<div class="page-bg" aria-hidden="true">
+  <div class="bg-sidebar"></div>
+  <div class="bg-workspace"></div>
+  <div class="bg-panel"></div>
+</div>
+
+<!-- ============================================================
+     状態 1: デフォルトパレット
+     (Ctrl-K、クエリ空 or '議事録' — 3 セクション表示)
+     ============================================================ -->
+<div class="state-section">
+  <div class="state-heading">
+    <span>状態 1 — デフォルトパレット(クエリ: '議事録')</span>
+    <span class="state-badge">Ctrl-K</span>
+    <span class="line"></span>
+  </div>
+
+  <div class="palette-backdrop" style="position:relative;inset:auto;background:none;padding-top:0;display:block;">
+    <div class="palette" data-testid="command-palette" role="dialog" aria-label="コマンドパレット">
+
+      <!-- 入力行 -->
+      <div class="palette-input-row">
+        <svg class="search-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+          <circle cx="7" cy="7" r="4.4"/><path d="M10.4 10.4L14 14"/>
+        </svg>
+        <input
+          class="palette-input"
+          data-testid="search-input"
+          type="text"
+          value="議事録"
+          placeholder="検索またはコマンドを入力…"
+          aria-label="検索またはコマンドを入力"
+          readonly
+        >
+        <kbd>Esc</kbd>
+      </div>
+
+      <div class="palette-results">
+
+        <!-- ---- ノートセクション ---- -->
+        <div class="palette-section-label" data-testid="palette-section-notes">
+          <span>ノート</span>
+          <span>2 件</span>
+        </div>
+        <button class="palette-item selected" data-testid="search-result-note" data-path="meetings/議事録 2026-07-11.md" aria-selected="true">
+          <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+          <span class="p-main">
+            <span class="p-title"><mark>議事録</mark> 2026-07-11</span>
+            <span class="p-path">meetings/議事録 2026-07-11.md</span>
+          </span>
+        </button>
+        <button class="palette-item" data-testid="search-result-note" data-path="meetings/議事録 2026-07-04.md">
+          <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+          <span class="p-main">
+            <span class="p-title"><mark>議事録</mark> 2026-07-04</span>
+            <span class="p-path">meetings/議事録 2026-07-04.md</span>
+          </span>
+        </button>
+
+        <!-- ---- 全文セクション ---- -->
+        <div class="palette-section-label" data-testid="palette-section-fulltext">
+          <span>全文</span>
+          <span>1 件</span>
+        </div>
+        <button class="palette-item" data-testid="search-result-fulltext" data-path="projects/project-x.md" data-line="8">
+          <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+          <span class="p-main">
+            <span class="p-title">project-x</span>
+            <span class="p-snippet">7月の<mark>議事録</mark>から引き継ぎのアクションアイテムを確認</span>
+          </span>
+          <span class="line-no">L8</span>
+        </button>
+
+        <!-- ---- コマンドセクション ---- -->
+        <div class="palette-section-label" data-testid="palette-section-commands">
+          <span>コマンド</span>
+          <span>7 件</span>
+        </div>
+
+        <!-- 組み込みコマンド (source=builtin) -->
+        <button class="palette-item"
+          data-testid="command-item"
+          data-command-id="new-note"
+          data-source="builtin">
+          <span class="cmd-ico">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 1.8h5.2L12.2 4.8v4.2M9.2 1.8v3h3M8 11v4M6 13h4"/></svg>
+          </span>
+          <span class="p-main">
+            <span class="p-title">新規ノート作成</span>
+            <span class="p-path">新しいノートを空白の状態で作成する</span>
+          </span>
+          <span class="cmd-source-badge builtin">組み込み</span>
+        </button>
+
+        <button class="palette-item"
+          data-testid="command-item"
+          data-command-id="new-note-from-template"
+          data-source="builtin">
+          <span class="cmd-ico">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2.6h8.4L13 4.2v9.2H3z"/><path d="M5 6h6M5 8.5h4"/></svg>
+          </span>
+          <span class="p-main">
+            <span class="p-title">テンプレートからノート作成</span>
+            <span class="p-path">テンプレートを選んでノートを作成する</span>
+          </span>
+          <span class="cmd-source-badge builtin">組み込み</span>
+        </button>
+
+        <button class="palette-item"
+          data-testid="command-item"
+          data-command-id="new-smart-folder"
+          data-source="builtin">
+          <span class="cmd-ico">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 4.5h12v8.5H2zM2 4.5l2-2h3.5l1 1.5"/><path d="M7 8v3M5.5 9.5h3"/></svg>
+          </span>
+          <span class="p-main">
+            <span class="p-title">スマートフォルダ作成</span>
+            <span class="p-path">DQL クエリで動的ビューを作成する</span>
+          </span>
+          <span class="cmd-source-badge builtin">組み込み</span>
+        </button>
+
+        <button class="palette-item"
+          data-testid="command-item"
+          data-command-id="open-advanced-search"
+          data-source="builtin">
+          <span class="cmd-ico">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.4"/><path d="M10.4 10.4L14 14"/><path d="M5.5 7h3M7 5.5v3"/></svg>
+          </span>
+          <span class="p-main">
+            <span class="p-title">詳細検索を開く</span>
+            <span class="p-path">タグ・フォルダ・並び順で絞り込める検索ページを開く</span>
+          </span>
+          <span class="cmd-source-badge builtin">組み込み</span>
+        </button>
+
+        <button class="palette-item"
+          data-testid="command-item"
+          data-command-id="open-today-journal"
+          data-source="builtin">
+          <span class="cmd-ico">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="2.4" y="3.3" width="11.2" height="10.3" rx="1.6"/><path d="M2.4 6.3h11.2M5.6 1.9v2.6M10.4 1.9v2.6"/></svg>
+          </span>
+          <span class="p-main">
+            <span class="p-title">今日のジャーナルを開く</span>
+            <span class="p-path">今日の日付のジャーナルを開く(なければ作成)</span>
+          </span>
+          <span class="cmd-source-badge builtin">組み込み</span>
+        </button>
+
+        <!-- スマートコマンド (source=smart, valid:true) -->
+        <button class="palette-item"
+          data-testid="command-item"
+          data-command-id="議事録まとめ"
+          data-source="smart">
+          <span class="cmd-ico" style="background:#e8f5ee;color:#1f7a4d;">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 3.5h10M3 6.5h10M3 9.5h6"/><path d="M11 11l2 2-2 2" style="stroke:#1f7a4d;"/></svg>
+          </span>
+          <span class="p-main">
+            <span class="p-title">議事録まとめ</span>
+            <span class="p-path">今日のジャーナルに議事録のサマリを追記する</span>
+          </span>
+          <span class="cmd-source-badge">スマート</span>
+        </button>
+
+        <button class="palette-item"
+          data-testid="command-item"
+          data-command-id="create-todo"
+          data-source="smart">
+          <span class="cmd-ico" style="background:#e8f5ee;color:#1f7a4d;">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="10" height="10" rx="2"/><path d="M6 8l2 2 3-3"/></svg>
+          </span>
+          <span class="p-main">
+            <span class="p-title">create-todo</span>
+            <span class="p-path">今日のジャーナル Todo セクションにタスクを追加する</span>
+          </span>
+          <span class="cmd-source-badge">スマート</span>
+        </button>
+
+        <!-- スマートコマンド valid:false (非選択可能) -->
+        <button
+          class="palette-item cmd-disabled"
+          data-testid="command-item"
+          data-command-id="broken-cmd"
+          data-source="smart"
+          aria-disabled="true"
+          tabindex="-1">
+          <span class="cmd-ico" style="background:var(--danger-soft);color:var(--danger);">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v4M8 11h.01"/></svg>
+          </span>
+          <span class="p-main">
+            <span class="p-title">broken-cmd</span>
+            <span class="cmd-error-reason" data-testid="command-item-error-reason">
+              定義エラー: 'steps' フィールドが必須です
+            </span>
+          </span>
+          <span class="cmd-source-badge" style="background:var(--danger-soft);color:var(--danger);">無効</span>
+        </button>
+
+      </div>
+
+      <!-- フッタ -->
+      <div class="palette-footer">
+        <button type="button" class="palette-advanced" data-testid="search-open-advanced">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.4"/><path d="M10.4 10.4L14 14"/></svg>
+          詳細検索を開く
+        </button>
+        <span><kbd>↑</kbd><kbd>↓</kbd> 移動</span>
+        <span><kbd>Enter</kbd> 実行</span>
+        <span><kbd>Esc</kbd> 閉じる</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="proto-note" style="margin-top:14px;">
+    <span class="tag">設計メモ</span>
+    コマンドセクションは <code>palette-section-commands</code>。
+    組み込み (<code>data-source="builtin"</code>) は紫バッジ、
+    スマートコマンド (<code>data-source="smart"</code>) は緑バッジで区別。
+    <code>valid:false</code> コマンドは <code>cmd-disabled</code> クラス + <code>aria-disabled="true"</code> で非選択・非クリック。
+    ↑↓ナビゲーションは disabled 項目をスキップする。
+  </div>
+</div>
+
+<!-- ============================================================
+     状態 2: '>' コマンド専用モード
+     ============================================================ -->
+<div class="state-section">
+  <div class="state-heading">
+    <span>状態 2 — '>' コマンド専用モード(クエリ: '&gt; todo')</span>
+    <span class="state-badge" style="background:#e8f5ee;color:#1f7a4d;">&gt; プレフィックス</span>
+    <span class="line"></span>
+  </div>
+
+  <div class="palette-backdrop" style="position:relative;inset:auto;background:none;padding-top:0;display:block;">
+    <div class="palette" data-testid="command-palette" role="dialog" aria-label="コマンドパレット">
+
+      <!-- 入力行(コマンドモードバッジ付き) -->
+      <div class="palette-input-row">
+        <svg class="search-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+          <circle cx="7" cy="7" r="4.4"/><path d="M10.4 10.4L14 14"/>
+        </svg>
+        <input
+          class="palette-input"
+          data-testid="search-input"
+          type="text"
+          value="&gt; todo"
+          placeholder="コマンドを入力…"
+          aria-label="コマンドを入力"
+          readonly
+        >
+        <!-- コマンドモードバッジ -->
+        <span class="palette-mode-badge" data-testid="palette-mode-command">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 8l3-3-3-3M8 10h5"/></svg>
+          コマンドモード
+        </span>
+        <kbd>Esc</kbd>
+      </div>
+
+      <div class="palette-results">
+        <!-- ノート / 全文セクションは非表示(コマンドモード中) -->
+        <!-- palette-section-notes: display:none -->
+        <!-- palette-section-fulltext: display:none -->
+
+        <!-- コマンドセクションのみ -->
+        <div class="palette-section-label" data-testid="palette-section-commands">
+          <span>コマンド</span>
+          <span>2 件</span>
+        </div>
+
+        <button class="palette-item selected"
+          data-testid="command-item"
+          data-command-id="create-todo"
+          data-source="smart"
+          aria-selected="true">
+          <span class="cmd-ico" style="background:#e8f5ee;color:#1f7a4d;">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="10" height="10" rx="2"/><path d="M6 8l2 2 3-3"/></svg>
+          </span>
+          <span class="p-main">
+            <span class="p-title">create-<mark>todo</mark></span>
+            <span class="p-path">今日のジャーナル Todo セクションにタスクを追加する</span>
+          </span>
+          <span class="cmd-source-badge">スマート</span>
+        </button>
+
+        <button class="palette-item"
+          data-testid="command-item"
+          data-command-id="open-today-journal"
+          data-source="builtin">
+          <span class="cmd-ico">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="2.4" y="3.3" width="11.2" height="10.3" rx="1.6"/><path d="M2.4 6.3h11.2M5.6 1.9v2.6M10.4 1.9v2.6"/></svg>
+          </span>
+          <span class="p-main">
+            <span class="p-title">今日のジャーナルを開く</span>
+            <span class="p-path">今日の日付のジャーナルを開く(なければ作成)</span>
+          </span>
+          <span class="cmd-source-badge builtin">組み込み</span>
+        </button>
+
+      </div>
+
+      <div class="palette-footer">
+        <span><kbd>&gt;</kbd> を削除で通常モードへ戻る</span>
+        <span><kbd>↑</kbd><kbd>↓</kbd> 移動</span>
+        <span><kbd>Enter</kbd> 実行</span>
+        <span><kbd>Esc</kbd> 閉じる</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="proto-note" style="margin-top:14px;">
+    <span class="tag">設計メモ</span>
+    先頭 <code>'>'</code> を検知すると <code>palette-mode-command</code> バッジが現れ、ノート/全文セクションは非表示になる。
+    <code>'>'</code> 以降のテキスト(<code>'todo'</code>)でコマンドをインクリメンタル絞り込み。
+    <code>'>'</code> を削除すると通常モードへ即座に復帰する(palettePrefix.ts の <code>getPrefixMode</code> が判定)。
+    placeholder も <strong>コマンドを入力…</strong> に変わる。
+  </div>
+</div>
+
+<!-- ============================================================
+     状態 3: パラメータフォームモーダル
+     (create-todo コマンドを選択した後)
+     ============================================================ -->
+<div class="state-section">
+  <div class="state-heading">
+    <span>状態 3 — パラメータフォームモーダル(create-todo コマンド)</span>
+    <span class="state-badge">Enter で open</span>
+    <span class="line"></span>
+  </div>
+
+  <!-- backdrop -->
+  <div style="position:relative;background:rgba(25,25,40,0.35);border-radius:14px;padding:32px 24px;display:flex;align-items:flex-start;justify-content:center;">
+    <div class="param-modal" data-testid="param-form-modal" role="dialog" aria-label="create-todo — パラメータ入力">
+
+      <!-- ヘッダ -->
+      <div class="param-modal-head">
+        <span class="param-h-ico">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="10" height="10" rx="2"/><path d="M6 8l2 2 3-3"/></svg>
+        </span>
+        <div class="param-h-main">
+          <h2 data-testid="param-form-title">create-todo</h2>
+          <div class="sub">今日のジャーナル Todo セクションにタスクを追加する</div>
+        </div>
+        <button class="icon-btn" data-testid="param-form-cancel" title="キャンセル (Esc)">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+        </button>
+      </div>
+
+      <!-- パラメータフィールド -->
+      <div class="param-fields">
+
+        <!-- タスク概要: type=text, required=true -->
+        <div class="param-field-row"
+          data-testid="param-field"
+          data-name="タスク概要"
+          data-type="text"
+          data-required="true">
+          <label class="param-field-label">
+            <svg style="width:13px;height:13px;" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M4 4h8M8 4v9M6.2 13h3.6"/></svg>
+            タスク概要<span class="req">*</span>
+          </label>
+          <div class="param-field-body">
+            <input
+              class="param-input"
+              data-testid="param-field-input"
+              data-name="タスク概要"
+              type="text"
+              placeholder="例: プロポーザルのレビュー"
+              autocomplete="off"
+              autofocus
+            >
+            <div class="param-field-error" data-testid="param-field-error" data-name="タスク概要">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v4M8 11h.01"/></svg>
+              タスク概要は必須です
+            </div>
+          </div>
+        </div>
+
+        <!-- 期限: type=date, required=false -->
+        <div class="param-field-row"
+          data-testid="param-field"
+          data-name="期限"
+          data-type="date"
+          data-required="false">
+          <label class="param-field-label">
+            <svg style="width:13px;height:13px;" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="2.4" y="3.3" width="11.2" height="10.3" rx="1.6"/><path d="M2.4 6.3h11.2M5.6 1.9v2.6M10.4 1.9v2.6"/></svg>
+            期限<span class="opt">任意</span>
+          </label>
+          <div class="param-field-body">
+            <input
+              class="param-input"
+              data-testid="param-field-input"
+              data-name="期限"
+              type="date"
+              value="2026-07-18"
+            >
+          </div>
+        </div>
+
+        <!-- タスク詳細: type=text (multiline), required=false -->
+        <div class="param-field-row"
+          data-testid="param-field"
+          data-name="タスク詳細"
+          data-type="text"
+          data-required="false">
+          <label class="param-field-label">
+            <svg style="width:13px;height:13px;" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 4h10M3 7h10M3 10h6"/></svg>
+            タスク詳細<span class="opt">任意・複数行</span>
+          </label>
+          <div class="param-field-body">
+            <textarea
+              class="param-input"
+              data-testid="param-field-input"
+              data-name="タスク詳細"
+              placeholder="補足説明や関連リンクなど"
+              rows="3"
+            ></textarea>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- フッタ -->
+      <div class="param-modal-foot">
+        <div class="param-kbd-hints">
+          <span><kbd>Tab</kbd> 移動</span>
+          <span><kbd>Enter</kbd> 実行</span>
+          <span><kbd>Esc</kbd> 戻る</span>
+        </div>
+        <div class="param-foot-actions">
+          <button class="btn" data-testid="param-form-cancel">キャンセル</button>
+          <button class="btn primary" data-testid="param-form-submit" aria-disabled="true">実行</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="proto-note" style="margin-top:14px;">
+    <span class="tag">設計メモ</span>
+    <code>param-form-modal</code> は TemplateModal (S89a350-3) と同型の実装パターン。
+    <code>type=text</code> の multiline param は <code>textarea</code>、
+    <code>type=date</code> は <code>input[type=date]</code>。
+    必須(<code>data-required="true"</code>)が空の場合: クライアント側バリデーション → <code>param-field-error</code> を表示 + <code>param-form-submit</code> は <code>aria-disabled="true"</code>。
+    Esc を押すとパレットへ戻り、パレット自体は閉じない。
+  </div>
+</div>
+
+<!-- ============================================================
+     状態 4: 実行失敗(ステップエラー表示)
+     ============================================================ -->
+<div class="state-section" style="padding-bottom:60px;">
+  <div class="state-heading">
+    <span>状態 4 — 実行失敗(step-result 表示)</span>
+    <span class="state-badge" style="background:var(--danger-soft);color:var(--danger);">POST run 失敗</span>
+    <span class="line"></span>
+  </div>
+
+  <div style="position:relative;background:rgba(25,25,40,0.35);border-radius:14px;padding:32px 24px;display:flex;align-items:flex-start;justify-content:center;">
+    <div class="param-modal" data-testid="param-form-modal" role="dialog" aria-label="create-todo — 実行結果">
+
+      <div class="param-modal-head">
+        <span class="param-h-ico" style="background:var(--danger-soft);color:var(--danger);">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v4M8 11h.01"/></svg>
+        </span>
+        <div class="param-h-main">
+          <h2 data-testid="param-form-title">create-todo — 実行エラー</h2>
+          <div class="sub">1 ステップ中 0 ステップ完了・1 ステップ失敗</div>
+        </div>
+        <button class="icon-btn" data-testid="param-form-cancel" title="閉じる (Esc)">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+        </button>
+      </div>
+
+      <!-- 実行結果表示 -->
+      <div class="param-form-result" data-testid="param-form-result">
+        <div class="param-form-result-head failure">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v4M8 11h.01"/></svg>
+          実行失敗
+        </div>
+        <div class="step-result"
+          data-testid="step-result"
+          data-kind="journal-append"
+          data-ok="false">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+          <span class="step-kind">journal-append</span>
+          <span>invalid journal date: "not-a-date" (expected YYYY-MM-DD)</span>
+        </div>
+      </div>
+
+      <!-- 再試行用: 再度フォームを開くための案内 -->
+      <div style="padding: 12px 18px; font-size: 12.5px; color: var(--text-muted); line-height: 1.7;">
+        パラメータを修正して再度お試しください。
+      </div>
+
+      <div class="param-modal-foot">
+        <div class="param-kbd-hints">
+          <span><kbd>Esc</kbd> パレットへ戻る</span>
+        </div>
+        <div class="param-foot-actions">
+          <button class="btn" data-testid="param-form-cancel">閉じる</button>
+          <button class="btn primary" data-testid="param-form-submit">再試行</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="proto-note" style="margin-top:14px;">
+    <span class="tag">設計メモ</span>
+    <code>param-form-result</code> は成功・失敗両用のエリア。
+    <code>step-result[data-ok="false"]</code> は赤背景 + ×アイコン。
+    成功時(<code>openPath</code> あり)はモーダルと パレットが閉じ、該当ノートへ遷移する。
+    <code>openPath</code> なしの成功はパレットのみ閉じる。
+    失敗時はこの状態を表示し、Esc またはキャンセルでパレットへ戻れる。
+  </div>
+</div>
+
+<a class="proto-chip" href="index.html">← プロトタイプ一覧</a>
+
+</body>
+</html>

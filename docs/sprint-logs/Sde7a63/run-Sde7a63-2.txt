@@ -1,0 +1,75 @@
+Story Sde7a63-2: '>' コマンド専用モード
+実行日: 2026-07-12
+
+== 実装概要 ==
+
+1. packages/ui/src/palettePrefix.ts (新規)
+   - parsePaletteInput(rawInput): { mode, query } を export
+   - PREFIX_MAP により prefix→mode の対応を 1 箇所に集約 (ADR-0007)
+   - '>' → { mode: 'command', query: raw.slice(1) }
+   - 将来 '#' 等を追加する際は PREFIX_MAP に追記するだけ
+
+2. packages/ui/src/components/SearchPalette.tsx (変更)
+   - import { parsePaletteInput } from '../palettePrefix.js'
+   - useMemo で paletteMode / commandQuery を query から派生 (ADR-0007 単一正源)
+   - コマンドモード中: noteMatches=[], fulltext 非表示, items=commandMatches のみ
+   - コマンドモード中: 全文検索スケジュールを抑制・クリア
+   - IME compositionEnd でもコマンドモード中は scheduleSearch しない
+   - input placeholder をモードに応じて変更
+   - palette-mode-badge (data-testid="palette-mode-command") を入力行右端に表示
+   - ノート/全文セクション: paletteMode !== 'command' 時のみ render
+   - selectedIndex 計算: コマンドモードは ci が直接インデックス (ノート/全文なし)
+   - Esc: 通常通り onClose() → コマンドモードから直接閉じる (ADR-0007 確認済み)
+   - フッター: コマンドモード中は '>' を削除で通常モードへ戻る を表示
+
+3. packages/ui/src/styles.css (変更)
+   - .palette-mode-badge スタイルを追加 (プロトタイプ state② に準拠)
+
+== テスト ==
+
+Mock テスト: 27 passed (0 failed, 0 skipped)
+  - 既存 Story 1 tests: 18/18 pass (regression OK)
+  - Story 2 追加テスト: 9/9 pass
+    [AC-Sde7a63-2-1] 先頭 > でコマンド専用モード: ノート/全文非表示 + コマンド表示
+    [AC-Sde7a63-2-1] > journal でコマンドのみ絞り込み
+    [AC-Sde7a63-2-1] > 削除で通常モードへ復帰
+    [AC-Sde7a63-2-2] placeholder がモードを示すテキストに変わる
+    [AC-Sde7a63-2-2] コマンドモード中 Esc でパレットを閉じる
+    [AC-Sde7a63-2-2] IME 変換ガード: 変換中 Enter は閉じない
+    [AC-Sde7a63-2-1] edge_prefix_centralized: > create でノート/全文非表示のまま
+    [AC-Sde7a63-2-2] ↑↓ ナビゲーションが機能する
+    [AC-Sde7a63-2-2] Enter でコマンド実行
+
+Regression: search-palette.mock.spec.ts 6/6 pass
+
+E2E テスト: command-palette.e2e.spec.ts に Story 2 シナリオ 7 件追加 (written, not run)
+
+== TypeCheck / Lint ==
+
+npx tsc --noEmit -p packages/ui → 0 errors
+make lint → 全 workspace pass
+
+== プレフィックス集約の場所 ==
+
+packages/ui/src/palettePrefix.ts の parsePaletteInput() (line 33)
+SearchPalette.tsx line 237 付近の useMemo で呼び出し — ADR-0007 に準拠
+
+== out-of-scope findings ==
+なし
+
+== fix(Sde7a63-2): コマンドモード空状態メッセージ修正 (2026-07-12) ==
+
+変更: packages/ui/src/components/SearchPalette.tsx line 489-493
+  Before: 「{trimmed}」に一致するノートはありません  (コマンドモードでも同じ文言 + '>' 混入)
+  After:
+    - コマンドモード: 「{highlightQuery}」に一致するコマンドはありません
+    - 通常モード:    「{trimmed}」に一致するノートはありません
+
+追加テスト: packages/ui/tests/e2e/command-palette.mock.spec.ts
+  [AC-Sde7a63-2-1] コマンドモードで一致なしのとき空状態メッセージがコマンド向け文言になる (> 除去)
+  - '> zzznotacommand' 入力後 search-empty が visible
+  - テキストが「コマンド」を含む / 「ノート」を含まない / '>' を含まない
+
+Mock テスト: 28 passed (27 + 1 新規, 0 failed, 0 skipped)
+npx tsc --noEmit -p packages/ui → 0 errors
+make lint → 全 workspace pass

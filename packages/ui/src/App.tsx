@@ -1136,6 +1136,38 @@ export function App(): JSX.Element {
     return { folders: segs.slice(0, -1), name };
   }, [doc, preview]);
 
+  /**
+   * commandHandlers を useMemo でメモ化し、パレット表示中のすべての App 再レンダーで
+   * コマンドレジストリへの再登録が走るのを防ぐ (F-2)。
+   * 依存配列: state setter は安定しているため含めない。
+   */
+  const commandHandlers = useMemo(
+    () => ({
+      onNewNote: () => {
+        setPaletteOpen(false);
+        setDialog({ type: 'new-note', folder: '' });
+      },
+      onOpenTemplatePicker: () => {
+        setPaletteOpen(false);
+        openTemplatePicker();
+      },
+      onNewSmartFolder: () => {
+        setPaletteOpen(false);
+        switchSidebarView('smart');
+        setSmartAddTrigger((c) => c + 1);
+      },
+      onOpenAdvancedSearch: () => {
+        setPaletteOpen(false);
+        openSearch({ q: '', tag: '', folder: '', sort: 'updated' });
+      },
+      onOpenTodayJournal: () => {
+        setPaletteOpen(false);
+        void openJournalNav();
+      },
+    }),
+    [openTemplatePicker, switchSidebarView, openSearch, openJournalNav],
+  );
+
   return (
     <div className="app">
       {/* ================= 左: サイドバー (直近ファイル) ================= */}
@@ -1587,6 +1619,7 @@ export function App(): JSX.Element {
             setPaletteOpen(false);
             openSearch({ q: q.trim().normalize('NFC'), tag: '', folder: '', sort: 'updated' });
           }}
+          commandHandlers={commandHandlers}
         />
       )}
 
