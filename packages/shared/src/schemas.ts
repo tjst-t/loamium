@@ -5,6 +5,7 @@
 import { z } from 'zod';
 import { normalizeVaultFilePath, VaultPathError } from './path.js';
 import { parseQuery, DqlParseError } from './dql.js';
+import { AGENT_CAPABILITIES, agentPermissionsSchema } from './agent-capabilities.js';
 
 // ---- 権限モード ----
 
@@ -433,6 +434,11 @@ export const agentConfigSchema = z.object({
   baseUrl: z.string().min(1, 'baseUrl must not be empty'),
   model: z.string().min(1, 'model must not be empty'),
   apiKey: z.string().min(1, 'apiKey must not be empty'),
+  /**
+   * エージェント権限 (ADR-0011)。プリセット名 or ケーパビリティ配列。
+   * 未指定は read-only プリセット (resolvePermissions が既定を補う)。マシンローカル。
+   */
+  permissions: agentPermissionsSchema.optional(),
 });
 export type AgentConfig = z.infer<typeof agentConfigSchema>;
 
@@ -458,6 +464,16 @@ export const agentPrivacySchema = z
 export type AgentPrivacy = z.infer<typeof agentPrivacySchema>;
 
 // ---- エージェント REST API レスポンス (S53409d-2) ----
+
+/**
+ * POST /api/agent/sessions のリクエスト (ADR-0011)。
+ * permissions はセッション単位の権限上書き (プリセット名 or ケーパビリティ配列)。
+ * body 無し / 空オブジェクトも許容 (未指定なら agent.json 既定にフォールバック)。
+ */
+export const agentCreateSessionRequestSchema = z.object({
+  permissions: agentPermissionsSchema.optional(),
+});
+export type AgentCreateSessionRequest = z.infer<typeof agentCreateSessionRequestSchema>;
 
 export const agentSessionCreateResponseSchema = z.object({
   id: z.string(),
@@ -493,6 +509,12 @@ export type AgentMessage = z.infer<typeof agentMessageSchema>;
 export const agentSessionDetailResponseSchema = z.object({
   id: z.string(),
   messages: z.array(agentMessageSchema),
+  /**
+   * 実効ケーパビリティ配列 (ADR-0011)。セッション権限 (or agent.json 既定) を
+   * サーバー LOAMIUM_MODE でクランプした結果。UI の権限表示に使う。
+   * 後方互換のため optional (旧クライアント/旧レスポンスとの互換)。
+   */
+  effectivePermissions: z.array(z.enum(AGENT_CAPABILITIES)).optional(),
 });
 export type AgentSessionDetailResponse = z.infer<typeof agentSessionDetailResponseSchema>;
 

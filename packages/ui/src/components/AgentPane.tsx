@@ -17,7 +17,13 @@
  *   agent-session-switcher (セッション一覧を開くボタン),
  *   agent-session-list (ドロップダウン一覧),
  *   agent-session-item (各行, data-session-id),
- *   agent-session-delete (各行の削除ボタン)
+ *   agent-session-delete (各行の削除ボタン),
+ *   agent-perm-selector (新規セッションの権限セレクタ, data-preset),
+ *   agent-perm-preset-<name> (プリセットボタン: read-only/notes-rw/full),
+ *   agent-perm-toggle-<cap> (ケーパビリティ別トグル, data-checked),
+ *   agent-effective-perms (現在セッションの実効権限表示),
+ *   agent-effective-cap-<cap> (実効ケーパビリティのバッジ),
+ *   agent-perm-stripped-<cap> (要求したが LOAMIUM_MODE で剥がれたケーパビリティ)
  *
  * localStorage キー:
  *   loamium.agent.currentSessionId — 現在のセッション ID (null = 新規未送信)
@@ -31,11 +37,53 @@ import {
   type JSX,
   type KeyboardEvent,
 } from 'react';
-import type { HealthResponse, NoteMeta } from '@loamium/shared';
+import type { HealthResponse, NoteMeta, Capability, AgentPresetName } from '@loamium/shared';
+import { AGENT_CAPABILITIES, AGENT_PRESET_NAMES, AGENT_PRESETS } from '@loamium/shared';
 
 // ---- 型 -----------------------------------------------------------------------
 
 type AgentStatus = 'unconfigured' | 'ready' | 'streaming';
+
+// ---- 権限 UI 定義 (S5bd678-3) -------------------------------------------------
+
+/** ケーパビリティの表示ラベル (日本語)。トグル UI 用。 */
+const CAPABILITY_LABELS: Record<Capability, string> = {
+  read: '読み取り',
+  journal_append: 'ジャーナル追記',
+  note_create: 'ノート作成',
+  note_edit: 'ノート編集',
+  template_write: 'テンプレート書込',
+  dataview_write: 'dataview 書込',
+  web: 'Web アクセス',
+};
+
+/** プリセットの表示ラベル。 */
+const PRESET_LABELS: Record<AgentPresetName, string> = {
+  'read-only': '読取のみ',
+  'notes-rw': 'ノートRW',
+  full: 'フル',
+};
+
+/** ケーパビリティ集合を AGENT_CAPABILITIES 順に整列して返す (比較の安定化用)。 */
+function sortCaps(caps: Iterable<Capability>): Capability[] {
+  const present = new Set<Capability>(caps);
+  return AGENT_CAPABILITIES.filter((c) => present.has(c));
+}
+
+/** 2 つのケーパビリティ集合が (順不同で) 一致するか。 */
+function sameCapSet(a: readonly Capability[], b: readonly Capability[]): boolean {
+  if (a.length !== b.length) return false;
+  const sb = new Set(b);
+  return a.every((c) => sb.has(c));
+}
+
+/** 選択集合に一致するプリセット名を返す (無ければ null = カスタム)。 */
+function matchPreset(caps: readonly Capability[]): AgentPresetName | null {
+  for (const name of AGENT_PRESET_NAMES) {
+    if (sameCapSet(caps, AGENT_PRESETS[name])) return name;
+  }
+  return null;
+}
 
 /** ツールチップ状態 */
 interface ToolChipItem {
@@ -302,6 +350,19 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
   const [inputText, setInputText] = useState('');
   const [abortController, setAbortController] = useState<AbortController | null>(null);
 
+  // 権限セレクタ (S5bd678-3): 新規セッション作成時に送る選択ケーパビリティ集合。
+  // 既定は read-only プリセット (サーバー既定と一致)。
+  const [selectedCaps, setSelectedCaps] = useState<Capability[]>(() => [
+    ...AGENT_PRESETS['read-only'],
+  ]);
+  // ケーパビリティ別トグルの展開状態。
+  const [permExpanded, setPermExpanded] = useState(false);
+  // 現在セッションの実効権限 (GET 詳細の effectivePermissions)。null = 未取得。
+  const [effectivePerms, setEffectivePerms] = useState<Capability[] | null>(null);
+  // 現在セッション作成時に「要求した」ケーパビリティ集合。剥がれ検出に使う。
+  // 既存セッションに切替えた場合は要求集合が不明なので null (剥がれ表示は出さない)。
+  const [requestedPerms, setRequestedPerms] = useState<Capability[] | null>(null);
+
   // セッション一覧 & スイッチャー
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [switcherOpen, setSwitcherOpen] = useState(false);
@@ -354,6 +415,33 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
     }
   }, []);
 
+  // ---- 権限セレクタ操作 (S5bd678-3) --------------------------------------------
+
+  /** プリセットボタン: そのプリセットのケーパビリティ集合に選択を同期する。 */
+  const handleSelectPreset = useCallback((name: AgentPresetName): void => {
+    setSelectedCaps([...AGENT_PRESETS[name]]);
+  }, []);
+
+  /** ケーパビリティ別トグル: 個別に on/off する (カスタム集合になりうる)。 */
+  const handleToggleCap = useCallback((cap: Capability): void => {
+    setSelectedCaps((prev) => {
+      const next = new Set(prev);
+      if (next.has(cap)) {
+        next.delete(cap);
+      } else {
+        next.add(cap);
+      }
+      return sortCaps(next);
+    });
+  }, []);
+
+  /** GET 詳細の effectivePermissions を検証して Capability[] へ絞り込む。 */
+  const parseEffective = useCallback((raw: unknown): Capability[] => {
+    if (!Array.isArray(raw)) return [];
+    const valid = new Set<string>(AGENT_CAPABILITIES);
+    return sortCaps(raw.filter((v): v is Capability => typeof v === 'string' && valid.has(v)));
+  }, []);
+
   // ---- 初期化 ---------------------------------------------------------------
 
   useEffect(() => {
@@ -389,6 +477,7 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
               content: string;
               tools: { name: string; argsSummary: string; status: 'running' | 'done' }[];
             }[];
+            effectivePermissions?: unknown;
           };
           const restored: AgentMessageItem[] = detail.messages.map((m) => ({
             role: m.role,
@@ -402,11 +491,16 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
           }));
           setSessionId(targetId);
           setMessages(restored);
+          setEffectivePerms(parseEffective(detail.effectivePermissions));
+          // 復元セッションは要求集合が不明 → 剥がれ表示は出さない
+          setRequestedPerms(null);
           persistCurrentSessionId(targetId);
         } else {
           // 新規未送信状態
           setSessionId(null);
           setMessages([]);
+          setEffectivePerms(null);
+          setRequestedPerms(null);
           persistCurrentSessionId(null);
         }
 
@@ -459,6 +553,8 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
     setSessionId(null);
     setMessages([]);
     setInputText('');
+    setEffectivePerms(null);
+    setRequestedPerms(null);
     persistCurrentSessionId(null);
     setSwitcherOpen(false);
   }, [status, sessionId, messages.length]);
@@ -477,6 +573,7 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
             content: string;
             tools: { name: string; argsSummary: string; status: 'running' | 'done' }[];
           }[];
+          effectivePermissions?: unknown;
         };
         const restored: AgentMessageItem[] = detail.messages.map((m) => ({
           role: m.role,
@@ -490,12 +587,15 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
         }));
         setSessionId(id);
         setMessages(restored);
+        setEffectivePerms(parseEffective(detail.effectivePermissions));
+        // 切替先セッションは要求集合が不明 → 剥がれ表示は出さない
+        setRequestedPerms(null);
         persistCurrentSessionId(id);
       } catch {
         // 切替失敗は無視
       }
     },
-    [status],
+    [status, parseEffective],
   );
 
   // ---- セッション削除 -----------------------------------------------------------
@@ -573,12 +673,28 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
         let currentSessionId = sessionId;
         if (currentSessionId === null) {
           try {
-            const res = (await apiPost('/api/agent/sessions')) as { id: string };
+            // S5bd678-3: 選択したケーパビリティ集合を permissions として送る (配列形式)。
+            const requested = sortCaps(selectedCaps);
+            const res = (await apiPost('/api/agent/sessions', {
+              permissions: requested,
+            })) as { id: string };
             currentSessionId = res.id;
             // MF-2: abort が sessionId state より先に発火してもサーバー abort を送れるよう ref に記録
             activeSendSessionIdRef.current = currentSessionId;
             setSessionId(currentSessionId);
+            // 要求集合を記録 (剥がれ検出用)
+            setRequestedPerms(requested);
             persistCurrentSessionId(currentSessionId);
+            // 作成直後に実効権限を取得して表示 (LOAMIUM_MODE クランプ後)
+            try {
+              const detail = (await apiGet(`/api/agent/sessions/${currentSessionId}`)) as {
+                effectivePermissions?: unknown;
+              };
+              setEffectivePerms(parseEffective(detail.effectivePermissions));
+            } catch {
+              // 実効権限取得失敗は致命的でない — 表示しないだけ
+              setEffectivePerms(null);
+            }
             // 一覧にも追加 (次に switcher を開いたとき反映される)
             const newList = await fetchSessions();
             setSessions(newList);
@@ -705,7 +821,7 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
         setAbortController(null);
       }
     })();
-  }, [inputText, sessionId, status]);
+  }, [inputText, sessionId, status, selectedCaps, parseEffective, fetchSessions]);
 
   // ---- 中断 ------------------------------------------------------------------
 
@@ -780,6 +896,24 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
     }
     return 'セッション';
   })();
+
+  // ---- 権限 UI 派生値 (S5bd678-3) ---------------------------------------------
+
+  // 権限セレクタは「新規未送信セッション」でのみ表示する (作成時に適用するため)。
+  const showPermSelector = sessionId === null;
+  // 選択集合に一致するプリセット (無ければ null = カスタム)。
+  const activePreset = matchPreset(selectedCaps);
+  const selectedCapSet = new Set(selectedCaps);
+
+  // 実効権限表示: 送信済みセッションで effectivePerms が取得できていれば表示。
+  const showEffective = sessionId !== null && effectivePerms !== null;
+  const effectiveSet = new Set(effectivePerms ?? []);
+  // 剥がれたケーパビリティ = 要求集合にあるが実効集合に無いもの (LOAMIUM_MODE クランプ)。
+  // 要求集合が不明 (既存/復元セッション) の場合は空 (剥がれ表示なし)。
+  const strippedCaps: Capability[] =
+    requestedPerms !== null
+      ? sortCaps(requestedPerms.filter((c) => !effectiveSet.has(c)))
+      : [];
 
   return (
     <div
@@ -858,6 +992,100 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
           </div>
         )}
       </div>
+
+      {/* 権限セレクタ (新規未送信セッション時のみ, S5bd678-3) */}
+      {showPermSelector && (
+        <div
+          className="agent-perm-selector"
+          data-testid="agent-perm-selector"
+          data-preset={activePreset ?? 'custom'}
+        >
+          <div className="agent-perm-presets" role="group" aria-label="権限プリセット">
+            <span className="agent-perm-label">権限</span>
+            {AGENT_PRESET_NAMES.map((name) => (
+              <button
+                key={name}
+                type="button"
+                className={`agent-perm-preset${activePreset === name ? ' active' : ''}`}
+                data-testid={`agent-perm-preset-${name}`}
+                aria-pressed={activePreset === name}
+                disabled={isStreaming}
+                onClick={() => handleSelectPreset(name)}
+              >
+                {PRESET_LABELS[name]}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="agent-perm-expand"
+              data-testid="agent-perm-expand"
+              aria-expanded={permExpanded}
+              disabled={isStreaming}
+              onClick={() => setPermExpanded((v) => !v)}
+            >
+              {permExpanded ? '詳細を隠す' : '詳細'}
+              {activePreset === null && <span className="agent-perm-custom-dot" aria-hidden="true" />}
+            </button>
+          </div>
+          {permExpanded && (
+            <div className="agent-perm-toggles" data-testid="agent-perm-toggles">
+              {AGENT_CAPABILITIES.map((cap) => {
+                const checked = selectedCapSet.has(cap);
+                return (
+                  <label
+                    key={cap}
+                    className={`agent-perm-toggle${checked ? ' checked' : ''}`}
+                    data-testid={`agent-perm-toggle-${cap}`}
+                    data-checked={checked ? 'true' : 'false'}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={isStreaming}
+                      onChange={() => handleToggleCap(cap)}
+                    />
+                    <span>{CAPABILITY_LABELS[cap]}</span>
+                    {cap === 'web' && <span className="agent-perm-note">(未実装)</span>}
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 実効権限表示 (送信済みセッション, S5bd678-3) */}
+      {showEffective && (
+        <div className="agent-effective-perms" data-testid="agent-effective-perms">
+          <span className="agent-perm-label">実効権限</span>
+          <div className="agent-effective-list">
+            {(effectivePerms ?? []).length === 0 ? (
+              <span className="agent-effective-empty">なし</span>
+            ) : (
+              (effectivePerms ?? []).map((cap) => (
+                <span
+                  key={cap}
+                  className="agent-effective-cap"
+                  data-testid={`agent-effective-cap-${cap}`}
+                >
+                  {CAPABILITY_LABELS[cap]}
+                </span>
+              ))
+            )}
+            {strippedCaps.map((cap) => (
+              <span
+                key={cap}
+                className="agent-effective-cap stripped"
+                data-testid={`agent-perm-stripped-${cap}`}
+                title="LOAMIUM_MODE により無効"
+              >
+                {CAPABILITY_LABELS[cap]}
+                <span className="agent-perm-stripped-note"> (LOAMIUM_MODE により無効)</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* メッセージ一覧 */}
       <div className="agent-messages" data-testid="agent-messages">

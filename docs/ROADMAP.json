@@ -4,10 +4,10 @@
   "progress": {
     "current_sprint": null,
     "total": 35,
-    "done": 32,
+    "done": 33,
     "in_progress": 0,
-    "remaining": 3,
-    "percentage": 91
+    "remaining": 2,
+    "percentage": 94
   },
   "execution_order": [
     "Sd63ad1",
@@ -3200,11 +3200,128 @@
     },
     "S5bd678": {
       "title": "エージェント権限モデル(ケーパビリティ別)+ 書き込みツール",
-      "status": "pending",
+      "status": "done",
       "description": "ADR-0008 の3段階を廃し ADR-0011 のケーパビリティ別トグル権限(read / journal_append / note_create / note_edit / template_write / dataview_write / web を独立 on/off)。agent.json の permissions 既定 + チャット UI でセッション上書き + プリセット(読取のみ/ノートRW/フル)+ 実効権限 = エージェント権限 ∩ LOAMIUM_MODE。書き込みは既存の監査済みサービス層経由(ADR-0012、ピュア Markdown・パス正規化・監査継承)。Template は templates/ 配下の規定 frontmatter ノート、DataView は dataview フェンスで、いずれも help 知識を使った通常のノート書き込みとして生成(新フォーマットなし)。ADR-0011/0012。",
       "milestone": false,
-      "detail_level": "coarse",
-      "stories": {}
+      "detail_level": "detailed",
+      "stories": {
+        "S5bd678-1": {
+          "title": "ケーパビリティ権限モデル(導出 + agent.json 既定 + セッション上書き + MODE AND)",
+          "status": "done",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "vault 所有者として、エージェントの権限をケーパビリティ別(read/journal_append/note_create/note_edit/template_write/dataview_write/web)に独立して on/off したい。なぜなら「読むだけ」「ノートRWだが Web 無し」など要求が分かれ、Web は書き込みと独立軸だから(ADR-0011)。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S5bd678-1-1",
+              "description": "agent.json の permissions(プリセット名 or ケーパビリティ配列)から有効ケーパビリティ集合を解決し、LLM に広告されるツール集合が有効ケーパビリティから導出される(read→search/query/read_note/backlinks/tags/help、各書き込みケーパビリティ→対応する書き込みツール)。permissions 未指定時の既定は read-only プリセット(read のみ、安全側)",
+              "test": "[AC-S5bd678-1-1] in packages/shared/src/agent-capabilities.test.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-S5bd678-1-2",
+              "description": "実効権限 = エージェント権限 ∩ LOAMIUM_MODE。read-only では全書き込みケーパビリティが剥がれ(read/web は残る)、append-only では journal_append 以外の書き込みが剥がれる。この AND はサーバー側で強制される",
+              "test": "[AC-S5bd678-1-2] in packages/shared/src/agent-capabilities.test.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-S5bd678-1-3",
+              "description": "チャット UI からセッション単位で権限を上書きでき(POST /api/agent/sessions に permissions)、セッションに永続化され再オープン(サーバー再起動含む)後も同じツール集合が導出される。GET セッション詳細で実効ケーパビリティが取得できる",
+              "test": "[AC-S5bd678-1-3] in tests/acceptance/agent-permissions.spec.ts",
+              "status": "pass"
+            }
+          ],
+          "tasks": {
+            "S5bd678-1-1": {
+              "title": "shared: ケーパビリティ型・プリセット・導出",
+              "description": "agent-capabilities.ts に Capability enum(7種)、PRESETS(read-only/notes-rw/full)、resolvePermissions(config)→Set、deriveToolNames(caps)→string[]、clampByMode(caps, LOAMIUM_MODE)→Set。ユニットテスト必須。",
+              "status": "done"
+            },
+            "S5bd678-1-2": {
+              "title": "server: agent.json permissions + セッション権限ストア",
+              "description": "agentConfigSchema に permissions optional 追加。.loamium/agent-session-perms.json に sessionId→caps を永続化するストア。createPiSession/openPiSession が有効ケーパビリティから tools allowlist を導出。",
+              "status": "done"
+            },
+            "S5bd678-1-3": {
+              "title": "API: セッション作成の permissions 受理 + 詳細で実効権限返却",
+              "description": "POST /api/agent/sessions が permissions body を受理し永続化。GET /api/agent/sessions/{id} が effectivePermissions を返す。受け入れテスト(再起動シナリオ含む)。",
+              "status": "done"
+            }
+          }
+        },
+        "S5bd678-2": {
+          "title": "書き込みツール(既存監査済みサービス層経由)",
+          "status": "done",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "エージェント利用者として、権限を与えたときエージェントがジャーナル追記・ノート作成/編集・テンプレート/DataView 作成をできるようにしたい。なぜなら、読むだけでなく整理・下書きまで任せたいから。ただし REST と同じ不変条件(ピュア Markdown・パス安全・監査)を崩さないこと(ADR-0012)。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S5bd678-2-1",
+              "description": "journal_append / note_create / note_edit / template_write / dataview_write が REST と同一のサービス層(writeNote/appendText/patch 等を切り出した note-service)を経由して書き込み、ピュア Markdown・normalizeVaultPath を継承する。新フォーマット(ブロックID・独自記法)は書かない。note_edit は old→new の非破壊 patch、note_create は既存パスなら 409 相当、template は templates/ 配下の規定 frontmatter ノート、dataview はノート本文への ```dataview フェンス挿入",
+              "test": "[AC-S5bd678-2-1] in packages/server/src/agent-write-tools.test.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-S5bd678-2-2",
+              "description": "各書き込みツールは対応ケーパビリティが有効なときのみ広告・実行され、無効時は広告されない。全書き込みが .loamium/audit.log に記録される(ツール名・パス)",
+              "test": "[AC-S5bd678-2-2] in packages/server/src/agent-write-tools.test.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-S5bd678-2-3",
+              "description": "機密領域(ADR-0014 privacy deny)にマッチするパスへの書き込みは全書き込みツールで拒否される(deny > allow)。vault ルート外・.loamium/ 配下・.md 以外(notes 系)への不正書き込みも拒否される",
+              "test": "[AC-S5bd678-2-3] in packages/server/src/agent-write-tools.test.ts",
+              "status": "pass"
+            }
+          ],
+          "tasks": {
+            "S5bd678-2-1": {
+              "title": "server: note-service 切り出し",
+              "description": "notes.ts / journal.ts の append/patch/create ロジックを note-service.ts の純関数へ切り出し(REST ルートもこれを呼ぶようにリファクタ、既存テスト非破壊)。",
+              "status": "done"
+            },
+            "S5bd678-2-2": {
+              "title": "server: 書き込みツール実装",
+              "description": "createVaultWriteTools(index, vaultRoot, isDenied, audit) で 5 ツール。privacy deny チェック、監査ログ直接書き込み(writeAuditEntry)、capability 導出で広告制御。",
+              "status": "done"
+            }
+          }
+        },
+        "S5bd678-3": {
+          "title": "チャット UI 権限トグル + プリセット",
+          "status": "done",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、チャットUIから今回のセッションのエージェント権限をプリセットやトグルで選びたい。なぜなら、用途ごとに「読むだけ」「ノートも書く」を安全に切り替えたいから(ADR-0011)。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S5bd678-3-1",
+              "description": "AgentPane にプリセット(読取のみ/ノートRW/フル)とケーパビリティ別トグルの権限 UI があり、選択が新規セッション作成時に permissions として送信される。既存 AgentPane のスタイル/構造を踏襲する",
+              "test": "[AC-S5bd678-3-1] in packages/ui/tests/e2e/agent-permissions.e2e.spec.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-S5bd678-3-2",
+              "description": "現在のセッションの実効権限(有効ケーパビリティ)が UI に表示され、LOAMIUM_MODE によって剥がれたケーパビリティが分かる(サーバーが最終ガード)",
+              "test": "[AC-S5bd678-3-2] in packages/ui/tests/e2e/agent-permissions.e2e.spec.ts",
+              "status": "pass"
+            }
+          ],
+          "tasks": {
+            "S5bd678-3-1": {
+              "title": "UI: 権限選択コンポーネント",
+              "description": "AgentPane にプリセット + トグル UI。セッション作成 POST に permissions を載せる。data-testid 契約。",
+              "status": "done"
+            },
+            "S5bd678-3-2": {
+              "title": "UI: 実効権限の表示",
+              "description": "GET セッション詳細の effectivePermissions を表示。剥がれたケーパビリティを視覚区別。二層テスト(mock + e2e)。",
+              "status": "done"
+            }
+          }
+        }
+      }
     },
     "S2fe109": {
       "title": "エージェント定期実行 — スケジューラ / ジョブ定義 / キャッチアップ",
@@ -3647,6 +3764,13 @@
       "description": "activeSessionsById Map が無制限に増えうる。多数セッション作成時に LRU 退避 or ターン終了でキャッシュ破棄しディスク復元に一本化。ディスク永続化は済んでいるので機能影響は小。",
       "added_in": "S53409d review",
       "reason": "Story 2 review で指摘 (メモリ肥大の潜在リスク)",
+      "status": "pending"
+    },
+    {
+      "title": "エージェントの restricted-mode 稼働(read-only/append-only での session/message)",
+      "description": "permissionMiddleware が /api/agent/* の POST を mutate 分類で 403 にするため、LOAMIUM_MODE=read-only/append-only ではエージェントの session 作成・メッセージ送信ができない(既存 agent-session-delete.spec.ts が 403 を pin)。ケーパビリティ clamp(read-only→{read,web})は導出レベルで正しいが、restricted mode で read-only エージェントを実稼働させるには control-plane(session/message/abort/delete)を vault-write mode ゲートから分離する設計判断が要る。",
+      "added_in": "S5bd678",
+      "reason": "S5bd678-1 実装中に表面化(ADR-0011 の AND 意図と既存 middleware の緊張)。既存 pin を壊さないため本スプリントでは非変更",
       "status": "pending"
     }
   ]

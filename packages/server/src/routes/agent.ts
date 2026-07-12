@@ -27,9 +27,15 @@ import {
   updateSessionTitle,
   validateSessionId,
   deleteSession,
+  getEffectiveCapabilities,
 } from '../agent-service.js';
 import { parseBody, errorJson, setAudit, type AppEnv } from '../http.js';
-import { agentSendMessageRequestSchema } from '@loamium/shared';
+import {
+  agentSendMessageRequestSchema,
+  agentCreateSessionRequestSchema,
+  resolvePermissions,
+} from '@loamium/shared';
+import { loadSessionPerms } from '../agent-session-perms.js';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { VaultIndex } from '../noteIndex.js';
 
@@ -69,6 +75,27 @@ function buildArgsSummary(toolName: string, args: unknown): string {
   }
 }
 
+/**
+ * POST 本文を任意扱いで読む (body 無し / 空 / 非 JSON は {} として扱う)。
+ * POST /api/agent/sessions は permissions が optional で body 無しも許容するため。
+ * JSON として parse できたがオブジェクトでない (配列/プリミティブ) 場合はそのまま返し、
+ * 後段の zod 検証に委ねる (不正な permissions は 400 になる)。
+ */
+async function readOptionalJsonBody(c: { req: { text: () => Promise<string> } }): Promise<unknown> {
+  let raw: string;
+  try {
+    raw = await c.req.text();
+  } catch {
+    return {};
+  }
+  if (raw.trim() === '') return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
 export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
@@ -87,9 +114,37 @@ export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
       return errorJson(c, 400, configResult.reason, configResult.message);
     }
 
+    // permissions は optional。body 無し / 空オブジェクトも許容する。
+    // permissions 未指定なら agent.json 既定 (未指定なら read-only) を使う。
+    const rawBody = await readOptionalJsonBody(c);
+    const parsed = agentCreateSessionRequestSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      const msg = parsed.error.issues
+        .map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`)
+        .join('; ');
+      return errorJson(c, 400, 'invalid_permissions', msg);
+    }
+
+    // セッション権限 = リクエストの permissions or agent.json 既定 → LOAMIUM_MODE でクランプ。
+    const requested =
+      parsed.data.permissions !== undefined
+        ? resolvePermissions(parsed.data.permissions)
+        : resolvePermissions(configResult.config.permissions);
+    const effectiveCaps = getEffectiveCapabilities(
+      configResult.config,
+      requested,
+      config.mode,
+    );
+
     let session;
     try {
-      session = await createPiSession(config.vaultRoot, configResult.config, index);
+      // createPiSession は成功後に caps をセッション権限ストアへ永続化する。
+      session = await createPiSession(
+        config,
+        configResult.config,
+        index,
+        effectiveCaps,
+      );
     } catch (err) {
       return errorJson(c, 500, 'session_create_failed', String(err));
     }
@@ -111,24 +166,42 @@ export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
       return errorJson(c, 400, 'invalid_session_id', 'session id contains invalid characters');
     }
 
+    // 実効ケーパビリティ (ADR-0011) を導出する。
+    // セッション権限ストア (無ければ agent.json 既定) → LOAMIUM_MODE でクランプ。
+    // agent.json 未設定でも effectivePermissions は返す (config 既定 = read-only 相当)。
+    const configResult = await loadAgentConfig(config.vaultRoot);
+    const sessionPerms = await loadSessionPerms(config.vaultRoot, sessionId);
+    const effectivePermissions = configResult.ok
+      ? getEffectiveCapabilities(configResult.config, sessionPerms, config.mode)
+      : getEffectiveCapabilities(
+          // agent.json 無しでもクランプ導出できるよう permissions 無しの最小 config を渡す
+          { api: 'openai', baseUrl: 'x', model: 'x', apiKey: 'x' },
+          sessionPerms,
+          config.mode,
+        );
+
     // fast-path: active session in memory
     const active = getActiveSession(sessionId);
     if (active) {
       const messages = extractSessionMessages(active);
-      return c.json({ id: sessionId, messages });
+      return c.json({ id: sessionId, messages, effectivePermissions });
     }
 
     // slow-path: load from JSONL on disk (サーバー再起動後のリストア)
-    const configResult = await loadAgentConfig(config.vaultRoot);
     if (!configResult.ok) {
-      return c.json({ id: sessionId, messages: [] });
+      return c.json({ id: sessionId, messages: [], effectivePermissions });
     }
     try {
-      const session = await getSessionFromDisk(sessionId, config.vaultRoot, configResult.config, index);
+      const session = await getSessionFromDisk(
+        sessionId,
+        config,
+        configResult.config,
+        index,
+      );
       const messages = extractSessionMessages(session);
-      return c.json({ id: sessionId, messages });
+      return c.json({ id: sessionId, messages, effectivePermissions });
     } catch {
-      return c.json({ id: sessionId, messages: [] });
+      return c.json({ id: sessionId, messages: [], effectivePermissions });
     }
   });
 
@@ -215,7 +288,12 @@ export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
         return errorJson(c, 400, 'agent_not_configured', 'agent is not configured');
       }
       try {
-        session = await getSessionFromDisk(sessionId, config.vaultRoot, configResult.config, index);
+        session = await getSessionFromDisk(
+          sessionId,
+          config,
+          configResult.config,
+          index,
+        );
       } catch {
         return errorJson(c, 404, 'session_not_found', `session not found: ${sessionId}`);
       }
