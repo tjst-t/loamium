@@ -55,6 +55,7 @@ import {
 import { agentConfigSchema, type AgentConfig } from '@loamium/shared';
 import type { ServerConfig } from './config.js';
 import { createVaultReadTools, VAULT_READ_TOOL_NAMES } from './agent-tools.js';
+import { loadAgentPrivacy } from './agent-privacy.js';
 import { buildAgentSystemPrompt } from './agent-prompt.js';
 
 /**
@@ -251,7 +252,9 @@ export async function createPiSession(
 
   const sm = SessionManager.create(vaultRoot, dir);
 
-  const customTools = createVaultReadTools(index, vaultRoot);
+  // ADR-0014: 機密領域 deny リストをセッション生成時にロードし共通フィルタへ配線する。
+  const { isDenied } = await loadAgentPrivacy(vaultRoot);
+  const customTools = createVaultReadTools(index, vaultRoot, isDenied);
   const resourceLoader = await buildAgentResourceLoader(vaultRoot);
 
   const { session } = await createAgentSession({
@@ -299,7 +302,9 @@ export async function openPiSession(
   const dir = sessionDir(vaultRoot);
   const sm = SessionManager.open(sessionFile, dir);
 
-  const customTools = createVaultReadTools(index, vaultRoot);
+  // ADR-0014: 同上 — 既存セッションを開くたびに最新の deny リストを反映する。
+  const { isDenied } = await loadAgentPrivacy(vaultRoot);
+  const customTools = createVaultReadTools(index, vaultRoot, isDenied);
   const resourceLoader = await buildAgentResourceLoader(vaultRoot);
 
   const { session } = await createAgentSession({

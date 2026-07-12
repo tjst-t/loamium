@@ -7,6 +7,7 @@ reports/
 dev-vault/
 .loamium/*
 !/.loamium/smart-folders.json
+!/.loamium/agent-privacy.json
 *.log
 .claude/worktrees/
 .claude/autopilot-*.lock

@@ -22,6 +22,7 @@ import {
 import { readNote } from './vault.js';
 import { resolveHelpTopic, helpTopicNames } from './agent-help.js';
 import type { VaultIndex } from './noteIndex.js';
+import { createPrivacyFilteredIndex } from './agent-privacy.js';
 
 // ---- 型エイリアス ---------------------------------------------------------------
 
@@ -38,11 +39,21 @@ function textResult(text: string, details: ToolDetails = {}) {
 /**
  * 5 種の読み取り専用ツールを生成する。
  * index と vaultRoot は各ツールのクロージャでキャプチャする。
+ *
+ * ADR-0014: isDenied は機密領域 deny 判定 (vault 相対パス → deny なら true)。
+ * 省略時は「常に false」= deny なし (既存呼び出し・既存テスト非破壊)。
+ * read_note は isDenied で未発見扱いにし、search/query/backlinks/tags は
+ * createPrivacyFilteredIndex を通した共通フィルタビュー経由に統一する
+ * (強制点をツールに散らさず 1 箇所へ集約する)。
  */
 export function createVaultReadTools(
   index: VaultIndex,
   vaultRoot: string,
+  isDenied: (relPath: string) => boolean = () => false,
 ) {
+  // ADR-0014: read_note 以外のツールが参照するのは deny 除外済みの共通ビュー。
+  const view = createPrivacyFilteredIndex(index, isDenied);
+
   // ---- search -----------------------------------------------------------------
 
   const searchTool = defineTool({
@@ -54,7 +65,7 @@ export function createVaultReadTools(
       query: Type.String({ description: '検索クエリ文字列' }),
     }),
     async execute(_toolCallId, params): Promise<{ content: { type: 'text'; text: string }[]; details: ToolDetails }> {
-      const results = index.search(params.query, 20);
+      const results = view.search(params.query, 20);
       if (results.length === 0) {
         return textResult(`"${params.query}" に一致するノートはありませんでした。`, { count: 0 });
       }
@@ -78,7 +89,7 @@ export function createVaultReadTools(
     async execute(_toolCallId, params): Promise<{ content: { type: 'text'; text: string }[]; details: ToolDetails }> {
       let result;
       try {
-        result = executeQuery(parseQuery(params.dql), index.queryNotes());
+        result = executeQuery(parseQuery(params.dql), view.queryNotes());
       } catch (err) {
         if (err instanceof DqlParseError) {
           return textResult(`DQL 構文エラー: ${err.message}`, { error: true });
@@ -140,6 +151,10 @@ export function createVaultReadTools(
         }
         return textResult(`パス正規化エラー: ${String(err)}`, { error: true });
       }
+      // ADR-0014: deny マッチは存在ごと隠す — not-found と同一の文言/details で返す。
+      if (isDenied(rel)) {
+        return textResult(`ノートが見つかりません: ${rel}`, { error: true });
+      }
       const content = await readNote(vaultRoot, rel);
       if (content === null) {
         return textResult(`ノートが見つかりません: ${rel}`, { error: true });
@@ -168,7 +183,7 @@ export function createVaultReadTools(
         }
         return textResult(`パス正規化エラー: ${String(err)}`, { error: true });
       }
-      const backlinks = index.backlinks(rel);
+      const backlinks = view.backlinks(rel);
       if (backlinks.length === 0) {
         return textResult(`[[${rel.replace(/\.md$/, '')}]] へのバックリンクはありません。`, { count: 0 });
       }
@@ -190,7 +205,7 @@ export function createVaultReadTools(
     description: 'vault 内で使われているタグの一覧と出現件数を返す。',
     parameters: Type.Object({}),
     async execute(): Promise<{ content: { type: 'text'; text: string }[]; details: ToolDetails }> {
-      const tags = index.tags();
+      const tags = view.tags();
       if (tags.length === 0) {
         return textResult('vault にタグはありません。', { count: 0 });
       }
