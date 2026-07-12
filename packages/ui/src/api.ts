@@ -364,4 +364,26 @@ export const api = {
       body: JSON.stringify(body),
     });
   },
+
+  // ---- スマートコマンド (Sde7a63-1 / Sde7a63-3) ----
+
+  /**
+   * スマートコマンド一覧を取得する (GET /api/commands — Sd22b1f-1)。
+   * Sde7a63-3 でパレットへの表示に使う。Story 1 の段階でメソッドだけ追加しておく。
+   */
+  listCommands(): Promise<{ commands: { id: string; title: string; description: string; valid: boolean }[] }> {
+    return request(
+      z.object({
+        commands: z.array(
+          z.object({
+            id: z.string(),
+            title: z.string(),
+            description: z.string(),
+            valid: z.boolean(),
+          }),
+        ),
+      }),
+      '/api/commands',
+    );
+  },
 };

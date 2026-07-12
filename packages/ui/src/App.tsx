@@ -1587,6 +1587,29 @@ export function App(): JSX.Element {
             setPaletteOpen(false);
             openSearch({ q: q.trim().normalize('NFC'), tag: '', folder: '', sort: 'updated' });
           }}
+          commandHandlers={{
+            onNewNote: () => {
+              setPaletteOpen(false);
+              setDialog({ type: 'new-note', folder: '' });
+            },
+            onOpenTemplatePicker: () => {
+              setPaletteOpen(false);
+              openTemplatePicker();
+            },
+            onNewSmartFolder: () => {
+              setPaletteOpen(false);
+              switchSidebarView('smart');
+              setSmartAddTrigger((c) => c + 1);
+            },
+            onOpenAdvancedSearch: () => {
+              setPaletteOpen(false);
+              openSearch({ q: '', tag: '', folder: '', sort: 'updated' });
+            },
+            onOpenTodayJournal: () => {
+              setPaletteOpen(false);
+              void openJournalNav();
+            },
+          }}
         />
       )}
 

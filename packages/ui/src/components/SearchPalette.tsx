@@ -1,11 +1,13 @@
 /**
- * グローバル検索パレット (Sbd061c-1 / prototype/search-palette.html)。
+ * グローバル検索 + コマンドパレット (Sbd061c-1 / Sde7a63-1 / prototype/)。
  *
  * - ノート名セクション: 表示時に GET /api/notes を再取得し、クライアント側で
  *   NFC 正規化 + 大文字小文字不区別の部分一致 (タイトル / パス) フィルタ (decisions I1)。
  *   エージェントが外部で作ったノートも開くたびに対象になる。
  * - 全文セクション: 200ms デバウンスで GET /api/search。line が null の結果
  *   (タイトルのみ一致) はノート名セクションと重複するため出さない (decisions I2)。
+ * - コマンドセクション (Sde7a63-1): getCommands() からクエリで絞り込み。
+ *   空クエリでも全コマンドを表示する (edge: empty query shows commands)。
  * - IME: compositionstart〜compositionend 間は全文検索を確定しない (decisions I3)。
  * - Esc / 外側クリックで閉じる。↑↓ で選択、Enter / クリックで開く。
  */
@@ -25,6 +27,9 @@ import {
 import type { NoteMeta, SearchResult } from '@loamium/shared';
 import { api, ApiError } from '../api.js';
 import { FileIcon, SearchIcon } from '../icons.js';
+import { getCommands, type CommandEntry } from '../commandRegistry.js';
+import { registerBuiltinCommands } from '../builtinCommands.js';
+import type { BuiltinCommandHandlers } from '../builtinCommands.js';
 
 const SEARCH_DEBOUNCE_MS = 200;
 const MAX_NOTE_MATCHES = 20;
@@ -37,7 +42,11 @@ export interface SearchPaletteProps {
   onOpenNoteAtLine: (path: string, line: number) => void;
   /** 詳細検索ページ (/search) を現在の入力を引き継いで開く (S935867-1 — 2 モード共存) */
   onOpenAdvanced: (query: string) => void;
+  /** Sde7a63-1: 組み込みコマンド用ハンドラ。未指定時はコマンドセクションを省略しない (互換)。 */
+  commandHandlers?: BuiltinCommandHandlers;
 }
+
+export type { BuiltinCommandHandlers };
 
 interface FulltextHit extends SearchResult {
   line: number;
@@ -45,7 +54,8 @@ interface FulltextHit extends SearchResult {
 
 type PaletteItem =
   | { kind: 'note'; path: string; title: string }
-  | { kind: 'fulltext'; hit: FulltextHit };
+  | { kind: 'fulltext'; hit: FulltextHit }
+  | { kind: 'command'; entry: CommandEntry };
 
 function normalize(s: string): string {
   return s.normalize('NFC').toLowerCase();
@@ -84,6 +94,7 @@ export function SearchPalette({
   onOpenNote,
   onOpenNoteAtLine,
   onOpenAdvanced,
+  commandHandlers,
 }: SearchPaletteProps): JSX.Element {
   const [query, setQuery] = useState('');
   const [notes, setNotes] = useState<NoteMeta[]>([]);
@@ -95,6 +106,8 @@ export function SearchPalette({
   /** GET /api/notes (ノート名セクション) の失敗。検索成功では消さない (レビュー R2) */
   const [notesError, setNotesError] = useState<string | null>(null);
   const [selected, setSelected] = useState(0);
+  /** コマンドセクション: handlers が揃ったら組み込みコマンドを登録 */
+  const [commands, setCommands] = useState<CommandEntry[]>([]);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const resultsRef = useRef<HTMLDivElement | null>(null);
@@ -195,14 +208,33 @@ export function SearchPalette({
     [scheduleSearch],
   );
 
+  // 組み込みコマンドをレジストリへ登録 (handlers が提供された場合のみ)
+  useEffect(() => {
+    if (commandHandlers === undefined) return;
+    registerBuiltinCommands(commandHandlers);
+    setCommands(getCommands());
+  }, [commandHandlers]);
+
   const noteMatches = useMemo(() => matchNotes(notes, query), [notes, query]);
+
+  /** コマンドをクエリ (title / keywords) でフィルタリングする。空クエリは全件。 */
+  const commandMatches = useMemo((): CommandEntry[] => {
+    const q = normalize(query.trim());
+    if (q.length === 0) return commands;
+    return commands.filter(
+      (c) =>
+        normalize(c.title).includes(q) ||
+        c.keywords.some((kw) => normalize(kw).includes(q)),
+    );
+  }, [commands, query]);
 
   const items = useMemo<PaletteItem[]>(
     () => [
       ...noteMatches.map((n): PaletteItem => ({ kind: 'note', path: n.path, title: n.title })),
       ...fulltext.map((hit): PaletteItem => ({ kind: 'fulltext', hit })),
+      ...commandMatches.map((entry): PaletteItem => ({ kind: 'command', entry })),
     ],
-    [noteMatches, fulltext],
+    [noteMatches, fulltext, commandMatches],
   );
 
   // 候補の増減で選択が範囲外になったら先頭へ戻す
@@ -218,8 +250,14 @@ export function SearchPalette({
   const confirm = useCallback(
     (item: PaletteItem): void => {
       onClose();
-      if (item.kind === 'note') onOpenNote(item.path);
-      else onOpenNoteAtLine(item.hit.path, item.hit.line);
+      if (item.kind === 'note') {
+        onOpenNote(item.path);
+      } else if (item.kind === 'fulltext') {
+        onOpenNoteAtLine(item.hit.path, item.hit.line);
+      } else {
+        // kind === 'command': パレットを閉じてからコマンドを実行する
+        item.entry.run();
+      }
     },
     [onClose, onOpenNote, onOpenNoteAtLine],
   );
@@ -280,10 +318,15 @@ export function SearchPalette({
   return (
     <div
       className="palette-backdrop"
-      data-testid="search-palette-backdrop"
+      data-testid="command-palette-backdrop"
       onMouseDown={onBackdropMouseDown}
     >
-      <div className="palette" data-testid="search-palette" role="dialog" aria-label="グローバル検索">
+      <div
+        className="palette"
+        data-testid="command-palette"
+        role="dialog"
+        aria-label="コマンドパレット"
+      >
         <div className="palette-input-row">
           <SearchIcon className="search-ico" />
           <input
@@ -292,7 +335,7 @@ export function SearchPalette({
             data-testid="search-input"
             type="text"
             value={query}
-            placeholder="ノート名・全文を検索…"
+            placeholder="検索またはコマンドを入力…"
             autoFocus
             onChange={onInputChange}
             onKeyDown={onInputKeyDown}
@@ -304,7 +347,7 @@ export function SearchPalette({
 
         <div className="palette-results" ref={resultsRef}>
           {noteMatches.length > 0 && (
-            <div className="palette-section-label" data-testid="search-section-notes">
+            <div className="palette-section-label" data-testid="palette-section-notes">
               <span>ノート</span>
               <span>{noteMatches.length} 件</span>
             </div>
@@ -328,7 +371,7 @@ export function SearchPalette({
           ))}
 
           {fulltext.length > 0 && (
-            <div className="palette-section-label" data-testid="search-section-fulltext">
+            <div className="palette-section-label" data-testid="palette-section-fulltext">
               <span>全文</span>
               <span>{fulltext.length} 件</span>
             </div>
@@ -356,12 +399,43 @@ export function SearchPalette({
             );
           })}
 
+          {/* ---- コマンドセクション (Sde7a63-1) ---- */}
+          {commandMatches.length > 0 && (
+            <div className="palette-section-label" data-testid="palette-section-commands">
+              <span>コマンド</span>
+              <span>{commandMatches.length} 件</span>
+            </div>
+          )}
+          {commandMatches.map((entry, ci) => {
+            const i = noteMatches.length + fulltext.length + ci;
+            return (
+              <button
+                key={`cmd:${entry.id}`}
+                className={`palette-item${selectedIndex === i ? ' selected' : ''}`}
+                data-testid="command-item"
+                data-command-id={entry.id}
+                data-source={entry.source}
+                aria-selected={selectedIndex === i ? 'true' : undefined}
+                onClick={() => confirm({ kind: 'command', entry })}
+                onMouseMove={() => setSelected(i)}
+              >
+                <span className="cmd-ico">{entry.icon}</span>
+                <span className="p-main">
+                  <span className="p-title">{highlight(entry.title, trimmed)}</span>
+                </span>
+                <span className={`cmd-source-badge${entry.source === 'builtin' ? ' builtin' : ''}`}>
+                  {entry.source === 'builtin' ? '組み込み' : 'スマート'}
+                </span>
+              </button>
+            );
+          })}
+
           {error !== null && (
             <div className="palette-error" data-testid="search-error">
               {error}
             </div>
           )}
-          {showEmpty && (
+          {showEmpty && commandMatches.length === 0 && (
             <div className="palette-empty" data-testid="search-empty">
               「{trimmed}」に一致するノートはありません
             </div>
@@ -384,7 +458,7 @@ export function SearchPalette({
             <kbd>↓</kbd> 移動
           </span>
           <span>
-            <kbd>Enter</kbd> 開く(全文ヒットは該当行へ)
+            <kbd>Enter</kbd> 実行
           </span>
           <span>
             <kbd>Esc</kbd> 閉じる

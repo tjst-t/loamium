@@ -1324,6 +1324,45 @@ code {
   padding: 0 4px;
 }
 
+/* ---- コマンドパレット コマンドセクション (Sde7a63-1 — prototype/command-palette.html) ---- */
+
+/* SVG アイコンサイズ基底ガード (inline SVG が巨大化する過去失敗事例への対策) */
+:where(svg) { width: 16px; height: 16px; }
+
+/* コマンド行左端のアイコンボックス */
+.cmd-ico {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.cmd-ico svg { width: 14px; height: 14px; }
+.palette-item.selected .cmd-ico { background: rgba(110, 86, 207, 0.2); }
+
+/* source バッジ (builtin=紫, smart=緑) */
+.cmd-source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: #e8f5ee;
+  color: #1f7a4d;
+  border-radius: 5px;
+  padding: 0 5px;
+  flex-shrink: 0;
+}
+.cmd-source-badge.builtin {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+
 /* ---- ![[embed]] transclusion (S9e5ca4-1/2 — prototype/embed-preview.html) ---- */
 
 .embed-card {
