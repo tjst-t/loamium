@@ -1,0 +1,12 @@
+{
+  "sprint": "Sde7a63",
+  "screens": [
+    {"file": "prototype/command-palette.html", "stories": ["Sde7a63-1","Sde7a63-2","Sde7a63-3"], "feedback_rounds": 0, "approved": true}
+  ],
+  "design_decisions_confirmed": [
+    "コマンドモード中の Esc はパレット全体を閉じる(段階戻りなし、ADR-0007)",
+    "パラメータフォームの Esc はパレットへ戻る(TemplateModal 同挙動)",
+    "valid:false コマンドは非選択(pointer-events 無効)だがエラー理由は表示",
+    "組み込みコマンドのアイコンは既存 UI のアイコン慣例に合わせる"
+  ]
+}
