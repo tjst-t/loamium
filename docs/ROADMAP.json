@@ -4,10 +4,10 @@
   "progress": {
     "current_sprint": null,
     "total": 35,
-    "done": 33,
+    "done": 34,
     "in_progress": 0,
-    "remaining": 2,
-    "percentage": 94
+    "remaining": 1,
+    "percentage": 97
   },
   "execution_order": [
     "Sd63ad1",
@@ -3461,14 +3461,14 @@
     },
     "S5e0206": {
       "title": "エージェントの Web アクセス(opt-in ケーパビリティ)",
-      "status": "pending",
+      "status": "done",
       "milestone": true,
       "detail_level": "detailed",
       "description": "web を既定 off の opt-in ケーパビリティ(ADR-0011 の権限モデルに乗せる)として追加。URL 取得 + Web 検索ツール。有効化時に漏洩リスクを UI で明示警告し、Web アクセスを監査ログに URL 記録(内容は記録しない)。機密領域(ADR-0014)は web 設定に関わらず常に非開示。ADR-0013。",
       "stories": {
         "S5e0206-1": {
           "title": "Web ツール(web_fetch / web_search)opt-in + 監査",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "エージェント利用者として、必要なときだけ Web アクセス(URL 取得・Web 検索)をエージェントに許可したい。なぜなら、Web で調べた内容をノートと突き合わせたいが、既定では漏洩面を開きたくないから(ADR-0013)。",
@@ -3477,42 +3477,42 @@
               "id": "AC-S5e0206-1-1",
               "description": "web ケーパビリティが有効なときのみ web_fetch / web_search が広告・実行される(既定 off、ADR-0011 の web ケーパビリティに乗る)。無効時は広告されない。deriveToolNames(web) が web ツール名を返し、customTools も web が有効なときだけ生成される",
               "test": "[AC-S5e0206-1-1] in packages/shared/src/agent-capabilities.test.ts + packages/server/src/agent-web-tools.test.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S5e0206-1-2",
               "description": "web_fetch は http/https の公開 URL のみ取得する(スキーム制限 + localhost/プライベート IP/リンクローカルを SSRF 防止で拒否)。サイズ上限内でテキストを返す。web_search はクエリで検索し(検索プロバイダは agent.json 設定、未設定時はエラーにせず明示メッセージ)結果を返す",
               "test": "[AC-S5e0206-1-2] in packages/server/src/agent-web-tools.test.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S5e0206-1-3",
               "description": "すべての Web アクセス(web_fetch の URL / web_search のクエリ)が .loamium/audit.log に記録される(取得内容は記録しない)。機密領域(ADR-0014 privacy)は web 設定に関わらず読み取りツールで常に非開示のまま(web と privacy は独立軸)",
               "test": "[AC-S5e0206-1-3] in packages/server/src/agent-web-tools.test.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S5e0206-1-1": {
               "title": "shared: web ケーパビリティのツール導出",
               "description": "deriveToolNames の web マッピングを [web_fetch, web_search] に変更。ユニットテスト更新。",
-              "status": "pending"
+              "status": "done"
             },
             "S5e0206-1-2": {
               "title": "server: SSRF ガード + web ツール",
               "description": "isPublicHttpUrl(url) 純関数(http/https のみ、localhost/127./10./172.16-31/192.168/169.254/::1 等拒否)をユニットテスト付きで実装。createVaultWebTools(config, caps, {fetchImpl?, allowPrivate?}) で web_fetch/web_search。監査ログ直接記録(URL/クエリのみ)。",
-              "status": "pending"
+              "status": "done"
             },
             "S5e0206-1-3": {
               "title": "server: agent.json web 設定 + agent-service 配線",
               "description": "agentConfigSchema に webSearch optional(url/apiKey 等、未設定可)。createPiSession/openPiSession で web が effectiveCaps に含まれるとき web ツールを customTools に追加。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S5e0206-2": {
           "title": "Web 有効化の漏洩リスク警告 UI",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ノート利用者として、エージェントに Web アクセスを許可するときは漏洩リスクを明示的に知りたい。なぜなら、vault 読み取りと Web 送信の併用はプロンプトインジェクション経由で情報が外部流出しうるから(ADR-0013)。",
@@ -3521,25 +3521,25 @@
               "id": "AC-S5e0206-2-1",
               "description": "web ケーパビリティを有効化(トグル on)すると、AgentPane に漏洩リスク(ノート内の悪意あるテキスト経由で vault 情報が外部へ出うる)を明示する警告が表示される。off では表示されない",
               "test": "[AC-S5e0206-2-1] in packages/ui/tests/e2e/agent-web-warning.mock.spec.ts",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S5e0206-2-2",
               "description": "web が実効権限に含まれるセッションで web ツールが利用可能であることが UI で分かる(S5bd678-3 の web トグルの「未実装」注記を除去し、有効/警告状態を反映)",
               "test": "[AC-S5e0206-2-2] in packages/ui/tests/e2e/agent-web-warning.e2e.spec.ts",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S5e0206-2-1": {
               "title": "UI: web 警告表示",
               "description": "web トグル on で漏洩リスク警告バナーを表示。既存 AgentPane スタイル踏襲、data-testid 付与。",
-              "status": "pending"
+              "status": "done"
             },
             "S5e0206-2-2": {
               "title": "UI: 未実装注記の除去 + 二層テスト",
               "description": "S5bd678-3 の web「(未実装)」注記を除去。mock + e2e テスト。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
