@@ -114,3 +114,15 @@ export {
 } from './template-note.js';
 export { compilePrivacyMatcher } from './privacy-glob.js';
 export * from './schemas.js';
+export {
+  AGENT_CAPABILITIES,
+  AGENT_PRESET_NAMES,
+  AGENT_PRESETS,
+  agentPermissionsSchema,
+  resolvePermissions,
+  deriveToolNames,
+  clampByMode,
+  type Capability,
+  type AgentPresetName,
+  type AgentPermissions,
+} from './agent-capabilities.js';

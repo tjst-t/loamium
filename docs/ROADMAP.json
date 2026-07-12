@@ -3765,6 +3765,13 @@
       "added_in": "S53409d review",
       "reason": "Story 2 review で指摘 (メモリ肥大の潜在リスク)",
       "status": "pending"
+    },
+    {
+      "title": "エージェントの restricted-mode 稼働(read-only/append-only での session/message)",
+      "description": "permissionMiddleware が /api/agent/* の POST を mutate 分類で 403 にするため、LOAMIUM_MODE=read-only/append-only ではエージェントの session 作成・メッセージ送信ができない(既存 agent-session-delete.spec.ts が 403 を pin)。ケーパビリティ clamp(read-only→{read,web})は導出レベルで正しいが、restricted mode で read-only エージェントを実稼働させるには control-plane(session/message/abort/delete)を vault-write mode ゲートから分離する設計判断が要る。",
+      "added_in": "S5bd678",
+      "reason": "S5bd678-1 実装中に表面化(ADR-0011 の AND 意図と既存 middleware の緊張)。既存 pin を壊さないため本スプリントでは非変更",
+      "status": "pending"
     }
   ]
 }

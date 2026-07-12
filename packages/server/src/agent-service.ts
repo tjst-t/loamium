@@ -52,10 +52,19 @@ import {
   type AgentSession,
   type ResourceLoader,
 } from '@earendil-works/pi-coding-agent';
-import { agentConfigSchema, type AgentConfig } from '@loamium/shared';
+import {
+  agentConfigSchema,
+  clampByMode,
+  deriveToolNames,
+  resolvePermissions,
+  type AgentConfig,
+  type Capability,
+} from '@loamium/shared';
 import type { ServerConfig } from './config.js';
-import { createVaultReadTools, VAULT_READ_TOOL_NAMES } from './agent-tools.js';
+import type { PermissionMode } from '@loamium/shared';
+import { createVaultReadTools } from './agent-tools.js';
 import { loadAgentPrivacy } from './agent-privacy.js';
+import { loadSessionPerms, saveSessionPerms } from './agent-session-perms.js';
 import { buildAgentSystemPrompt } from './agent-prompt.js';
 
 /**
@@ -132,6 +141,29 @@ function resolveEnvRef(value: string): string | null {
 
 function isNodeError(err: unknown): err is NodeJS.ErrnoException {
   return err instanceof Error && 'code' in err;
+}
+
+// ---- ケーパビリティ権限 (ADR-0011) ------------------------------------------
+
+/**
+ * 実効ケーパビリティを決定する (ADR-0011)。
+ *
+ *   実効権限 = clampByMode( sessionPerms ?? resolvePermissions(config.permissions), LOAMIUM_MODE )
+ *
+ * - sessionPerms: セッション権限ストア (agent-session-perms.json) から読んだ集合。
+ *   無ければ (null) agent.json の permissions を resolvePermissions で解決 (未指定は read-only)。
+ * - mode: サーバー LOAMIUM_MODE。クランプ表に従い許可外のケーパビリティを取り除く。
+ *
+ * routes と agent-service で共有する (GET 詳細の effectivePermissions とツール allowlist を
+ * 同じ導出で一致させるため)。
+ */
+export function getEffectiveCapabilities(
+  config: AgentConfig,
+  sessionPerms: Capability[] | null,
+  mode: PermissionMode,
+): Capability[] {
+  const base = sessionPerms ?? resolvePermissions(config.permissions);
+  return clampByMode(base, mode);
 }
 
 // ---- セッション管理 ----------------------------------------------------------
@@ -236,12 +268,20 @@ async function buildAgentResourceLoader(vaultRoot: string): Promise<ResourceLoad
  * セッションを新規作成する (disk-backed JSONL)。
  * config は遅延読込済みを渡す。
  * index は vault 読み取りツール (ADR-0008) のクロージャへ渡す。
+ * caps は実効ケーパビリティ (ADR-0011)。省略時は config.permissions の解決値
+ * (未指定なら read-only プリセット)。呼び出し側 (routes) が LOAMIUM_MODE で
+ * クランプ済みの集合を渡す想定。
+ *
+ * 副作用: 成功後 (sessionId 確定後) に caps をセッション権限ストアへ永続化する。
  */
 export async function createPiSession(
   vaultRoot: string,
   config: AgentConfig,
   index: VaultIndex,
+  caps?: Capability[],
 ): Promise<AgentSession> {
+  const effectiveCaps = caps ?? resolvePermissions(config.permissions);
+
   const { authStorage, modelRegistry, model } = buildModelRegistry(config);
   if (!model) {
     throw new Error(`model not found after registration: ${config.model}`);
@@ -264,17 +304,27 @@ export async function createPiSession(
     sessionManager: sm,
     // ADR-0010: Loamium がコードで生成した base システムプロンプトを注入する。
     resourceLoader,
-    // ADR-0008: Loamium 独自ツールのみを LLM に広告する。
+    // ADR-0008/0011: 有効ケーパビリティから allowlist を導出し LLM 広告ツールを制御する。
     // noTools:'all' は customTools も含め全ツールを抑制するため使用しない。
     // tools に allowlist を渡すことで built-in を排除しカスタムツールのみ広告される。
     // excludeTools は defense-in-depth — allowlist 変更時でも組み込みが漏れない。
     // (pi-coding-agent/dist/core/sdk.js:132-135, agent-session.js:1916)
-    tools: [...VAULT_READ_TOOL_NAMES],
+    //
+    // 重要 (S5bd678 Story 1): 書き込みツール本体は未実装。deriveToolNames が返す
+    // 書き込みツール名 (note_create 等) に対応する customTool はまだ存在しないため、
+    // customTools には read 系 6 種 + help のみを渡す。allowlist に書き込みツール名が
+    // 入っても、対応 customTool が無ければ pi は広告しない (実害なし)。Story 2 で
+    // customTools に書き込みツールが追加される前提で、allowlist 導出だけ先に正しくしておく。
+    tools: deriveToolNames(effectiveCaps),
     excludeTools: [...PI_BUILTIN_TOOL_NAMES],
     customTools: [...customTools],
   });
 
   activeSessionsById.set(session.sessionId, session);
+
+  // sessionId 確定後にセッション権限を永続化する (再オープン時に同じツール集合を導出)。
+  await saveSessionPerms(vaultRoot, session.sessionId, effectiveCaps);
+
   return session;
 }
 
@@ -282,12 +332,19 @@ export async function createPiSession(
  * 既存セッションを開く (disk-backed。AgentSession はファイルから復元)。
  * config は遅延読込済みを渡す。
  * index は vault 読み取りツール (ADR-0008) のクロージャへ渡す。
+ * mode はサーバー LOAMIUM_MODE。セッション権限ストアからロードした caps を
+ * mode でクランプして allowlist を導出する (ADR-0011)。
+ *
+ * セッション権限ストアにエントリが無い (再起動前の古いセッション等) 場合は
+ * config.permissions 既定へフォールバックする。これにより再オープン後も
+ * 作成時と同じツール集合を導出できる (サーバー再起動含む)。
  */
 export async function openPiSession(
   sessionFile: string,
   vaultRoot: string,
   config: AgentConfig,
   index: VaultIndex,
+  mode: PermissionMode,
 ): Promise<AgentSession> {
   // 既に active なら再利用
   const existingSessionId = getSessionIdFromFile(sessionFile);
@@ -295,6 +352,12 @@ export async function openPiSession(
     const existing = activeSessionsById.get(existingSessionId);
     if (existing) return existing;
   }
+
+  // セッション権限ストアからケーパビリティを復元 (無ければ config 既定)。
+  const sessionPerms = existingSessionId
+    ? await loadSessionPerms(vaultRoot, existingSessionId)
+    : null;
+  const effectiveCaps = getEffectiveCapabilities(config, sessionPerms, mode);
 
   const { authStorage, modelRegistry, model } = buildModelRegistry(config);
   if (!model) throw new Error(`model not found: ${config.model}`);
@@ -314,8 +377,10 @@ export async function openPiSession(
     sessionManager: sm,
     // ADR-0010: 同上 — base システムプロンプトを注入する。
     resourceLoader,
-    // ADR-0008: 同上 — built-in を排除しカスタムツールのみ広告する allowlist + excludeTools。
-    tools: [...VAULT_READ_TOOL_NAMES],
+    // ADR-0008/0011: 復元した実効ケーパビリティから allowlist を導出する。
+    // customTools は read 系 6 種 + help のみ (書き込みツールは Story 2 で追加、
+    // それまで allowlist に名前が入っても対応 customTool 無しで広告されない)。
+    tools: deriveToolNames(effectiveCaps),
     excludeTools: [...PI_BUILTIN_TOOL_NAMES],
     customTools: [...customTools],
   });
@@ -357,6 +422,7 @@ export async function getSessionFromDisk(
   vaultRoot: string,
   config: AgentConfig,
   index: VaultIndex,
+  mode: PermissionMode,
 ): Promise<AgentSession> {
   // キャッシュ優先
   const cached = activeSessionsById.get(sessionId);
@@ -382,7 +448,7 @@ export async function getSessionFromDisk(
     throw new Error(`session file path escapes sessions directory: ${sessionId}`);
   }
 
-  return openPiSession(info.path, vaultRoot, config, index);
+  return openPiSession(info.path, vaultRoot, config, index, mode);
 }
 
 /** セッションディレクトリ下のすべてのセッション一覧を返す。 */
