@@ -66,6 +66,7 @@ import type { ServerConfig } from './config.js';
 import type { PermissionMode } from '@loamium/shared';
 import { createVaultReadTools } from './agent-tools.js';
 import { createVaultWriteTools } from './agent-write-tools.js';
+import { createVaultWebTools } from './agent-web-tools.js';
 import { loadAgentPrivacy } from './agent-privacy.js';
 import { loadSessionPerms, saveSessionPerms } from './agent-session-perms.js';
 import { buildAgentSystemPrompt } from './agent-prompt.js';
@@ -303,6 +304,9 @@ export async function createPiSession(
   const customTools = [
     ...createVaultReadTools(index, vaultRoot, isDenied),
     ...createVaultWriteTools(serverConfig, index, isDenied, effectiveCaps),
+    // ADR-0013: web が有効ケーパビリティに含まれるときだけ web_fetch / web_search を追加。
+    // allowPrivate は本番既定 false (SSRF 防止)。
+    ...createVaultWebTools(serverConfig, config, effectiveCaps),
   ];
   const resourceLoader = await buildAgentResourceLoader(vaultRoot);
 
@@ -380,6 +384,8 @@ export async function openPiSession(
   const customTools = [
     ...createVaultReadTools(index, vaultRoot, isDenied),
     ...createVaultWriteTools(serverConfig, index, isDenied, effectiveCaps),
+    // ADR-0013: 復元した実効ケーパビリティに web が含まれるときだけ web ツールを追加。
+    ...createVaultWebTools(serverConfig, config, effectiveCaps),
   ];
   const resourceLoader = await buildAgentResourceLoader(vaultRoot);
 

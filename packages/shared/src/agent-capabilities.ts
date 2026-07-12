@@ -26,7 +26,7 @@ import type { PermissionMode } from './schemas.js';
  *   - note_edit      : ノート編集
  *   - template_write : テンプレート適用による書き込み
  *   - dataview_write : dataview 経由の書き込み
- *   - web            : Web アクセス (S5bd678 ではツール未実装)
+ *   - web            : Web アクセス (ADR-0013 / S5e0206: web_fetch / web_search)
  */
 export const AGENT_CAPABILITIES = [
   'read',
@@ -113,7 +113,9 @@ function normalizeCapabilities(caps: readonly Capability[]): Capability[] {
  * 既定なので read 群に help を含めるが、caps に read が無くても help は常に広告する
  * (deriveToolNames 側で保証する)。
  *
- * web は S5bd678 では未実装のため空 (Story: S5e0206 で追加予定)。
+ * web は ADR-0013 (S5e0206) で web_fetch / web_search を広告する。
+ * 既定 off の独立ケーパビリティであり、有効なとき (effectiveCaps に含まれるとき) だけ
+ * これらのツールが広告される (clampByMode は web を read-only/append-only でも残す = 既存)。
  */
 const CAPABILITY_TOOL_NAMES: Record<Capability, readonly string[]> = {
   read: ['backlinks', 'help', 'query', 'read_note', 'search', 'tags'],
@@ -122,7 +124,7 @@ const CAPABILITY_TOOL_NAMES: Record<Capability, readonly string[]> = {
   note_edit: ['note_edit'],
   template_write: ['template_write'],
   dataview_write: ['dataview_write'],
-  web: [],
+  web: ['web_fetch', 'web_search'],
 };
 
 /**

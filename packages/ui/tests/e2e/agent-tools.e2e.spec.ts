@@ -131,10 +131,14 @@ test.describe.serial('agent tools', () => {
     await expect(page.getByTestId('agent-msg-assistant')).toContainText('設計ノートは');
   });
 
-  test('[AC-S53409d-3-1] LLM に広告されるツールは read 系 5 種のみ (実リクエストの実測)', () => {
-    // 前テストで実際に LLM へ送られた tools 定義を検証する
-    // カスタム read ツールは read_note に改名 (ADR-0008 collision 排除)
-    expect(advertisedTools).toEqual(['backlinks', 'query', 'read_note', 'search', 'tags']);
+  test('[AC-S53409d-3-1] 既定 (read-only) セッションで LLM に広告されるツールは read 系 + help のみ (実リクエストの実測)', () => {
+    // 前テストで実際に LLM へ送られた tools 定義を検証する。
+    // カスタム read ツールは read_note に改名 (ADR-0008 collision 排除)。
+    // ADR-0010: help ツールを追加 (どの権限セットでも使える読み取り系)。
+    // ADR-0011 (ADR-0008 を supersede): 広告ツールは有効ケーパビリティから導出される。
+    //   このセッションは既定=read-only プリセット (read のみ) のため書き込み/web ツールは
+    //   広告されない。書き込み/web ツールが混じっていないこと自体が capability ゲートの実測。
+    expect(advertisedTools).toEqual(['backlinks', 'help', 'query', 'read_note', 'search', 'tags']);
   });
 
   test('[AC-S53409d-3-3] 回答中の [[リンク]] クリックで当該ノートへ遷移する', async ({ page }) => {
