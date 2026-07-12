@@ -3705,6 +3705,17 @@ button.callout-title { cursor: pointer; }
 }
 
 /* ==== エージェントチャットペイン (S53409d-2) ==== */
+
+/* 右サイドバーのパネルラッパー — マウント維持 (display:none で切替) しつつ
+   .panel → ラッパー → .agent-body/.panel-body の flex 高さ連鎖を保つ。
+   これが無いとラッパーが内容高さになり、セッションバー固定と内部スクロールが壊れる。 */
+.rs-pane-fill {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .agent-body {
   display: flex;
   flex-direction: column;

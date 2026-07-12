@@ -176,8 +176,9 @@ export function RightSidebar({
         )}
       </div>
 
-      {/* パネル本体 — collapsed 時は display:none で DOM に残す (AgentPane のセッション保持) */}
-      <div style={collapsed ? { display: 'none' } : undefined}>
+      {/* パネル本体 — collapsed 時は display:none で DOM に残す (AgentPane のセッション保持)。
+          rs-pane-fill で flex 高さ連鎖を維持し、内部の overflow スクロールを効かせる。 */}
+      <div className="rs-pane-fill" style={collapsed ? { display: 'none' } : undefined}>
         {/* バックリンク本体 */}
         <div
           className="panel-body"
@@ -222,8 +223,9 @@ export function RightSidebar({
           )}
         </div>
 
-        {/* エージェントペイン — タブ非選択時も display:none で DOM に残す (セッション保持) */}
-        <div style={activeTab !== 'agent' ? { display: 'none' } : undefined}>
+        {/* エージェントペイン — タブ非選択時も display:none で DOM に残す (セッション保持)。
+            rs-pane-fill で .agent-body に高さを伝え、セッションバー固定 + メッセージ内部スクロールを効かせる。 */}
+        <div className="rs-pane-fill" style={activeTab !== 'agent' ? { display: 'none' } : undefined}>
           <AgentPane health={health} notes={notes} onOpenNote={onOpenNote} />
         </div>
       </div>

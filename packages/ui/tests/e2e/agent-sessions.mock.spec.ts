@@ -456,3 +456,48 @@ test('[MOCK-SM-g] DELETE 失敗時は現セッションが変わらない (MF-1)
 
   expect(unexpected).toEqual([]);
 });
+
+// (h) レイアウト回帰: セッションバーは固定され、メッセージ領域が内部スクロールする。
+// マウント維持リファクタでラッパー div を挟んだ際、flex 高さ連鎖が切れて
+// セッションバーが流れ・上スクロール不能になった不具合 (.rs-pane-fill で修正) を防ぐ。
+test('[MOCK] セッションバーは固定・メッセージ領域が内部スクロールする', async ({ page }) => {
+  // 溢れる量のメッセージを持つセッションを復元する
+  const many = Array.from({ length: 40 }, (_, i) => ({
+    role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant',
+    content: `メッセージ ${String(i)} — レイアウトのオーバーフロー確認のための本文。`,
+    tools: [] as [],
+  }));
+  const unexpected = await bootAgent(page, {
+    sessions: [{ id: SESSION_A, title: '長い会話', updatedAt: 1000 }],
+    details: { [SESSION_A]: many },
+  });
+  await openAgentPane(page);
+  await expect(page.getByTestId('agent-messages')).toBeVisible();
+
+  const metrics = await page.evaluate(() => {
+    const bar = document.querySelector('.agent-session-bar');
+    const msgs = document.querySelector('.agent-messages');
+    const body = document.querySelector('.agent-body');
+    if (!bar || !msgs || !body) return null;
+    const barTopBefore = bar.getBoundingClientRect().top;
+    (msgs as HTMLElement).scrollTop = 5000;
+    const barTopAfter = bar.getBoundingClientRect().top;
+    return {
+      overflowY: getComputedStyle(msgs).overflowY,
+      scrollable: msgs.scrollHeight > msgs.clientHeight + 5,
+      didScroll: (msgs as HTMLElement).scrollTop > 100,
+      barFixed: Math.abs(barTopBefore - barTopAfter) < 1,
+      barAboveMsgs: bar.getBoundingClientRect().bottom <= msgs.getBoundingClientRect().top + 1,
+      bodyBounded: body.getBoundingClientRect().height <= window.innerHeight,
+    };
+  });
+  expect(metrics).not.toBeNull();
+  expect(metrics?.overflowY).toBe('auto');
+  expect(metrics?.scrollable).toBe(true);
+  expect(metrics?.didScroll).toBe(true);
+  expect(metrics?.barFixed).toBe(true); // スクロールしてもバーは動かない
+  expect(metrics?.barAboveMsgs).toBe(true);
+  expect(metrics?.bodyBounded).toBe(true);
+
+  expect(unexpected).toEqual([]);
+});
