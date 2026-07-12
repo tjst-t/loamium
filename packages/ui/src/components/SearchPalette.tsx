@@ -331,10 +331,10 @@ export function SearchPalette({
   );
 
   // 組み込みコマンドをレジストリへ登録 (handlers が提供された場合のみ)
-  // NOTE: registerBuiltinCommands は clearRegistry() → 再登録するため、
-  // スマートコマンドの登録 useEffect より先に走る必要がある。
-  // Sde7a63-3: 登録後に setCommands を呼び、スマートコマンドのエントリも含めた
-  // 最新のレジストリ全体を反映する。
+  // NOTE: registerBuiltinCommands は upsert (id キーで上書き) で登録するため、
+  // スマートコマンドと共存できる。clearRegistry() は呼ばれないので登録順序の制約はない。
+  // Sde7a63-3: 登録後に setCommands を呼び、builtin + smart 両エントリを含む
+  // 最新のレジストリ全体を UI に反映する。
   useEffect(() => {
     if (commandHandlers === undefined) return;
     registerBuiltinCommands(commandHandlers);

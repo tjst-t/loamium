@@ -8,7 +8,7 @@
  *   Ctrl-K → '>' 絞り込み → フォーム入力 → 実行 → ジャーナルの Todo セクションに追記反映
  */
 import { test, expect } from '@playwright/test';
-import { writeFile, mkdir } from 'node:fs/promises';
+import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { readHarnessState } from '../harness/state.js';
 
@@ -99,6 +99,33 @@ test('[AC-Sde7a63-3-4][E2E] Ctrl-K → > todo → フォーム入力 → 実行 
   await expect(
     page.locator('[data-testid="editor"] .cm-line', { hasText: taskSummary }).first(),
   ).toBeVisible({ timeout: 10_000 });
+
+  // 11. ジャーナルのRawファイルを読み込んで Todo セクション検証 (section insertion の核心)
+  // GET /api/journal でファイルパスを取得し、vault 上のファイルを直接読む。
+  const { vault, apiUrl } = readHarnessState();
+  const journalRes = await fetch(`${apiUrl}/api/journal`);
+  expect(journalRes.ok).toBe(true);
+  const journalData = await journalRes.json() as { path: string; body: string };
+  const rawMarkdown = await readFile(path.join(vault, journalData.path), 'utf8');
+
+  // "## Todo" ヘッダーが存在し、その直後のセクション内に "- [ ] <taskSummary>" 行が含まれる
+  const lines = rawMarkdown.split('\n');
+  const todoHeadingIdx = lines.findIndex((l) => l.trim() === '## Todo');
+  expect(todoHeadingIdx, '## Todo heading must exist in journal').toBeGreaterThanOrEqual(0);
+
+  // Todo セクション: todoHeadingIdx+1 から次の heading (## / #) までの行
+  const sectionLines: string[] = [];
+  for (let i = todoHeadingIdx + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (line !== undefined && /^#{1,6}\s/.test(line)) break; // 次の heading で終わり
+    if (line !== undefined) sectionLines.push(line);
+  }
+
+  const todoLine = `- [ ] ${taskSummary}`;
+  expect(
+    sectionLines.some((l) => l.includes(todoLine)),
+    `Expected "${todoLine}" inside ## Todo section.\nSection lines: ${JSON.stringify(sectionLines)}`,
+  ).toBe(true);
 });
 
 // =========================================================================
