@@ -52,3 +52,28 @@ Token parsing order in resolveTemplate:
 
 ## Out-of-scope findings
 None.
+
+---
+
+## Test Fix Patch (2026-07-12 — post-run correction)
+
+### packages/shared/src/template.test.ts
+- F1 [AC-Sf2f114-1-2]: Renamed unsupported-offset test title from
+  "d 以外の単位 (+3h など) はサポート外で verbatim に残る" →
+  "d 以外の単位 (+3h) はサポート外 — クラッシュせず部分フォーマットになる".
+  Added explicit assertion: res.text === '+3h:2026-07-06' (base=2026-07-06).
+  Previous test only checked not.toThrow() but the token is NOT verbatim — it
+  falls through to formatDate which expands YYYY/MM/DD in '+3h:YYYY-MM-DD'.
+- F2 [AC-Sf2f114-1-1]: Added test asserting leading-space in fallback is preserved:
+  resolveTemplate('{{x| fallback}}', {vars:{}}).text === ' fallback'.
+- AC-1-3: Added explicit describe block [AC-Sf2f114-1-3] with 2 tests:
+  (1) {{date:YYYY-MM-DD}} === '2026-07-06' (byte-identical, missing=[])
+  (2) {{missing}} → verbatim '{{missing}}', missing=['missing']
+
+### Test Results (after patch)
+Command: npx vitest run packages/shared/src/
+Result:  Test Files  17 passed (17)
+         Tests  333 passed (333)  [was 330; +3 new tests]
+         Duration ~1.6s
+
+TypeScript: npx tsc --noEmit -p packages/shared → 0 errors
