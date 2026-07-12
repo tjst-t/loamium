@@ -367,6 +367,37 @@ export async function listSessions(config: ServerConfig): Promise<{
 }
 
 /**
+ * セッション JSONL ファイルをディスクから削除し、アクティブキャッシュからも退避する。
+ * - SessionManager.list() で実ファイルパスを解決する (<timestamp>_<id>.jsonl 形式)。
+ * - 実在しないセッションは Error を投げる (呼び出し元が 404 を返す)。
+ * - 呼び出し元で validateSessionId() を通した sessionId のみ渡すこと。
+ */
+export async function deleteSession(
+  sessionId: string,
+  vaultRoot: string,
+): Promise<void> {
+  const dir = sessionDir(vaultRoot);
+  const infos = await SessionManager.list(vaultRoot, dir);
+  const info = infos.find((i) => i.id === sessionId);
+  if (!info) {
+    throw new Error(`session not found on disk: ${sessionId}`);
+  }
+
+  // Defense-in-depth: 解決したパスがセッションディレクトリ内に収まることを確認する
+  const resolvedFile = path.resolve(info.path);
+  const resolvedDir = path.resolve(dir);
+  if (!resolvedFile.startsWith(resolvedDir + path.sep)) {
+    throw new Error(`session file path escapes sessions directory: ${sessionId}`);
+  }
+
+  // ディスクから削除
+  await fs.unlink(resolvedFile);
+
+  // アクティブキャッシュから退避 (SessionManager には public な delete API が無いため直接 Map から削除)
+  activeSessionsById.delete(sessionId);
+}
+
+/**
  * セッション JSONL を読み、UI 表示用のメッセージ列を再構築する。
  * pi の SessionManager.getEntries() を使い、user/assistant を抽出する。
  */

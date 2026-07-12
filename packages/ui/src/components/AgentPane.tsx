@@ -1,5 +1,5 @@
 /**
- * エージェントチャットペイン (S53409d-2 / S53409d-3)。
+ * エージェントチャットペイン (S53409d-2 / S53409d-3 / sessionmgmt)。
  *
  * 状態:
  *   unconfigured — agent.json 未設定: セットアップガイドを表示。入力欄なし。
@@ -7,13 +7,20 @@
  *   streaming    — SSE 受信中: 送信→中断に切替、入力欄無効。
  *   error        — SSE error イベント受信: エラーバブル表示、入力欄再有効化。
  *
- * data-testid 一覧 (gui-spec-S53409d-2.json / gui-spec-S53409d-3.json):
+ * data-testid 一覧 (gui-spec-S53409d-2.json / gui-spec-S53409d-3.json / sessionmgmt):
  *   agent-pane (+ data-agent-status), agent-setup-guide,
  *   agent-new-session, agent-messages,
  *   agent-msg-user, agent-msg-assistant, agent-error,
  *   agent-input, agent-send, agent-abort,
  *   agent-tool-chip (完了ツールチップ), agent-tool-chip-running (実行中チップ),
- *   agent-wikilink (存在するノートへのリンク), agent-wikilink-broken (不在ノートリンク)
+ *   agent-wikilink (存在するノートへのリンク), agent-wikilink-broken (不在ノートリンク),
+ *   agent-session-switcher (セッション一覧を開くボタン),
+ *   agent-session-list (ドロップダウン一覧),
+ *   agent-session-item (各行, data-session-id),
+ *   agent-session-delete (各行の削除ボタン)
+ *
+ * localStorage キー:
+ *   loamium.agent.currentSessionId — 現在のセッション ID (null = 新規未送信)
  */
 import {
   useEffect,
@@ -47,6 +54,36 @@ interface AgentMessageItem {
   tools: ToolChipItem[];
 }
 
+interface SessionSummary {
+  id: string;
+  title: string | null;
+  updatedAt: number;
+}
+
+// ---- localStorage ヘルパー ----------------------------------------------------
+
+const LS_KEY = 'loamium.agent.currentSessionId';
+
+function persistCurrentSessionId(id: string | null): void {
+  try {
+    if (id === null) {
+      localStorage.removeItem(LS_KEY);
+    } else {
+      localStorage.setItem(LS_KEY, id);
+    }
+  } catch {
+    // localStorage が使えない環境では無視
+  }
+}
+
+function readPersistedSessionId(): string | null {
+  try {
+    return localStorage.getItem(LS_KEY);
+  } catch {
+    return null;
+  }
+}
+
 // ---- API ヘルパー ------------------------------------------------------------
 
 async function apiPost(url: string, body?: unknown): Promise<unknown> {
@@ -73,6 +110,12 @@ async function apiPost(url: string, body?: unknown): Promise<unknown> {
 
 async function apiGet(url: string): Promise<unknown> {
   const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${String(res.status)}`);
+  return res.json();
+}
+
+async function apiDelete(url: string): Promise<unknown> {
+  const res = await fetch(url, { method: 'DELETE' });
   if (!res.ok) throw new Error(`HTTP ${String(res.status)}`);
   return res.json();
 }
@@ -230,6 +273,16 @@ function ToolChip({ chip }: { chip: ToolChipItem }): JSX.Element {
   );
 }
 
+// ---- 相対時刻表示 ------------------------------------------------------------
+
+function relativeTime(ts: number): string {
+  const diff = Date.now() - ts;
+  if (diff < 60_000) return 'たった今';
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}分前`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}時間前`;
+  return `${Math.floor(diff / 86_400_000)}日前`;
+}
+
 // ---- コンポーネント ----------------------------------------------------------
 
 export interface AgentPaneProps {
@@ -249,8 +302,24 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
   const [inputText, setInputText] = useState('');
   const [abortController, setAbortController] = useState<AbortController | null>(null);
 
+  // セッション一覧 & スイッチャー
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const switcherRef = useRef<HTMLDivElement>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  /**
+   * MF-2: 遅延セッション作成中に abort が呼ばれたとき、作成されたセッション ID を
+   * 参照できるよう ref で追跡する。状態更新 (setSessionId) は非同期なのでここに保持。
+   */
+  const activeSendSessionIdRef = useRef<string | null>(null);
+
+  /**
+   * RD-2: 二重送信競合防止フラグ。handleSend の先頭で同期的に true にする。
+   */
+  const sendInFlightRef = useRef<boolean>(false);
 
   // ノートパスのセット (wikilink 解決用)
   const notePaths = useMemo<ReadonlySet<string>>(
@@ -272,6 +341,19 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
     [onOpenNote],
   );
 
+  // ---- セッション一覧取得 -------------------------------------------------------
+
+  const fetchSessions = useCallback(async (): Promise<SessionSummary[]> => {
+    try {
+      const listRes = (await apiGet('/api/agent/sessions')) as {
+        sessions: SessionSummary[];
+      };
+      return listRes.sessions;
+    } catch {
+      return [];
+    }
+  }, []);
+
   // ---- 初期化 ---------------------------------------------------------------
 
   useEffect(() => {
@@ -280,23 +362,27 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
       return;
     }
 
-    // セッション一覧を取得し、最新セッションを復元する
     void (async () => {
       try {
-        const listRes = (await apiGet('/api/agent/sessions')) as {
-          sessions: { id: string; title: string | null; updatedAt: number }[];
-        };
-        const sessions = listRes.sessions;
+        const sessionList = await fetchSessions();
+        setSessions(sessionList);
 
-        if (sessions.length === 0) {
-          // 空状態: 新規セッションを作成
-          await createNewSession();
-        } else {
-          // 最新セッション復元
-          const latest = sessions[0];
-          if (!latest) return;
-          setSessionId(latest.id);
-          const detail = (await apiGet(`/api/agent/sessions/${latest.id}`)) as {
+        const persistedId = readPersistedSessionId();
+
+        // (a) localStorage に ID があり、一覧に存在する → そのセッションを復元
+        // (b) 一覧が空でない → 最新セッションを復元
+        // (c) 一覧が空 → 新規未送信状態 (lazy new)
+
+        let targetId: string | null = null;
+
+        if (persistedId && sessionList.some((s) => s.id === persistedId)) {
+          targetId = persistedId;
+        } else if (sessionList.length > 0 && sessionList[0]) {
+          targetId = sessionList[0].id;
+        }
+
+        if (targetId) {
+          const detail = (await apiGet(`/api/agent/sessions/${targetId}`)) as {
             id: string;
             messages: {
               role: 'user' | 'assistant';
@@ -314,11 +400,18 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
               done: true,
             })),
           }));
+          setSessionId(targetId);
           setMessages(restored);
-          setStatus('ready');
+          persistCurrentSessionId(targetId);
+        } else {
+          // 新規未送信状態
+          setSessionId(null);
+          setMessages([]);
+          persistCurrentSessionId(null);
         }
+
+        setStatus('ready');
       } catch {
-        // セッション取得失敗 — empty ready 状態
         setStatus('ready');
       }
     })();
@@ -331,28 +424,141 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // ---- 新規セッション作成 -------------------------------------------------------
+  // ---- スイッチャー外クリック / Esc で閉じる ------------------------------------
 
-  const createNewSession = useCallback(async (): Promise<void> => {
-    try {
-      const res = (await apiPost('/api/agent/sessions')) as { id: string };
-      setSessionId(res.id);
-      setMessages([]);
-      setStatus('ready');
-    } catch {
-      setStatus('ready');
-    }
-  }, []);
+  useEffect(() => {
+    if (!switcherOpen) return;
 
+    const handleClick = (e: MouseEvent): void => {
+      if (switcherRef.current && !switcherRef.current.contains(e.target as Node)) {
+        setSwitcherOpen(false);
+      }
+    };
+    const handleKey = (e: globalThis.KeyboardEvent): void => {
+      if (e.key === 'Escape') setSwitcherOpen(false);
+    };
+
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [switcherOpen]);
+
+  // ---- 新規セッション (lazy) ---------------------------------------------------
+
+  /**
+   * "+" ボタン: サーバーを叩かずに空の新規状態にする。
+   * 実際のセッションは最初の送信時に作成する。
+   */
   const handleNewSession = useCallback((): void => {
-    void createNewSession();
-  }, [createNewSession]);
+    if (status === 'streaming') return;
+    // すでに新規未送信状態ならべき等
+    if (sessionId === null && messages.length === 0) return;
+    setSessionId(null);
+    setMessages([]);
+    setInputText('');
+    persistCurrentSessionId(null);
+    setSwitcherOpen(false);
+  }, [status, sessionId, messages.length]);
+
+  // ---- セッション切替 -----------------------------------------------------------
+
+  const handleSwitchSession = useCallback(
+    async (id: string): Promise<void> => {
+      if (status === 'streaming') return;
+      setSwitcherOpen(false);
+      try {
+        const detail = (await apiGet(`/api/agent/sessions/${id}`)) as {
+          id: string;
+          messages: {
+            role: 'user' | 'assistant';
+            content: string;
+            tools: { name: string; argsSummary: string; status: 'running' | 'done' }[];
+          }[];
+        };
+        const restored: AgentMessageItem[] = detail.messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+          tools: (m.tools ?? []).map((t) => ({
+            toolCallId: `restored-${t.name}`,
+            name: t.name,
+            argsSummary: t.argsSummary,
+            done: true,
+          })),
+        }));
+        setSessionId(id);
+        setMessages(restored);
+        persistCurrentSessionId(id);
+      } catch {
+        // 切替失敗は無視
+      }
+    },
+    [status],
+  );
+
+  // ---- セッション削除 -----------------------------------------------------------
+
+  const handleDeleteSession = useCallback(
+    async (e: React.MouseEvent, id: string): Promise<void> => {
+      e.stopPropagation();
+      // MF-1: DELETE 成功した場合のみ UI を更新する。失敗時はリスト/現セッションを変更しない。
+      let deleted = false;
+      try {
+        await apiDelete(`/api/agent/sessions/${id}`);
+        deleted = true;
+      } catch (err) {
+        // 削除失敗 — UI は変えない (現セッションを失わないようにする)
+        setMessages((prev) => {
+          // エラーバブルをメッセージ末尾に追加してユーザーに通知
+          const errMsg = err instanceof Error ? err.message : String(err);
+          return [
+            ...prev,
+            { role: 'assistant' as const, content: '', tools: [], error: `削除失敗: ${errMsg}` },
+          ];
+        });
+        return;
+      }
+
+      if (!deleted) return;
+
+      // 一覧を更新
+      const newList = await fetchSessions();
+      setSessions(newList);
+
+      // 削除したのが現在のセッションなら fallback
+      if (id === sessionId) {
+        const fallback = newList[0];
+        if (fallback) {
+          await handleSwitchSession(fallback.id);
+        } else {
+          setSessionId(null);
+          setMessages([]);
+          persistCurrentSessionId(null);
+        }
+      }
+    },
+    [sessionId, fetchSessions, handleSwitchSession],
+  );
+
+  // ---- スイッチャーを開く -------------------------------------------------------
+
+  const handleOpenSwitcher = useCallback(async (): Promise<void> => {
+    const list = await fetchSessions();
+    setSessions(list);
+    setSwitcherOpen(true);
+  }, [fetchSessions]);
 
   // ---- 送信 ------------------------------------------------------------------
 
   const handleSend = useCallback((): void => {
     const text = inputText.trim();
-    if (!text || !sessionId || status === 'streaming') return;
+    if (!text || status === 'streaming') return;
+
+    // RD-2: 二重送信競合防止 — 同期的にガードを立てる
+    if (sendInFlightRef.current) return;
+    sendInFlightRef.current = true;
 
     setMessages((prev) => [...prev, { role: 'user', content: text, tools: [] }]);
     setInputText('');
@@ -362,109 +568,142 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
     setAbortController(ac);
 
     void (async () => {
-      // アシスタントバブルを追加 (逐次更新用)
-      let assistantIdx = -1;
-      setMessages((prev) => {
-        assistantIdx = prev.length;
-        return [...prev, { role: 'assistant', content: '', tools: [] }];
-      });
-
       try {
-        const response = await fetch(`/api/agent/sessions/${sessionId}/messages`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ content: text }),
-          signal: ac.signal,
+        // セッション ID が null の場合 (lazy new 後の初回送信) — サーバーにセッションを作成する
+        let currentSessionId = sessionId;
+        if (currentSessionId === null) {
+          try {
+            const res = (await apiPost('/api/agent/sessions')) as { id: string };
+            currentSessionId = res.id;
+            // MF-2: abort が sessionId state より先に発火してもサーバー abort を送れるよう ref に記録
+            activeSendSessionIdRef.current = currentSessionId;
+            setSessionId(currentSessionId);
+            persistCurrentSessionId(currentSessionId);
+            // 一覧にも追加 (次に switcher を開いたとき反映される)
+            const newList = await fetchSessions();
+            setSessions(newList);
+          } catch (err) {
+            setMessages((prev) => {
+              const next = [...prev];
+              const last = next[next.length - 1];
+              if (last && last.role === 'assistant') {
+                next[next.length - 1] = { ...last, error: String(err) };
+              } else {
+                next.push({ role: 'assistant', content: '', tools: [], error: String(err) });
+              }
+              return next;
+            });
+            return; // finally が setStatus('ready') / setAbortController(null) / ref クリアを行う
+          }
+        } else {
+          // MF-2: 既存セッションの場合も ref に記録
+          activeSendSessionIdRef.current = currentSessionId;
+        }
+
+        // アシスタントバブルを追加 (逐次更新用)
+        let assistantIdx = -1;
+        setMessages((prev) => {
+          assistantIdx = prev.length;
+          return [...prev, { role: 'assistant', content: '', tools: [] }];
         });
 
-        if (!response.ok) {
-          const errMsg = `HTTP ${String(response.status)}`;
-          setMessages((prev) => {
-            const next = [...prev];
-            if (assistantIdx >= 0 && assistantIdx < next.length) {
-              next[assistantIdx] = { role: 'assistant', content: '', tools: [], error: errMsg };
-            }
-            return next;
+        try {
+          const response = await fetch(`/api/agent/sessions/${currentSessionId}/messages`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ content: text }),
+            signal: ac.signal,
           });
-          setStatus('ready');
-          setAbortController(null);
-          return;
-        }
 
-        for await (const event of readSseStream(response)) {
-          if (ac.signal.aborted) break;
+          if (!response.ok) {
+            const errMsg = `HTTP ${String(response.status)}`;
+            setMessages((prev) => {
+              const next = [...prev];
+              if (assistantIdx >= 0 && assistantIdx < next.length) {
+                next[assistantIdx] = { role: 'assistant', content: '', tools: [], error: errMsg };
+              }
+              return next;
+            });
+            return; // finally が setStatus('ready') / setAbortController(null) / ref クリアを行う
+          }
 
-          if (event.type === 'text_delta' && event.text) {
+          for await (const event of readSseStream(response)) {
+            if (ac.signal.aborted) break;
+
+            if (event.type === 'text_delta' && event.text) {
+              setMessages((prev) => {
+                const next = [...prev];
+                const item = next[assistantIdx];
+                if (item) {
+                  next[assistantIdx] = { ...item, content: item.content + event.text };
+                }
+                return next;
+              });
+            } else if (event.type === 'tool_start' && event.toolCallId && event.name) {
+              const chip: ToolChipItem = {
+                toolCallId: event.toolCallId,
+                name: event.name,
+                argsSummary: event.argsSummary ?? '',
+                done: false,
+              };
+              setMessages((prev) => {
+                const next = [...prev];
+                const item = next[assistantIdx];
+                if (item) {
+                  next[assistantIdx] = { ...item, tools: [...item.tools, chip] };
+                }
+                return next;
+              });
+            } else if (event.type === 'tool_end' && event.toolCallId) {
+              const tid = event.toolCallId;
+              setMessages((prev) => {
+                const next = [...prev];
+                const item = next[assistantIdx];
+                if (item) {
+                  const updatedTools = item.tools.map((c) =>
+                    c.toolCallId === tid ? { ...c, done: true } : c,
+                  );
+                  next[assistantIdx] = { ...item, tools: updatedTools };
+                }
+                return next;
+              });
+            } else if (event.type === 'error') {
+              const errMsg = event.message ?? '不明なエラー';
+              setMessages((prev) => {
+                const next = [...prev];
+                const item = next[assistantIdx];
+                if (item) {
+                  next[assistantIdx] = { ...item, error: errMsg };
+                }
+                return next;
+              });
+              return; // finally が setStatus('ready') / setAbortController(null) / ref クリアを行う
+            } else if (event.type === 'done') {
+              break;
+            }
+          }
+        } catch (err) {
+          if ((err as Error).name === 'AbortError') {
+            // 中断 — 部分応答は残す
+          } else {
             setMessages((prev) => {
               const next = [...prev];
               const item = next[assistantIdx];
               if (item) {
-                next[assistantIdx] = { ...item, content: item.content + event.text };
+                next[assistantIdx] = { ...item, error: String(err) };
               }
               return next;
             });
-          } else if (event.type === 'tool_start' && event.toolCallId && event.name) {
-            const chip: ToolChipItem = {
-              toolCallId: event.toolCallId,
-              name: event.name,
-              argsSummary: event.argsSummary ?? '',
-              done: false,
-            };
-            setMessages((prev) => {
-              const next = [...prev];
-              const item = next[assistantIdx];
-              if (item) {
-                next[assistantIdx] = { ...item, tools: [...item.tools, chip] };
-              }
-              return next;
-            });
-          } else if (event.type === 'tool_end' && event.toolCallId) {
-            const tid = event.toolCallId;
-            setMessages((prev) => {
-              const next = [...prev];
-              const item = next[assistantIdx];
-              if (item) {
-                const updatedTools = item.tools.map((c) =>
-                  c.toolCallId === tid ? { ...c, done: true } : c,
-                );
-                next[assistantIdx] = { ...item, tools: updatedTools };
-              }
-              return next;
-            });
-          } else if (event.type === 'error') {
-            const errMsg = event.message ?? '不明なエラー';
-            setMessages((prev) => {
-              const next = [...prev];
-              const item = next[assistantIdx];
-              if (item) {
-                next[assistantIdx] = { ...item, error: errMsg };
-              }
-              return next;
-            });
-            setStatus('ready');
-            setAbortController(null);
-            return;
-          } else if (event.type === 'done') {
-            break;
           }
         }
-      } catch (err) {
-        if ((err as Error).name === 'AbortError') {
-          // 中断 — 部分応答は残す
-        } else {
-          setMessages((prev) => {
-            const next = [...prev];
-            const item = next[assistantIdx];
-            if (item) {
-              next[assistantIdx] = { ...item, error: String(err) };
-            }
-            return next;
-          });
-        }
+      } finally {
+        // RD-2: ターン終了 (完了/エラー/中断) 時にガードを解除
+        sendInFlightRef.current = false;
+        // MF-2: ターン終了時に active session ref をクリア
+        activeSendSessionIdRef.current = null;
+        setStatus('ready');
+        setAbortController(null);
       }
-
-      setStatus('ready');
-      setAbortController(null);
     })();
   }, [inputText, sessionId, status]);
 
@@ -472,8 +711,10 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
 
   const handleAbort = useCallback((): void => {
     abortController?.abort();
-    if (sessionId) {
-      void fetch(`/api/agent/sessions/${sessionId}/abort`, { method: 'POST' });
+    // MF-2: sessionId state は遅延作成中まだ null かもしれないので ref を使う
+    const abortSessionId = activeSendSessionIdRef.current ?? sessionId;
+    if (abortSessionId) {
+      void fetch(`/api/agent/sessions/${abortSessionId}/abort`, { method: 'POST' });
     }
   }, [abortController, sessionId]);
 
@@ -526,6 +767,20 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
   const isStreaming = status === 'streaming';
   const canSend = inputText.trim().length > 0 && !isStreaming;
 
+  // セッションバーに表示するタイトル
+  const sessionTitle = (() => {
+    if (sessionId === null) return '新規セッション';
+    const found = sessions.find((s) => s.id === sessionId);
+    if (found?.title) return found.title;
+    // メッセージ先頭から推定
+    const firstUser = messages.find((m) => m.role === 'user');
+    if (firstUser) {
+      const t = firstUser.content.trim();
+      return t.length > 30 ? t.slice(0, 30) + '…' : t;
+    }
+    return 'セッション';
+  })();
+
   return (
     <div
       className="agent-body"
@@ -533,10 +788,28 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
       data-agent-status={isStreaming ? 'streaming' : 'ready'}
     >
       {/* セッションバー */}
-      <div className="agent-session-bar">
-        <span className="session-title">
-          {messages.length === 0 ? '新規セッション' : 'セッション'}
-        </span>
+      <div className="agent-session-bar" ref={switcherRef}>
+        {/* セッション名ボタン (スイッチャーを開く) */}
+        <button
+          className="agent-session-switcher-btn"
+          data-testid="agent-session-switcher"
+          title="セッション一覧"
+          onClick={() => {
+            if (switcherOpen) {
+              setSwitcherOpen(false);
+            } else {
+              void handleOpenSwitcher();
+            }
+          }}
+          disabled={isStreaming}
+        >
+          <span className="session-title">{sessionTitle}</span>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" style={{ width: 12, height: 12, flexShrink: 0 }}>
+            <path d="M4 6l4 4 4-4" />
+          </svg>
+        </button>
+
+        {/* "+" 新規セッションボタン */}
         <button
           className="icon-btn"
           data-testid="agent-new-session"
@@ -548,6 +821,42 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
             <path d="M8 3.5v9M3.5 8h9" />
           </svg>
         </button>
+
+        {/* セッション一覧ドロップダウン */}
+        {switcherOpen && (
+          <div className="agent-session-list" data-testid="agent-session-list" role="listbox">
+            {sessions.length === 0 ? (
+              <div className="agent-session-list-empty">セッション履歴なし</div>
+            ) : (
+              sessions.map((s) => (
+                <div
+                  key={s.id}
+                  className={`agent-session-item${s.id === sessionId ? ' current' : ''}`}
+                  data-testid="agent-session-item"
+                  data-session-id={s.id}
+                  role="option"
+                  aria-selected={s.id === sessionId}
+                  onClick={() => void handleSwitchSession(s.id)}
+                >
+                  <span className="agent-session-item-title">
+                    {s.title ?? '無題'}
+                  </span>
+                  <span className="agent-session-item-time">{relativeTime(s.updatedAt)}</span>
+                  <button
+                    className="agent-session-delete-btn"
+                    data-testid="agent-session-delete"
+                    title="削除"
+                    onClick={(e) => void handleDeleteSession(e, s.id)}
+                  >
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                      <path d="M4 4l8 8M12 4l-8 8" />
+                    </svg>
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
 
       {/* メッセージ一覧 */}

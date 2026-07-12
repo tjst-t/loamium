@@ -5,6 +5,9 @@
  * - バックリンクタブ + エージェントタブの 2 タブ seg-toggle。
  * - right-sidebar-toggle でサイドバー自体を開閉する。
  * - バックリンク取得はここで行い、件数バッジ (backlink-count) はタブに常時出す。
+ *
+ * FIX-1 (sessionmgmt): AgentPane は collapsed / タブ切替時も UNMOUNT しない。
+ * display:none で DOM に残すことで AgentPane の in-flight セッション状態を保持する。
  */
 import { useEffect, useState, type JSX } from 'react';
 import { noteTitle, type BacklinkSource, type HealthResponse, type NoteMeta } from '@loamium/shared';
@@ -112,10 +115,16 @@ export function RightSidebar({
   // /search では表示しない (display:none — マウントは維持)
   const hiddenStyle = hidden ? ({ display: 'none' } as const) : undefined;
 
-  if (collapsed) {
-    return (
-      <aside className="panel collapsed" data-testid="right-sidebar" style={hiddenStyle}>
-        <div className="panel-header">
+  // collapsed 時: 細い toggle バーのみ表示。AgentPane は hidden で DOM に残す。
+  return (
+    <aside
+      className={`panel${collapsed ? ' collapsed' : ''}`}
+      data-testid="right-sidebar"
+      style={hiddenStyle}
+    >
+      <div className="panel-header">
+        {collapsed ? (
+          /* collapsed: toggle ボタンのみ */
           <button
             className="icon-btn"
             data-testid="right-sidebar-toggle"
@@ -124,57 +133,56 @@ export function RightSidebar({
           >
             <ChevronRightIcon />
           </button>
-        </div>
-      </aside>
-    );
-  }
-
-  return (
-    <aside className="panel" data-testid="right-sidebar" style={hiddenStyle}>
-      <div className="panel-header">
-        <div className="seg-toggle" role="tablist" aria-label="右サイドバー切替">
-          <button
-            className={`seg-btn${activeTab === 'backlinks' ? ' active' : ''}`}
-            data-testid="right-tab-backlinks"
-            role="tab"
-            aria-selected={activeTab === 'backlinks'}
-            onClick={() => setActiveTab('backlinks')}
-          >
-            <LinkIcon />
-            バックリンク
-            {countKnown && (
-              <span className="count" data-testid="backlink-count">
-                {items.length}
-              </span>
-            )}
-          </button>
-          <button
-            className={`seg-btn${activeTab === 'agent' ? ' active' : ''}`}
-            data-testid="right-tab-agent"
-            role="tab"
-            aria-selected={activeTab === 'agent'}
-            onClick={() => setActiveTab('agent')}
-          >
-            <AgentIcon />
-            エージェント
-          </button>
-        </div>
-        <button
-          className="icon-btn"
-          data-testid="right-sidebar-toggle"
-          title="サイドバーを閉じる"
-          style={{ marginLeft: 'auto' }}
-          onClick={() => setCollapsed(true)}
-        >
-          <ChevronRightIcon />
-        </button>
+        ) : (
+          /* expanded: タブ切替 + toggle ボタン */
+          <>
+            <div className="seg-toggle" role="tablist" aria-label="右サイドバー切替">
+              <button
+                className={`seg-btn${activeTab === 'backlinks' ? ' active' : ''}`}
+                data-testid="right-tab-backlinks"
+                role="tab"
+                aria-selected={activeTab === 'backlinks'}
+                onClick={() => setActiveTab('backlinks')}
+              >
+                <LinkIcon />
+                バックリンク
+                {countKnown && (
+                  <span className="count" data-testid="backlink-count">
+                    {items.length}
+                  </span>
+                )}
+              </button>
+              <button
+                className={`seg-btn${activeTab === 'agent' ? ' active' : ''}`}
+                data-testid="right-tab-agent"
+                role="tab"
+                aria-selected={activeTab === 'agent'}
+                onClick={() => setActiveTab('agent')}
+              >
+                <AgentIcon />
+                エージェント
+              </button>
+            </div>
+            <button
+              className="icon-btn"
+              data-testid="right-sidebar-toggle"
+              title="サイドバーを閉じる"
+              style={{ marginLeft: 'auto' }}
+              onClick={() => setCollapsed(true)}
+            >
+              <ChevronRightIcon />
+            </button>
+          </>
+        )}
       </div>
 
-      {/* バックリンク本体 */}
-      {activeTab === 'backlinks' && (
+      {/* パネル本体 — collapsed 時は display:none で DOM に残す (AgentPane のセッション保持) */}
+      <div style={collapsed ? { display: 'none' } : undefined}>
+        {/* バックリンク本体 */}
         <div
           className="panel-body"
           data-testid="backlink-panel"
+          style={activeTab !== 'backlinks' ? { display: 'none' } : undefined}
         >
           {error !== null ? (
             <div className="panel-empty" data-testid="backlink-error">
@@ -213,12 +221,12 @@ export function RightSidebar({
             ))
           )}
         </div>
-      )}
 
-      {/* エージェントペイン */}
-      {activeTab === 'agent' && (
-        <AgentPane health={health} notes={notes} onOpenNote={onOpenNote} />
-      )}
+        {/* エージェントペイン — タブ非選択時も display:none で DOM に残す (セッション保持) */}
+        <div style={activeTab !== 'agent' ? { display: 'none' } : undefined}>
+          <AgentPane health={health} notes={notes} onOpenNote={onOpenNote} />
+        </div>
+      </div>
     </aside>
   );
 }

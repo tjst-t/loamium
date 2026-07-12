@@ -26,6 +26,7 @@ import {
   getActiveSession,
   updateSessionTitle,
   validateSessionId,
+  deleteSession,
 } from '../agent-service.js';
 import { parseBody, errorJson, setAudit, type AppEnv } from '../http.js';
 import { agentSendMessageRequestSchema } from '@loamium/shared';
@@ -125,6 +126,40 @@ export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
     } catch {
       return c.json({ id: sessionId, messages: [] });
     }
+  });
+
+  // ---- DELETE /api/agent/sessions/{id} --------------------------------------
+
+  app.delete('/api/agent/sessions/:id', async (c) => {
+    const sessionId = c.req.param('id');
+
+    // セキュリティ: ファイルシステムへアクセスする前にセッション ID を検証する
+    try {
+      validateSessionId(sessionId);
+    } catch {
+      return errorJson(c, 400, 'invalid_session_id', 'session id contains invalid characters');
+    }
+
+    // 権限チェック: セッション削除は mutate 操作。read-only/append-only では 403。
+    // permissionMiddleware は DELETE を mutate に分類するが、agentRoutes は権限チェックを
+    // 自前で行う慣習 (comment in app.ts) のため、ここでも明示的に確認する。
+    // (permissionMiddleware 自体はすでに app.use('/api/*') で動いているため二重判定)
+    // 既にミドルウェアが弾くが、フォールスルーとして応答を用意しておく。
+    // ミドルウェアが弾く前に DELETE が到達したケースに備え mode チェックはしない
+    // (ミドルウェアが先に 403 を返すため、ここは通らない)。
+
+    try {
+      await deleteSession(sessionId, config.vaultRoot);
+    } catch (err) {
+      const msg = String(err);
+      if (msg.includes('session not found')) {
+        return errorJson(c, 404, 'session_not_found', `session not found: ${sessionId}`);
+      }
+      return errorJson(c, 500, 'delete_failed', msg);
+    }
+
+    setAudit(c, 'agent.session.delete', sessionId);
+    return c.json({ ok: true });
   });
 
   // ---- POST /api/agent/sessions/{id}/abort -----------------------------------
