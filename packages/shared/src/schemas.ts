@@ -429,6 +429,22 @@ export type HealthResponse = z.infer<typeof healthResponseSchema>;
 
 // ---- エージェント設定 (.loamium/agent.json — S53409d-2) ----
 
+/**
+ * Web 検索プロバイダ設定 (ADR-0013 / S5e0206)。web ケーパビリティが有効なとき
+ * web_search ツールが叩く検索エンドポイント。マシンローカル。
+ *
+ * - endpoint: GET で `?q=<query>` を付けて叩く検索 API の URL。
+ * - apiKey  : 任意。指定時は `Authorization: Bearer <apiKey>` で送る ($ENV_VAR 参照可)。
+ *
+ * 未設定 (undefined) は許容 — web が有効でも web_search は「未設定」を明示する
+ * (エラーにしない、AC-S5e0206-1-2)。
+ */
+export const agentWebSearchSchema = z.object({
+  endpoint: z.string().min(1, 'webSearch.endpoint must not be empty'),
+  apiKey: z.string().min(1).optional(),
+});
+export type AgentWebSearch = z.infer<typeof agentWebSearchSchema>;
+
 export const agentConfigSchema = z.object({
   api: z.enum(['openai', 'anthropic']),
   baseUrl: z.string().min(1, 'baseUrl must not be empty'),
@@ -439,6 +455,11 @@ export const agentConfigSchema = z.object({
    * 未指定は read-only プリセット (resolvePermissions が既定を補う)。マシンローカル。
    */
   permissions: agentPermissionsSchema.optional(),
+  /**
+   * Web 検索プロバイダ設定 (ADR-0013)。web ケーパビリティ有効時に web_search が使う。
+   * 未指定は許容 (web_search は未設定を明示メッセージで返す)。
+   */
+  webSearch: agentWebSearchSchema.optional(),
 });
 export type AgentConfig = z.infer<typeof agentConfigSchema>;
 

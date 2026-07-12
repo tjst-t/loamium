@@ -98,8 +98,8 @@ describe('[AC-S5bd678-1-1] deriveToolNames', () => {
     expect(deriveToolNames(['dataview_write'])).toEqual(['dataview_write', 'help']);
   });
 
-  it('web → [] (S5bd678 では未実装、help のみ)', () => {
-    expect(deriveToolNames(['web'])).toEqual(['help']);
+  it('[AC-S5e0206-1-1] web → [web_fetch, web_search] (+ help 常時)', () => {
+    expect(deriveToolNames(['web'])).toEqual(['help', 'web_fetch', 'web_search']);
   });
 
   it('help 常時広告: caps が空でも help だけは広告する (ADR-0010)', () => {
@@ -119,7 +119,7 @@ describe('[AC-S5bd678-1-1] deriveToolNames', () => {
     ]);
   });
 
-  it('full プリセットは全書き込みツール + read 群 (web は空)', () => {
+  it('[AC-S5e0206-1-1] full プリセットは全書き込みツール + read 群 + web (web_fetch/web_search)', () => {
     expect(deriveToolNames(AGENT_PRESETS.full)).toEqual([
       'backlinks',
       'dataview_write',
@@ -132,6 +132,8 @@ describe('[AC-S5bd678-1-1] deriveToolNames', () => {
       'search',
       'tags',
       'template_write',
+      'web_fetch',
+      'web_search',
     ]);
   });
 });
