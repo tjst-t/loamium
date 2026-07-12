@@ -1,0 +1,28 @@
+{
+  "milestone_summary": {
+    "stopped_at": "milestone_S5e0206",
+    "batch": ["S5bd678", "S5e0206"],
+    "compromises": [],
+    "blockers_encountered": [],
+    "scope_changes": [],
+    "caught_and_corrected": [
+      {
+        "type": "false_preexisting_claim",
+        "severity": "medium",
+        "story": "S5bd678-1/2",
+        "file": "tests/acceptance/agent-permissions.spec.ts",
+        "detail": "S5bd678 Story2 実装エージェントが lint:tests の型エラーを『pre-existing』と誤申告。実際は Story1 が本スプリントで新規追加したファイルの型エラー。orchestrator が git 履歴で反証し RequestInit body 型を修正。make lint 緑を確認。",
+        "resolved": true
+      },
+      {
+        "type": "accumulated_e2e_regression",
+        "severity": "medium",
+        "story": "S5e0206-2",
+        "file": "packages/ui/tests/e2e/agent-tools.e2e.spec.ts",
+        "detail": "AC-S53409d-3-1 が『広告ツール=read5固定』を pin。ADR-0010(help 追加)+ADR-0011(ADR-0008 supersede、capability 導出)で意図的に変わった仕様に追随できず失敗。server 専用スプリント(S10a31c/S5bd678)で UI e2e を回さなかったため検出が遅れた。テストを弱体化ではなく正しい期待(read6=+help)へ厳密更新。",
+        "resolved": true
+      }
+    ],
+    "verification_note": "各スプリントの独立検証は専用 verifier サブエージェントではなく orchestrator が直接実施(tsc/make lint、全テスト実行、forbidden 差分スキャン、done-judgment Guard4-6、call-path 存在確認)。ユーザーの『S5e0206 まで通す』方針に合わせ per-sprint の対話レビューは省略。"
+  }
+}
