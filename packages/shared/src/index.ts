@@ -122,23 +122,30 @@ export {
 } from './template-note.js';
 export * from './schemas.js';
 export {
+  evaluateCondition,
   commandParamTypeSchema,
   commandParamSchema,
+  insertPositionSchema,
   journalAppendStepSchema,
   noteAppendStepSchema,
   noteCreateStepSchema,
   templateInstantiateStepSchema,
+  propSetStepSchema,
+  notePatchStepSchema,
   commandStepSchema,
   loamiumCommandSchema,
   parseLoamiumCommand,
   parseLoamiumCommandWithError,
   type CommandParamType,
   type CommandParam,
+  type InsertPositionField,
   type JournalAppendStep,
   type NoteAppendStep,
   type NoteCreateStep,
   type TemplateInstantiateStep,
+  type PropSetStep,
+  type NotePatchStep,
   type CommandStep,
   type LoamiumCommand,
 } from './loamium-command.js';
-export { insertUnderHeading } from './journal-section.js';
+export { insertUnderHeading, insertAtPosition, type InsertPosition } from './journal-section.js';

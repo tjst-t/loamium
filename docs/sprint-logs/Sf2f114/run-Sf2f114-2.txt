@@ -1,0 +1,70 @@
+Story Sf2f114-2: when:/when-not: 条件付きステップ実行 (ADR-0010)
+=================================================================
+Date: 2026-07-12
+
+## Summary
+
+Added optional conditional execution (`when` / `when-not`) to all smart-command
+step kinds (journal-append / note-append / note-create / template-instantiate).
+
+## Changes
+
+### packages/shared/src/loamium-command.ts
+- Added `evaluateCondition(value: string): boolean` export (ADR-0010 truthiness rule)
+  - falsey: '' (empty / whitespace-only after trim) / 'false' / '0'
+  - truthy: everything else
+- Added `stepConditionFields` const with `when?: string` and `'when-not'?: string`
+- Spread `stepConditionFields` into all 4 step schemas (additive — no breaking change)
+
+### packages/shared/src/schemas.ts
+- Added optional `skipped?: boolean` to `commandStepResultSchema` (additive)
+  - ok:true + skipped:true = conditional skip, no side-effect, not a failure
+
+### packages/shared/src/index.ts
+- Exported `evaluateCondition`
+
+### packages/server/src/routes/commands.ts
+- Imported `evaluateCondition`
+- Added condition evaluation block before each step's side-effect try/catch:
+  - Expands `when` / `when-not` via `resolveTemplate`
+  - Treats unresolved variables (missing.length > 0) as empty string (= falsey)
+  - Pushes `{kind, ok:true, skipped:true}` and `continue`s on skip (no fail-stop)
+  - Condition expansion errors → step failure + break (defensive)
+
+## Truthiness rule (AC-Sf2f114-2-1)
+Falsey literals: empty string after trim / "false" / "0"
+Truthy: anything else (including "true", "1", "yes", arbitrary text)
+Absent param (unresolved `{{var}}` template): treated as empty → falsey
+
+## JSON contract keys
+- `when` (no change to step schema — ordinary key)
+- `when-not` (hyphen key — valid YAML, quoted in zod schema as `'when-not'`)
+
+## Test Results
+npx vitest run packages/shared/src/ tests/acceptance/command-run.spec.ts tests/acceptance/commands.spec.ts
+  19 test files, 391 tests — ALL PASSED
+
+  shared unit tests:   349 tests (loamium-command.test.ts: 46 (+16 new))
+  commands.spec.ts:     12 tests (all passing, no regression)
+  command-run.spec.ts:  30 tests (21 existing + 9 new AC-Sf2f114-2-2 tests)
+
+make lint: PASS (tsc --noEmit for all 4 packages + tests/tsconfig)
+npx tsc --noEmit -p packages/shared: PASS
+npx tsc --noEmit -p packages/server: PASS
+npx tsc --noEmit -p packages/cli: PASS
+
+## AC coverage
+- AC-Sf2f114-2-1: evaluateCondition unit tests (12 tests for falsey/truthy)
+                  commandStepSchema when/when-not field tests (6 tests)
+                  → packages/shared/src/loamium-command.test.ts
+- AC-Sf2f114-2-2: Acceptance tests (9 tests in command-run.spec.ts):
+                  - when: truthy → execute
+                  - when: falsey → skipped:true, subsequent steps continue
+                  - when: absent param → skipped:true (falsey)
+                  - when-not: falsey → execute
+                  - when-not: truthy → skipped:true
+                  - when + when-not both → pass/fail permutations
+                  - backward compat: steps without when/when-not unaffected
+
+## Out-of-scope findings
+None.

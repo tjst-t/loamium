@@ -227,6 +227,127 @@ describe('[AC-Sd22b1f-1-2] GET /api/commands', () => {
 });
 
 // ---------------------------------------------------------------------------
+// [AC-Sf2f114-5-2] GET /api/commands — select/boolean/note/number param 型の passthrough
+// ---------------------------------------------------------------------------
+
+describe('[AC-Sf2f114-5-2] GET /api/commands — new param types passthrough', () => {
+  /** select param を持つ valid コマンド */
+  const SELECT_PARAM_COMMAND = [
+    '---',
+    'loamium-command:',
+    '  name: select-param-test',
+    '  description: select param command',
+    '  params:',
+    '    - name: priority',
+    '      type: select',
+    '      options:',
+    '        - low',
+    '        - medium',
+    '        - high',
+    '    - name: flag',
+    '      type: boolean',
+    '    - name: count',
+    '      type: number',
+    '    - name: target',
+    '      type: note',
+    '  steps:',
+    '    - kind: note-create',
+    '      target: "out/{{priority}}.md"',
+    '      content: "priority={{priority}}"',
+    '---',
+    '# select-param-test',
+    '',
+  ].join('\n');
+
+  /** select param だが options が空 → valid:false */
+  const SELECT_NO_OPTIONS_COMMAND = [
+    '---',
+    'loamium-command:',
+    '  name: select-no-options',
+    '  params:',
+    '    - name: priority',
+    '      type: select',
+    '  steps:',
+    '    - kind: journal-append',
+    '      content: "hello"',
+    '---',
+    '# select-no-options',
+    '',
+  ].join('\n');
+
+  let srv: TestServer;
+
+  async function putNoteSrv(rel: string, content: string): Promise<void> {
+    const encoded = rel
+      .split('/')
+      .map((s) => encodeURIComponent(s))
+      .join('/');
+    const res = await fetch(`${srv.baseUrl}/api/notes/${encoded}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
+    if (!res.ok) throw new Error(`seed putNote failed for ${rel}: ${res.status}`);
+  }
+
+  beforeAll(async () => {
+    const vault = await makeTempVault();
+    srv = await startServer({ vault });
+    await putNoteSrv('commands/select-param-test.md', SELECT_PARAM_COMMAND);
+    await putNoteSrv('commands/select-no-options.md', SELECT_NO_OPTIONS_COMMAND);
+  });
+
+  afterAll(async () => {
+    await srv.stop();
+    await cleanupVault(srv.vault);
+  });
+
+  async function listCmds() {
+    const res = await fetch(`${srv.baseUrl}/api/commands`);
+    expect(res.status).toBe(200);
+    const body: unknown = await res.json();
+    const parsed = commandsResponseSchema.safeParse(body);
+    expect(
+      parsed.success,
+      `commandsResponseSchema validation failed: ${!parsed.success ? JSON.stringify(parsed.error.issues) : ''}`,
+    ).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    return parsed.data.commands;
+  }
+
+  it('[AC-Sf2f114-5-2] select param command は valid:true で options が passthrough される', async () => {
+    const commands = await listCmds();
+    const cmd = commands.find((c) => c.path === 'commands/select-param-test.md');
+    expect(cmd).toBeDefined();
+    expect(cmd?.valid).toBe(true);
+    if (cmd?.valid !== true) throw new Error('expected valid:true');
+
+    // select param が options 付きで返ること
+    const priorityParam = cmd.params.find((p) => p.name === 'priority');
+    expect(priorityParam).toBeDefined();
+    expect(priorityParam?.type).toBe('select');
+    expect(priorityParam?.options).toEqual(['low', 'medium', 'high']);
+
+    // boolean / number / note param も返ること
+    expect(cmd.params.find((p) => p.name === 'flag')?.type).toBe('boolean');
+    expect(cmd.params.find((p) => p.name === 'count')?.type).toBe('number');
+    expect(cmd.params.find((p) => p.name === 'target')?.type).toBe('note');
+  });
+
+  it('[AC-Sf2f114-5-2] select-without-options command は valid:false で一覧に含まれる', async () => {
+    const commands = await listCmds();
+    const cmd = commands.find((c) => c.path === 'commands/select-no-options.md');
+    expect(cmd).toBeDefined();
+    expect(cmd?.valid).toBe(false);
+    if (cmd?.valid !== false) throw new Error('expected valid:false');
+    expect(typeof cmd.error).toBe('string');
+    expect(cmd.error.length).toBeGreaterThan(0);
+    // エラーメッセージに options への言及があること
+    expect(cmd.error).toContain('options');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // [AC-Sd22b1f-1-3] CLI `loamium commands`
 // ---------------------------------------------------------------------------
 

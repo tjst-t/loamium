@@ -12,12 +12,14 @@
  * - steps を順次同期実行し、ステップ毎の {kind, ok, path?, error?} + openPath? を返す
  * - 必須 param 不足 → 400 {error:'missing_params', missing[]}
  * - 最初の失敗ステップで停止、完了済みを返す (ロールバックなし)
- * - read-only モード → 403。append-only → v1 4 種すべて許可
+ * - read-only モード → 403。append-only → v1 4 種すべて許可 (prop-set/note-patch は append-only 拒否)
  * - 監査ログ: command.run + 各ステップの書き込みを記録
  */
 import { Hono } from 'hono';
 import {
   appendText,
+  evaluateCondition,
+  insertAtPosition,
   insertUnderHeading,
   isValidJournalDate,
   journalPath,
@@ -40,6 +42,7 @@ import { listNoteFiles, readNote, writeNote } from '../vault.js';
 import { errorJson, parseBody, setAudit, type AppEnv } from '../http.js';
 import { writeAuditEntry } from '../audit.js';
 import { firstFreePath } from '../vault-paths.js';
+import { applyPropSet, applyNotePatch } from './notes.js';
 
 const COMMANDS_DIR = 'commands';
 const COMMANDS_PREFIX = `${COMMANDS_DIR}/`;
@@ -177,14 +180,26 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
       );
     }
 
-    // 5. 権限チェック [AC-Sd22b1f-2-3]
+    // 5. 権限チェック [AC-Sd22b1f-2-3] [AC-Sf2f114-4-3]
     // read-only → permissionMiddleware が既に 403 を返すためここには到達しない。
-    // append-only → v1 4 種のみで構成されたコマンドを許可
-    // (ADR-0009: append-only では append 系 = v1 の 4 種すべてが許可される)
-    // append-only では v1 4 種のみ許可。v1 以外の kind は検証エラーになるため
-    // ここに到達した時点では 4 種のいずれかのみ — 追加チェック不要。
-    // (ADR-0009: "append-only では append 系ステップ(journal-append / note-append /
-    //  note-create / template-instantiate = 新規作成)のみで構成されたコマンドを許可")
+    // append-only → v1 4 種 (journal-append / note-append / note-create / template-instantiate)
+    //               は許可。prop-set / note-patch は既存コンテンツを変更する MUTATE 操作
+    //               であり、純粋な追記ではないため append-only では拒否する (ADR-0009)。
+    //               コマンドに prop-set / note-patch ステップが 1 つでも含まれる場合は
+    //               コマンド全体を 403 で拒否する (安全側の選択)。
+    if (config.mode === 'append-only') {
+      const hasMutatingStep = cmd.steps.some(
+        (s) => s.kind === 'prop-set' || s.kind === 'note-patch',
+      );
+      if (hasMutatingStep) {
+        return errorJson(
+          c,
+          403,
+          'forbidden',
+          'prop-set and note-patch steps are not allowed in append-only mode (they modify existing content)',
+        );
+      }
+    }
 
     // 6. resolve コンテキスト構築
     const now = new Date();
@@ -216,9 +231,52 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
     for (const step of cmd.steps) {
       const kind = step.kind;
 
+      // ADR-0010: when / when-not 条件評価 (resolveTemplate 展開後に truthy 判定)
+      // [AC-Sf2f114-2-1/2]
+      try {
+        const whenRaw = step.when;
+        const whenNotRaw = step['when-not'];
+
+        if (whenRaw !== undefined || whenNotRaw !== undefined) {
+          let shouldRun = true;
+
+          if (whenRaw !== undefined) {
+            const resolved = resolveTemplate(whenRaw, { vars: resolvedParams, date: now, now });
+            // 未解決変数がある (missing > 0) = 参照先 param が存在しない = falsey 扱い
+            const condValue = resolved.missing.length > 0 ? '' : resolved.text;
+            if (!evaluateCondition(condValue)) {
+              shouldRun = false;
+            }
+          }
+
+          if (shouldRun && whenNotRaw !== undefined) {
+            const resolved = resolveTemplate(whenNotRaw, { vars: resolvedParams, date: now, now });
+            // 未解決変数がある (missing > 0) = 参照先 param が存在しない = falsey 扱い
+            const condValue = resolved.missing.length > 0 ? '' : resolved.text;
+            if (evaluateCondition(condValue)) {
+              shouldRun = false;
+            }
+          }
+
+          if (!shouldRun) {
+            // スキップ: 副作用なし・失敗ではない → 次ステップ続行
+            results.push({ kind, ok: true, skipped: true });
+            continue;
+          }
+        }
+      } catch (condErr) {
+        // 条件展開で例外が発生した場合はステップ失敗扱いで停止
+        results.push({
+          kind,
+          ok: false,
+          error: condErr instanceof Error ? condErr.message : String(condErr),
+        });
+        break;
+      }
+
       try {
         if (kind === 'journal-append') {
-          // content, date?, section? を展開
+          // content, date?, section?, position? を展開
           const contentResolved = resolveTemplate(step.content, {
             vars: resolvedParams,
             date: now,
@@ -244,8 +302,15 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
           const rel = journalPath(dateStr);
           const existing = await readNote(config.vaultRoot, rel);
 
+          // position: 省略時は後方互換 (section あり → 'section'、なし → 'bottom') [AC-Sf2f114-3-2]
           let newContent: string;
-          if (sectionResolved !== undefined && sectionResolved !== '') {
+          const positionRaw = step.position;
+          if (positionRaw !== undefined) {
+            const opts = sectionResolved !== undefined
+              ? { position: positionRaw, section: sectionResolved }
+              : { position: positionRaw };
+            newContent = insertAtPosition(existing ?? '', opts, contentResolved);
+          } else if (sectionResolved !== undefined && sectionResolved !== '') {
             // section 指定: 見出し配下の末尾に挿入 [AC-Sd22b1f-2-1]
             newContent = insertUnderHeading(existing ?? '', sectionResolved, contentResolved);
           } else {
@@ -268,7 +333,7 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
           if (step.open === true) openPath = rel;
 
         } else if (kind === 'note-append') {
-          // target, content を展開
+          // target, content, section?, create?, position? を展開 [AC-Sf2f114-3-1]
           const targetRaw = resolveTemplate(step.target, {
             vars: resolvedParams,
             date: now,
@@ -280,6 +345,9 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
             date: now,
             now,
           }).text;
+          const sectionResolved = step.section !== undefined
+            ? resolveTemplate(step.section, { vars: resolvedParams, date: now, now }).text
+            : undefined;
 
           // target path 検証 [AC-Sd22b1f-2-2] — traversal/hidden-segment は 400 で即拒否
           let rel: string;
@@ -297,13 +365,34 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
             throw err;
           }
 
-          const existing = await readNote(config.vaultRoot, rel);
+          let existing = await readNote(config.vaultRoot, rel);
           if (existing === null) {
-            results.push({ kind, ok: false, error: `note not found: ${rel}` });
-            break;
+            if (step.create === true) {
+              // create:true → 存在しないノートを新規作成 (空コンテンツに追記) [AC-Sf2f114-3-1]
+              existing = '';
+            } else {
+              // create 未指定 or false → 後方互換: ok:false で fail-stop [AC-Sf2f114-3-2]
+              results.push({ kind, ok: false, error: `note not found: ${rel}` });
+              break;
+            }
           }
 
-          await writeNote(config.vaultRoot, rel, appendText(existing, contentResolved));
+          // 挿入位置の決定: position 明示 → それに従う。省略時は後方互換
+          // (section あり → 'section'、なし → 'bottom') [AC-Sf2f114-3-1]
+          let newContent: string;
+          const positionRaw = step.position;
+          if (positionRaw !== undefined) {
+            const opts = sectionResolved !== undefined
+              ? { position: positionRaw, section: sectionResolved }
+              : { position: positionRaw };
+            newContent = insertAtPosition(existing, opts, contentResolved);
+          } else if (sectionResolved !== undefined && sectionResolved !== '') {
+            newContent = insertUnderHeading(existing, sectionResolved, contentResolved);
+          } else {
+            newContent = appendText(existing, contentResolved);
+          }
+
+          await writeNote(config.vaultRoot, rel, newContent);
           await writeAuditEntry(config, {
             ts: new Date().toISOString(),
             op: 'note-append.write',
@@ -459,8 +548,149 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
           results.push(stepResult);
           if (step.open === true) openPath = dest;
 
+        } else if (kind === 'prop-set') {
+          // target, string values を展開 [AC-Sf2f114-4-1]
+          const targetRaw = resolveTemplate(step.target, {
+            vars: resolvedParams,
+            date: now,
+            now,
+            pathMode: true,
+          }).text;
+
+          // target path 検証 — traversal/hidden-segment は 400 で即拒否
+          let rel: string;
+          try {
+            rel = normalizeVaultPath(targetRaw);
+          } catch (err) {
+            if (err instanceof VaultPathError) {
+              return errorJson(
+                c,
+                400,
+                'invalid_target_path',
+                `invalid target path in step: ${err.message}`,
+              );
+            }
+            throw err;
+          }
+
+          // set の string 値を resolveTemplate 展開する
+          let resolvedSet: Record<string, string | number | boolean> | undefined;
+          if (step.set !== undefined) {
+            resolvedSet = {};
+            for (const [key, value] of Object.entries(step.set)) {
+              if (typeof value === 'string') {
+                resolvedSet[key] = resolveTemplate(value, {
+                  vars: resolvedParams,
+                  date: now,
+                  now,
+                }).text;
+              } else {
+                resolvedSet[key] = value;
+              }
+            }
+          }
+
+          // set / unset いずれも省略 → no-op (ok:true)
+          if (resolvedSet === undefined && (step.unset === undefined || step.unset.length === 0)) {
+            results.push({ kind, ok: true, path: rel });
+            continue;
+          }
+
+          const propResult = await applyPropSet(config, {
+            rel,
+            set: resolvedSet,
+            unset: step.unset,
+          });
+
+          if (!propResult.ok) {
+            if ('notFound' in propResult) {
+              results.push({ kind, ok: false, error: `note not found: ${rel}` });
+              break;
+            }
+            // unprocessable — 安全のため書かずに失敗
+            results.push({ kind, ok: false, error: propResult.unprocessable });
+            break;
+          }
+
+          await writeAuditEntry(config, {
+            ts: new Date().toISOString(),
+            op: 'prop-set.write',
+            path: rel,
+            mode: config.mode,
+            result: 'ok',
+            status: 200,
+          });
+
+          results.push({ kind, ok: true, path: rel });
+
+        } else if (kind === 'note-patch') {
+          // target, old, new を展開 [AC-Sf2f114-4-2]
+          const targetRaw = resolveTemplate(step.target, {
+            vars: resolvedParams,
+            date: now,
+            now,
+            pathMode: true,
+          }).text;
+          const oldResolved = resolveTemplate(step.old, {
+            vars: resolvedParams,
+            date: now,
+            now,
+          }).text;
+          const newResolved = resolveTemplate(step.new, {
+            vars: resolvedParams,
+            date: now,
+            now,
+          }).text;
+
+          // target path 検証 — traversal/hidden-segment は 400 で即拒否
+          let rel: string;
+          try {
+            rel = normalizeVaultPath(targetRaw);
+          } catch (err) {
+            if (err instanceof VaultPathError) {
+              return errorJson(
+                c,
+                400,
+                'invalid_target_path',
+                `invalid target path in step: ${err.message}`,
+              );
+            }
+            throw err;
+          }
+
+          const patchResult = await applyNotePatch(config, rel, oldResolved, newResolved);
+
+          if (!patchResult.ok) {
+            if ('notFound' in patchResult) {
+              results.push({ kind, ok: false, error: `note not found: ${rel}` });
+              break;
+            }
+            if ('oldNotFound' in patchResult) {
+              results.push({ kind, ok: false, error: `old string not found in note: ${rel}` });
+              break;
+            }
+            // ambiguous
+            results.push({
+              kind,
+              ok: false,
+              error: `old string matches ${patchResult.ambiguous} locations in ${rel}; provide a more specific old string`,
+            });
+            break;
+          }
+
+          await writeAuditEntry(config, {
+            ts: new Date().toISOString(),
+            op: 'note-patch.write',
+            path: rel,
+            mode: config.mode,
+            result: 'ok',
+            status: 200,
+          });
+
+          results.push({ kind, ok: true, path: rel });
+
         } else {
-          // 未知の kind (将来の拡張など — v1 では到達しないはず)
+          // 未知の kind (将来の拡張など — 現在は 6 種すべてを網羅しているためここには到達しない)
           const exhaustiveCheck: never = step;
           results.push({
             kind: (exhaustiveCheck as { kind: string }).kind,

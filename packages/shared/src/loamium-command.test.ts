@@ -1,5 +1,6 @@
 /**
  * [AC-Sd22b1f-1-1] LoamiumCommand スキーマ + parseLoamiumCommand のユニットテスト。
+ * [AC-Sf2f114-2-1] evaluateCondition (when / when-not の truthy/falsey 評価) のユニットテスト。
  *
  * 正常系 / 未知 kind / 型不一致 / 壊れ YAML (= null frontmatter) / loamium-command キー欠損 を検証。
  */
@@ -7,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   commandParamSchema,
   commandStepSchema,
+  evaluateCondition,
   loamiumCommandSchema,
   parseLoamiumCommand,
   parseLoamiumCommandWithError,
@@ -46,7 +48,7 @@ describe('[AC-Sd22b1f-1-1] commandParamSchema', () => {
     }
   });
 
-  it('type が string / text / date を受け入れる', () => {
+  it('type が string / text / date を受け入れる (既存 3 種 — 後方互換)', () => {
     for (const t of ['string', 'text', 'date'] as const) {
       const result = commandParamSchema.safeParse({ name: 'x', type: t });
       expect(result.success, `type=${t} should be valid`).toBe(true);
@@ -59,8 +61,89 @@ describe('[AC-Sd22b1f-1-1] commandParamSchema', () => {
   });
 
   it('未知の type は拒否される', () => {
-    const result = commandParamSchema.safeParse({ name: 'x', type: 'select' });
+    const result = commandParamSchema.safeParse({ name: 'x', type: 'foobar' });
     expect(result.success).toBe(false);
+  });
+
+  // ---- [AC-Sf2f114-5-1] 新規 4 型 ----
+
+  it('[AC-Sf2f114-5-1] type=boolean が通る', () => {
+    const result = commandParamSchema.safeParse({ name: 'flag', type: 'boolean' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.type).toBe('boolean');
+    }
+  });
+
+  it('[AC-Sf2f114-5-1] type=number が通る', () => {
+    const result = commandParamSchema.safeParse({ name: 'count', type: 'number' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.type).toBe('number');
+    }
+  });
+
+  it('[AC-Sf2f114-5-1] type=note が通る', () => {
+    const result = commandParamSchema.safeParse({ name: 'target', type: 'note' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.type).toBe('note');
+    }
+  });
+
+  it('[AC-Sf2f114-5-1] type=select + options (非空) が通る', () => {
+    const result = commandParamSchema.safeParse({
+      name: 'priority',
+      type: 'select',
+      options: ['low', 'medium', 'high'],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.type).toBe('select');
+      expect(result.data.options).toEqual(['low', 'medium', 'high']);
+    }
+  });
+
+  it('[AC-Sf2f114-5-1] type=select で options が空配列 → 無効', () => {
+    const result = commandParamSchema.safeParse({
+      name: 'priority',
+      type: 'select',
+      options: [],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const msgs = result.error.errors.map((e) => e.message).join(' ');
+      expect(msgs).toContain('options');
+    }
+  });
+
+  it('[AC-Sf2f114-5-1] type=select で options が省略 → 無効', () => {
+    const result = commandParamSchema.safeParse({
+      name: 'priority',
+      type: 'select',
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const msgs = result.error.errors.map((e) => e.message).join(' ');
+      expect(msgs).toContain('options');
+    }
+  });
+
+  it('[AC-Sf2f114-5-1] type=string で options を付けても通る (ignored at runtime)', () => {
+    // select 以外で options を含む場合は許容する (additive — 無視)
+    const result = commandParamSchema.safeParse({
+      name: 'x',
+      type: 'string',
+      options: ['a', 'b'],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('[AC-Sf2f114-5-1] 既存の string / text / date は options なしで変わらず通る', () => {
+    for (const t of ['string', 'text', 'date'] as const) {
+      const result = commandParamSchema.safeParse({ name: 'x', type: t });
+      expect(result.success, `type=${t} (no options) should still be valid`).toBe(true);
+    }
   });
 });
 
@@ -298,6 +381,128 @@ describe('[AC-Sd22b1f-1-1] parseLoamiumCommandWithError', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// [AC-Sf2f114-2-1] evaluateCondition — truthy / falsey 判定
+// ---------------------------------------------------------------------------
+describe('[AC-Sf2f114-2-1] evaluateCondition', () => {
+  // falsey ケース
+  it('空文字列 "" → falsey', () => {
+    expect(evaluateCondition('')).toBe(false);
+  });
+
+  it('空白のみ文字列 "  " → falsey (trim 後が空)', () => {
+    expect(evaluateCondition('  ')).toBe(false);
+  });
+
+  it('"false" → falsey', () => {
+    expect(evaluateCondition('false')).toBe(false);
+  });
+
+  it('"false" (前後空白付き) → falsey (trim 後 "false")', () => {
+    expect(evaluateCondition('  false  ')).toBe(false);
+  });
+
+  it('"0" → falsey', () => {
+    expect(evaluateCondition('0')).toBe(false);
+  });
+
+  it('"0" (前後空白付き) → falsey (trim 後 "0")', () => {
+    expect(evaluateCondition('  0  ')).toBe(false);
+  });
+
+  // truthy ケース
+  it('"true" → truthy', () => {
+    expect(evaluateCondition('true')).toBe(true);
+  });
+
+  it('"1" → truthy', () => {
+    expect(evaluateCondition('1')).toBe(true);
+  });
+
+  it('"yes" → truthy', () => {
+    expect(evaluateCondition('yes')).toBe(true);
+  });
+
+  it('任意の非空・非 false・非 0 文字列 → truthy', () => {
+    expect(evaluateCondition('hello')).toBe(true);
+    expect(evaluateCondition('任意テキスト')).toBe(true);
+    expect(evaluateCondition('FALSE')).toBe(true); // 大文字は truthy
+    expect(evaluateCondition('0.0')).toBe(true);   // "0.0" は "0" ではない
+  });
+});
+
+// ---------------------------------------------------------------------------
+// [AC-Sf2f114-2-1] commandStepSchema — when / when-not フィールドのスキーマ検証
+// ---------------------------------------------------------------------------
+describe('[AC-Sf2f114-2-1] commandStepSchema with when / when-not', () => {
+  it('journal-append に when フィールドが追加できる', () => {
+    const result = commandStepSchema.safeParse({
+      kind: 'journal-append',
+      content: '追記テキスト',
+      when: '{{flag}}',
+    });
+    expect(result.success).toBe(true);
+    if (result.success && result.data.kind === 'journal-append') {
+      expect(result.data.when).toBe('{{flag}}');
+    }
+  });
+
+  it('journal-append に when-not フィールドが追加できる', () => {
+    const result = commandStepSchema.safeParse({
+      kind: 'journal-append',
+      content: '追記テキスト',
+      'when-not': '{{skip_flag}}',
+    });
+    expect(result.success).toBe(true);
+    if (result.success && result.data.kind === 'journal-append') {
+      expect(result.data['when-not']).toBe('{{skip_flag}}');
+    }
+  });
+
+  it('note-append に when / when-not が追加できる', () => {
+    const result = commandStepSchema.safeParse({
+      kind: 'note-append',
+      target: 'notes/inbox.md',
+      content: '追記内容',
+      when: 'truthy',
+      'when-not': '',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('note-create に when / when-not が追加できる', () => {
+    const result = commandStepSchema.safeParse({
+      kind: 'note-create',
+      target: 'notes/{{title}}.md',
+      content: '# {{title}}\n',
+      when: '{{create_flag}}',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('template-instantiate に when / when-not が追加できる', () => {
+    const result = commandStepSchema.safeParse({
+      kind: 'template-instantiate',
+      template: 'daily',
+      'when-not': 'false',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('when / when-not なしの既存ステップも引き続き通る (後方互換)', () => {
+    const result = commandStepSchema.safeParse({
+      kind: 'note-create',
+      target: 'notes/test.md',
+      content: '# test',
+    });
+    expect(result.success).toBe(true);
+    if (result.success && result.data.kind === 'note-create') {
+      expect(result.data.when).toBeUndefined();
+      expect(result.data['when-not']).toBeUndefined();
     }
   });
 });

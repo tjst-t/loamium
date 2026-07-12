@@ -152,3 +152,155 @@ describe('[AC-S89a350-1-3] パスサニタイズ + normalizeVaultPath 通過', (
     expect(normalizeVaultPath(target.text)).toBe('notes/etcpasswd.md');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Sf2f114-1 拡張: {{param|fallback}} と相対日付 {{date:+Nd:FMT}}
+// ---------------------------------------------------------------------------
+
+describe('[AC-Sf2f114-1-1] {{param|fallback}} パイプ付きフォールバック', () => {
+  // 未定義の param → fallback を使用し、missing には追加しない
+  it('param が未定義のとき fallback を返す (missing に収集しない)', () => {
+    const res = resolveTemplate('件名: {{タイトル|無題}}', { vars: {} });
+    expect(res.text).toBe('件名: 無題');
+    expect(res.missing).toEqual([]);
+  });
+
+  // 空文字の param → fallback を使用
+  it('param が空文字のとき fallback を返す', () => {
+    const res = resolveTemplate('{{x|デフォルト}}', { vars: { x: '' } });
+    expect(res.text).toBe('デフォルト');
+    expect(res.missing).toEqual([]);
+  });
+
+  // 値が存在するとき → 値を使用
+  it('param に値があるとき値を返す', () => {
+    const res = resolveTemplate('{{x|デフォルト}}', { vars: { x: '実際の値' } });
+    expect(res.text).toBe('実際の値');
+    expect(res.missing).toEqual([]);
+  });
+
+  // fallback に日本語・スペースを含む
+  it('fallback に日本語やスペースを含んでも正しく展開する', () => {
+    const res = resolveTemplate('{{メモ|未入力 メモ あり}}', { vars: {} });
+    expect(res.text).toBe('未入力 メモ あり');
+    expect(res.missing).toEqual([]);
+  });
+
+  // 複数トークンの混在
+  it('パイプ付きと通常トークンが混在しても正しく処理する', () => {
+    const res = resolveTemplate('{{a|AA}} / {{b}} / {{c|CC}}', {
+      vars: { a: '実A', b: '実B' },
+    });
+    expect(res.text).toBe('実A / 実B / CC');
+    // b は定義済みなので missing にない。c はパイプ付きで fallback を使ったので missing にない
+    expect(res.missing).toEqual([]);
+  });
+
+  // 後方互換: パイプなし {{x}} は未定義のとき verbatim + missing のまま
+  it('パイプなし {{x}} は未定義のとき verbatim に残り missing に収集される (後方互換)', () => {
+    const res = resolveTemplate('{{タイトル}}', { vars: {} });
+    expect(res.text).toBe('{{タイトル}}');
+    expect(res.missing).toEqual(['タイトル']);
+  });
+
+  // 空文字の値は既存テストと同じく「指定済み」扱い (パイプなし)
+  it('パイプなし {{x}} で値が空文字のとき空に展開する (既存ルール変更なし)', () => {
+    const res = resolveTemplate('a{{x}}b', { vars: { x: '' } });
+    expect(res.text).toBe('ab');
+    expect(res.missing).toEqual([]);
+  });
+
+  // fallback の先頭スペースはリテラルとして保持される (trim しない)
+  it('fallback の先頭スペースは保持する ({{x| fallback}} → " fallback")', () => {
+    const res = resolveTemplate('{{x| fallback}}', { vars: {} });
+    expect(res.text).toBe(' fallback');
+    expect(res.missing).toEqual([]);
+  });
+});
+
+describe('[AC-Sf2f114-1-2] 相対日付オフセット {{date:+Nd:FMT}} / {{date:-Nd:FMT}}', () => {
+  const base = new Date(2026, 6, 6, 9, 4, 7); // 2026-07-06 09:04:07 ローカル
+
+  it('+3d: 3 日後の日付を返す', () => {
+    const res = resolveTemplate('{{date:+3d:YYYY-MM-DD}}', { date: base });
+    expect(res.text).toBe('2026-07-09');
+    expect(res.missing).toEqual([]);
+  });
+
+  it('-1d: 1 日前の日付を返す', () => {
+    const res = resolveTemplate('{{date:-1d:YYYY-MM-DD}}', { date: base });
+    expect(res.text).toBe('2026-07-05');
+    expect(res.missing).toEqual([]);
+  });
+
+  it('+0d: オフセット 0 は {{date:YYYY-MM-DD}} と同一', () => {
+    const resOffset = resolveTemplate('{{date:+0d:YYYY-MM-DD}}', { date: base });
+    const resBase = resolveTemplate('{{date:YYYY-MM-DD}}', { date: base });
+    expect(resOffset.text).toBe(resBase.text);
+    expect(resOffset.text).toBe('2026-07-06');
+  });
+
+  it('月跨ぎのオフセットを正しく計算する', () => {
+    // 2026-07-31 + 1d = 2026-08-01
+    const eom = new Date(2026, 6, 31);
+    const res = resolveTemplate('{{date:+1d:YYYY-MM-DD}}', { date: eom });
+    expect(res.text).toBe('2026-08-01');
+  });
+
+  it('now:+2d もサポートする', () => {
+    const res = resolveTemplate('{{now:+2d:YYYY-MM-DD}}', { now: base });
+    expect(res.text).toBe('2026-07-08');
+    expect(res.missing).toEqual([]);
+  });
+
+  // 既存の {{date:FORMAT}} は変更なし (後方互換)
+  it('既存 {{date:YYYY-MM-DD}} はオフセットなしで変更なし', () => {
+    const res = resolveTemplate('{{date:YYYY-MM-DD}}', { date: base });
+    expect(res.text).toBe('2026-07-06');
+  });
+
+  it('既存 {{date:YYYY/MM/DD HH:mm:ss}} はコロン含むフォーマットも変更なし', () => {
+    const res = resolveTemplate('{{date:YYYY/MM/DD HH:mm:ss}}', { date: base });
+    expect(res.text).toBe('2026/07/06 09:04:07');
+  });
+
+  it('[AC-Sf2f114-1-2] {{date:HH:mm}} standalone — コロン直後フォーマット (オフセットと誤解析されない)', () => {
+    // "HH:mm" はオフセット記法 (+Nd/-Nd) にマッチしないため
+    // resolvePreset は HH:mm をそのまま formatDate のフォーマット文字列として扱う
+    // → base 2026-07-06 09:04:07 → "09:04"
+    const res = resolveTemplate('{{date:HH:mm}}', { date: base });
+    expect(res.text).toBe('09:04');
+    expect(res.missing).toEqual([]);
+  });
+
+  it('d 以外の単位 (+3h) はサポート外 — クラッシュせず部分フォーマットになる', () => {
+    // +3h はオフセット記法として認識されないため date:+3h:YYYY-MM-DD は
+    // offsetPart = '+3h' が DAY_OFFSET_RE にマッチしない
+    // → 従来通り `rest = '+3h:YYYY-MM-DD'` を format 文字列として formatDate に渡す
+    // formatDate は YYYY/MM/DD トークンだけ展開し未知トークン (+3h:) はそのまま通す
+    // → 結果は '+3h:2026-07-06' (base = 2026-07-06)
+    expect(() => resolveTemplate('{{date:+3h:YYYY-MM-DD}}', { date: base })).not.toThrow();
+    const res = resolveTemplate('{{date:+3h:YYYY-MM-DD}}', { date: base });
+    expect(res.text).toBe('+3h:2026-07-06');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC-1-3 明示タグ: 既存トークンの後方互換バイト同一性
+// ---------------------------------------------------------------------------
+
+describe('[AC-Sf2f114-1-3] 既存トークンの後方互換 (バイト変化なし)', () => {
+  const base = new Date(2026, 6, 6, 9, 4, 7); // 2026-07-06 09:04:07 ローカル
+
+  it('{{date:YYYY-MM-DD}} は journalPath と同一文字列を再現する (byte-identical)', () => {
+    const res = resolveTemplate('{{date:YYYY-MM-DD}}', { date: base });
+    expect(res.text).toBe('2026-07-06');
+    expect(res.missing).toEqual([]);
+  });
+
+  it('未定義の {{missing}} はトークンを verbatim に保持し missing[] に収集する', () => {
+    const res = resolveTemplate('{{missing}}', { vars: {} });
+    expect(res.text).toBe('{{missing}}');
+    expect(res.missing).toEqual(['missing']);
+  });
+});

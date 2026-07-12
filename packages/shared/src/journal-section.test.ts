@@ -2,9 +2,12 @@
  * insertUnderHeading ユニットテスト (Sd22b1f-2 / Sd22b1f-3)。
  * [AC-Sd22b1f-2-1]: journal-append ステップの section 指定ロジックを検証する。
  * [AC-Sd22b1f-3-1]: POST /api/journal/append の section 対応ロジックを担保する。
+ *
+ * insertAtPosition ユニットテスト (Sf2f114-3)。
+ * [AC-Sf2f114-3-1]: note-append / journal-append の position/section/create 一般化ロジックを検証する。
  */
 import { describe, expect, it } from 'vitest';
-import { insertUnderHeading } from './journal-section.js';
+import { insertUnderHeading, insertAtPosition } from './journal-section.js';
 
 describe('insertUnderHeading', () => {
   // [AC-Sd22b1f-3-1] 空のコンテンツ → 見出し + text を末尾に追記する
@@ -190,5 +193,133 @@ describe('insertUnderHeading', () => {
     // (new-item が secondTodoHeadingIdx より前にある)
     expect(newItemIdx).toBeLessThan(secondTodoHeadingIdx);
     expect(secondTodoSection).not.toContain('- [ ] new-item');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// insertAtPosition — [AC-Sf2f114-3-1]
+// ---------------------------------------------------------------------------
+
+describe('[AC-Sf2f114-3-1] insertAtPosition — bottom', () => {
+  it('bottom: 空コンテンツ → text のみ (末尾改行付き)', () => {
+    const result = insertAtPosition('', { position: 'bottom' }, 'line1');
+    expect(result).toBe('line1\n');
+  });
+
+  it('bottom: 既存コンテンツの末尾に追記する', () => {
+    const result = insertAtPosition('existing\n', { position: 'bottom' }, 'appended');
+    expect(result).toBe('existing\nappended\n');
+  });
+
+  it('bottom: 既存コンテンツの末尾改行がなければ補う', () => {
+    const result = insertAtPosition('existing', { position: 'bottom' }, 'appended');
+    expect(result).toBe('existing\nappended\n');
+  });
+
+  it('bottom: section フィールドは無視される (position が優先)', () => {
+    const result = insertAtPosition('existing\n', { position: 'bottom', section: 'Todo' }, 'line');
+    expect(result).toBe('existing\nline\n');
+  });
+});
+
+describe('[AC-Sf2f114-3-1] insertAtPosition — section', () => {
+  it('section: insertUnderHeading と同義 (見出し存在)', () => {
+    const content = '## Todo\n\n- [ ] existing\n';
+    const result = insertAtPosition(content, { position: 'section', section: 'Todo' }, '- [ ] new');
+    expect(result).toContain('- [ ] existing');
+    expect(result).toContain('- [ ] new');
+    const existingIdx = result.indexOf('- [ ] existing');
+    const newIdx = result.indexOf('- [ ] new');
+    expect(newIdx).toBeGreaterThan(existingIdx);
+  });
+
+  it('section: insertUnderHeading と同義 (見出し不在 → EOF に追加)', () => {
+    const content = '# Journal\n\nsome text\n';
+    const result = insertAtPosition(content, { position: 'section', section: 'Todo' }, '- [ ] task');
+    expect(result).toContain('## Todo');
+    expect(result).toContain('- [ ] task');
+    const headingIdx = result.indexOf('## Todo');
+    const taskIdx = result.indexOf('- [ ] task');
+    expect(taskIdx).toBeGreaterThan(headingIdx);
+  });
+
+  it('section: section が未指定ならエラーをスローする', () => {
+    expect(() => insertAtPosition('content', { position: 'section' }, 'text')).toThrow();
+  });
+
+  it('section: section が空文字ならエラーをスローする', () => {
+    expect(() => insertAtPosition('content', { position: 'section', section: '' }, 'text')).toThrow();
+  });
+});
+
+describe('[AC-Sf2f114-3-1] insertAtPosition — top', () => {
+  it('top: 空コンテンツ → text のみ', () => {
+    const result = insertAtPosition('', { position: 'top' }, '## inserted\n');
+    expect(result).toBe('## inserted\n');
+  });
+
+  it('top: frontmatter なし → コンテンツ先頭に挿入', () => {
+    const content = '# Title\n\nbody text\n';
+    const result = insertAtPosition(content, { position: 'top' }, 'inserted\n');
+    expect(result).toBe('inserted\n# Title\n\nbody text\n');
+  });
+
+  it('top: frontmatter あり → frontmatter を保護し本文先頭に挿入', () => {
+    const content = '---\ntitle: My Note\n---\n# Title\n\nbody\n';
+    const result = insertAtPosition(content, { position: 'top' }, '- prepended\n');
+    // frontmatter が保護されること
+    expect(result).toContain('---\ntitle: My Note\n---\n');
+    // 挿入テキストが frontmatter の直後にあること
+    expect(result).toContain('---\n- prepended\n');
+    // 既存の本文が後ろに続くこと
+    expect(result).toContain('# Title');
+    expect(result).toContain('body');
+    // 挿入テキストが # Title の前にあること
+    const insertedIdx = result.indexOf('- prepended');
+    const titleIdx = result.indexOf('# Title');
+    expect(insertedIdx).toBeGreaterThan(-1);
+    expect(insertedIdx).toBeLessThan(titleIdx);
+  });
+
+  it('top: frontmatter あり、本文なし → frontmatter の直後に追記', () => {
+    const content = '---\ntitle: Note\n---\n';
+    const result = insertAtPosition(content, { position: 'top' }, 'new body\n');
+    expect(result).toContain('---\ntitle: Note\n---\n');
+    expect(result).toContain('new body');
+    const fmEnd = result.indexOf('---\n', 4); // 2 番目の ---
+    const bodyIdx = result.indexOf('new body');
+    expect(bodyIdx).toBeGreaterThan(fmEnd);
+  });
+
+  it('top: frontmatter が閉じていない → 先頭に挿入 (frontmatter 誤認識を防ぐ)', () => {
+    // --- で始まるが閉じ --- がない → frontmatter なし扱いで先頭に挿入
+    const content = '---\ntitle: unclosed\nbody text\n';
+    const result = insertAtPosition(content, { position: 'top' }, 'inserted\n');
+    expect(result.startsWith('inserted\n')).toBe(true);
+  });
+
+  it('top: frontmatter が保護され、YAML が壊れないこと', () => {
+    const content = '---\nkey: value\ntags: [a, b]\n---\n\ncontent here\n';
+    const result = insertAtPosition(content, { position: 'top' }, '> blockquote\n');
+    // frontmatter ブロックがそのまま残ること
+    expect(result).toContain('---\nkey: value\ntags: [a, b]\n---\n');
+    // 挿入テキストが frontmatter の直後にあること
+    const fmCloseIdx = result.indexOf('---\n', 4) + 3; // '---' の直後の '\n' 位置
+    const insertIdx = result.indexOf('> blockquote');
+    expect(insertIdx).toBeGreaterThan(fmCloseIdx);
+    // 既存コンテンツが保持されること
+    expect(result).toContain('content here');
+  });
+
+  it('top: text が改行で終わらない場合も LF を補う', () => {
+    const result = insertAtPosition('body\n', { position: 'top' }, 'no-trailing-newline');
+    expect(result.endsWith('\n')).toBe(true);
+    expect(result).toContain('no-trailing-newline\n');
+  });
+
+  it('top: CRLF 入力でも LF に正規化される', () => {
+    const content = '# Title\r\nbody\r\n';
+    const result = insertAtPosition(content, { position: 'top' }, 'inserted');
+    expect(result).not.toContain('\r');
   });
 });
