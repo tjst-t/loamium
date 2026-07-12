@@ -1,0 +1,36 @@
+{
+  "id": "ADR-0011",
+  "title": "エージェントの権限はケーパビリティ別トグルの設定可能モデルとする (ADR-0008 の3段階を置換)",
+  "status": "accepted",
+  "date": "2026-07-12",
+  "context": "ADR-0008 は第1リリースとして『読み取りのみ / 追記+新規作成 / フル』の3段階セッション選択制を定めた。書き込みツール (Journal/Note 書き込み、Template 作成・修正、DataView 作成) と Web アクセスを加える段階になり、3段階では粒度が粗すぎる。ユーザーによって『読み込みだけ』『ノートは読み書き自由だが Web は無し』『全部自由』など要求が分かれ、しかも Web の on/off は書き込みとは独立した軸である。ある程度細かく、かつ独立に制御できる権限モデルが要る。ADR-0008 の3段階はこの新モデルに包含されるため supersede する。",
+  "alternatives": [
+    {
+      "name": "ケーパビリティ別トグル",
+      "tradeoff": "read / journal_append / note_create / note_edit / template_write / dataview_write / web を独立に on/off。細かい要求に応えられ、Web を書き込みと分離できる。プリセットで簡単な選択も残す。設定 UI と検証がやや複雑化。"
+    },
+    {
+      "name": "名前付きプリセットのみ (ADR-0008 の延長)",
+      "tradeoff": "read-only / notes-rw / full の数種 + web トグル。単純だが『ノート作成は許すが既存編集は不可』のような細かい要求に応えられない。"
+    },
+    {
+      "name": "フル ACL (パス別・操作別の細粒度ルール)",
+      "tradeoff": "最も柔軟だが個人アプリには過剰。設定負荷が高く DESIGN 原則5 (シンプルさ > 汎用性) に反する。"
+    }
+  ],
+  "decision": "権限はケーパビリティ別トグルの集合とする: read (既存の search/query/read_note/backlinks/tags + help) / journal_append / note_create / note_edit / template_write / dataview_write / web。各ケーパビリティを独立に on/off できる。既定は `.loamium/agent.json` の permissions フィールド (マシンローカル) に置き、チャット UI でセッション単位に上書きできる。プリセット (読取のみ / ノートRW / フル) はショートカットとして提供する。LLM に広告されるツール集合は有効なケーパビリティから導出する (allowlist 機構は ADR-0008 のまま流用)。実効権限 = エージェント権限 ∩ サーバー LOAMIUM_MODE を維持する (サーバーが read-only/append-only ならエージェントはそれを超えて書けない)。",
+  "consequences": [
+    "+ 『読むだけ』〜『全部自由』まで、独立軸で細かく設定できる",
+    "+ Web を書き込み権限と分離して個別に許可/禁止できる (ADR-0013 と接続)",
+    "+ allowlist 機構をそのまま使い、有効ケーパビリティ→ツール集合の導出だけを足せばよい (ADR-0008 の実装資産を継承)",
+    "+ サーバー LOAMIUM_MODE との AND 不変条件を維持し、サーバー側の最終ガードは残る",
+    "- 権限セットの検証・UI・ツール導出ロジックが3段階より複雑になる",
+    "- 機密領域 (ADR-0014) は権限より優先する別軸であることを、実装・UI で明確に分離する必要がある",
+    "permissions 既定は agent.json (git 非追跡・マシンローカル) に置く。vault と一緒に旅させたい要求が出たら別 ADR で git 追跡側へ移す"
+  ],
+  "reversibility_cost": "medium",
+  "affects": ["server", "ui", "shared"],
+  "supersedes": "ADR-0008",
+  "superseded_by": null,
+  "notes": "ケーパビリティの最終的な粒度 (例: template_write と dataview_write を note_edit に畳むか独立に残すか) は sprint plan で詰めてよい — 本 ADR が固めるのは『独立トグルの集合 + agent.json 既定 + UI セッション上書き + プリセット + LOAMIUM_MODE との AND』という契約。書き込みツールの実装は ADR-0012、Web は ADR-0013、機密領域は ADR-0014。"
+}

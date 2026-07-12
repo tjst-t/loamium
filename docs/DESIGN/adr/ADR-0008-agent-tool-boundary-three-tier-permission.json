@@ -1,7 +1,7 @@
 {
   "id": "ADR-0008",
   "title": "内蔵エージェントのツールは Loamium ノート API のみとし、書き込みは 3 段階のユーザー選択制にする",
-  "status": "accepted",
+  "status": "superseded",
   "date": "2026-07-10",
   "context": "内蔵エージェント (ADR-0007) にどのツールを渡すかは、そのままセキュリティ境界とデータ安全性 (優先原則 2) を決める。pi の組み込みツール (bash / read / write / edit 等) は vault 外を含む任意のファイル・コマンド操作が可能で、pi 自体は権限システムを持たない YOLO 設計のため、安全性はホスト側がツールを絞ることでのみ担保される。また『情報の収集』に Web アクセスを含めると、vault 読み取りと外部送信の同時保有によりノート内テキスト経由のプロンプトインジェクションで情報漏洩が起こりうるため、第 1 リリースの範囲を明示しておく必要がある。",
   "alternatives": [
@@ -34,8 +34,12 @@
     "エージェントのツール定義は REST API と意味的に 1:1 を保つ (API/CLI/Agent ツールの三面で同じ操作語彙)"
   ],
   "reversibility_cost": "medium",
-  "affects": ["server", "ui", "shared"],
+  "affects": [
+    "server",
+    "ui",
+    "shared"
+  ],
   "supersedes": null,
-  "superseded_by": null,
+  "superseded_by": "ADR-0011",
   "notes": "緩める方向 (Web ツール追加・承認方式の追加) は新 ADR の追記で対応できるが、一度広げた境界を狭めるのはユーザー体験上難しい — 迷ったら狭い側に倒す。ツールの粒度 (search と query を分けるか等) は sprint ローカル判断。"
 }

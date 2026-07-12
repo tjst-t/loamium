@@ -1,0 +1,40 @@
+{
+  "id": "ADR-0010",
+  "title": "エージェントのシステムプロンプトは Loamium がコードで注入し、細かい使い方は help ツールでオンデマンド供給する",
+  "status": "accepted",
+  "date": "2026-07-12",
+  "context": "現状の内蔵エージェント (ADR-0007) は createAgentSession に systemPromptOverride も resourceLoader も渡しておらず、pi の DefaultResourceLoader が cwd(=vault)や ~/.pi から SYSTEM.md/AGENTS.md/skills を探すが何も見つからないため、実効システムプロンプトは空である。結果、モデルは自前の既定ペルソナで動き、Loamium の役割・制約 (読み取り専用ノート補助であること、ピュア Markdown、[[リンク]]出典) を一切知らない (実測: モデルが『ファイルの読み書き・コマンド実行もできる』と自己紹介した)。一方で、DQL 文法・テンプレート形式・DataView フェンス記法・frontmatter 規約といった『細かい機能の使い方』を全部システムプロンプトに詰めると、コンテキストを圧迫し陳腐化しやすい。役割・制約という常時必要な土台と、必要時だけ要る詳細知識を分離する必要がある。",
+  "alternatives": [
+    {
+      "name": "base プロンプト(コード注入) + help ツールでオンデマンド詳細",
+      "tradeoff": "土台は systemPromptOverride で常時、詳細は help ツールで必要時に取得。プロンプトが小さく保て、ガイドを Loamium 側でバージョン管理でき、ユーザーが消せない安定土台になる。ツール往復が1回増える。"
+    },
+    {
+      "name": "全部入りの巨大システムプロンプト",
+      "tradeoff": "実装最単純だがコンテキストを常時圧迫し、機能追加のたびに肥大・陳腐化する。小型モデルで特に不利。"
+    },
+    {
+      "name": "SKILL ファイル (pi の resource loader に載せる)",
+      "tradeoff": "pi の既定機構に乗れるが、読み込みのタイミング・場所の制御が pi 実装依存で、Loamium からのバージョン管理・注入制御が弱い。"
+    },
+    {
+      "name": "vault に AGENTS.md を置いて読ませる",
+      "tradeoff": "ユーザーがカスタムできるが vault 依存で、アプリ標準の知識をアプリが保証できない (ユーザーが消せる)。"
+    }
+  ],
+  "decision": "Loamium が base システムプロンプトをコードで生成し pi の systemPromptOverride として注入する。base には役割 (この vault の読み書きノート補助)、絶対制約 (ピュア Markdown / [[リンク]] 出典 / 与えられたツールのみ使用 / 権限と機密領域の尊重 / 日本語で簡潔)、出力スタイルのみを含める。DQL・テンプレート・DataView・frontmatter 等の詳細な使い方は base に入れず、`help` ツール (トピック指定でガイド本文を返す。トピック例: dql / template / dataview / wikilink / journal) でエージェントがオンデマンドに取得する。ガイド本文は Loamium 同梱・バージョン管理する。",
+  "consequences": [
+    "+ システムプロンプトが小さく保たれ、コンテキスト圧迫と陳腐化を避けられる",
+    "+ 役割・制約・機能ガイドを Loamium 側でバージョン管理でき、ユーザーが消せない安定した土台になる",
+    "+ 機能追加時は help トピックとガイド本文を足すだけで、エージェントが自律的に学べる",
+    "+ base プロンプトで『読み取り専用/権限に従う』を明示でき、モデルの能力ハルシネーション (書けると誤認) を抑制",
+    "- 詳細知識が必要な操作ではツール往復が1回増える (レイテンシ微増)",
+    "- help ガイドとプロンプトで知識の二重管理を避けるため、責務分界 (常時=base / 詳細=help) を規律として守る必要がある",
+    "help ツールは読み取り系に分類し、どの権限セットでも利用可能にする (使い方を学ぶこと自体は無害)"
+  ],
+  "reversibility_cost": "low",
+  "affects": ["server", "shared"],
+  "supersedes": null,
+  "superseded_by": null,
+  "notes": "base プロンプトの実文言・help トピックの粒度は sprint 実装ローカル判断。将来ユーザー独自の追記が欲しくなれば pi の appendSystemPrompt / vault の AGENTS.md を base に追加合成する余地は残す (本 ADR が固めるのは『土台=コード注入 systemPromptOverride、詳細=help ツール』の分離契約)。"
+}
