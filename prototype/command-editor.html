@@ -1,0 +1,1523 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loamium — スマートコマンド編集モード案 5 種 (Sde7a63 plan)</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* ============================================================
+     SVG アイコンサイズ基底ガード
+     (過去失敗事例: inline SVG がサイズ指定なしで巨大化する)
+     ============================================================ */
+  :where(svg) { width: 16px; height: 16px; }
+
+  /* ============================================================
+     コマンドエディタ プロトタイプ固有スタイル
+     ============================================================ */
+
+  /* --- ページレイアウト (index ページ流用) ------------------- */
+  .proto-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 24px 100px;
+  }
+
+  /* --- 目次 ------------------------------------------------- */
+  .toc {
+    background: var(--bg-editor);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 40px;
+  }
+  .toc h2 { margin: 0 0 12px; font-size: 14px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+  .toc ol { margin: 0; padding: 0 0 0 18px; }
+  .toc li { margin: 6px 0; font-size: 13.5px; }
+  .toc a { color: var(--link); }
+  .toc a:hover { text-decoration: underline; }
+  .toc .toc-tradeoff { color: var(--text-faint); font-size: 12px; margin-left: 6px; }
+
+  /* --- バリアントセクション ---------------------------------- */
+  .variant-section {
+    border: 1.5px solid var(--border-strong);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 48px;
+    background: var(--bg-editor);
+  }
+
+  .variant-header {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    padding: 18px 24px 14px;
+    background: var(--bg-panel);
+    border-bottom: 1.5px solid var(--border);
+  }
+  .variant-num {
+    display: inline-flex;
+    width: 28px;
+    height: 28px;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 8px;
+    flex-shrink: 0;
+    align-self: center;
+  }
+  .variant-title { font-size: 16px; font-weight: 700; margin: 0; flex: 1; }
+  .variant-tradeoff {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    padding: 4px 10px;
+    background: var(--bg-hover);
+    border-radius: 8px;
+    flex-shrink: 0;
+    align-self: center;
+    border: 1px solid var(--border);
+  }
+
+  .variant-body {
+    padding: 24px;
+  }
+
+  /* state labels inside variants */
+  .state-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 14px;
+    margin-bottom: 10px;
+  }
+  .state-label.valid { background: #e8f5ee; color: #1f7a4d; }
+  .state-label.invalid { background: var(--danger-soft); color: var(--danger); }
+
+  .state-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 900px) { .state-cols { grid-template-columns: 1fr; } }
+
+  /* --- モック UI 共通 --------------------------------------- */
+
+  /* コマンドモード対応バッジ (エディタヘッダに重ねる) */
+  .cmd-mode-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-hover);
+    background: var(--accent-soft);
+    border-radius: 8px;
+    padding: 3px 10px;
+    border: 1px solid rgba(110,86,207,0.25);
+  }
+  .cmd-mode-badge svg { width: 12px; height: 12px; }
+
+  /* コマンドオーバーレイパネル (V1) */
+  .cmd-overlay-panel {
+    background: var(--bg-panel);
+    border-bottom: 1.5px solid var(--border);
+    padding: 12px 16px;
+  }
+  .cmd-overlay-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .cmd-valid-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 10px;
+  }
+  .cmd-valid-badge.ok { background: #e8f5ee; color: #1f7a4d; }
+  .cmd-valid-badge.ok svg { width: 13px; height: 13px; }
+  .cmd-valid-badge.err { background: var(--danger-soft); color: var(--danger); }
+  .cmd-valid-badge.err svg { width: 13px; height: 13px; }
+  .cmd-test-run-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 4px 12px;
+    background: var(--accent-soft);
+    margin-left: auto;
+  }
+  .cmd-test-run-btn:hover { background: #e5dff8; }
+  .cmd-test-run-btn svg { width: 13px; height: 13px; }
+  .cmd-test-run-btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+
+  .cmd-error-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    background: var(--danger-soft);
+    border: 1px solid #f5b8b8;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12.5px;
+    color: #a03d3d;
+    line-height: 1.55;
+    margin-bottom: 8px;
+  }
+  .cmd-error-banner svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 1px; color: var(--danger); }
+
+  .cmd-preview-row {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .cmd-preview-group { flex: 1; min-width: 0; }
+  .cmd-preview-group h4 {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-faint);
+    margin: 0 0 5px;
+  }
+  .cmd-preview-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    background: var(--bg-hover);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 2px 9px;
+    margin: 2px 3px 2px 0;
+  }
+  .cmd-preview-pill .pill-required {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--danger);
+    text-transform: uppercase;
+  }
+  .cmd-preview-pill .pill-type {
+    font-size: 10px;
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+  }
+  .cmd-step-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    padding: 3px 0;
+    color: var(--text-muted);
+  }
+  .cmd-step-row .step-kind {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--accent-soft);
+    color: var(--accent-hover);
+    border-radius: 5px;
+    padding: 1px 6px;
+  }
+  .cmd-step-row .step-kind.step-err {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+
+  /* --- フォーム UI (V2/V4) ---------------------------------- */
+  .cmd-form {
+    background: var(--bg-editor);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .cmd-form-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-panel);
+  }
+  .cmd-form-ico {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .cmd-form-ico svg { width: 16px; height: 16px; }
+  .cmd-form-title { font-size: 14px; font-weight: 700; }
+  .cmd-form-sub { font-size: 12px; color: var(--text-muted); }
+
+  .cmd-form-body { padding: 16px; }
+
+  .cmd-field-group {
+    margin-bottom: 14px;
+  }
+  .cmd-field-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .cmd-field-label .req { color: var(--danger); font-size: 12px; }
+  .cmd-field-input {
+    width: 100%;
+    font-family: var(--font-sans);
+    font-size: 13.5px;
+    padding: 7px 10px;
+    border: 1.5px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--bg-editor);
+    color: var(--text);
+    outline: none;
+  }
+  .cmd-field-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .cmd-field-select {
+    width: 100%;
+    font-family: var(--font-sans);
+    font-size: 13.5px;
+    padding: 7px 10px;
+    border: 1.5px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--bg-editor);
+    color: var(--text);
+  }
+  .cmd-field-textarea {
+    width: 100%;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    padding: 8px 10px;
+    border: 1.5px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--bg-editor);
+    color: var(--text);
+    resize: vertical;
+    min-height: 72px;
+    outline: none;
+  }
+  .cmd-field-textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  /* params editor table */
+  .cmd-params-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .cmd-params-table th {
+    text-align: left;
+    padding: 5px 10px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-editor);
+  }
+  .cmd-params-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .cmd-params-table tr:last-child td { border-bottom: none; }
+  .cmd-params-table input[type="text"],
+  .cmd-params-table select {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    padding: 3px 7px;
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    background: var(--bg-editor);
+    color: var(--text);
+    width: 100%;
+  }
+  .cmd-params-table input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--accent); }
+
+  /* steps editor */
+  .cmd-steps-list { list-style: none; margin: 0; padding: 0; }
+  .cmd-step-card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 8px;
+    background: var(--bg-panel);
+  }
+  .cmd-step-card-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-editor);
+    border-bottom: 1px solid var(--border);
+  }
+  .cmd-step-num {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .cmd-step-kind-sel {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 3px 8px;
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    background: var(--bg-editor);
+    color: var(--accent-hover);
+    font-weight: 600;
+  }
+  .cmd-step-del {
+    margin-left: auto;
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-faint);
+  }
+  .cmd-step-del:hover { background: var(--danger-soft); color: var(--danger); }
+  .cmd-step-del svg { width: 13px; height: 13px; }
+  .cmd-step-body { padding: 10px 12px; }
+
+  .add-row-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--accent);
+    padding: 5px 10px;
+    border-radius: 7px;
+    border: 1.5px dashed var(--accent);
+    background: none;
+    cursor: pointer;
+  }
+  .add-row-btn:hover { background: var(--accent-soft); }
+  .add-row-btn svg { width: 13px; height: 13px; }
+
+  /* section separator */
+  .cmd-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-faint);
+    margin: 0 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .cmd-section-title::after {
+    content: "";
+    flex: 1;
+    border-top: 1px solid var(--border);
+  }
+
+  .cmd-form-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-panel);
+    justify-content: flex-end;
+  }
+
+  /* --- YAML エディタ (V3/V4) -------------------------------- */
+  .yaml-pane {
+    background: #1e1e2e;
+    border-radius: 8px;
+    overflow: hidden;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: #cdd6f4;
+  }
+  .yaml-pane-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 12px;
+    background: #181825;
+    border-bottom: 1px solid #313244;
+    font-size: 11px;
+    color: #6c7086;
+    font-family: var(--font-mono);
+  }
+  .yaml-pane-bar .lang { font-weight: 700; color: #89b4fa; font-size: 10.5px; }
+  .yaml-pane-code {
+    padding: 14px 16px;
+    white-space: pre;
+    overflow-x: auto;
+    min-height: 160px;
+    outline: none;
+  }
+  /* YAML syntax highlights */
+  .yk { color: #89dceb; }   /* key */
+  .yv { color: #a6e3a1; }   /* string value */
+  .yn { color: #fab387; }   /* number / bool */
+  .ys { color: #6c7086; }   /* separator / dash */
+  .yc { color: #585b70; font-style: italic; }  /* comment */
+  .ye { color: #f38ba8; text-decoration: underline wavy; }  /* error token */
+
+  /* inline YAML error (V3/V4 invalid) */
+  .yaml-error-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(243,139,168,0.12);
+    border-left: 3px solid #f38ba8;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: #f38ba8;
+    font-family: var(--font-mono);
+  }
+  .yaml-error-line svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+  /* inline schema error banner (below YAML) */
+  .schema-error-box {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    background: var(--danger-soft);
+    border: 1px solid #f5b8b8;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #a03d3d;
+    line-height: 1.55;
+  }
+  .schema-error-box svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 1px; color: var(--danger); }
+  .schema-error-box code {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: #fff;
+    border-radius: 3px;
+    padding: 1px 5px;
+  }
+
+  /* --- スプリット (V3) -------------------------------------- */
+  .split-pane {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    align-items: start;
+  }
+  @media (max-width: 860px) { .split-pane { grid-template-columns: 1fr; } }
+
+  .preview-pane {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .preview-pane-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-editor);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  .preview-pane-bar svg { width: 13px; height: 13px; }
+  .preview-pane-body { padding: 12px 14px; font-size: 12.5px; }
+
+  .preview-cmd-name { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+  .preview-cmd-desc { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
+
+  /* --- タブ切替 (V4) ---------------------------------------- */
+  .cmd-edit-tab-bar {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-panel);
+  }
+
+  /* --- ミニマルバナー (V5) ---------------------------------- */
+  .minimal-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    font-size: 12.5px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-panel);
+  }
+  .minimal-banner.ok { color: #1f7a4d; }
+  .minimal-banner.err { color: var(--danger); background: var(--danger-soft); border-color: #f5b8b8; }
+  .minimal-banner svg { width: 14px; height: 14px; flex-shrink: 0; }
+  .minimal-banner .banner-msg { flex: 1; }
+  .minimal-banner .banner-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 7px;
+    padding: 3px 10px;
+    background: var(--accent-soft);
+    flex-shrink: 0;
+  }
+  .minimal-banner .banner-btn svg { width: 12px; height: 12px; }
+
+  /* --- エディタシェル (小型) --------------------------------- */
+  .mini-workspace {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--bg-editor);
+  }
+  .mini-editor-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-panel);
+    font-size: 12.5px;
+  }
+  .mini-breadcrumb { flex: 1; color: var(--text-muted); font-size: 12.5px; }
+  .mini-breadcrumb .curr { color: var(--text); font-weight: 600; }
+  .mini-cm { padding: 12px 16px; font-size: 13.5px; line-height: 1.75; }
+  .mini-cm .cm-line { display: flex; align-items: baseline; min-height: 1.75em; border-radius: 4px; }
+  .mini-cm .gutter { width: 16px; flex-shrink: 0; }
+  .mini-cm .cm-content { flex: 1; min-width: 0; }
+
+  /* bold tooltip on disabled button */
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  [aria-disabled="true"]:hover { opacity: 0.6; }
+  .tooltip-wrap { position: relative; display: inline-block; }
+  .tooltip-wrap .tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    right: 0;
+    background: #23242b;
+    color: #fff;
+    font-size: 11.5px;
+    white-space: nowrap;
+    border-radius: 6px;
+    padding: 4px 9px;
+    pointer-events: none;
+    z-index: 99;
+  }
+  .tooltip-wrap:hover .tooltip { display: block; }
+
+  /* best-match highlight box */
+  .best-match-box {
+    border: 2.5px solid var(--accent);
+    border-radius: 10px;
+    padding: 10px 14px;
+    background: var(--accent-soft);
+    font-size: 12.5px;
+    color: var(--accent-hover);
+    margin-bottom: 24px;
+  }
+  .best-match-box strong { font-weight: 700; }
+
+  /* open/close arrow icon */
+  .chev-right { transform: rotate(0deg); transition: transform 0.1s; }
+  .chev-down { transform: rotate(90deg); }
+</style>
+</head>
+<body>
+<div class="proto-page">
+
+  <!-- ============================================================
+       ページヘッダ
+  ============================================================ -->
+  <div class="index-hero" style="margin-bottom: 28px;">
+    <div class="logo-row">
+      <div class="vault-badge" style="font-size:19px;width:40px;height:40px;border-radius:11px;">⚡</div>
+      <h1 style="font-size:22px;margin:0;">スマートコマンド 編集モード案</h1>
+    </div>
+    <p class="sub" style="margin:8px 0 0;">
+      <code style="font-size:12px;background:var(--code-bg);border-radius:4px;padding:1px 6px;">commands/create-todo.md</code>
+      (frontmatter: <code style="font-size:12px;background:var(--code-bg);border-radius:4px;padding:1px 6px;">loamium-command</code>)
+      を開いたときの編集 UI の方向性を 5 種類並べています。どれが使いやすいか確認してください。
+    </p>
+  </div>
+
+  <!-- ============================================================
+       ユーザー要件のハイライト
+  ============================================================ -->
+  <div class="best-match-box">
+    <strong>ユーザー要件まとめ:</strong>
+    GUI(フォーム)編集 + YAML 直接編集の<em>両方</em>を提供し、
+    YAML 直接編集では<em>不正な定義は保存前にエラーを出す</em>。
+    → この要件に最も近いのは <strong>V4 — タブ切替</strong> です。
+  </div>
+
+  <!-- ============================================================
+       目次
+  ============================================================ -->
+  <div class="toc">
+    <h2>バリアント一覧</h2>
+    <ol>
+      <li><a href="#v1">V1 — コマンド対応モード(Markdown 維持)</a><span class="toc-tradeoff">オーバーレイパネル / ソース維持</span></li>
+      <li><a href="#v2">V2 — フォーム編集(構造化・YAML 非表示)</a><span class="toc-tradeoff">最も直感的 / YAML 非表示</span></li>
+      <li><a href="#v3">V3 — スプリット(YAML + ライブプレビュー)</a><span class="toc-tradeoff">常時両面表示 / 幅が必要</span></li>
+      <li><a href="#v4">V4 — タブ切替(フォーム ⇄ YAML)</a><span class="toc-tradeoff">★ユーザー要件に最近接 / 実装コスト中</span></li>
+      <li><a href="#v5">V5 — ミニマル(検証バナー + テスト実行のみ)</a><span class="toc-tradeoff">最軽量 / フォームなし</span></li>
+    </ol>
+  </div>
+
+  <!-- ============================================================
+       V1 — コマンド対応モード(Markdown 維持)
+  ============================================================ -->
+  <section class="variant-section" id="v1" data-testid="cmd-edit-variant" data-variant="v1">
+    <div class="variant-header">
+      <span class="variant-num">1</span>
+      <h2 class="variant-title">V1 — コマンド対応モード(Markdown 維持)</h2>
+      <span class="variant-tradeoff">通常 MD エディタ + トップパネルを重ねる。ソース true が維持される。フォームなし。</span>
+    </div>
+    <div class="variant-body">
+
+      <p class="proto-note"><span class="tag">PROTO NOTE</span>
+        エディタ上部に薄いオーバーレイパネルを付ける方式。YAML ソースが正本のまま。
+        <strong>フォーム編集は無し</strong>のため、YAML を知らないユーザーには厳しい。
+        V5 と似るが、パース済みプレビューとテスト実行ボタンを加えた強化版。
+      </p>
+
+      <h3 style="font-size:13px;color:var(--text-muted);margin:0 0 14px;">◎ 有効状態</h3>
+      <div class="state-label valid">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 8l3.5 3.5L13 4"/></svg>
+        有効な定義 — 表示中
+      </div>
+
+      <div class="mini-workspace" style="margin-bottom:24px;" data-testid="cmd-edit-variant" data-variant="v1-valid">
+        <!-- editor header -->
+        <div class="mini-editor-header">
+          <div class="mini-breadcrumb">
+            <span>commands</span> <span style="color:var(--text-faint);">/</span> <span class="curr">create-todo</span>
+          </div>
+          <span class="cmd-mode-badge">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+            ⚡ スマートコマンド定義
+          </span>
+          <div class="save-status" data-testid="save-status" data-state="saved">
+            <span class="dot"></span><span>保存済み</span>
+          </div>
+        </div>
+
+        <!-- command overlay panel -->
+        <div class="cmd-overlay-panel" data-testid="cmd-edit-validation" data-valid="true">
+          <div class="cmd-overlay-top">
+            <span class="cmd-valid-badge ok" data-testid="cmd-edit-validation" data-valid="true">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 8l3.5 3.5L13 4"/></svg>
+              ✓ 有効
+            </span>
+            <button class="cmd-test-run-btn" data-testid="cmd-edit-test-run">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><polygon points="4,2 14,8 4,14" fill="currentColor" stroke="none"/></svg>
+              テスト実行
+            </button>
+          </div>
+          <div class="cmd-preview-row">
+            <div class="cmd-preview-group">
+              <h4>パラメータ</h4>
+              <span class="cmd-preview-pill"><span>summary</span><span class="pill-required">必須</span><span class="pill-type">string</span></span>
+              <span class="cmd-preview-pill"><span>due</span><span class="pill-type">date</span></span>
+              <span class="cmd-preview-pill"><span>detail</span><span class="pill-type">text</span></span>
+            </div>
+            <div class="cmd-preview-group">
+              <h4>ステップ</h4>
+              <div class="cmd-step-row" data-testid="cmd-step-row">
+                <span class="step-kind">journal-append</span>
+                <span>section: Todo → <code style="font-size:11px;background:var(--code-bg);border-radius:3px;padding:1px 4px;">- [ ] {{summary}}</code></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- markdown editor (simulated) -->
+        <div class="mini-cm">
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content" style="color:var(--text-muted);font-family:var(--font-mono);font-size:12px;">---</span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content" style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">loamium-command:</span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content" style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">  name: create todo</span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content" style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">  description: タスク概要を今日のジャーナルの Todo に追記</span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content" style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">  params:</span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content" style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">    - {name: summary, label: タスク概要, required: true}</span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content" style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">    - {name: due, label: 期限, type: date}</span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content" style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">  steps:</span></div>
+          <div class="cm-line active-line"><span class="gutter"></span><span class="cm-content" style="font-family:var(--font-mono);font-size:12px;">    - kind: journal-append<span class="caret"></span></span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content" style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">---</span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h2">create todo</span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content">今日のジャーナルの Todo セクションに 1 行追記します。</span></div>
+        </div>
+      </div><!-- /valid -->
+
+      <h3 style="font-size:13px;color:var(--text-muted);margin:0 0 14px;">✗ エラー状態(未知の step kind)</h3>
+      <div class="state-label invalid">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 4v4M8 11v1"/><circle cx="8" cy="8" r="6"/></svg>
+        無効な定義 — 保存は可能だがテスト実行は不可
+      </div>
+
+      <div class="mini-workspace" data-testid="cmd-edit-variant" data-variant="v1-invalid">
+        <div class="mini-editor-header">
+          <div class="mini-breadcrumb"><span>commands</span> <span style="color:var(--text-faint);">/</span> <span class="curr">create-todo</span></div>
+          <span class="cmd-mode-badge">⚡ スマートコマンド定義</span>
+          <div class="save-status dirty" data-testid="save-status" data-state="dirty"><span class="dot"></span><span>未保存</span></div>
+        </div>
+        <div class="cmd-overlay-panel" data-testid="cmd-edit-validation" data-valid="false" style="background:var(--danger-soft);">
+          <div class="cmd-overlay-top">
+            <span class="cmd-valid-badge err" data-testid="cmd-edit-error">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 4v4M8 11v1"/><circle cx="8" cy="8" r="6"/></svg>
+              ✗ エラー
+            </span>
+            <button class="cmd-test-run-btn" disabled data-testid="cmd-edit-test-run" aria-disabled="true" style="opacity:0.4;cursor:not-allowed;">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><polygon points="4,2 14,8 4,14" fill="currentColor" stroke="none"/></svg>
+              テスト実行
+            </button>
+          </div>
+          <div class="cmd-error-banner" data-testid="cmd-edit-error">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 4v4M8 11v1"/><circle cx="8" cy="8" r="6"/></svg>
+            <span><strong>steps[0].kind:</strong> 未知の種別 <code style="font-family:var(--font-mono);font-size:11px;background:#fff;border-radius:3px;padding:0 4px;">"agent-run"</code> — v1 の有効な種別: <code style="font-family:var(--font-mono);font-size:11px;background:#fff;border-radius:3px;padding:0 4px;">journal-append | note-append | note-create | template-instantiate</code></span>
+          </div>
+          <div class="cmd-preview-row">
+            <div class="cmd-preview-group">
+              <h4>ステップ (検証失敗)</h4>
+              <div class="cmd-step-row" data-testid="cmd-step-row">
+                <span class="step-kind step-err">agent-run</span>
+                <span style="color:var(--danger);">未知の種別</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mini-cm">
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content" style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">  steps:</span></div>
+          <div class="cm-line active-line"><span class="gutter"></span><span class="cm-content" style="font-family:var(--font-mono);font-size:12px;color:var(--danger);">    - kind: <span style="background:#fdf0f0;border-radius:2px;padding:0 2px;">agent-run</span><span class="caret" style="background:var(--danger);"></span></span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content" style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">      prompt: "{{summary}} をまとめて"</span></div>
+        </div>
+      </div><!-- /invalid -->
+    </div>
+  </section>
+
+  <!-- ============================================================
+       V2 — フォーム編集(構造化・YAML 非表示)
+  ============================================================ -->
+  <section class="variant-section" id="v2" data-testid="cmd-edit-variant" data-variant="v2">
+    <div class="variant-header">
+      <span class="variant-num">2</span>
+      <h2 class="variant-title">V2 — フォーム編集(構造化・YAML 非表示)</h2>
+      <span class="variant-tradeoff">YAML を完全に隠す設定フォーム。直感的だが柔軟性は低く、スキーマ全体の網羅が実装コスト高。</span>
+    </div>
+    <div class="variant-body">
+
+      <p class="proto-note"><span class="tag">PROTO NOTE</span>
+        YAML は一切表示しない。すべてフォームで操作する。非エンジニアに優しいが、将来ステップ種別が増えるたびに
+        フォーム UI の更新が必要。<strong>エラー前保存ブロック</strong>は下段の invalid 例で示す。
+      </p>
+
+      <h3 style="font-size:13px;color:var(--text-muted);margin:0 0 14px;">◎ 有効状態(通常フォーム)</h3>
+      <div class="state-label valid">有効な入力</div>
+
+      <div class="cmd-form" data-testid="cmd-edit-form" style="max-width:680px;margin-bottom:28px;">
+        <div class="cmd-form-head">
+          <div class="cmd-form-ico">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+          </div>
+          <div>
+            <div class="cmd-form-title">スマートコマンド定義</div>
+            <div class="cmd-form-sub">commands/create-todo.md</div>
+          </div>
+          <span class="cmd-valid-badge ok" style="margin-left:auto;" data-testid="cmd-edit-validation" data-valid="true">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 8l3.5 3.5L13 4"/></svg>
+            有効
+          </span>
+        </div>
+        <div class="cmd-form-body">
+          <!-- name / description -->
+          <div class="cmd-section-title">基本情報</div>
+          <div class="cmd-field-group">
+            <div class="cmd-field-label">表示名</div>
+            <input type="text" class="cmd-field-input" value="create todo" placeholder="コマンド名">
+          </div>
+          <div class="cmd-field-group">
+            <div class="cmd-field-label">説明</div>
+            <input type="text" class="cmd-field-input" value="タスク概要を今日のジャーナルの Todo に追記" placeholder="パレットのサブテキスト">
+          </div>
+
+          <!-- params -->
+          <div class="cmd-section-title">パラメータ</div>
+          <table class="cmd-params-table" style="margin-bottom:8px;">
+            <thead>
+              <tr><th>名前 (name)</th><th>ラベル</th><th>型</th><th>必須</th><th></th></tr>
+            </thead>
+            <tbody>
+              <tr data-testid="cmd-param-row">
+                <td><input type="text" value="summary"></td>
+                <td><input type="text" value="タスク概要"></td>
+                <td><select><option value="string" selected>string</option><option value="text">text</option><option value="date">date</option></select></td>
+                <td style="text-align:center;"><input type="checkbox" checked></td>
+                <td><button class="icon-btn" style="color:var(--danger);"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></td>
+              </tr>
+              <tr data-testid="cmd-param-row">
+                <td><input type="text" value="due"></td>
+                <td><input type="text" value="期限"></td>
+                <td><select><option value="string">string</option><option value="text">text</option><option value="date" selected>date</option></select></td>
+                <td style="text-align:center;"><input type="checkbox"></td>
+                <td><button class="icon-btn" style="color:var(--danger);"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></td>
+              </tr>
+              <tr data-testid="cmd-param-row">
+                <td><input type="text" value="detail"></td>
+                <td><input type="text" value="タスク詳細"></td>
+                <td><select><option value="string">string</option><option value="text" selected>text</option><option value="date">date</option></select></td>
+                <td style="text-align:center;"><input type="checkbox"></td>
+                <td><button class="icon-btn" style="color:var(--danger);"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></td>
+              </tr>
+            </tbody>
+          </table>
+          <button class="add-row-btn" style="margin-bottom:16px;">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+            パラメータを追加
+          </button>
+
+          <!-- steps -->
+          <div class="cmd-section-title">ステップ</div>
+          <ul class="cmd-steps-list">
+            <li class="cmd-step-card" data-testid="cmd-step-row" data-step-index="0">
+              <div class="cmd-step-card-head">
+                <span class="cmd-step-num">1</span>
+                <select class="cmd-step-kind-sel">
+                  <option value="journal-append" selected>journal-append</option>
+                  <option value="note-append">note-append</option>
+                  <option value="note-create">note-create</option>
+                  <option value="template-instantiate">template-instantiate</option>
+                </select>
+                <button class="cmd-step-del"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
+              </div>
+              <div class="cmd-step-body">
+                <div class="cmd-field-group">
+                  <div class="cmd-field-label">content <span class="req">*</span></div>
+                  <input type="text" class="cmd-field-input" value="- [ ] {{summary}}">
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                  <div class="cmd-field-group" style="margin:0;">
+                    <div class="cmd-field-label">section</div>
+                    <input type="text" class="cmd-field-input" value="Todo">
+                  </div>
+                  <div class="cmd-field-group" style="margin:0;">
+                    <div class="cmd-field-label">open</div>
+                    <select class="cmd-field-select"><option value="true" selected>true</option><option value="false">false</option></select>
+                  </div>
+                </div>
+              </div>
+            </li>
+          </ul>
+          <button class="add-row-btn" style="margin-bottom:14px;">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+            ステップを追加
+          </button>
+
+          <!-- note body -->
+          <div class="cmd-section-title">ノート本文</div>
+          <textarea class="cmd-field-textarea" rows="3">今日のジャーナルの Todo セクションに 1 行追記します。</textarea>
+        </div>
+        <div class="cmd-form-footer">
+          <button class="btn" data-testid="cmd-edit-cancel">キャンセル</button>
+          <button class="cmd-test-run-btn" data-testid="cmd-edit-test-run">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><polygon points="4,2 14,8 4,14" fill="currentColor" stroke="none"/></svg>
+            テスト実行
+          </button>
+          <button class="btn primary" data-testid="cmd-edit-save">保存</button>
+        </div>
+      </div>
+
+      <h3 style="font-size:13px;color:var(--text-muted);margin:0 0 14px;">✗ エラー状態(必須フィールド空欄)</h3>
+      <div class="state-label invalid">必須エラー — 保存ボタンをブロック</div>
+
+      <div class="cmd-form" data-testid="cmd-edit-form" data-valid="false" style="max-width:680px;">
+        <div class="cmd-form-head">
+          <div class="cmd-form-ico" style="background:var(--danger-soft);color:var(--danger);">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 4v4M8 11v1"/><circle cx="8" cy="8" r="6"/></svg>
+          </div>
+          <div>
+            <div class="cmd-form-title">スマートコマンド定義</div>
+            <div class="cmd-form-sub">commands/create-todo.md</div>
+          </div>
+          <span class="cmd-valid-badge err" style="margin-left:auto;" data-testid="cmd-edit-error">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 4v4M8 11v1"/><circle cx="8" cy="8" r="6"/></svg>
+            エラー
+          </span>
+        </div>
+        <div class="cmd-error-banner" style="margin:0;border-radius:0;border-left:none;border-right:none;" data-testid="cmd-edit-validation" data-valid="false">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 4v4M8 11v1"/><circle cx="8" cy="8" r="6"/></svg>
+          <span>steps[0].content: 必須フィールドが空です。保存前に修正してください。</span>
+        </div>
+        <div class="cmd-form-body">
+          <div class="cmd-section-title">ステップ</div>
+          <ul class="cmd-steps-list">
+            <li class="cmd-step-card" data-testid="cmd-step-row" style="border-color:var(--danger);">
+              <div class="cmd-step-card-head" style="background:var(--danger-soft);">
+                <span class="cmd-step-num" style="background:var(--danger-soft);color:var(--danger);">1</span>
+                <select class="cmd-step-kind-sel"><option>journal-append</option></select>
+                <button class="cmd-step-del"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
+              </div>
+              <div class="cmd-step-body">
+                <div class="cmd-field-group">
+                  <div class="cmd-field-label" style="color:var(--danger);">content <span class="req">*</span></div>
+                  <input type="text" class="cmd-field-input" value="" placeholder="- [ ] {{summary}}" style="border-color:var(--danger);box-shadow:0 0 0 3px var(--danger-soft);">
+                  <div style="font-size:11.5px;color:var(--danger);margin-top:3px;">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:11px;height:11px;vertical-align:-1px;"><path d="M8 4v4M8 11v1"/><circle cx="8" cy="8" r="6"/></svg>
+                    必須フィールドです
+                  </div>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+        <div class="cmd-form-footer">
+          <button class="btn">キャンセル</button>
+          <div class="tooltip-wrap">
+            <button class="btn primary" aria-disabled="true" data-testid="cmd-edit-save" style="opacity:0.4;cursor:not-allowed;">保存</button>
+            <span class="tooltip">エラーを修正してください</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================================================
+       V3 — スプリット(YAML + ライブプレビュー)
+  ============================================================ -->
+  <section class="variant-section" id="v3" data-testid="cmd-edit-variant" data-variant="v3">
+    <div class="variant-header">
+      <span class="variant-num">3</span>
+      <h2 class="variant-title">V3 — スプリット(YAML + ライブプレビュー)</h2>
+      <span class="variant-tradeoff">左ペイン YAML 編集 / 右ペインリアルタイム検証。画面幅が必要。パワーユーザー向け。</span>
+    </div>
+    <div class="variant-body">
+
+      <p class="proto-note"><span class="tag">PROTO NOTE</span>
+        常時 2 ペイン表示。左でソースを編集すると右がリアルタイム更新。
+        モバイル非対応。横幅が狭いと使いにくい。<strong>エラー前保存ブロック</strong>は下段 invalid 例で示す。
+      </p>
+
+      <h3 style="font-size:13px;color:var(--text-muted);margin:0 0 14px;">◎ 有効状態</h3>
+      <div class="state-label valid">有効 — 右ペインに解析結果</div>
+
+      <div class="split-pane" style="margin-bottom:28px;" data-testid="cmd-edit-yaml" data-variant="v3-valid">
+        <!-- left: YAML editor -->
+        <div>
+          <div class="yaml-pane">
+            <div class="yaml-pane-bar"><span class="lang">YAML</span> commands/create-todo.md · frontmatter</div>
+            <div class="yaml-pane-code" contenteditable="true" spellcheck="false"><span class="yk">loamium-command</span><span class="ys">:</span>
+  <span class="yk">name</span><span class="ys">:</span> <span class="yv">create todo</span>
+  <span class="yk">description</span><span class="ys">:</span> <span class="yv">タスク概要を今日のジャーナルの Todo に追記</span>
+  <span class="yk">params</span><span class="ys">:</span>
+    <span class="ys">-</span> <span class="yk">name</span><span class="ys">:</span> <span class="yv">summary</span>
+      <span class="yk">label</span><span class="ys">:</span> <span class="yv">タスク概要</span>
+      <span class="yk">required</span><span class="ys">:</span> <span class="yn">true</span>
+    <span class="ys">-</span> <span class="yk">name</span><span class="ys">:</span> <span class="yv">due</span>
+      <span class="yk">label</span><span class="ys">:</span> <span class="yv">期限</span>
+      <span class="yk">type</span><span class="ys">:</span> <span class="yv">date</span>
+    <span class="ys">-</span> <span class="yk">name</span><span class="ys">:</span> <span class="yv">detail</span>
+      <span class="yk">label</span><span class="ys">:</span> <span class="yv">タスク詳細</span>
+      <span class="yk">type</span><span class="ys">:</span> <span class="yv">text</span>
+  <span class="yk">steps</span><span class="ys">:</span>
+    <span class="ys">-</span> <span class="yk">kind</span><span class="ys">:</span> <span class="yv">journal-append</span>
+      <span class="yk">section</span><span class="ys">:</span> <span class="yv">Todo</span>
+      <span class="yk">content</span><span class="ys">:</span> <span class="yv">"- [ ] {{summary}}"</span>
+      <span class="yk">open</span><span class="ys">:</span> <span class="yn">true</span></div>
+          </div>
+        </div>
+        <!-- right: live preview -->
+        <div>
+          <div class="preview-pane" data-testid="cmd-edit-validation" data-valid="true">
+            <div class="preview-pane-bar">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 8h12M2 4h8M2 12h6"/></svg>
+              ライブプレビュー
+              <span class="cmd-valid-badge ok" style="margin-left:auto;font-size:11px;padding:2px 8px;">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 8l3.5 3.5L13 4"/></svg>
+                ✓ 有効
+              </span>
+            </div>
+            <div class="preview-pane-body">
+              <div class="preview-cmd-name">⚡ create todo</div>
+              <div class="preview-cmd-desc">タスク概要を今日のジャーナルの Todo に追記</div>
+              <div class="cmd-section-title" style="font-size:10px;">パラメータ</div>
+              <div style="margin-bottom:10px;">
+                <span class="cmd-preview-pill"><span>summary</span><span class="pill-required">必須</span><span class="pill-type">string</span></span>
+                <span class="cmd-preview-pill"><span>due</span><span class="pill-type">date</span></span>
+                <span class="cmd-preview-pill"><span>detail</span><span class="pill-type">text</span></span>
+              </div>
+              <div class="cmd-section-title" style="font-size:10px;">ステップ</div>
+              <div class="cmd-step-row" data-testid="cmd-step-row">
+                <span class="cmd-step-num" style="font-size:10px;">1</span>
+                <span class="step-kind">journal-append</span>
+                <span style="font-size:11.5px;">section: Todo, content: <code style="font-size:10.5px;background:var(--code-bg);border-radius:3px;padding:0 3px;">- [ ] {{summary}}</code>, open: true</span>
+              </div>
+              <div style="margin-top:14px;">
+                <button class="cmd-test-run-btn" data-testid="cmd-edit-test-run">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><polygon points="4,2 14,8 4,14" fill="currentColor" stroke="none"/></svg>
+                  テスト実行
+                </button>
+              </div>
+              <div style="margin-top:8px;">
+                <button class="btn primary" data-testid="cmd-edit-save" style="font-size:12.5px;">保存</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3 style="font-size:13px;color:var(--text-muted);margin:0 0 14px;">✗ エラー状態 — 保存ボタンをブロック</h3>
+      <div class="state-label invalid">スキーマエラー — 右ペインに理由 + 保存 disabled</div>
+
+      <div class="split-pane" data-testid="cmd-edit-yaml" data-variant="v3-invalid">
+        <!-- left -->
+        <div>
+          <div class="yaml-pane" style="border-radius:8px 8px 0 0;">
+            <div class="yaml-pane-bar"><span class="lang">YAML</span> frontmatter · エラーあり</div>
+            <div class="yaml-pane-code"><span class="yk">loamium-command</span><span class="ys">:</span>
+  <span class="yk">name</span><span class="ys">:</span> <span class="yv">create todo</span>
+  <span class="yk">steps</span><span class="ys">:</span>
+    <span class="ys">-</span> <span class="yk">kind</span><span class="ys">:</span> <span class="ye">agent-run</span>
+      <span class="yk">prompt</span><span class="ys">:</span> <span class="yv">"{{summary}} をまとめて"</span></div>
+          </div>
+          <div class="yaml-error-line" style="border-radius:0 0 8px 8px;">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 4v4M8 11v1"/><circle cx="8" cy="8" r="6"/></svg>
+            steps[0].kind: 未知の種別 "agent-run"
+          </div>
+        </div>
+        <!-- right -->
+        <div>
+          <div class="preview-pane" data-testid="cmd-edit-validation" data-valid="false" style="border-color:var(--danger);">
+            <div class="preview-pane-bar" style="background:var(--danger-soft);">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 8h12M2 4h8M2 12h6"/></svg>
+              ライブプレビュー
+              <span class="cmd-valid-badge err" style="margin-left:auto;font-size:11px;padding:2px 8px;" data-testid="cmd-edit-error">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 4v4M8 11v1"/><circle cx="8" cy="8" r="6"/></svg>
+                ✗ エラー
+              </span>
+            </div>
+            <div class="cmd-error-banner" style="margin:0;border-radius:0;border-left:none;border-right:none;" data-testid="cmd-edit-validation" data-valid="false">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 4v4M8 11v1"/><circle cx="8" cy="8" r="6"/></svg>
+              <div>
+                <strong>steps[0].kind:</strong> 未知の種別 <code style="font-family:var(--font-mono);font-size:11px;background:#fff;border-radius:3px;padding:0 4px;">agent-run</code><br>
+                有効な種別: <code style="font-family:var(--font-mono);font-size:11px;background:#fff;border-radius:3px;padding:0 4px;">journal-append | note-append | note-create | template-instantiate</code>
+              </div>
+            </div>
+            <div class="preview-pane-body">
+              <div style="margin-top:14px;opacity:0.4;">
+                <button class="cmd-test-run-btn" disabled aria-disabled="true">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><polygon points="4,2 14,8 4,14" fill="currentColor" stroke="none"/></svg>
+                  テスト実行
+                </button>
+              </div>
+              <div style="margin-top:8px;">
+                <div class="tooltip-wrap">
+                  <button class="btn primary" aria-disabled="true" data-testid="cmd-edit-save" style="opacity:0.4;cursor:not-allowed;font-size:12.5px;">保存</button>
+                  <span class="tooltip">エラーを修正してください</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================================================
+       V4 — タブ切替(フォーム ⇄ YAML) ★ユーザー要件最近接
+  ============================================================ -->
+  <section class="variant-section" id="v4" data-testid="cmd-edit-variant" data-variant="v4" style="border-color:var(--accent);">
+    <div class="variant-header" style="background:var(--accent-soft);border-color:rgba(110,86,207,0.2);">
+      <span class="variant-num" style="background:var(--accent-hover);">4</span>
+      <h2 class="variant-title">V4 — タブ切替(フォーム ⇄ YAML) ★ユーザー要件最近接</h2>
+      <span class="variant-tradeoff" style="color:var(--accent-hover);background:white;border-color:var(--accent);">フォームと YAML を同期しつつタブで切替。YAML 保存ブロックを明示。</span>
+    </div>
+    <div class="variant-body">
+
+      <p class="proto-note"><span class="tag">PROTO NOTE</span>
+        ユーザーが要求した「GUI + YAML 両方」に最も近い。フォームタブで直感編集、
+        YAML タブで細かい制御。<strong>YAML タブでは不正な定義は保存前にエラー</strong>を表示し保存ボタンを無効化する。
+        両タブは常に同期している(フォームを変えると YAML が更新、YAML を変えるとフォームに反映)。
+      </p>
+
+      <!-- tab: フォーム -->
+      <div class="mini-workspace" style="max-width:700px;margin-bottom:28px;">
+        <div class="mini-editor-header">
+          <div class="mini-breadcrumb"><span>commands</span><span style="color:var(--text-faint);">/</span><span class="curr">create-todo</span></div>
+          <span class="cmd-mode-badge">⚡ スマートコマンド定義</span>
+        </div>
+
+        <!-- tab toggle -->
+        <div class="cmd-edit-tab-bar">
+          <div class="seg-toggle" data-testid="cmd-edit-mode-toggle">
+            <button class="seg-btn" aria-selected="true" data-tab="form">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="3" width="12" height="3" rx="1"/><rect x="2" y="8" width="8" height="2.5" rx="1"/><rect x="2" y="12" width="10" height="2.5" rx="1"/></svg>
+              フォーム
+            </button>
+            <button class="seg-btn" aria-selected="false" data-tab="yaml">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 3l-3 5 3 5M12 3l3 5-3 5M9 2l-2 12"/></svg>
+              YAML
+            </button>
+          </div>
+          <span class="cmd-valid-badge ok" style="margin-left:auto;font-size:11px;" data-testid="cmd-edit-validation" data-valid="true">✓ 有効</span>
+        </div>
+
+        <!-- フォームタブ(active) -->
+        <div id="v4-form-tab" data-testid="cmd-edit-form" style="display:block;">
+          <div style="padding:16px;">
+            <div class="cmd-field-group">
+              <div class="cmd-field-label">表示名</div>
+              <input type="text" class="cmd-field-input" value="create todo">
+            </div>
+            <div class="cmd-field-group">
+              <div class="cmd-field-label">説明</div>
+              <input type="text" class="cmd-field-input" value="タスク概要を今日のジャーナルの Todo に追記">
+            </div>
+            <div class="cmd-section-title">パラメータ</div>
+            <table class="cmd-params-table" style="margin-bottom:8px;">
+              <thead><tr><th>name</th><th>ラベル</th><th>型</th><th>必須</th><th></th></tr></thead>
+              <tbody>
+                <tr data-testid="cmd-param-row"><td><input type="text" value="summary"></td><td><input type="text" value="タスク概要"></td><td><select><option selected>string</option><option>text</option><option>date</option></select></td><td style="text-align:center;"><input type="checkbox" checked></td><td><button class="icon-btn" style="color:var(--danger);"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></td></tr>
+                <tr data-testid="cmd-param-row"><td><input type="text" value="due"></td><td><input type="text" value="期限"></td><td><select><option>string</option><option>text</option><option selected>date</option></select></td><td style="text-align:center;"><input type="checkbox"></td><td><button class="icon-btn" style="color:var(--danger);"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></td></tr>
+              </tbody>
+            </table>
+            <button class="add-row-btn" style="margin-bottom:16px;"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg> パラメータを追加</button>
+            <div class="cmd-section-title">ステップ</div>
+            <ul class="cmd-steps-list">
+              <li class="cmd-step-card" data-testid="cmd-step-row">
+                <div class="cmd-step-card-head">
+                  <span class="cmd-step-num">1</span>
+                  <select class="cmd-step-kind-sel"><option>journal-append</option></select>
+                  <button class="cmd-step-del"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
+                </div>
+                <div class="cmd-step-body">
+                  <div class="cmd-field-group"><div class="cmd-field-label">content <span class="req">*</span></div><input type="text" class="cmd-field-input" value="- [ ] {{summary}}"></div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"><div class="cmd-field-group" style="margin:0;"><div class="cmd-field-label">section</div><input type="text" class="cmd-field-input" value="Todo"></div><div class="cmd-field-group" style="margin:0;"><div class="cmd-field-label">open</div><select class="cmd-field-select"><option selected>true</option><option>false</option></select></div></div>
+                </div>
+              </li>
+            </ul>
+            <button class="add-row-btn" style="margin-bottom:14px;"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg> ステップを追加</button>
+          </div>
+          <div class="cmd-form-footer">
+            <button class="btn" data-testid="cmd-edit-cancel">キャンセル</button>
+            <button class="cmd-test-run-btn" data-testid="cmd-edit-test-run"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><polygon points="4,2 14,8 4,14" fill="currentColor" stroke="none"/></svg> テスト実行</button>
+            <button class="btn primary" data-testid="cmd-edit-save">保存</button>
+          </div>
+        </div>
+        <!-- YAML タブ(inactive, shown below for reference) -->
+        <div id="v4-yaml-tab" data-testid="cmd-edit-yaml" style="display:none;"></div>
+      </div>
+
+      <!-- V4 YAML タブ(invalid状態) — 別枠で説明 -->
+      <h3 style="font-size:13px;color:var(--text-muted);margin:0 0 14px;">◎ YAML タブ — 有効状態(タブ切替後)</h3>
+      <div class="state-label valid">YAML タブ — フォームと同期済み</div>
+      <div class="mini-workspace" style="max-width:700px;margin-bottom:20px;">
+        <div class="mini-editor-header">
+          <div class="mini-breadcrumb"><span>commands</span><span style="color:var(--text-faint);">/</span><span class="curr">create-todo</span></div>
+        </div>
+        <div class="cmd-edit-tab-bar">
+          <div class="seg-toggle" data-testid="cmd-edit-mode-toggle">
+            <button class="seg-btn" aria-selected="false" data-tab="form">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="3" width="12" height="3" rx="1"/><rect x="2" y="8" width="8" height="2.5" rx="1"/><rect x="2" y="12" width="10" height="2.5" rx="1"/></svg>
+              フォーム
+            </button>
+            <button class="seg-btn" aria-selected="true" data-tab="yaml">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 3l-3 5 3 5M12 3l3 5-3 5M9 2l-2 12"/></svg>
+              YAML
+            </button>
+          </div>
+          <span class="cmd-valid-badge ok" style="margin-left:auto;font-size:11px;">✓ 有効</span>
+        </div>
+        <div data-testid="cmd-edit-yaml" style="padding:16px;">
+          <div class="yaml-pane">
+            <div class="yaml-pane-bar"><span class="lang">YAML</span> frontmatter · フォームと同期</div>
+            <div class="yaml-pane-code"><span class="yc"># フォームタブの入力から自動生成されます</span>
+<span class="yk">loamium-command</span><span class="ys">:</span>
+  <span class="yk">name</span><span class="ys">:</span> <span class="yv">create todo</span>
+  <span class="yk">description</span><span class="ys">:</span> <span class="yv">タスク概要を今日のジャーナルの Todo に追記</span>
+  <span class="yk">params</span><span class="ys">:</span>
+    <span class="ys">-</span> <span class="yk">name</span><span class="ys">:</span> <span class="yv">summary</span>
+      <span class="yk">label</span><span class="ys">:</span> <span class="yv">タスク概要</span>
+      <span class="yk">required</span><span class="ys">:</span> <span class="yn">true</span>
+    <span class="ys">-</span> <span class="yk">name</span><span class="ys">:</span> <span class="yv">due</span>
+      <span class="yk">label</span><span class="ys">:</span> <span class="yv">期限</span>
+      <span class="yk">type</span><span class="ys">:</span> <span class="yv">date</span>
+  <span class="yk">steps</span><span class="ys">:</span>
+    <span class="ys">-</span> <span class="yk">kind</span><span class="ys">:</span> <span class="yv">journal-append</span>
+      <span class="yk">section</span><span class="ys">:</span> <span class="yv">Todo</span>
+      <span class="yk">content</span><span class="ys">:</span> <span class="yv">"- [ ] {{summary}}"</span>
+      <span class="yk">open</span><span class="ys">:</span> <span class="yn">true</span></div>
+          </div>
+        </div>
+        <div class="cmd-form-footer">
+          <button class="btn" data-testid="cmd-edit-cancel">キャンセル</button>
+          <button class="cmd-test-run-btn" data-testid="cmd-edit-test-run"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><polygon points="4,2 14,8 4,14" fill="currentColor" stroke="none"/></svg> テスト実行</button>
+          <button class="btn primary" data-testid="cmd-edit-save">保存</button>
+        </div>
+      </div>
+
+      <h3 style="font-size:13px;color:var(--text-muted);margin:0 0 14px;">✗ YAML タブ — エラー + 保存ブロック</h3>
+      <div class="state-label invalid">不正 YAML → 保存ボタン無効・エラーバナー表示</div>
+
+      <div class="mini-workspace" style="max-width:700px;" data-testid="cmd-edit-variant" data-variant="v4-invalid">
+        <div class="mini-editor-header">
+          <div class="mini-breadcrumb"><span>commands</span><span style="color:var(--text-faint);">/</span><span class="curr">create-todo</span></div>
+        </div>
+        <div class="cmd-edit-tab-bar">
+          <div class="seg-toggle" data-testid="cmd-edit-mode-toggle">
+            <button class="seg-btn" aria-selected="false" data-tab="form">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="3" width="12" height="3" rx="1"/><rect x="2" y="8" width="8" height="2.5" rx="1"/><rect x="2" y="12" width="10" height="2.5" rx="1"/></svg>
+              フォーム
+            </button>
+            <button class="seg-btn" aria-selected="true" data-tab="yaml" style="color:var(--danger);">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 3l-3 5 3 5M12 3l3 5-3 5M9 2l-2 12"/></svg>
+              YAML
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:11px;height:11px;color:var(--danger);"><path d="M8 4v4M8 11v1"/><circle cx="8" cy="8" r="6"/></svg>
+            </button>
+          </div>
+          <span class="cmd-valid-badge err" style="margin-left:auto;font-size:11px;" data-testid="cmd-edit-error">✗ エラー</span>
+        </div>
+
+        <div data-testid="cmd-edit-yaml" style="padding:16px 16px 8px;">
+          <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:6px;">直接編集できます。変更はフォームタブと同期されます。</div>
+          <div class="yaml-pane" style="border-radius:8px 8px 0 0;">
+            <div class="yaml-pane-bar"><span class="lang">YAML</span> frontmatter · エラーあり</div>
+            <div class="yaml-pane-code" contenteditable="true" spellcheck="false"><span class="yk">loamium-command</span><span class="ys">:</span>
+  <span class="yk">name</span><span class="ys">:</span> <span class="yv">create todo</span>
+  <span class="yk">description</span><span class="ys">:</span> <span class="yv">タスク概要を今日のジャーナルの Todo に追記</span>
+  <span class="yk">params</span><span class="ys">:</span>
+    <span class="ys">-</span> <span class="yk">name</span><span class="ys">:</span> <span class="yv">summary</span>
+      <span class="yk">label</span><span class="ys">:</span> <span class="yv">タスク概要</span>
+      <span class="yk">required</span><span class="ys">:</span> <span class="yn">true</span>
+  <span class="yk">steps</span><span class="ys">:</span>
+    <span class="ys">-</span> <span class="yk">kind</span><span class="ys">:</span> <span class="ye">agent-run</span>
+      <span class="yk">prompt</span><span class="ys">:</span> <span class="yv">"{{summary}} をまとめて"</span></div>
+          </div>
+          <!-- inline error below YAML -->
+          <div class="schema-error-box" data-testid="cmd-edit-validation" data-valid="false">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 4v4M8 11v1"/><circle cx="8" cy="8" r="6"/></svg>
+            <div>
+              <strong>スキーマエラー</strong> — 保存前に修正してください<br>
+              <code>steps[0].kind: 未知の種別 "agent-run"</code><br>
+              有効な種別: <code>journal-append | note-append | note-create | template-instantiate</code>
+            </div>
+          </div>
+        </div>
+        <div class="cmd-form-footer">
+          <button class="btn" data-testid="cmd-edit-cancel">キャンセル</button>
+          <button class="cmd-test-run-btn" disabled aria-disabled="true" data-testid="cmd-edit-test-run" style="opacity:0.4;cursor:not-allowed;"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><polygon points="4,2 14,8 4,14" fill="currentColor" stroke="none"/></svg> テスト実行</button>
+          <div class="tooltip-wrap">
+            <button class="btn primary" aria-disabled="true" data-testid="cmd-edit-save" style="opacity:0.4;cursor:not-allowed;">保存</button>
+            <span class="tooltip">エラーを修正してください</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================================================
+       V5 — ミニマル(検証バナー + テスト実行のみ)
+  ============================================================ -->
+  <section class="variant-section" id="v5" data-testid="cmd-edit-variant" data-variant="v5">
+    <div class="variant-header">
+      <span class="variant-num">5</span>
+      <h2 class="variant-title">V5 — ミニマル(検証バナー + テスト実行のみ)</h2>
+      <span class="variant-tradeoff">通常エディタ + バナー 1 行のみ。最軽量。フォームなし。V1 のサブセット。</span>
+    </div>
+    <div class="variant-body">
+
+      <p class="proto-note"><span class="tag">PROTO NOTE</span>
+        V1 のさらに軽量版。コマンドオーバーレイパネルを持たず、エディタヘッダに 1 行バナーを付けるだけ。
+        実装コスト最小。エラーはバナーに出るが、テスト実行ボタン + バナー以外は追加しない。
+        V1 と比較対象として提示。
+      </p>
+
+      <h3 style="font-size:13px;color:var(--text-muted);margin:0 0 14px;">◎ 有効状態</h3>
+      <div class="state-label valid">有効バナー + テスト実行ボタン</div>
+
+      <div class="mini-workspace" style="margin-bottom:24px;" data-testid="cmd-edit-variant" data-variant="v5-valid">
+        <div class="minimal-banner ok" data-testid="cmd-edit-validation" data-valid="true">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 8l3.5 3.5L13 4"/></svg>
+          <span class="banner-msg">⚡ スマートコマンド — ✓ 有効な定義 (params: 3, steps: 1)</span>
+          <button class="banner-btn" data-testid="cmd-edit-test-run">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><polygon points="4,2 14,8 4,14" fill="currentColor" stroke="none"/></svg>
+            テスト実行
+          </button>
+        </div>
+        <div class="mini-cm">
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content" style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">loamium-command:</span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content" style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">  name: create todo</span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content" style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">  steps:</span></div>
+          <div class="cm-line active-line"><span class="gutter"></span><span class="cm-content" style="font-family:var(--font-mono);font-size:12px;">    - kind: journal-append<span class="caret"></span></span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content" style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">      section: Todo</span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content" style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">      content: "- [ ] {{summary}}"</span></div>
+        </div>
+      </div>
+
+      <h3 style="font-size:13px;color:var(--text-muted);margin:0 0 14px;">✗ エラー状態</h3>
+      <div class="state-label invalid">エラーバナーのみ — テスト実行ブロック</div>
+
+      <div class="mini-workspace" data-testid="cmd-edit-variant" data-variant="v5-invalid">
+        <div class="minimal-banner err" data-testid="cmd-edit-validation" data-valid="false">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 4v4M8 11v1"/><circle cx="8" cy="8" r="6"/></svg>
+          <span class="banner-msg" data-testid="cmd-edit-error">⚡ スマートコマンド — ✗ エラー: <strong>steps[0].kind: 未知の種別 "agent-run"</strong></span>
+          <button class="banner-btn" disabled aria-disabled="true" data-testid="cmd-edit-test-run" style="opacity:0.4;cursor:not-allowed;border-color:var(--danger);color:var(--danger);">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><polygon points="4,2 14,8 4,14" fill="currentColor" stroke="none"/></svg>
+            テスト実行
+          </button>
+        </div>
+        <div class="mini-cm">
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content" style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">  steps:</span></div>
+          <div class="cm-line active-line"><span class="gutter"></span><span class="cm-content" style="font-family:var(--font-mono);font-size:12px;color:var(--danger);">    - kind: agent-run<span class="caret" style="background:var(--danger);"></span></span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content" style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted);">      prompt: "{{summary}} をまとめて"</span></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================================================
+       比較まとめ
+  ============================================================ -->
+  <section style="background:var(--bg-editor);border:1px solid var(--border);border-radius:14px;padding:24px;margin-bottom:40px;">
+    <h2 style="margin:0 0 16px;font-size:16px;">バリアント比較まとめ</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+      <thead>
+        <tr style="background:var(--bg-panel);">
+          <th style="text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);">バリアント</th>
+          <th style="text-align:center;padding:8px 12px;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);">フォーム</th>
+          <th style="text-align:center;padding:8px 12px;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);">YAML 直接編集</th>
+          <th style="text-align:center;padding:8px 12px;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);">保存前エラー</th>
+          <th style="text-align:center;padding:8px 12px;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);">テスト実行</th>
+          <th style="text-align:center;padding:8px 12px;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);">実装コスト</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);font-weight:600;">V1 — コマンド対応モード</td>
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;color:var(--text-faint);">なし</td>
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;">✓</td>
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;">パネル表示のみ</td>
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;">✓</td>
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;color:var(--ok);">低</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);font-weight:600;">V2 — フォーム編集</td>
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;color:var(--ok);">✓ 完全</td>
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;color:var(--text-faint);">なし</td>
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;">✓ ブロック</td>
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;">✓</td>
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;color:var(--warn);">高</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);font-weight:600;">V3 — スプリット</td>
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;color:var(--text-faint);">なし</td>
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;">✓</td>
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;">✓ ブロック</td>
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;">✓</td>
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;color:var(--warn);">中</td>
+        </tr>
+        <tr style="background:var(--accent-soft);">
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);font-weight:700;color:var(--accent-hover);">V4 — タブ切替 ★</td>
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;color:var(--ok);">✓</td>
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;color:var(--ok);">✓</td>
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;color:var(--ok);">✓ ブロック</td>
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;">✓</td>
+          <td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;color:var(--warn);">中</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;font-weight:600;">V5 — ミニマル</td>
+          <td style="padding:8px 12px;text-align:center;color:var(--text-faint);">なし</td>
+          <td style="padding:8px 12px;text-align:center;">✓</td>
+          <td style="padding:8px 12px;text-align:center;">バナーのみ(保存はブロックせず)</td>
+          <td style="padding:8px 12px;text-align:center;">✓ (無効時 disabled)</td>
+          <td style="padding:8px 12px;text-align:center;color:var(--ok);">最低</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ============================================================
+       設計上のオープン質問
+  ============================================================ -->
+  <section style="background:var(--warn-soft);border:1.5px solid #e4c88a;border-radius:12px;padding:18px 22px;margin-bottom:40px;">
+    <h2 style="margin:0 0 12px;font-size:14px;color:#7a5411;">確認したいオープン質問</h2>
+    <ol style="margin:0;padding:0 0 0 18px;font-size:13px;line-height:1.9;color:#7a5411;">
+      <li><strong>V4 を選ぶ場合:</strong> タブ切替時の同期はどちらが「正本」? フォーム操作 → YAML 生成、YAML 操作 → フォームに反映、の双方向同期が必要? または YAML が常に正本で、フォームは読み取り専用プレビューでよい?</li>
+      <li><strong>保存トリガー:</strong> YAML タブで保存ボタンを押す vs. CodeMirror のオートセーブで都度保存? (後者は「エラーでも保存してしまう」ため V4/V3 ではブロックが必要になる)</li>
+      <li><strong>フォーム ↔ YAML の同期タイミング:</strong> リアルタイム(keystroke)? タブを切り替えたとき? または手動「適用」ボタン?</li>
+      <li><strong>ステップ種別の増減:</strong> 将来 agent-run が追加された際、フォーム(V2/V4)は自動的に対応できるか? それとも都度フォームUIを更新する必要があるか?</li>
+      <li><strong>ミニマル(V5)とする場合:</strong> YAML ソースで保存をブロックしない設計にするか? (現在のノート API は何でも書けるため、エラー定義は「実行時に 4xx で返す」でもよい)</li>
+    </ol>
+  </section>
+
+</div>
+
+<!-- proto chip -->
+<div class="proto-chip">
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="width:13px;height:13px;"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+  PROTOTYPE — static mockup only
+</div>
+
+<!-- V4 tab toggle interaction -->
+<script>
+document.querySelectorAll('[data-testid="cmd-edit-mode-toggle"]').forEach(function(toggle) {
+  toggle.querySelectorAll('.seg-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var parent = btn.closest('.mini-workspace');
+      toggle.querySelectorAll('.seg-btn').forEach(function(b) { b.setAttribute('aria-selected', 'false'); });
+      btn.setAttribute('aria-selected', 'true');
+    });
+  });
+});
+</script>
+</body>
+</html>
