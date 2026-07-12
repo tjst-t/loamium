@@ -50,23 +50,66 @@ const stepConditionFields = {
 
 /**
  * コマンドパラメータの入力型。templates の TemplateVar と互換。
- * type: 'string' (デフォルト、1 行テキスト) | 'text' (複数行) | 'date'。
+ * type:
+ *   'string'  — デフォルト、1 行テキスト
+ *   'text'    — 複数行テキスト
+ *   'date'    — 日付ピッカー
+ *   'select'  — ドロップダウン (options 必須)
+ *   'note'    — ノートパス文字列 (ノートピッカー。実行時は vault 相対パス文字列)
+ *   'boolean' — チェックボックス (実行時は 'true' / '' の文字列)
+ *   'number'  — 数値入力 (実行時は数値文字列 e.g. "42")
+ *
+ * ADR-0010 (Sf2f114-5): select/note/boolean/number を追加 (additive)。
+ * すべての型の実行時値は string として resolveTemplate に渡す (executor は変更なし)。
+ * 文字列変換規約:
+ *   boolean → チェック済み = 'true'、未チェック = '' (falsey)
+ *   number  → 数値を文字列化 (例: "42", "3.14")
+ *   note    → vault 相対パス文字列 (例: "projects/foo.md")
+ *   select  → 選択した option 文字列
+ * [AC-Sf2f114-5-1]
  */
-export const commandParamTypeSchema = z.enum(['string', 'text', 'date']);
+export const commandParamTypeSchema = z.enum([
+  'string',
+  'text',
+  'date',
+  'select',
+  'note',
+  'boolean',
+  'number',
+]);
 export type CommandParamType = z.infer<typeof commandParamTypeSchema>;
 
-export const commandParamSchema = z.object({
-  /** パラメータ名 (= {{name}} の name)。 */
-  name: z.string().min(1, 'param name must not be empty'),
-  /** 表示ラベル (省略時は name)。 */
-  label: z.string().optional(),
-  /** 必須か (未入力なら run は 4xx)。 */
-  required: z.boolean().optional(),
-  /** 既定値 (date は {{date:YYYY-MM-DD}} 等も可)。 */
-  default: z.string().optional(),
-  /** 入力ウィジェット種別。 */
-  type: commandParamTypeSchema.optional(),
-});
+export const commandParamSchema = z
+  .object({
+    /** パラメータ名 (= {{name}} の name)。 */
+    name: z.string().min(1, 'param name must not be empty'),
+    /** 表示ラベル (省略時は name)。 */
+    label: z.string().optional(),
+    /** 必須か (未入力なら run は 4xx)。 */
+    required: z.boolean().optional(),
+    /** 既定値 (date は {{date:YYYY-MM-DD}} 等も可)。 */
+    default: z.string().optional(),
+    /** 入力ウィジェット種別。 */
+    type: commandParamTypeSchema.optional(),
+    /**
+     * select 型の選択肢一覧。type='select' のときは非空配列が必須。
+     * 他の型では存在を許容するが実行時は無視される (additive)。
+     * [AC-Sf2f114-5-1]
+     */
+    options: z.array(z.string()).optional(),
+  })
+  .superRefine((data, ctx) => {
+    // select 型には options が必要 (非空)
+    if (data.type === 'select') {
+      if (data.options === undefined || data.options.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['options'],
+          message: "param type 'select' requires non-empty options array",
+        });
+      }
+    }
+  });
 export type CommandParam = z.infer<typeof commandParamSchema>;
 
 // ---- CommandStep — 判別可能ユニオン (ADR-0009, v1 = 4 種) ----

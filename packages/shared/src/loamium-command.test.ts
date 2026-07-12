@@ -48,7 +48,7 @@ describe('[AC-Sd22b1f-1-1] commandParamSchema', () => {
     }
   });
 
-  it('type が string / text / date を受け入れる', () => {
+  it('type が string / text / date を受け入れる (既存 3 種 — 後方互換)', () => {
     for (const t of ['string', 'text', 'date'] as const) {
       const result = commandParamSchema.safeParse({ name: 'x', type: t });
       expect(result.success, `type=${t} should be valid`).toBe(true);
@@ -61,8 +61,89 @@ describe('[AC-Sd22b1f-1-1] commandParamSchema', () => {
   });
 
   it('未知の type は拒否される', () => {
-    const result = commandParamSchema.safeParse({ name: 'x', type: 'select' });
+    const result = commandParamSchema.safeParse({ name: 'x', type: 'foobar' });
     expect(result.success).toBe(false);
+  });
+
+  // ---- [AC-Sf2f114-5-1] 新規 4 型 ----
+
+  it('[AC-Sf2f114-5-1] type=boolean が通る', () => {
+    const result = commandParamSchema.safeParse({ name: 'flag', type: 'boolean' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.type).toBe('boolean');
+    }
+  });
+
+  it('[AC-Sf2f114-5-1] type=number が通る', () => {
+    const result = commandParamSchema.safeParse({ name: 'count', type: 'number' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.type).toBe('number');
+    }
+  });
+
+  it('[AC-Sf2f114-5-1] type=note が通る', () => {
+    const result = commandParamSchema.safeParse({ name: 'target', type: 'note' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.type).toBe('note');
+    }
+  });
+
+  it('[AC-Sf2f114-5-1] type=select + options (非空) が通る', () => {
+    const result = commandParamSchema.safeParse({
+      name: 'priority',
+      type: 'select',
+      options: ['low', 'medium', 'high'],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.type).toBe('select');
+      expect(result.data.options).toEqual(['low', 'medium', 'high']);
+    }
+  });
+
+  it('[AC-Sf2f114-5-1] type=select で options が空配列 → 無効', () => {
+    const result = commandParamSchema.safeParse({
+      name: 'priority',
+      type: 'select',
+      options: [],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const msgs = result.error.errors.map((e) => e.message).join(' ');
+      expect(msgs).toContain('options');
+    }
+  });
+
+  it('[AC-Sf2f114-5-1] type=select で options が省略 → 無効', () => {
+    const result = commandParamSchema.safeParse({
+      name: 'priority',
+      type: 'select',
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const msgs = result.error.errors.map((e) => e.message).join(' ');
+      expect(msgs).toContain('options');
+    }
+  });
+
+  it('[AC-Sf2f114-5-1] type=string で options を付けても通る (ignored at runtime)', () => {
+    // select 以外で options を含む場合は許容する (additive — 無視)
+    const result = commandParamSchema.safeParse({
+      name: 'x',
+      type: 'string',
+      options: ['a', 'b'],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('[AC-Sf2f114-5-1] 既存の string / text / date は options なしで変わらず通る', () => {
+    for (const t of ['string', 'text', 'date'] as const) {
+      const result = commandParamSchema.safeParse({ name: 'x', type: t });
+      expect(result.success, `type=${t} (no options) should still be valid`).toBe(true);
+    }
   });
 });
 

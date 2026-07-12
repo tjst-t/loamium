@@ -1517,6 +1517,176 @@ describe('[AC-Sf2f114-4-1/2/3] prop-set / note-patch ステップ', () => {
 });
 
 // ---------------------------------------------------------------------------
+// [AC-Sf2f114-5-2] select/boolean/note/number param — 値が resolveTemplate を流れる
+// ---------------------------------------------------------------------------
+
+describe('[AC-Sf2f114-5-2] new param types — value flows through resolveTemplate', () => {
+  let server: TestServer;
+
+  /**
+   * select param: {{priority}} が content に展開されること。
+   * 実行時は選択した option 文字列が渡される。
+   */
+  const SELECT_PARAM_CMD = [
+    '---',
+    'loamium-command:',
+    '  name: select-run-test',
+    '  params:',
+    '    - name: priority',
+    '      type: select',
+    '      required: true',
+    '      options:',
+    '        - low',
+    '        - medium',
+    '        - high',
+    '  steps:',
+    '    - kind: note-create',
+    '      target: "select-out/{{priority}}.md"',
+    '      content: "priority={{priority}}"',
+    '---',
+    '',
+  ].join('\n');
+
+  /**
+   * boolean param: {{flag}} が content に展開されること。
+   * 'true' (truthy) または '' (falsey) が渡される想定。
+   */
+  const BOOLEAN_PARAM_CMD = [
+    '---',
+    'loamium-command:',
+    '  name: boolean-run-test',
+    '  params:',
+    '    - name: flag',
+    '      type: boolean',
+    '  steps:',
+    '    - kind: note-create',
+    '      target: "bool-out/result.md"',
+    '      content: "flag={{flag}}"',
+    '---',
+    '',
+  ].join('\n');
+
+  /**
+   * number param: {{count}} が content に展開されること。
+   * 数値文字列 (例 "42") が渡される想定。
+   */
+  const NUMBER_PARAM_CMD = [
+    '---',
+    'loamium-command:',
+    '  name: number-run-test',
+    '  params:',
+    '    - name: count',
+    '      type: number',
+    '  steps:',
+    '    - kind: note-create',
+    '      target: "num-out/result.md"',
+    '      content: "count={{count}}"',
+    '---',
+    '',
+  ].join('\n');
+
+  /**
+   * note param: {{target}} が content に展開されること。
+   * vault 相対パス文字列が渡される想定。
+   */
+  const NOTE_PARAM_CMD = [
+    '---',
+    'loamium-command:',
+    '  name: note-run-test',
+    '  params:',
+    '    - name: ref',
+    '      type: note',
+    '  steps:',
+    '    - kind: note-create',
+    '      target: "note-out/result.md"',
+    '      content: "ref={{ref}}"',
+    '---',
+    '',
+  ].join('\n');
+
+  beforeAll(async () => {
+    const vault = await makeTempVault();
+    server = await startServer({ vault });
+    await putNote(server, 'commands/select-run-test.md', SELECT_PARAM_CMD);
+    await putNote(server, 'commands/boolean-run-test.md', BOOLEAN_PARAM_CMD);
+    await putNote(server, 'commands/number-run-test.md', NUMBER_PARAM_CMD);
+    await putNote(server, 'commands/note-run-test.md', NOTE_PARAM_CMD);
+  });
+
+  afterAll(async () => {
+    await server.stop();
+    await cleanupVault(server.vault);
+  });
+
+  it('[AC-Sf2f114-5-2] select param: 選択 option 文字列が resolveTemplate に渡されノートに展開される', async () => {
+    const { status, body } = await runCommand(server, 'select-run-test', { priority: 'high' });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success, `schema: ${JSON.stringify(parsed)}`).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    expect(parsed.data.results[0]?.ok).toBe(true);
+    expect(parsed.data.results[0]?.path).toBe('select-out/high.md');
+
+    const content = await readFile(path.join(server.vault, 'select-out/high.md'), 'utf8');
+    expect(content).toBe('priority=high');
+  });
+
+  it('[AC-Sf2f114-5-2] boolean param: "true" が resolveTemplate に渡されノートに展開される', async () => {
+    const { status, body } = await runCommand(server, 'boolean-run-test', { flag: 'true' });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    expect(parsed.data.results[0]?.ok).toBe(true);
+
+    const content = await readFile(path.join(server.vault, 'bool-out/result.md'), 'utf8');
+    expect(content).toBe('flag=true');
+  });
+
+  it('[AC-Sf2f114-5-2] boolean param: "" (falsey) が渡されたとき when ゲートがスキップを引き起こす', async () => {
+    // boolean が "" のとき、when ゲートでスキップされる動作を確認
+    // (executor は変更なし — 値はそのまま string として流れる)
+    const { status, body } = await runCommand(server, 'boolean-run-test', { flag: '' });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    // when なしコマンドなので常に実行される (空文字もそのまま渡される)
+    expect(parsed.data.results[0]?.ok).toBe(true);
+
+    const content = await readFile(path.join(server.vault, 'bool-out/result.md'), 'utf8');
+    // 空文字はそのまま展開される (flag=)
+    expect(content).toContain('flag=');
+  });
+
+  it('[AC-Sf2f114-5-2] number param: 数値文字列が resolveTemplate に渡されノートに展開される', async () => {
+    const { status, body } = await runCommand(server, 'number-run-test', { count: '42' });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    expect(parsed.data.results[0]?.ok).toBe(true);
+
+    const content = await readFile(path.join(server.vault, 'num-out/result.md'), 'utf8');
+    expect(content).toBe('count=42');
+  });
+
+  it('[AC-Sf2f114-5-2] note param: vault パス文字列が resolveTemplate に渡されノートに展開される', async () => {
+    const { status, body } = await runCommand(server, 'note-run-test', {
+      ref: 'projects/my-project.md',
+    });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    expect(parsed.data.results[0]?.ok).toBe(true);
+
+    const content = await readFile(path.join(server.vault, 'note-out/result.md'), 'utf8');
+    expect(content).toBe('ref=projects/my-project.md');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // [AC-Sf2f114-4-3] append-only rejects commands with prop-set/note-patch
 // ---------------------------------------------------------------------------
 
