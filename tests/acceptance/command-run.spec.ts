@@ -481,6 +481,60 @@ describe('[AC-Sd22b1f-2-3] append-only mode allows v1 commands', () => {
 });
 
 // ---------------------------------------------------------------------------
+// [BUG-REGRESSION] 表示名 ≠ ファイル stem のコマンド (GET id/name 分離の検証)
+// ---------------------------------------------------------------------------
+
+describe('[BUG-REGRESSION] display name ≠ stem — GET returns id, run uses stem', () => {
+  let server: TestServer;
+
+  /** display name に スペースを含む (stem="my-cmd", name="My Command") */
+  const MY_CMD = [
+    '---',
+    'loamium-command:',
+    '  name: "My Command"',
+    '  description: display name differs from file stem',
+    '  steps:',
+    '    - kind: journal-append',
+    '      content: "my-cmd ran"',
+    '---',
+    '# my-cmd',
+    '',
+  ].join('\n');
+
+  beforeAll(async () => {
+    const vault = await makeTempVault();
+    server = await startServer({ vault });
+    await putNote(server, 'commands/my-cmd.md', MY_CMD);
+  });
+
+  afterAll(async () => {
+    await server.stop();
+    await cleanupVault(server.vault);
+  });
+
+  it('GET returns id="my-cmd" (stem) and name="My Command" (display)', async () => {
+    const res = await fetch(`${server.baseUrl}/api/commands`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { commands: Array<{ id: string; name: string; path: string; valid: boolean }> };
+    const cmd = body.commands.find((c) => c.path === 'commands/my-cmd.md');
+    expect(cmd).toBeDefined();
+    expect(cmd?.id).toBe('my-cmd');
+    expect(cmd?.name).toBe('My Command');
+    expect(cmd?.valid).toBe(true);
+  });
+
+  it('POST /api/commands/my-cmd/run (stem) succeeds', async () => {
+    const { status } = await runCommand(server, 'my-cmd', {});
+    expect(status).toBe(200);
+  });
+
+  it('POST /api/commands/My Command/run (display name) → 404', async () => {
+    const { status } = await runCommand(server, 'My Command', {});
+    expect(status).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // [AC-Sd22b1f-2-4] CLI `loamium command run <name> --param k=v`
 // ---------------------------------------------------------------------------
 

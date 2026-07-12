@@ -12,10 +12,15 @@ import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { readHarnessState } from '../harness/state.js';
 
+/**
+ * コマンドファイルのフロントマター name は "create todo" (スペース入り、ファイル stem "create-todo" と異なる)。
+ * これにより UI が id (stem) を使って run を呼ぶことが必要になる — 表示名で呼ぶと 404 になる。
+ * [BUG-REGRESSION] このフィクスチャが id/stem に基づく実行フローのロックイン。
+ */
 const CREATE_TODO_COMMAND = [
   '---',
   'loamium-command:',
-  '  name: create-todo',
+  '  name: create todo',
   '  description: 今日のジャーナル Todo セクションにタスクを追加する',
   '  params:',
   '    - name: タスク概要',
@@ -71,9 +76,9 @@ test('[AC-Sde7a63-3-4][E2E] Ctrl-K → > todo → フォーム入力 → 実行 
   // 4. create-todo を選択
   await createTodoItem.click();
 
-  // 5. パラメータフォームモーダルが開く
+  // 5. パラメータフォームモーダルが開く (表示名 "create todo" が表示される)
   await expect(page.getByTestId('param-form-modal')).toBeVisible();
-  await expect(page.getByTestId('param-form-title')).toContainText('create-todo');
+  await expect(page.getByTestId('param-form-title')).toContainText('create todo');
 
   // 6. タスク概要フィールドに入力 (E2E 識別子として一意な文字列)
   const taskSummary = '新機能実装チェック';

@@ -31,8 +31,14 @@ import { api } from '../api.js';
 import type { CommandParam, CommandRunResponse } from '@loamium/shared';
 
 export interface ParamFormModalProps {
-  /** コマンド名 (表示タイトルにも使う) */
+  /** 表示名 (パレット / フォームタイトルに使う) */
   commandName: string;
+  /**
+   * 安定識別子 = ファイル stem (例: "create-todo")。
+   * POST /api/commands/{commandId}/run の {commandId} として使う。
+   * 省略時は commandName を代用する (後方互換)。
+   */
+  commandId?: string | undefined;
   /** コマンドの説明 (省略可) */
   description?: string | undefined;
   /** パラメータ定義一覧 */
@@ -64,11 +70,14 @@ function initialValue(p: CommandParam): string {
 
 export function ParamFormModal({
   commandName,
+  commandId,
   description,
   params,
   onCancel,
   onSuccess,
 }: ParamFormModalProps): JSX.Element {
+  // 安定識別子: commandId が提供されていればそれを使い、なければ commandName を代用する
+  const runId = commandId ?? commandName;
   const [values, setValues] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
     for (const p of params) init[p.name] = initialValue(p);
@@ -107,7 +116,7 @@ export function ParamFormModal({
     setRunError(null);
     void (async (): Promise<void> => {
       try {
-        const result = await api.runCommand(commandName, values);
+        const result = await api.runCommand(runId, values);
         setBusy(false);
         const allOk = result.results.every((r) => r.ok);
         if (allOk) {
@@ -121,7 +130,7 @@ export function ParamFormModal({
         setRunError(err instanceof Error ? err.message : String(err));
       }
     })();
-  }, [busy, commandName, onSuccess, requiredMissing.length, values]);
+  }, [busy, runId, onSuccess, requiredMissing.length, values]);
 
   const onKeyDown = useCallback(
     (e: KeyboardEvent): void => {

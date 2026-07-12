@@ -57,11 +57,12 @@ function summaryFor(rel: string, content: string): CommandSummary {
   const parsed = parseLoamiumCommandWithError(frontmatter);
 
   if (!parsed.ok) {
-    return { name: stem, path: rel, valid: false, error: parsed.error };
+    return { id: stem, name: stem, path: rel, valid: false, error: parsed.error };
   }
 
   const cmd = parsed.command;
   const summary: CommandSummary = {
+    id: stem,
     name: cmd.name ?? stem,
     path: rel,
     params: cmd.params,
@@ -96,6 +97,7 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
         console.error(`[loamium] unexpected error reading command ${rel}:`, err);
         const stem = stemFrom(rel);
         commands.push({
+          id: stem,
           name: stem,
           path: rel,
           valid: false,

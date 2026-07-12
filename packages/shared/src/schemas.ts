@@ -723,7 +723,12 @@ export type AuditEntry = z.infer<typeof auditEntrySchema>;
  */
 export const commandSummarySchema = z.discriminatedUnion('valid', [
   z.object({
-    /** コマンド識別名 (loamium-command.name、省略時はファイル名拡張子なし)。 */
+    /**
+     * 安定識別子 = ファイルの stem (拡張子なし)。例: "create-todo"。
+     * POST /api/commands/{id}/run の {id} として使う。表示名 (name) とは異なる場合がある。
+     */
+    id: z.string(),
+    /** 表示名 (loamium-command.name、省略時は stem と同値)。パレット表示に使う。 */
     name: z.string(),
     /** コマンドファイルの vault 相対パス (commands/xxx.md)。 */
     path: z.string(),
@@ -735,6 +740,10 @@ export const commandSummarySchema = z.discriminatedUnion('valid', [
     valid: z.literal(true),
   }),
   z.object({
+    /**
+     * 安定識別子 = ファイルの stem (拡張子なし)。frontmatter が壊れていてもファイル名から導出。
+     */
+    id: z.string(),
     /** ファイル名 (拡張子なし)。frontmatter が壊れているためファイル名から導出。 */
     name: z.string(),
     /** コマンドファイルの vault 相対パス。 */

@@ -121,13 +121,24 @@ describe('[AC-Sd22b1f-1-2] GET /api/commands', () => {
     expect(names).toContain('empty-steps');
     // commands/ 外のノートは含まない
     expect(commands.some((c) => c.path === 'notes/普通のノート.md')).toBe(false);
+    // id はすべてのエントリ (valid/invalid) に存在し、ファイル stem に一致する
+    for (const cmd of commands) {
+      expect(typeof cmd.id).toBe('string');
+      expect(cmd.id.length).toBeGreaterThan(0);
+      // id は path から導出した stem と一致する (commands/{id}.md)
+      expect(cmd.path).toBe(`commands/${cmd.id}.md`);
+    }
   });
 
-  it('正常なコマンドは valid:true で name / description / params / path を返す', async () => {
+  it('正常なコマンドは valid:true で id / name / description / params / path を返す', async () => {
     const commands = await listCommands();
-    const todo = commands.find((c) => c.name === 'create-todo');
+    const todo = commands.find((c) => c.path === 'commands/create-todo.md');
     expect(todo).toBeDefined();
     expect(todo?.valid).toBe(true);
+    // id は常にファイル stem (拡張子なし) である
+    expect(todo?.id).toBe('create-todo');
+    // name は frontmatter の loamium-command.name (省略時は stem と同値)
+    expect(todo?.name).toBe('create-todo');
     expect(todo?.path).toBe('commands/create-todo.md');
     // Narrow the discriminated union before accessing valid:true-only fields
     if (todo?.valid === true) {
@@ -139,11 +150,13 @@ describe('[AC-Sd22b1f-1-2] GET /api/commands', () => {
     }
   });
 
-  it('壊れた frontmatter のコマンドは valid:false + error で一覧に含まれる (200 維持)', async () => {
+  it('壊れた frontmatter のコマンドは valid:false + error + id で一覧に含まれる (200 維持)', async () => {
     const commands = await listCommands();
     const broken = commands.find((c) => c.path === 'commands/broken.md');
     expect(broken).toBeDefined();
     expect(broken?.valid).toBe(false);
+    // id はファイル stem から導出される (valid:false でも id を持つ)
+    expect(broken?.id).toBe('broken');
     // Narrow the discriminated union before accessing valid:false-only fields
     if (broken?.valid === false) {
       expect(typeof broken.error).toBe('string');

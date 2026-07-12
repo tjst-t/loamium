@@ -55,7 +55,10 @@ export interface SearchPaletteProps {
 
 /** スマートコマンドのパラメータフォームを開くときに渡す情報 */
 interface ParamFormState {
+  /** 表示名 (パレットタイトル表示用) */
   commandName: string;
+  /** 安定識別子 = ファイル stem。POST /api/commands/{commandId}/run に使う */
+  commandId: string;
   description?: string | undefined;
   params: CommandParam[];
 }
@@ -175,7 +178,7 @@ export function SearchPalette({
           if (!s.valid) {
             // valid:false → disabled エントリ
             registerCommand({
-              id: `smart:${s.name}`,
+              id: `smart:${s.id}`,
               title: s.name,
               keywords: [],
               icon: (
@@ -191,13 +194,16 @@ export function SearchPalette({
             });
           } else {
             // valid:true
+            // cmdId = ファイル stem (安定識別子) → POST /api/commands/{cmdId}/run に使う
+            // cmdName = 表示名 → パレットタイトル / フォームタイトルに使う
+            const cmdId = s.id;
             const cmdName = s.name;
             const cmdParams = s.params;
             const cmdDesc = s.description;
             registerCommand({
-              id: `smart:${cmdName}`,
+              id: `smart:${cmdId}`,
               title: cmdName,
-              keywords: [cmdName],
+              keywords: [cmdId, cmdName],
               icon: (
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="3" width="10" height="10" rx="2" />
@@ -207,8 +213,8 @@ export function SearchPalette({
               source: 'smart',
               run: () => {
                 if (cmdParams.length === 0) {
-                  // パラメータなし → 直接実行
-                  void api.runCommand(cmdName, {}).then(
+                  // パラメータなし → 直接実行 (cmdId = stem を渡す)
+                  void api.runCommand(cmdId, {}).then(
                     (result) => {
                       const openPath = result.openPath;
                       onCloseRef.current();
@@ -223,6 +229,7 @@ export function SearchPalette({
                   // パラメータあり → フォームモーダルを開く (パレットは閉じない)
                   setParamFormRef.current({
                     commandName: cmdName,
+                    commandId: cmdId,
                     description: cmdDesc,
                     params: cmdParams,
                   });
@@ -681,6 +688,7 @@ export function SearchPalette({
     {paramForm !== null && (
       <ParamFormModal
         commandName={paramForm.commandName}
+        commandId={paramForm.commandId}
         description={paramForm.description}
         params={paramForm.params}
         onCancel={() => {
