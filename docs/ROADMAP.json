@@ -3,11 +3,11 @@
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
     "current_sprint": null,
-    "total": 32,
+    "total": 35,
     "done": 30,
     "in_progress": 0,
-    "remaining": 2,
-    "percentage": 93
+    "remaining": 5,
+    "percentage": 85
   },
   "execution_order": [
     "Sd63ad1",
@@ -40,7 +40,10 @@
     "S7b2f22",
     "Sebf6b0",
     "S53409d",
+    "S10a31c",
+    "Sf4ee2f",
     "S5bd678",
+    "S5e0206",
     "S2fe109"
   ],
   "sprints": {
@@ -3196,10 +3199,10 @@
       }
     },
     "S5bd678": {
-      "title": "エージェント書き込み — 3段階権限 / まとめ生成 / 定型プロンプト",
+      "title": "エージェント権限モデル(ケーパビリティ別)+ 書き込みツール",
       "status": "pending",
-      "description": "ADR-0008 の書き込み面。セッション単位の権限選択 UI(読み取りのみ / 追記+新規作成 / フル)、書き込みツール(journal-append / ノート作成 / patch・rename)を権限に応じて付与、全書き込みの監査ログ記録、週次まとめ等の定型プロンプト。サーバー LOAMIUM_MODE との AND を適用。",
-      "milestone": true,
+      "description": "ADR-0008 の3段階を廃し ADR-0011 のケーパビリティ別トグル権限(read / journal_append / note_create / note_edit / template_write / dataview_write / web を独立 on/off)。agent.json の permissions 既定 + チャット UI でセッション上書き + プリセット(読取のみ/ノートRW/フル)+ 実効権限 = エージェント権限 ∩ LOAMIUM_MODE。書き込みは既存の監査済みサービス層経由(ADR-0012、ピュア Markdown・パス正規化・監査継承)。Template は templates/ 配下の規定 frontmatter ノート、DataView は dataview フェンスで、いずれも help 知識を使った通常のノート書き込みとして生成(新フォーマットなし)。ADR-0011/0012。",
+      "milestone": false,
       "detail_level": "coarse",
       "stories": {}
     },
@@ -3209,6 +3212,30 @@
       "description": "ADR-0009。サーバー内蔵スケジューラ、.loamium/agent-jobs.json(Git 追跡、.gitignore 再包含)のジョブ定義(name/schedule/prompt/permission/enabled)、anacron 方式キャッチアップ(最終実行時刻は使い捨て側)、POST /api/agent/jobs/{name}/run + loamium agent-run の REST/CLI 1:1、無人実行の上限(最大ターン数・タイムアウト)。",
       "milestone": true,
       "detail_level": "coarse",
+      "stories": {}
+    },
+    "S10a31c": {
+      "title": "エージェントのシステムプロンプト + help ツール(オンデマンド知識)",
+      "status": "pending",
+      "milestone": false,
+      "detail_level": "coarse",
+      "description": "Loamium がコードで base システムプロンプト(役割=この vault の読み書きノート補助 / 絶対制約=ピュア Markdown・[[リンク]]出典・与えたツールのみ・権限と機密領域の尊重・日本語簡潔 / 出力スタイル)を pi の systemPromptOverride で注入。DQL・テンプレート・DataView・frontmatter 等の詳細な使い方は base に入れず help ツール(トピック指定でガイド本文を返す)でオンデマンド供給。ガイドは Loamium 同梱・バージョン管理。ADR-0010。",
+      "stories": {}
+    },
+    "Sf4ee2f": {
+      "title": "エージェントの機密領域(deny リスト)",
+      "status": "pending",
+      "milestone": true,
+      "detail_level": "coarse",
+      "description": ".loamium/agent-privacy.json(git 追跡・ADR-0002 例外様式)の vault 相対 deny glob で、マッチするファイル/フォルダをエージェントの全ツールが読み書き拒否し、かつ search/query/backlinks/tags がエージェントに返す結果からも除外(存在・内容とも非開示)。サーバー側強制、付与ケーパビリティや web 設定に関わらず deny 優先。共通フィルタに集約。ADR-0014。",
+      "stories": {}
+    },
+    "S5e0206": {
+      "title": "エージェントの Web アクセス(opt-in ケーパビリティ)",
+      "status": "pending",
+      "milestone": true,
+      "detail_level": "coarse",
+      "description": "web を既定 off の opt-in ケーパビリティ(ADR-0011 の権限モデルに乗せる)として追加。URL 取得 + Web 検索ツール。有効化時に漏洩リスクを UI で明示警告し、Web アクセスを監査ログに URL 記録(内容は記録しない)。機密領域(ADR-0014)は web 設定に関わらず常に非開示。ADR-0013。",
       "stories": {}
     }
   },
@@ -3391,15 +3418,34 @@
     },
     "S5bd678": {
       "depends_on": [
-        "S53409d"
+        "S10a31c",
+        "Sf4ee2f"
       ],
-      "reason": "書き込みツールと権限 UI は S53409d のエージェント基盤(pi セッション・ツール機構・チャット UI)の上に載る"
+      "reason": "書き込みツールは help 知識(Template/DataView)と機密 deny 境界の上に載せる"
     },
     "S2fe109": {
       "depends_on": [
+        "S5e0206"
+      ],
+      "reason": "定期ジョブは権限モデル(write 含む)確立後"
+    },
+    "S10a31c": {
+      "depends_on": [
+        "S53409d"
+      ],
+      "reason": "システムプロンプト+help は既存エージェント基盤(S53409d)の上に載る"
+    },
+    "Sf4ee2f": {
+      "depends_on": [
+        "S53409d"
+      ],
+      "reason": "機密フィルタは既存の読み取りツール/検索経路(S53409d)に挿入する"
+    },
+    "S5e0206": {
+      "depends_on": [
         "S5bd678"
       ],
-      "reason": "定期ジョブは権限固定の書き込み(まとめ生成)が主用途のため、書き込みツールと権限モデルが先"
+      "reason": "web は S5bd678 のケーパビリティ権限モデルに乗る"
     }
   },
   "backlog": [
