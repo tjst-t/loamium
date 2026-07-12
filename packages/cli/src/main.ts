@@ -622,7 +622,9 @@ function buildProgram(): Command {
       output(opts, result, () => {
         const res = parseAs(result, commandRunResponseSchema, 'command run');
         for (const step of res.results) {
-          if (step.ok) {
+          if (step.skipped === true) {
+            println(`skip\t${step.kind}`);
+          } else if (step.ok) {
             println(`ok\t${step.kind}${step.path !== undefined ? `\t${step.path}` : ''}`);
           } else {
             println(`fail\t${step.kind}\t${step.error ?? ''}`);

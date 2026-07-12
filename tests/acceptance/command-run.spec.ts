@@ -541,12 +541,31 @@ describe('[BUG-REGRESSION] display name ≠ stem — GET returns id, run uses st
 describe('[AC-Sd22b1f-2-4] CLI command run', () => {
   let server: TestServer;
 
+  /** when-gate: flag が truthy なら note-create を実行、falsey ならスキップ */
+  const CLI_WHEN_GATE_COMMAND = [
+    '---',
+    'loamium-command:',
+    '  name: cli-when-gate',
+    '  params:',
+    '    - name: flag',
+    '    - name: title',
+    '      required: true',
+    '  steps:',
+    '    - kind: note-create',
+    '      target: "cli-when-tests/{{title}}.md"',
+    '      content: "# {{title}}"',
+    '      when: "{{flag}}"',
+    '---',
+    '',
+  ].join('\n');
+
   beforeAll(async () => {
     const vault = await makeTempVault();
     server = await startServer({ vault });
     await putNote(server, 'commands/create-todo.md', CREATE_TODO_COMMAND);
     await putNote(server, 'commands/required-param.md', REQUIRED_PARAM_COMMAND);
     await putNote(server, 'commands/append-test.md', APPEND_COMMAND);
+    await putNote(server, 'commands/cli-when-gate.md', CLI_WHEN_GATE_COMMAND);
   });
 
   afterAll(async () => {
@@ -603,6 +622,36 @@ describe('[AC-Sd22b1f-2-4] CLI command run', () => {
     ]);
     expect(result.code).toBe(0);
     expect(result.stdout).toContain('ok\tnote-append');
+  });
+
+  it('[AC-Sf2f114-2-4] CLI human output: skipped step prints skip\\t{kind} not ok\\t{kind}', async () => {
+    // flag を渡さない → when: "{{flag}}" が falsey → note-create がスキップされる
+    const result = await cli([
+      'command', 'run', 'cli-when-gate',
+      '--param', 'title=cli-skip-test',
+    ]);
+    expect(result.code).toBe(0);
+    expect(result.stderr).toBe('');
+    // スキップされたステップは "skip\tnote-create" で表示される
+    expect(result.stdout).toContain('skip\tnote-create');
+    // "ok\tnote-create" は出力されない
+    expect(result.stdout).not.toContain('ok\tnote-create');
+  });
+
+  it('[AC-Sf2f114-2-4] CLI --json: skipped step still has ok:true and skipped:true (json unchanged)', async () => {
+    const result = await cli([
+      'command', 'run', 'cli-when-gate',
+      '--param', 'title=cli-skip-json',
+      '--json',
+    ]);
+    expect(result.code).toBe(0);
+    const raw: unknown = JSON.parse(result.stdout);
+    const parsed = commandRunResponseSchema.safeParse(raw);
+    expect(parsed.success, `schema: ${JSON.stringify(parsed)}`).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    // JSON モードではスキップステップが ok:true + skipped:true で返る
+    expect(parsed.data.results[0]?.skipped).toBe(true);
+    expect(parsed.data.results[0]?.ok).toBe(true);
   });
 });
 
@@ -953,6 +1002,46 @@ describe('[AC-Sf2f114-3-1] note-append with section/create/position', () => {
     const appendedIdx = content.indexOf('appended line');
     expect(appendedIdx).toBeGreaterThan(someIdx);
   });
+
+  // -----------------------------------------------------------------------
+  // [AC-Sf2f114-3-1] position:'section' なのに section フィールドなし → ok:false
+  // -----------------------------------------------------------------------
+
+  it('[AC-Sf2f114-3-1] note-append position:section without section field → ok:false (does not crash)', async () => {
+    // position:'section' を指定したが section フィールドが未設定のコマンド
+    const POSITION_SECTION_NO_SECTION_COMMAND = [
+      '---',
+      'loamium-command:',
+      '  name: position-section-no-section',
+      '  params:',
+      '    - name: target',
+      '      required: true',
+      '    - name: text',
+      '      required: true',
+      '  steps:',
+      '    - kind: note-append',
+      '      target: "{{target}}"',
+      '      content: "{{text}}"',
+      '      position: "section"',
+      '---',
+      '',
+    ].join('\n');
+    await putNote(server, 'commands/position-section-no-section.md', POSITION_SECTION_NO_SECTION_COMMAND);
+    await putNote(server, 'pos-section-target.md', '# Target\n\nsome content\n');
+
+    const { status, body } = await runCommand(server, 'position-section-no-section', {
+      target: 'pos-section-target.md',
+      text: 'should not appear',
+    });
+    // コマンド自体はクラッシュせず 200 で返る (ステップ失敗は ok:false)
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success, `schema: ${JSON.stringify(parsed)}`).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    // ステップは失敗 (ok:false) — クラッシュしない
+    expect(parsed.data.results[0]?.ok).toBe(false);
+    expect(parsed.data.results[0]?.error).toBeTruthy();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1102,7 +1191,7 @@ describe('[AC-Sf2f114-2-1/2] when / when-not 条件付きステップ実行', ()
 
   it('[AC-Sf2f114-2-2] when: {{flag}} — flag が空文字 (省略) → スキップ', async () => {
     const { status, body } = await runCommand(server, 'when-gate', {
-      // flag を送らない = resolveParams で '' になる
+      // flag を送らない = params に flag キーが存在しない → missing.length > 0 で falsey 扱い
       title: 'when-empty',
     });
     expect(status).toBe(200);
@@ -1226,6 +1315,34 @@ describe('[AC-Sf2f114-2-1/2] when / when-not 条件付きステップ実行', ()
       expect(result.ok).toBe(true);
       expect(result.skipped).toBeUndefined();
     }
+  });
+
+  // -----------------------------------------------------------------------
+  // [AC-Sf2f114-2-2] when-not: {{undefined_param}} — param absent → step RUNS
+  // -----------------------------------------------------------------------
+
+  it('[AC-Sf2f114-2-2] when-not: "{{undefined_param}}" — param 未送信 (absent=falsey) → ステップ実行される', async () => {
+    // when-not-gate の skip パラメータをまったく送らない
+    // → when-not の評価式 "{{skip}}" が falsey (未定義=空) になる
+    // → falsey なので when-not 条件を満たし、ステップが実行される
+    const { status, body } = await runCommand(server, 'when-not-gate', {
+      title: 'when-not-undefined-param',
+      // skip を意図的に省略
+    });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+
+    // スキップされず実行される
+    expect(parsed.data.results[0]?.ok).toBe(true);
+    expect(parsed.data.results[0]?.skipped).toBeUndefined();
+    // ファイルが作成されたこと
+    const noteContent = await readFile(
+      path.join(server.vault, 'when-not-tests/when-not-undefined-param.md'),
+      'utf8',
+    );
+    expect(noteContent).toBe('# when-not-undefined-param');
   });
 });
 

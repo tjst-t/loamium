@@ -264,6 +264,15 @@ describe('[AC-Sf2f114-1-2] 相対日付オフセット {{date:+Nd:FMT}} / {{date
     expect(res.text).toBe('2026/07/06 09:04:07');
   });
 
+  it('[AC-Sf2f114-1-2] {{date:HH:mm}} standalone — コロン直後フォーマット (オフセットと誤解析されない)', () => {
+    // "HH:mm" はオフセット記法 (+Nd/-Nd) にマッチしないため
+    // resolvePreset は HH:mm をそのまま formatDate のフォーマット文字列として扱う
+    // → base 2026-07-06 09:04:07 → "09:04"
+    const res = resolveTemplate('{{date:HH:mm}}', { date: base });
+    expect(res.text).toBe('09:04');
+    expect(res.missing).toEqual([]);
+  });
+
   it('d 以外の単位 (+3h) はサポート外 — クラッシュせず部分フォーマットになる', () => {
     // +3h はオフセット記法として認識されないため date:+3h:YYYY-MM-DD は
     // offsetPart = '+3h' が DAY_OFFSET_RE にマッチしない
