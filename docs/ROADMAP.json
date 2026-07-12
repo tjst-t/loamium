@@ -3919,6 +3919,18 @@
       "description": "GET /api/commands はパレット mount 時に取得。アプリ起動中に commands/*.md を新規作成しても、パレット再オープンで確実に再取得されるか(SearchPalette の unmount/remount 依存)を検証・保証する。独立検証者が指摘。",
       "added_in": "Sde7a63",
       "reason": "UX (low); 新規スマートコマンド作成直後の反映"
+    },
+    {
+      "title": "スマートコマンド: run-command ステップ(コマンドから別コマンド呼出)",
+      "description": "部品化・再利用のため run-command を検討。ただし再帰・無限ループ(A→B→A)リスクと、when:+run-command+リスト型で実質『制御フロー言語』化する懸念(ADR-0009 の非スクリプティング方針と衝突)。入れる場合は再帰禁止・深さ1に強く制限し ADR で言語化を明記。DSL v2 検討時に保留と判断(ユーザー合意)。",
+      "added_in": "design-discussion",
+      "reason": "表現力 vs シンプルさ/プラグインAPI禁止の緊張。当面は複雑処理は agent-run に委譲する方針"
+    },
+    {
+      "title": "スマートコマンド: agent-run ステップ(AI エージェント委譲)",
+      "description": "議事録要約など判断・分岐・繰り返しを要する処理は agent-run で LLM に委譲。Pi Agent 統合(別ブランチ)マージ後、非同期ジョブモデル(状態・失敗時挙動・結果のファイル書込)を新 ADR で決めてから実装。コアース Sprint S5a66e4 と対応。",
+      "added_in": "design-discussion",
+      "reason": "外的依存(Pi Agent 未マージ)+ 非同期ジョブ設計が未確定"
     }
   ]
 }
