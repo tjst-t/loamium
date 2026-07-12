@@ -3546,7 +3546,7 @@
         },
         "Sde7a63-3": {
           "title": "スマートコマンドの実行(フォーム → run → 遷移)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "自分として、commands/ に定義したスマートコマンドをパレットから選び、パラメータフォームに入力して Enter で実行したい。なぜなら、create todo のような定型ワークフローを数秒で完了させたいから。",
@@ -3555,47 +3555,47 @@
               "id": "AC-Sde7a63-3-1",
               "description": "GET /api/commands のコマンドが source='smart' としてパレットに表示される。valid:false の定義は選択不可で、無効の理由が確認できる。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sde7a63-3-2",
               "description": "params を持つコマンドは選択後にパラメータフォームモーダル(required 検証、type:text は複数行、type:date は日付入力、default 反映)を表示し、Enter/実行ボタンで POST /api/commands/{name}/run を呼ぶ。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sde7a63-3-3",
               "description": "成功時、openPath があれば該当ノートへ遷移し完了が分かる。失敗時はどのステップで失敗したか・完了済みステップが表示される。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sde7a63-3-4",
               "description": "create todo の一連(Ctrl-K → '>' 絞り込み → フォーム入力 → 実行 → ジャーナルの Todo セクションに追記反映)が実サーバーの E2E テストで通る。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sde7a63-3-1": {
               "title": "smart エントリ供給",
               "description": "GET /api/commands の API クライアント(zod 検証)とレジストリへの動的登録。",
-              "status": "pending"
+              "status": "done"
             },
             "Sde7a63-3-2": {
               "title": "パラメータフォームモーダル",
               "description": "TemplateModal と同型のフォーム(required/text/date/default)を実装。",
-              "status": "pending"
+              "status": "done"
             },
             "Sde7a63-3-3": {
               "title": "実行と結果 UI",
               "description": "run 呼び出し、openPath 遷移、ステップ単位の失敗表示。",
-              "status": "pending"
+              "status": "done"
             },
             "Sde7a63-3-4": {
               "title": "E2E + mock テスト",
               "description": "create todo E2E(*.e2e.spec.ts、実サーバー)+ エラー系 mock tests。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
