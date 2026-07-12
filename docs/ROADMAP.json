@@ -3617,9 +3617,162 @@
       "description": "ADR-0010 準拠。shared スキーマ・実行エンジン・CLI を加算拡張: when:/when-not:、note-append の section?/create? + position 一般化、prop-set・note-patch ステップ、param 型 select/note/boolean/number、{{param|fallback}}・未定義→空・相対日付。すべて v1 を壊さない加算のみ。非 GUI。",
       "milestone": false,
       "status": "pending",
-      "detail_level": "coarse",
+      "detail_level": "detailed",
       "depends_on": null,
-      "stories": {}
+      "stories": {
+        "Sf2f114-1": {
+          "title": "テンプレート記法の強化(fallback / 未定義→空 / 相対日付)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "コマンド作者として、任意パラメータが未入力でも行が崩れず、既定値や相対日付を書きたい。なぜなら、期限任意の todo などを 1 定義できれいに扱いたいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sf2f114-1-1",
+              "description": "resolveTemplate が {{param|フォールバック}} をサポート: param が未定義/空なら『フォールバック』を差す。既存の {{param}}(未定義は verbatim + missing 収集)は後方互換のため維持し、パイプ付きのみ新挙動。ユニットテスト。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sf2f114-1-2",
+              "description": "相対日付トークン {{date:+3d:YYYY-MM-DD}} / {{date:-1d:...}} をサポート(基準日からの日オフセット)。既存 {{date:FMT}} は不変。ユニットテスト。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sf2f114-1-3",
+              "description": "加算のみで既存テンプレート・journal パス生成・テンプレートノートを壊さない(回帰テスト green)。ADR-0010。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sf2f114-1-1": {
+              "title": "fallback + 相対日付を resolveTemplate に追加",
+              "description": "packages/shared/src/template.ts。パイプ構文と +Nd/-Nd オフセット。ユニットテスト網羅。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sf2f114-2": {
+          "title": "when:/when-not: 条件付きステップ実行",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "コマンド作者として、パラメータが入っているときだけ特定ステップを走らせたい。なぜなら、任意項目に応じて追記内容を変えたいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sf2f114-2-1",
+              "description": "全ステップ共通の任意フィールド when?: string / when-not?: string を追加(値は {{param}} 展開後の真偽・存在判定のみ。式評価は入れない)。when が false/空なら当該ステップをスキップし、結果に {kind, ok:true, skipped:true} 等で明示。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sf2f114-2-2",
+              "description": "スキップは失敗ではない(fail-stop の対象外、後続ステップは続行)。zod スキーマ・実行エンジン・受け入れテスト(実 HTTP)。ADR-0010。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sf2f114-2-1": {
+              "title": "when 判定を実行エンジンに追加",
+              "description": "commandStepSchema 共通フィールド + executor の各 kind 前段でスキップ判定。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sf2f114-3": {
+          "title": "note-append の section?/create? + 追記位置 position の一般化",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "コマンド作者として、ジャーナル以外のノートにも見出し配下追記や無ければ作成をしたい。なぜなら、任意ノートへの追記を journal と同じ表現力で書きたいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sf2f114-3-1",
+              "description": "note-append に section?(insertUnderHeading 共有)と create?:true(無ければ作成、既存 appendText)を追加。追記位置を position: bottom|top|section に一般化(section 指定時のみ section 使用)。既存の『無ければ失敗』は create 未指定時の後方互換として維持。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sf2f114-3-2",
+              "description": "journal-append も同じ position/section モデルで整合(挙動は後方互換)。受け入れテスト(section 追記・create・top/bottom)。ADR-0010。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sf2f114-3-1": {
+              "title": "append モデルの一般化",
+              "description": "note-append/journal-append を共通の insert ヘルパで section/position/create 対応。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sf2f114-4": {
+          "title": "新ステップ prop-set / note-patch",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "コマンド作者として、ノートの frontmatter プロパティ設定やテキスト置換をワークフローに入れたい。なぜなら、『完了にする』『仕分ける』等を 1 コマンドで回したいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sf2f114-4-1",
+              "description": "prop-set ステップ: {kind, target, set?: Record<string,scalar>, unset?: string[]} を追加。既存の round-trip 安全な POST /notes/{path}/properties 経路(parseNote+PropEntry+serialize)を再利用して frontmatter を更新。値は resolveTemplate 展開。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sf2f114-4-2",
+              "description": "note-patch ステップ: {kind, target, old, new} を追加。既存 patch 経路(old→new 置換、非一致はエラー)を再利用。値は展開。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sf2f114-4-3",
+              "description": "両ステップとも判別ユニオンに加算・監査記録・権限(mutate 含みうるため full 前提、append-only では prop-set/note-patch を 403 か許可かを ADR に沿って判定)・CLI 1:1。受け入れテスト。ADR-0009/0010。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sf2f114-4-1": {
+              "title": "prop-set/note-patch 実装",
+              "description": "schema + executor(既存 properties/patch ロジック再利用)+ CLI + 監査。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sf2f114-5": {
+          "title": "パラメータ型の追加(select/note/boolean/number)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "コマンド作者として、選択肢・ノート指定・真偽・数値のパラメータを定義したい。なぜなら、フォーム入力を分かりやすくし when: と組み合わせたいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sf2f114-5-1",
+              "description": "commandParamTypeSchema に select/note/boolean/number を追加。select は options: string[] を必須(空は不可)。zod 検証・パーサのユニットテスト。値は実行時は文字列として resolveTemplate に渡す(boolean は 'true'/'' 等の規約を明記)。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sf2f114-5-2",
+              "description": "GET /api/commands が新 param 型(select の options 含む)をそのまま返す。加算のみで既存 string/text/date を壊さない。受け入れテスト。ADR-0010(フォーム描画は S9e64e7 エディタ側)。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sf2f114-5-1": {
+              "title": "param 型拡張",
+              "description": "commandParamTypeSchema + select options。GET /api/commands 透過。",
+              "status": "pending"
+            }
+          }
+        }
+      }
     },
     "S9e64e7": {
       "title": "スマートコマンド定義エディタ — V3 スプリット(YAML 正本)+ 全部補完",
