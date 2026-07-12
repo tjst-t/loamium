@@ -1,9 +1,15 @@
 /**
- * スマートコマンド定義 (ADR-0008 / ADR-0009) の zod スキーマとパース関数。
+ * スマートコマンド定義 (ADR-0008 / ADR-0009 / ADR-0010) の zod スキーマとパース関数。
  *
  * コマンド定義は vault 内 commands/*.md の YAML frontmatter キー `loamium-command` に格納する。
  * params は templates の TemplateVar と同型 (name / label / required / default /
  * type: 'string'|'text'|'date')。steps は kind による判別可能ユニオン (4 種)。
+ *
+ * ADR-0010: 各ステップに任意の when / when-not フィールドを追加する (additive)。
+ *   - when: 値が truthy なら実行、falsey ならスキップ。
+ *   - when-not: 値が falsey なら実行、truthy ならスキップ。
+ *   falsey 定義: 空文字列 ("") / "false" / "0" → falsey。それ以外 → truthy。
+ *   両フィールドが指定された場合は両方が「実行条件を満たす」ときのみ実行する。
  *
  * parseLoamiumCommand(frontmatter) は parseTemplateConfig と同じスタイル:
  *   - Record<string, unknown> frontmatter を受け取る
@@ -11,6 +17,34 @@
  *   - 正常ならば LoamiumCommand を返す
  */
 import { z } from 'zod';
+
+// ---- ADR-0010: 条件付きステップ実行の truthiness 評価 ----
+
+/**
+ * 条件フィールド (when / when-not) の文字列 truthy 評価。
+ * falsey: 空文字列 ("") / "false" / "0"
+ * truthy: それ以外の任意の非空文字列
+ * [AC-Sf2f114-2-1]
+ */
+export function evaluateCondition(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed === '') return false;
+  if (trimmed === 'false') return false;
+  if (trimmed === '0') return false;
+  return true;
+}
+
+// ---- 条件付きステップの共通フィールド (ADR-0010) ----
+
+/**
+ * 全ステップ種別が共有する任意フィールド (additive)。
+ * when / when-not は resolveTemplate 展開後に evaluateCondition で評価する。
+ * フィールド名 "when-not" はハイフンを含む — YAML では有効なキー。
+ */
+const stepConditionFields = {
+  when: z.string().optional(),
+  'when-not': z.string().optional(),
+} as const;
 
 // ---- CommandParam (templates の TemplateVarDef と同型 + type 加算) ----
 
@@ -45,6 +79,7 @@ export const journalAppendStepSchema = z.object({
   /** 空文字列は拒否 (journalAppendRequestSchema の section と整合)。 */
   section: z.string().min(1).optional(),
   open: z.boolean().optional(),
+  ...stepConditionFields,
 });
 export type JournalAppendStep = z.infer<typeof journalAppendStepSchema>;
 
@@ -54,6 +89,7 @@ export const noteAppendStepSchema = z.object({
   target: z.string(),
   content: z.string(),
   open: z.boolean().optional(),
+  ...stepConditionFields,
 });
 export type NoteAppendStep = z.infer<typeof noteAppendStepSchema>;
 
@@ -63,6 +99,7 @@ export const noteCreateStepSchema = z.object({
   target: z.string(),
   content: z.string(),
   open: z.boolean().optional(),
+  ...stepConditionFields,
 });
 export type NoteCreateStep = z.infer<typeof noteCreateStepSchema>;
 
@@ -72,6 +109,7 @@ export const templateInstantiateStepSchema = z.object({
   template: z.string(),
   vars: z.record(z.string(), z.string()).optional(),
   open: z.boolean().optional(),
+  ...stepConditionFields,
 });
 export type TemplateInstantiateStep = z.infer<typeof templateInstantiateStepSchema>;
 

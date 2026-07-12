@@ -122,6 +122,7 @@ export {
 } from './template-note.js';
 export * from './schemas.js';
 export {
+  evaluateCondition,
   commandParamTypeSchema,
   commandParamSchema,
   journalAppendStepSchema,

@@ -18,6 +18,7 @@
 import { Hono } from 'hono';
 import {
   appendText,
+  evaluateCondition,
   insertUnderHeading,
   isValidJournalDate,
   journalPath,
@@ -215,6 +216,49 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
 
     for (const step of cmd.steps) {
       const kind = step.kind;
+
+      // ADR-0010: when / when-not 条件評価 (resolveTemplate 展開後に truthy 判定)
+      // [AC-Sf2f114-2-1/2]
+      try {
+        const whenRaw = step.when;
+        const whenNotRaw = step['when-not'];
+
+        if (whenRaw !== undefined || whenNotRaw !== undefined) {
+          let shouldRun = true;
+
+          if (whenRaw !== undefined) {
+            const resolved = resolveTemplate(whenRaw, { vars: resolvedParams, date: now, now });
+            // 未解決変数がある (missing > 0) = 参照先 param が存在しない = falsey 扱い
+            const condValue = resolved.missing.length > 0 ? '' : resolved.text;
+            if (!evaluateCondition(condValue)) {
+              shouldRun = false;
+            }
+          }
+
+          if (shouldRun && whenNotRaw !== undefined) {
+            const resolved = resolveTemplate(whenNotRaw, { vars: resolvedParams, date: now, now });
+            // 未解決変数がある (missing > 0) = 参照先 param が存在しない = falsey 扱い
+            const condValue = resolved.missing.length > 0 ? '' : resolved.text;
+            if (evaluateCondition(condValue)) {
+              shouldRun = false;
+            }
+          }
+
+          if (!shouldRun) {
+            // スキップ: 副作用なし・失敗ではない → 次ステップ続行
+            results.push({ kind, ok: true, skipped: true });
+            continue;
+          }
+        }
+      } catch (condErr) {
+        // 条件展開で例外が発生した場合はステップ失敗扱いで停止
+        results.push({
+          kind,
+          ok: false,
+          error: condErr instanceof Error ? condErr.message : String(condErr),
+        });
+        break;
+      }
 
       try {
         if (kind === 'journal-append') {

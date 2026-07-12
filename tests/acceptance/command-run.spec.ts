@@ -605,3 +605,277 @@ describe('[AC-Sd22b1f-2-4] CLI command run', () => {
     expect(result.stdout).toContain('ok\tnote-append');
   });
 });
+
+// ---------------------------------------------------------------------------
+// [AC-Sf2f114-2-1/2] when / when-not 条件付きステップ実行 (ADR-0010)
+// ---------------------------------------------------------------------------
+
+describe('[AC-Sf2f114-2-1/2] when / when-not 条件付きステップ実行', () => {
+  let server: TestServer;
+
+  /**
+   * when: {{flag}} gate — flag が truthy なら note-create を実行、falsey ならスキップ。
+   * 後続の journal-append は常に実行される (スキップは fail-stop しない)。
+   */
+  const WHEN_GATE_COMMAND = [
+    '---',
+    'loamium-command:',
+    '  name: when-gate',
+    '  params:',
+    '    - name: flag',
+    '    - name: title',
+    '      required: true',
+    '  steps:',
+    '    - kind: note-create',
+    '      target: "when-tests/{{title}}.md"',
+    '      content: "# {{title}}"',
+    '      when: "{{flag}}"',
+    '    - kind: journal-append',
+    '      content: "when-gate ran: {{title}}"',
+    '---',
+    '',
+  ].join('\n');
+
+  /**
+   * when-not: {{skip}} gate — skip が falsey なら note-create を実行、truthy ならスキップ。
+   */
+  const WHEN_NOT_GATE_COMMAND = [
+    '---',
+    'loamium-command:',
+    '  name: when-not-gate',
+    '  params:',
+    '    - name: skip',
+    '    - name: title',
+    '      required: true',
+    '  steps:',
+    '    - kind: note-create',
+    '      target: "when-not-tests/{{title}}.md"',
+    '      content: "# {{title}}"',
+    '      when-not: "{{skip}}"',
+    '---',
+    '',
+  ].join('\n');
+
+  /**
+   * when + when-not 両方指定 — 両方の条件を満たすときのみ実行。
+   */
+  const BOTH_CONDITION_COMMAND = [
+    '---',
+    'loamium-command:',
+    '  name: both-condition',
+    '  params:',
+    '    - name: enable',
+    '    - name: skip',
+    '    - name: title',
+    '      required: true',
+    '  steps:',
+    '    - kind: note-create',
+    '      target: "both-tests/{{title}}.md"',
+    '      content: "# {{title}}"',
+    '      when: "{{enable}}"',
+    '      when-not: "{{skip}}"',
+    '---',
+    '',
+  ].join('\n');
+
+  beforeAll(async () => {
+    const vault = await makeTempVault();
+    server = await startServer({ vault });
+    await putNote(server, 'commands/when-gate.md', WHEN_GATE_COMMAND);
+    await putNote(server, 'commands/when-not-gate.md', WHEN_NOT_GATE_COMMAND);
+    await putNote(server, 'commands/both-condition.md', BOTH_CONDITION_COMMAND);
+  });
+
+  afterAll(async () => {
+    await server.stop();
+    await cleanupVault(server.vault);
+  });
+
+  // -----------------------------------------------------------------------
+  // [AC-Sf2f114-2-2] when: {{flag}} — flag truthy → 実行
+  // -----------------------------------------------------------------------
+
+  it('[AC-Sf2f114-2-2] when: {{flag}} — flag が truthy → ステップ実行される', async () => {
+    const { status, body } = await runCommand(server, 'when-gate', {
+      flag: 'true',
+      title: 'when-truthy',
+    });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success, `schema: ${JSON.stringify(parsed)}`).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+
+    const res = parsed.data;
+    // 2 ステップ実行 (note-create + journal-append)
+    expect(res.results).toHaveLength(2);
+    expect(res.results[0]?.kind).toBe('note-create');
+    expect(res.results[0]?.ok).toBe(true);
+    // skipped は未定義 (実行された)
+    expect(res.results[0]?.skipped).toBeUndefined();
+    // ファイルが実際に作成されたこと
+    const noteContent = await readFile(
+      path.join(server.vault, 'when-tests/when-truthy.md'),
+      'utf8',
+    );
+    expect(noteContent).toBe('# when-truthy');
+  });
+
+  // -----------------------------------------------------------------------
+  // [AC-Sf2f114-2-2] when: {{flag}} — flag falsey → スキップ、後続ステップ続行
+  // -----------------------------------------------------------------------
+
+  it('[AC-Sf2f114-2-2] when: {{flag}} — flag が falsey → スキップ (skipped:true), 後続ステップ続行', async () => {
+    const { status, body } = await runCommand(server, 'when-gate', {
+      flag: 'false',
+      title: 'when-falsey',
+    });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success, `schema: ${JSON.stringify(parsed)}`).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+
+    const res = parsed.data;
+    // 2 ステップ: [0] スキップ、[1] 実行
+    expect(res.results).toHaveLength(2);
+    expect(res.results[0]?.kind).toBe('note-create');
+    expect(res.results[0]?.ok).toBe(true);
+    expect(res.results[0]?.skipped).toBe(true);
+    // 後続ステップ (journal-append) は実行される
+    expect(res.results[1]?.kind).toBe('journal-append');
+    expect(res.results[1]?.ok).toBe(true);
+    expect(res.results[1]?.skipped).toBeUndefined();
+    // note-create がスキップされたのでファイルは作られない
+    const fs = await import('node:fs/promises');
+    await expect(
+      fs.access(path.join(server.vault, 'when-tests/when-falsey.md')),
+    ).rejects.toThrow();
+  });
+
+  it('[AC-Sf2f114-2-2] when: {{flag}} — flag が空文字 (省略) → スキップ', async () => {
+    const { status, body } = await runCommand(server, 'when-gate', {
+      // flag を送らない = resolveParams で '' になる
+      title: 'when-empty',
+    });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+
+    expect(parsed.data.results[0]?.skipped).toBe(true);
+    // 後続ステップは続行
+    expect(parsed.data.results[1]?.kind).toBe('journal-append');
+    expect(parsed.data.results[1]?.ok).toBe(true);
+  });
+
+  // -----------------------------------------------------------------------
+  // [AC-Sf2f114-2-2] when-not: {{skip}} — inverse (falsey → 実行, truthy → スキップ)
+  // -----------------------------------------------------------------------
+
+  it('[AC-Sf2f114-2-2] when-not: {{skip}} — skip が falsey → ステップ実行される', async () => {
+    const { status, body } = await runCommand(server, 'when-not-gate', {
+      skip: 'false',
+      title: 'when-not-falsey',
+    });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+
+    expect(parsed.data.results[0]?.ok).toBe(true);
+    expect(parsed.data.results[0]?.skipped).toBeUndefined();
+    // ファイルが作成されたこと
+    const noteContent = await readFile(
+      path.join(server.vault, 'when-not-tests/when-not-falsey.md'),
+      'utf8',
+    );
+    expect(noteContent).toBe('# when-not-falsey');
+  });
+
+  it('[AC-Sf2f114-2-2] when-not: {{skip}} — skip が truthy → スキップ (skipped:true)', async () => {
+    const { status, body } = await runCommand(server, 'when-not-gate', {
+      skip: 'yes',
+      title: 'when-not-truthy',
+    });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+
+    expect(parsed.data.results[0]?.ok).toBe(true);
+    expect(parsed.data.results[0]?.skipped).toBe(true);
+    // ファイルは作られない
+    const fs = await import('node:fs/promises');
+    await expect(
+      fs.access(path.join(server.vault, 'when-not-tests/when-not-truthy.md')),
+    ).rejects.toThrow();
+  });
+
+  // -----------------------------------------------------------------------
+  // [AC-Sf2f114-2-2] when + when-not 両方: 両方の条件を満たさないとスキップ
+  // -----------------------------------------------------------------------
+
+  it('[AC-Sf2f114-2-2] when + when-not 両方 — 両方満たす → 実行', async () => {
+    const { status, body } = await runCommand(server, 'both-condition', {
+      enable: 'true',
+      skip: 'false',
+      title: 'both-pass',
+    });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+
+    expect(parsed.data.results[0]?.ok).toBe(true);
+    expect(parsed.data.results[0]?.skipped).toBeUndefined();
+  });
+
+  it('[AC-Sf2f114-2-2] when + when-not 両方 — when が falsey → スキップ', async () => {
+    const { status, body } = await runCommand(server, 'both-condition', {
+      enable: 'false',
+      skip: 'false',
+      title: 'both-when-fail',
+    });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+
+    expect(parsed.data.results[0]?.ok).toBe(true);
+    expect(parsed.data.results[0]?.skipped).toBe(true);
+  });
+
+  it('[AC-Sf2f114-2-2] when + when-not 両方 — when-not が truthy → スキップ', async () => {
+    const { status, body } = await runCommand(server, 'both-condition', {
+      enable: 'true',
+      skip: 'yes',
+      title: 'both-when-not-fail',
+    });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+
+    expect(parsed.data.results[0]?.ok).toBe(true);
+    expect(parsed.data.results[0]?.skipped).toBe(true);
+  });
+
+  // -----------------------------------------------------------------------
+  // 後方互換: when / when-not なしの既存ステップは変わらず動く
+  // -----------------------------------------------------------------------
+
+  it('[AC-Sf2f114-2-2] 後方互換 — when / when-not なしのステップは変わらず実行される', async () => {
+    // CREATE_TODO_COMMAND は when / when-not を持たない既存コマンド
+    await putNote(server, 'commands/create-todo.md', CREATE_TODO_COMMAND);
+    const { status, body } = await runCommand(server, 'create-todo', { title: 'compat-test' });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+
+    // 全ステップが skipped なしで実行される
+    for (const result of parsed.data.results) {
+      expect(result.ok).toBe(true);
+      expect(result.skipped).toBeUndefined();
+    }
+  });
+});

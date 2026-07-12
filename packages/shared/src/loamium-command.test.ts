@@ -1,5 +1,6 @@
 /**
  * [AC-Sd22b1f-1-1] LoamiumCommand スキーマ + parseLoamiumCommand のユニットテスト。
+ * [AC-Sf2f114-2-1] evaluateCondition (when / when-not の truthy/falsey 評価) のユニットテスト。
  *
  * 正常系 / 未知 kind / 型不一致 / 壊れ YAML (= null frontmatter) / loamium-command キー欠損 を検証。
  */
@@ -7,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   commandParamSchema,
   commandStepSchema,
+  evaluateCondition,
   loamiumCommandSchema,
   parseLoamiumCommand,
   parseLoamiumCommandWithError,
@@ -298,6 +300,128 @@ describe('[AC-Sd22b1f-1-1] parseLoamiumCommandWithError', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// [AC-Sf2f114-2-1] evaluateCondition — truthy / falsey 判定
+// ---------------------------------------------------------------------------
+describe('[AC-Sf2f114-2-1] evaluateCondition', () => {
+  // falsey ケース
+  it('空文字列 "" → falsey', () => {
+    expect(evaluateCondition('')).toBe(false);
+  });
+
+  it('空白のみ文字列 "  " → falsey (trim 後が空)', () => {
+    expect(evaluateCondition('  ')).toBe(false);
+  });
+
+  it('"false" → falsey', () => {
+    expect(evaluateCondition('false')).toBe(false);
+  });
+
+  it('"false" (前後空白付き) → falsey (trim 後 "false")', () => {
+    expect(evaluateCondition('  false  ')).toBe(false);
+  });
+
+  it('"0" → falsey', () => {
+    expect(evaluateCondition('0')).toBe(false);
+  });
+
+  it('"0" (前後空白付き) → falsey (trim 後 "0")', () => {
+    expect(evaluateCondition('  0  ')).toBe(false);
+  });
+
+  // truthy ケース
+  it('"true" → truthy', () => {
+    expect(evaluateCondition('true')).toBe(true);
+  });
+
+  it('"1" → truthy', () => {
+    expect(evaluateCondition('1')).toBe(true);
+  });
+
+  it('"yes" → truthy', () => {
+    expect(evaluateCondition('yes')).toBe(true);
+  });
+
+  it('任意の非空・非 false・非 0 文字列 → truthy', () => {
+    expect(evaluateCondition('hello')).toBe(true);
+    expect(evaluateCondition('任意テキスト')).toBe(true);
+    expect(evaluateCondition('FALSE')).toBe(true); // 大文字は truthy
+    expect(evaluateCondition('0.0')).toBe(true);   // "0.0" は "0" ではない
+  });
+});
+
+// ---------------------------------------------------------------------------
+// [AC-Sf2f114-2-1] commandStepSchema — when / when-not フィールドのスキーマ検証
+// ---------------------------------------------------------------------------
+describe('[AC-Sf2f114-2-1] commandStepSchema with when / when-not', () => {
+  it('journal-append に when フィールドが追加できる', () => {
+    const result = commandStepSchema.safeParse({
+      kind: 'journal-append',
+      content: '追記テキスト',
+      when: '{{flag}}',
+    });
+    expect(result.success).toBe(true);
+    if (result.success && result.data.kind === 'journal-append') {
+      expect(result.data.when).toBe('{{flag}}');
+    }
+  });
+
+  it('journal-append に when-not フィールドが追加できる', () => {
+    const result = commandStepSchema.safeParse({
+      kind: 'journal-append',
+      content: '追記テキスト',
+      'when-not': '{{skip_flag}}',
+    });
+    expect(result.success).toBe(true);
+    if (result.success && result.data.kind === 'journal-append') {
+      expect(result.data['when-not']).toBe('{{skip_flag}}');
+    }
+  });
+
+  it('note-append に when / when-not が追加できる', () => {
+    const result = commandStepSchema.safeParse({
+      kind: 'note-append',
+      target: 'notes/inbox.md',
+      content: '追記内容',
+      when: 'truthy',
+      'when-not': '',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('note-create に when / when-not が追加できる', () => {
+    const result = commandStepSchema.safeParse({
+      kind: 'note-create',
+      target: 'notes/{{title}}.md',
+      content: '# {{title}}\n',
+      when: '{{create_flag}}',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('template-instantiate に when / when-not が追加できる', () => {
+    const result = commandStepSchema.safeParse({
+      kind: 'template-instantiate',
+      template: 'daily',
+      'when-not': 'false',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('when / when-not なしの既存ステップも引き続き通る (後方互換)', () => {
+    const result = commandStepSchema.safeParse({
+      kind: 'note-create',
+      target: 'notes/test.md',
+      content: '# test',
+    });
+    expect(result.success).toBe(true);
+    if (result.success && result.data.kind === 'note-create') {
+      expect(result.data.when).toBeUndefined();
+      expect(result.data['when-not']).toBeUndefined();
     }
   });
 });
