@@ -130,6 +130,8 @@ export {
   noteAppendStepSchema,
   noteCreateStepSchema,
   templateInstantiateStepSchema,
+  propSetStepSchema,
+  notePatchStepSchema,
   commandStepSchema,
   loamiumCommandSchema,
   parseLoamiumCommand,
@@ -141,6 +143,8 @@ export {
   type NoteAppendStep,
   type NoteCreateStep,
   type TemplateInstantiateStep,
+  type PropSetStep,
+  type NotePatchStep,
   type CommandStep,
   type LoamiumCommand,
 } from './loamium-command.js';

@@ -149,12 +149,55 @@ export const templateInstantiateStepSchema = z.object({
 });
 export type TemplateInstantiateStep = z.infer<typeof templateInstantiateStepSchema>;
 
-/** CommandStep — kind による閉じた判別可能ユニオン (ADR-0009 v1 の 4 種)。 */
+/**
+ * prop-set: ノートの frontmatter プロパティを upsert/unset する (ADR-0009)。
+ * 既存の POST /api/notes/{path}/properties と同じ round-trip-safe パスを経由する。
+ * target と string 値は resolveTemplate 展開される。
+ * set / unset のいずれも省略された場合は no-op (ok:true を返す)。
+ * MUTATE 操作 → append-only モードでは実行不可。
+ * [AC-Sf2f114-4-1]
+ */
+export const propSetStepSchema = z.object({
+  kind: z.literal('prop-set'),
+  target: z.string(),
+  /** 追加・更新するキー→値マップ (string | number | boolean)。string 値は resolveTemplate 展開される。 */
+  set: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+  /** 削除するキー名の配列 */
+  unset: z.array(z.string()).optional(),
+  ...stepConditionFields,
+});
+export type PropSetStep = z.infer<typeof propSetStepSchema>;
+
+/**
+ * note-patch: ノート内の old テキストを new テキストで置換する (ADR-0009)。
+ * 既存の POST /api/notes/{path}/patch と同じロジックを再利用する。
+ * - 非マッチ → ok:false (ステップ失敗)
+ * - 複数マッチ → ok:false (曖昧 — 既存パッチ API と同挙動)
+ * - 全フィールドは resolveTemplate 展開される。
+ * MUTATE 操作 → append-only モードでは実行不可。
+ * [AC-Sf2f114-4-2]
+ */
+export const notePatchStepSchema = z.object({
+  kind: z.literal('note-patch'),
+  target: z.string(),
+  old: z.string(),
+  new: z.string(),
+  ...stepConditionFields,
+});
+export type NotePatchStep = z.infer<typeof notePatchStepSchema>;
+
+/**
+ * CommandStep — kind による閉じた判別可能ユニオン。
+ * v1 (ADR-0009) の 4 種 + v2 (ADR-0009/0010 Sf2f114-4) の 2 種 = 6 種。
+ * [AC-Sf2f114-4-3]
+ */
 export const commandStepSchema = z.discriminatedUnion('kind', [
   journalAppendStepSchema,
   noteAppendStepSchema,
   noteCreateStepSchema,
   templateInstantiateStepSchema,
+  propSetStepSchema,
+  notePatchStepSchema,
 ]);
 export type CommandStep = z.infer<typeof commandStepSchema>;
 

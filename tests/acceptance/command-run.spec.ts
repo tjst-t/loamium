@@ -1228,3 +1228,384 @@ describe('[AC-Sf2f114-2-1/2] when / when-not 条件付きステップ実行', ()
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// [AC-Sf2f114-4-1/2/3] prop-set / note-patch ステップ (ADR-0009/0010)
+// ---------------------------------------------------------------------------
+
+describe('[AC-Sf2f114-4-1/2/3] prop-set / note-patch ステップ', () => {
+  let server: TestServer;
+
+  /** prop-set コマンド: target note の frontmatter を upsert する */
+  const PROP_SET_COMMAND = [
+    '---',
+    'loamium-command:',
+    '  name: prop-set-test',
+    '  params:',
+    '    - name: target',
+    '      required: true',
+    '    - name: value',
+    '      required: true',
+    '  steps:',
+    '    - kind: prop-set',
+    '      target: "{{target}}"',
+    '      set:',
+    '        bookmark: "{{value}}"',
+    '---',
+    '',
+  ].join('\n');
+
+  /** prop-set コマンド: unset キー */
+  const PROP_UNSET_COMMAND = [
+    '---',
+    'loamium-command:',
+    '  name: prop-unset-test',
+    '  params:',
+    '    - name: target',
+    '      required: true',
+    '  steps:',
+    '    - kind: prop-set',
+    '      target: "{{target}}"',
+    '      unset:',
+    '        - bookmark',
+    '---',
+    '',
+  ].join('\n');
+
+  /** prop-set コマンド: set と unset 両方なし → no-op */
+  const PROP_SET_NOOP_COMMAND = [
+    '---',
+    'loamium-command:',
+    '  name: prop-set-noop',
+    '  params:',
+    '    - name: target',
+    '      required: true',
+    '  steps:',
+    '    - kind: prop-set',
+    '      target: "{{target}}"',
+    '---',
+    '',
+  ].join('\n');
+
+  /** note-patch コマンド: old → new 置換 */
+  const NOTE_PATCH_COMMAND = [
+    '---',
+    'loamium-command:',
+    '  name: note-patch-test',
+    '  params:',
+    '    - name: target',
+    '      required: true',
+    '    - name: old',
+    '      required: true',
+    '    - name: new',
+    '      required: true',
+    '  steps:',
+    '    - kind: note-patch',
+    '      target: "{{target}}"',
+    '      old: "{{old}}"',
+    '      new: "{{new}}"',
+    '---',
+    '',
+  ].join('\n');
+
+  beforeAll(async () => {
+    const vault = await makeTempVault();
+    server = await startServer({ vault });
+    await putNote(server, 'commands/prop-set-test.md', PROP_SET_COMMAND);
+    await putNote(server, 'commands/prop-unset-test.md', PROP_UNSET_COMMAND);
+    await putNote(server, 'commands/prop-set-noop.md', PROP_SET_NOOP_COMMAND);
+    await putNote(server, 'commands/note-patch-test.md', NOTE_PATCH_COMMAND);
+  });
+
+  afterAll(async () => {
+    await server.stop();
+    await cleanupVault(server.vault);
+  });
+
+  // -----------------------------------------------------------------------
+  // [AC-Sf2f114-4-1] prop-set: sets frontmatter key
+  // -----------------------------------------------------------------------
+
+  it('[AC-Sf2f114-4-1] prop-set sets a frontmatter key via round-trip-safe path', async () => {
+    await putNote(server, 'prop-set-target.md', '---\ntitle: Test Note\n---\n\nBody content.\n');
+    const { status, body } = await runCommand(server, 'prop-set-test', {
+      target: 'prop-set-target.md',
+      value: 'yes',
+    });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success, `schema: ${JSON.stringify(parsed)}`).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    expect(parsed.data.results[0]?.ok).toBe(true);
+    expect(parsed.data.results[0]?.kind).toBe('prop-set');
+    expect(parsed.data.results[0]?.path).toBe('prop-set-target.md');
+
+    // Verify frontmatter was actually updated
+    const noteRes = await fetch(`${server.baseUrl}/api/notes/prop-set-target.md`);
+    const noteBody = (await noteRes.json()) as { frontmatter: Record<string, unknown>; body: string };
+    expect(noteBody.frontmatter.bookmark).toBe('yes');
+    // Existing keys preserved
+    expect(noteBody.frontmatter.title).toBe('Test Note');
+    // Body preserved
+    expect(noteBody.body).toContain('Body content.');
+  });
+
+  it('[AC-Sf2f114-4-1] prop-set unsets a frontmatter key', async () => {
+    await putNote(server, 'prop-unset-target.md', '---\ntitle: Unset Test\nbookmark: true\n---\n\nBody.\n');
+    const { status, body } = await runCommand(server, 'prop-unset-test', {
+      target: 'prop-unset-target.md',
+    });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    expect(parsed.data.results[0]?.ok).toBe(true);
+
+    const noteRes = await fetch(`${server.baseUrl}/api/notes/prop-unset-target.md`);
+    const noteBody = (await noteRes.json()) as { frontmatter: Record<string, unknown> };
+    expect(noteBody.frontmatter.bookmark).toBeUndefined();
+    expect(noteBody.frontmatter.title).toBe('Unset Test');
+  });
+
+  it('[AC-Sf2f114-4-1] prop-set with neither set nor unset → ok:true (no-op)', async () => {
+    await putNote(server, 'prop-noop-target.md', '---\ntitle: Noop Test\n---\n\nContent.\n');
+    const { status, body } = await runCommand(server, 'prop-set-noop', {
+      target: 'prop-noop-target.md',
+    });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    expect(parsed.data.results[0]?.ok).toBe(true);
+    // File should be unchanged (read it back)
+    const noteRes = await fetch(`${server.baseUrl}/api/notes/prop-noop-target.md`);
+    const noteBody = (await noteRes.json()) as { frontmatter: Record<string, unknown> };
+    expect(noteBody.frontmatter.title).toBe('Noop Test');
+  });
+
+  it('[AC-Sf2f114-4-1] prop-set on non-existent note → ok:false', async () => {
+    const { status, body } = await runCommand(server, 'prop-set-test', {
+      target: 'does-not-exist.md',
+      value: 'true',
+    });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    expect(parsed.data.results[0]?.ok).toBe(false);
+    expect(typeof parsed.data.results[0]?.error).toBe('string');
+  });
+
+  // -----------------------------------------------------------------------
+  // [AC-Sf2f114-4-2] note-patch: replaces old → new
+  // -----------------------------------------------------------------------
+
+  it('[AC-Sf2f114-4-2] note-patch replaces old text with new text', async () => {
+    await putNote(server, 'patch-target.md', '# Title\n\nOld content here.\n\nMore text.\n');
+    const { status, body } = await runCommand(server, 'note-patch-test', {
+      target: 'patch-target.md',
+      old: 'Old content here.',
+      new: 'New content here.',
+    });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success, `schema: ${JSON.stringify(parsed)}`).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    expect(parsed.data.results[0]?.ok).toBe(true);
+    expect(parsed.data.results[0]?.kind).toBe('note-patch');
+    expect(parsed.data.results[0]?.path).toBe('patch-target.md');
+
+    const noteRes = await fetch(`${server.baseUrl}/api/notes/patch-target.md`);
+    const noteBody = (await noteRes.json()) as { content: string };
+    expect(noteBody.content).toContain('New content here.');
+    expect(noteBody.content).not.toContain('Old content here.');
+    expect(noteBody.content).toContain('More text.');
+  });
+
+  it('[AC-Sf2f114-4-2] note-patch with non-matching old → ok:false (not 4xx)', async () => {
+    await putNote(server, 'patch-nomatch.md', '# Title\n\nSome text.\n');
+    const { status, body } = await runCommand(server, 'note-patch-test', {
+      target: 'patch-nomatch.md',
+      old: 'This string does not exist in the file',
+      new: 'replacement',
+    });
+    // ステップ失敗は HTTP 200 (fail-stop は ok:false で返す)
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    expect(parsed.data.results[0]?.ok).toBe(false);
+    expect(typeof parsed.data.results[0]?.error).toBe('string');
+  });
+
+  it('[AC-Sf2f114-4-2] note-patch with ambiguous (multiple-match) old → ok:false', async () => {
+    await putNote(
+      server,
+      'patch-ambiguous.md',
+      '# Title\n\nRepeat. Repeat. Same text.\n',
+    );
+    const { status, body } = await runCommand(server, 'note-patch-test', {
+      target: 'patch-ambiguous.md',
+      old: 'Repeat',
+      new: 'Different',
+    });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    expect(parsed.data.results[0]?.ok).toBe(false);
+    expect(parsed.data.results[0]?.error).toMatch(/2 locations/);
+  });
+
+  // -----------------------------------------------------------------------
+  // [AC-Sf2f114-4-3] Both kinds in discriminated union + unknown kinds rejected
+  // -----------------------------------------------------------------------
+
+  it('[AC-Sf2f114-4-3] unknown kind is rejected at command parse time', async () => {
+    await putNote(server, 'commands/unknown-kind.md', [
+      '---',
+      'loamium-command:',
+      '  name: unknown-kind',
+      '  steps:',
+      '    - kind: invalid-step-kind',
+      '      target: "foo.md"',
+      '---',
+      '',
+    ].join('\n'));
+    const { status, body } = await runCommand(server, 'unknown-kind', {});
+    expect(status).toBe(400);
+    const b = body as { error: string; message: string };
+    expect(b.error).toBe('invalid_command');
+  });
+
+  // -----------------------------------------------------------------------
+  // [AC-Sf2f114-4-3] append-only: commands with prop-set/note-patch are rejected
+  // -----------------------------------------------------------------------
+
+  it('[AC-Sf2f114-4-3] prop-set audit: prop-set.write is recorded in audit log', async () => {
+    await putNote(server, 'audit-prop-set.md', '---\ntitle: Audit Test\n---\n\nBody.\n');
+    const before = (await readAuditLog(server.vault)).filter((l) => l.op === 'prop-set.write').length;
+
+    const { status } = await runCommand(server, 'prop-set-test', {
+      target: 'audit-prop-set.md',
+      value: 'true',
+    });
+    expect(status).toBe(200);
+
+    const after = await readAuditLog(server.vault);
+    const propSetEntries = after.filter((l) => l.op === 'prop-set.write');
+    expect(propSetEntries.length).toBeGreaterThan(before);
+    expect(propSetEntries.some((l) => l.path === 'audit-prop-set.md' && l.result === 'ok')).toBe(true);
+  });
+
+  it('[AC-Sf2f114-4-3] note-patch audit: note-patch.write is recorded in audit log', async () => {
+    await putNote(server, 'audit-note-patch.md', '# Title\n\nOld value.\n');
+    const before = (await readAuditLog(server.vault)).filter((l) => l.op === 'note-patch.write').length;
+
+    const { status } = await runCommand(server, 'note-patch-test', {
+      target: 'audit-note-patch.md',
+      old: 'Old value.',
+      new: 'New value.',
+    });
+    expect(status).toBe(200);
+
+    const after = await readAuditLog(server.vault);
+    const patchEntries = after.filter((l) => l.op === 'note-patch.write');
+    expect(patchEntries.length).toBeGreaterThan(before);
+    expect(patchEntries.some((l) => l.path === 'audit-note-patch.md' && l.result === 'ok')).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// [AC-Sf2f114-4-3] append-only rejects commands with prop-set/note-patch
+// ---------------------------------------------------------------------------
+
+describe('[AC-Sf2f114-4-3] append-only rejects prop-set / note-patch commands', () => {
+  let server: TestServer;
+
+  const PROP_SET_CMD = [
+    '---',
+    'loamium-command:',
+    '  name: mutating-prop-set',
+    '  params:',
+    '    - name: target',
+    '      required: true',
+    '  steps:',
+    '    - kind: prop-set',
+    '      target: "{{target}}"',
+    '      set:',
+    '        status: draft',
+    '---',
+    '',
+  ].join('\n');
+
+  const NOTE_PATCH_CMD = [
+    '---',
+    'loamium-command:',
+    '  name: mutating-note-patch',
+    '  params:',
+    '    - name: target',
+    '      required: true',
+    '  steps:',
+    '    - kind: note-patch',
+    '      target: "{{target}}"',
+    '      old: "TODO"',
+    '      new: "DONE"',
+    '---',
+    '',
+  ].join('\n');
+
+  beforeAll(async () => {
+    const vault = await makeTempVault();
+    await seedNote(vault, 'commands/mutating-prop-set.md', PROP_SET_CMD);
+    await seedNote(vault, 'commands/mutating-note-patch.md', NOTE_PATCH_CMD);
+    await seedNote(vault, 'target.md', '---\ntitle: Target\n---\n\nTODO item.\n');
+    server = await startServer({ vault, mode: 'append-only' });
+  });
+
+  afterAll(async () => {
+    await server.stop();
+    await cleanupVault(server.vault);
+  });
+
+  it('[AC-Sf2f114-4-3] append-only rejects prop-set command with 403', async () => {
+    const { status, body } = await runCommand(server, 'mutating-prop-set', {
+      target: 'target.md',
+    });
+    expect(status).toBe(403);
+    const b = body as { error: string; message: string };
+    expect(b.error).toBe('forbidden');
+    expect(b.message).toContain('append-only');
+  });
+
+  it('[AC-Sf2f114-4-3] append-only rejects note-patch command with 403', async () => {
+    const { status, body } = await runCommand(server, 'mutating-note-patch', {
+      target: 'target.md',
+    });
+    expect(status).toBe(403);
+    const b = body as { error: string; message: string };
+    expect(b.error).toBe('forbidden');
+    expect(b.message).toContain('append-only');
+  });
+
+  it('[AC-Sf2f114-4-3] append-only still allows v1-only commands (journal-append / note-create)', async () => {
+    const CREATE_TODO_COMMAND = [
+      '---',
+      'loamium-command:',
+      '  name: create-todo',
+      '  params:',
+      '    - name: title',
+      '      required: true',
+      '  steps:',
+      '    - kind: note-create',
+      '      target: "todos/{{title}}.md"',
+      '      content: "# {{title}}\\n"',
+      '---',
+      '',
+    ].join('\n');
+    await seedNote(server.vault, 'commands/create-todo.md', CREATE_TODO_COMMAND);
+
+    const { status } = await runCommand(server, 'create-todo', { title: 'ao-allowed-test' });
+    expect(status).toBe(200);
+  });
+});
