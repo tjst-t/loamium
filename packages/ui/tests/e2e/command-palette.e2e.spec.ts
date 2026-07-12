@@ -51,12 +51,20 @@ test('[AC-Sde7a63-1-2][E2E] "ジャーナル" でコマンドを絞り込むと 
 
 test('[AC-Sde7a63-1-2][E2E] ↓↑ キーで command-item を移動できる', async ({ page }) => {
   await page.keyboard.press('Control+k');
-  // コマンドセクションのみ表示
-  await page.keyboard.press('ArrowDown');
+  // コマンドが非同期で読み込まれるのを待つ (空クエリ → コマンドセクションのみ表示)
   const firstItem = page.locator('[data-testid="command-item"]').first();
+  // 初期状態: selected=0 のため先頭アイテムが pre-selected になる
   await expect(firstItem).toHaveAttribute('aria-selected', 'true');
+  // ArrowDown で 2 番目へ移動
   await page.keyboard.press('ArrowDown');
   const secondItem = page.locator('[data-testid="command-item"]').nth(1);
+  await expect(secondItem).toHaveAttribute('aria-selected', 'true');
+  // ArrowDown でさらに 3 番目へ
+  await page.keyboard.press('ArrowDown');
+  const thirdItem = page.locator('[data-testid="command-item"]').nth(2);
+  await expect(thirdItem).toHaveAttribute('aria-selected', 'true');
+  // ArrowUp で 2 番目へ戻る
+  await page.keyboard.press('ArrowUp');
   await expect(secondItem).toHaveAttribute('aria-selected', 'true');
 });
 
