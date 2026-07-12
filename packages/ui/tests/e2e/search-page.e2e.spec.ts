@@ -48,10 +48,10 @@ test('[AC-S935867-1-1] 条件検索し、結果一覧を開いたまま複数の
 
   // --- 2 モード共存: Cmd+K パレットから「詳細検索を開く」で /search へ ---
   await page.keyboard.press('Control+k');
-  await expect(page.getByTestId('search-palette')).toBeVisible();
+  await expect(page.getByTestId('command-palette')).toBeVisible();
   await page.getByTestId('search-input').fill(KW);
   await page.getByTestId('search-open-advanced').click();
-  await expect(page.getByTestId('search-palette')).toHaveCount(0);
+  await expect(page.getByTestId('command-palette')).toHaveCount(0);
   await expect(page.getByTestId('search-page')).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/search\\?q=${encodeURIComponent(KW)}`));
   await expect(page.getByTestId('search-field-fulltext')).toHaveValue(KW);

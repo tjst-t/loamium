@@ -156,7 +156,7 @@ test('[AC-Sf1a90a-1-3] 検索結果からの遷移が履歴に積まれ、戻る
 
   // Cmd/Ctrl+K で検索パレットを開き、B を選んで開く
   await page.keyboard.press('Control+k');
-  await expect(page.getByTestId('search-palette')).toBeVisible();
+  await expect(page.getByTestId('command-palette')).toBeVisible();
   await page.getByTestId('search-input').fill('route-b-e2e');
   const result = page.locator('[data-testid="search-result-note"][data-path="route-b-e2e.md"]');
   await expect(result).toBeVisible();

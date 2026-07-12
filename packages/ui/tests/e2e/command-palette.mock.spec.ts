@@ -442,3 +442,74 @@ test('[AC-Sde7a63-1-2][MOCK] ノート候補クリックでノートが開きパ
 
   expect(unexpected).toEqual([]);
 });
+
+// =========================================================================
+// AC-Sde7a63-1-2: クロスセクション — ノート→コマンド間の ArrowDown フラットインデックス走査
+// =========================================================================
+
+test('[AC-Sde7a63-1-2][MOCK] ArrowDown でノートセクションからコマンドセクションへ走査する', async ({ page }) => {
+  /**
+   * /api/notes を上書きして「新規作業ログ.md」(title: '新規作業ログ') を含めると、
+   * クエリ '新規' でノートセクション (1 件: '新規作業ログ') と
+   * コマンドセクション (2 件: 'new-note', 'new-note-from-template') が同時に表示される。
+   * flat index: [0]=note, [1]=cmd(new-note), [2]=cmd(new-note-from-template)
+   * ArrowDown を 1 回押すと selected が 1 に移動し command-item が選ばれることを確認する。
+   */
+  const unexpected = await installCatchAll(page);
+  // /api/notes を上書き — 既存 3 件 + 新規ノートを追加 (パレット開く前に設定)
+  await page.route('**/api/notes', (route) => {
+    void route.fulfill(
+      json({
+        notes: [
+          { path: JOURNAL_PATH, title: DATE, tags: [], folder: 'journals' },
+          { path: 'projects/議事録.md', title: '議事録', tags: [], folder: 'projects' },
+          { path: 'reading/テスト戦略.md', title: 'テスト戦略', tags: [], folder: 'reading' },
+          { path: 'work/新規作業ログ.md', title: '新規作業ログ', tags: [], folder: 'work' },
+        ],
+      }),
+    );
+  });
+  await page.route('**/api/journal', (route) => {
+    void route.fulfill(json(journal('# ジャーナル\n\n本文。\n')));
+  });
+  await page.route('**/api/search*', (route) => {
+    const q = new URL(route.request().url()).searchParams.get('q') ?? '';
+    void route.fulfill(json({ query: q, results: [] }));
+  });
+  await page.goto(readHarnessState().uiUrl);
+  await expect(page.getByTestId('editor')).toContainText('本文。');
+
+  await openPalette(page);
+
+  // '新規' で絞り込む
+  await page.getByTestId('search-input').type('新規');
+
+  // ノートセクション: '新規作業ログ' が 1 件
+  await expect(page.getByTestId('palette-section-notes')).toBeVisible();
+  await expect(page.getByTestId('search-result-note')).toHaveCount(1);
+
+  // コマンドセクション: new-note / new-note-from-template が 2 件
+  await expect(page.getByTestId('palette-section-commands')).toBeVisible();
+  const cmdItems = page.locator('[data-testid="command-item"]');
+  await expect(cmdItems).toHaveCount(2);
+
+  // 初期状態: selected=0 → note (flat index 0) が aria-selected
+  const noteItem = page.locator('[data-testid="search-result-note"]').first();
+  await expect(noteItem).toHaveAttribute('aria-selected', 'true');
+  await expect(noteItem).toHaveClass(/selected/);
+
+  // ArrowDown 1 回 → flat index 1 = command-item[0] (new-note) が選択される
+  await page.keyboard.press('ArrowDown');
+  const firstCmd = page.locator('[data-testid="command-item"]').first();
+  await expect(firstCmd).toHaveAttribute('aria-selected', 'true');
+  await expect(firstCmd).toHaveClass(/selected/);
+  await expect(firstCmd).toHaveAttribute('data-command-id', 'new-note');
+
+  // ArrowDown もう 1 回 → flat index 2 = command-item[1] (new-note-from-template) が選択される
+  await page.keyboard.press('ArrowDown');
+  const secondCmd = page.locator('[data-testid="command-item"]').nth(1);
+  await expect(secondCmd).toHaveAttribute('aria-selected', 'true');
+  await expect(secondCmd).toHaveAttribute('data-command-id', 'new-note-from-template');
+
+  expect(unexpected).toEqual([]);
+});

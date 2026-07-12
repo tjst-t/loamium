@@ -54,3 +54,25 @@ NEW  packages/ui/tests/e2e/command-palette.mock.spec.ts
 NEW  packages/ui/tests/e2e/command-palette.e2e.spec.ts
 MOD  packages/ui/tests/e2e/search-palette.mock.spec.ts (testid 更新)
 MOD  packages/ui/tests/e2e/search-palette.e2e.spec.ts (testid 更新)
+
+== Review Fix Pass (2026-07-12) ==
+F-1 (BLOCKING): stale search-palette testid を command-palette へ統一
+  - tests/e2e/search-slim.e2e.spec.ts:132  → command-palette
+  - tests/e2e/routing.e2e.spec.ts:159      → command-palette
+  - tests/e2e/search-page.e2e.spec.ts:51,54 → command-palette (×2)
+  Final grep: ZERO stale references confirmed.
+
+F-2 (clean): commandHandlers を useMemo でメモ化 (App.tsx)
+  - パレット表示中のすべての App 再レンダーでコマンドレジストリへの再登録を抑制。
+  - 依存配列: [openTemplatePicker, switchSidebarView, openSearch, openJournalNav]
+  - JSX 側: commandHandlers={commandHandlers} の単純参照に変更。
+
+F-3 (coverage): クロスセクション ArrowDown 走査テスト追加
+  - [AC-Sde7a63-1-2][MOCK] ArrowDown でノートセクションからコマンドセクションへ走査する
+  - 'new' クエリで note 1 件 + command 2 件が同時表示 → ArrowDown 1 回で command-item[0] 選択確認。
+  - Tag: [AC-Sde7a63-1-2] — flat index 走査の end-to-end 証明。
+
+Mock test results (post-fix):
+  command-palette.mock.spec.ts + search-palette.mock.spec.ts: 24/24 PASS
+  Typecheck : PASS (npx tsc --noEmit -p packages/ui)
+  Lint      : PASS (make lint)
