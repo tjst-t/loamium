@@ -3622,7 +3622,7 @@
       "stories": {
         "Sf2f114-1": {
           "title": "テンプレート記法の強化(fallback / 未定義→空 / 相対日付)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "コマンド作者として、任意パラメータが未入力でも行が崩れず、既定値や相対日付を書きたい。なぜなら、期限任意の todo などを 1 定義できれいに扱いたいから。",
@@ -3631,26 +3631,26 @@
               "id": "AC-Sf2f114-1-1",
               "description": "resolveTemplate が {{param|フォールバック}} をサポート: param が未定義/空なら『フォールバック』を差す。既存の {{param}}(未定義は verbatim + missing 収集)は後方互換のため維持し、パイプ付きのみ新挙動。ユニットテスト。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sf2f114-1-2",
               "description": "相対日付トークン {{date:+3d:YYYY-MM-DD}} / {{date:-1d:...}} をサポート(基準日からの日オフセット)。既存 {{date:FMT}} は不変。ユニットテスト。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sf2f114-1-3",
               "description": "加算のみで既存テンプレート・journal パス生成・テンプレートノートを壊さない(回帰テスト green)。ADR-0010。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sf2f114-1-1": {
               "title": "fallback + 相対日付を resolveTemplate に追加",
               "description": "packages/shared/src/template.ts。パイプ構文と +Nd/-Nd オフセット。ユニットテスト網羅。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
