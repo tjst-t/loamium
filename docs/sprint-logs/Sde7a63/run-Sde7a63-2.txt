@@ -56,3 +56,20 @@ SearchPalette.tsx line 237 付近の useMemo で呼び出し — ADR-0007 に準
 
 == out-of-scope findings ==
 なし
+
+== fix(Sde7a63-2): コマンドモード空状態メッセージ修正 (2026-07-12) ==
+
+変更: packages/ui/src/components/SearchPalette.tsx line 489-493
+  Before: 「{trimmed}」に一致するノートはありません  (コマンドモードでも同じ文言 + '>' 混入)
+  After:
+    - コマンドモード: 「{highlightQuery}」に一致するコマンドはありません
+    - 通常モード:    「{trimmed}」に一致するノートはありません
+
+追加テスト: packages/ui/tests/e2e/command-palette.mock.spec.ts
+  [AC-Sde7a63-2-1] コマンドモードで一致なしのとき空状態メッセージがコマンド向け文言になる (> 除去)
+  - '> zzznotacommand' 入力後 search-empty が visible
+  - テキストが「コマンド」を含む / 「ノート」を含まない / '>' を含まない
+
+Mock テスト: 28 passed (27 + 1 新規, 0 failed, 0 skipped)
+npx tsc --noEmit -p packages/ui → 0 errors
+make lint → 全 workspace pass

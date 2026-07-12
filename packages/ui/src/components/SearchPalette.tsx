@@ -488,7 +488,9 @@ export function SearchPalette({
           )}
           {showEmpty && commandMatches.length === 0 && (
             <div className="palette-empty" data-testid="search-empty">
-              「{trimmed}」に一致するノートはありません
+              {paletteMode === 'command'
+                ? `「${highlightQuery}」に一致するコマンドはありません`
+                : `「${trimmed}」に一致するノートはありません`}
             </div>
           )}
         </div>
