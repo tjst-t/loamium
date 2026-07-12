@@ -19,6 +19,7 @@ import { Hono } from 'hono';
 import {
   appendText,
   evaluateCondition,
+  insertAtPosition,
   insertUnderHeading,
   isValidJournalDate,
   journalPath,
@@ -262,7 +263,7 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
 
       try {
         if (kind === 'journal-append') {
-          // content, date?, section? を展開
+          // content, date?, section?, position? を展開
           const contentResolved = resolveTemplate(step.content, {
             vars: resolvedParams,
             date: now,
@@ -288,8 +289,15 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
           const rel = journalPath(dateStr);
           const existing = await readNote(config.vaultRoot, rel);
 
+          // position: 省略時は後方互換 (section あり → 'section'、なし → 'bottom') [AC-Sf2f114-3-2]
           let newContent: string;
-          if (sectionResolved !== undefined && sectionResolved !== '') {
+          const positionRaw = step.position;
+          if (positionRaw !== undefined) {
+            const opts = sectionResolved !== undefined
+              ? { position: positionRaw, section: sectionResolved }
+              : { position: positionRaw };
+            newContent = insertAtPosition(existing ?? '', opts, contentResolved);
+          } else if (sectionResolved !== undefined && sectionResolved !== '') {
             // section 指定: 見出し配下の末尾に挿入 [AC-Sd22b1f-2-1]
             newContent = insertUnderHeading(existing ?? '', sectionResolved, contentResolved);
           } else {
@@ -312,7 +320,7 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
           if (step.open === true) openPath = rel;
 
         } else if (kind === 'note-append') {
-          // target, content を展開
+          // target, content, section?, create?, position? を展開 [AC-Sf2f114-3-1]
           const targetRaw = resolveTemplate(step.target, {
             vars: resolvedParams,
             date: now,
@@ -324,6 +332,9 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
             date: now,
             now,
           }).text;
+          const sectionResolved = step.section !== undefined
+            ? resolveTemplate(step.section, { vars: resolvedParams, date: now, now }).text
+            : undefined;
 
           // target path 検証 [AC-Sd22b1f-2-2] — traversal/hidden-segment は 400 で即拒否
           let rel: string;
@@ -341,13 +352,34 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
             throw err;
           }
 
-          const existing = await readNote(config.vaultRoot, rel);
+          let existing = await readNote(config.vaultRoot, rel);
           if (existing === null) {
-            results.push({ kind, ok: false, error: `note not found: ${rel}` });
-            break;
+            if (step.create === true) {
+              // create:true → 存在しないノートを新規作成 (空コンテンツに追記) [AC-Sf2f114-3-1]
+              existing = '';
+            } else {
+              // create 未指定 or false → 後方互換: ok:false で fail-stop [AC-Sf2f114-3-2]
+              results.push({ kind, ok: false, error: `note not found: ${rel}` });
+              break;
+            }
           }
 
-          await writeNote(config.vaultRoot, rel, appendText(existing, contentResolved));
+          // 挿入位置の決定: position 明示 → それに従う。省略時は後方互換
+          // (section あり → 'section'、なし → 'bottom') [AC-Sf2f114-3-1]
+          let newContent: string;
+          const positionRaw = step.position;
+          if (positionRaw !== undefined) {
+            const opts = sectionResolved !== undefined
+              ? { position: positionRaw, section: sectionResolved }
+              : { position: positionRaw };
+            newContent = insertAtPosition(existing, opts, contentResolved);
+          } else if (sectionResolved !== undefined && sectionResolved !== '') {
+            newContent = insertUnderHeading(existing, sectionResolved, contentResolved);
+          } else {
+            newContent = appendText(existing, contentResolved);
+          }
+
+          await writeNote(config.vaultRoot, rel, newContent);
           await writeAuditEntry(config, {
             ts: new Date().toISOString(),
             op: 'note-append.write',

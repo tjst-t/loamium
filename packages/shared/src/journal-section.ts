@@ -1,5 +1,5 @@
 /**
- * ジャーナルのセクション挿入ヘルパー (ADR-0009 / Sd22b1f-2)。
+ * ジャーナルのセクション挿入ヘルパー (ADR-0009 / Sd22b1f-2 / ADR-0010 / Sf2f114-3)。
  *
  * journal-append ステップの section 指定に使う。単発の journal-append API/CLI
  * も同じ実装を共有する (Story Sd22b1f-3 で再利用する seam)。
@@ -9,6 +9,12 @@
  *   - 見出しが存在すれば、その見出しセクションの末尾 (次の同レベル以上の見出し直前) に text を追記する
  *   - 見出しが存在しなければ、ファイル末尾に見出し行 + text を追記する
  *   - text は改行で終端しない場合も改行を補う (appendText と同じ規約)
+ *
+ * insertAtPosition(content, opts, text) — [AC-Sf2f114-3-1]:
+ *   position 'bottom' (default) / 'top' / 'section' で挿入位置を選択する。
+ *   - bottom: ファイル末尾に追記 (appendText と同義)
+ *   - top: frontmatter ブロックの直後 (本文先頭) に挿入する。frontmatter がなければ先頭
+ *   - section: section フィールドが必須。insertUnderHeading と同義
  */
 
 /**
@@ -100,4 +106,82 @@ export function insertUnderHeading(content: string, heading: string, text: strin
   const joined = newLines.join('\n');
   // 末尾改行を補う: joined が '\n' で終わっていなければ補う
   return joined.endsWith('\n') ? joined : `${joined}\n`;
+}
+
+// ---------------------------------------------------------------------------
+// insertAtPosition — 位置指定汎用挿入ヘルパー (ADR-0010 / Sf2f114-3)
+// [AC-Sf2f114-3-1]
+// ---------------------------------------------------------------------------
+
+/** 挿入位置の種別。 */
+export type InsertPosition = 'bottom' | 'top' | 'section';
+
+/**
+ * 既存コンテンツ `content` に `text` を指定位置 (`position`) で挿入し、新しい文字列を返す。
+ *
+ * - `bottom` (デフォルト): ファイル末尾に追記 (appendText と同義)
+ * - `top`: YAML frontmatter ブロック (--- ... ---) の直後 (本文先頭) に挿入する。
+ *          frontmatter がなければ先頭に挿入する。frontmatter は保護される。
+ * - `section`: `section` フィールドが必須。insertUnderHeading と同義。
+ *
+ * `text` は LF 補完される (ensureTrailingNewline 相当)。
+ *
+ * [AC-Sf2f114-3-1]
+ */
+export function insertAtPosition(
+  content: string,
+  opts: { position: InsertPosition; section?: string },
+  text: string,
+): string {
+  const { position, section } = opts;
+
+  if (position === 'bottom') {
+    // appendText と同じロジック
+    const add = ensureTrailingNewline(text.replace(/\r\n/g, '\n').replace(/\r/g, '\n'));
+    if (content === '') return add;
+    const base = ensureTrailingNewline(content.replace(/\r\n/g, '\n').replace(/\r/g, '\n'));
+    return base + add;
+  }
+
+  if (position === 'section') {
+    if (section === undefined || section === '') {
+      throw new Error('insertAtPosition: position="section" requires a non-empty section');
+    }
+    return insertUnderHeading(content, section, text);
+  }
+
+  // position === 'top'
+  // YAML frontmatter の直後 (本文先頭) に挿入する。
+  // frontmatter: "---\n" で始まり、次の "---" 行で閉じるブロック。
+  const normalized = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const insertText = ensureTrailingNewline(text.replace(/\r\n/g, '\n').replace(/\r/g, '\n'));
+
+  // frontmatter 終了行を探す
+  const FRONTMATTER_OPEN_RE = /^---\n/;
+  if (FRONTMATTER_OPEN_RE.test(normalized)) {
+    const lines = normalized.split('\n');
+    let closeIndex = -1;
+    for (let i = 1; i < lines.length; i++) {
+      if ((lines[i] ?? '') === '---') {
+        closeIndex = i;
+        break;
+      }
+    }
+    if (closeIndex !== -1) {
+      // 再構成: before = lines[0..closeIndex].join('\n') (末尾改行なし)
+      //          after  = lines[closeIndex+1..].join('\n') (本文部分)
+      // 元の content は before + '\n' + after
+      // 挿入後:   before + '\n' + insertText + after
+      const before = lines.slice(0, closeIndex + 1).join('\n');
+      const after = lines.slice(closeIndex + 1).join('\n');
+      return `${before}\n${insertText}${after}`;
+    }
+  }
+
+  // frontmatter がない (または閉じていない) → 先頭に挿入
+  if (normalized === '') {
+    return insertText;
+  }
+  // 先頭に insertText を置き、既存本文を続ける
+  return `${insertText}${normalized}`;
 }

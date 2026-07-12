@@ -607,6 +607,355 @@ describe('[AC-Sd22b1f-2-4] CLI command run', () => {
 });
 
 // ---------------------------------------------------------------------------
+// [AC-Sf2f114-3-1/2] note-append の section/create/position 一般化 (ADR-0010)
+// ---------------------------------------------------------------------------
+
+describe('[AC-Sf2f114-3-1] note-append with section/create/position', () => {
+  let server: TestServer;
+
+  /** note-append with section — 見出し存在時 */
+  const NOTE_APPEND_SECTION_COMMAND = [
+    '---',
+    'loamium-command:',
+    '  name: note-append-section',
+    '  params:',
+    '    - name: target',
+    '      required: true',
+    '    - name: text',
+    '      required: true',
+    '    - name: section',
+    '      required: true',
+    '  steps:',
+    '    - kind: note-append',
+    '      target: "{{target}}"',
+    '      content: "{{text}}"',
+    '      section: "{{section}}"',
+    '---',
+    '',
+  ].join('\n');
+
+  /** note-append with create:true — 存在しないノートを新規作成 */
+  const NOTE_APPEND_CREATE_COMMAND = [
+    '---',
+    'loamium-command:',
+    '  name: note-append-create',
+    '  params:',
+    '    - name: target',
+    '      required: true',
+    '    - name: text',
+    '      required: true',
+    '  steps:',
+    '    - kind: note-append',
+    '      target: "{{target}}"',
+    '      content: "{{text}}"',
+    '      create: true',
+    '---',
+    '',
+  ].join('\n');
+
+  /** note-append with position:top */
+  const NOTE_APPEND_TOP_COMMAND = [
+    '---',
+    'loamium-command:',
+    '  name: note-append-top',
+    '  params:',
+    '    - name: target',
+    '      required: true',
+    '    - name: text',
+    '      required: true',
+    '  steps:',
+    '    - kind: note-append',
+    '      target: "{{target}}"',
+    '      content: "{{text}}"',
+    '      position: "top"',
+    '---',
+    '',
+  ].join('\n');
+
+  /** note-append with position:bottom (explicit) */
+  const NOTE_APPEND_BOTTOM_COMMAND = [
+    '---',
+    'loamium-command:',
+    '  name: note-append-bottom',
+    '  params:',
+    '    - name: target',
+    '      required: true',
+    '    - name: text',
+    '      required: true',
+    '  steps:',
+    '    - kind: note-append',
+    '      target: "{{target}}"',
+    '      content: "{{text}}"',
+    '      position: "bottom"',
+    '---',
+    '',
+  ].join('\n');
+
+  /** note-append without create — 後方互換: 存在しないノート → ok:false */
+  const NOTE_APPEND_NO_CREATE_COMMAND = [
+    '---',
+    'loamium-command:',
+    '  name: note-append-no-create',
+    '  params:',
+    '    - name: target',
+    '      required: true',
+    '    - name: text',
+    '      required: true',
+    '  steps:',
+    '    - kind: note-append',
+    '      target: "{{target}}"',
+    '      content: "{{text}}"',
+    '---',
+    '',
+  ].join('\n');
+
+  beforeAll(async () => {
+    const vault = await makeTempVault();
+    server = await startServer({ vault });
+    await putNote(server, 'commands/note-append-section.md', NOTE_APPEND_SECTION_COMMAND);
+    await putNote(server, 'commands/note-append-create.md', NOTE_APPEND_CREATE_COMMAND);
+    await putNote(server, 'commands/note-append-top.md', NOTE_APPEND_TOP_COMMAND);
+    await putNote(server, 'commands/note-append-bottom.md', NOTE_APPEND_BOTTOM_COMMAND);
+    await putNote(server, 'commands/note-append-no-create.md', NOTE_APPEND_NO_CREATE_COMMAND);
+  });
+
+  afterAll(async () => {
+    await server.stop();
+    await cleanupVault(server.vault);
+  });
+
+  // -----------------------------------------------------------------------
+  // [AC-Sf2f114-3-1] section: 見出し存在時 — 見出し配下に挿入
+  // -----------------------------------------------------------------------
+
+  it('[AC-Sf2f114-3-1] note-append with section (heading present): inserts under heading', async () => {
+    await putNote(server, 'sectioned-note.md', '# Note\n\n## Todo\n\n- [ ] existing\n');
+    const { status, body } = await runCommand(server, 'note-append-section', {
+      target: 'sectioned-note.md',
+      text: '- [ ] new task',
+      section: 'Todo',
+    });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success, `schema: ${JSON.stringify(parsed)}`).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    expect(parsed.data.results[0]?.ok).toBe(true);
+
+    const content = await readFile(path.join(server.vault, 'sectioned-note.md'), 'utf8');
+    expect(content).toContain('- [ ] existing');
+    expect(content).toContain('- [ ] new task');
+    // new task が existing の後に来ること
+    const existingIdx = content.indexOf('- [ ] existing');
+    const newIdx = content.indexOf('- [ ] new task');
+    expect(newIdx).toBeGreaterThan(existingIdx);
+  });
+
+  // -----------------------------------------------------------------------
+  // [AC-Sf2f114-3-1] section: 見出し不在時 — EOF に見出しごと追加
+  // -----------------------------------------------------------------------
+
+  it('[AC-Sf2f114-3-1] note-append with section (heading absent): creates heading at EOF', async () => {
+    await putNote(server, 'no-heading-note.md', '# Note\n\nsome content\n');
+    const { status, body } = await runCommand(server, 'note-append-section', {
+      target: 'no-heading-note.md',
+      text: '- [ ] task',
+      section: 'Todo',
+    });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    expect(parsed.data.results[0]?.ok).toBe(true);
+
+    const content = await readFile(path.join(server.vault, 'no-heading-note.md'), 'utf8');
+    expect(content).toContain('## Todo');
+    expect(content).toContain('- [ ] task');
+    const headingIdx = content.indexOf('## Todo');
+    const taskIdx = content.indexOf('- [ ] task');
+    expect(taskIdx).toBeGreaterThan(headingIdx);
+  });
+
+  // -----------------------------------------------------------------------
+  // [AC-Sf2f114-3-1] create:true — 存在しないノートを新規作成して追記
+  // -----------------------------------------------------------------------
+
+  it('[AC-Sf2f114-3-1] note-append with create:true (missing target) → creates note', async () => {
+    const { status, body } = await runCommand(server, 'note-append-create', {
+      target: 'newly-created.md',
+      text: '# Created Content',
+    });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success, `schema: ${JSON.stringify(parsed)}`).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    expect(parsed.data.results[0]?.ok).toBe(true);
+    expect(parsed.data.results[0]?.path).toBe('newly-created.md');
+
+    const content = await readFile(path.join(server.vault, 'newly-created.md'), 'utf8');
+    expect(content).toContain('# Created Content');
+  });
+
+  // -----------------------------------------------------------------------
+  // [AC-Sf2f114-3-2] 後方互換: create なし → 存在しないノートは ok:false
+  // -----------------------------------------------------------------------
+
+  it('[AC-Sf2f114-3-2] note-append without create to missing target → ok:false (backward compat)', async () => {
+    const { status, body } = await runCommand(server, 'note-append-no-create', {
+      target: 'definitely-nonexistent.md',
+      text: 'some text',
+    });
+    // ステップ失敗は HTTP 200 (fail-stop は ok:false で返す)
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success, `schema: ${JSON.stringify(parsed)}`).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    expect(parsed.data.results[0]?.ok).toBe(false);
+    expect(typeof parsed.data.results[0]?.error).toBe('string');
+  });
+
+  // -----------------------------------------------------------------------
+  // [AC-Sf2f114-3-1] position:top — frontmatter 保護して本文先頭に挿入
+  // -----------------------------------------------------------------------
+
+  it('[AC-Sf2f114-3-1] note-append position:top (no frontmatter) → inserts at body start', async () => {
+    await putNote(server, 'top-target-no-fm.md', '# Title\n\nbody line\n');
+    const { status, body } = await runCommand(server, 'note-append-top', {
+      target: 'top-target-no-fm.md',
+      text: 'prepended line',
+    });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    expect(parsed.data.results[0]?.ok).toBe(true);
+
+    const content = await readFile(path.join(server.vault, 'top-target-no-fm.md'), 'utf8');
+    expect(content).toContain('prepended line');
+    expect(content).toContain('# Title');
+    expect(content).toContain('body line');
+    // prepended line が # Title の前にあること
+    const prependedIdx = content.indexOf('prepended line');
+    const titleIdx = content.indexOf('# Title');
+    expect(prependedIdx).toBeLessThan(titleIdx);
+  });
+
+  it('[AC-Sf2f114-3-1] note-append position:top (with frontmatter) → preserves frontmatter, inserts before body', async () => {
+    await putNote(
+      server,
+      'top-target-fm.md',
+      '---\ntitle: FM Note\n---\n# Title\n\nbody\n',
+    );
+    const { status, body } = await runCommand(server, 'note-append-top', {
+      target: 'top-target-fm.md',
+      text: '> prepended quote',
+    });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    expect(parsed.data.results[0]?.ok).toBe(true);
+
+    const content = await readFile(path.join(server.vault, 'top-target-fm.md'), 'utf8');
+    // frontmatter が保護されていること
+    expect(content).toContain('---\ntitle: FM Note\n---\n');
+    // 挿入テキストが frontmatter の直後にあること
+    expect(content).toContain('> prepended quote');
+    // 既存本文が後ろに続くこと
+    expect(content).toContain('# Title');
+    const prependedIdx = content.indexOf('> prepended quote');
+    const titleIdx = content.indexOf('# Title');
+    expect(prependedIdx).toBeLessThan(titleIdx);
+  });
+
+  // -----------------------------------------------------------------------
+  // [AC-Sf2f114-3-1] position:bottom (explicit) — 末尾に追記
+  // -----------------------------------------------------------------------
+
+  it('[AC-Sf2f114-3-1] note-append position:bottom → appends at end', async () => {
+    await putNote(server, 'bottom-target.md', '# Title\n\nfirst line\n');
+    const { status, body } = await runCommand(server, 'note-append-bottom', {
+      target: 'bottom-target.md',
+      text: 'last line',
+    });
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    expect(parsed.data.results[0]?.ok).toBe(true);
+
+    const content = await readFile(path.join(server.vault, 'bottom-target.md'), 'utf8');
+    expect(content).toContain('first line');
+    expect(content).toContain('last line');
+    const firstIdx = content.indexOf('first line');
+    const lastIdx = content.indexOf('last line');
+    expect(lastIdx).toBeGreaterThan(firstIdx);
+  });
+
+  // -----------------------------------------------------------------------
+  // [AC-Sf2f114-3-2] journal-append: 後方互換 (section あり/なし、変更なし)
+  // -----------------------------------------------------------------------
+
+  it('[AC-Sf2f114-3-2] journal-append unchanged — backward compat (section present)', async () => {
+    await putNote(server, 'journals/2026-07-12.md', '# 2026-07-12\n\n## Log\n\n- existing\n');
+    await putNote(server, 'commands/journal-compat-section.md', [
+      '---',
+      'loamium-command:',
+      '  name: journal-compat-section',
+      '  steps:',
+      '    - kind: journal-append',
+      '      content: "- new entry"',
+      '      section: "Log"',
+      '      date: "2026-07-12"',
+      '---',
+      '',
+    ].join('\n'));
+
+    const { status, body } = await runCommand(server, 'journal-compat-section', {});
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    expect(parsed.data.results[0]?.ok).toBe(true);
+
+    const content = await readFile(path.join(server.vault, 'journals/2026-07-12.md'), 'utf8');
+    expect(content).toContain('- existing');
+    expect(content).toContain('- new entry');
+    const existingIdx = content.indexOf('- existing');
+    const newIdx = content.indexOf('- new entry');
+    expect(newIdx).toBeGreaterThan(existingIdx);
+  });
+
+  it('[AC-Sf2f114-3-2] journal-append unchanged — backward compat (section absent, bottom)', async () => {
+    await putNote(server, 'journals/2026-07-10.md', '# 2026-07-10\n\nsome text\n');
+    await putNote(server, 'commands/journal-compat-bottom.md', [
+      '---',
+      'loamium-command:',
+      '  name: journal-compat-bottom',
+      '  steps:',
+      '    - kind: journal-append',
+      '      content: "appended line"',
+      '      date: "2026-07-10"',
+      '---',
+      '',
+    ].join('\n'));
+
+    const { status, body } = await runCommand(server, 'journal-compat-bottom', {});
+    expect(status).toBe(200);
+    const parsed = commandRunResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    expect(parsed.data.results[0]?.ok).toBe(true);
+
+    const content = await readFile(path.join(server.vault, 'journals/2026-07-10.md'), 'utf8');
+    expect(content).toContain('some text');
+    expect(content).toContain('appended line');
+    const someIdx = content.indexOf('some text');
+    const appendedIdx = content.indexOf('appended line');
+    expect(appendedIdx).toBeGreaterThan(someIdx);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // [AC-Sf2f114-2-1/2] when / when-not 条件付きステップ実行 (ADR-0010)
 // ---------------------------------------------------------------------------
 

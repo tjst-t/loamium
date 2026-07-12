@@ -71,6 +71,15 @@ export type CommandParam = z.infer<typeof commandParamSchema>;
 
 // ---- CommandStep — 判別可能ユニオン (ADR-0009, v1 = 4 種) ----
 
+/**
+ * 挿入位置の種別 (ADR-0010 / Sf2f114-3)。
+ * - bottom: ファイル末尾 (デフォルト)
+ * - top:    frontmatter の直後 (本文先頭)
+ * - section: section フィールドで指定した ATX 見出し配下末尾 (insertUnderHeading と同義)
+ */
+export const insertPositionSchema = z.enum(['bottom', 'top', 'section']);
+export type InsertPositionField = z.infer<typeof insertPositionSchema>;
+
 /** journal-append: ジャーナルへ追記 (section 指定で見出し配下末尾挿入)。 */
 export const journalAppendStepSchema = z.object({
   kind: z.literal('journal-append'),
@@ -78,16 +87,43 @@ export const journalAppendStepSchema = z.object({
   date: z.string().optional(),
   /** 空文字列は拒否 (journalAppendRequestSchema の section と整合)。 */
   section: z.string().min(1).optional(),
+  /**
+   * 挿入位置 (ADR-0010 / Sf2f114-3)。省略時は後方互換挙動:
+   * section あり → 'section'、なし → 'bottom'。
+   */
+  position: insertPositionSchema.optional(),
   open: z.boolean().optional(),
   ...stepConditionFields,
 });
 export type JournalAppendStep = z.infer<typeof journalAppendStepSchema>;
 
-/** note-append: 既存ノート末尾へ追記。 */
+/**
+ * note-append: ノートへの追記 (Sf2f114-3 で section/create/position を追加)。
+ * [AC-Sf2f114-3-1]
+ */
 export const noteAppendStepSchema = z.object({
   kind: z.literal('note-append'),
   target: z.string(),
   content: z.string(),
+  /**
+   * ATX 見出しテキスト (例: "Todo")。指定時、対象見出し配下の末尾に挿入する。
+   * 見出しが存在しなければファイル末尾に見出しごと追記する (insertUnderHeading と同義)。
+   * 空文字列は拒否 (section="" を省略扱いにするのではなく、スキーマ境界で弾く)。
+   */
+  section: z.string().min(1).optional(),
+  /**
+   * true の場合、対象ノートが存在しなければ新規作成する (空コンテンツに追記)。
+   * false / 省略時は既存の後方互換動作 (存在しない → ok:false 失敗)。
+   */
+  create: z.boolean().optional(),
+  /**
+   * 挿入位置 (ADR-0010 / Sf2f114-3):
+   * - 省略時: section あり → 'section' と同義、なし → 'bottom'
+   * - 'bottom': ファイル末尾に追記 (デフォルト)
+   * - 'top': frontmatter の直後 (本文先頭) に挿入
+   * - 'section': section フィールドで指定した ATX 見出し配下末尾
+   */
+  position: insertPositionSchema.optional(),
   open: z.boolean().optional(),
   ...stepConditionFields,
 });
