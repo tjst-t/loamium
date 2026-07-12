@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "Sde7a63",
+    "current_sprint": "S5a66e4",
     "total": 34,
-    "done": 32,
+    "done": 33,
     "in_progress": 0,
-    "remaining": 2,
-    "percentage": 94
+    "remaining": 1,
+    "percentage": 97
   },
   "execution_order": [
     "Sd63ad1",
@@ -3463,7 +3463,7 @@
     "Sde7a63": {
       "title": "統合コマンドパレット — Ctrl-K 拡張・コマンドレジストリ・スマートコマンド実行 UI",
       "milestone": true,
-      "status": "in_progress",
+      "status": "done",
       "depends_on": null,
       "description": "ADR-0007 準拠。UI コマンドレジストリ(builtin + smart)、Ctrl-K パレットの 3 セクション化(ノート/全文/コマンド)、'>' コマンド専用モード、スマートコマンドのパラメータフォーム → 実行 → openPath 遷移。GUI Sprint(gui-spec + prototype 対象。prototype はユーザー確認必須)。",
       "stories": {
