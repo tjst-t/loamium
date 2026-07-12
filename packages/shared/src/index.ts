@@ -112,4 +112,5 @@ export {
   applyJournalTemplate,
   type TemplateConfig,
 } from './template-note.js';
+export { compilePrivacyMatcher } from './privacy-glob.js';
 export * from './schemas.js';

@@ -436,6 +436,27 @@ export const agentConfigSchema = z.object({
 });
 export type AgentConfig = z.infer<typeof agentConfigSchema>;
 
+// ---- エージェント機密領域 deny リスト (.loamium/agent-privacy.json — ADR-0014) ----
+
+/**
+ * `.loamium/agent-privacy.json` のスキーマ。
+ * vault 相対の glob/パス deny リストを定義する。マッチするノートはエージェントの
+ * 全ツール (read / search / query / backlinks / tags) から存在ごと隠される。
+ *
+ * 2 形状を受け付ける (どちらも同義):
+ *   - `{ "deny": ["private/**", "secret.md"] }`  … 明示オブジェクト形式 (推奨)
+ *   - `["private/**", "secret.md"]`              … 直接 string 配列 (簡易形式)
+ * どちらも parse 後は `{ deny: string[] }` に正規化する。
+ * 既定 (ファイル不在) は空 = 何も deny しない。
+ */
+export const agentPrivacySchema = z
+  .union([
+    z.object({ deny: z.array(z.string()) }),
+    z.array(z.string()),
+  ])
+  .transform((v) => (Array.isArray(v) ? { deny: v } : v));
+export type AgentPrivacy = z.infer<typeof agentPrivacySchema>;
+
 // ---- エージェント REST API レスポンス (S53409d-2) ----
 
 export const agentSessionCreateResponseSchema = z.object({
