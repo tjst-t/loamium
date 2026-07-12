@@ -1045,10 +1045,27 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
                       onChange={() => handleToggleCap(cap)}
                     />
                     <span>{CAPABILITY_LABELS[cap]}</span>
-                    {cap === 'web' && <span className="agent-perm-note">(未実装)</span>}
                   </label>
                 );
               })}
+            </div>
+          )}
+          {/* Web 有効化時の漏洩リスク警告 (AC-S5e0206-2-1, ADR-0013) */}
+          {selectedCapSet.has('web') && (
+            <div
+              className="agent-web-warning"
+              data-testid="agent-web-warning"
+              role="alert"
+            >
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M8 2L1.8 13h12.4z" />
+                <path d="M8 6.5v3M8 11.5h.01" />
+              </svg>
+              <span>
+                Web アクセスを有効にすると、ノート内に紛れた悪意あるテキスト
+                (プロンプトインジェクション) 経由で vault の情報が外部へ送信される
+                リスクがあります。信頼する vault でのみ有効にしてください。
+              </span>
             </div>
           )}
         </div>
@@ -1067,6 +1084,7 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
                   key={cap}
                   className="agent-effective-cap"
                   data-testid={`agent-effective-cap-${cap}`}
+                  title={cap === 'web' ? 'web_fetch / web_search が利用可能' : undefined}
                 >
                   {CAPABILITY_LABELS[cap]}
                 </span>

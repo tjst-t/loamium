@@ -4108,6 +4108,25 @@ button.callout-title { cursor: pointer; }
   color: var(--text-faint);
 }
 
+.agent-web-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  border: 1px solid #f0caca;
+  border-radius: 7px;
+  background: var(--danger-soft, #fdf2f2);
+  color: var(--danger);
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 6px 9px;
+}
+.agent-web-warning svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
 .agent-effective-perms {
   border-bottom: 1px solid var(--border);
   background: var(--bg-panel);
