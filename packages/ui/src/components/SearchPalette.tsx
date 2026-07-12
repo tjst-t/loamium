@@ -1,5 +1,5 @@
 /**
- * グローバル検索 + コマンドパレット (Sbd061c-1 / Sde7a63-1 / prototype/)。
+ * グローバル検索 + コマンドパレット (Sbd061c-1 / Sde7a63-1 / Sde7a63-2 / prototype/)。
  *
  * - ノート名セクション: 表示時に GET /api/notes を再取得し、クライアント側で
  *   NFC 正規化 + 大文字小文字不区別の部分一致 (タイトル / パス) フィルタ (decisions I1)。
@@ -8,6 +8,8 @@
  *   (タイトルのみ一致) はノート名セクションと重複するため出さない (decisions I2)。
  * - コマンドセクション (Sde7a63-1): getCommands() からクエリで絞り込み。
  *   空クエリでも全コマンドを表示する (edge: empty query shows commands)。
+ * - コマンド専用モード (Sde7a63-2): 先頭 '>' でコマンドのみに絞り込む。
+ *   プレフィックス解析は palettePrefix.ts の parsePaletteInput() に集約 (ADR-0007)。
  * - IME: compositionstart〜compositionend 間は全文検索を確定しない (decisions I3)。
  * - Esc / 外側クリックで閉じる。↑↓ で選択、Enter / クリックで開く。
  */
@@ -30,6 +32,7 @@ import { FileIcon, SearchIcon } from '../icons.js';
 import { getCommands, type CommandEntry } from '../commandRegistry.js';
 import { registerBuiltinCommands } from '../builtinCommands.js';
 import type { BuiltinCommandHandlers } from '../builtinCommands.js';
+import { parsePaletteInput } from '../palettePrefix.js';
 
 const SEARCH_DEBOUNCE_MS = 200;
 const MAX_NOTE_MATCHES = 20;
@@ -191,7 +194,20 @@ export function SearchPalette({
       setQuery(value);
       setSelected(0);
       // ノート名フィルタ (ローカル) は変換中も追従する。全文検索は確定後のみ。
-      if (!composingRef.current) scheduleSearch(value);
+      // コマンド専用モード中は全文検索を行わない。
+      const { mode } = parsePaletteInput(value);
+      if (!composingRef.current && mode === 'normal') scheduleSearch(value);
+      // コマンド専用モードへ切り替わった場合は進行中の全文検索を無効化してクリアする
+      if (mode === 'command') {
+        if (debounceRef.current !== null) {
+          clearTimeout(debounceRef.current);
+          debounceRef.current = null;
+        }
+        searchSeqRef.current += 1;
+        setFulltext([]);
+        setSearchedQuery('');
+        setSearchError(null);
+      }
     },
     [scheduleSearch],
   );
@@ -203,7 +219,9 @@ export function SearchPalette({
   const onCompositionEnd = useCallback(
     (e: CompositionEvent<HTMLInputElement>): void => {
       composingRef.current = false;
-      scheduleSearch(e.currentTarget.value);
+      // コマンド専用モード中は全文検索を行わない (コマンドのみ絞り込む)
+      const { mode } = parsePaletteInput(e.currentTarget.value);
+      if (mode === 'normal') scheduleSearch(e.currentTarget.value);
     },
     [scheduleSearch],
   );
@@ -215,27 +233,44 @@ export function SearchPalette({
     setCommands(getCommands());
   }, [commandHandlers]);
 
-  const noteMatches = useMemo(() => matchNotes(notes, query), [notes, query]);
+  /** Sde7a63-2: parsePaletteInput で mode / commandQuery を派生する (ADR-0007: 単一正源) */
+  const { mode: paletteMode, query: commandQuery } = useMemo(
+    () => parsePaletteInput(query),
+    [query],
+  );
 
-  /** コマンドをクエリ (title / keywords) でフィルタリングする。空クエリは全件。 */
+  /** 通常モードのみノート名マッチを計算する。コマンドモードでは空配列。 */
+  const noteMatches = useMemo(
+    () => (paletteMode === 'normal' ? matchNotes(notes, query) : []),
+    [notes, query, paletteMode],
+  );
+
+  /** コマンドをクエリ (title / keywords) でフィルタリングする。空クエリは全件。
+   * コマンドモード: commandQuery (プレフィックス除去後) で絞り込む。
+   * 通常モード: query (raw) で絞り込む。
+   */
   const commandMatches = useMemo((): CommandEntry[] => {
-    const q = normalize(query.trim());
+    const rawQ = paletteMode === 'command' ? commandQuery : query;
+    const q = normalize(rawQ.trim());
     if (q.length === 0) return commands;
     return commands.filter(
       (c) =>
         normalize(c.title).includes(q) ||
         c.keywords.some((kw) => normalize(kw).includes(q)),
     );
-  }, [commands, query]);
+  }, [commands, query, commandQuery, paletteMode]);
 
-  const items = useMemo<PaletteItem[]>(
-    () => [
+  /** コマンドモード中はノート/全文候補をフラットリストから除外する */
+  const items = useMemo<PaletteItem[]>(() => {
+    if (paletteMode === 'command') {
+      return commandMatches.map((entry): PaletteItem => ({ kind: 'command', entry }));
+    }
+    return [
       ...noteMatches.map((n): PaletteItem => ({ kind: 'note', path: n.path, title: n.title })),
       ...fulltext.map((hit): PaletteItem => ({ kind: 'fulltext', hit })),
       ...commandMatches.map((entry): PaletteItem => ({ kind: 'command', entry })),
-    ],
-    [noteMatches, fulltext, commandMatches],
-  );
+    ];
+  }, [paletteMode, noteMatches, fulltext, commandMatches]);
 
   // 候補の増減で選択が範囲外になったら先頭へ戻す
   const selectedIndex = items.length === 0 ? -1 : Math.min(selected, items.length - 1);
@@ -308,12 +343,14 @@ export function SearchPalette({
   );
 
   const trimmed = query.trim();
+  /** highlight / empty 判定に使うクエリ。コマンドモードは '>' 除去後のクエリで強調する。 */
+  const highlightQuery = paletteMode === 'command' ? commandQuery.trim() : trimmed;
   const error = searchError ?? notesError;
   const showEmpty =
     trimmed.length > 0 &&
     items.length === 0 &&
     error === null &&
-    searchedQuery === trimmed.normalize('NFC');
+    (paletteMode === 'command' || searchedQuery === trimmed.normalize('NFC'));
 
   return (
     <div
@@ -335,24 +372,33 @@ export function SearchPalette({
             data-testid="search-input"
             type="text"
             value={query}
-            placeholder="検索またはコマンドを入力…"
+            placeholder={paletteMode === 'command' ? 'コマンドを入力…' : '検索またはコマンドを入力…'}
             autoFocus
             onChange={onInputChange}
             onKeyDown={onInputKeyDown}
             onCompositionStart={onCompositionStart}
             onCompositionEnd={onCompositionEnd}
           />
+          {paletteMode === 'command' && (
+            <span className="palette-mode-badge" data-testid="palette-mode-command">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                <path d="M4 8l3-3-3-3M8 10h5" />
+              </svg>
+              コマンドモード
+            </span>
+          )}
           <kbd>Esc</kbd>
         </div>
 
         <div className="palette-results" ref={resultsRef}>
-          {noteMatches.length > 0 && (
+          {/* ノートセクション — コマンド専用モード中は非表示 (AC-Sde7a63-2-1) */}
+          {paletteMode !== 'command' && noteMatches.length > 0 && (
             <div className="palette-section-label" data-testid="palette-section-notes">
               <span>ノート</span>
               <span>{noteMatches.length} 件</span>
             </div>
           )}
-          {noteMatches.map((n, i) => (
+          {paletteMode !== 'command' && noteMatches.map((n, i) => (
             <button
               key={`note:${n.path}`}
               className={`palette-item${selectedIndex === i ? ' selected' : ''}`}
@@ -364,19 +410,20 @@ export function SearchPalette({
             >
               <FileIcon className="file-ico" />
               <span className="p-main">
-                <span className="p-title">{highlight(n.title, trimmed)}</span>
+                <span className="p-title">{highlight(n.title, highlightQuery)}</span>
                 <span className="p-path">{n.path}</span>
               </span>
             </button>
           ))}
 
-          {fulltext.length > 0 && (
+          {/* 全文セクション — コマンド専用モード中は非表示 (AC-Sde7a63-2-1) */}
+          {paletteMode !== 'command' && fulltext.length > 0 && (
             <div className="palette-section-label" data-testid="palette-section-fulltext">
               <span>全文</span>
               <span>{fulltext.length} 件</span>
             </div>
           )}
-          {fulltext.map((hit, fi) => {
+          {paletteMode !== 'command' && fulltext.map((hit, fi) => {
             const i = noteMatches.length + fi;
             return (
               <button
@@ -392,14 +439,14 @@ export function SearchPalette({
                 <FileIcon className="file-ico" />
                 <span className="p-main">
                   <span className="p-title">{hit.title}</span>
-                  <span className="p-snippet">{highlight(hit.snippet, trimmed)}</span>
+                  <span className="p-snippet">{highlight(hit.snippet, highlightQuery)}</span>
                 </span>
                 <span className="line-no">L{hit.line}</span>
               </button>
             );
           })}
 
-          {/* ---- コマンドセクション (Sde7a63-1) ---- */}
+          {/* ---- コマンドセクション (Sde7a63-1 / Sde7a63-2) ---- */}
           {commandMatches.length > 0 && (
             <div className="palette-section-label" data-testid="palette-section-commands">
               <span>コマンド</span>
@@ -407,7 +454,11 @@ export function SearchPalette({
             </div>
           )}
           {commandMatches.map((entry, ci) => {
-            const i = noteMatches.length + fulltext.length + ci;
+            // コマンドモード: flat list は commands のみ → ci が直接 selectedIndex
+            // 通常モード: ノート + 全文 + コマンドのフラットリスト
+            const i = paletteMode === 'command'
+              ? ci
+              : noteMatches.length + fulltext.length + ci;
             return (
               <button
                 key={`cmd:${entry.id}`}
@@ -421,7 +472,7 @@ export function SearchPalette({
               >
                 <span className="cmd-ico">{entry.icon}</span>
                 <span className="p-main">
-                  <span className="p-title">{highlight(entry.title, trimmed)}</span>
+                  <span className="p-title">{highlight(entry.title, highlightQuery)}</span>
                 </span>
                 <span className={`cmd-source-badge${entry.source === 'builtin' ? ' builtin' : ''}`}>
                   {entry.source === 'builtin' ? '組み込み' : 'スマート'}
@@ -443,16 +494,22 @@ export function SearchPalette({
         </div>
 
         <div className="palette-footer">
-          <button
-            type="button"
-            className="palette-advanced"
-            data-testid="search-open-advanced"
-            onClick={() => onOpenAdvanced(query)}
-            title="条件を変えながら一覧を保って探せる詳細検索ページを開く"
-          >
-            <SearchIcon />
-            詳細検索を開く
-          </button>
+          {paletteMode === 'command' ? (
+            <span>
+              <kbd>{'>'}</kbd> を削除で通常モードへ戻る
+            </span>
+          ) : (
+            <button
+              type="button"
+              className="palette-advanced"
+              data-testid="search-open-advanced"
+              onClick={() => onOpenAdvanced(query)}
+              title="条件を変えながら一覧を保って探せる詳細検索ページを開く"
+            >
+              <SearchIcon />
+              詳細検索を開く
+            </button>
+          )}
           <span>
             <kbd>↑</kbd>
             <kbd>↓</kbd> 移動

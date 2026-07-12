@@ -1363,6 +1363,22 @@ code {
   color: var(--accent-hover);
 }
 
+/* コマンドモードバッジ (Sde7a63-2 — palette-mode-command インジケーター) */
+.palette-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-hover);
+  background: var(--accent-soft);
+  border-radius: 6px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.palette-mode-badge svg { width: 11px; height: 11px; }
+
 /* ---- ![[embed]] transclusion (S9e5ca4-1/2 — prototype/embed-preview.html) ---- */
 
 .embed-card {
