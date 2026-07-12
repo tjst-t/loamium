@@ -3,11 +3,11 @@
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
     "current_sprint": "S5a66e4",
-    "total": 34,
+    "total": 36,
     "done": 33,
     "in_progress": 0,
-    "remaining": 1,
-    "percentage": 97
+    "remaining": 3,
+    "percentage": 91
   },
   "execution_order": [
     "Sd63ad1",
@@ -43,6 +43,8 @@
     "Sa8ee62",
     "Sd22b1f",
     "Sde7a63",
+    "Sf2f114",
+    "S9e64e7",
     "S5a66e4"
   ],
   "sprints": {
@@ -3609,6 +3611,24 @@
       "depends_on": null,
       "detail_level": "coarse",
       "stories": {}
+    },
+    "Sf2f114": {
+      "title": "スマートコマンド DSL v2 バックエンド — when/prop-set/note-patch/append 整理/param 型/テンプレート強化",
+      "description": "ADR-0010 準拠。shared スキーマ・実行エンジン・CLI を加算拡張: when:/when-not:、note-append の section?/create? + position 一般化、prop-set・note-patch ステップ、param 型 select/note/boolean/number、{{param|fallback}}・未定義→空・相対日付。すべて v1 を壊さない加算のみ。非 GUI。",
+      "milestone": false,
+      "status": "pending",
+      "detail_level": "coarse",
+      "depends_on": null,
+      "stories": {}
+    },
+    "S9e64e7": {
+      "title": "スマートコマンド定義エディタ — V3 スプリット(YAML 正本)+ 全部補完",
+      "description": "ADR-0011 準拠。commands/ 配下の loamium-command を開くと専用スプリットエディタ(左 YAML 補完編集 / 右ライブ検証+プレビュー+テスト実行、保存前バリデーション)。補完は DSL v2 語彙を反映。GUI(gui-spec + プロトタイプ command-editor.html V3 を基盤)。",
+      "milestone": true,
+      "status": "pending",
+      "detail_level": "coarse",
+      "depends_on": null,
+      "stories": {}
     }
   },
   "dependencies": {
@@ -3812,6 +3832,18 @@
         "Sd22b1f"
       ],
       "reason": "実行エンジンのステップ・ユニオンに agent-run を加算する。Pi Agent 統合のマージ + agent-run ADR の追加が前提(ADR-0009 notes)"
+    },
+    "Sf2f114": {
+      "depends_on": [
+        "Sd22b1f"
+      ],
+      "reason": "DSL v2 は Sd22b1f の shared スキーマ/実行エンジン/CLI を加算拡張する (ADR-0010)"
+    },
+    "S9e64e7": {
+      "depends_on": [
+        "Sf2f114"
+      ],
+      "reason": "エディタの補完・プレビューは DSL v2 の語彙 (step/param 型) を反映するため先にバックエンドが必要 (ADR-0011)"
     }
   },
   "backlog": [
@@ -3931,6 +3963,12 @@
       "description": "議事録要約など判断・分岐・繰り返しを要する処理は agent-run で LLM に委譲。Pi Agent 統合(別ブランチ)マージ後、非同期ジョブモデル(状態・失敗時挙動・結果のファイル書込)を新 ADR で決めてから実装。コアース Sprint S5a66e4 と対応。",
       "added_in": "design-discussion",
       "reason": "外的依存(Pi Agent 未マージ)+ 非同期ジョブ設計が未確定"
+    },
+    {
+      "title": "スマートコマンド機能ガイド (使い方マニュアル)",
+      "description": "空状態の機能ガイドに smart command の使い方節を追加(既存スマートフォルダガイドと同パターン)。V3 エディタ Sprint と一緒に入れてよい。",
+      "added_in": "design-discussion",
+      "reason": "発見性。小さい追加"
     }
   ]
 }

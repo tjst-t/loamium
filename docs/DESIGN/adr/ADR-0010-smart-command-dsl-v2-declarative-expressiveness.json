@@ -1,0 +1,35 @@
+{
+  "id": "ADR-0010",
+  "title": "スマートコマンド DSL v2 — 宣言的な範囲での表現力拡張(制御フローは持たない)",
+  "status": "accepted",
+  "date": "2026-07-12",
+  "context": "v1(ADR-0009)のスマートコマンドは『上から順に実行する線形の宣言的マクロ』で、IF/FOR・分岐・ステップ間データ受け渡し・計算式を持たない。ユーザーが実機で使い始め、表現力を上げたい要望が出た(例: 期限があるときだけ due 行、ステータスを選んで frontmatter に設定、選んだノートに見出し付き追記)。一方で、DESIGN_PRINCIPLES『シンプルさ > 汎用性』と forbidden『プラグイン API を作らない』があり、YAML の中に出来の悪いプログラミング言語を再発明するのは避けたい。\n\n議論の結果、制御フロー(ループ・サブルーチン)は入れず、宣言的なまま加算的に語彙を広げる方針で合意した。判断・分岐・繰り返しを要する『賢い』処理は将来の agent-run(AI 委譲)に切り分ける。run-command(コマンドからコマンド呼出)は、再帰リスク + when: と組み合わさると実質制御フロー言語化するため、agent-run と共にバックログへ退避した。",
+  "alternatives": [
+    {
+      "name": "本格的な IF/FOR 制御フロー DSL",
+      "tradeoff": "表現力最大だが YAML 内に言語を再発明。simplicity/no-plugin 原則と正面衝突。却下"
+    },
+    {
+      "name": "複雑処理はすべて agent-run に委譲(語彙は v1 のまま)",
+      "tradeoff": "原則的に綺麗だが、agent-run は Pi Agent 未マージで今使えず、決定的な条件付き・プロパティ設定まで LLM に投げるのは過剰。不足"
+    },
+    {
+      "name": "宣言的なまま語彙を加算拡張(採用)",
+      "tradeoff": "制御フロー言語化を避けつつ実用的な表現力を得る。step/param 表面積が増えエディタ・テストが比例して重くなる"
+    }
+  ],
+  "decision": "ADR-0009 のステップ・ユニオン/パラメータ/テンプレート記法を、制御フロー(ループ/サブルーチン/式評価)を持たない範囲で加算拡張する。具体的には:(1)全ステップ共通の when: {{param}} / when-not:(真偽・存在のみ、`==` 等の式評価は入れない)、(2)note-append に section? と create?(無ければ作る)を追加し追記位置を position: bottom|top|section に一般化(journal-append も同モデルへ寄せる)、(3)新ステップ prop-set(round-trip 安全な frontmatter プロパティ設定、既存 POST /notes/{path}/properties を再利用)と note-patch(text 置換、既存 POST /notes/{path}/patch を再利用)、(4)パラメータ型に select(+options)/ note(ノートピッカー)/ boolean / number を追加、(5)テンプレート記法に {{param|フォールバック}}・未定義変数→空文字・相対日付 {{date:+3d:FMT}} を追加。run-command と agent-run は本 ADR のスコープ外(バックログ)。すべて加算のみで v1 定義・実行・CLI を壊さない。",
+  "consequences": [
+    "+ 制御フローを持たずに実用的なワークフロー(条件付き行/ステップ、プロパティ設定、ノート指定追記)が宣言的に書ける",
+    "+ 正本は Markdown/YAML のまま。ピュア Markdown 原則・Obsidian 互換を維持(prop-set/note-patch も既存の round-trip 安全経路のみ)",
+    "+ 加算拡張なので既存コマンド・テスト・CLI は不変",
+    "- step 種別・param 型が増え、定義エディタ(ADR-0011)とテストの表面積が比例して増える。微妙な契約バグの混入リスク(表示名≠id 事例の教訓)に注意",
+    "- when: は唯一の条件性への譲歩。式評価を持たない(真偽・存在のみ)ことで『言語化』の一線を守る",
+    "- ループ・サブルーチン・AI 委譲が必要になったら、それは別の load-bearing 判断(run-command / agent-run は別 ADR)。本 ADR では持たない"
+  ],
+  "reversibility_cost": "medium",
+  "affects": ["packages/shared", "packages/server", "packages/cli", "packages/ui"],
+  "supersedes": null,
+  "superseded_by": null,
+  "notes": "run-command(再帰禁止・深さ1 で入れるかは別 ADR)と agent-run(Pi Agent 統合 + 非同期ジョブモデル、S5a66e4)はバックログ済み。実装はバックエンド(スキーマ/エンジン/CLI)を加算スライスで行い、その語彙を ADR-0011 のエディタが反映する。"
+}
