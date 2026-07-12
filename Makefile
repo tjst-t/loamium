@@ -21,7 +21,7 @@ export PATH := /usr/local/bin:$(PATH)
 API_PORT ?= 8202
 UI_PORT ?= 8203
 
-.PHONY: serve serve-ui stop test test-ui build lint verify clean samples
+.PHONY: serve serve-ui stop test test-ui build lint verify clean samples websearch
 
 # serve / serve-ui は起動前に対象ポートを掴んでいる LISTEN プロセスを解放する
 # (stale な .pid で kill しそこねた古いサーバーによる EADDRINUSE を防ぐ。
@@ -101,3 +101,9 @@ build:
 lint:
 	npm run lint --workspaces --if-present
 	npm run lint:tests --if-present
+
+# ローカル Web 検索アダプタ (ADR-0013 webSearch / API キー不要)。
+# agent.json の webSearch.endpoint (http://127.0.0.1:8765/search) が指す先。
+# フォアグラウンド起動 — 別ターミナルで動かしたまま Loamium を使う。
+websearch:
+	node dev-tools/websearch-adapter.mjs
