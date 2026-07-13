@@ -81,7 +81,8 @@ test('[AC-S11493d-2-1] right-tab-info が aria-selected=true かつ info-panel �
   await openApp(page);
 
   await expect(page.getByTestId('right-tab-info')).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByTestId('right-tab-claude')).toHaveAttribute('aria-selected', 'false');
+  // ターミナル (Claude) タブは ADR-0011 で撤去。2 つ目のタブは Agent。
+  await expect(page.getByTestId('right-tab-agent')).toHaveAttribute('aria-selected', 'false');
   await expect(page.getByTestId('info-panel')).toBeVisible();
 });
 
