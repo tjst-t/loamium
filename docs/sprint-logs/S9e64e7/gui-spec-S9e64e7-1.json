@@ -1,0 +1,131 @@
+{
+  "story_id": "S9e64e7-1",
+  "story_title": "定義エディタの検出 + スプリットシェル(左 YAML / 右ペイン枠)+ 保存",
+  "state_diagram": "stateDiagram-v2\n    [*] --> NormalEditor : 通常ノートを開く\n    [*] --> CommandEditor : commands/ 配下の loamium-command ノートを開く\n    NormalEditor --> NormalEditor : 編集・保存\n    NormalEditor --> CommandEditor : commands/ loamium-command ノートへ遷移\n    CommandEditor --> ValidState : YAML がスキーマを満たす\n    CommandEditor --> InvalidState : YAML がスキーマを満たさない\n    ValidState --> ValidState : YAML 編集(有効のまま)\n    ValidState --> InvalidState : YAML 編集(エラー発生)\n    ValidState --> Saved : 保存ボタン押下 → PUT /api/notes/{path}\n    Saved --> ValidState : 保存完了\n    InvalidState --> ValidState : YAML 修正(エラー解消)\n    InvalidState --> InvalidState : YAML 編集(エラー継続)\n    InvalidState --> SaveBlocked : 保存ボタン aria-disabled=true で押せない\n    SaveBlocked --> InvalidState : そのまま\n    CommandEditor --> NormalEditor : commands/ 外またはフロントマター無しノートへ遷移",
+  "scenarios": [
+    {
+      "name": "happy_path_detection_command_note",
+      "description": "commands/ 配下かつ loamium-command frontmatter を持つノートを開くと CommandEditor が表示され、通常の Editor は表示されない。",
+      "steps": [
+        "sidebar の tree-item[data-path='commands/create-todo.md'] をクリック",
+        "editor が非表示になる",
+        "command-editor が visible (data-testid='command-editor')",
+        "cmd-edit-yaml が visible (左ペイン: YAML/Markdown ソース CodeMirror)",
+        "cmd-edit-preview が visible (右ペイン枠)",
+        "エディタヘッダのブレッドクラムが 'commands / create-todo' を表示",
+        "save-status が data-state='saved'"
+      ]
+    },
+    {
+      "name": "happy_path_non_command_note_unchanged",
+      "description": "commands/ 配下でも loamium-command frontmatter を持たないノートは通常 Editor を表示する。",
+      "steps": [
+        "sidebar の tree-item[data-path='commands/readme.md'] をクリック(frontmatter に loamium-command なし)",
+        "command-editor が非表示",
+        "editor が visible(通常 CodeMirror エディタ)"
+      ]
+    },
+    {
+      "name": "happy_path_outside_commands_unchanged",
+      "description": "commands/ 外のノートは loamium-command frontmatter があっても CommandEditor を表示しない。",
+      "steps": [
+        "sidebar の tree-item[data-path='notes/my-command.md'] をクリック(commands/ 外)",
+        "command-editor が非表示",
+        "editor が visible"
+      ]
+    },
+    {
+      "name": "happy_path_save_valid",
+      "description": "有効な定義(ValidState)のとき保存ボタンが有効で押せ、PUT /api/notes/{path} で保存される。",
+      "steps": [
+        "commands/create-todo.md を開く",
+        "command-editor の cmd-edit-validation が data-valid='true'",
+        "cmd-edit-save が aria-disabled 属性なし(クリック可能)",
+        "cmd-edit-save をクリック",
+        "PUT /api/notes/commands%2Fcreate-todo.md が呼ばれる",
+        "save-status が data-state='saved' へ更新"
+      ]
+    },
+    {
+      "name": "edge_invalid_save_blocked",
+      "description": "YAML がスキーマエラーを持つとき保存ボタンが aria-disabled になりクリックしても PUT は呼ばれない。",
+      "steps": [
+        "commands/create-todo.md を開く",
+        "cmd-edit-yaml 内で steps[0].kind を 'agent-run'(未知の種別)に変更",
+        "cmd-edit-validation が data-valid='false' に更新される",
+        "cmd-edit-error が visible(エラー理由: 'steps.0.kind: Invalid discriminator value')",
+        "cmd-edit-save が aria-disabled='true'",
+        "cmd-edit-save をクリックしても PUT は呼ばれない",
+        "save-status が data-state='dirty'(未保存状態のまま)"
+      ]
+    },
+    {
+      "name": "edge_dirty_then_fix_enables_save",
+      "description": "エラー状態で編集してエラーを修正すると保存ボタンが再び有効になる。",
+      "steps": [
+        "無効 YAML の状態(cmd-edit-save aria-disabled='true')",
+        "cmd-edit-yaml 内で kind を 'journal-append' に修正",
+        "cmd-edit-validation が data-valid='true' に戻る",
+        "cmd-edit-error が非表示",
+        "cmd-edit-save から aria-disabled 属性が除去される",
+        "cmd-edit-save をクリックして保存成功"
+      ]
+    },
+    {
+      "name": "edge_no_steps_blocked",
+      "description": "steps 配列が空のとき(min(1) 違反)も保存ブロックされる。",
+      "steps": [
+        "commands/empty-steps.md を開く(steps: [] のコマンド定義)",
+        "cmd-edit-validation が data-valid='false'",
+        "cmd-edit-error に 'steps must have at least one step' が表示",
+        "cmd-edit-save が aria-disabled='true'"
+      ]
+    }
+  ],
+  "testid_contract": [
+    "command-editor — CommandEditor 全体コンテナ(split layout root)。commands/ loamium-command のときのみ描画、それ以外は editor を使用",
+    "command-editor-header — ブレッドクラム + save-status + cmd-mode-badge のヘッダバー",
+    "cmd-edit-yaml — 左ペイン: CodeMirror YAML/Markdown ソースエディタコンテナ(prototype V3 の split-pane 左側に対応)",
+    "cmd-edit-preview — 右ペイン枠コンテナ(Story 2 でコンテンツを追加。本 Story ではシェルのみ)",
+    "cmd-edit-validation — 右ペインのバリデーション結果要素。data-valid='true'|'false' で状態を識別",
+    "cmd-edit-error — エラー表示要素(バナー・バッジ)。cmd-edit-validation[data-valid='false'] と共存",
+    "cmd-edit-save — 保存ボタン。InvalidState では aria-disabled='true' + title='エラーを修正してください'",
+    "save-status — 保存状態インジケータ(既存)。data-state='saved'|'dirty'",
+    "cmd-mode-badge — 'スマートコマンド定義' バッジ(ヘッダ内)"
+  ],
+  "testid_notes": "command-editor は Editor コンポーネントの代替として App.tsx で条件分岐により描画される。既存 editor testid は非表示(hidden)ではなく未描画にする。cmd-edit-yaml / cmd-edit-preview / cmd-edit-validation / cmd-edit-error / cmd-edit-save は prototype/command-editor.html V3 の testid を踏襲(TESTIDS.md コマンドエディタ節の V3 行)。",
+  "endpoint_contracts": [
+    {
+      "path": "/api/notes/{path}",
+      "method": "PUT",
+      "registered": true,
+      "request_fields": {
+        "content": "string (YAML frontmatter + Markdown 本文を含む完全ソース)"
+      },
+      "response_fields": {
+        "path": "string",
+        "mtime": "number"
+      },
+      "notes": "既存 PUT /api/notes エンドポイントを再利用。CommandEditor から呼ぶ際の挙動変更なし。保存は InvalidState のとき呼び出さない(UI 側ブロック)。"
+    },
+    {
+      "path": "/api/notes/{path}",
+      "method": "GET",
+      "registered": true,
+      "notes": "ノートオープン時の既存ルートで frontmatter を受け取り、検出ロジックに使用。"
+    }
+  ],
+  "test_files": {
+    "mock": "packages/ui/tests/e2e/command-editor.mock.spec.ts",
+    "e2e": "packages/ui/tests/e2e/command-editor.e2e.spec.ts"
+  },
+  "prototype_paths": [
+    "prototype/command-editor.html"
+  ],
+  "files_expected": [
+    "packages/ui/src/components/CommandEditor.tsx (新規。split layout シェル: 左 cmd-edit-yaml / 右 cmd-edit-preview 枠 + ヘッダ + 保存ロジック)",
+    "packages/ui/src/App.tsx (既存。loadNote / setOpenDoc の frontmatter 受け取り後、isCommandNote(path, frontmatter) で分岐して CommandEditor を描画)",
+    "packages/ui/src/commandEditorUtils.ts (新規任意。isCommandNote(path, frontmatter): boolean — commands/ パス判定 + loamium-command キー存在確認)"
+  ],
+  "planning_notes": "検出条件: (1) path が 'commands/' で始まる, (2) frontmatter に 'loamium-command' キーが存在する — 両方を満たすとき CommandEditor を描画。journalDateOf(path) のパターンを踏襲した関数 isCommandNote(path, frontmatter) を App.tsx 内か commandEditorUtils.ts に定義する。YAML の live parse は Story 2 で追加するが、本 Story でも空の右ペイン枠と保存ブロックのための最低限バリデーション(parseLoamiumCommandWithError 呼び出し)が必要。S9e64e7-2 はこの CommandEditor シェルを拡張するため本 Story を先に完了させる。"
+}

@@ -1,0 +1,176 @@
+{
+  "story_id": "S9e64e7-3",
+  "story_title": "左ペインの補完(kind / フィールド雛形 / トークン / section・note・select)",
+  "state_diagram": "stateDiagram-v2\n    [*] --> Editing : cmd-edit-yaml でカーソル移動・入力\n    Editing --> KindCompletion : 'kind: ' の後ろにカーソル\n    KindCompletion --> KindSelected : 候補を選択\n    KindSelected --> ScaffoldInserted : kind に対応するフィールド雛形が自動挿入される\n    ScaffoldInserted --> Editing : 雛形内フィールドを続けて編集\n    Editing --> TokenCompletion : '{{' を入力\n    TokenCompletion --> ParamTokenSelected : 宣言 param 名候補を選択\n    TokenCompletion --> DateTokenSelected : 'date:' 候補を選択\n    TokenCompletion --> NowTokenSelected : 'now:' 候補を選択\n    TokenCompletion --> FallbackHinted : '|' を入力(fallback 構文ヒント)\n    ParamTokenSelected --> Editing : '}}' 補完で挿入完了\n    DateTokenSelected --> Editing : フォーマット雛形挿入\n    NowTokenSelected --> Editing : フォーマット雛形挿入\n    Editing --> SectionCompletion : section: の後ろにカーソル\n    SectionCompletion --> SectionSelected : 候補を選択\n    Editing --> NoteCompletion : target: の後ろにカーソル\n    NoteCompletion --> NoteSelected : vault ノートパスを選択\n    Editing --> SelectOptionsCompletion : options: リスト内にカーソル\n    SelectOptionsCompletion --> OptionSelected : 候補を選択\n    KindSelected --> Editing : 補完なし(手動入力を継続)",
+  "scenarios": [
+    {
+      "name": "happy_path_kind_completion",
+      "description": "'kind: ' の直後にカーソルを置くと 6 種の候補が表示される。",
+      "steps": [
+        "cmd-edit-yaml の steps ブロック内で '- kind: ' と入力してカーソルを末尾に置く",
+        "CodeMirror 補完ポップアップが表示される",
+        "'journal-append' / 'note-append' / 'note-create' / 'template-instantiate' / 'prop-set' / 'note-patch' の 6 候補がすべて visible",
+        "'journal-append' を選択(Enter または クリック)",
+        "'kind: journal-append' が挿入される"
+      ]
+    },
+    {
+      "name": "happy_path_kind_scaffold_journal_append",
+      "description": "kind: journal-append を選択すると残りフィールドの雛形が自動挿入される。",
+      "steps": [
+        "kind 補完から 'journal-append' を選択",
+        "次行以降に雛形が挿入される",
+        "content: '' のフィールドが挿入される(必須)",
+        "section: のフィールドが挿入される(コメントまたは省略可フィールドとして)",
+        "position: / open: のフィールドが挿入される(省略可)"
+      ]
+    },
+    {
+      "name": "happy_path_kind_scaffold_note_append",
+      "description": "kind: note-append を選択すると target/content/section?/create?/position? の雛形が挿入される。",
+      "steps": [
+        "kind 補完から 'note-append' を選択",
+        "'target: ' フィールドが挿入される",
+        "'content: ' フィールドが挿入される",
+        "'section: ' が省略可フィールドとして挿入される",
+        "'create: false' が省略可フィールドとして挿入される"
+      ]
+    },
+    {
+      "name": "happy_path_kind_scaffold_prop_set",
+      "description": "kind: prop-set を選択すると target/set/unset の雛形が挿入される。",
+      "steps": [
+        "kind 補完から 'prop-set' を選択",
+        "'target: ' フィールドが挿入される",
+        "'set:' セクションが雛形として挿入される",
+        "'unset: []' が省略可フィールドとして挿入される"
+      ]
+    },
+    {
+      "name": "happy_path_kind_scaffold_note_patch",
+      "description": "kind: note-patch を選択すると target/old/new の雛形が挿入される。",
+      "steps": [
+        "kind 補完から 'note-patch' を選択",
+        "'target: ' フィールドが挿入される",
+        "'old: ' フィールドが挿入される",
+        "'new: ' フィールドが挿入される"
+      ]
+    },
+    {
+      "name": "happy_path_token_param_completion",
+      "description": "content や target フィールドの値内で '{{' を入力すると定義済み param 名が補完される。",
+      "steps": [
+        "params に name: 'summary' と name: 'due' を定義した状態",
+        "content: 値内で '{{' を入力",
+        "補完ポップアップに 'summary' と 'due' が表示される",
+        "'summary' を選択",
+        "'{{summary}}' が挿入される(closing '}}' も補完)"
+      ]
+    },
+    {
+      "name": "happy_path_token_date_completion",
+      "description": "'{{' 後に 'date:' が補完候補として表示され、選択すると日付フォーマット雛形が挿入される。",
+      "steps": [
+        "content: 値内で '{{' を入力",
+        "補完候補に 'date:YYYY-MM-DD' が表示される",
+        "'date:' を選択",
+        "'{{date:YYYY-MM-DD}}' の雛形が挿入される"
+      ]
+    },
+    {
+      "name": "happy_path_token_now_completion",
+      "description": "'{{now:' が補完候補として表示され、選択すると 'now:HH:mm' 雛形が挿入される。",
+      "steps": [
+        "content: 値内で '{{' を入力",
+        "補完候補に 'now:HH:mm' が表示される",
+        "'now:' を選択",
+        "'{{now:HH:mm}}' の雛形が挿入される"
+      ]
+    },
+    {
+      "name": "happy_path_token_fallback",
+      "description": "'{{param|' と入力すると fallback 構文のヒントが表示される。",
+      "steps": [
+        "'{{summary|' と入力",
+        "補完ポップアップに '(フォールバック値を入力)' のヒントまたはスニペット候補が表示される",
+        "テキストを入力して '{{summary|デフォルト}}' を完成できる"
+      ]
+    },
+    {
+      "name": "happy_path_note_completion_target",
+      "description": "note-append / prop-set の target: フィールドで vault ノートパスが補完される。",
+      "steps": [
+        "note-append ステップの 'target: ' 後ろにカーソルを置く",
+        "補完ポップアップに vault 内ノートパス一覧が表示される(GET /api/notes から取得)",
+        "'projects/backlog.md' を選択",
+        "'target: projects/backlog.md' が挿入される"
+      ]
+    },
+    {
+      "name": "happy_path_section_completion",
+      "description": "journal-append / note-append の section: フィールドで補完候補が表示される。",
+      "steps": [
+        "section: の値位置にカーソルを置く",
+        "補完ポップアップに 'Todo' / 'Done' などの候補(定義済みまたは静的ヒント)が表示される",
+        "'Todo' を選択して 'section: Todo' が挿入される"
+      ]
+    },
+    {
+      "name": "happy_path_select_options_completion",
+      "description": "param type: select の options リスト内でインデントされた文字列候補が補完される。",
+      "steps": [
+        "params リストに type: select を持つ param を追加",
+        "options: の下でリストアイテムを入力し始める",
+        "補完候補(例: 既存 option 値のヒント or スニペット '- ')が表示される",
+        "オプション文字列を選択して '  - 優先度高' が挿入される"
+      ]
+    },
+    {
+      "name": "edge_completion_no_params_defined",
+      "description": "params が未定義のとき '{{' 補完では date:/now: トークンのみ表示(param 名は空)。",
+      "steps": [
+        "params: [] のコマンド定義(または params キーなし)",
+        "content: 値内で '{{' を入力",
+        "補完候補に 'date:YYYY-MM-DD' と 'now:HH:mm' のみ表示",
+        "param 名候補は 0 件"
+      ]
+    },
+    {
+      "name": "edge_kind_completion_only_valid_kinds",
+      "description": "補完は DSL v2 の 6 種のみを提示し、'agent-run' や 'run-command' は含まない。",
+      "steps": [
+        "kind: の補完候補を確認",
+        "'agent-run' が候補に存在しない",
+        "'run-command' が候補に存在しない",
+        "6 種のみが候補"
+      ]
+    }
+  ],
+  "testid_contract": [
+    "cmd-edit-yaml — Story 1 で定義。本 Story では CodeMirror 補完ソース(Extension)を追加する。testid 自体は変わらないが、内部の CodeMirror インスタンスに补完ソースが追加される",
+    "cmd-edit-yaml-completion-popup — (テスト補助用) CodeMirror の autocompletion ポップアップ。Playwright では .cm-tooltip-autocomplete でも参照可能。補完候補の存在確認に使用",
+    "cmd-edit-yaml-completion-option[data-label] — (テスト補助用) 補完候補の各項目。data-label 属性で候補テキストを識別。Playwright テストでは .cm-completionLabel テキストで確認することが多い"
+  ],
+  "testid_notes": "補完 UI は CodeMirror の autocompletion 拡張が描画するため、独自 data-testid は最小限(ポップアップコンテナのみ)。Playwright テストでは .cm-tooltip-autocomplete / .cm-completionLabel セレクタと組み合わせてアサートする。cmd-edit-yaml testid は Story 1 から継続。補完の正確さは mock テストで CodeMirror の completionSource 関数を直接ユニットテスト形式で確認することも可(Vitest)。",
+  "endpoint_contracts": [
+    {
+      "path": "/api/notes",
+      "method": "GET",
+      "registered": true,
+      "notes": "target: フィールドの vault ノート補完用。既存エンドポイントを再利用。NoteListResponse の notes[].path リストを補完候補として使用する。補完ソースは CommandEditor マウント時に一度フェッチしキャッシュする。"
+    }
+  ],
+  "test_files": {
+    "mock": "packages/ui/tests/e2e/command-editor-completion.mock.spec.ts",
+    "e2e": "packages/ui/tests/e2e/command-editor.e2e.spec.ts"
+  },
+  "prototype_paths": [
+    "prototype/command-editor.html"
+  ],
+  "files_expected": [
+    "packages/ui/src/components/CommandEditor.tsx (S9e64e7-1/-2 で作成済み。CodeMirror に commandDslCompletionSource を Extension として追加)",
+    "packages/ui/src/commandDslCompletion.ts (新規。CodeMirror の CompletionSource 関数群: kindCompletionSource / tokenCompletionSource(param名+date/now) / noteTargetCompletionSource / sectionCompletionSource / selectOptionsCompletionSource。DSL v2 語彙(ADR-0010)に追従)",
+    "packages/ui/src/api.ts (既存 listNotes メソッドを流用 or noteTargetCompletion 用に呼び出し追加)"
+  ],
+  "planning_notes": "S9e64e7-1/-2 完了後に着手(CompletionSource が CommandEditor の CodeMirror インスタンスに依存)。補完ソースは CodeMirror の CompletionSource 型に従った関数群を commandDslCompletion.ts に集約する。kind 補完はカーソル前の YAML コンテキストが 'kind: ' で終わるかを正規表現で判定する(簡易パーサで十分; lezer-markdown の全 AST 解析は過剰)。token 補完の param 名は親コンポーネントから CompletionSource に DI するか EditorView の stateField として持たせる(後者推奨)。vault ノート補完はマウント時に GET /api/notes を 1 回呼びキャッシュ(エラーは補完なしにフォールバック)。section 補完は静的ヒント(Todo/Done/Notes/Tasks 等)で実装し、ユーザーが自由入力できることを妨げない。Story 3 の mock テストは command-editor-completion.mock.spec.ts として分離し、补完ソース関数を直接テストする(Playwright の autocompletion ポップアップ操作は不安定になりやすいため Vitest ユニットテストとの併用を推奨)。"
+}
