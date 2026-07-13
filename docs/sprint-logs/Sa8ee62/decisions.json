@@ -1,0 +1,42 @@
+[
+  {
+    "decision": "MD→HTML レンダラは `marked` ライブラリを採用する",
+    "rationale": "プロジェクトルートの node_modules に `marked` が既にインストールされており (UUID v1228 chromium ビルドの間接依存)、`marked('# hello')` が動作することを確認済み。サーバー側 (packages/server) には現時点で Markdown→HTML の変換ロジックが存在しない。UI 側の mini-md.ts (renderers/mini-md.ts) と CodeMirror/lezer-markdown は DOM ベースの client-side レンダラーであり、Node.js サーバーからは使用不可。`marked` は純粋なテキスト変換 (Markdown→HTML 文字列) を提供し、GFM (GitHub Flavored Markdown) 対応を含む。new Renderer() でカスタマイズ可能。ピュア Markdown 原則に違反しない (変換は読み取り専用の派生物生成であり vault へ書き戻さない)。",
+    "reference": "ADR-0006 (docs/DESIGN/adr/ADR-0006-server-side-pdf-html-export.json): 変換責務はサーバーの単一パイプラインに置く"
+  },
+  {
+    "decision": "エクスポート対象の Markdown 構文で `marked` がそのまま描画する要素",
+    "rationale": "見出し・段落・太字/斜体・インラインコード・コードフェンス・箇条書き・番号リスト・引用・表 (GFM table) はすべて marked の標準機能でカバーされる。[[WikiLink]] は marked 出力では `[[...]]` のプレーンテキスト表示になるが、エクスポート用途では他アプリでの可読性より内容忠実性を優先する。",
+    "reference": "DESIGN_PRINCIPLES: priority 1 (ピュア Markdown), priority 5 (シンプルさ)"
+  },
+  {
+    "decision": "エクスポートで描画を省略 (defer) する構文",
+    "rationale": "以下の構文はエクスポート時に最低限の表示 (ソース文字列表示またはフォールバック) にとどめ、フル実装は将来の拡張とする: (1) mermaid フェンス — 図ではなくソースコードブロックとして出力 (サーバー側で mermaid CLI を実行する必要があるため); (2) KaTeX/数式 ($...$ / $$...$$) — ソーステキストとして出力 (Node.js で katex.renderToString が利用可能だが scope 外); (3) Shiki コードハイライト — 素のコードブロックとして出力; (4) ![[embed]] transclusion — プレーンテキスト ![[...]] として出力 (再帰 API 呼び出しが複雑になるため); (5) callout (> [!note] 等) — 標準 blockquote として出力 (スタイルは CSS で補助的に対応可能); (6) ==highlight== — プレーンテキストとして出力。これらの省略は decisions.json に明記し、将来の拡張で個別に対応する。",
+    "reference": "ADR-0006: 変換パイプラインを段階的に拡張可能にする設計"
+  },
+  {
+    "decision": "playwright を @loamium/server の dependencies に追加する",
+    "rationale": "playwright は現在 @loamium/ui の devDependencies (@playwright/test ^1.61.0) にのみ存在する。サーバーが headless Chromium で PDF を生成するには playwright (または playwright-core) が @loamium/server の runtime dependency として必要。`playwright` パッケージはルート node_modules に存在し (require('playwright') が成功し chromium.executablePath() が /home/ubuntu/.cache/ms-playwright/chromium-1228/chrome-linux64/chrome を返す)。packages/server/package.json の dependencies に 'playwright': '*' を追加し、既存のインストール済みバイナリを使う。",
+    "reference": "ADR-0006: headless Chromium (playwright/puppeteer 等) を採用する"
+  },
+  {
+    "decision": "playwright 起動オプション: headless=true、--no-sandbox、--disable-setuid-sandbox を適用する",
+    "rationale": "この Linux コンテナ環境は root で動作している可能性があり、Chromium のデフォルトサンドボックスが起動失敗する場合がある。chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] }) を標準オプションとして使用する。page.setContent(html, {waitUntil: 'networkidle'}) でリソース読み込みを待ってから page.pdf() を呼ぶ。",
+    "reference": "ADR-0006: サーバー実行環境で Chromium が動く前提"
+  },
+  {
+    "decision": "export ルートは GET /api/notes/{path}/export の形式とし、/meta ブランチと同方針でハンドラ内に記述する",
+    "rationale": "Hono の wildcard は末尾固定サフィックスの先行マッチができないため、既存の /meta (S11493d-1) と同様に GET /api/notes/* ハンドラ内で rawPath.endsWith('/export') を判定する方式とする。format クエリパラメータ (pdf|html) で出力形式を選択し、不正値は 400 を返す。",
+    "reference": "packages/server/src/routes/notes.ts (GET /api/notes/*): /meta ブランチの実装パターン"
+  },
+  {
+    "decision": "export API の呼び出しは監査ログに記録する",
+    "rationale": "AC-Sa8ee62-1-2 に明示。エクスポートはノートを読み取るだけだが、どの成果物が生成されたかの追跡は audit.log 方針 (Sd63ad1-3) に準拠して記録する。audit アクション名: 'note.export'。",
+    "reference": "AC-Sa8ee62-1-2, packages/server/src/audit.ts"
+  },
+  {
+    "decision": "Sa8ee62-2 の scope: action-export-pdf ボタンの disabled を外して export API 呼び出し + ブラウザダウンロードに配線する。Copy 系は既に動作中",
+    "rationale": "InfoPanel.tsx の ActionsMenu コンポーネントには action-export-pdf が disabled かつ onClick={close} のみ実装されており、action-copy-link / action-copy-path は既に動作している。Sa8ee62-2 で必要な変更は: (1) disabled 属性の除去、(2) handleExportPdf ハンドラの実装 (GET /api/notes/{path}/export?format=pdf を Blob で取得 → a.href=URL.createObjectURL → 自動クリック → download トリガー)、(3) 対応テストの追加。",
+    "reference": "packages/ui/src/components/InfoPanel.tsx (ActionsMenu): action-export-pdf が disabled のまま"
+  }
+]

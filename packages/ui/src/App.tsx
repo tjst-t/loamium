@@ -36,6 +36,7 @@ import {
   type Route,
   type SearchParams,
 } from './router.js';
+import { makeTagClickHandler } from './tag-click.js';
 import { BookmarkStar } from './components/BookmarkStar.js';
 import { Editor } from './components/Editor.js';
 import { FilePreview } from './components/FilePreview.js';
@@ -560,6 +561,13 @@ export function App(): JSX.Element {
     },
     [applyHistory, saveNow],
   );
+
+  /**
+   * タグクリック共通ハンドラ (S11493d-4)。
+   * InfoPanel / properties.ts / dataview.ts / table.ts / Editor(onOpenTag) へ注入する。
+   * openSearch を一度だけラップして作成 (openSearch が変わるたびに再生成される)。
+   */
+  const handleTagClick = useCallback(makeTagClickHandler(openSearch), [openSearch]);
 
   /**
    * 添付ファイルのプレビューを開く (Sf53ad6-2: ツリーの tree-file クリック)。
@@ -1473,7 +1481,7 @@ export function App(): JSX.Element {
             onOpenNoteAtLine={(path, line) => void openNoteAtLine(path, line)}
             onCreateAndOpenNote={(target) => void createNoteFromLink(target, true)}
             onCreateNote={(target) => void createNoteFromLink(target, false)}
-            onOpenTag={(tag) => openSearch({ q: '', tag, folder: '', sort: 'updated' })}
+            onOpenTag={handleTagClick}
             onUploadFiles={uploadFiles}
             onDragActive={setDragActive}
           />
@@ -1551,12 +1559,21 @@ export function App(): JSX.Element {
         )}
       </main>
 
-      {/* ================= 右: サイドバー (バックリンク) ================= */}
-      {/* /search では非表示 (AC-Sa629e2-3-3)。unmount しない — スクロール位置維持 */}
+      {/* ================= 右: サイドバー (インフォ | Agent) ================= */}
+      {/* /search では非表示 (AC-Sa629e2-3-3)。unmount しない — セッション/スクロール維持 */}
       <RightSidebar
         notePath={route.kind === 'note' ? (doc?.path ?? null) : null}
         refreshToken={backlinksToken}
         onOpenNote={(path) => void openNotePath(path)}
+        onJumpToLine={(line) => {
+          // 現在のノートの指定行へジャンプ (Outline クリック)。
+          // 別ノートへは遷移しない — 常に開いているノート内スクロール。
+          if (doc !== null) {
+            seekCounterRef.current += 1;
+            setSeek({ line, token: seekCounterRef.current });
+          }
+        }}
+        onSearchTag={handleTagClick}
         hidden={route.kind === 'search'}
         notes={notes}
       />

@@ -1,7 +1,7 @@
 {
   "id": "ADR-0002",
   "title": "スマートフォルダ定義は永続・Git 追跡される設定とする(『.loamium は使い捨て』の明示的例外)",
-  "status": "accepted",
+  "status": "superseded",
   "date": "2026-07-07",
   "context": "DESIGN_PRINCIPLES priority 6 と VISION は、.loamium/ をインデックスキャッシュ等の『使い捨て(消しても安全)・.gitignore』領域と定義している(.gitignore:8 で .loamium/ を無視)。しかしスマートフォルダ定義は再構築不能なユーザー設定であり、失うと保存したビューが消える。ユーザーはこれを vault と一緒に(clone / 別マシンへ)持ち運びたい可能性がある。\n\n既に property-types(.loamium/property-types.json)が『使い捨てでない設定』を .loamium 配下に置く前例を作っており、原則との緊張は顕在化している。スマートフォルダ定義の保存先と Git 同期可否を明示的に決める必要がある。",
   "alternatives": [
@@ -38,6 +38,6 @@
     "docs"
   ],
   "supersedes": null,
-  "superseded_by": null,
-  "notes": "破損 JSON の扱いは property-types の寛容パターンを踏襲(パース失敗→空にフォールバック + stderr ログ、アプリは落とさない)。ただしスキーマ検証は zod で行い UI にエラーを返せるようにする。"
+  "superseded_by": "ADR-0010",
+  "notes": "ADR-0010 により supersede。スマートフォルダ定義は .loamium/smart-folders.json ではなく system/smart-folders/*.md(per-file の Markdown + order: frontmatter)へ移行し、.loamium は純キャッシュへ戻る。以下は当時の記録。破損 JSON の扱いは property-types の寛容パターンを踏襲(パース失敗→空にフォールバック + stderr ログ、アプリは落とさない)。ただしスキーマ検証は zod で行い UI にエラーを返せるようにする。"
 }

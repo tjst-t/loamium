@@ -31,6 +31,28 @@ export async function installCatchAll(page: Page): Promise<string[]> {
     const url = new URL(route.request().url());
     void route.fulfill(json({ path: url.searchParams.get('path') ?? '', backlinks: [] }));
   });
+  // GET /api/notes/{path}/meta (S11493d-1/2 インフォパネル) も定常呼び出し。
+  // 既定は空のメタで応答する。メタを検証するテストは後から自前の route で上書きする。
+  // NOTE: path には '/' が含まれる (例: journals/2026-07-10.md) のため ** を使う。
+  await page.route('**/api/notes/**/meta', (route) => {
+    const url = new URL(route.request().url());
+    const segments = url.pathname.split('/');
+    // /api/notes/{path}/meta → path は segments[3..-2] を '/' で結合
+    const pathParts = segments.slice(3, -1).map(decodeURIComponent);
+    const notePath = pathParts.join('/');
+    void route.fulfill(
+      json({
+        path: notePath,
+        headings: [],
+        outgoingLinks: [],
+        tags: [],
+        frontmatter: null,
+        mtime: Date.now(),
+        wordCount: 0,
+        charCount: 0,
+      }),
+    );
+  });
   // GET /api/files (添付一覧) も起動時の定常呼び出し (Sf53ad6-2 ツリー)。既定は空。
   // 末尾スラッシュ無しの一覧 URL のみ対象 (/api/files/{path} 配信には効かない)。
   await page.route('**/api/files', (route) => {

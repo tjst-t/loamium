@@ -3,8 +3,8 @@
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
     "current_sprint": null,
-    "total": 35,
-    "done": 34,
+    "total": 37,
+    "done": 36,
     "in_progress": 0,
     "remaining": 1,
     "percentage": 97
@@ -39,6 +39,8 @@
     "S8086d9",
     "S7b2f22",
     "Sebf6b0",
+    "S11493d",
+    "Sa8ee62",
     "S53409d",
     "S10a31c",
     "Sf4ee2f",
@@ -3544,6 +3546,287 @@
           }
         }
       }
+    },
+    "S11493d": {
+      "title": "インフォパネル (Tier 1) — 右サイドバーの情報化",
+      "status": "done",
+      "description": "右サイドバーの「バックリンク」タブを「インフォ」に格上げし、Outline / Properties / Outgoing links / Tags / メタ情報の折りたたみセクションを積む。ノートメタ集約 API を追加する。",
+      "milestone": false,
+      "stories": {
+        "S11493d-1": {
+          "title": "ノートメタ集約 API (REST + CLI)",
+          "status": "done",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "エージェント/UI 利用者として、開いているノートのメタ情報(見出しツリー・アウトゴーイングリンクの解決状況・タグ・frontmatter・更新日時・単語数)を 1 リクエストで取得したい。なぜなら、右パネルの各セクションを個別 API 往復なしに描画し、CLI からも同じ情報を得たいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S11493d-1-1",
+              "description": "GET /api/notes/{path}/meta が {headings[], outgoingLinks[]{target, resolvedPath|null, raw}, tags[], frontmatter, mtime, wordCount, charCount} を返す。zod で検証し型を packages/shared で共有する。",
+              "test": "[AC-S11493d-1-1] in tests/acceptance/note-meta.spec.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-S11493d-1-2",
+              "description": "CLI `loamium note-meta <path>` が同じ内容を出力する(REST/CLI 1:1 原則)。",
+              "test": "[AC-S11493d-1-2] in tests/acceptance/note-meta.spec.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-S11493d-1-3",
+              "description": "見出し抽出・リンク解決(未解決は resolvedPath=null)・単語数/文字数カウントに packages/shared のユニットテストを付ける。コードフェンス内の # 見出しや [[..]] は集計から除外する。",
+              "test": "[AC-S11493d-1-3] in packages/shared/src/noteMeta.test.ts",
+              "status": "pass"
+            }
+          ],
+          "tasks": {
+            "S11493d-1-t1": {
+              "title": "shared: 見出しツリー/語数/リンク解決の抽出関数",
+              "description": "既存 extractLinks/extractTags/resolveLinkTarget を再利用し、headings と wordCount を追加。フェンス内除外。",
+              "status": "done"
+            },
+            "S11493d-1-t2": {
+              "title": "server: GET /api/notes/{path}/meta 実装",
+              "description": "VaultIndex から meta を集約し zod スキーマで返す。read 分類。",
+              "status": "done"
+            },
+            "S11493d-1-t3": {
+              "title": "cli: note-meta コマンド + shared 型",
+              "description": "REST を叩く薄いラッパー。SKILL 用例と doc-drift 追従。",
+              "status": "done"
+            }
+          }
+        },
+        "S11493d-2": {
+          "title": "インフォタブ格上げ + 基本セクション (Outline/Properties/Tags/メタ情報)",
+          "status": "done",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、右サイドバーで開いているノートの目次・プロパティ・タグ・メタ情報を折りたたみセクションで一覧したい。なぜなら、ノートの構造と素性をエディタから離れず把握したいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S11493d-2-1",
+              "description": "右サイドバーのタブが「インフォ | Claude」になり(旧「バックリンク」を「インフォ」に格上げ)、インフォタブに折りたたみ可能なセクション(Outline / Properties / Tags / メタ情報)が積まれる。",
+              "test": "[AC-S11493d-2-1] in packages/ui/tests/e2e/info-panel.e2e.spec.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-S11493d-2-2",
+              "description": "Outline は見出しツリーを表示しクリックで該当行へ移動。Properties は frontmatter を key-value 表示するが tags キーは除外する(タグは専用 Tags セクションが frontmatter+本文 #tag を集約して担う)。Tags はチップ表示、メタ情報は単語数・文字数・更新日時を表示する。",
+              "test": "[AC-S11493d-2-2] in packages/ui/tests/e2e/info-panel.e2e.spec.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-S11493d-2-3",
+              "description": "mock テスト(空ノート/大量見出し/frontmatter 無し等のエッジ)と e2e テスト(実サーバーの meta API から描画・Outline ジャンプ・Tags クリック遷移)を用意する。",
+              "test": "[AC-S11493d-2-3] in packages/ui/tests/e2e/info-panel.mock.spec.ts",
+              "status": "pass"
+            }
+          ],
+          "tasks": {
+            "S11493d-2-t1": {
+              "title": "RightSidebar をタブ格上げ + セクション枠",
+              "description": "seg-toggle を インフォ|Claude に。折りたたみセクションコンポーネント。",
+              "status": "done"
+            },
+            "S11493d-2-t2": {
+              "title": "Outline/Properties/Tags/メタ情報 セクション実装",
+              "description": "meta API を購読して描画。Outline ジャンプは CodeMirror へスクロール。",
+              "status": "done"
+            },
+            "S11493d-2-t3": {
+              "title": "mock + e2e テスト",
+              "description": "エッジは mock、AC は e2e。",
+              "status": "done"
+            }
+          }
+        },
+        "S11493d-3": {
+          "title": "Outgoing links セクション + 既存バックリンクの統合",
+          "status": "done",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、このノートが張るリンク(未解決を区別)と、このノートへのバックリンクを同じインフォパネル内で見たい。なぜなら、リンクの行き先と参照元を 1 か所で辿りたいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S11493d-3-1",
+              "description": "Outgoing links セクションが meta API の outgoingLinks を表示し、未解決リンク(resolvedPath=null)を別スタイルで区別する。解決済みはクリックで該当ノートを開く。",
+              "test": "[AC-S11493d-3-1] in packages/ui/tests/e2e/info-panel.e2e.spec.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-S11493d-3-2",
+              "description": "既存のバックリンク表示をインフォパネル内の 1 セクションとして統合し、件数バッジはインフォタブに維持する。Claude タブと xterm セッションは従来どおり不変。",
+              "test": "[AC-S11493d-3-2] in packages/ui/tests/e2e/info-panel.e2e.spec.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-S11493d-3-3",
+              "description": "mock(未解決リンクの区別表示・バッジ件数)と e2e(未解決/解決の描画、バックリンク click→open、バッジ)を用意する。",
+              "test": "[AC-S11493d-3-3] in packages/ui/tests/e2e/info-panel.mock.spec.ts",
+              "status": "pass"
+            }
+          ],
+          "tasks": {
+            "S11493d-3-t1": {
+              "title": "Outgoing links セクション",
+              "description": "未解決を別スタイル。解決済みは onOpenNote。",
+              "status": "done"
+            },
+            "S11493d-3-t2": {
+              "title": "既存バックリンクをセクション化して統合",
+              "description": "現行 backlink-panel をインフォ内へ移設。バッジ維持・Claude 不変。",
+              "status": "done"
+            },
+            "S11493d-3-t3": {
+              "title": "mock + e2e テスト追従",
+              "description": "",
+              "status": "done"
+            }
+          }
+        },
+        "S11493d-4": {
+          "title": "タグクリック → タグ検索の全表示箇所への統一",
+          "status": "done",
+          "user_review_required": false,
+          "review_reason": null,
+          "added_in": "prototype-review",
+          "user_story": "ノート利用者として、アプリ内でタグを表示するどの場所でも、クリックすれば詳細検索(/search)のそのタグでの結果に遷移したい。なぜなら、タグからのノート回遊を一貫した操作で行いたいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S11493d-4-1",
+              "description": "タグクリックで /search?tag=<タグ> へ遷移する共有ハンドラを用意し、タグを表示する全 UI 箇所に適用する:インフォパネル Tags セクション / frontmatter プロパティ描画の tags チップ / dataview の tag チップ / テーブルセルのタグ / エディタ内インライン #tag(既存 onOpenTag を踏襲し統一)。",
+              "test": "[AC-S11493d-4-1] in packages/ui/tests/e2e/tag-navigation.e2e.spec.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-S11493d-4-2",
+              "description": "遷移先の詳細検索ページがその tag でフィルタした結果を表示し、URL クエリに tag が同期する(既存 openSearch / SearchParams / /search?tag= を利用)。",
+              "test": "[AC-S11493d-4-2] in packages/ui/tests/e2e/tag-navigation.e2e.spec.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-S11493d-4-3",
+              "description": "代表箇所(プロパティ tags チップ・dataview tag・インフォパネル Tags)のクリック→ /search?tag=... 遷移と結果反映を e2e で検証する。CodeMirror 内インライン #tag が実装制約で対象外になる場合は decisions.json に記録する。",
+              "test": "[AC-S11493d-4-3] in packages/ui/tests/e2e/tag-navigation.mock.spec.ts",
+              "status": "pass"
+            }
+          ],
+          "tasks": {
+            "S11493d-4-t1": {
+              "title": "共有タグクリックハンドラの抽出",
+              "description": "openSearch({q:'',tag,folder:'',sort:'updated'}) を単一ヘルパに集約し UI 全体で再利用。",
+              "status": "done"
+            },
+            "S11493d-4-t2": {
+              "title": "各タグ描画箇所へ適用",
+              "description": "properties/dataview/table 描画のタグチップ、インフォパネル Tags、エディタ inline #tag を共有ハンドラへ配線。",
+              "status": "done"
+            },
+            "S11493d-4-t3": {
+              "title": "e2e/mock テスト",
+              "description": "代表箇所のクリック→/search?tag= 遷移と結果反映。",
+              "status": "done"
+            }
+          }
+        }
+      }
+    },
+    "Sa8ee62": {
+      "title": "ノートエクスポート (PDF/HTML) — ADR-0001",
+      "status": "done",
+      "description": "サーバー側の単一パイプラインで Markdown→HTML→PDF を生成(ADR-0001 準拠・headless Chromium)。REST と CLI が 1:1 で共有し、右パネルの ⋯ アクションメニューから PDF を出力する。",
+      "milestone": true,
+      "stories": {
+        "Sa8ee62-1": {
+          "title": "サーバー側エクスポートパイプライン (REST + CLI)",
+          "status": "done",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート/エージェント利用者として、ノートを PDF・HTML に書き出したい。なぜなら、清書した成果物を共有・印刷したいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sa8ee62-1-1",
+              "description": "GET /api/notes/{path}/export?format=pdf|html がサーバー側の単一パイプライン(Markdown→HTML→PDF)で成果物を返す(ADR-0001。PDF は headless Chromium)。format 既定 pdf、不正 format は 400。",
+              "test": "[AC-Sa8ee62-1-1] in tests/acceptance/export.spec.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-Sa8ee62-1-2",
+              "description": "CLI `loamium export <path> --format pdf|html -o <out>` が同じパイプラインで成果物を書き出す(REST/CLI 1:1)。export 実行は .loamium/audit.log に記録する。",
+              "test": "[AC-Sa8ee62-1-2] in tests/acceptance/export.spec.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-Sa8ee62-1-3",
+              "description": "HTML 出力は決定論的でユニットテストで内容を検証。PDF は %PDF- マジックバイトと非空サイズを検証する統合テスト。正本 Markdown へは一切書き戻さない(ピュア Markdown 原則)。",
+              "test": "[AC-Sa8ee62-1-3] in tests/acceptance/export.spec.ts",
+              "status": "pass"
+            }
+          ],
+          "tasks": {
+            "Sa8ee62-1-t1": {
+              "title": "Markdown→HTML レンダラ(テーマ CSS)",
+              "description": "既存パーサ資産を使い決定論的 HTML を生成。",
+              "status": "done"
+            },
+            "Sa8ee62-1-t2": {
+              "title": "HTML→PDF(headless Chromium)",
+              "description": "ADR-0001。レンダラ実体(playwright 等)選定は run のローカル判断。CI 不可なら HTML 先行・PDF 後続。",
+              "status": "done"
+            },
+            "Sa8ee62-1-t3": {
+              "title": "REST /export + CLI export + audit",
+              "description": "format バリデーション、1:1、監査ログ、テスト。",
+              "status": "done"
+            }
+          }
+        },
+        "Sa8ee62-2": {
+          "title": "⋯ アクションメニュー(エクスポート / リンクコピー)",
+          "status": "done",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート利用者として、右パネルの ⋯ メニューから PDF エクスポートやリンクコピーをしたい。なぜなら、開いているノートに対する操作をその場で完結させたいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sa8ee62-2-1",
+              "description": "右パネル(インフォ)ヘッダに ⋯ メニューがあり、PDF エクスポート / Copy link([[title]]) / Copy path を選べる。",
+              "test": "[AC-Sa8ee62-2-1] in packages/ui/tests/e2e/export-menu.e2e.spec.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-Sa8ee62-2-2",
+              "description": "PDF エクスポートは export API を叩き成果物をダウンロード(ブラウザ保存)する。Copy 系はクリップボードへ書き込む。",
+              "test": "[AC-Sa8ee62-2-2] in packages/ui/tests/e2e/export-menu.e2e.spec.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-Sa8ee62-2-3",
+              "description": "mock(メニュー開閉・各項目の API/clipboard 呼び出し)と e2e(実サーバーで PDF エクスポートが 200 で PDF を返す)を用意する。",
+              "test": "[AC-Sa8ee62-2-3] in packages/ui/tests/e2e/export-menu.mock.spec.ts",
+              "status": "pass"
+            }
+          ],
+          "tasks": {
+            "Sa8ee62-2-t1": {
+              "title": "⋯ メニュー UI",
+              "description": "インフォパネルヘッダにメニュー。項目とハンドラ。",
+              "status": "done"
+            },
+            "Sa8ee62-2-t2": {
+              "title": "エクスポート/コピー配線",
+              "description": "export API ダウンロード、clipboard 書込。",
+              "status": "done"
+            },
+            "Sa8ee62-2-t3": {
+              "title": "mock + e2e テスト",
+              "description": "",
+              "status": "done"
+            }
+          }
+        }
+      }
     }
   },
   "dependencies": {
@@ -3753,6 +4036,18 @@
         "S5bd678"
       ],
       "reason": "web は S5bd678 のケーパビリティ権限モデルに乗る"
+    },
+    "S11493d": {
+      "depends_on": [
+        "Sf1a90a"
+      ],
+      "reason": "右サイドバー(Sf1a90a)のシェルと既存バックリンク表示を拡張してインフォパネル化する"
+    },
+    "Sa8ee62": {
+      "depends_on": [
+        "S11493d"
+      ],
+      "reason": "エクスポートの ⋯ アクションメニューは S11493d のインフォパネルヘッダに載る。ADR-0001(サーバー側エクスポート)準拠"
     }
   },
   "backlog": [
@@ -3842,6 +4137,13 @@
       "description": "permissionMiddleware が /api/agent/* の POST を mutate 分類で 403 にするため、LOAMIUM_MODE=read-only/append-only ではエージェントの session 作成・メッセージ送信ができない(既存 agent-session-delete.spec.ts が 403 を pin)。ケーパビリティ clamp(read-only→{read,web})は導出レベルで正しいが、restricted mode で read-only エージェントを実稼働させるには control-plane(session/message/abort/delete)を vault-write mode ゲートから分離する設計判断が要る。",
       "added_in": "S5bd678",
       "reason": "S5bd678-1 実装中に表面化(ADR-0015 の AND 意図と既存 middleware の緊張)。既存 pin を壊さないため本スプリントでは非変更",
+      "status": "pending"
+    },
+    {
+      "title": "real-server acceptance specs の直列化 (parallel port 競合の flake 解消)",
+      "description": "terminal/health 等の実サーバー acceptance spec が vitest 並列実行下でポート競合し非決定的に flake する(--no-file-parallelism では 647/647 green)。実サーバー spec を直列化するか poolOptions で隔離する。",
+      "added_in": "S11493d verify",
+      "reason": "テストインフラ債務。S11493d のコードとは無関係",
       "status": "pending"
     }
   ]

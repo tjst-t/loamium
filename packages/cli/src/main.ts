@@ -23,13 +23,14 @@
  *   smart-folders                        GET    /api/smart-folders (定義一式取得)
  *   smart-folders set <json-file>        PUT    /api/smart-folders (定義全置換)
  *   smart-folder <id>                    GET    /api/smart-folders/{id}/notes (解決)
+ *   note-meta <path>                     GET    /api/notes/{path}/meta (ノートメタ集約)
  *
  * 出力規約 (AC-S0c9a48-1-2):
  * - 成功: exit 0、結果を stdout へ。--json で API レスポンスの生 JSON をそのまま出す
  * - 失敗: 非 0 exit、stderr に 1 行 JSON {"error","message"} (機械可読 + 人間可読 message)
  *   exit 1 = API / 接続エラー、exit 2 = 使い方エラー (引数不足・不明コマンド等)
  */
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { Command, CommanderError } from 'commander';
 import {
@@ -44,6 +45,7 @@ import {
   noteRenameResponseSchema,
   noteResponseSchema,
   noteWriteResponseSchema,
+  noteMetaResponseSchema,
   parsePropInput,
   queryResponseSchema,
   searchResponseSchema,
@@ -511,6 +513,70 @@ function buildProgram(): Command {
         }
       });
     });
+
+  // ---- ノートメタ集約 (S11493d-1) ----
+
+  // note-meta <path> (GET /api/notes/{path}/meta)
+  sub('note-meta', 'ノートのメタ情報 (見出し・リンク・タグ・字数) を取得する (GET /api/notes/{path}/meta)')
+    .argument('<path>', 'vault 相対パス (例: projects/hydra.md)')
+    .action(async (path: string, opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, `/api/notes/${encodeNotePath(path)}/meta`);
+      output(opts, result, () => {
+        const res = parseAs(result, noteMetaResponseSchema, 'note-meta');
+        println(`path:      ${res.path}`);
+        println(`mtime:     ${String(res.mtime)}`);
+        println(`wordCount: ${String(res.wordCount)}`);
+        println(`charCount: ${String(res.charCount)}`);
+        if (res.tags.length > 0) {
+          println(`tags:      ${res.tags.join(', ')}`);
+        }
+        if (res.headings.length > 0) {
+          println('headings:');
+          for (const h of res.headings) {
+            println(`  ${'#'.repeat(h.level)} ${h.text} (line ${String(h.line)})`);
+          }
+        }
+        if (res.outgoingLinks.length > 0) {
+          println('links:');
+          for (const l of res.outgoingLinks) {
+            const resolved = l.resolvedPath !== null ? l.resolvedPath : '(unresolved)';
+            println(`  ${l.target} -> ${resolved}`);
+          }
+        }
+      });
+    });
+
+  // ---- エクスポート (ADR-0006 / Sa8ee62-1) ----
+
+  // export <path> (GET /api/notes/{path}/export?format=pdf|html)
+  // バイナリ (PDF) を扱うため --json を持たない (sub() を使わない)
+  program.addCommand(
+    new Command('export')
+      .description('ノートを PDF または HTML にエクスポートする (GET /api/notes/{path}/export)')
+      .argument('<path>', 'vault 相対パス (例: projects/hydra.md)')
+      .option('--format <format>', 'エクスポート形式: pdf | html (既定: pdf)', 'pdf')
+      .option('-o, --output <file>', '出力ファイルパス (省略時は stdout へ出力)')
+      .action(async (path: string, opts: { format: string; output?: string }) => {
+        if (opts.format !== 'pdf' && opts.format !== 'html') {
+          fail('usage', `--format に無効な値が指定されました: "${opts.format}" (pdf | html のいずれか)`, 2);
+        }
+        const base = await resolveBaseUrl();
+        const url = `/api/notes/${encodeNotePath(path)}/export?format=${encodeURIComponent(opts.format)}`;
+        const bytes = await apiFetchBytes(base, url);
+
+        if (opts.output !== undefined) {
+          // ファイル出力 (binary-safe)
+          await writeFile(opts.output, bytes);
+          println(`exported ${path} to ${opts.output}`);
+        } else {
+          // stdout へ流す (バイナリ — PDF / HTML 両対応)
+          await new Promise<void>((resolve, reject) => {
+            process.stdout.write(bytes, (err) => (err ? reject(err) : resolve()));
+          });
+        }
+      }),
+  );
 
   return program;
 }

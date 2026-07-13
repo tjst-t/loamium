@@ -1,13 +1,15 @@
 /**
- * 右サイドバー — バックリンク + エージェントタブ (Sf1a90a-2 / S53409d-1 / S53409d-2)。
+ * 右サイドバー — インフォ ⇄ Agent のトグル (S11493d + S53409d 統合)。
  *
- * - ターミナル (Claude) タブは ADR-0011 により廃止 (S53409d-1)。
- * - バックリンクタブ + エージェントタブの 2 タブ seg-toggle。
- * - right-sidebar-toggle でサイドバー自体を開閉する。
- * - バックリンク取得はここで行い、件数バッジ (backlink-count) はタブに常時出す。
- *
- * FIX-1 (sessionmgmt): AgentPane は collapsed / タブ切替時も UNMOUNT しない。
- * display:none で DOM に残すことで AgentPane の in-flight セッション状態を保持する。
+ * - seg-toggle で right-tab-info / right-tab-agent を切り替える (aria-selected)。
+ * - ターミナル (Claude) タブは ADR-0011 (内蔵エージェントがターミナルを置換) により廃止。
+ *   代わりに AgentPane (pi-SDK チャット) を Agent タブとして提供する。
+ * - インフォパネル (InfoPanel, S11493d) はメタ API を消費し、バックリンク + アウトライン +
+ *   プロパティ + タグ + メタを表示する。バックリンク取得はここで行い props で渡す。
+ * - Agent 表示中もメインのノートは見えたまま (メインを占有しない — DESIGN_PRINCIPLES)。
+ * - 両ペインは collapsed / タブ切替時も UNMOUNT せず display 切替のみ。
+ *   InfoPanel のスクロール位置と AgentPane の in-flight セッション状態を保持する。
+ * - 左端ハンドルのドラッグでサイドバー幅を変更できる (localStorage 永続化)。
  */
 import {
   useEffect,
@@ -16,12 +18,13 @@ import {
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
 } from 'react';
-import { noteTitle, type BacklinkSource, type HealthResponse, type NoteMeta } from '@loamium/shared';
+import { type BacklinkSource, type HealthResponse, type NoteMeta } from '@loamium/shared';
 import { api, ApiError } from '../api.js';
-import { ChevronRightIcon, DocumentIcon, LinkIcon } from '../icons.js';
+import { InfoPanel, ActionsMenu } from './InfoPanel.js';
 import { AgentPane } from './AgentPane.js';
+import { ChevronRightIcon } from '../icons.js';
 
-export type RightTab = 'backlinks' | 'agent';
+export type RightTab = 'info' | 'agent';
 
 /** 右サイドバー幅の永続化キー / 制約 (ドラッグリサイズ)。 */
 const RS_WIDTH_KEY = 'loamium.rightSidebar.width';
@@ -48,27 +51,28 @@ export interface RightSidebarProps {
   notePath: string | null;
   /** 増えるたびにバックリンクを再取得する (保存成功時に App がインクリメント) */
   refreshToken: number;
-  /** 参照元クリックでそのノートを開く */
+  /** 参照元クリック / 解決済みアウトゴーイングリンクのクリックでそのノートを開く */
   onOpenNote: (path: string) => void;
+  /** outline-item クリック: 現在ノートの指定行へジャンプする。 */
+  onJumpToLine?: (line: number) => void;
+  /** tag-chip クリック: /search?tag=xxx へ遷移する。 */
+  onSearchTag?: (tag: string) => void;
   /**
    * true のときサイドバー全体を非表示にする (Sa629e2-3: /search ルート)。
-   * unmount ではなく display:none。
+   * unmount ではなく display:none — 各ペインの状態を維持する。
    */
   hidden?: boolean;
   /** vault のノート一覧 (エージェントペインの [[wikilink]] 解決用) */
   notes?: NoteMeta[] | null;
 }
 
-/** コンテキスト行中のリンク原文 (raw) を <mark> で強調する。 */
-function contextWithMark(context: string, raw: string): JSX.Element {
-  const idx = context.indexOf(raw);
-  if (idx === -1) return <>{context}</>;
+/** インフォアイコン (プロトタイプ準拠) */
+function InfoIcon(): JSX.Element {
   return (
-    <>
-      {context.slice(0, idx)}
-      <mark>{raw}</mark>
-      {context.slice(idx + raw.length)}
-    </>
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="M8 7.5v4M8 5.5h.01" />
+    </svg>
   );
 }
 
@@ -85,13 +89,18 @@ export function RightSidebar({
   notePath,
   refreshToken,
   onOpenNote,
+  onJumpToLine,
+  onSearchTag,
   hidden = false,
   notes = null,
 }: RightSidebarProps): JSX.Element {
+  const [tab, setTab] = useState<RightTab>('info');
   const [collapsed, setCollapsed] = useState(false);
-  const [activeTab, setActiveTab] = useState<RightTab>('backlinks');
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [width, setWidth] = useState<number>(readStoredWidth);
+
+  const [backlinks, setBacklinks] = useState<BacklinkSource[] | null>(null);
+  const [backlinkError, setBacklinkError] = useState<string | null>(null);
 
   // 幅変更のたびに永続化する。
   useEffect(() => {
@@ -122,10 +131,7 @@ export function RightSidebar({
     document.body.style.userSelect = 'none';
   };
 
-  const [backlinks, setBacklinks] = useState<BacklinkSource[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  // エージェント有効化状態を health から取得する
+  // エージェント有効化状態を health から取得する (AgentPane 用)。
   useEffect(() => {
     let cancelled = false;
     api.getHealth().then(
@@ -141,10 +147,11 @@ export function RightSidebar({
     };
   }, []);
 
+  // バックリンク取得 (InfoPanel に props で渡す)。
   useEffect(() => {
     if (notePath === null) {
       setBacklinks(null);
-      setError(null);
+      setBacklinkError(null);
       return;
     }
     let cancelled = false;
@@ -152,11 +159,12 @@ export function RightSidebar({
       (res) => {
         if (cancelled) return;
         setBacklinks(res.backlinks);
-        setError(null);
+        setBacklinkError(null);
       },
       (err: unknown) => {
         if (cancelled) return;
-        setError(err instanceof ApiError ? `${err.code}: ${err.message}` : String(err));
+        setBacklinkError(err instanceof ApiError ? `${err.code}: ${err.message}` : String(err));
+        setBacklinks(null);
       },
     );
     return () => {
@@ -166,7 +174,7 @@ export function RightSidebar({
 
   const items =
     backlinks?.flatMap((src) => src.links.map((link) => ({ source: src.source, link }))) ?? [];
-  const countKnown = notePath !== null && backlinks !== null && error === null;
+  const countKnown = notePath !== null && backlinks !== null && backlinkError === null;
 
   // /search では表示しない (display:none — マウントは維持)。
   // collapsed 時は CSS の .collapsed 幅 (40px) を優先し、inline width は付けない。
@@ -175,7 +183,6 @@ export function RightSidebar({
     ...(collapsed ? {} : { width }),
   };
 
-  // collapsed 時: 細い toggle バーのみ表示。AgentPane は hidden で DOM に残す。
   return (
     <aside
       className={`panel${collapsed ? ' collapsed' : ''}`}
@@ -193,6 +200,7 @@ export function RightSidebar({
           onMouseDown={handleResizeStart}
         />
       )}
+
       <div className="panel-header">
         {collapsed ? (
           /* collapsed: toggle ボタンのみ */
@@ -205,40 +213,48 @@ export function RightSidebar({
             <ChevronRightIcon />
           </button>
         ) : (
-          /* expanded: タブ切替 + toggle ボタン */
+          /* expanded: タブ切替 + ⋯ メニュー + toggle */
           <>
             <div className="seg-toggle" role="tablist" aria-label="右サイドバー切替">
               <button
-                className={`seg-btn${activeTab === 'backlinks' ? ' active' : ''}`}
-                data-testid="right-tab-backlinks"
+                className={`seg-btn${tab === 'info' ? ' active' : ''}`}
+                data-testid="right-tab-info"
                 role="tab"
-                aria-selected={activeTab === 'backlinks'}
-                onClick={() => setActiveTab('backlinks')}
+                aria-selected={tab === 'info'}
+                onClick={() => setTab('info')}
               >
-                <LinkIcon />
-                バックリンク
+                <InfoIcon />
+                インフォ
                 {countKnown && (
-                  <span className="count" data-testid="backlink-count">
+                  <span
+                    className="count"
+                    data-testid="backlink-count"
+                    style={items.length === 0 ? { display: 'none' } : undefined}
+                  >
                     {items.length}
                   </span>
                 )}
               </button>
               <button
-                className={`seg-btn${activeTab === 'agent' ? ' active' : ''}`}
+                className={`seg-btn${tab === 'agent' ? ' active' : ''}`}
                 data-testid="right-tab-agent"
                 role="tab"
-                aria-selected={activeTab === 'agent'}
-                onClick={() => setActiveTab('agent')}
+                aria-selected={tab === 'agent'}
+                onClick={() => setTab('agent')}
               >
                 <AgentIcon />
                 Agent
               </button>
             </div>
+
+            {/* ⋯ アクションメニュー (エクスポート等) */}
+            <ActionsMenu notePath={notePath} />
+
             <button
               className="icon-btn"
               data-testid="right-sidebar-toggle"
               title="サイドバーを閉じる"
-              style={{ marginLeft: 'auto' }}
+              style={{ marginLeft: 4 }}
               onClick={() => setCollapsed(true)}
             >
               <ChevronRightIcon />
@@ -247,58 +263,24 @@ export function RightSidebar({
         )}
       </div>
 
-      {/* パネル本体 — collapsed 時は display:none で DOM に残す (AgentPane のセッション保持)。
-          rs-pane-fill で flex 高さ連鎖を維持し、内部の overflow スクロールを効かせる。 */}
-      <div className="rs-pane-fill" style={collapsed ? { display: 'none' } : undefined}>
-        {/* バックリンク本体 */}
-        <div
-          className="panel-body"
-          data-testid="backlink-panel"
-          style={activeTab !== 'backlinks' ? { display: 'none' } : undefined}
-        >
-          {error !== null ? (
-            <div className="panel-empty" data-testid="backlink-error">
-              バックリンクを取得できませんでした。
-              <br />
-              <span className="detail">{error}</span>
-            </div>
-          ) : notePath === null || items.length === 0 ? (
-            <div className="panel-empty" data-testid="backlink-empty">
-              <LinkIcon />
-              <br />
-              {notePath === null ? (
-                'ノートを開くと、ここに参照元が表示されます。'
-              ) : (
-                <>
-                  このノートへのバックリンクはまだありません。ほかのノートから{' '}
-                  <code>[[{noteTitle(notePath)}]]</code> でリンクすると、ここに参照元が表示されます。
-                </>
-              )}
-            </div>
-          ) : (
-            items.map(({ source, link }, i) => (
-              <button
-                key={`${source}:${String(link.line)}:${String(i)}`}
-                className="backlink-item"
-                data-testid="backlink-item"
-                data-source={source}
-                onClick={() => onOpenNote(source)}
-              >
-                <span className="backlink-source">
-                  <DocumentIcon />
-                  {noteTitle(source)}
-                </span>
-                <span className="backlink-context">{contextWithMark(link.context, link.raw)}</span>
-              </button>
-            ))
-          )}
-        </div>
+      {/* インフォパネル本体 — 非選択/collapsed 時も display:none で DOM に残す
+          (contents で InfoPanel の子を .panel の flex 子として扱う)。 */}
+      <div style={{ display: !collapsed && tab === 'info' ? 'contents' : 'none' }}>
+        <InfoPanel
+          notePath={notePath}
+          refreshToken={refreshToken}
+          onJumpToLine={(line) => onJumpToLine?.(line)}
+          onSearchTag={(tag) => onSearchTag?.(tag)}
+          onOpenNote={onOpenNote}
+          backlinks={backlinks}
+          backlinkError={backlinkError}
+        />
+      </div>
 
-        {/* エージェントペイン — タブ非選択時も display:none で DOM に残す (セッション保持)。
-            rs-pane-fill で .agent-body に高さを伝え、セッションバー固定 + メッセージ内部スクロールを効かせる。 */}
-        <div className="rs-pane-fill" style={activeTab !== 'agent' ? { display: 'none' } : undefined}>
-          <AgentPane health={health} notes={notes} onOpenNote={onOpenNote} />
-        </div>
+      {/* エージェントペイン — 非選択/collapsed 時も display:none で DOM に残す
+          (rs-pane-fill で .agent-body に高さを伝え、in-flight セッションを保持)。 */}
+      <div className="rs-pane-fill" style={!collapsed && tab === 'agent' ? undefined : { display: 'none' }}>
+        <AgentPane health={health} notes={notes} onOpenNote={onOpenNote} />
       </div>
     </aside>
   );

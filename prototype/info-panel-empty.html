@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loamium — インフォパネル(empty state)</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- ================= 左: サイドバー ================= -->
+  <aside class="sidebar" data-testid="sidebar">
+    <div class="sidebar-header">
+      <div class="vault-badge">L</div>
+      <div class="vault-name">loamium-notes</div>
+      <button class="icon-btn" data-testid="sidebar-search" title="検索 (Ctrl+K)">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.4"/><path d="M10.4 10.4L14 14"/></svg>
+      </button>
+      <button class="icon-btn" data-testid="sidebar-settings" title="設定">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4"/></svg>
+      </button>
+    </div>
+
+    <div class="tree-section-title">
+      <span>ノート</span>
+      <span class="actions">
+        <button class="icon-btn" data-testid="sidebar-new-note" title="新規ノート">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 1.8h5.2L12.2 4.8v4.2M9.2 1.8v3h3M8 11v4M6 13h4"/></svg>
+        </button>
+      </span>
+    </div>
+    <div class="tree" data-testid="file-tree">
+      <button class="tree-item active" data-testid="tree-item" data-path="quick-note.md">
+        <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+        <span class="name">quick-note</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ================= 中央: エディタ ================= -->
+  <main class="workspace">
+    <div class="editor-header">
+      <div class="nav-group">
+        <button class="nav-btn" data-testid="nav-back" title="戻る" disabled><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg></button>
+        <button class="nav-btn" data-testid="nav-forward" disabled title="進む"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg></button>
+      </div>
+      <nav class="route-crumbs" data-testid="route-display" aria-label="現在のルート">
+        <span class="route-token">/n/</span>
+        <span class="current">quick-note</span>
+      </nav>
+      <div class="save-status" data-testid="save-status" data-state="saved">
+        <span class="dot"></span><span>保存済み</span>
+      </div>
+    </div>
+
+    <div class="cm-scroll">
+      <div class="cm-editor" data-testid="editor">
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h1">quick-note</span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+        <div class="cm-line active-line"><span class="gutter"></span><span class="cm-content">メモを書き始めましょう。<span class="caret"></span></span></div>
+        <div class="proto-note" style="margin-top:24px;">
+          <span class="tag">PROTO</span>
+          このノートは frontmatter なし・アウトゴーイングリンクなし・バックリンクなし。各セクションの empty state を確認するサンプルです。
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= 右: インフォパネル(empty state) ================= -->
+  <aside class="panel" data-testid="right-sidebar">
+    <div class="panel-header">
+      <div class="seg-toggle" role="tablist" aria-label="右サイドバー切替">
+        <button class="seg-btn" data-testid="right-tab-info" aria-selected="true" role="tab">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="5.5"/><path d="M8 7.5v4M8 5.5h.01"/></svg>
+          インフォ
+          <!-- バックリンク 0 件のためバッジは非表示 -->
+          <span class="count" data-testid="backlink-count" style="display:none;">0</span>
+        </button>
+        <button class="seg-btn" data-testid="right-tab-claude" aria-selected="false" role="tab" onclick="location.href='claude-sidebar.html'">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.8" y="2.5" width="12.4" height="11" rx="1.5"/><path d="M4.5 6l2.5 2-2.5 2M8.5 10.5h3"/></svg>
+          Claude
+        </button>
+      </div>
+
+      <!-- ⋯ アクションメニュー -->
+      <div class="info-actions-wrap">
+        <button class="icon-btn" data-testid="info-actions-btn" title="アクション" onclick="toggleActionsMenu(this)" aria-expanded="false" aria-haspopup="true">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg>
+        </button>
+        <div class="info-actions-menu" data-testid="info-actions-menu" role="menu" aria-label="ノートアクション">
+          <button class="menu-item" data-testid="action-export-pdf" role="menuitem">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/><path d="M5.5 10h5M5.5 12h3"/></svg>
+            PDF エクスポート
+          </button>
+          <button class="menu-item" data-testid="action-copy-link" role="menuitem">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6.5 9.5l3-3M5 7l-2 2a2.5 2.5 0 003.5 3.5l2-2M11 9l2-2A2.5 2.5 0 009.5 3.5l-2 2"/></svg>
+            Copy link
+            <span class="menu-item-hint">[[quick-note]]</span>
+          </button>
+          <button class="menu-item" data-testid="action-copy-path" role="menuitem">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="5" width="9" height="9" rx="1.5"/><path d="M5 5V3.5A1.5 1.5 0 016.5 2H12a1.5 1.5 0 011.5 1.5V9A1.5 1.5 0 0112 10.5H10.5"/></svg>
+            Copy path
+            <span class="menu-item-hint">quick-note.md</span>
+          </button>
+        </div>
+      </div>
+
+      <button class="icon-btn" data-testid="right-sidebar-toggle" title="サイドバーを閉じる" style="margin-left:4px;">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 3l5 5-5 5"/></svg>
+      </button>
+    </div>
+
+    <!-- インフォパネル本体 -->
+    <div class="panel-body" data-testid="info-panel">
+
+      <!-- 1. 目次 — empty: 見出しなし -->
+      <details class="info-section" open>
+        <summary class="info-section-header" data-testid="info-section-toggle" data-section="outline">
+          <span class="info-section-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 4h10M3 8h7M3 12h5"/></svg>
+          </span>
+          <span class="info-section-title">目次</span>
+          <span class="info-section-count">0</span>
+          <svg class="info-section-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        </summary>
+        <div class="info-section-body" data-testid="info-section-body" data-section="outline">
+          <div class="info-section-empty">見出しがありません</div>
+        </div>
+      </details>
+
+      <!-- 2. プロパティ — frontmatter なし: セクション自体を非表示 -->
+      <!-- (frontmatter がないノートではプロパティセクションは表示しない) -->
+      <!-- data-testid は DOM に残すが hidden で隠す -->
+      <details class="info-section" hidden>
+        <summary class="info-section-header" data-testid="info-section-toggle" data-section="properties">
+          <span class="info-section-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 6h6M5 9h4"/></svg>
+          </span>
+          <span class="info-section-title">プロパティ</span>
+          <span class="info-section-count">0</span>
+          <svg class="info-section-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        </summary>
+        <div class="info-section-body" data-testid="info-section-body" data-section="properties"></div>
+      </details>
+
+      <!-- 3. タグ — empty -->
+      <details class="info-section" open>
+        <summary class="info-section-header" data-testid="info-section-toggle" data-section="tags">
+          <span class="info-section-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 9l5 5 7-7-3.5-3.5L8 5l-3 2-3 2z"/><circle cx="11" cy="5" r="1.3" fill="currentColor" stroke="none"/></svg>
+          </span>
+          <span class="info-section-title">タグ</span>
+          <span class="info-section-count">0</span>
+          <svg class="info-section-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        </summary>
+        <div class="info-section-body" data-testid="info-section-body" data-section="tags">
+          <div class="info-section-empty">タグなし — <code>#tag</code> を本文に書くか、プロパティの <code>tags:</code> に追加</div>
+        </div>
+      </details>
+
+      <!-- 4. メタ情報 — 常に表示 -->
+      <details class="info-section" open>
+        <summary class="info-section-header" data-testid="info-section-toggle" data-section="meta">
+          <span class="info-section-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3.5l2.5 1.5"/></svg>
+          </span>
+          <span class="info-section-title">メタ情報</span>
+          <svg class="info-section-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        </summary>
+        <div class="info-section-body" data-testid="info-section-body" data-section="meta">
+          <div class="meta-row" data-testid="meta-wordcount">
+            <span class="meta-label">単語数</span>
+            <span class="meta-value">7</span>
+          </div>
+          <div class="meta-row" data-testid="meta-charcount">
+            <span class="meta-label">文字数</span>
+            <span class="meta-value">18</span>
+          </div>
+          <div class="meta-row" data-testid="meta-mtime">
+            <span class="meta-label">更新日時</span>
+            <span class="meta-value">2026-07-10 09:05</span>
+          </div>
+        </div>
+      </details>
+
+      <!-- 5. アウトゴーイングリンク — empty -->
+      <details class="info-section" open>
+        <summary class="info-section-header" data-testid="info-section-toggle" data-section="outgoing">
+          <span class="info-section-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6.5 9.5l3-3M5 7l-2 2a2.5 2.5 0 003.5 3.5l2-2M11 9l2-2A2.5 2.5 0 009.5 3.5l-2 2"/></svg>
+          </span>
+          <span class="info-section-title">アウトゴーイングリンク</span>
+          <span class="info-section-count">0</span>
+          <svg class="info-section-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        </summary>
+        <div class="info-section-body" data-testid="info-section-body" data-section="outgoing">
+          <div class="info-section-empty">[[リンク]] なし</div>
+        </div>
+      </details>
+
+      <!-- 6. バックリンク — empty -->
+      <details class="info-section" open>
+        <summary class="info-section-header" data-testid="info-section-toggle" data-section="backlinks">
+          <span class="info-section-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9.5 6.5l-3 3M11 9l2-2A2.5 2.5 0 009.5 3.5l-2 2M5 7l-2 2a2.5 2.5 0 003.5 3.5l2-2"/></svg>
+          </span>
+          <span class="info-section-title">バックリンク</span>
+          <span class="info-section-count">0</span>
+          <svg class="info-section-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        </summary>
+        <div class="info-section-body" data-testid="info-section-body" data-section="backlinks">
+          <div class="info-section-empty" data-testid="backlink-empty">このノートへのリンクはありません</div>
+        </div>
+      </details>
+
+    </div><!-- /panel-body / info-panel -->
+  </aside>
+
+</div>
+
+<a class="proto-chip" href="index.html">← プロトタイプ一覧</a>
+
+<div class="proto-note" style="position: fixed; left: 18px; bottom: 14px; z-index: 130; margin: 0; max-width: 480px;">
+  <span class="tag">PROTO</span>
+  インフォパネル <strong>empty state</strong>。frontmatter なし=プロパティセクション非表示。目次・タグ・アウトゴーイングリンク・バックリンクはそれぞれ空メッセージを表示。
+  <br>populated state: <a href="info-panel.html" style="color:var(--accent);font-weight:600;">info-panel.html →</a>
+</div>
+
+<script>
+function toggleActionsMenu(btn) {
+  const menu = btn.nextElementSibling;
+  const isOpen = btn.getAttribute('aria-expanded') === 'true';
+  btn.setAttribute('aria-expanded', String(!isOpen));
+  menu.classList.toggle('open', !isOpen);
+
+  if (!isOpen) {
+    function onOutside(e) {
+      if (!btn.contains(e.target) && !menu.contains(e.target)) {
+        btn.setAttribute('aria-expanded', 'false');
+        menu.classList.remove('open');
+        document.removeEventListener('click', onOutside, true);
+      }
+    }
+    document.addEventListener('click', onOutside, true);
+  }
+}
+</script>
+</body>
+</html>

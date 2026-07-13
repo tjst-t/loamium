@@ -1,11 +1,23 @@
 {
-  "$comment": "スマートフォルダ機能の永続データ・API 契約のスケッチ。全体の DDL/OpenAPI ではなく、他コンポーネントがエンコード/デコードする load-bearing な形のみを固定する。関連 ADR: ADR-0001(DQL 再利用), ADR-0002(定義の永続化), ADR-0003(要素 = pin/query の 2 種), ADR-0004(bookmark = frontmatter プロパティ + スター toggle)。",
+  "$comment": "設定系データ(スマートフォルダ / テンプレ / コマンド / 全体設定)とスマートフォルダ機能の永続データ・API 契約のスケッチ。全体の DDL/OpenAPI ではなく、他コンポーネントがエンコード/デコードする load-bearing な形のみを固定する。関連 ADR: ADR-0001(DQL 再利用), ADR-0003(要素 = pin/query の 2 種), ADR-0004(bookmark = frontmatter プロパティ + スター toggle), ADR-0010(設定系は vault の system/ フォルダに Markdown/YAML ファイルで管理。ADR-0002 を supersede)。",
   "datastores": [
     {
-      "name": ".loamium/smart-folders.json",
-      "purpose": "スマートビューの定義(順序付き SmartViewItem 配列)。再構築不能なユーザー設定。",
-      "consistency": "strong(単一ライタ、ファイル全体をアトミックに置換)",
-      "backup": "vault の Git 履歴(ADR-0002 により .gitignore から除外し追跡)。破損時は寛容 read で空にフォールバックしログ(property-types 前例)。"
+      "name": "system/smart-folders/*.md",
+      "purpose": "スマートビューの定義。定義 1 個 = ファイル 1 個(per-file)。ファイル名(拡張子除く)が id。メタは frontmatter、query の DQL は本文の ```dql フェンス。再構築不能なユーザー設定(ADR-0010)。",
+      "consistency": "各ファイルが正・独立。書き込みは 1 ファイル単位(全体を 1 枚岩で置換しない)。順序は order: frontmatter。",
+      "backup": "vault の Git 履歴(通常のノートと同じく追跡。.loamium 例外は不要になった)。破損ファイルは寛容 read でスキップ + ログ(他の定義は生かす)。"
+    },
+    {
+      "name": "system/settings.yaml",
+      "purpose": "アプリ全体の単一設定(テーマ・既定ソート・機能トグル・system フォルダ表示状態等、端末を跨いで持ち歩きたい設定)。素の YAML(本文なしの構造化データなので .md にしない — ADR-0010)。",
+      "consistency": "strong(単一ライタ、ファイル全体をアトミック置換)。frontmatter と同じ YAML パーサで読む。",
+      "backup": "vault の Git 履歴。破損/未知キーは寛容 read(既定へフォールバック + ログ)、PUT は zod 厳格検証。"
+    },
+    {
+      "name": "system/templates/*.md, system/commands/*.md",
+      "purpose": "テンプレート定義とスマートコマンド定義。ADR-0010 で system/ 配下へ統一。テンプレは templates/ から移設、コマンドは既存フォルダ定義を後追いで統一(二重移行を許容)。",
+      "consistency": "各ファイルが正・独立(スマートフォルダと同型)。",
+      "backup": "vault の Git 履歴。"
     },
     {
       "name": "ノート frontmatter(bookmark 等のプロパティ)",
@@ -18,40 +30,46 @@
       "purpose": "クエリ解決の供給源。既存の使い捨てインデックス(noteIndex.ts)。スマートフォルダ用に新設しない。",
       "consistency": "ファイルが正・インデックスは追従(chokidar + write-through)。DESIGN_PRINCIPLES priority 6。",
       "backup": "不要(ファイルシステムから常に再構築可能)"
+    },
+    {
+      "name": ".loamium/(使い捨てキャッシュ・端末固有状態)",
+      "purpose": "検索インデックスキャッシュ・audit.log・ペイン幅・最後に開いたノート等の再構築可能/端末依存な状態。ADR-0010 の境界原則で system/ とは分離。",
+      "consistency": "使い捨て。消しても安全(ADR-0010 で ADR-0002 の例外が解消され、この不変条件が純化)。",
+      "backup": "不要(.gitignore)"
     }
   ],
   "schemas": [
     {
-      "entity": "SmartViewConfig",
-      "stored_in": ".loamium/smart-folders.json",
-      "table": "(JSON ファイル 1 本)",
+      "entity": "SmartFolder 定義ファイル(system/smart-folders/{id}.md)",
+      "stored_in": "system/smart-folders/{id}.md(1 定義 = 1 ファイル)",
+      "table": "ファイル名(拡張子除く)= id / YAML frontmatter + 本文 ```dql フェンス",
       "fields": [
-        {"name": "version", "type": "number", "notes": "スキーマ版。マイグレーション用。初版 = 1"},
-        {"name": "items", "type": "SmartViewItem[]", "notes": "表示順 = 配列順。フラット(入れ子なし、ADR-0003)"}
+        {"name": "(ファイル名)", "type": "string", "notes": "id。安定キー(kebab-case 推奨)。URL/CLI 参照に使う。frontmatter には持たず normalizeVaultPath を通す"},
+        {"name": "kind (frontmatter)", "type": "'pin' | 'query'", "notes": "判別キー。ちょうど 1 種(ADR-0003)。"},
+        {"name": "name (frontmatter)", "type": "string?", "notes": "表示名(日本語可)。pin は任意(既定=ノート title)、query は必須"},
+        {"name": "icon (frontmatter)", "type": "string?", "notes": "全 kind 共通・カスタマイズ可能。組み込みアイコン名 or 素の文字(絵文字)。省略時は kind 既定(pin→file-text, query→search)。プラグイン機構は作らない(priority 5)"},
+        {"name": "order (frontmatter)", "type": "number", "notes": "表示順。GUI が並べ替え時に再採番する。order → ファイル名で安定ソート(gap/tie 許容)"},
+        {"name": "path (frontmatter, kind=pin のみ)", "type": "string", "notes": "単一ノートの葉。normalizeVaultPath 済み(.. 脱出・隠しセグメント禁止、NFC)。解決時に存在しなければ結果から落とすか missing フラグ(ファイルを壊さない)"},
+        {"name": "(本文の ```dql フェンス, kind=query のみ)", "type": "string(DQL)", "notes": "DQL 結果の名前つきフォルダの正本(ADR-0001)。parseQuery で構文検証可能な DQL。本文フェンスに置くことで定義ファイルを開くとライブプレビューでフォルダ結果が見える(dataview 描画の再利用)。例: 'LIST WHERE bookmark SORT file.mtime DESC'"}
       ],
       "invariants": [
-        "items[].id は config 内で一意(安定キー、kebab-case 推奨)",
-        "正本は UTF-8 / LF、2-space インデント JSON(property-types.json と同形式)",
-        "書き込みはファイル全体の置換(部分マージしない — 順序が意味を持つため)"
+        "正本は UTF-8 / LF。frontmatter は round-trip 安全に書く(既存 frontmatter 経路を再利用)",
+        "1 ファイル = 1 SmartViewItem。手動複数集約(pins)は持たない — 集約は property+query に寄せる(ADR-0004)",
+        "書き込み・削除はファイル単位。順序変更は該当ファイルの order 再採番のみで、他ファイルを 1 枚岩置換しない",
+        "壊れた定義ファイル 1 個は寛容 read でスキップ + ログし、他の定義は生かす(priority 2)"
       ]
     },
     {
-      "entity": "SmartViewItem",
-      "stored_in": ".loamium/smart-folders.json",
-      "table": "SmartViewConfig.items[](kind によるフラットな判別可能ユニオン)",
+      "entity": "アプリ全体設定(system/settings.yaml)",
+      "stored_in": "system/settings.yaml(素 YAML 1 本)",
+      "table": "(YAML マップ)",
       "fields": [
-        {"name": "kind='pin'", "type": "{ kind:'pin', id, name?, icon?, path: string }", "notes": "単一ノートの葉。フォルダに包まず直接描画。name 省略時はノート title を表示。index/MOC/ダッシュボードの 1 枚指名(ADR-0003)"},
-        {"name": "kind='query'", "type": "{ kind:'query', id, name, icon?, dql: string }", "notes": "DQL 結果の名前つきフォルダ。dql が正本(ADR-0001)。集約はすべてこれ(recent/tag/journal/todo/bookmark)。例: 'LIST WHERE bookmark SORT file.mtime DESC'"},
-        {"name": "id", "type": "string", "notes": "全 kind 共通。安定キー。URL/CLI 参照・並べ替えに使う"},
-        {"name": "name", "type": "string", "notes": "表示名(日本語可)。pin は任意(既定=title)、query は必須"},
-        {"name": "icon", "type": "string?", "notes": "全 kind 共通・カスタマイズ可能。組み込みアイコン名(clock/star/bookmark/hash/calendar/check-square/file-text/folder/search/pin/flame/inbox 等)。未知の文字列は絵文字等としてそのまま描画(⭐📌🔥 可)。省略時は kind 既定(pin→file-text, query→search)"}
+        {"name": "schema_version", "type": "number", "notes": "スキーマ版。前方マイグレーション用。初版 = 1"},
+        {"name": "(以降の具体キー)", "type": "scalar / map", "notes": "テーマ・既定ソート・機能トグル・system フォルダの既定表示状態 等。端末を跨いで持ち歩きたい設定のみ。ペイン幅・最後に開いた等の端末固有/使い捨ては .loamium/ に置き、ここには載せない(ADR-0010 境界原則)"}
       ],
       "invariants": [
-        "kind はちょうど 1 つ(pin / query)。手動複数集約(pins)は持たない — 集約は property+query に寄せる(ADR-0004)",
-        "pin.path は normalizeVaultPath を通す(.. 脱出・隠しセグメント禁止、NFC)",
-        "query.dql は parseQuery で構文検証可能な DQL 文字列であること",
-        "解決時に存在しない pin は結果から落とすか missing フラグを付す(ファイルを壊さない — priority 2)",
-        "icon はプラグイン機構を作らない(priority 5)。組み込み名 or 素の文字(絵文字)フォールバックのみ"
+        "本文を持たない構造化設定なので .md ではなく素 YAML(ADR-0010)。frontmatter と同一の YAML パーサで読む",
+        "破損/未知キーは寛容 read(既定フォールバック + ログ)、書き込みは zod 厳格検証"
       ]
     },
     {
@@ -72,18 +90,30 @@
       "name": "smart-folder 解決の再利用インデックス",
       "purpose": "query 種の解決は VaultIndex.queryNotes() のスナップショット + executeQuery(純関数)を使い回す。専用インデックスは作らない。",
       "kind": "in-memory snapshot",
-      "note": "pin 種は path を NoteMeta に解決するだけ(インデックス参照 + 存在確認)"
+      "note": "pin 種は path を NoteMeta に解決するだけ(インデックス参照 + 存在確認)。定義ファイル自体(system/smart-folders/*.md)は通常ノートとして VaultIndex に載るが、クエリ結果からは system/ を既定で除外する"
     }
   ],
   "api_contracts": [
     {
       "group": "Smart Folders",
       "base_path": "/api/smart-folders",
-      "summary": "スマートビュー定義の CRUD と解決。REST と CLI は 1:1(priority 3)。書き込みは監査ログ対象(op: 'smart-folders.write')。read-only / append-only モードでは PUT を 403。",
+      "summary": "スマートビュー定義の CRUD と解決。定義の実体は system/smart-folders/*.md ファイルであり、agent は汎用の notes/file 書き込み経路でも直接作成/編集できる(ADR-0009/0010)。/api/smart-folders はそれらファイルへの薄い便宜 API。REST と CLI は 1:1(priority 3)。書き込みは監査ログ対象(op: 'smart-folders.write')。read-only / append-only モードでは書き込みを 403。",
       "endpoints": [
-        {"method": "GET", "path": "/api/smart-folders", "summary": "定義一式を返す { version, items[] }。CLI: `loamium smart-folders`"},
-        {"method": "PUT", "path": "/api/smart-folders", "summary": "定義一式を全置換(zod 検証、アトミック書き込み)。CLI: `loamium smart-folders set <json>`"},
+        {"method": "GET", "path": "/api/smart-folders", "summary": "system/smart-folders/*.md を読み order 昇順で items[] を返す。CLI: `loamium smart-folders`"},
+        {"method": "PUT", "path": "/api/smart-folders/{id}", "summary": "1 定義ファイルを作成/更新(zod 検証 → frontmatter + ```dql フェンスへ round-trip 書き込み)。CLI: `loamium smart-folder set <id> ...`。※同等のことは汎用ファイル書き込みでも可能"},
+        {"method": "DELETE", "path": "/api/smart-folders/{id}", "summary": "1 定義ファイルを削除。CLI: `loamium smart-folder rm <id>`"},
+        {"method": "POST", "path": "/api/smart-folders/reorder", "summary": "順序変更 = 該当ファイルの order frontmatter を再採番。CLI: `loamium smart-folders reorder <id...>`"},
         {"method": "GET", "path": "/api/smart-folders/{id}/notes", "summary": "1 要素を NoteMeta[] に解決。query→executeQuery、pin→当該 1 件。CLI: `loamium smart-folder <id>`"}
+      ]
+    },
+    {
+      "group": "System 設定 / テンプレート",
+      "base_path": "/api/templates, /api/settings",
+      "summary": "ADR-0010 の system/ フォルダ規約に伴う契約。テンプレート API のルートは templates/ から system/templates/ へ移設(TEMPLATES_DIR 変更、破壊的)。全体設定は system/settings.yaml を読み書きする。いずれも定義は vault ファイルなので agent は汎用ファイル経路でも操作可。",
+      "endpoints": [
+        {"method": "GET", "path": "/api/templates", "summary": "system/templates/ 配下の *.md 一覧(移設後)。CLI: `loamium templates`"},
+        {"method": "GET", "path": "/api/settings", "summary": "system/settings.yaml を返す(寛容 read)。CLI: `loamium settings`"},
+        {"method": "PUT", "path": "/api/settings", "summary": "system/settings.yaml を zod 検証してアトミック置換。CLI: `loamium settings set ...`"}
       ]
     },
     {
@@ -104,5 +134,5 @@
     }
   ],
   "event_contracts": [],
-  "versioning_policy": "SmartViewConfig.version でスキーマ版を管理。サーバは read 時に旧版を前方マイグレート。破損/未知版は寛容 read(空フォールバック + ログ)でアプリを落とさない一方、PUT は zod で厳格検証しエラーを返す。SmartViewItem の kind ユニオン(pin|query)と DQL 拡張(LIMIT / タスク・フィールド)は加算のみで既存定義・クエリ・フェンスを壊さない。ブックマークはノート frontmatter に載るためスキーマ版管理の対象外(標準 Markdown)。"
+  "versioning_policy": "スマートフォルダ定義は per-file になり、順序は各ファイルの order: frontmatter が持つ(SmartViewConfig の単一 version 配列は廃止)。スキーマ版が要る場合は各定義ファイル / settings.yaml の schema_version frontmatter/キーで管理し、サーバは read 時に旧版を前方マイグレート。移行(ADR-0010): 初回起動時に旧 .loamium/smart-folders.json が存在し system/smart-folders/ が空なら、配列を per-file .md へ分割し配列 index を order に採番して自動移行する(一回きり・後方互換の寛容 read)。templates/ → system/templates/ も移行対象。破損/未知版は寛容 read(該当ファイルをスキップ or 既定フォールバック + ログ)でアプリを落とさない一方、書き込みは zod で厳格検証。SmartViewItem の kind ユニオン(pin|query)と DQL 拡張(LIMIT / タスク・フィールド)は加算のみで既存定義・クエリ・フェンスを壊さない。ブックマークはノート frontmatter に載るためスキーマ版管理の対象外(標準 Markdown)。"
 }

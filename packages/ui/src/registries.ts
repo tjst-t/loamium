@@ -27,6 +27,12 @@ export interface RenderEnv {
    * null = 一覧未ロード。![[file]] の basename 解決・サイズ表示・存在判定に使う。
    */
   getFiles?(): readonly { path: string; size: number; mtime: number }[] | null;
+  /**
+   * タグクリック → タグ検索ナビゲーション (S11493d-4 で追加 — additive)。
+   * dataview の dv-tag チップ等、非 React レンダラーから使う。
+   * 未注入時は何も起こらない。
+   */
+  openTag?(tag: string): void;
 }
 
 export interface RenderContext {

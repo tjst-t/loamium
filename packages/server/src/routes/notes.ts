@@ -2,6 +2,7 @@
  * notes エンドポイント群。
  *
  * - GET    /api/notes/{path}          ノート取得 (content + frontmatter)
+ * - GET    /api/notes/{path}/meta     ノートメタ集約 (S11493d-1)
  * - PUT    /api/notes/{path}          作成・上書き
  * - DELETE /api/notes/{path}          削除
  * - POST   /api/notes/{path}/append   末尾追記
@@ -9,6 +10,7 @@
  * - POST   /api/notes/{path}/rename   リネーム + vault 全体の [[旧名]] 追従書き換え
  */
 import { Hono } from 'hono';
+import { z } from 'zod';
 import {
   noteAppendRequestSchema,
   notePropertyWriteRequestSchema,
@@ -22,8 +24,13 @@ import {
   preferredLinkTarget,
   resolveLinkTarget,
   rewriteLinks,
+  extractHeadings,
+  extractOutgoingLinks,
+  extractNoteMetaTags,
+  countWords,
   VaultPathError,
   type NoteDeleteResponse,
+  type NoteMetaResponse,
   type NotePropertyWriteResponse,
   type NoteRenameResponse,
   type NoteResponse,
@@ -36,13 +43,20 @@ import { deleteNote, listNoteFiles, noteMtime, readNote, writeNote } from '../va
 import type { VaultIndex } from '../noteIndex.js';
 import { appendToNote, patchNote } from '../note-service.js';
 import { errorJson, parseBody, setAudit, type AppEnv } from '../http.js';
+import { markdownToHtml, htmlToPdf } from '../export.js';
+import { writeAuditEntry } from '../audit.js';
+
+/** クエリパラメータスキーマ — GET /api/notes/{path}/export */
+const exportQuerySchema = z.object({
+  format: z.enum(['pdf', 'html']).default('pdf'),
+});
 
 const NOTES_PREFIX = '/api/notes/';
 const POST_ACTIONS = ['append', 'patch', 'rename', 'properties'] as const;
 type PostAction = (typeof POST_ACTIONS)[number];
 
 /** リクエストパスから vault 相対のノートパスを取り出して正規化する。 */
-function notePathFrom(rawPath: string, stripAction: PostAction | null = null): string {
+function notePathFrom(rawPath: string, stripAction: PostAction | 'meta' | 'export' | null = null): string {
   let rest = rawPath.slice(NOTES_PREFIX.length);
   if (stripAction !== null) {
     const suffix = `/${stripAction}`;
@@ -65,9 +79,109 @@ export function notesRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
   const app = new Hono<AppEnv>();
 
   app.get(`${NOTES_PREFIX}*`, async (c) => {
+    const rawPath = c.req.path;
+
+    // --- GET /api/notes/{path}/meta (S11493d-1) ---
+    // Hono の wildcard は末尾固定サフィックスを先行マッチできないため、
+    // 汎用ハンドラの先頭で /meta を判定する (POST の rename/append/patch と同方針)。
+    if (rawPath.endsWith('/meta')) {
+      let rel: string;
+      try {
+        rel = notePathFrom(rawPath, 'meta');
+      } catch (err) {
+        if (err instanceof VaultPathError) return errorJson(c, 400, 'invalid_path', err.message);
+        throw err;
+      }
+      const [content, mtime] = await Promise.all([
+        readNote(config.vaultRoot, rel),
+        noteMtime(config.vaultRoot, rel),
+      ]);
+      if (content === null || mtime === null) {
+        return errorJson(c, 404, 'not_found', `note not found: ${rel}`);
+      }
+      // vault の全ノートパスをインデックスから取得してリンク解決に使う
+      const vaultPaths = index.notePaths();
+      const parsed = parseNote(content);
+      const headings = extractHeadings(content);
+      const outgoingLinks = extractOutgoingLinks(content, vaultPaths, resolveLinkTarget);
+      const tags = extractNoteMetaTags(content);
+      const { wordCount, charCount } = countWords(content);
+      const res: NoteMetaResponse = {
+        path: rel,
+        headings,
+        outgoingLinks,
+        tags,
+        frontmatter: parsed.frontmatter,
+        mtime,
+        wordCount,
+        charCount,
+      };
+      return c.json(res);
+    }
+
+    // --- GET /api/notes/{path}/export (ADR-0006 / Sa8ee62-1) ---
+    // Markdown → HTML → PDF の単一サーバーサイドパイプライン。
+    // format=pdf (既定) は headless Chromium で PDF を生成。format=html は HTML のみ。
+    // 成果物はメモリ上のみ — vault には一切書き戻さない (ピュア Markdown 原則)。
+    if (rawPath.endsWith('/export')) {
+      let rel: string;
+      try {
+        rel = notePathFrom(rawPath, 'export');
+      } catch (err) {
+        if (err instanceof VaultPathError) return errorJson(c, 400, 'invalid_path', err.message);
+        throw err;
+      }
+
+      // クエリパラメータ検証
+      const qp = exportQuerySchema.safeParse(Object.fromEntries(new URL(c.req.url).searchParams));
+      if (!qp.success) {
+        const msg = qp.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`).join('; ');
+        return errorJson(c, 400, 'invalid_request', msg);
+      }
+      const { format } = qp.data;
+
+      const content = await readNote(config.vaultRoot, rel);
+      if (content === null) {
+        return errorJson(c, 404, 'not_found', `note not found: ${rel}`);
+      }
+
+      const html = markdownToHtml(content);
+
+      // 監査ログは成果物の生成に成功してから記録する (AC-Sa8ee62-1-2)。
+      // PDF 生成 (htmlToPdf) が失敗した場合に result:'ok' を残さないため、
+      // 各成功パスの直前で 1 回だけ書く (audit 整合性 — 失敗を成功として記録しない)。
+      const auditExportOk = (): Promise<void> =>
+        writeAuditEntry(config, {
+          ts: new Date().toISOString(),
+          op: 'note.export',
+          path: rel,
+          mode: config.mode,
+          result: 'ok',
+          status: 200,
+        });
+
+      if (format === 'html') {
+        await auditExportOk();
+        return c.text(html, 200, { 'content-type': 'text/html; charset=utf-8' });
+      }
+
+      // format === 'pdf' — headless Chromium で PDF を生成
+      const pdfBuffer = await htmlToPdf(html);
+      await auditExportOk();
+      return new Response(pdfBuffer, {
+        status: 200,
+        headers: {
+          'content-type': 'application/pdf',
+          'content-disposition': `attachment; filename="${encodeURIComponent(rel.replace(/\//g, '_'))}.pdf"`,
+          'content-length': String(pdfBuffer.byteLength),
+        },
+      });
+    }
+
+    // --- GET /api/notes/{path} ---
     let rel: string;
     try {
-      rel = notePathFrom(c.req.path);
+      rel = notePathFrom(rawPath);
     } catch (err) {
       if (err instanceof VaultPathError) return errorJson(c, 400, 'invalid_path', err.message);
       throw err;

@@ -18,6 +18,8 @@
     "chokidar": "^5.0.0",
     "fuse.js": "^7.4.2",
     "hono": "^4.7.0",
+    "marked": "^15.0.0",
+    "playwright": "^1.49.0",
     "typebox": "^1.1.38"
   }
 }

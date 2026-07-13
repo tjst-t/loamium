@@ -98,6 +98,14 @@ export {
 } from './journal.js';
 export { toLf, appendText, countOccurrences } from './text.js';
 export {
+  extractHeadings,
+  extractOutgoingLinks,
+  extractNoteMetaTags,
+  countWords,
+  type NoteHeading as NoteHeadingExtracted,
+  type OutgoingLink as OutgoingLinkExtracted,
+} from './noteMeta.js';
+export {
   formatDate,
   resolveTemplate,
   sanitizePathValue,
