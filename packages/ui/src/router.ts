@@ -114,7 +114,10 @@ export function parseLocation(pathname: string, search = ''): Route {
       return { kind: 'home' }; // 壊れた符号化はホームへ
     }
     // 正本は .md 付き vault パス。URL 表現の .md 欠落を補完する。
-    const notedPath = /\.md$/i.test(decoded) ? decoded : `${decoded}.md`;
+    // ただし .yaml / .yml など .md 以外の拡張子を持つ場合はそのまま使う
+    // (commands/*.yaml など ADR-0012 のコマンド定義ファイル)。
+    const hasExt = /\.[a-z0-9]+$/i.test(decoded);
+    const notedPath = hasExt ? decoded : `${decoded}.md`;
     return { kind: 'note', path: notedPath.normalize('NFC') };
   }
   return { kind: 'home' };

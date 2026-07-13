@@ -174,15 +174,26 @@ const NOTE_WITH_COMMAND_KEY_CONTENT = [
 ].join('\n');
 
 /**
- * commands/*.yaml のノートを返す GET /api/notes/{path} モック応答。
- * ADR-0012: frontmatter は null (YAML ファイル全体が定義)。
+ * commands/*.yaml のソースを返す GET /api/commands/{id}/source モック応答。
+ * ADR-0012: notes API の .md 強制を回避するために source エンドポイントを使う。
  */
-function commandNote(content: string, mtime = 2000, path = 'commands/create-todo.yaml'): Record<string, unknown> {
+function commandSource(content: string, mtime = 2000, id = 'create-todo'): Record<string, unknown> {
   return {
-    path,
+    id,
+    path: `commands/${id}.yaml`,
     content,
-    frontmatter: null,
-    body: content,
+    mtime,
+  };
+}
+
+/**
+ * commands/*.yaml のソース書き込みレスポンス (PUT /api/commands/{id}/source)。
+ */
+function commandSourceWriteResponse(id = 'create-todo', mtime = 9999): Record<string, unknown> {
+  return {
+    id,
+    path: `commands/${id}.yaml`,
+    created: false,
     mtime,
   };
 }
@@ -205,11 +216,11 @@ async function openApp(page: Page): Promise<{ unexpected: string[] }> {
 test('[AC-ADR-0012] commands/*.yaml を開くと CommandEditor が visible、通常 Editor は非表示', async ({ page }) => {
   const { unexpected } = await openApp(page);
 
-  // commands/create-todo.yaml を開いたときのレスポンス
-  await page.route('**/api/notes/commands/create-todo.yaml', (route) => {
+  // commands/create-todo.yaml を開いたときのレスポンス (source エンドポイント)
+  await page.route('**/api/commands/create-todo/source', (route) => {
     const req = route.request();
     if (req.method() === 'GET') {
-      void route.fulfill(json(commandNote(VALID_COMMAND_CONTENT)));
+      void route.fulfill(json(commandSource(VALID_COMMAND_CONTENT)));
       return;
     }
     void route.fallback();
@@ -303,10 +314,10 @@ test('[AC-ADR-0012] commands/ 外の通常ノートは通常 Editor を表示す
 test('[AC-ADR-0012] 補完ポップアップに note-link/WikiLink 補完が出ない(DSL 補完のみ)', async ({ page }) => {
   const { unexpected } = await openApp(page);
 
-  await page.route('**/api/notes/commands/create-todo.yaml', (route) => {
+  await page.route('**/api/commands/create-todo/source', (route) => {
     const req = route.request();
     if (req.method() === 'GET') {
-      void route.fulfill(json(commandNote(VALID_COMMAND_CONTENT)));
+      void route.fulfill(json(commandSource(VALID_COMMAND_CONTENT)));
       return;
     }
     void route.fallback();
@@ -350,15 +361,15 @@ test('[AC-S9e64e7-1-2] 有効定義のとき cmd-edit-save は aria-disabled な
   const { unexpected } = await openApp(page);
   const putBodies: PutBody[] = [];
 
-  await page.route('**/api/notes/commands/create-todo.yaml', (route) => {
+  await page.route('**/api/commands/create-todo/source', (route) => {
     const req = route.request();
     if (req.method() === 'GET') {
-      void route.fulfill(json(commandNote(VALID_COMMAND_CONTENT)));
+      void route.fulfill(json(commandSource(VALID_COMMAND_CONTENT)));
       return;
     }
     if (req.method() === 'PUT') {
       putBodies.push(req.postDataJSON() as PutBody);
-      void route.fulfill(json({ path: 'commands/create-todo.yaml', created: false, mtime: 9999 }));
+      void route.fulfill(json(commandSourceWriteResponse()));
       return;
     }
     void route.fallback();
@@ -391,17 +402,17 @@ test('[AC-S9e64e7-1-2] steps[] 空(無効)定義のとき cmd-edit-save は aria
   const { unexpected } = await openApp(page);
   const putBodies: PutBody[] = [];
 
-  await page.route('**/api/notes/commands/create-todo.yaml', (route) => {
+  await page.route('**/api/commands/create-todo/source', (route) => {
     const req = route.request();
     if (req.method() === 'GET') {
       void route.fulfill(
-        json(commandNote(INVALID_COMMAND_CONTENT_NO_STEPS)),
+        json(commandSource(INVALID_COMMAND_CONTENT_NO_STEPS)),
       );
       return;
     }
     if (req.method() === 'PUT') {
       putBodies.push(req.postDataJSON() as PutBody);
-      void route.fulfill(json({ path: 'commands/create-todo.yaml', mtime: 3000 }));
+      void route.fulfill(json(commandSourceWriteResponse('create-todo', 3000)));
       return;
     }
     void route.fallback();
@@ -433,10 +444,10 @@ test('[AC-S9e64e7-1-2] steps[] 空(無効)定義のとき cmd-edit-save は aria
 test('[AC-S9e64e7-1-2] 未知の kind (無効) → aria-disabled', async ({ page }) => {
   const { unexpected } = await openApp(page);
 
-  await page.route('**/api/notes/commands/create-todo.yaml', (route) => {
+  await page.route('**/api/commands/create-todo/source', (route) => {
     const req = route.request();
     if (req.method() === 'GET') {
-      void route.fulfill(json(commandNote(INVALID_COMMAND_CONTENT_BAD_KIND)));
+      void route.fulfill(json(commandSource(INVALID_COMMAND_CONTENT_BAD_KIND)));
       return;
     }
     void route.fallback();
@@ -511,10 +522,10 @@ test('[REGRESSION] 通常ノートは引き続き Editor で開き、保存で�
 test('[AC-S9e64e7-2-1] 有効 YAML → cmd-edit-validation[data-valid=true]、invalid → data-valid=false + エラー表示 + save/test-run disabled', async ({ page }) => {
   const { unexpected } = await openApp(page);
 
-  await page.route('**/api/notes/commands/create-todo.yaml', (route) => {
+  await page.route('**/api/commands/create-todo/source', (route) => {
     const req = route.request();
     if (req.method() === 'GET') {
-      void route.fulfill(json(commandNote(VALID_COMMAND_CONTENT)));
+      void route.fulfill(json(commandSource(VALID_COMMAND_CONTENT)));
       return;
     }
     void route.fallback();
@@ -554,10 +565,10 @@ test('[AC-S9e64e7-2-1] 有効 YAML → cmd-edit-validation[data-valid=true]、in
 test('[AC-S9e64e7-2-2] 有効定義: params プレビュー行 (cmd-param-row) が正しく表示される', async ({ page }) => {
   const { unexpected } = await openApp(page);
 
-  await page.route('**/api/notes/commands/create-todo.yaml', (route) => {
+  await page.route('**/api/commands/create-todo/source', (route) => {
     const req = route.request();
     if (req.method() === 'GET') {
-      void route.fulfill(json(commandNote(VALID_COMMAND_CONTENT)));
+      void route.fulfill(json(commandSource(VALID_COMMAND_CONTENT)));
       return;
     }
     void route.fallback();
@@ -596,10 +607,10 @@ test('[AC-S9e64e7-2-2] 有効定義: params プレビュー行 (cmd-param-row) �
 test('[AC-S9e64e7-2-2] select 型 param の options が表示される + when: 付きステップのマーカー + prop-set ステップ', async ({ page }) => {
   const { unexpected } = await openApp(page);
 
-  await page.route('**/api/notes/commands/create-todo.yaml', (route) => {
+  await page.route('**/api/commands/create-todo/source', (route) => {
     const req = route.request();
     if (req.method() === 'GET') {
-      void route.fulfill(json(commandNote(ALL_PARAM_TYPES_CONTENT)));
+      void route.fulfill(json(commandSource(ALL_PARAM_TYPES_CONTENT)));
       return;
     }
     void route.fallback();
@@ -631,10 +642,10 @@ test('[AC-S9e64e7-2-2] select 型 param の options が表示される + when: �
 test('[AC-S9e64e7-2-2] 6 種の step kind が cmd-step-row に表示される、when: 付きステップに data-when 属性', async ({ page }) => {
   const { unexpected } = await openApp(page);
 
-  await page.route('**/api/notes/commands/create-todo.yaml', (route) => {
+  await page.route('**/api/commands/create-todo/source', (route) => {
     const req = route.request();
     if (req.method() === 'GET') {
-      void route.fulfill(json(commandNote(ALL_STEP_KINDS_CONTENT)));
+      void route.fulfill(json(commandSource(ALL_STEP_KINDS_CONTENT)));
       return;
     }
     void route.fallback();
@@ -675,15 +686,15 @@ test('[AC-S9e64e7-2-3] params あり → param-form-modal が開き、submit で
   const putBodies: PutBody[] = [];
   const runBodies: Record<string, unknown>[] = [];
 
-  await page.route('**/api/notes/commands/create-todo.yaml', (route) => {
+  await page.route('**/api/commands/create-todo/source', (route) => {
     const req = route.request();
     if (req.method() === 'GET') {
-      void route.fulfill(json(commandNote(VALID_COMMAND_CONTENT)));
+      void route.fulfill(json(commandSource(VALID_COMMAND_CONTENT)));
       return;
     }
     if (req.method() === 'PUT') {
       putBodies.push(req.postDataJSON() as PutBody);
-      void route.fulfill(json({ path: 'commands/create-todo.yaml', created: false, mtime: 9999 }));
+      void route.fulfill(json(commandSourceWriteResponse()));
       return;
     }
     void route.fallback();
@@ -749,10 +760,10 @@ test('[AC-S9e64e7-2-3] params なし → param-form-modal は表示されず即 
   const { unexpected } = await openApp(page);
   const runBodies: Record<string, unknown>[] = [];
 
-  await page.route('**/api/notes/commands/create-todo.yaml', (route) => {
+  await page.route('**/api/commands/create-todo/source', (route) => {
     const req = route.request();
     if (req.method() === 'GET') {
-      void route.fulfill(json(commandNote(NO_PARAM_COMMAND_CONTENT)));
+      void route.fulfill(json(commandSource(NO_PARAM_COMMAND_CONTENT)));
       return;
     }
     void route.fallback();
@@ -796,10 +807,10 @@ test('[AC-S9e64e7-2-3] invalid 状態では cmd-edit-test-run は aria-disabled 
   const { unexpected } = await openApp(page);
   const runBodies: Record<string, unknown>[] = [];
 
-  await page.route('**/api/notes/commands/create-todo.yaml', (route) => {
+  await page.route('**/api/commands/create-todo/source', (route) => {
     const req = route.request();
     if (req.method() === 'GET') {
-      void route.fulfill(json(commandNote(INVALID_COMMAND_CONTENT_BAD_KIND)));
+      void route.fulfill(json(commandSource(INVALID_COMMAND_CONTENT_BAD_KIND)));
       return;
     }
     void route.fallback();
@@ -836,15 +847,15 @@ test('[AC-S9e64e7-2-3] dirty 状態でテスト実行すると先に PUT 保存�
   const { unexpected } = await openApp(page);
   const callOrder: string[] = [];
 
-  await page.route('**/api/notes/commands/create-todo.yaml', (route) => {
+  await page.route('**/api/commands/create-todo/source', (route) => {
     const req = route.request();
     if (req.method() === 'GET') {
-      void route.fulfill(json(commandNote(VALID_COMMAND_CONTENT)));
+      void route.fulfill(json(commandSource(VALID_COMMAND_CONTENT)));
       return;
     }
     if (req.method() === 'PUT') {
       callOrder.push('PUT');
-      void route.fulfill(json({ path: 'commands/create-todo.yaml', created: false, mtime: 9999 }));
+      void route.fulfill(json(commandSourceWriteResponse()));
       return;
     }
     void route.fallback();
@@ -899,10 +910,10 @@ test('[AC-S9e64e7-2-3] dirty 状態でテスト実行すると先に PUT 保存�
 test('[AC-S9e64e7-2-3] partial-failure: step-result[data-ok=false] が表示される', async ({ page }) => {
   const { unexpected } = await openApp(page);
 
-  await page.route('**/api/notes/commands/create-todo.yaml', (route) => {
+  await page.route('**/api/commands/create-todo/source', (route) => {
     const req = route.request();
     if (req.method() === 'GET') {
-      void route.fulfill(json(commandNote(NO_PARAM_COMMAND_CONTENT)));
+      void route.fulfill(json(commandSource(NO_PARAM_COMMAND_CONTENT)));
       return;
     }
     void route.fallback();

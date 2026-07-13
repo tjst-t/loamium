@@ -806,3 +806,51 @@ export const commandRunResponseSchema = z.object({
   openPath: z.string().optional(),
 });
 export type CommandRunResponse = z.infer<typeof commandRunResponseSchema>;
+
+// ---- スマートコマンド定義ソース読み書き (GET/PUT /api/commands/{id}/source) ----
+
+/**
+ * GET /api/commands/{id}/source のレスポンス。
+ * .yaml / .yml ファイルの生テキストを返す (notes API の .md 強制を回避)。
+ */
+export const commandSourceResponseSchema = z.object({
+  /** コマンド識別子 (stem、拡張子なし)。例: "create-todo" */
+  id: z.string(),
+  /** vault 相対パス。例: "commands/create-todo.yaml" */
+  path: z.string(),
+  /** ファイルの生テキスト (pure YAML) */
+  content: z.string(),
+  /** ファイルの mtime (ms epoch)。楽観的競合検出に使う */
+  mtime: z.number(),
+});
+export type CommandSourceResponse = z.infer<typeof commandSourceResponseSchema>;
+
+/**
+ * PUT /api/commands/{id}/source のリクエストボディ。
+ * content: 書き込む生テキスト (pure YAML)。
+ * mtime: 楽観的競合検出 (省略時は無条件上書き)。
+ */
+export const commandSourceWriteRequestSchema = z.object({
+  content: z.string(),
+  /**
+   * 楽観的競合検出。指定時、対象ファイルの現 mtime (ms epoch) と不一致なら 409 conflict。
+   * 省略時は無条件で上書き (last-write-wins)。
+   */
+  mtime: z.number().int().nonnegative().optional(),
+});
+export type CommandSourceWriteRequest = z.infer<typeof commandSourceWriteRequestSchema>;
+
+/**
+ * PUT /api/commands/{id}/source のレスポンス。
+ */
+export const commandSourceWriteResponseSchema = z.object({
+  /** コマンド識別子 (stem) */
+  id: z.string(),
+  /** 書き込んだ vault 相対パス */
+  path: z.string(),
+  /** 新規作成か */
+  created: z.boolean(),
+  /** 書き込み後の mtime (ms epoch) */
+  mtime: z.number(),
+});
+export type CommandSourceWriteResponse = z.infer<typeof commandSourceWriteResponseSchema>;

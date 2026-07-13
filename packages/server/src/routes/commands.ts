@@ -35,13 +35,16 @@ import {
   buildBodyTemplate,
   VaultPathError,
   commandRunRequestSchema,
+  commandSourceWriteRequestSchema,
   type CommandRunResponse,
+  type CommandSourceResponse,
+  type CommandSourceWriteResponse,
   type CommandStepResult,
   type CommandSummary,
   type CommandsResponse,
 } from '@loamium/shared';
 import type { ServerConfig } from '../config.js';
-import { readNote, writeNote } from '../vault.js';
+import { readNote, writeNote, noteMtime } from '../vault.js';
 import { errorJson, parseBody, setAudit, type AppEnv } from '../http.js';
 import { writeAuditEntry } from '../audit.js';
 import { firstFreePath } from '../vault-paths.js';
@@ -147,6 +150,126 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
     }
 
     const res: CommandsResponse = { commands };
+    return c.json(res);
+  });
+
+  // -----------------------------------------------------------------------
+  // GET /api/commands/{id}/source
+  // commands/{id}.yaml (または .yml) の生テキストを返す。
+  // notes API の .md 強制を回避し CommandEditor が YAML を読み書きできるようにする。
+  // read-only / append-only モードでも読み取りは許可 (副作用なし)。
+  // -----------------------------------------------------------------------
+
+  app.get('/api/commands/:id/source', async (c) => {
+    const id = decodeURIComponent(c.req.param('id'));
+
+    let commandPathBase: string;
+    try {
+      commandPathBase = normalizeVaultFilePath(`${COMMANDS_DIR}/${id}`);
+    } catch (err) {
+      if (err instanceof VaultPathError) {
+        return errorJson(c, 400, 'invalid_path', `invalid command id: ${err.message}`);
+      }
+      throw err;
+    }
+
+    // .yaml を優先し、なければ .yml を試みる
+    let foundPath: string | undefined;
+    let foundContent: string | undefined;
+    for (const ext of ['.yaml', '.yml']) {
+      const candidate = `${commandPathBase}${ext}`;
+      const content = await readNote(config.vaultRoot, candidate);
+      if (content !== null) {
+        foundPath = candidate;
+        foundContent = content;
+        break;
+      }
+    }
+
+    if (foundPath === undefined || foundContent === undefined) {
+      return errorJson(c, 404, 'not_found', `command source not found: ${id}`);
+    }
+
+    const mtime = (await noteMtime(config.vaultRoot, foundPath)) ?? Date.now();
+
+    const res: CommandSourceResponse = {
+      id,
+      path: foundPath,
+      content: foundContent,
+      mtime,
+    };
+    return c.json(res);
+  });
+
+  // -----------------------------------------------------------------------
+  // PUT /api/commands/{id}/source
+  // commands/{id}.yaml の生テキストを書き込む。
+  // - read-only → permissionMiddleware が 403 を返すためここには到達しない。
+  // - append-only → コマンド定義の変更は MUTATE 操作のため 403 (note write と同じ扱い)。
+  // - mtime 指定時: 現 mtime と不一致なら 409 conflict (楽観的競合検出)。
+  // -----------------------------------------------------------------------
+
+  app.put('/api/commands/:id/source', async (c) => {
+    // append-only モードでは定義の書き換えは拒否する (note PUT と同じポリシー)
+    if (config.mode === 'append-only') {
+      return errorJson(c, 403, 'forbidden', 'command source write is not allowed in append-only mode');
+    }
+
+    const id = decodeURIComponent(c.req.param('id'));
+
+    let commandPathBase: string;
+    try {
+      commandPathBase = normalizeVaultFilePath(`${COMMANDS_DIR}/${id}`);
+    } catch (err) {
+      if (err instanceof VaultPathError) {
+        return errorJson(c, 400, 'invalid_path', `invalid command id: ${err.message}`);
+      }
+      throw err;
+    }
+
+    const body = await parseBody(c, commandSourceWriteRequestSchema);
+    if (!body.ok) return body.response;
+    const { content, mtime: baseMtime } = body.data;
+
+    // 既存ファイルを探す (.yaml → .yml の順)。なければ .yaml として新規作成。
+    let targetPath: string | undefined;
+    let isNew = false;
+    for (const ext of ['.yaml', '.yml']) {
+      const candidate = `${commandPathBase}${ext}`;
+      const existingMtime = await noteMtime(config.vaultRoot, candidate);
+      if (existingMtime !== null) {
+        // 楽観的競合検出
+        if (baseMtime !== undefined && existingMtime !== baseMtime) {
+          return errorJson(c, 409, 'conflict', `command source has been modified since mtime=${String(baseMtime)}`);
+        }
+        targetPath = candidate;
+        break;
+      }
+    }
+
+    if (targetPath === undefined) {
+      // 新規作成: commands/{id}.yaml
+      targetPath = `${commandPathBase}.yaml`;
+      isNew = true;
+    }
+
+    const writeResult = await writeNote(config.vaultRoot, targetPath, content);
+    setAudit(c, 'command.source.write', targetPath);
+    await writeAuditEntry(config, {
+      ts: new Date().toISOString(),
+      op: 'command.source.write',
+      path: targetPath,
+      mode: config.mode,
+      result: 'ok',
+      status: 200,
+    });
+
+    const res: CommandSourceWriteResponse = {
+      id,
+      path: targetPath,
+      created: isNew || writeResult.created,
+      mtime: writeResult.mtime,
+    };
     return c.json(res);
   });
 

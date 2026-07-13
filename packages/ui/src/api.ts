@@ -33,6 +33,8 @@ import {
   templatesResponseSchema,
   commandsResponseSchema,
   commandRunResponseSchema,
+  commandSourceResponseSchema,
+  commandSourceWriteResponseSchema,
   type TemplateInstantiateResponse,
   type TemplateSummary,
   type PropertyKeyCount,
@@ -58,6 +60,8 @@ import {
   type QueryResponse,
   type SearchResponse,
   type CommandRunResponse,
+  type CommandSourceResponse,
+  type CommandSourceWriteResponse,
   type CommandSummary,
 } from '@loamium/shared';
 
@@ -390,6 +394,30 @@ export const api = {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ params }),
+    });
+  },
+
+  /**
+   * コマンド定義ファイルの生 YAML を取得する (GET /api/commands/{id}/source)。
+   * notes API の .md 強制を回避し、commands/*.yaml を正しく読む。
+   * id = ファイルの stem (拡張子なし)。例: "create-todo"
+   */
+  getCommandSource(id: string): Promise<CommandSourceResponse> {
+    return request(commandSourceResponseSchema, `/api/commands/${encodeURIComponent(id)}/source`);
+  },
+
+  /**
+   * コマンド定義ファイルの生 YAML を書き込む (PUT /api/commands/{id}/source)。
+   * notes API の .md 強制を回避し、commands/*.yaml に正しく書き込む。
+   * mtime: 楽観的競合検出 (省略時は無条件上書き)。
+   */
+  putCommandSource(id: string, content: string, mtime?: number): Promise<CommandSourceWriteResponse> {
+    const body: { content: string; mtime?: number } = { content };
+    if (mtime !== undefined) body.mtime = mtime;
+    return request(commandSourceWriteResponseSchema, `/api/commands/${encodeURIComponent(id)}/source`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
     });
   },
 };

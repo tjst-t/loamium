@@ -175,12 +175,11 @@ const COMMAND_NO_PARAMS_CONTENT = [
   '    content: "entry"',
 ].join('\n');
 
-function commandNote(content: string, path = 'commands/create-todo.yaml'): Record<string, unknown> {
+function commandSource(content: string, id = 'create-todo'): Record<string, unknown> {
   return {
-    path,
+    id,
+    path: `commands/${id}.yaml`,
     content,
-    frontmatter: null,
-    body: content,
     mtime: 2000,
   };
 }
@@ -202,10 +201,10 @@ async function openCommandEditor(page: Page, content: string): Promise<void> {
       mtime: 1000,
     }));
   });
-  await page.route('**/api/notes/commands/create-todo.yaml', (route) => {
+  await page.route('**/api/commands/create-todo/source', (route) => {
     const req = route.request();
     if (req.method() === 'GET') {
-      void route.fulfill(json(commandNote(content)));
+      void route.fulfill(json(commandSource(content)));
       return;
     }
     void route.fallback();

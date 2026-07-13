@@ -79,6 +79,16 @@ describe('parseLocation', () => {
     const route: Route = { kind: 'note', path: 'reading/失敗の科学.md' };
     expect(parseLocation(routeToPath(route))).toEqual(route);
   });
+  it('commands/*.yaml は .md を補完しない (ADR-0012)', () => {
+    expect(parseLocation('/n/commands/create-todo.yaml')).toEqual({
+      kind: 'note',
+      path: 'commands/create-todo.yaml',
+    });
+  });
+  it('routeToPath → parseLocation の往復で .yaml パスが保存される', () => {
+    const route: Route = { kind: 'note', path: 'commands/create-todo.yaml' };
+    expect(parseLocation(routeToPath(route))).toEqual(route);
+  });
   it('routeToPath → parseLocation の往復で検索条件が保存される (S935867-1)', () => {
     const route: Route = {
       kind: 'search',

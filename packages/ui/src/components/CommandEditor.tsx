@@ -519,7 +519,7 @@ export function CommandEditor({
     view.focus();
   }, [docPath, content, resetToken, buildExtensions]);
 
-  // 保存ハンドラ (PUT /api/notes/{path})
+  // 保存ハンドラ (PUT /api/commands/{id}/source — notes API の .md 強制を回避)
   // Invalid のとき保存しない (UI ではボタンを aria-disabled にするが、防御的にも実装する)
   const handleSave = useCallback(async (): Promise<void> => {
     const v = validateText(textRef.current);
@@ -528,7 +528,9 @@ export function CommandEditor({
     savingRef.current = true;
     try {
       const base = mtimeRef.current ?? undefined;
-      const res = await api.putNote(docPath, textRef.current, base);
+      // ADR-0012: stem を使って source エンドポイントへ PUT (notes API は .md 強制のため使わない)
+      const commandId = extractCommandId(docPath);
+      const res = await api.putCommandSource(commandId, textRef.current, base);
       dirtyRef.current = false;
       setDirty(false);
       onSavedRef.current(res.mtime);

@@ -366,6 +366,8 @@ export function App(): JSX.Element {
       const d = docRef.current;
       if (d === null) return true;
       if (!dirtyRef.current) return true;
+      // ADR-0012: commands/*.yaml は CommandEditor が自分で保存するため App の saveNow は触らない
+      if (isCommandFile(d.path)) return true;
       if (savingRef.current) return false;
       savingRef.current = true;
       if (saveTimerRef.current !== null) {
@@ -485,6 +487,15 @@ export function App(): JSX.Element {
       if (docRef.current?.path === path && previewRef.current === null) return path;
       if (!(await saveNow())) return null;
       try {
+        // ADR-0012: commands/*.yaml は notes API の .md 強制を回避して source エンドポイントで読む
+        if (isCommandFile(path)) {
+          const stem = path.split('/').at(-1)?.replace(/\.ya?ml$/i, '') ?? path;
+          const res = await api.getCommandSource(stem);
+          setPreview(null);
+          setOpenDoc(res.path, res.content, res.mtime, null);
+          setAppError(null);
+          return res.path;
+        }
         const res = await api.getNote(path);
         setPreview(null);
         setOpenDoc(res.path, res.content, res.mtime, res.frontmatter);
