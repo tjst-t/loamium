@@ -1,0 +1,64 @@
+# Sprint Run Log — S9e64e7-2
+
+Story: 右ペイン — ライブ検証 + params/steps プレビュー + テスト実行 (ADR-0010/0011)
+Date: 2026-07-13
+
+## Scope
+
+CommandEditor.tsx (packages/ui/src/components/CommandEditor.tsx) に以下を実装:
+- AC-S9e64e7-2-1: リアルタイムバリデーション (parseLoamiumCommandWithError)
+  - cmd-edit-validation[data-valid=true|false] + エラー詳細バナー cmd-edit-error
+  - invalid 時は cmd-edit-save + cmd-edit-test-run が aria-disabled
+- AC-S9e64e7-2-2: params/steps プレビュー
+  - cmd-param-row[data-name][data-type][data-required] + select options 表示
+  - cmd-step-row[data-index][data-kind][data-when?] (6 種対応)
+- AC-S9e64e7-2-3: テスト実行フロー
+  - dirty → 先に PUT 保存 → POST /api/commands/{stem}/run (stem = file stem, NOT display name)
+  - params あり → TestRunParamForm モーダル (param-form-modal testid) で収集後 CommandEditor が run
+  - params なし → 即 POST run
+  - 結果は cmd-edit-run-result / step-result[data-kind][data-ok] で表示
+  - partial-failure も step-result[data-ok=false] で表示
+
+## CSS 追加 (packages/ui/src/styles.css)
+- .cmd-editor-cmd-name / .cmd-editor-cmd-desc
+- .cmd-editor-section / .cmd-editor-section-title
+- .cmd-param-row / .cmd-param-name / .cmd-param-type / .cmd-param-required / .cmd-param-options
+- .cmd-step-row / .cmd-step-summary / .cmd-step-when
+- .cmd-test-run-btn (prototype の .cmd-test-run-btn を移植)
+- .cmd-edit-run-result / .cmd-run-result-head
+
+## TestRunParamForm (CommandEditor.tsx 内)
+ParamFormModal.tsx を再利用せず CommandEditor 専用の薄いモーダルを実装。
+理由: run 結果を cmd-edit-run-result に表示するため、
+CommandEditor 自身が api.runCommand を呼ぶ必要がある。
+ParamFormModal は onSuccess(openPath) しか返さないため不足。
+TestRunParamForm は param-form-modal testid / param-field / param-form-submit を再現。
+
+## Mock Tests (packages/ui/tests/e2e/command-editor.mock.spec.ts)
+- 16 tests / 16 passed
+  - S9e64e7-1 既存 7 テスト: 引き続き GREEN
+  - S9e64e7-2 新規 9 テスト: 全て GREEN
+    - AC-S9e64e7-2-1: 1 test (ライブバリデーション)
+    - AC-S9e64e7-2-2: 3 tests (params/steps プレビュー)
+    - AC-S9e64e7-2-3: 4 tests (テスト実行フロー)
+
+Command: cd packages/ui && npx playwright test command-editor.mock.spec.ts --project=mock --config=packages/ui/playwright.config.ts
+Result: 16 passed (15.8s)
+
+## E2E Tests (packages/ui/tests/e2e/command-editor.e2e.spec.ts)
+Written but not run (verify フェーズで実行)。
+追加: AC-S9e64e7-2-3 の実サーバーテスト (edit → auto-save → run → result visible)。
+
+## Typecheck + Lint
+- npx tsc --noEmit -p packages/ui: OK (no errors)
+- make lint: OK (no errors)
+
+## 実装上の注意点
+- id = commands/create-todo.md の stem "create-todo" を使用 (display name "create todo" ではない)
+  → extractCommandId(docPath) で `docPath.split('/').at(-1)?.replace(/\.md$/, '')` にて取得
+- dirty 時の自動保存フロー: handleSave() 呼び出し後に run に進む
+- TestRunParamForm: 全 7 param 型 (string/text/date/select/note/boolean/number) に対応した入力 UI
+- step-result の CSS は既存の .step-result (ParamFormModal 共用) を再利用
+
+## Out-of-scope findings
+- なし

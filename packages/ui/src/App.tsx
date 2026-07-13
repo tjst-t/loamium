@@ -37,7 +37,9 @@ import {
   type SearchParams,
 } from './router.js';
 import { makeTagClickHandler } from './tag-click.js';
+import { isCommandNote } from './commandEditorUtils.js';
 import { BookmarkStar } from './components/BookmarkStar.js';
+import { CommandEditor } from './components/CommandEditor.js';
 import { Editor } from './components/Editor.js';
 import { FilePreview } from './components/FilePreview.js';
 import { FilesPage } from './components/FilesPage.js';
@@ -416,6 +418,22 @@ export function App(): JSX.Element {
     },
     [saveNow],
   );
+
+  /**
+   * CommandEditor 用の onChange: contentRef / dirtyRef を更新するが自動保存は起動しない。
+   * CommandEditor は無効定義でも書き続けられる必要があるため、自動保存の代わりに
+   * 手動の保存ボタン(cmd-edit-save)のみで PUT する。
+   */
+  const onCommandEditorChange = useCallback((text: string): void => {
+    contentRef.current = text;
+    dirtyRef.current = true;
+    setDirty(true);
+    // 既存の自動保存タイマーがあればキャンセル (通常エディタからの切り替え残留を防ぐ)
+    if (saveTimerRef.current !== null) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+  }, []);
 
   const setOpenDoc = useCallback(
     (path: string, text: string, mtime: number | null, frontmatter: Record<string, unknown> | null): void => {
@@ -1452,7 +1470,7 @@ export function App(): JSX.Element {
               {appError}
             </div>
           )}
-          {route.kind === 'note' && doc !== null && preview === null && (
+          {route.kind === 'note' && doc !== null && preview === null && !isCommandNote(doc.path, doc.frontmatter) && (
             <div className="save-status" data-testid="save-status" data-state={dirty ? 'dirty' : 'saved'}>
               <span className="dot" />
               <span>{dirty ? '未保存' : '保存済み'}</span>
@@ -1495,6 +1513,28 @@ export function App(): JSX.Element {
           />
         ) : preview !== null ? (
           <FilePreview path={preview} files={files} />
+        ) : doc !== null && isCommandNote(doc.path, doc.frontmatter) ? (
+          <CommandEditor
+            docPath={doc.path}
+            content={doc.text}
+            resetToken={doc.resetToken}
+            mtime={doc.mtime}
+            onChange={onCommandEditorChange}
+            onSaved={(mtime) => {
+              markSaved(doc.path, mtime);
+              // CommandEditor が独自保存した後 App の dirty/contentRef も整合させる
+              dirtyRef.current = false;
+              setDirty(false);
+              if (saveTimerRef.current !== null) {
+                clearTimeout(saveTimerRef.current);
+                saveTimerRef.current = null;
+              }
+              void refreshTags();
+              void refreshPropertyKeys();
+              setBacklinksToken((v) => v + 1);
+            }}
+            onSaveError={(msg) => setAppError(`保存に失敗しました — ${msg}`)}
+          />
         ) : doc !== null ? (
           <Editor
             docPath={doc.path}
@@ -1569,6 +1609,27 @@ export function App(): JSX.Element {
                 <li>
                   <strong>ブックマーク ★</strong> — 開いているノートのヘッダの ★ を押すと
                   そのノートをブックマーク登録できます。スマートビューで一覧できます。
+                </li>
+              </ul>
+            </div>
+            <div className="smart-command-guide" data-testid="smart-command-guide">
+              <h3>スマートコマンドの使い方</h3>
+              <ul>
+                <li>
+                  <strong>定義を書く</strong> — <code>commands/</code> フォルダにノートを作成し、
+                  frontmatter に <code>loamium-command:</code> ブロックを追加します。
+                  ノートを開くと自動で定義エディタ（スプリットビュー）に切り替わります。
+                </li>
+                <li>
+                  <strong>コマンドパレットで実行</strong> — <kbd>Ctrl</kbd>+<kbd>K</kbd> を押して{' '}
+                  <code>{'>'}</code> を入力すると、登録済みスマートコマンドの一覧が表示されます。
+                  選択するとフォームが開き、パラメータを入力して実行できます。
+                </li>
+                <li>
+                  <strong>定義エディタで編集</strong> — 左ペインで YAML を直接編集し、
+                  右ペインでライブ検証・プレビュー・テスト実行ができます。
+                  補完（<kbd>Ctrl</kbd>+<kbd>Space</kbd>）で <code>kind:</code> やパラメータトークン{' '}
+                  <code>{'{{param}}'}</code> を素早く入力できます。
                 </li>
               </ul>
             </div>

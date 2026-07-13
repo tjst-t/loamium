@@ -1,0 +1,75 @@
+Sprint S9e64e7-1 run log — 定義エディタ検出 + スプリットシェル + 保存
+Date: 2026-07-13
+
+## Files created / modified
+
+NEW packages/ui/src/commandEditorUtils.ts
+  - isCommandNote(path, frontmatter): path starts with 'commands/' AND frontmatter has 'loamium-command' key
+
+NEW packages/ui/src/components/CommandEditor.tsx
+  - Split layout: left CodeMirror (YAML/MD source) + right preview pane scaffold
+  - Live validation via parseLoamiumCommandWithError on every keystroke
+  - Save button: aria-disabled when invalid; PUT /api/notes/{path} when valid
+  - Internal save-status (data-testid="save-status") with dirty/saved states
+  - No autosave: App injects onCommandEditorChange (no debounce timer)
+  - testids: command-editor, command-editor-header, cmd-edit-yaml, cmd-edit-preview,
+             cmd-edit-validation[data-valid], cmd-edit-error, cmd-edit-save[aria-disabled],
+             save-status, cmd-mode-badge
+
+MOD packages/ui/src/App.tsx
+  - Import CommandEditor + isCommandNote
+  - onCommandEditorChange: updates contentRef/dirtyRef, no autosave timer
+  - Render branch: isCommandNote → CommandEditor, else → Editor
+  - CommandEditor.onSaved: markSaved + clear dirty + refresh tags/propertyKeys/backlinks
+  - App-level save-status hidden when CommandEditor is active (prevents duplicate testid)
+
+MOD packages/ui/src/styles.css
+  - Added :where(svg){ width: 16px; height: 16px } guard (KNOWN PAST FAILURE: inline SVG without guard → huge)
+  - .cmd-editor, .cmd-editor-header, .cmd-editor-split layout (grid: 1fr 1fr)
+  - .cmd-editor-left (CodeMirror in dark #1e1e2e), .cmd-editor-right (light panel)
+  - .cmd-mode-badge, .cmd-editor-validation.valid/.invalid, .cmd-editor-error-banner
+  - [aria-disabled="true"] { opacity: 0.5; cursor: not-allowed }
+  - Ported from prototype/command-editor.html V3: split-pane, preview-pane, yaml-pane styles
+
+MOD packages/ui/tests/harness/global-setup.ts
+  - Added commands/create-todo.md to seedVault for E2E
+
+NEW packages/ui/tests/e2e/command-editor.mock.spec.ts
+  - 7 mock tests covering AC-S9e64e7-1-1, AC-S9e64e7-1-2, REGRESSION
+
+NEW packages/ui/tests/e2e/command-editor.e2e.spec.ts
+  - 3 E2E tests (written; not run — run happens in sprint verify)
+
+## Test results (mock only — as required)
+
+cd packages/ui && npx playwright test command-editor.mock.spec.ts --project=mock
+
+  7 passed (7.2s)
+  0 failed, 0 skipped
+
+Full mock suite (48 tests including existing):
+  48 passed (43.0s) — no regression
+
+## Typecheck + lint
+
+npx tsc --noEmit -p packages/ui   → PASS
+make lint                         → PASS (all 4 workspaces + tests/tsconfig.json)
+
+## Detection mechanism
+
+isCommandNote(path, frontmatter) in commandEditorUtils.ts:
+  - path.startsWith('commands/')  →  checks prefix only (no server round-trip)
+  - 'loamium-command' in frontmatter  →  key existence check on frontmatter from setOpenDoc
+  Both conditions must be true → CommandEditor; else → Editor
+
+## Save mechanism reuse
+
+CommandEditor.handleSave() calls api.putNote(docPath, text, mtime) directly —
+same PUT /api/notes/{path} endpoint as Editor/saveNow. Schema: { content, baseMtime? }.
+Response: { path, created, mtime } (noteWriteResponseSchema).
+App.onSaved callback clears dirtyRef/dirty and calls markSaved/refreshTags/refreshPropertyKeys/
+setBacklinksToken — same as saveNow() in App.tsx.
+
+## Out-of-scope findings
+
+None. Clean seams left for Story -2 (right pane rich preview) and Story -3 (completion).

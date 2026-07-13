@@ -1,0 +1,5 @@
+{"sprint":"S9e64e7","compromises":[
+  {"severity":"medium","category":"duplication","summary":"TestRunParamForm が ParamFormModal のフォームロジックを重複実装(select/boolean/number/note を扱うため)。挙動は正しいが分岐リスク。backlog 化。","recorded":"backlog"},
+  {"severity":"low","category":"test_flakiness","summary":"tests/e2e/smart-folder-editor.e2e.spec.ts:134 が full-suite 負荷下でフレーク(単独 pass、S9e64e7 未変更)。","recorded":"verification-results"},
+  {"severity":"low","category":"coverage","summary":"KIND_SCAFFOLDS 手書き/note ピッカー未実装/when-not data-when テスト欠如。backlog 化。","recorded":"backlog"}
+],"overlooked_by_autopilot":[]}

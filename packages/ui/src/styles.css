@@ -4377,3 +4377,381 @@ button.callout-title { cursor: pointer; }
 }
 .property-value { flex: 1; min-width: 0; color: var(--text); word-break: break-word; }
 .property-value .tag-chip { font-size: 11px; padding: 1px 8px 1px 6px; }
+
+/* ==========================================================================
+   CommandEditor — スマートコマンド定義専用スプリットエディタ (S9e64e7-1)
+   prototype/command-editor.html V3 の split + validate バナーを移植。
+   ========================================================================== */
+
+/* SVG アイコンサイズ基底ガード (過去失敗事例: inline SVG がサイズ指定なしで巨大化する) */
+:where(svg) { width: 16px; height: 16px; }
+
+/* コンテナ全体 */
+.cmd-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-editor);
+}
+
+/* ヘッダ: ブレッドクラム + バッジ + 保存ステータス */
+.cmd-editor-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  flex-shrink: 0;
+}
+
+.cmd-editor-breadcrumb {
+  flex: 1;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cmd-editor-sep { color: var(--text-faint); }
+
+.cmd-editor-crumb-curr {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* スマートコマンドモードバッジ (prototype の .cmd-mode-badge を移植) */
+.cmd-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-hover);
+  background: var(--accent-soft);
+  border-radius: 8px;
+  padding: 3px 10px;
+  border: 1px solid rgba(110, 86, 207, 0.25);
+  flex-shrink: 0;
+}
+.cmd-mode-badge svg { width: 12px; height: 12px; }
+
+/* スプリットレイアウト: 左 YAML / 右プレビュー (V3) */
+.cmd-editor-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* 左ペイン: CodeMirror ホスト */
+.cmd-editor-left {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+/* ペインヘッダバー (V3 .yaml-pane-bar 移植) */
+.cmd-editor-pane-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  background: #181825;
+  border-bottom: 1px solid #313244;
+  font-size: 11px;
+  color: #6c7086;
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+.cmd-editor-pane-lang {
+  font-weight: 700;
+  color: #89b4fa;
+  font-size: 10.5px;
+}
+
+.cmd-editor-pane-label {
+  color: #6c7086;
+}
+
+/* CodeMirror ホスト: 残りの高さをすべて使う */
+.cmd-editor-cm-host {
+  flex: 1;
+  overflow: auto;
+  background: #1e1e2e;
+}
+
+/* CodeMirror エディタ本体を暗色テーマに合わせる */
+.cmd-editor-cm-host .cm-editor {
+  height: 100%;
+  background: #1e1e2e;
+  color: #cdd6f4;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.cmd-editor-cm-host .cm-content {
+  padding: 14px 16px;
+}
+
+.cmd-editor-cm-host .cm-line {
+  padding: 0;
+  line-height: 1.7;
+}
+
+.cmd-editor-cm-host .cm-activeLineGutter,
+.cmd-editor-cm-host .cm-activeLine {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.cmd-editor-cm-host .cm-cursor { border-left-color: #cdd6f4; }
+
+.cmd-editor-cm-host .cm-selectionBackground { background: rgba(110, 86, 207, 0.35); }
+
+/* 右ペイン: バリデーション + プレビュー + 保存 */
+.cmd-editor-right {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-panel);
+}
+
+/* バリデーション結果バー (prototype の preview-pane-bar + cmd-valid-badge 相当) */
+.cmd-editor-validation {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.cmd-editor-validation svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+.cmd-editor-validation.valid {
+  color: #1f7a4d;
+  background: #e8f5ee;
+}
+
+.cmd-editor-validation.invalid {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-color: #f5b8b8;
+}
+
+/* エラー詳細バナー (prototype の .schema-error-box を移植) */
+.cmd-editor-error-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: var(--danger-soft);
+  border-bottom: 1px solid #f5b8b8;
+  padding: 8px 14px;
+  font-size: 12px;
+  color: #a03d3d;
+  line-height: 1.55;
+  flex-shrink: 0;
+}
+.cmd-editor-error-banner svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 1px; color: var(--danger); }
+
+/* プレビュー本体 (Story -2 で充填) */
+.cmd-editor-preview-body {
+  flex: 1;
+  overflow: auto;
+  padding: 14px;
+}
+
+.cmd-editor-preview-placeholder {
+  font-size: 12px;
+  color: var(--text-faint);
+  margin: 0;
+}
+
+/* アクションバー (保存ボタン) */
+.cmd-editor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-editor);
+  flex-shrink: 0;
+}
+
+/* aria-disabled ボタン (prototype の [aria-disabled="true"] を移植) */
+[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+[aria-disabled="true"]:hover { opacity: 0.6; }
+
+/* ============================================================
+   CommandEditor 右ペイン — params/steps プレビュー + テスト実行結果 (S9e64e7-2)
+   prototype/command-editor.html V3 右ペイン相当を移植
+   ============================================================ */
+
+/* コマンド名 / 説明 */
+.cmd-editor-cmd-name {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.cmd-editor-cmd-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+/* セクション区切り (パラメータ / ステップ) */
+.cmd-editor-section {
+  margin-bottom: 12px;
+}
+
+.cmd-editor-section-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  margin: 0 0 5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cmd-editor-section-title::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--border);
+}
+
+/* パラメータ行 (cmd-param-row) */
+.cmd-param-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  margin-bottom: 3px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+}
+
+.cmd-param-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cmd-param-type {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-faint);
+  background: var(--bg-editor);
+  border-radius: 4px;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+}
+
+.cmd-param-required {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--danger);
+  text-transform: uppercase;
+}
+
+.cmd-param-options {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ステップ行 (cmd-step-row) — prototype の .cmd-step-row を移植 */
+.cmd-step-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  padding: 3px 6px;
+  color: var(--text-muted);
+  border-radius: 5px;
+  margin-bottom: 3px;
+}
+
+/* .step-kind は ParamFormModal / step-result と共用 — 既存定義あり */
+.cmd-step-summary {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.cmd-step-when {
+  font-size: 10.5px;
+  font-family: var(--font-mono);
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 4px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+}
+
+/* テスト実行ボタン (prototype .cmd-test-run-btn を移植) */
+.cmd-test-run-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 4px 12px;
+  background: var(--accent-soft);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.cmd-test-run-btn:hover { background: #e5dff8; }
+.cmd-test-run-btn svg { width: 13px; height: 13px; }
+.cmd-test-run-btn[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* テスト実行結果コンテナ (cmd-edit-run-result) */
+.cmd-edit-run-result {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-editor);
+}
+
+/* 実行結果ヘッダ */
+.cmd-run-result-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+.cmd-run-result-head svg { width: 13px; height: 13px; flex-shrink: 0; }
+.cmd-run-result-head.success { background: #e8f5ee; color: #1f7a4d; }
+.cmd-run-result-head.failure { background: var(--danger-soft); color: var(--danger); }
