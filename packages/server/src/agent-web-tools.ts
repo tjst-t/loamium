@@ -22,6 +22,7 @@ import type { AgentConfig, Capability } from '@loamium/shared';
 import type { ServerConfig } from './config.js';
 import { writeAuditEntry } from './audit.js';
 import { isPublicHttpUrl } from './web-guard.js';
+import { builtinWebSearch } from './web-search-provider.js';
 
 // ---- 型エイリアス --------------------------------------------------------------
 
@@ -229,19 +230,32 @@ export function createVaultWebTools(
       label: 'Web 検索',
       description:
         'Web を検索し結果 (タイトル・URL・スニペット) を返す。検索プロバイダは agent.json の ' +
-        'webSearch で設定する。未設定の場合は検索できない旨を返す。',
+        'webSearch で設定できる。未設定の場合は組み込みの DuckDuckGo lite ' +
+        '(失敗時は Wikipedia) を既定プロバイダとして使う。',
       parameters: Type.Object({
         query: Type.String({ description: '検索クエリ文字列' }),
       }),
       async execute(_id, params): Promise<ToolResult> {
-        // 未設定でもクエリは監査に記録する (アクセス試行の記録)。
         const webSearch = config.webSearch;
+
+        // webSearch 未設定 → 組み込み既定プロバイダ (DuckDuckGo lite → Wikipedia)。
+        // クエリは監査に記録するが、取得結果本文は記録しない (ADR-0013)。
         if (!webSearch) {
-          await auditWeb(serverConfig, 'agent.web_search', params.query, false);
-          return textResult(
-            'Web 検索は未設定です (agent.json の webSearch を設定してください)。',
-            { error: true, query: params.query },
-          );
+          let hits;
+          try {
+            hits = await builtinWebSearch(params.query, fetchImpl);
+          } catch (err) {
+            await auditWeb(serverConfig, 'agent.web_search', params.query, false);
+            return textResult(`Web 検索エラー: ${String(err)}`, {
+              error: true,
+              query: params.query,
+            });
+          }
+          await auditWeb(serverConfig, 'agent.web_search', params.query, true);
+          const rendered = renderSearchResults({ results: hits });
+          return textResult(`"${params.query}" の検索結果:\n\n${rendered}`, {
+            query: params.query,
+          });
         }
 
         let endpoint: URL;

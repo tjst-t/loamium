@@ -313,13 +313,32 @@ describe('createVaultWebTools', () => {
 
   // ---- AC-S5e0206-1-2 / 1-3: web_search ---------------------------------------
 
-  it('[AC-S5e0206-1-2] web_search は未設定なら明示メッセージを返す (エラーにしない)', async () => {
-    const t = webTool('web_search', makeAgentConfig(), WEB_CAPS);
+  it('[AC-S5e0206-1-2] web_search は未設定なら組み込み既定プロバイダ (DuckDuckGo lite) で結果を返す', async () => {
+    // 未設定 config + fetchImpl 注入 (DDG lite の HTML フィクスチャを返す)。
+    const ddgHtml =
+      '<a class="result-link" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Floamium">Loamium Home</a>' +
+      '<td class="result-snippet">note app snippet</td>';
+    const fetchImpl = ((): Promise<Response> =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(ddgHtml),
+        json: () => Promise.resolve({}),
+      } as unknown as Response)) as unknown as typeof fetch;
+
+    const t = webTool('web_search', makeAgentConfig(), WEB_CAPS, { fetchImpl });
     const res = await t.execute('t1', { query: 'loamium' }, noSignal, noUpdate, fakeCtx);
-    expect(textOf(res)).toContain('未設定');
-    // クエリは監査に記録される。
+    const text = textOf(res);
+    expect(detailsOf(res).error).toBeUndefined();
+    expect(text).toContain('Loamium Home');
+    expect(text).toContain('https://example.com/loamium');
+    expect(text).toContain('note app snippet');
+
+    // 未設定でもクエリは監査に記録される (取得本文は記録しない)。
     const entries = await readAudit(vaultRoot);
     expect(entries.some((e) => e.op === 'agent.web_search' && e.path === 'loamium')).toBe(true);
+    const raw = await readFile(path.join(vaultRoot, '.loamium', 'audit.log'), 'utf8');
+    expect(raw).not.toContain('note app snippet');
   });
 
   it('[AC-S5e0206-1-2/1-3] web_search は設定時に結果を整形し、クエリを監査記録する', async () => {
