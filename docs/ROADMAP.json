@@ -3831,13 +3831,6 @@
       "reason": "test coverage debt (low)"
     },
     {
-      "title": "wikilink.mock.spec.ts のフルスイート負荷下 flaky",
-      "description": "agent 無関係の既存 mock テスト。単独では pass するが 329 テスト 1-worker のフルスイートでタイミング flaky。テスト分離/待機条件の堅牢化が必要。",
-      "added_in": "S53409d verify",
-      "reason": "フルスイート実行中に顕在化 (本スプリント無関係の既存問題)",
-      "status": "pending"
-    },
-    {
       "title": "エージェントセッションキャッシュの上限管理",
       "description": "activeSessionsById Map が無制限に増えうる。多数セッション作成時に LRU 退避 or ターン終了でキャッシュ破棄しディスク復元に一本化。ディスク永続化は済んでいるので機能影響は小。",
       "added_in": "S53409d review",

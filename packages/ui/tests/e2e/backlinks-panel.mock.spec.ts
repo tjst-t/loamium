@@ -149,9 +149,13 @@ test('[MOCK] パネルの開閉トグルで折りたたみ・復帰できる', a
   // 右サイドバー自体の開閉トグル (Sf1a90a-2: right-sidebar-toggle)
   await page.getByTestId('right-sidebar-toggle').click();
   await expect(page.getByTestId('right-sidebar')).toHaveClass(/collapsed/);
-  await expect(page.getByTestId('backlink-item')).toHaveCount(0);
+  // 折りたたみ時はパネル本体を display:none で DOM に残す (AgentPane の in-flight
+  // セッションを UNMOUNT せず保持するため — RightSidebar FIX-1)。したがって DOM 数 (toHaveCount)
+  // ではなく「ユーザーに見えない」ことを toBeHidden で検証する。
+  await expect(page.getByTestId('backlink-item').first()).toBeHidden();
   await page.getByTestId('right-sidebar-toggle').click();
   await expect(page.getByTestId('right-sidebar')).not.toHaveClass(/collapsed/);
   await expect(page.getByTestId('backlink-item')).toHaveCount(2);
+  await expect(page.getByTestId('backlink-item').first()).toBeVisible();
   expect(unexpected).toEqual([]);
 });
