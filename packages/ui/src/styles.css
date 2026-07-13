@@ -4592,3 +4592,166 @@ button.callout-title { cursor: pointer; }
   opacity: 0.5;
 }
 [aria-disabled="true"]:hover { opacity: 0.6; }
+
+/* ============================================================
+   CommandEditor 右ペイン — params/steps プレビュー + テスト実行結果 (S9e64e7-2)
+   prototype/command-editor.html V3 右ペイン相当を移植
+   ============================================================ */
+
+/* コマンド名 / 説明 */
+.cmd-editor-cmd-name {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.cmd-editor-cmd-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+/* セクション区切り (パラメータ / ステップ) */
+.cmd-editor-section {
+  margin-bottom: 12px;
+}
+
+.cmd-editor-section-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  margin: 0 0 5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cmd-editor-section-title::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--border);
+}
+
+/* パラメータ行 (cmd-param-row) */
+.cmd-param-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  margin-bottom: 3px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+}
+
+.cmd-param-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cmd-param-type {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-faint);
+  background: var(--bg-editor);
+  border-radius: 4px;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+}
+
+.cmd-param-required {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--danger);
+  text-transform: uppercase;
+}
+
+.cmd-param-options {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ステップ行 (cmd-step-row) — prototype の .cmd-step-row を移植 */
+.cmd-step-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  padding: 3px 6px;
+  color: var(--text-muted);
+  border-radius: 5px;
+  margin-bottom: 3px;
+}
+
+/* .step-kind は ParamFormModal / step-result と共用 — 既存定義あり */
+.cmd-step-summary {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.cmd-step-when {
+  font-size: 10.5px;
+  font-family: var(--font-mono);
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 4px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+}
+
+/* テスト実行ボタン (prototype .cmd-test-run-btn を移植) */
+.cmd-test-run-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 4px 12px;
+  background: var(--accent-soft);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.cmd-test-run-btn:hover { background: #e5dff8; }
+.cmd-test-run-btn svg { width: 13px; height: 13px; }
+.cmd-test-run-btn[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* テスト実行結果コンテナ (cmd-edit-run-result) */
+.cmd-edit-run-result {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-editor);
+}
+
+/* 実行結果ヘッダ */
+.cmd-run-result-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+.cmd-run-result-head svg { width: 13px; height: 13px; flex-shrink: 0; }
+.cmd-run-result-head.success { background: #e8f5ee; color: #1f7a4d; }
+.cmd-run-result-head.failure { background: var(--danger-soft); color: var(--danger); }

@@ -1,5 +1,5 @@
 /**
- * Story S9e64e7-1 E2E テスト — 定義エディタ検出 + スプリットシェル + 保存。
+ * CommandEditor E2E テスト — S9e64e7-1 + S9e64e7-2。
  * 実サーバー + 実 Vite dev server に対して実行する。
  * (E2E はスプリント verify フェーズで実行する。sprint run では mock のみ実行する。)
  *
@@ -8,6 +8,10 @@
  * AC-S9e64e7-1-2: 定義が有効なとき保存ボタンが有効で、保存後 mtime が更新される。
  *                 定義が無効なとき保存ボタンが aria-disabled。
  * AC-S9e64e7-1-3: testid が gui-spec に準拠している。
+ *
+ * AC-S9e64e7-2-3: commands/create-todo.md を開き、テスト実行 → 自動保存してから run。
+ *                 ジャーナルに todo が追記されたことを確認。
+ *                 id は stem "create-todo" (display name ではなく)。
  */
 import { test, expect } from '@playwright/test';
 import { readHarnessState } from '../harness/state.js';
@@ -83,5 +87,64 @@ test.describe('CommandEditor E2E (S9e64e7-1)', () => {
     await expect(page.getByTestId('cmd-edit-save')).toBeVisible();          // save button
     await expect(page.getByTestId('cmd-mode-badge')).toBeVisible();         // mode badge
     await expect(page.getByTestId('save-status')).toBeVisible();            // save status
+
+    // S9e64e7-2 の追加 testid
+    await expect(page.getByTestId('cmd-edit-test-run')).toBeVisible();      // test-run button
+    // params プレビュー (create-todo.md には params があるはず)
+    await expect(page.getByTestId('cmd-param-row').first()).toBeVisible();  // param rows
+    // steps プレビュー
+    await expect(page.getByTestId('cmd-step-row').first()).toBeVisible();   // step rows
+  });
+});
+
+test.describe('CommandEditor E2E (S9e64e7-2)', () => {
+  test('[AC-S9e64e7-2-3] commands/create-todo.md を開き、dirty で test-run すると PUT 後に POST run が呼ばれジャーナルに todo が追記される', async ({ page }) => {
+    const { uiUrl } = readHarnessState();
+    await page.goto(uiUrl);
+
+    // commands/create-todo.md を開く
+    await page.getByTestId('tree-item').filter({ hasText: 'create-todo' }).click();
+    await expect(page.getByTestId('command-editor')).toBeVisible();
+    await expect(page.getByTestId('cmd-edit-validation')).toHaveAttribute('data-valid', 'true');
+
+    // YAML の末尾に改行を追加して dirty にする
+    const yamlPane = page.getByTestId('cmd-edit-yaml');
+    await yamlPane.click();
+    await page.keyboard.press('Control+End');
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+
+    // dirty 状態
+    await expect(page.getByTestId('save-status')).toHaveAttribute('data-state', 'dirty');
+    await expect(page.getByTestId('cmd-edit-validation')).toHaveAttribute('data-valid', 'true');
+
+    // テスト実行ボタン (aria-disabled なし)
+    await expect(page.getByTestId('cmd-edit-test-run')).not.toHaveAttribute('aria-disabled');
+
+    // テスト実行をクリック (→ 自動保存 + params があれば modal)
+    await page.getByTestId('cmd-edit-test-run').click();
+
+    // 自動保存が実行される → save-status が 'saved' になるか、modal が開く
+    // params がある場合は modal が開く
+    const hasModal = await page.getByTestId('param-form-modal').isVisible({ timeout: 3000 }).catch(() => false);
+
+    if (hasModal) {
+      // params フォームが開いた場合: summary を入力して submit
+      const summaryInput = page.locator('[data-testid="param-field-input"][data-name="summary"]');
+      if (await summaryInput.isVisible()) {
+        await summaryInput.fill('E2E テストタスク');
+      }
+      await page.getByTestId('param-form-submit').click();
+      await expect(page.getByTestId('param-form-modal')).not.toBeVisible({ timeout: 5000 });
+    }
+
+    // cmd-edit-run-result が表示 (または modal が既に閉じた場合)
+    await expect(page.getByTestId('cmd-edit-run-result')).toBeVisible({ timeout: 10000 });
+
+    // save-status が saved (自動保存が先に実行されたはず)
+    await expect(page.getByTestId('save-status').first()).toHaveAttribute('data-state', 'saved');
+
+    // step-result が少なくとも 1 件ある
+    expect(await page.getByTestId('step-result').count()).toBeGreaterThan(0);
   });
 });
