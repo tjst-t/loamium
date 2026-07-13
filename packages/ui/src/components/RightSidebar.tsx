@@ -9,13 +9,39 @@
  * FIX-1 (sessionmgmt): AgentPane は collapsed / タブ切替時も UNMOUNT しない。
  * display:none で DOM に残すことで AgentPane の in-flight セッション状態を保持する。
  */
-import { useEffect, useState, type JSX } from 'react';
+import {
+  useEffect,
+  useState,
+  type JSX,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 import { noteTitle, type BacklinkSource, type HealthResponse, type NoteMeta } from '@loamium/shared';
 import { api, ApiError } from '../api.js';
 import { ChevronRightIcon, DocumentIcon, LinkIcon } from '../icons.js';
 import { AgentPane } from './AgentPane.js';
 
 export type RightTab = 'backlinks' | 'agent';
+
+/** 右サイドバー幅の永続化キー / 制約 (ドラッグリサイズ)。 */
+const RS_WIDTH_KEY = 'loamium.rightSidebar.width';
+const RS_MIN_WIDTH = 240;
+const RS_DEFAULT_WIDTH = 300;
+/** 上限はウィンドウ幅の割合 (残りの編集領域を潰しすぎない)。 */
+const RS_MAX_FRACTION = 0.6;
+
+function readStoredWidth(): number {
+  try {
+    const raw = localStorage.getItem(RS_WIDTH_KEY);
+    if (raw !== null) {
+      const n = Number.parseInt(raw, 10);
+      if (Number.isFinite(n) && n >= RS_MIN_WIDTH) return n;
+    }
+  } catch {
+    // localStorage 不可 (プライベートモード等) — 既定値へ
+  }
+  return RS_DEFAULT_WIDTH;
+}
 
 export interface RightSidebarProps {
   /** 開いているノートの vault 相対パス (null = ノート未オープン) */
@@ -65,6 +91,36 @@ export function RightSidebar({
   const [collapsed, setCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState<RightTab>('backlinks');
   const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [width, setWidth] = useState<number>(readStoredWidth);
+
+  // 幅変更のたびに永続化する。
+  useEffect(() => {
+    try {
+      localStorage.setItem(RS_WIDTH_KEY, String(width));
+    } catch {
+      // 保存不可でも動作は継続
+    }
+  }, [width]);
+
+  // 左端ハンドルのドラッグでサイドバー幅を変更する (右サイドバーなので右端固定・左へ広がる)。
+  const handleResizeStart = (e: ReactMouseEvent<HTMLDivElement>): void => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = width;
+    const maxWidth = Math.max(RS_MIN_WIDTH, Math.round(window.innerWidth * RS_MAX_FRACTION));
+    const onMove = (ev: MouseEvent): void => {
+      const next = Math.min(maxWidth, Math.max(RS_MIN_WIDTH, startWidth + (startX - ev.clientX)));
+      setWidth(next);
+    };
+    const onUp = (): void => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.userSelect = '';
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.body.style.userSelect = 'none';
+  };
 
   const [backlinks, setBacklinks] = useState<BacklinkSource[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -112,16 +168,31 @@ export function RightSidebar({
     backlinks?.flatMap((src) => src.links.map((link) => ({ source: src.source, link }))) ?? [];
   const countKnown = notePath !== null && backlinks !== null && error === null;
 
-  // /search では表示しない (display:none — マウントは維持)
-  const hiddenStyle = hidden ? ({ display: 'none' } as const) : undefined;
+  // /search では表示しない (display:none — マウントは維持)。
+  // collapsed 時は CSS の .collapsed 幅 (40px) を優先し、inline width は付けない。
+  const asideStyle: CSSProperties = {
+    ...(hidden ? { display: 'none' } : {}),
+    ...(collapsed ? {} : { width }),
+  };
 
   // collapsed 時: 細い toggle バーのみ表示。AgentPane は hidden で DOM に残す。
   return (
     <aside
       className={`panel${collapsed ? ' collapsed' : ''}`}
       data-testid="right-sidebar"
-      style={hiddenStyle}
+      style={asideStyle}
     >
+      {/* 左端リサイズハンドル (collapsed 時は非表示) */}
+      {!collapsed && (
+        <div
+          className="rs-resizer"
+          data-testid="right-sidebar-resizer"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="サイドバー幅を変更"
+          onMouseDown={handleResizeStart}
+        />
+      )}
       <div className="panel-header">
         {collapsed ? (
           /* collapsed: toggle ボタンのみ */
@@ -160,7 +231,7 @@ export function RightSidebar({
                 onClick={() => setActiveTab('agent')}
               >
                 <AgentIcon />
-                エージェント
+                Agent
               </button>
             </div>
             <button

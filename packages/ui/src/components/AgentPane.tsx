@@ -23,14 +23,13 @@
  *   agent-perm-preset-<name> (プリセットボタン: read-only/notes-rw/full),
  *   agent-perm-toggles (ケーパビリティ別トグル群),
  *   agent-perm-toggle-<cap> (ケーパビリティ別トグル, data-checked),
- *   agent-web-warning (web 有効化時の漏洩リスク警告),
- *   agent-effective-perms (現在セッションの実効権限表示; ポップオーバー内),
- *   agent-effective-cap-<cap> (実効ケーパビリティのバッジ),
- *   agent-perm-stripped-<cap> (要求したが LOAMIUM_MODE で剥がれたケーパビリティ)
+ *   agent-web-warning (web 有効化時の漏洩リスク警告)
  *
  * 権限 UI (改善2): 新規/既存いずれもセッションバーの agent-perm-button →
  * agent-perm-popover に集約。新規 (未送信) はトグルが selectedCaps を更新し作成時に送信、
  * 既存 (送信済み) はトグルで PUT /api/agent/sessions/{id}/permissions を呼びセッション中に権限変更する。
+ * 実効権限は専用表示を撤去し、チェックボックス (data-checked) の状態で表す
+ * (既存セッションのトグルは effectivePermissions を反映する)。
  *
  * localStorage キー:
  *   loamium.agent.currentSessionId — 現在のセッション ID (null = 新規未送信)
@@ -1158,16 +1157,6 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
   // 権限ボタンのバッジ (有効ケーパビリティ数)。
   const permCount = permCaps.length;
 
-  // 実効権限表示: 送信済みセッションで effectivePerms が取得できていれば表示。
-  const showEffective = sessionId !== null && effectivePerms !== null;
-  const effectiveSet = new Set(effectivePerms ?? []);
-  // 剥がれたケーパビリティ = 要求集合にあるが実効集合に無いもの (LOAMIUM_MODE クランプ)。
-  // 要求集合が不明 (既存/復元セッション) の場合は空 (剥がれ表示なし)。
-  const strippedCaps: Capability[] =
-    requestedPerms !== null
-      ? sortCaps(requestedPerms.filter((c) => !effectiveSet.has(c)))
-      : [];
-
   return (
     <div
       className="agent-body"
@@ -1279,40 +1268,6 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
                     (プロンプトインジェクション) 経由で vault の情報が外部へ送信される
                     リスクがあります。信頼する vault でのみ有効にしてください。
                   </span>
-                </div>
-              )}
-
-              {/* 実効/剥がれ表示 (送信済みセッション) */}
-              {showEffective && (
-                <div className="agent-effective-perms" data-testid="agent-effective-perms">
-                  <span className="agent-perm-label">実効</span>
-                  <div className="agent-effective-list">
-                    {(effectivePerms ?? []).length === 0 ? (
-                      <span className="agent-effective-empty">なし</span>
-                    ) : (
-                      (effectivePerms ?? []).map((cap) => (
-                        <span
-                          key={cap}
-                          className="agent-effective-cap"
-                          data-testid={`agent-effective-cap-${cap}`}
-                          title={cap === 'web' ? 'web_fetch / web_search が利用可能' : undefined}
-                        >
-                          {CAPABILITY_LABELS[cap]}
-                        </span>
-                      ))
-                    )}
-                    {strippedCaps.map((cap) => (
-                      <span
-                        key={cap}
-                        className="agent-effective-cap stripped"
-                        data-testid={`agent-perm-stripped-${cap}`}
-                        title="LOAMIUM_MODE により無効"
-                      >
-                        {CAPABILITY_LABELS[cap]}
-                        <span className="agent-perm-stripped-note"> (LOAMIUM_MODE により無効)</span>
-                      </span>
-                    ))}
-                  </div>
                 </div>
               )}
             </div>

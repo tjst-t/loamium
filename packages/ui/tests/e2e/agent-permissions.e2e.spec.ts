@@ -142,19 +142,16 @@ test.describe.serial('agent permissions', () => {
     await page.getByTestId('agent-send').click();
     await expect(page.getByTestId('agent-msg-assistant')).toContainText(STUB_REPLY);
 
-    // 実効権限表示が出る (LOAMIUM_MODE=full なので notes-rw のケーパビリティがそのまま実効)。
-    // 表示は権限ポップオーバー内に集約されたので開いて確認する。
+    // 実効権限がチェックボックスに反映される (LOAMIUM_MODE=full なので notes-rw の
+    // ケーパビリティがそのまま実効)。表示は権限ポップオーバーのチェックボックスに集約。
     await openPermPopover(page);
-    await expect(page.getByTestId('agent-effective-perms')).toBeVisible();
-    await expect(page.getByTestId('agent-effective-cap-read')).toBeVisible();
-    await expect(page.getByTestId('agent-effective-cap-journal_append')).toBeVisible();
-    await expect(page.getByTestId('agent-effective-cap-note_create')).toBeVisible();
-    await expect(page.getByTestId('agent-effective-cap-note_edit')).toBeVisible();
-    // notes-rw は web / template_write / dataview_write を含まない
-    await expect(page.getByTestId('agent-effective-cap-web')).toHaveCount(0);
-    await expect(page.getByTestId('agent-effective-cap-template_write')).toHaveCount(0);
-    // full モードなので剥がれ (stripped) は無い
-    await expect(page.locator('[data-testid^="agent-perm-stripped-"]')).toHaveCount(0);
+    await expect(page.getByTestId('agent-perm-toggle-read')).toHaveAttribute('data-checked', 'true');
+    await expect(page.getByTestId('agent-perm-toggle-journal_append')).toHaveAttribute('data-checked', 'true');
+    await expect(page.getByTestId('agent-perm-toggle-note_create')).toHaveAttribute('data-checked', 'true');
+    await expect(page.getByTestId('agent-perm-toggle-note_edit')).toHaveAttribute('data-checked', 'true');
+    // notes-rw は web / template_write / dataview_write を含まない → チェック off
+    await expect(page.getByTestId('agent-perm-toggle-web')).toHaveAttribute('data-checked', 'false');
+    await expect(page.getByTestId('agent-perm-toggle-template_write')).toHaveAttribute('data-checked', 'false');
   });
 
   test('[AC-agent-ui] セッション中に権限をトグルすると PUT で実効権限が更新される', async ({
@@ -168,20 +165,20 @@ test.describe.serial('agent permissions', () => {
     await page.getByTestId('agent-send').click();
     await expect(page.getByTestId('agent-msg-assistant')).toContainText(STUB_REPLY);
 
-    // 送信直後は read のみが実効
+    // 送信直後は read のみが実効 (チェックボックスに反映)
     await openPermPopover(page);
-    await expect(page.getByTestId('agent-effective-cap-read')).toBeVisible();
-    await expect(page.getByTestId('agent-effective-cap-note_edit')).toHaveCount(0);
+    await expect(page.getByTestId('agent-perm-toggle-read')).toHaveAttribute('data-checked', 'true');
+    await expect(page.getByTestId('agent-perm-toggle-note_edit')).toHaveAttribute('data-checked', 'false');
 
     // セッション中に full プリセットへ切替 → PUT /permissions が実サーバーへ飛ぶ
     // (LOAMIUM_MODE=full なので全ケーパビリティがそのまま実効になる)
     await page.getByTestId('agent-perm-preset-full').click();
-    await expect(page.getByTestId('agent-effective-cap-note_edit')).toBeVisible();
-    await expect(page.getByTestId('agent-effective-cap-web')).toBeVisible();
+    await expect(page.getByTestId('agent-perm-toggle-note_edit')).toHaveAttribute('data-checked', 'true');
+    await expect(page.getByTestId('agent-perm-toggle-web')).toHaveAttribute('data-checked', 'true');
 
     // GET 詳細 (再取得) にも反映される: ポップオーバーを閉じて開き直す
     await page.getByTestId('agent-input').click();
     await openPermPopover(page);
-    await expect(page.getByTestId('agent-effective-cap-web')).toBeVisible();
+    await expect(page.getByTestId('agent-perm-toggle-web')).toHaveAttribute('data-checked', 'true');
   });
 });

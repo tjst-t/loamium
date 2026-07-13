@@ -140,15 +140,9 @@ test.describe.serial('agent web warning', () => {
     await page.getByTestId('agent-send').click();
     await expect(page.getByTestId('agent-msg-assistant')).toContainText(STUB_REPLY);
 
-    // 実効権限表示に web が含まれる (LOAMIUM_MODE=full なので web ツール利用可能)。
-    // 表示は権限ポップオーバー内に集約されたので開いて確認する。
+    // 実効権限に web が含まれる (LOAMIUM_MODE=full なので web ツール利用可能)。
+    // 表示は権限ポップオーバーのチェックボックスに集約されたので開いて確認する。
     await openPermPopover(page);
-    await expect(page.getByTestId('agent-effective-perms')).toBeVisible();
-    await expect(page.getByTestId('agent-effective-cap-web')).toBeVisible();
-    // web バッジのツールチップに利用可能ツールが示される
-    await expect(page.getByTestId('agent-effective-cap-web')).toHaveAttribute(
-      'title',
-      /web_fetch/,
-    );
+    await expect(page.getByTestId('agent-perm-toggle-web')).toHaveAttribute('data-checked', 'true');
   });
 });
