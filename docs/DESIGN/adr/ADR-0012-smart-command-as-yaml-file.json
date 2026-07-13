@@ -1,0 +1,27 @@
+{
+  "id": "ADR-0012",
+  "title": "スマートコマンド定義は commands/*.yaml ファイルにする(ADR-0008 を supersede)",
+  "status": "accepted",
+  "date": "2026-07-13",
+  "context": "ADR-0008 はスマートコマンド定義を commands/*.md + frontmatter キー loamium-command(特別な frontmatter を持つ Markdown ノート)とした。実運用で以下が判明した:(1)コマンド定義は本質的に構造化された設定であってノートではない。.md でラップし本文を持つ形は不自然。(2)定義エディタが .md を Markdown ノートとして開くため、Markdown 拡張(WikiLink『ノートにリンク』補完)が YAML の DSL 補完と競合し、kind 補完のはずが note-link 補完が出る不具合が発生した(ユーザー報告のスクリーンショット)。(3)loamium-command: ラッパーキット + 本文という二重構造が冗長。ユーザーは定義を素の YAML ファイルにする判断をした。\n\nADR-0008 が Markdown を選んだ理由(ピュア Markdown 原則、Git 追跡、普通のノートとして編集、Obsidian で開ける、本文に AI プロンプト長文)のうち、Git 追跡は .yaml でも成り立ち、『普通のノートとして編集/Obsidian』は元々定義には不要(散文編集する対象ではない)。本文プロンプトは agent-run 用だったが agent-run はバックログで、実装時にステップのフィールドや参照ノートで扱える。",
+  "alternatives": [
+    {"name": "現状維持(commands/*.md + loamium-command frontmatter)", "tradeoff": "ノート一覧に出て開きやすいが、Markdown 拡張が DSL 編集と競合、二重構造が冗長。却下(supersede)"},
+    {"name": ".yaml 化だがトップキー loamium-command: を残す", "tradeoff": "移行が緩いが、ファイル全体が定義なのにラッパーが残り冗長。却下"},
+    {"name": "commands/*.yaml でファイル全体を定義本体にする(採用)", "tradeoff": "定義が素直な構造化設定に。エディタは素の YAML(Markdown 拡張なし)で DSL 補完が綺麗に効く。ノート一覧に出ないため開く導線を別途用意する必要"}
+  ],
+  "decision": "スマートコマンド定義は commands/ 配下の *.yaml(および .yml)ファイルとし、ファイル全体が LoamiumCommand オブジェクト(トップレベルに name?/description?/params[]/steps[])とする。loamium-command: ラッパーキーも Markdown 本文も持たない。id(実行識別子)= 拡張子を除いたファイル stem。GET /api/commands は commands/*.yaml を寛容 read で列挙し全文を YAML パース、POST /api/commands/{id}/run は commands/{id}.yaml を読む。定義エディタは commands/*.yaml を検出して素の YAML CodeMirror(Markdown ノート拡張=WikiLink 補完等を付けない)で開き、DSL 補完のみを効かせる。既存の commands/*.md 定義は commands/*.yaml へ移行する。.yaml はノート(.md)ではないため、開く導線はファイルブラウザおよびコマンドパレット/専用アクションで提供する。",
+  "consequences": [
+    "+ 定義が素直な構造化設定になり、loamium-command: ラッパー + 本文の二重構造が消える",
+    "+ エディタが素の YAML エディタになり、Markdown の note-link 補完混入バグが根本的に解消。DSL 補完だけが効く",
+    "+ パースが単純化(frontmatter 抽出でなくファイル全体を YAML パース)",
+    "- .yaml はノート一覧(GET /api/notes は .md のみ)に出ないため、定義を開く導線を別途用意する必要(ファイルブラウザ / パレットの編集アクション)",
+    "- Markdown 本文(AI プロンプト長文)を定義に同梱する形は失う。agent-run 実装時はプロンプトをステップのフィールドまたは参照ノートで扱う(agent-run はバックログ)",
+    "- 既存 commands/*.md の移行が必要(dev-vault の create-todo 含む)。個人アプリ・ローンチ前のため .md 互換読取は持たず素直に移行する",
+    "- ピュア Markdown 原則の対象は『ノート』であり、コマンド定義は設定ファイル(YAML)として扱う整理になる(原則の射程を明確化)"
+  ],
+  "reversibility_cost": "medium",
+  "affects": ["packages/shared", "packages/server", "packages/cli", "packages/ui"],
+  "supersedes": "ADR-0008",
+  "superseded_by": null,
+  "notes": "ADR-0011(定義エディタ V3+補完)の決定自体は不変(左 YAML ソース+補完 / 右プレビュー+検証+テスト実行)。変わるのは対象ファイルが .md frontmatter でなく .yaml 全体である点。ADR-0008 は superseded として履歴に残す。"
+}

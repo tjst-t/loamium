@@ -1,7 +1,7 @@
 {
   "id": "ADR-0008",
   "title": "スマートコマンド定義は vault 内 Markdown(commands/*.md + loamium-command frontmatter)として保存する",
-  "status": "accepted",
+  "status": "superseded",
   "date": "2026-07-10",
   "context": "スマートコマンド(複数機能を組み合わせたユーザー定義ワークフロー、ADR-0009)の定義は、再構築不能なユーザー資産であり Git 追跡が必要という点でスマートフォルダ定義(ADR-0002)と同じ力学を持つ。しかしスマートフォルダが UI 設定のツリー(短い構造化データ)であるのに対し、スマートコマンドは AI プロンプトや挿入テンプレートなど長文の本文を持つ文書的データである。JSON に長文を押し込むと編集専用 UI が別途必要になる。\n\n一方、既存の templates/ 機能は『vault 内 .md + frontmatter キー loamium-template(target / vars)+ 本文がテンプレート』という前例を確立しており、パラメータ定義(TemplateVarDef)と変数展開エンジン(resolveTemplate: {{var}} / {{date:FMT}} / {{now:FMT}})も packages/shared に既にある。ピュア Markdown 原則(priority 1)と Obsidian 互換(priority 4)の下では、frontmatter は第一級市民であり、未知キーを持つ普通のノートは Obsidian でもそのまま開ける。",
   "alternatives": [
@@ -30,8 +30,13 @@
     "- 定義形式を将来変更する場合、ユーザーの .md ファイル群の移行が必要(frontmatter に version は持たず、スキーマ拡張は加算のみとする)"
   ],
   "reversibility_cost": "medium",
-  "affects": ["packages/shared", "packages/server", "packages/cli", "packages/ui"],
+  "affects": [
+    "packages/shared",
+    "packages/server",
+    "packages/cli",
+    "packages/ui"
+  ],
   "supersedes": null,
-  "superseded_by": null,
+  "superseded_by": "ADR-0012",
   "notes": "loamium-command キーの steps スキーマは ADR-0009 が定める。params の type: text(複数行)は既存 TemplateVarDef にない場合の加算拡張であり、templates 側でも使えるよう shared に置く。"
 }
