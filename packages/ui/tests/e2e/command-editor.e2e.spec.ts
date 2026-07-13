@@ -3,13 +3,13 @@
  * 実サーバー + 実 Vite dev server に対して実行する。
  * (E2E はスプリント verify フェーズで実行する。sprint run では mock のみ実行する。)
  *
- * AC-S9e64e7-1-1: commands/create-todo.md (loamium-command frontmatter 付き) を開くと
+ * AC-S9e64e7-1-1: commands/create-todo.yaml (loamium-command frontmatter 付き) を開くと
  *                 CommandEditor (command-editor testid) が表示される。
  * AC-S9e64e7-1-2: 定義が有効なとき保存ボタンが有効で、保存後 mtime が更新される。
  *                 定義が無効なとき保存ボタンが aria-disabled。
  * AC-S9e64e7-1-3: testid が gui-spec に準拠している。
  *
- * AC-S9e64e7-2-3: commands/create-todo.md を開き、テスト実行 → 自動保存してから run。
+ * AC-S9e64e7-2-3: commands/create-todo.yaml を開き、テスト実行 → 自動保存してから run。
  *                 ジャーナルに todo が追記されたことを確認。
  *                 id は stem "create-todo" (display name ではなく)。
  */
@@ -17,11 +17,11 @@ import { test, expect } from '@playwright/test';
 import { readHarnessState } from '../harness/state.js';
 
 test.describe('CommandEditor E2E (S9e64e7-1)', () => {
-  test('[AC-S9e64e7-1-1] commands/create-todo.md を開くと CommandEditor が表示される', async ({ page }) => {
+  test('[AC-S9e64e7-1-1] commands/create-todo.yaml を開くと CommandEditor が表示される', async ({ page }) => {
     const { uiUrl } = readHarnessState();
     await page.goto(uiUrl);
 
-    // サイドバーから commands/create-todo.md を開く
+    // サイドバーから commands/create-todo.yaml を開く
     await page.getByTestId('tree-item').filter({ hasText: 'create-todo' }).click();
 
     // CommandEditor コンテナが visible
@@ -42,7 +42,7 @@ test.describe('CommandEditor E2E (S9e64e7-1)', () => {
     const { uiUrl } = readHarnessState();
     await page.goto(uiUrl);
 
-    // commands/create-todo.md を開く (seedVault で有効な定義が入っている)
+    // commands/create-todo.yaml を開く (seedVault で有効な定義が入っている)
     await page.getByTestId('tree-item').filter({ hasText: 'create-todo' }).click();
     await expect(page.getByTestId('command-editor')).toBeVisible();
 
@@ -98,11 +98,11 @@ test.describe('CommandEditor E2E (S9e64e7-1)', () => {
 });
 
 test.describe('CommandEditor E2E (S9e64e7-2)', () => {
-  test('[AC-S9e64e7-2-3] commands/create-todo.md を開き、dirty で test-run すると PUT 後に POST run が呼ばれジャーナルに todo が追記される', async ({ page }) => {
+  test('[AC-S9e64e7-2-3] commands/create-todo.yaml を開き、dirty で test-run すると PUT 後に POST run が呼ばれジャーナルに todo が追記される', async ({ page }) => {
     const { uiUrl } = readHarnessState();
     await page.goto(uiUrl);
 
-    // commands/create-todo.md を開く
+    // commands/create-todo.yaml を開く
     await page.getByTestId('tree-item').filter({ hasText: 'create-todo' }).click();
     await expect(page.getByTestId('command-editor')).toBeVisible();
     await expect(page.getByTestId('cmd-edit-validation')).toHaveAttribute('data-valid', 'true');

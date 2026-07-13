@@ -5,7 +5,7 @@
  * テストハーネスは templates.spec.ts / cli.spec.ts と同じパターンを踏襲する。
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { cleanupVault, makeTempVault, startServer, type TestServer } from './helpers/server.js';
 import { runCli } from './helpers/cli.js';
@@ -18,7 +18,7 @@ function cli(args: string[]): ReturnType<typeof runCli> {
   return runCli(args, { env: { LOAMIUM_URL: server.baseUrl } });
 }
 
-/** ノートを vault に置くヘルパー (REST API 経由)。 */
+/** ノートを vault に置くヘルパー (REST API 経由 — .md のみ)。 */
 async function putNote(rel: string, content: string): Promise<void> {
   const encoded = rel
     .split('/')
@@ -32,62 +32,51 @@ async function putNote(rel: string, content: string): Promise<void> {
   if (!res.ok) throw new Error(`seed putNote failed for ${rel}: ${res.status}`);
 }
 
+/** ファイルを vault に直接書き込むヘルパー (REST API を通さない — .yaml 等の非 .md ファイル用)。 */
+async function seedVaultFile(vault: string, rel: string, content: string): Promise<void> {
+  const abs = path.join(vault, rel);
+  await mkdir(path.dirname(abs), { recursive: true });
+  await writeFile(abs, content, 'utf8');
+}
+
 // ---------------------------------------------------------------------------
-// フィクスチャコマンド定義
+// フィクスチャコマンド定義 (ADR-0012: .yaml 全体 = LoamiumCommand オブジェクト)
 // ---------------------------------------------------------------------------
 
 /** 正常なコマンド定義 — Todo 作成 + ジャーナル追記の 2 ステップ。 */
 const VALID_COMMAND = [
-  '---',
-  'loamium-command:',
-  '  name: create-todo',
-  '  description: Todo を作成してジャーナルに追記する',
-  '  params:',
-  '    - name: title',
-  '      label: タイトル',
-  '      required: true',
-  '      type: string',
-  '  steps:',
-  '    - kind: note-create',
-  '      target: "todos/{{title}}.md"',
-  '      content: "# {{title}}\\n"',
-  '      open: true',
-  '    - kind: journal-append',
-  '      content: "- [ ] [[{{title}}]]"',
-  '---',
-  '# create-todo',
-  '',
-  'Todo ノートを作成し、今日のジャーナルに追記します。',
-  '',
+  'name: create-todo',
+  'description: Todo を作成してジャーナルに追記する',
+  'params:',
+  '  - name: title',
+  '    label: タイトル',
+  '    required: true',
+  '    type: string',
+  'steps:',
+  '  - kind: note-create',
+  '    target: "todos/{{title}}.md"',
+  '    content: "# {{title}}\\n"',
+  '    open: true',
+  '  - kind: journal-append',
+  '    content: "- [ ] [[{{title}}]]"',
 ].join('\n');
 
-/** 壊れた frontmatter (loamium-command が文字列) — valid:false になるはず。 */
-const BROKEN_COMMAND = [
-  '---',
-  'loamium-command: "これは壊れた定義"',
-  '---',
-  '# broken',
-  '',
-].join('\n');
+/** 壊れた YAML (パースエラー) — valid:false になるはず。 */
+const BROKEN_COMMAND = 'name: broken\nsteps: [\nunclosed: bracket';
 
 /** steps が空配列 — valid:false になるはず (steps は 1 個以上必須)。 */
 const EMPTY_STEPS_COMMAND = [
-  '---',
-  'loamium-command:',
-  '  name: empty-steps',
-  '  steps: []',
-  '---',
-  '# empty-steps',
-  '',
+  'name: empty-steps',
+  'steps: []',
 ].join('\n');
 
 beforeAll(async () => {
   const vault = await makeTempVault();
   server = await startServer({ vault });
-  // commands/ フォルダにフィクスチャを配置する
-  await putNote('commands/create-todo.md', VALID_COMMAND);
-  await putNote('commands/broken.md', BROKEN_COMMAND);
-  await putNote('commands/empty-steps.md', EMPTY_STEPS_COMMAND);
+  // commands/ フォルダにフィクスチャを配置する (ADR-0012: .yaml は直接 fs 書き込み)
+  await seedVaultFile(vault, 'commands/create-todo.yaml', VALID_COMMAND);
+  await seedVaultFile(vault, 'commands/broken.yaml', BROKEN_COMMAND);
+  await seedVaultFile(vault, 'commands/empty-steps.yaml', EMPTY_STEPS_COMMAND);
   // commands/ 外のノートは一覧に出ない
   await putNote('notes/普通のノート.md', '# 普通\n');
 });
@@ -112,7 +101,7 @@ async function listCommands(): Promise<ReturnType<typeof commandsResponseSchema.
 }
 
 describe('[AC-Sd22b1f-1-2] GET /api/commands', () => {
-  it('commands/ 配下の *.md をすべて一覧し 200 を返す', async () => {
+  it('commands/ 配下の *.yaml をすべて一覧し 200 を返す (ADR-0012)', async () => {
     const commands = await listCommands();
     const names = commands.map((c) => c.name).sort();
     // create-todo (valid), broken (invalid), empty-steps (invalid) の 3 件
@@ -125,21 +114,21 @@ describe('[AC-Sd22b1f-1-2] GET /api/commands', () => {
     for (const cmd of commands) {
       expect(typeof cmd.id).toBe('string');
       expect(cmd.id.length).toBeGreaterThan(0);
-      // id は path から導出した stem と一致する (commands/{id}.md)
-      expect(cmd.path).toBe(`commands/${cmd.id}.md`);
+      // id は path から導出した stem と一致する (commands/{id}.yaml)
+      expect(cmd.path).toBe(`commands/${cmd.id}.yaml`);
     }
   });
 
   it('正常なコマンドは valid:true で id / name / description / params / path を返す', async () => {
     const commands = await listCommands();
-    const todo = commands.find((c) => c.path === 'commands/create-todo.md');
+    const todo = commands.find((c) => c.path === 'commands/create-todo.yaml');
     expect(todo).toBeDefined();
     expect(todo?.valid).toBe(true);
     // id は常にファイル stem (拡張子なし) である
     expect(todo?.id).toBe('create-todo');
-    // name は frontmatter の loamium-command.name (省略時は stem と同値)
+    // name は YAML トップレベルの name フィールド (省略時は stem と同値)
     expect(todo?.name).toBe('create-todo');
-    expect(todo?.path).toBe('commands/create-todo.md');
+    expect(todo?.path).toBe('commands/create-todo.yaml');
     // Narrow the discriminated union before accessing valid:true-only fields
     if (todo?.valid === true) {
       expect(todo.description).toBe('Todo を作成してジャーナルに追記する');
@@ -150,9 +139,9 @@ describe('[AC-Sd22b1f-1-2] GET /api/commands', () => {
     }
   });
 
-  it('壊れた frontmatter のコマンドは valid:false + error + id で一覧に含まれる (200 維持)', async () => {
+  it('壊れた YAML のコマンドは valid:false + error + id で一覧に含まれる (200 維持)', async () => {
     const commands = await listCommands();
-    const broken = commands.find((c) => c.path === 'commands/broken.md');
+    const broken = commands.find((c) => c.path === 'commands/broken.yaml');
     expect(broken).toBeDefined();
     expect(broken?.valid).toBe(false);
     // id はファイル stem から導出される (valid:false でも id を持つ)
@@ -168,7 +157,7 @@ describe('[AC-Sd22b1f-1-2] GET /api/commands', () => {
 
   it('steps が空のコマンドは valid:false になる', async () => {
     const commands = await listCommands();
-    const emptySteps = commands.find((c) => c.path === 'commands/empty-steps.md');
+    const emptySteps = commands.find((c) => c.path === 'commands/empty-steps.yaml');
     expect(emptySteps).toBeDefined();
     expect(emptySteps?.valid).toBe(false);
   });
@@ -201,12 +190,12 @@ describe('[AC-Sd22b1f-1-2] GET /api/commands', () => {
     const binaryVault = await makeTempVault();
     const binaryServer = await startServer({ vault: binaryVault });
     try {
-      // commands/ ディレクトリを作成してバイナリファイルを直接置く
+      // commands/ ディレクトリを作成してバイナリファイルを直接置く (.yaml 拡張子)
       const commandsDir = path.join(binaryVault, 'commands');
       const { mkdir } = await import('node:fs/promises');
       await mkdir(commandsDir, { recursive: true });
       await writeFile(
-        path.join(commandsDir, 'binary.md'),
+        path.join(commandsDir, 'binary.yaml'),
         Buffer.from([0xff, 0xfe, 0x00, 0x01, 0xd8, 0x00, 0xdc, 0x00]),
       );
       const res = await fetch(`${binaryServer.baseUrl}/api/commands`);
@@ -216,8 +205,8 @@ describe('[AC-Sd22b1f-1-2] GET /api/commands', () => {
       const parsed = commandsResponseSchema.safeParse(body);
       expect(parsed.success, `commandsResponseSchema validation failed: ${!parsed.success ? JSON.stringify(parsed.error.issues) : ''}`).toBe(true);
       if (!parsed.success) throw new Error('unreachable');
-      // binary.md がエントリとして含まれること (valid:true/false は問わない)
-      const hasEntry = parsed.data.commands.some((c) => c.path === 'commands/binary.md');
+      // binary.yaml がエントリとして含まれること (valid:true/false は問わない)
+      const hasEntry = parsed.data.commands.some((c) => c.path === 'commands/binary.yaml');
       expect(hasEntry).toBe(true);
     } finally {
       await binaryServer.stop();
@@ -231,48 +220,38 @@ describe('[AC-Sd22b1f-1-2] GET /api/commands', () => {
 // ---------------------------------------------------------------------------
 
 describe('[AC-Sf2f114-5-2] GET /api/commands — new param types passthrough', () => {
-  /** select param を持つ valid コマンド */
+  /** select param を持つ valid コマンド (ADR-0012: .yaml 全体 = LoamiumCommand) */
   const SELECT_PARAM_COMMAND = [
-    '---',
-    'loamium-command:',
-    '  name: select-param-test',
-    '  description: select param command',
-    '  params:',
-    '    - name: priority',
-    '      type: select',
-    '      options:',
-    '        - low',
-    '        - medium',
-    '        - high',
-    '    - name: flag',
-    '      type: boolean',
-    '    - name: count',
-    '      type: number',
-    '    - name: target',
-    '      type: note',
-    '  steps:',
-    '    - kind: note-create',
-    '      target: "out/{{priority}}.md"',
-    '      content: "priority={{priority}}"',
-    '---',
-    '# select-param-test',
-    '',
+    'name: select-param-test',
+    'description: select param command',
+    'params:',
+    '  - name: priority',
+    '    type: select',
+    '    options:',
+    '      - low',
+    '      - medium',
+    '      - high',
+    '  - name: flag',
+    '    type: boolean',
+    '  - name: count',
+    '    type: number',
+    '  - name: target',
+    '    type: note',
+    'steps:',
+    '  - kind: note-create',
+    '    target: "out/{{priority}}.md"',
+    '    content: "priority={{priority}}"',
   ].join('\n');
 
   /** select param だが options が空 → valid:false */
   const SELECT_NO_OPTIONS_COMMAND = [
-    '---',
-    'loamium-command:',
-    '  name: select-no-options',
-    '  params:',
-    '    - name: priority',
-    '      type: select',
-    '  steps:',
-    '    - kind: journal-append',
-    '      content: "hello"',
-    '---',
-    '# select-no-options',
-    '',
+    'name: select-no-options',
+    'params:',
+    '  - name: priority',
+    '    type: select',
+    'steps:',
+    '  - kind: journal-append',
+    '    content: "hello"',
   ].join('\n');
 
   let srv: TestServer;
@@ -293,8 +272,8 @@ describe('[AC-Sf2f114-5-2] GET /api/commands — new param types passthrough', (
   beforeAll(async () => {
     const vault = await makeTempVault();
     srv = await startServer({ vault });
-    await putNoteSrv('commands/select-param-test.md', SELECT_PARAM_COMMAND);
-    await putNoteSrv('commands/select-no-options.md', SELECT_NO_OPTIONS_COMMAND);
+    await seedVaultFile(vault, 'commands/select-param-test.yaml', SELECT_PARAM_COMMAND);
+    await seedVaultFile(vault, 'commands/select-no-options.yaml', SELECT_NO_OPTIONS_COMMAND);
   });
 
   afterAll(async () => {
@@ -317,7 +296,7 @@ describe('[AC-Sf2f114-5-2] GET /api/commands — new param types passthrough', (
 
   it('[AC-Sf2f114-5-2] select param command は valid:true で options が passthrough される', async () => {
     const commands = await listCmds();
-    const cmd = commands.find((c) => c.path === 'commands/select-param-test.md');
+    const cmd = commands.find((c) => c.path === 'commands/select-param-test.yaml');
     expect(cmd).toBeDefined();
     expect(cmd?.valid).toBe(true);
     if (cmd?.valid !== true) throw new Error('expected valid:true');
@@ -336,7 +315,7 @@ describe('[AC-Sf2f114-5-2] GET /api/commands — new param types passthrough', (
 
   it('[AC-Sf2f114-5-2] select-without-options command は valid:false で一覧に含まれる', async () => {
     const commands = await listCmds();
-    const cmd = commands.find((c) => c.path === 'commands/select-no-options.md');
+    const cmd = commands.find((c) => c.path === 'commands/select-no-options.yaml');
     expect(cmd).toBeDefined();
     expect(cmd?.valid).toBe(false);
     if (cmd?.valid !== false) throw new Error('expected valid:false');
@@ -358,7 +337,7 @@ describe('[AC-Sd22b1f-1-3] CLI loamium commands', () => {
     expect(result.stderr).toBe('');
     // 正常なコマンドは name\tpath が含まれる
     expect(result.stdout).toContain('create-todo');
-    expect(result.stdout).toContain('commands/create-todo.md');
+    expect(result.stdout).toContain('commands/create-todo.yaml');
   });
 
   it('有効なコマンドは description も出力する', async () => {
@@ -371,7 +350,7 @@ describe('[AC-Sd22b1f-1-3] CLI loamium commands', () => {
     const result = await cli(['commands']);
     expect(result.code).toBe(0);
     const lines = result.stdout.split('\n');
-    expect(lines.some((l) => l.includes('commands/broken.md') && l.includes('[INVALID]'))).toBe(true);
+    expect(lines.some((l) => l.includes('commands/broken.yaml') && l.includes('[INVALID]'))).toBe(true);
   });
 
   it('--json フラグで API レスポンスの生 JSON をそのまま出力する', async () => {

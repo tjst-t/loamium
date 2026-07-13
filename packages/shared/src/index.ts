@@ -136,6 +136,8 @@ export {
   loamiumCommandSchema,
   parseLoamiumCommand,
   parseLoamiumCommandWithError,
+  parseLoamiumCommandFile,
+  parseLoamiumCommandFileWithError,
   type CommandParamType,
   type CommandParam,
   type InsertPositionField,

@@ -12,6 +12,8 @@ import {
   loamiumCommandSchema,
   parseLoamiumCommand,
   parseLoamiumCommandWithError,
+  parseLoamiumCommandFile,
+  parseLoamiumCommandFileWithError,
 } from './loamium-command.js';
 
 // ---------------------------------------------------------------------------
@@ -503,6 +505,128 @@ describe('[AC-Sf2f114-2-1] commandStepSchema with when / when-not', () => {
     if (result.success && result.data.kind === 'note-create') {
       expect(result.data.when).toBeUndefined();
       expect(result.data['when-not']).toBeUndefined();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// [ADR-0012] parseLoamiumCommandFile — ファイル全体 YAML パース
+// ---------------------------------------------------------------------------
+describe('[ADR-0012] parseLoamiumCommandFile', () => {
+  it('有効な全体 YAML → LoamiumCommand を返す', () => {
+    const yaml = [
+      'name: create-todo',
+      'description: Todo を追記する',
+      'params:',
+      '  - name: title',
+      '    required: true',
+      'steps:',
+      '  - kind: journal-append',
+      '    content: "- [ ] {{title}}"',
+    ].join('\n');
+    const cmd = parseLoamiumCommandFile(yaml);
+    expect(cmd).not.toBeNull();
+    expect(cmd?.name).toBe('create-todo');
+    expect(cmd?.steps).toHaveLength(1);
+    expect(cmd?.params).toHaveLength(1);
+  });
+
+  it('steps のみ (最小定義) → LoamiumCommand を返す', () => {
+    const yaml = 'steps:\n  - kind: journal-append\n    content: "hello"';
+    const cmd = parseLoamiumCommandFile(yaml);
+    expect(cmd).not.toBeNull();
+    expect(cmd?.steps[0]?.kind).toBe('journal-append');
+  });
+
+  it('空文字列 → null を返す', () => {
+    expect(parseLoamiumCommandFile('')).toBeNull();
+    expect(parseLoamiumCommandFile('   ')).toBeNull();
+  });
+
+  it('壊れた YAML (パースエラー) → null を返す', () => {
+    const badYaml = 'name: foo\nsteps: [\nunclosed: bracket';
+    expect(parseLoamiumCommandFile(badYaml)).toBeNull();
+  });
+
+  it('steps が空配列 → null を返す (1 個以上必須)', () => {
+    const yaml = 'name: empty\nsteps: []';
+    expect(parseLoamiumCommandFile(yaml)).toBeNull();
+  });
+
+  it('steps が未定義 → null を返す', () => {
+    const yaml = 'name: no-steps';
+    expect(parseLoamiumCommandFile(yaml)).toBeNull();
+  });
+
+  it('未知の kind → null を返す', () => {
+    const yaml = 'steps:\n  - kind: agent-run\n    script: echo hello';
+    expect(parseLoamiumCommandFile(yaml)).toBeNull();
+  });
+
+  it('loamium-command: ラッパーキーを持つ古い形式 → 無効 (name/params/steps が欠ける)', () => {
+    // ADR-0012: トップレベルが LoamiumCommand であるべき。
+    // loamium-command: をトップキーに持つ場合、steps が欠けるため invalid になる。
+    const yaml = [
+      'loamium-command:',
+      '  name: create-todo',
+      '  steps:',
+      '    - kind: journal-append',
+      '      content: "hello"',
+    ].join('\n');
+    // トップレベルに steps がないため null
+    expect(parseLoamiumCommandFile(yaml)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// [ADR-0012] parseLoamiumCommandFileWithError
+// ---------------------------------------------------------------------------
+describe('[ADR-0012] parseLoamiumCommandFileWithError', () => {
+  it('有効な全体 YAML → ok:true + command を返す', () => {
+    const yaml = 'steps:\n  - kind: note-create\n    target: "out.md"\n    content: "# out"';
+    const result = parseLoamiumCommandFileWithError(yaml);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.command.steps[0]?.kind).toBe('note-create');
+    }
+  });
+
+  it('空ファイル → ok:false + error を返す', () => {
+    const result = parseLoamiumCommandFileWithError('');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain('empty');
+    }
+  });
+
+  it('壊れた YAML → ok:false + error (YAML parse error message) を返す', () => {
+    const result = parseLoamiumCommandFileWithError('name: foo\nsteps: [\nunclosed:');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('スキーマ不合格 (steps 空) → ok:false + error を返す', () => {
+    const result = parseLoamiumCommandFileWithError('name: x\nsteps: []');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('loamium-command: ラッパーキーを持つ旧形式 → ok:false (steps 欠如)', () => {
+    const yaml = [
+      'loamium-command:',
+      '  name: create-todo',
+      '  steps:',
+      '    - kind: journal-append',
+      '      content: "hello"',
+    ].join('\n');
+    const result = parseLoamiumCommandFileWithError(yaml);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.length).toBeGreaterThan(0);
     }
   });
 });

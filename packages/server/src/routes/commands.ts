@@ -1,12 +1,12 @@
 /**
  * スマートコマンド定義一覧 + 実行エンドポイント (Sd22b1f-1/2)。
  *
- * - GET  /api/commands                  vault 内 commands/*.md を寛容 read で列挙する
+ * - GET  /api/commands                  vault 内 commands/*.yaml(/.yml) を寛容 read で列挙する (ADR-0012)
  * - POST /api/commands/{name}/run       コマンドをステップ順に同期実行する (ADR-0009)
  *
  * [AC-Sd22b1f-1-2] GET: 正常な定義は { name, path, description?, params, valid:true } で返す。
- * frontmatter が壊れたファイルも { name, path, valid:false, error } で一覧に含め、
- * アプリを落とさない (ADR-0008: 寛容 read、priority 2)。レスポンスは常に 200。
+ * YAML が壊れたファイルも { name, path, valid:false, error } で一覧に含め、
+ * アプリを落とさない (ADR-0012: 寛容 read、priority 2)。レスポンスは常に 200。
  *
  * [AC-Sd22b1f-2-1/2/3/4] POST run:
  * - steps を順次同期実行し、ステップ毎の {kind, ok, path?, error?} + openPath? を返す
@@ -16,6 +16,8 @@
  * - 監査ログ: command.run + 各ステップの書き込みを記録
  */
 import { Hono } from 'hono';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 import {
   appendText,
   evaluateCondition,
@@ -24,7 +26,8 @@ import {
   isValidJournalDate,
   journalPath,
   normalizeVaultPath,
-  parseLoamiumCommandWithError,
+  normalizeVaultFilePath,
+  parseLoamiumCommandFileWithError,
   parseNote,
   parseTemplateConfig,
   resolveTemplate,
@@ -38,7 +41,7 @@ import {
   type CommandsResponse,
 } from '@loamium/shared';
 import type { ServerConfig } from '../config.js';
-import { listNoteFiles, readNote, writeNote } from '../vault.js';
+import { readNote, writeNote } from '../vault.js';
 import { errorJson, parseBody, setAudit, type AppEnv } from '../http.js';
 import { writeAuditEntry } from '../audit.js';
 import { firstFreePath } from '../vault-paths.js';
@@ -47,17 +50,51 @@ import { applyPropSet, applyNotePatch } from './notes.js';
 const COMMANDS_DIR = 'commands';
 const COMMANDS_PREFIX = `${COMMANDS_DIR}/`;
 
-/** vault 相対パスからファイル名 (拡張子なし) を取り出す。 */
+/** vault 相対パスからファイル名 (拡張子なし) を取り出す (.yaml / .yml を除去)。 */
 function stemFrom(rel: string): string {
   const basename = rel.slice(COMMANDS_PREFIX.length);
-  return basename.replace(/\.md$/i, '');
+  return basename.replace(/\.ya?ml$/i, '');
+}
+
+/**
+ * vault の commands/ ディレクトリを再帰的に走査し .yaml / .yml ファイルの
+ * vault 相対パス一覧を返す (ADR-0012)。
+ * listNoteFiles は .md のみ返すため、commands/ は独自に列挙する。
+ * ドット始まりセグメント (.loamium / .git 等) は除外する。
+ */
+async function listYamlCommandFiles(vaultRoot: string): Promise<string[]> {
+  const commandsAbs = path.resolve(vaultRoot, COMMANDS_DIR);
+  const out: string[] = [];
+  const walk = async (dirAbs: string): Promise<void> => {
+    let entries;
+    try {
+      entries = await fs.readdir(dirAbs, { withFileTypes: true });
+    } catch {
+      return; // commands/ が存在しない場合など
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue;
+      const abs = path.join(dirAbs, entry.name);
+      if (entry.isDirectory()) {
+        await walk(abs);
+      } else if (entry.isFile() && /\.ya?ml$/i.test(entry.name)) {
+        const rel = path.relative(path.resolve(vaultRoot), abs)
+          .split(path.sep)
+          .join('/')
+          .normalize('NFC');
+        out.push(rel);
+      }
+    }
+  };
+  await walk(commandsAbs);
+  out.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  return out;
 }
 
 /** 1 ファイルの内容から CommandSummary を組み立てる (寛容: 壊れは valid:false)。 */
 function summaryFor(rel: string, content: string): CommandSummary {
   const stem = stemFrom(rel);
-  const { frontmatter } = parseNote(content);
-  const parsed = parseLoamiumCommandWithError(frontmatter);
+  const parsed = parseLoamiumCommandFileWithError(content);
 
   if (!parsed.ok) {
     return { id: stem, name: stem, path: rel, valid: false, error: parsed.error };
@@ -83,14 +120,14 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
 
   // -----------------------------------------------------------------------
   // GET /api/commands
+  // commands/*.yaml (および .yml) を列挙して寛容 read で一覧を返す (ADR-0012)
   // -----------------------------------------------------------------------
 
   app.get('/api/commands', async (c) => {
-    const all = await listNoteFiles(config.vaultRoot);
+    const all = await listYamlCommandFiles(config.vaultRoot);
     const commands: CommandSummary[] = [];
 
     for (const rel of all) {
-      if (!rel.startsWith(COMMANDS_PREFIX)) continue;
       const content = await readNote(config.vaultRoot, rel);
       if (content === null) continue; // 走査後に消えたファイル
       try {
@@ -121,13 +158,13 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
   app.post('/api/commands/:name/run', async (c) => {
     const name = decodeURIComponent(c.req.param('name'));
 
-    // 1. コマンドファイルを探す
-    // name はファイル名 (拡張子なし)。commands/{name}.md が対象。
+    // 1. コマンドファイルを探す (ADR-0012: .yaml → .yml の順に試行)
+    // name はファイル名 (拡張子なし)。commands/{name}.yaml が対象。
     // name にスラッシュを含む場合はサブディレクトリを許容するが、
-    // normalizeVaultPath で traversal を防ぐ。
-    let commandPath: string;
+    // normalizeVaultFilePath で traversal を防ぐ (.md を補完しない)。
+    let commandPathBase: string;
     try {
-      commandPath = normalizeVaultPath(`${COMMANDS_DIR}/${name}`);
+      commandPathBase = normalizeVaultFilePath(`${COMMANDS_DIR}/${name}`);
     } catch (err) {
       if (err instanceof VaultPathError) {
         return errorJson(c, 400, 'invalid_path', `invalid command name: ${err.message}`);
@@ -135,14 +172,28 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
       throw err;
     }
 
-    const content = await readNote(config.vaultRoot, commandPath);
-    if (content === null) {
+    // .yaml を優先し、なければ .yml を試みる
+    let foundCommandPath: string | undefined;
+    let foundContent: string | undefined;
+    for (const ext of ['.yaml', '.yml']) {
+      const candidate = `${commandPathBase}${ext}`;
+      const c2 = await readNote(config.vaultRoot, candidate);
+      if (c2 !== null) {
+        foundCommandPath = candidate;
+        foundContent = c2;
+        break;
+      }
+    }
+
+    if (foundCommandPath === undefined || foundContent === undefined) {
       return errorJson(c, 404, 'not_found', `command not found: ${name}`);
     }
 
-    // 2. コマンド定義を厳格パース (実行時は strict — ADR-0008)
-    const { frontmatter } = parseNote(content);
-    const parsed = parseLoamiumCommandWithError(frontmatter);
+    const commandPath = foundCommandPath;
+    const content = foundContent;
+
+    // 2. コマンド定義を厳格パース (ADR-0012: ファイル全体 YAML)
+    const parsed = parseLoamiumCommandFileWithError(content);
     if (!parsed.ok) {
       return errorJson(
         c,

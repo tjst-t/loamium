@@ -90,106 +90,83 @@ async function runCommand(
 // フィクスチャコマンド定義
 // ---------------------------------------------------------------------------
 
-/** journal-append + note-create の 2 ステップ (open:true で openPath を確認) */
+/** journal-append + note-create の 2 ステップ (open:true で openPath を確認)
+ * ADR-0012: ファイル全体 = LoamiumCommand オブジェクト (.yaml)
+ */
 const CREATE_TODO_COMMAND = [
-  '---',
-  'loamium-command:',
-  '  name: create-todo',
-  '  description: Todo を作成してジャーナルに追記する',
-  '  params:',
-  '    - name: title',
-  '      label: タイトル',
-  '      required: true',
-  '      type: string',
-  '  steps:',
-  '    - kind: note-create',
-  '      target: "todos/{{title}}.md"',
-  '      content: "# {{title}}\\n"',
-  '      open: true',
-  '    - kind: journal-append',
-  '      content: "- [ ] [[{{title}}]]"',
-  '---',
-  '# create-todo',
-  '',
+  'name: create-todo',
+  'description: Todo を作成してジャーナルに追記する',
+  'params:',
+  '  - name: title',
+  '    label: タイトル',
+  '    required: true',
+  '    type: string',
+  'steps:',
+  '  - kind: note-create',
+  '    target: "todos/{{title}}.md"',
+  '    content: "# {{title}}\\n"',
+  '    open: true',
+  '  - kind: journal-append',
+  '    content: "- [ ] [[{{title}}]]"',
 ].join('\n');
 
 /** note-append ステップ: 既存ノートに追記 */
 const APPEND_COMMAND = [
-  '---',
-  'loamium-command:',
-  '  name: append-test',
-  '  params:',
-  '    - name: target',
-  '      required: true',
-  '    - name: text',
-  '      required: true',
-  '  steps:',
-  '    - kind: note-append',
-  '      target: "{{target}}"',
-  '      content: "{{text}}"',
-  '---',
-  '',
+  'name: append-test',
+  'params:',
+  '  - name: target',
+  '    required: true',
+  '  - name: text',
+  '    required: true',
+  'steps:',
+  '  - kind: note-append',
+  '    target: "{{target}}"',
+  '    content: "{{text}}"',
 ].join('\n');
 
 /** 必須 param なし (param 不足エラーを引き起こすためにあえて required を指定) */
 const REQUIRED_PARAM_COMMAND = [
-  '---',
-  'loamium-command:',
-  '  name: required-param',
-  '  params:',
-  '    - name: topic',
-  '      required: true',
-  '  steps:',
-  '    - kind: note-create',
-  '      target: "notes/{{topic}}.md"',
-  '      content: "# {{topic}}"',
-  '---',
-  '',
+  'name: required-param',
+  'params:',
+  '  - name: topic',
+  '    required: true',
+  'steps:',
+  '  - kind: note-create',
+  '    target: "notes/{{topic}}.md"',
+  '    content: "# {{topic}}"',
 ].join('\n');
 
 /** path traversal を含む target を持つコマンド */
 const TRAVERSAL_COMMAND = [
-  '---',
-  'loamium-command:',
-  '  name: traversal-test',
-  '  steps:',
-  '    - kind: note-create',
-  '      target: "../evil"',
-  '      content: "evil"',
-  '---',
-  '',
+  'name: traversal-test',
+  'steps:',
+  '  - kind: note-create',
+  '    target: "../evil"',
+  '    content: "evil"',
 ].join('\n');
 
 /** fail-stop テスト: 1 ステップ目が note-append (存在しないノート) → 失敗後 2 ステップ目は実行されない */
 const FAIL_STOP_COMMAND = [
-  '---',
-  'loamium-command:',
-  '  name: fail-stop',
-  '  steps:',
-  '    - kind: note-append',
-  '      target: "nonexistent-note.md"',
-  '      content: "appended"',
-  '    - kind: journal-append',
-  '      content: "this should not run"',
-  '---',
-  '',
+  'name: fail-stop',
+  'steps:',
+  '  - kind: note-append',
+  '    target: "nonexistent-note.md"',
+  '    content: "appended"',
+  '  - kind: journal-append',
+  '    content: "this should not run"',
 ].join('\n');
 
 /** journal-append の section 指定テスト */
 const SECTION_COMMAND = [
-  '---',
-  'loamium-command:',
-  '  name: section-test',
-  '  params:',
-  '    - name: task',
-  '      required: true',
-  '  steps:',
-  '    - kind: journal-append',
-  '      content: "- [ ] {{task}}"',
-  '      section: "Todo"',
-  '      date: "2026-07-11"',
-  '---',
-  '',
+  'name: section-test',
+  'params:',
+  '  - name: task',
+  '    required: true',
+  'steps:',
+  '  - kind: journal-append',
+  '    content: "- [ ] {{task}}"',
+  '    section: "Todo"',
+  '    date: "2026-07-11"',
 ].join('\n');
 
 // ---------------------------------------------------------------------------
@@ -202,12 +179,12 @@ describe('[AC-Sd22b1f-2] command run — full mode', () => {
   beforeAll(async () => {
     const vault = await makeTempVault();
     server = await startServer({ vault });
-    await putNote(server, 'commands/create-todo.md', CREATE_TODO_COMMAND);
-    await putNote(server, 'commands/append-test.md', APPEND_COMMAND);
-    await putNote(server, 'commands/required-param.md', REQUIRED_PARAM_COMMAND);
-    await putNote(server, 'commands/traversal-test.md', TRAVERSAL_COMMAND);
-    await putNote(server, 'commands/fail-stop.md', FAIL_STOP_COMMAND);
-    await putNote(server, 'commands/section-test.md', SECTION_COMMAND);
+    await seedNote(server.vault, 'commands/create-todo.yaml', CREATE_TODO_COMMAND);
+    await seedNote(server.vault, 'commands/append-test.yaml', APPEND_COMMAND);
+    await seedNote(server.vault, 'commands/required-param.yaml', REQUIRED_PARAM_COMMAND);
+    await seedNote(server.vault, 'commands/traversal-test.yaml', TRAVERSAL_COMMAND);
+    await seedNote(server.vault, 'commands/fail-stop.yaml', FAIL_STOP_COMMAND);
+    await seedNote(server.vault, 'commands/section-test.yaml', SECTION_COMMAND);
   });
 
   afterAll(async () => {
@@ -322,17 +299,13 @@ describe('[AC-Sd22b1f-2] command run — full mode', () => {
   /** hidden/dot セグメントの traversal コマンドも追加で確認 */
   it('[AC-Sd22b1f-2-2] hidden segment in expanded target → 400 invalid_target_path', async () => {
     // .hidden セグメントを含む target も 400 で拒否
-    await putNote(server, 'commands/hidden-seg-test.md', [
-      '---',
-      'loamium-command:',
-      '  name: hidden-seg-test',
-      '  steps:',
-      '    - kind: note-create',
-      '      target: ".hidden/secret.md"',
-      '      content: "secret"',
-      '---',
-      '',
-    ].join('\n'));
+    await seedNote(server.vault, 'commands/hidden-seg-test.yaml', [
+      'name: hidden-seg-test',
+      'steps:',
+      '  - kind: note-create',
+      '    target: ".hidden/secret.md"',
+      '    content: "secret"',
+].join('\n'));
     const { status, body } = await runCommand(server, 'hidden-seg-test', {});
     expect(status).toBe(400);
     const b = body as { error: string; message: string };
@@ -427,7 +400,7 @@ describe('[AC-Sd22b1f-2-3] read-only mode rejects command run', () => {
 
   beforeAll(async () => {
     const vault = await makeTempVault();
-    await seedNote(vault, 'commands/create-todo.md', CREATE_TODO_COMMAND);
+    await seedNote(vault, 'commands/create-todo.yaml', CREATE_TODO_COMMAND);
     server = await startServer({ vault, mode: 'read-only' });
   });
 
@@ -458,7 +431,7 @@ describe('[AC-Sd22b1f-2-3] append-only mode allows v1 commands', () => {
 
   beforeAll(async () => {
     const vault = await makeTempVault();
-    await seedNote(vault, 'commands/create-todo.md', CREATE_TODO_COMMAND);
+    await seedNote(vault, 'commands/create-todo.yaml', CREATE_TODO_COMMAND);
     server = await startServer({ vault, mode: 'append-only' });
   });
 
@@ -489,22 +462,17 @@ describe('[BUG-REGRESSION] display name ≠ stem — GET returns id, run uses st
 
   /** display name に スペースを含む (stem="my-cmd", name="My Command") */
   const MY_CMD = [
-    '---',
-    'loamium-command:',
-    '  name: "My Command"',
-    '  description: display name differs from file stem',
-    '  steps:',
-    '    - kind: journal-append',
-    '      content: "my-cmd ran"',
-    '---',
-    '# my-cmd',
-    '',
-  ].join('\n');
+    'name: "My Command"',
+    'description: display name differs from file stem',
+    'steps:',
+    '  - kind: journal-append',
+    '    content: "my-cmd ran"',
+].join('\n');
 
   beforeAll(async () => {
     const vault = await makeTempVault();
     server = await startServer({ vault });
-    await putNote(server, 'commands/my-cmd.md', MY_CMD);
+    await seedNote(server.vault, 'commands/my-cmd.yaml', MY_CMD);
   });
 
   afterAll(async () => {
@@ -516,7 +484,7 @@ describe('[BUG-REGRESSION] display name ≠ stem — GET returns id, run uses st
     const res = await fetch(`${server.baseUrl}/api/commands`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { commands: Array<{ id: string; name: string; path: string; valid: boolean }> };
-    const cmd = body.commands.find((c) => c.path === 'commands/my-cmd.md');
+    const cmd = body.commands.find((c) => c.path === 'commands/my-cmd.yaml');
     expect(cmd).toBeDefined();
     expect(cmd?.id).toBe('my-cmd');
     expect(cmd?.name).toBe('My Command');
@@ -543,29 +511,25 @@ describe('[AC-Sd22b1f-2-4] CLI command run', () => {
 
   /** when-gate: flag が truthy なら note-create を実行、falsey ならスキップ */
   const CLI_WHEN_GATE_COMMAND = [
-    '---',
-    'loamium-command:',
-    '  name: cli-when-gate',
-    '  params:',
-    '    - name: flag',
-    '    - name: title',
-    '      required: true',
-    '  steps:',
-    '    - kind: note-create',
-    '      target: "cli-when-tests/{{title}}.md"',
-    '      content: "# {{title}}"',
-    '      when: "{{flag}}"',
-    '---',
-    '',
-  ].join('\n');
+    'name: cli-when-gate',
+    'params:',
+    '  - name: flag',
+    '  - name: title',
+    '    required: true',
+    'steps:',
+    '  - kind: note-create',
+    '    target: "cli-when-tests/{{title}}.md"',
+    '    content: "# {{title}}"',
+    '    when: "{{flag}}"',
+].join('\n');
 
   beforeAll(async () => {
     const vault = await makeTempVault();
     server = await startServer({ vault });
-    await putNote(server, 'commands/create-todo.md', CREATE_TODO_COMMAND);
-    await putNote(server, 'commands/required-param.md', REQUIRED_PARAM_COMMAND);
-    await putNote(server, 'commands/append-test.md', APPEND_COMMAND);
-    await putNote(server, 'commands/cli-when-gate.md', CLI_WHEN_GATE_COMMAND);
+    await seedNote(server.vault, 'commands/create-todo.yaml', CREATE_TODO_COMMAND);
+    await seedNote(server.vault, 'commands/required-param.yaml', REQUIRED_PARAM_COMMAND);
+    await seedNote(server.vault, 'commands/append-test.yaml', APPEND_COMMAND);
+    await seedNote(server.vault, 'commands/cli-when-gate.yaml', CLI_WHEN_GATE_COMMAND);
   });
 
   afterAll(async () => {
@@ -664,108 +628,88 @@ describe('[AC-Sf2f114-3-1] note-append with section/create/position', () => {
 
   /** note-append with section — 見出し存在時 */
   const NOTE_APPEND_SECTION_COMMAND = [
-    '---',
-    'loamium-command:',
-    '  name: note-append-section',
-    '  params:',
-    '    - name: target',
-    '      required: true',
-    '    - name: text',
-    '      required: true',
-    '    - name: section',
-    '      required: true',
-    '  steps:',
-    '    - kind: note-append',
-    '      target: "{{target}}"',
-    '      content: "{{text}}"',
-    '      section: "{{section}}"',
-    '---',
-    '',
-  ].join('\n');
+    'name: note-append-section',
+    'params:',
+    '  - name: target',
+    '    required: true',
+    '  - name: text',
+    '    required: true',
+    '  - name: section',
+    '    required: true',
+    'steps:',
+    '  - kind: note-append',
+    '    target: "{{target}}"',
+    '    content: "{{text}}"',
+    '    section: "{{section}}"',
+].join('\n');
 
   /** note-append with create:true — 存在しないノートを新規作成 */
   const NOTE_APPEND_CREATE_COMMAND = [
-    '---',
-    'loamium-command:',
-    '  name: note-append-create',
-    '  params:',
-    '    - name: target',
-    '      required: true',
-    '    - name: text',
-    '      required: true',
-    '  steps:',
-    '    - kind: note-append',
-    '      target: "{{target}}"',
-    '      content: "{{text}}"',
-    '      create: true',
-    '---',
-    '',
-  ].join('\n');
+    'name: note-append-create',
+    'params:',
+    '  - name: target',
+    '    required: true',
+    '  - name: text',
+    '    required: true',
+    'steps:',
+    '  - kind: note-append',
+    '    target: "{{target}}"',
+    '    content: "{{text}}"',
+    '    create: true',
+].join('\n');
 
   /** note-append with position:top */
   const NOTE_APPEND_TOP_COMMAND = [
-    '---',
-    'loamium-command:',
-    '  name: note-append-top',
-    '  params:',
-    '    - name: target',
-    '      required: true',
-    '    - name: text',
-    '      required: true',
-    '  steps:',
-    '    - kind: note-append',
-    '      target: "{{target}}"',
-    '      content: "{{text}}"',
-    '      position: "top"',
-    '---',
-    '',
-  ].join('\n');
+    'name: note-append-top',
+    'params:',
+    '  - name: target',
+    '    required: true',
+    '  - name: text',
+    '    required: true',
+    'steps:',
+    '  - kind: note-append',
+    '    target: "{{target}}"',
+    '    content: "{{text}}"',
+    '    position: "top"',
+].join('\n');
 
   /** note-append with position:bottom (explicit) */
   const NOTE_APPEND_BOTTOM_COMMAND = [
-    '---',
-    'loamium-command:',
-    '  name: note-append-bottom',
-    '  params:',
-    '    - name: target',
-    '      required: true',
-    '    - name: text',
-    '      required: true',
-    '  steps:',
-    '    - kind: note-append',
-    '      target: "{{target}}"',
-    '      content: "{{text}}"',
-    '      position: "bottom"',
-    '---',
-    '',
-  ].join('\n');
+    'name: note-append-bottom',
+    'params:',
+    '  - name: target',
+    '    required: true',
+    '  - name: text',
+    '    required: true',
+    'steps:',
+    '  - kind: note-append',
+    '    target: "{{target}}"',
+    '    content: "{{text}}"',
+    '    position: "bottom"',
+].join('\n');
 
   /** note-append without create — 後方互換: 存在しないノート → ok:false */
   const NOTE_APPEND_NO_CREATE_COMMAND = [
-    '---',
-    'loamium-command:',
-    '  name: note-append-no-create',
-    '  params:',
-    '    - name: target',
-    '      required: true',
-    '    - name: text',
-    '      required: true',
-    '  steps:',
-    '    - kind: note-append',
-    '      target: "{{target}}"',
-    '      content: "{{text}}"',
-    '---',
-    '',
-  ].join('\n');
+    'name: note-append-no-create',
+    'params:',
+    '  - name: target',
+    '    required: true',
+    '  - name: text',
+    '    required: true',
+    'steps:',
+    '  - kind: note-append',
+    '    target: "{{target}}"',
+    '    content: "{{text}}"',
+].join('\n');
 
   beforeAll(async () => {
     const vault = await makeTempVault();
     server = await startServer({ vault });
-    await putNote(server, 'commands/note-append-section.md', NOTE_APPEND_SECTION_COMMAND);
-    await putNote(server, 'commands/note-append-create.md', NOTE_APPEND_CREATE_COMMAND);
-    await putNote(server, 'commands/note-append-top.md', NOTE_APPEND_TOP_COMMAND);
-    await putNote(server, 'commands/note-append-bottom.md', NOTE_APPEND_BOTTOM_COMMAND);
-    await putNote(server, 'commands/note-append-no-create.md', NOTE_APPEND_NO_CREATE_COMMAND);
+    await seedNote(server.vault, 'commands/note-append-section.yaml', NOTE_APPEND_SECTION_COMMAND);
+    await seedNote(server.vault, 'commands/note-append-create.yaml', NOTE_APPEND_CREATE_COMMAND);
+    await seedNote(server.vault, 'commands/note-append-top.yaml', NOTE_APPEND_TOP_COMMAND);
+    await seedNote(server.vault, 'commands/note-append-bottom.yaml', NOTE_APPEND_BOTTOM_COMMAND);
+    await seedNote(server.vault, 'commands/note-append-no-create.yaml', NOTE_APPEND_NO_CREATE_COMMAND);
   });
 
   afterAll(async () => {
@@ -946,18 +890,14 @@ describe('[AC-Sf2f114-3-1] note-append with section/create/position', () => {
 
   it('[AC-Sf2f114-3-2] journal-append unchanged — backward compat (section present)', async () => {
     await putNote(server, 'journals/2026-07-12.md', '# 2026-07-12\n\n## Log\n\n- existing\n');
-    await putNote(server, 'commands/journal-compat-section.md', [
-      '---',
-      'loamium-command:',
-      '  name: journal-compat-section',
-      '  steps:',
-      '    - kind: journal-append',
-      '      content: "- new entry"',
-      '      section: "Log"',
-      '      date: "2026-07-12"',
-      '---',
-      '',
-    ].join('\n'));
+    await seedNote(server.vault, 'commands/journal-compat-section.yaml', [
+      'name: journal-compat-section',
+      'steps:',
+      '  - kind: journal-append',
+      '    content: "- new entry"',
+      '    section: "Log"',
+      '    date: "2026-07-12"',
+].join('\n'));
 
     const { status, body } = await runCommand(server, 'journal-compat-section', {});
     expect(status).toBe(200);
@@ -976,17 +916,13 @@ describe('[AC-Sf2f114-3-1] note-append with section/create/position', () => {
 
   it('[AC-Sf2f114-3-2] journal-append unchanged — backward compat (section absent, bottom)', async () => {
     await putNote(server, 'journals/2026-07-10.md', '# 2026-07-10\n\nsome text\n');
-    await putNote(server, 'commands/journal-compat-bottom.md', [
-      '---',
-      'loamium-command:',
-      '  name: journal-compat-bottom',
-      '  steps:',
-      '    - kind: journal-append',
-      '      content: "appended line"',
-      '      date: "2026-07-10"',
-      '---',
-      '',
-    ].join('\n'));
+    await seedNote(server.vault, 'commands/journal-compat-bottom.yaml', [
+      'name: journal-compat-bottom',
+      'steps:',
+      '  - kind: journal-append',
+      '    content: "appended line"',
+      '    date: "2026-07-10"',
+].join('\n'));
 
     const { status, body } = await runCommand(server, 'journal-compat-bottom', {});
     expect(status).toBe(200);
@@ -1010,23 +946,19 @@ describe('[AC-Sf2f114-3-1] note-append with section/create/position', () => {
   it('[AC-Sf2f114-3-1] note-append position:section without section field → ok:false (does not crash)', async () => {
     // position:'section' を指定したが section フィールドが未設定のコマンド
     const POSITION_SECTION_NO_SECTION_COMMAND = [
-      '---',
-      'loamium-command:',
-      '  name: position-section-no-section',
-      '  params:',
-      '    - name: target',
-      '      required: true',
-      '    - name: text',
-      '      required: true',
-      '  steps:',
-      '    - kind: note-append',
-      '      target: "{{target}}"',
-      '      content: "{{text}}"',
-      '      position: "section"',
-      '---',
-      '',
-    ].join('\n');
-    await putNote(server, 'commands/position-section-no-section.md', POSITION_SECTION_NO_SECTION_COMMAND);
+      'name: position-section-no-section',
+      'params:',
+      '  - name: target',
+      '    required: true',
+      '  - name: text',
+      '    required: true',
+      'steps:',
+      '  - kind: note-append',
+      '    target: "{{target}}"',
+      '    content: "{{text}}"',
+      '    position: "section"',
+].join('\n');
+    await seedNote(server.vault, 'commands/position-section-no-section.yaml', POSITION_SECTION_NO_SECTION_COMMAND);
     await putNote(server, 'pos-section-target.md', '# Target\n\nsome content\n');
 
     const { status, body } = await runCommand(server, 'position-section-no-section', {
@@ -1056,72 +988,60 @@ describe('[AC-Sf2f114-2-1/2] when / when-not 条件付きステップ実行', ()
    * 後続の journal-append は常に実行される (スキップは fail-stop しない)。
    */
   const WHEN_GATE_COMMAND = [
-    '---',
-    'loamium-command:',
-    '  name: when-gate',
-    '  params:',
-    '    - name: flag',
-    '    - name: title',
-    '      required: true',
-    '  steps:',
-    '    - kind: note-create',
-    '      target: "when-tests/{{title}}.md"',
-    '      content: "# {{title}}"',
-    '      when: "{{flag}}"',
-    '    - kind: journal-append',
-    '      content: "when-gate ran: {{title}}"',
-    '---',
-    '',
-  ].join('\n');
+    'name: when-gate',
+    'params:',
+    '  - name: flag',
+    '  - name: title',
+    '    required: true',
+    'steps:',
+    '  - kind: note-create',
+    '    target: "when-tests/{{title}}.md"',
+    '    content: "# {{title}}"',
+    '    when: "{{flag}}"',
+    '  - kind: journal-append',
+    '    content: "when-gate ran: {{title}}"',
+].join('\n');
 
   /**
    * when-not: {{skip}} gate — skip が falsey なら note-create を実行、truthy ならスキップ。
    */
   const WHEN_NOT_GATE_COMMAND = [
-    '---',
-    'loamium-command:',
-    '  name: when-not-gate',
-    '  params:',
-    '    - name: skip',
-    '    - name: title',
-    '      required: true',
-    '  steps:',
-    '    - kind: note-create',
-    '      target: "when-not-tests/{{title}}.md"',
-    '      content: "# {{title}}"',
-    '      when-not: "{{skip}}"',
-    '---',
-    '',
-  ].join('\n');
+    'name: when-not-gate',
+    'params:',
+    '  - name: skip',
+    '  - name: title',
+    '    required: true',
+    'steps:',
+    '  - kind: note-create',
+    '    target: "when-not-tests/{{title}}.md"',
+    '    content: "# {{title}}"',
+    '    when-not: "{{skip}}"',
+].join('\n');
 
   /**
    * when + when-not 両方指定 — 両方の条件を満たすときのみ実行。
    */
   const BOTH_CONDITION_COMMAND = [
-    '---',
-    'loamium-command:',
-    '  name: both-condition',
-    '  params:',
-    '    - name: enable',
-    '    - name: skip',
-    '    - name: title',
-    '      required: true',
-    '  steps:',
-    '    - kind: note-create',
-    '      target: "both-tests/{{title}}.md"',
-    '      content: "# {{title}}"',
-    '      when: "{{enable}}"',
-    '      when-not: "{{skip}}"',
-    '---',
-    '',
-  ].join('\n');
+    'name: both-condition',
+    'params:',
+    '  - name: enable',
+    '  - name: skip',
+    '  - name: title',
+    '    required: true',
+    'steps:',
+    '  - kind: note-create',
+    '    target: "both-tests/{{title}}.md"',
+    '    content: "# {{title}}"',
+    '    when: "{{enable}}"',
+    '    when-not: "{{skip}}"',
+].join('\n');
 
   beforeAll(async () => {
     const vault = await makeTempVault();
     server = await startServer({ vault });
-    await putNote(server, 'commands/when-gate.md', WHEN_GATE_COMMAND);
-    await putNote(server, 'commands/when-not-gate.md', WHEN_NOT_GATE_COMMAND);
-    await putNote(server, 'commands/both-condition.md', BOTH_CONDITION_COMMAND);
+    await seedNote(server.vault, 'commands/when-gate.yaml', WHEN_GATE_COMMAND);
+    await seedNote(server.vault, 'commands/when-not-gate.yaml', WHEN_NOT_GATE_COMMAND);
+    await seedNote(server.vault, 'commands/both-condition.yaml', BOTH_CONDITION_COMMAND);
   });
 
   afterAll(async () => {
@@ -1303,7 +1223,7 @@ describe('[AC-Sf2f114-2-1/2] when / when-not 条件付きステップ実行', ()
 
   it('[AC-Sf2f114-2-2] 後方互換 — when / when-not なしのステップは変わらず実行される', async () => {
     // CREATE_TODO_COMMAND は when / when-not を持たない既存コマンド
-    await putNote(server, 'commands/create-todo.md', CREATE_TODO_COMMAND);
+    await seedNote(server.vault, 'commands/create-todo.yaml', CREATE_TODO_COMMAND);
     const { status, body } = await runCommand(server, 'create-todo', { title: 'compat-test' });
     expect(status).toBe(200);
     const parsed = commandRunResponseSchema.safeParse(body);
@@ -1355,83 +1275,67 @@ describe('[AC-Sf2f114-4-1/2/3] prop-set / note-patch ステップ', () => {
 
   /** prop-set コマンド: target note の frontmatter を upsert する */
   const PROP_SET_COMMAND = [
-    '---',
-    'loamium-command:',
-    '  name: prop-set-test',
-    '  params:',
-    '    - name: target',
-    '      required: true',
-    '    - name: value',
-    '      required: true',
-    '  steps:',
-    '    - kind: prop-set',
-    '      target: "{{target}}"',
-    '      set:',
-    '        bookmark: "{{value}}"',
-    '---',
-    '',
-  ].join('\n');
+    'name: prop-set-test',
+    'params:',
+    '  - name: target',
+    '    required: true',
+    '  - name: value',
+    '    required: true',
+    'steps:',
+    '  - kind: prop-set',
+    '    target: "{{target}}"',
+    '    set:',
+    '      bookmark: "{{value}}"',
+].join('\n');
 
   /** prop-set コマンド: unset キー */
   const PROP_UNSET_COMMAND = [
-    '---',
-    'loamium-command:',
-    '  name: prop-unset-test',
-    '  params:',
-    '    - name: target',
-    '      required: true',
-    '  steps:',
-    '    - kind: prop-set',
-    '      target: "{{target}}"',
-    '      unset:',
-    '        - bookmark',
-    '---',
-    '',
-  ].join('\n');
+    'name: prop-unset-test',
+    'params:',
+    '  - name: target',
+    '    required: true',
+    'steps:',
+    '  - kind: prop-set',
+    '    target: "{{target}}"',
+    '    unset:',
+    '      - bookmark',
+].join('\n');
 
   /** prop-set コマンド: set と unset 両方なし → no-op */
   const PROP_SET_NOOP_COMMAND = [
-    '---',
-    'loamium-command:',
-    '  name: prop-set-noop',
-    '  params:',
-    '    - name: target',
-    '      required: true',
-    '  steps:',
-    '    - kind: prop-set',
-    '      target: "{{target}}"',
-    '---',
-    '',
-  ].join('\n');
+    'name: prop-set-noop',
+    'params:',
+    '  - name: target',
+    '    required: true',
+    'steps:',
+    '  - kind: prop-set',
+    '    target: "{{target}}"',
+].join('\n');
 
   /** note-patch コマンド: old → new 置換 */
   const NOTE_PATCH_COMMAND = [
-    '---',
-    'loamium-command:',
-    '  name: note-patch-test',
-    '  params:',
-    '    - name: target',
-    '      required: true',
-    '    - name: old',
-    '      required: true',
-    '    - name: new',
-    '      required: true',
-    '  steps:',
-    '    - kind: note-patch',
-    '      target: "{{target}}"',
-    '      old: "{{old}}"',
-    '      new: "{{new}}"',
-    '---',
-    '',
-  ].join('\n');
+    'name: note-patch-test',
+    'params:',
+    '  - name: target',
+    '    required: true',
+    '  - name: old',
+    '    required: true',
+    '  - name: new',
+    '    required: true',
+    'steps:',
+    '  - kind: note-patch',
+    '    target: "{{target}}"',
+    '    old: "{{old}}"',
+    '    new: "{{new}}"',
+].join('\n');
 
   beforeAll(async () => {
     const vault = await makeTempVault();
     server = await startServer({ vault });
-    await putNote(server, 'commands/prop-set-test.md', PROP_SET_COMMAND);
-    await putNote(server, 'commands/prop-unset-test.md', PROP_UNSET_COMMAND);
-    await putNote(server, 'commands/prop-set-noop.md', PROP_SET_NOOP_COMMAND);
-    await putNote(server, 'commands/note-patch-test.md', NOTE_PATCH_COMMAND);
+    await seedNote(server.vault, 'commands/prop-set-test.yaml', PROP_SET_COMMAND);
+    await seedNote(server.vault, 'commands/prop-unset-test.yaml', PROP_UNSET_COMMAND);
+    await seedNote(server.vault, 'commands/prop-set-noop.yaml', PROP_SET_NOOP_COMMAND);
+    await seedNote(server.vault, 'commands/note-patch-test.yaml', NOTE_PATCH_COMMAND);
   });
 
   afterAll(async () => {
@@ -1579,16 +1483,12 @@ describe('[AC-Sf2f114-4-1/2/3] prop-set / note-patch ステップ', () => {
   // -----------------------------------------------------------------------
 
   it('[AC-Sf2f114-4-3] unknown kind is rejected at command parse time', async () => {
-    await putNote(server, 'commands/unknown-kind.md', [
-      '---',
-      'loamium-command:',
-      '  name: unknown-kind',
-      '  steps:',
-      '    - kind: invalid-step-kind',
-      '      target: "foo.md"',
-      '---',
-      '',
-    ].join('\n'));
+    await seedNote(server.vault, 'commands/unknown-kind.yaml', [
+      'name: unknown-kind',
+      'steps:',
+      '  - kind: invalid-step-kind',
+      '    target: "foo.md"',
+].join('\n'));
     const { status, body } = await runCommand(server, 'unknown-kind', {});
     expect(status).toBe(400);
     const b = body as { error: string; message: string };
@@ -1645,89 +1545,73 @@ describe('[AC-Sf2f114-5-2] new param types — value flows through resolveTempla
    * 実行時は選択した option 文字列が渡される。
    */
   const SELECT_PARAM_CMD = [
-    '---',
-    'loamium-command:',
-    '  name: select-run-test',
-    '  params:',
-    '    - name: priority',
-    '      type: select',
-    '      required: true',
-    '      options:',
-    '        - low',
-    '        - medium',
-    '        - high',
-    '  steps:',
-    '    - kind: note-create',
-    '      target: "select-out/{{priority}}.md"',
-    '      content: "priority={{priority}}"',
-    '---',
-    '',
-  ].join('\n');
+    'name: select-run-test',
+    'params:',
+    '  - name: priority',
+    '    type: select',
+    '    required: true',
+    '    options:',
+    '      - low',
+    '      - medium',
+    '      - high',
+    'steps:',
+    '  - kind: note-create',
+    '    target: "select-out/{{priority}}.md"',
+    '    content: "priority={{priority}}"',
+].join('\n');
 
   /**
    * boolean param: {{flag}} が content に展開されること。
    * 'true' (truthy) または '' (falsey) が渡される想定。
    */
   const BOOLEAN_PARAM_CMD = [
-    '---',
-    'loamium-command:',
-    '  name: boolean-run-test',
-    '  params:',
-    '    - name: flag',
-    '      type: boolean',
-    '  steps:',
-    '    - kind: note-create',
-    '      target: "bool-out/result.md"',
-    '      content: "flag={{flag}}"',
-    '---',
-    '',
-  ].join('\n');
+    'name: boolean-run-test',
+    'params:',
+    '  - name: flag',
+    '    type: boolean',
+    'steps:',
+    '  - kind: note-create',
+    '    target: "bool-out/result.md"',
+    '    content: "flag={{flag}}"',
+].join('\n');
 
   /**
    * number param: {{count}} が content に展開されること。
    * 数値文字列 (例 "42") が渡される想定。
    */
   const NUMBER_PARAM_CMD = [
-    '---',
-    'loamium-command:',
-    '  name: number-run-test',
-    '  params:',
-    '    - name: count',
-    '      type: number',
-    '  steps:',
-    '    - kind: note-create',
-    '      target: "num-out/result.md"',
-    '      content: "count={{count}}"',
-    '---',
-    '',
-  ].join('\n');
+    'name: number-run-test',
+    'params:',
+    '  - name: count',
+    '    type: number',
+    'steps:',
+    '  - kind: note-create',
+    '    target: "num-out/result.md"',
+    '    content: "count={{count}}"',
+].join('\n');
 
   /**
    * note param: {{target}} が content に展開されること。
    * vault 相対パス文字列が渡される想定。
    */
   const NOTE_PARAM_CMD = [
-    '---',
-    'loamium-command:',
-    '  name: note-run-test',
-    '  params:',
-    '    - name: ref',
-    '      type: note',
-    '  steps:',
-    '    - kind: note-create',
-    '      target: "note-out/result.md"',
-    '      content: "ref={{ref}}"',
-    '---',
-    '',
-  ].join('\n');
+    'name: note-run-test',
+    'params:',
+    '  - name: ref',
+    '    type: note',
+    'steps:',
+    '  - kind: note-create',
+    '    target: "note-out/result.md"',
+    '    content: "ref={{ref}}"',
+].join('\n');
 
   beforeAll(async () => {
     const vault = await makeTempVault();
     server = await startServer({ vault });
-    await putNote(server, 'commands/select-run-test.md', SELECT_PARAM_CMD);
-    await putNote(server, 'commands/boolean-run-test.md', BOOLEAN_PARAM_CMD);
-    await putNote(server, 'commands/number-run-test.md', NUMBER_PARAM_CMD);
-    await putNote(server, 'commands/note-run-test.md', NOTE_PARAM_CMD);
+    await seedNote(server.vault, 'commands/select-run-test.yaml', SELECT_PARAM_CMD);
+    await seedNote(server.vault, 'commands/boolean-run-test.yaml', BOOLEAN_PARAM_CMD);
+    await seedNote(server.vault, 'commands/number-run-test.yaml', NUMBER_PARAM_CMD);
+    await seedNote(server.vault, 'commands/note-run-test.yaml', NOTE_PARAM_CMD);
   });
 
   afterAll(async () => {
@@ -1811,41 +1695,33 @@ describe('[AC-Sf2f114-4-3] append-only rejects prop-set / note-patch commands', 
   let server: TestServer;
 
   const PROP_SET_CMD = [
-    '---',
-    'loamium-command:',
-    '  name: mutating-prop-set',
-    '  params:',
-    '    - name: target',
-    '      required: true',
-    '  steps:',
-    '    - kind: prop-set',
-    '      target: "{{target}}"',
-    '      set:',
-    '        status: draft',
-    '---',
-    '',
-  ].join('\n');
+    'name: mutating-prop-set',
+    'params:',
+    '  - name: target',
+    '    required: true',
+    'steps:',
+    '  - kind: prop-set',
+    '    target: "{{target}}"',
+    '    set:',
+    '      status: draft',
+].join('\n');
 
   const NOTE_PATCH_CMD = [
-    '---',
-    'loamium-command:',
-    '  name: mutating-note-patch',
-    '  params:',
-    '    - name: target',
-    '      required: true',
-    '  steps:',
-    '    - kind: note-patch',
-    '      target: "{{target}}"',
-    '      old: "TODO"',
-    '      new: "DONE"',
-    '---',
-    '',
-  ].join('\n');
+    'name: mutating-note-patch',
+    'params:',
+    '  - name: target',
+    '    required: true',
+    'steps:',
+    '  - kind: note-patch',
+    '    target: "{{target}}"',
+    '    old: "TODO"',
+    '    new: "DONE"',
+].join('\n');
 
   beforeAll(async () => {
     const vault = await makeTempVault();
-    await seedNote(vault, 'commands/mutating-prop-set.md', PROP_SET_CMD);
-    await seedNote(vault, 'commands/mutating-note-patch.md', NOTE_PATCH_CMD);
+    await seedNote(vault, 'commands/mutating-prop-set.yaml', PROP_SET_CMD);
+    await seedNote(vault, 'commands/mutating-note-patch.yaml', NOTE_PATCH_CMD);
     await seedNote(vault, 'target.md', '---\ntitle: Target\n---\n\nTODO item.\n');
     server = await startServer({ vault, mode: 'append-only' });
   });
@@ -1877,20 +1753,16 @@ describe('[AC-Sf2f114-4-3] append-only rejects prop-set / note-patch commands', 
 
   it('[AC-Sf2f114-4-3] append-only still allows v1-only commands (journal-append / note-create)', async () => {
     const CREATE_TODO_COMMAND = [
-      '---',
-      'loamium-command:',
-      '  name: create-todo',
-      '  params:',
-      '    - name: title',
-      '      required: true',
-      '  steps:',
-      '    - kind: note-create',
-      '      target: "todos/{{title}}.md"',
-      '      content: "# {{title}}\\n"',
-      '---',
-      '',
-    ].join('\n');
-    await seedNote(server.vault, 'commands/create-todo.md', CREATE_TODO_COMMAND);
+      'name: create-todo',
+      'params:',
+      '  - name: title',
+      '    required: true',
+      'steps:',
+      '  - kind: note-create',
+      '    target: "todos/{{title}}.md"',
+      '    content: "# {{title}}\\n"',
+].join('\n');
+    await seedNote(server.vault, 'commands/create-todo.yaml', CREATE_TODO_COMMAND);
 
     const { status } = await runCommand(server, 'create-todo', { title: 'ao-allowed-test' });
     expect(status).toBe(200);

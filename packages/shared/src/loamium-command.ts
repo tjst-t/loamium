@@ -1,9 +1,12 @@
 /**
- * スマートコマンド定義 (ADR-0008 / ADR-0009 / ADR-0010) の zod スキーマとパース関数。
+ * スマートコマンド定義 (ADR-0012 supersedes ADR-0008 / ADR-0009 / ADR-0010) の zod スキーマとパース関数。
  *
- * コマンド定義は vault 内 commands/*.md の YAML frontmatter キー `loamium-command` に格納する。
+ * ADR-0012: コマンド定義は vault 内 commands/*.yaml (または .yml) ファイルとし、
+ * ファイル全体が LoamiumCommand オブジェクト (トップレベルに name?/description?/params[]/steps[])。
+ * loamium-command: ラッパーキーも Markdown 本文も持たない。id = 拡張子を除いたファイル stem。
+ *
  * params は templates の TemplateVar と同型 (name / label / required / default /
- * type: 'string'|'text'|'date')。steps は kind による判別可能ユニオン (4 種)。
+ * type: 'string'|'text'|'date')。steps は kind による判別可能ユニオン (6 種)。
  *
  * ADR-0010: 各ステップに任意の when / when-not フィールドを追加する (additive)。
  *   - when: 値が truthy なら実行、falsey ならスキップ。
@@ -11,12 +14,13 @@
  *   falsey 定義: 空文字列 ("") / "false" / "0" → falsey。それ以外 → truthy。
  *   両フィールドが指定された場合は両方が「実行条件を満たす」ときのみ実行する。
  *
- * parseLoamiumCommand(frontmatter) は parseTemplateConfig と同じスタイル:
- *   - Record<string, unknown> frontmatter を受け取る
- *   - 壊れた定義はクラッシュせず null を返す (一覧の寛容 read 側が valid:false に変換)
- *   - 正常ならば LoamiumCommand を返す
+ * parseLoamiumCommandFile(yamlText) — ADR-0012 用: ファイル全体の YAML テキストをパースする。
+ * parseLoamiumCommand(frontmatter) — ADR-0008 互換 (旧 frontmatter ベース): 後方互換のため残す。
+ *   editor UI (CommandEditor.tsx) が parseLoamiumCommandWithError を呼んでいるため,
+ *   その関数も旧シグネチャで残す (エディタ側の変更は別タスク)。
  */
 import { z } from 'zod';
+import { parse as parseYaml } from 'yaml';
 
 // ---- ADR-0010: 条件付きステップ実行の truthiness 評価 ----
 
@@ -280,6 +284,9 @@ export function parseLoamiumCommand(
 /**
  * parseLoamiumCommand と同様だが、エラーメッセージを返すバージョン。
  * GET /api/commands の valid:false + error フィールドに使う。
+ * ADR-0008 互換 (旧 frontmatter ベース)。
+ * editor UI (CommandEditor.tsx) が現在この関数を呼んでいるため、旧シグネチャで残す。
+ * (エディタ側の YAML ファイル全体パースへの切り替えは別タスク)
  */
 export function parseLoamiumCommandWithError(
   frontmatter: Record<string, unknown> | null,
@@ -294,6 +301,58 @@ export function parseLoamiumCommandWithError(
   const result = loamiumCommandSchema.safeParse(raw);
   if (!result.success) {
     // zod エラーを人間可読な文字列にまとめる
+    const msg = result.error.errors
+      .map((e) => `${e.path.join('.')}: ${e.message}`)
+      .join('; ');
+    return { ok: false, error: msg };
+  }
+  return { ok: true, command: result.data };
+}
+
+// ---- ADR-0012: ファイル全体 YAML パース ----
+
+/**
+ * commands/*.yaml ファイルの全テキストをパースして LoamiumCommand を返す (ADR-0012)。
+ * ファイル全体がトップレベルの LoamiumCommand オブジェクトであることを期待する。
+ * loamium-command: ラッパーキーは不要 (持つと name/params/steps が欠けるため無効になる)。
+ *
+ * 壊れた YAML / スキーマ不合格 / 空ファイル → null (寛容 read 側が valid:false に変換)。
+ */
+export function parseLoamiumCommandFile(yamlText: string): LoamiumCommand | null {
+  if (yamlText.trim() === '') return null;
+  let raw: unknown;
+  try {
+    raw = parseYaml(yamlText);
+  } catch {
+    return null;
+  }
+  if (raw === null || raw === undefined) return null;
+  const result = loamiumCommandSchema.safeParse(raw);
+  if (!result.success) return null;
+  return result.data;
+}
+
+/**
+ * parseLoamiumCommandFile と同様だが、エラーメッセージを返すバージョン。
+ * GET /api/commands の valid:false + error フィールドに使う (ADR-0012)。
+ */
+export function parseLoamiumCommandFileWithError(
+  yamlText: string,
+): { ok: true; command: LoamiumCommand } | { ok: false; error: string } {
+  if (yamlText.trim() === '') {
+    return { ok: false, error: 'empty file' };
+  }
+  let raw: unknown;
+  try {
+    raw = parseYaml(yamlText);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+  if (raw === null || raw === undefined) {
+    return { ok: false, error: 'YAML parsed to null or undefined' };
+  }
+  const result = loamiumCommandSchema.safeParse(raw);
+  if (!result.success) {
     const msg = result.error.errors
       .map((e) => `${e.path.join('.')}: ${e.message}`)
       .join('; ');

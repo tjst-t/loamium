@@ -13,41 +13,35 @@ import path from 'node:path';
 import { readHarnessState } from '../harness/state.js';
 
 /**
- * コマンドファイルのフロントマター name は "create todo" (スペース入り、ファイル stem "create-todo" と異なる)。
+ * コマンドファイルの name は "create todo" (スペース入り、ファイル stem "create-todo" と異なる)。
  * これにより UI が id (stem) を使って run を呼ぶことが必要になる — 表示名で呼ぶと 404 になる。
  * [BUG-REGRESSION] このフィクスチャが id/stem に基づく実行フローのロックイン。
+ * ADR-0012: .yaml ファイル全体 = LoamiumCommand オブジェクト
  */
 const CREATE_TODO_COMMAND = [
-  '---',
-  'loamium-command:',
-  '  name: create todo',
-  '  description: 今日のジャーナル Todo セクションにタスクを追加する',
-  '  params:',
-  '    - name: タスク概要',
-  '      type: string',
-  '      required: true',
-  '      label: タスク概要',
-  '    - name: 期限',
-  '      type: date',
-  '      required: false',
-  '      label: 期限',
-  '  steps:',
-  '    - kind: journal-append',
-  '      section: Todo',
-  '      content: "- [ ] {{タスク概要}}"',
-  '      open: true',
-  '---',
-  '# create-todo',
-  '',
-  '今日のジャーナルの Todo セクションに新しいタスクを追加する。',
-  '',
+  'name: create todo',
+  'description: 今日のジャーナル Todo セクションにタスクを追加する',
+  'params:',
+  '  - name: タスク概要',
+  '    type: string',
+  '    required: true',
+  '    label: タスク概要',
+  '  - name: 期限',
+  '    type: date',
+  '    required: false',
+  '    label: 期限',
+  'steps:',
+  '  - kind: journal-append',
+  '    section: Todo',
+  '    content: "- [ ] {{タスク概要}}"',
+  '    open: true',
 ].join('\n');
 
 test.beforeAll(async () => {
   const { vault } = readHarnessState();
   const commandsDir = path.join(vault, 'commands');
   await mkdir(commandsDir, { recursive: true });
-  await writeFile(path.join(commandsDir, 'create-todo.md'), CREATE_TODO_COMMAND, 'utf8');
+  await writeFile(path.join(commandsDir, 'create-todo.yaml'), CREATE_TODO_COMMAND, 'utf8');
 });
 
 test.beforeEach(async ({ page }) => {

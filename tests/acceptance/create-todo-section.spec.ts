@@ -88,32 +88,25 @@ async function runCommand(
  * {{summary}} のみを展開する → due が空でも行は well-formed になる。
  */
 const CREATE_TODO_SECTION_COMMAND = [
-  '---',
-  'loamium-command:',
-  '  name: create-todo-section',
-  '  description: 今日のジャーナルの Todo セクションにタスクを追記する',
-  '  params:',
-  '    - name: summary',
-  '      label: タスク内容',
-  '      required: true',
-  '      type: string',
-  '    - name: due',
-  '      label: 期限 (YYYY-MM-DD)',
-  '      required: false',
-  '      type: date',
-  '    - name: detail',
-  '      label: 詳細メモ',
-  '      required: false',
-  '      type: text',
-  '  steps:',
-  '    - kind: journal-append',
-  '      section: "Todo"',
-  '      content: "- [ ] {{summary}}"',
-  '---',
-  '# create-todo-section',
-  '',
-  'ジャーナルの ## Todo セクションにタスクを追記するコマンド。',
-  '',
+  'name: create-todo-section',
+  'description: 今日のジャーナルの Todo セクションにタスクを追記する',
+  'params:',
+  '  - name: summary',
+  '    label: タスク内容',
+  '    required: true',
+  '    type: string',
+  '  - name: due',
+  '    label: 期限 (YYYY-MM-DD)',
+  '    required: false',
+  '    type: date',
+  '  - name: detail',
+  '    label: 詳細メモ',
+  '    required: false',
+  '    type: text',
+  'steps:',
+  '  - kind: journal-append',
+  '    section: "Todo"',
+  '    content: "- [ ] {{summary}}"',
 ].join('\n');
 
 /**
@@ -122,25 +115,21 @@ const CREATE_TODO_SECTION_COMMAND = [
  * → 行は `- [ ] <summary> (due: {{due}})` という形式になる。
  */
 const CREATE_TODO_WITH_DUE_COMMAND = [
-  '---',
-  'loamium-command:',
-  '  name: create-todo-with-due',
-  '  description: due を content に含む create-todo バリアント',
-  '  params:',
-  '    - name: summary',
-  '      label: タスク内容',
-  '      required: true',
-  '      type: string',
-  '    - name: due',
-  '      label: 期限 (YYYY-MM-DD)',
-  '      required: false',
-  '      type: date',
-  '  steps:',
-  '    - kind: journal-append',
-  '      section: "Todo"',
-  '      content: "- [ ] {{summary}} (due: {{due}})"',
-  '---',
-  '',
+  'name: create-todo-with-due',
+  'description: due を content に含む create-todo バリアント',
+  'params:',
+  '  - name: summary',
+  '    label: タスク内容',
+  '    required: true',
+  '    type: string',
+  '  - name: due',
+  '    label: 期限 (YYYY-MM-DD)',
+  '    required: false',
+  '    type: date',
+  'steps:',
+  '  - kind: journal-append',
+  '    section: "Todo"',
+  '    content: "- [ ] {{summary}} (due: {{due}})"',
 ].join('\n');
 
 // ---------------------------------------------------------------------------
@@ -155,8 +144,8 @@ describe('[AC-Sd22b1f-3-3] create-todo section コマンド実証', () => {
     const vault = await makeTempVault();
     server = await startServer({ vault });
     // フィクスチャをシード
-    await seedNote(vault, 'commands/create-todo-section.md', CREATE_TODO_SECTION_COMMAND);
-    await seedNote(vault, 'commands/create-todo-with-due.md', CREATE_TODO_WITH_DUE_COMMAND);
+    await seedNote(vault, 'commands/create-todo-section.yaml', CREATE_TODO_SECTION_COMMAND);
+    await seedNote(vault, 'commands/create-todo-with-due.yaml', CREATE_TODO_WITH_DUE_COMMAND);
     // 今日のジャーナルを初期化 (## Todo セクションあり)
     await seedNote(
       vault,
