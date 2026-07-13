@@ -51,11 +51,22 @@ async function seedVault(vault: string): Promise<void> {
     [journalPath(shiftJournalDate(today, -1))]: `# 昨日のジャーナル\n\n昨日のメモ。\n`,
     [journalPath(shiftJournalDate(today, -3))]: `# 3日前のジャーナル\n\n3日前のメモ。\n`,
     // スマートコマンド定義 (S9e64e7-1 の E2E 用)
+    // params を含めないと cmd-param-row が描画されず AC-S9e64e7-1-3 が落ちる
     'commands/create-todo.md': [
       '---',
       'loamium-command:',
       '  name: create todo',
       '  description: タスクを今日のジャーナルの Todo に追記',
+      '  params:',
+      '    - name: summary',
+      '      label: タスク概要',
+      '      required: true',
+      '    - name: due',
+      '      label: 期限',
+      '      type: date',
+      '    - name: detail',
+      '      label: タスク詳細',
+      '      type: text',
       '  steps:',
       '    - kind: journal-append',
       '      content: "- [ ] {{summary}}"',

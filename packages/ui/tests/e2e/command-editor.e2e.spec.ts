@@ -121,22 +121,20 @@ test.describe('CommandEditor E2E (S9e64e7-2)', () => {
     // テスト実行ボタン (aria-disabled なし)
     await expect(page.getByTestId('cmd-edit-test-run')).not.toHaveAttribute('aria-disabled');
 
-    // テスト実行をクリック (→ 自動保存 + params があれば modal)
+    // テスト実行をクリック (→ 自動保存 → params モーダルが開く)
     await page.getByTestId('cmd-edit-test-run').click();
 
-    // 自動保存が実行される → save-status が 'saved' になるか、modal が開く
-    // params がある場合は modal が開く
-    const hasModal = await page.getByTestId('param-form-modal').isVisible({ timeout: 3000 }).catch(() => false);
+    // 自動保存 (PUT) が完了したあと params モーダルが開く (save の分だけ余裕を持って待つ)
+    // create-todo.md には params があるので必ずモーダルが開く
+    await expect(page.getByTestId('param-form-modal')).toBeVisible({ timeout: 10000 });
 
-    if (hasModal) {
-      // params フォームが開いた場合: summary を入力して submit
-      const summaryInput = page.locator('[data-testid="param-field-input"][data-name="summary"]');
-      if (await summaryInput.isVisible()) {
-        await summaryInput.fill('E2E テストタスク');
-      }
-      await page.getByTestId('param-form-submit').click();
-      await expect(page.getByTestId('param-form-modal')).not.toBeVisible({ timeout: 5000 });
-    }
+    // summary (required) を入力して submit ボタンが有効になるのを待ってから実行
+    const summaryInput = page.locator('[data-testid="param-field-input"][data-name="summary"]');
+    await summaryInput.fill('E2E テストタスク');
+    // aria-disabled が外れるまで待つ (React state が反映されてから click)
+    await expect(page.getByTestId('param-form-submit')).not.toHaveAttribute('aria-disabled');
+    await page.getByTestId('param-form-submit').click();
+    await expect(page.getByTestId('param-form-modal')).not.toBeVisible({ timeout: 5000 });
 
     // cmd-edit-run-result が表示 (または modal が既に閉じた場合)
     await expect(page.getByTestId('cmd-edit-run-result')).toBeVisible({ timeout: 10000 });
