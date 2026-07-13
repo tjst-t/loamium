@@ -1,5 +1,5 @@
 /**
- * privacy-glob ユニットテスト (ADR-0014 / [AC-Sf4ee2f-1-3])。
+ * privacy-glob ユニットテスト (ADR-0018 / [AC-Sf4ee2f-1-3])。
  *
  * glob マッチングは壊れやすいロジックのため、境界・NFC ゆれ・大小・非マッチを網羅する。
  */

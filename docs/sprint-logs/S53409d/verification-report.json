@@ -97,7 +97,7 @@
     "verdict": "pass",
     "findings": [
       "LEGITIMATE DELETION: tests/acceptance/terminal-removed.spec.ts is a NEW test (not deleted). No non-terminal test was gutted.",
-      "LEGITIMATE CHANGE: tests/acceptance/notes-crud.spec.ts health assertion changed from .toEqual({status:'ok',mode:'full',terminal:{...}}) to .toMatchObject({status:'ok',mode:'full'}). This is correct — the terminal field was removed by ADR-0007, and the new agent field is additive. toMatchObject is appropriate to handle the optional agent field without breaking the test when agent.json is absent.",
+      "LEGITIMATE CHANGE: tests/acceptance/notes-crud.spec.ts health assertion changed from .toEqual({status:'ok',mode:'full',terminal:{...}}) to .toMatchObject({status:'ok',mode:'full'}). This is correct — the terminal field was removed by ADR-0011, and the new agent field is additive. toMatchObject is appropriate to handle the optional agent field without breaking the test when agent.json is absent.",
       "No it.skip/test.skip/xtest/.only found anywhere in packages/ or tests/.",
       "No expect(true) or bare toBeTruthy assertions found.",
       "No @ts-ignore or @ts-nocheck found in any new agent files.",

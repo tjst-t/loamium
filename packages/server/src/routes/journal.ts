@@ -90,7 +90,7 @@ export function journalRoutes(config: ServerConfig): Hono<AppEnv> {
     const rel = journalPath(date);
     setAudit(c, 'journal.append', rel);
 
-    // ADR-0012: ジャーナル追記も note-service に集約 (REST/CLI/エージェント同一経路)。
+    // ADR-0016: ジャーナル追記も note-service に集約 (REST/CLI/エージェント同一経路)。
     // date は検証済み。appendToJournal は追記結果 (created 判定込み) を返す。
     const { result } = await appendToJournal(config, date, body.data.content);
     // appendToJournal は追記 (常に成功 or I/O 例外を伝播)。判別型の created を使う。

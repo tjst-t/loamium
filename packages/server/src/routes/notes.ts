@@ -384,7 +384,7 @@ export function notesRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
       setAudit(c, 'note.append', rel);
       const body = await parseBody(c, noteAppendRequestSchema);
       if (!body.ok) return body.response;
-      // ADR-0012: 書き込みは note-service に集約 (REST/CLI/エージェント同一経路)。
+      // ADR-0016: 書き込みは note-service に集約 (REST/CLI/エージェント同一経路)。
       const result = await appendToNote(config, rel, body.data.content);
       if (!result.ok) {
         // append は not_found のみ。REST は 404 として返す (従来と同一)。
@@ -398,7 +398,7 @@ export function notesRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
     setAudit(c, 'note.patch', rel);
     const body = await parseBody(c, notePatchRequestSchema);
     if (!body.ok) return body.response;
-    // ADR-0012: old→new 部分置換の 409 セマンティクス (not-found / ambiguous) は
+    // ADR-0016: old→new 部分置換の 409 セマンティクス (not-found / ambiguous) は
     // note-service へ移し、ルートは結果型で HTTP ステータスを出し分ける (振る舞い不変)。
     const result = await patchNote(config, rel, body.data.old, body.data.new);
     if (!result.ok) {

@@ -430,7 +430,7 @@ export type HealthResponse = z.infer<typeof healthResponseSchema>;
 // ---- エージェント設定 (.loamium/agent.json — S53409d-2) ----
 
 /**
- * Web 検索プロバイダ設定 (ADR-0013 / S5e0206)。web ケーパビリティが有効なとき
+ * Web 検索プロバイダ設定 (ADR-0017 / S5e0206)。web ケーパビリティが有効なとき
  * web_search ツールが叩く検索エンドポイント。マシンローカル。
  *
  * - endpoint: GET で `?q=<query>` を付けて叩く検索 API の URL。
@@ -451,19 +451,19 @@ export const agentConfigSchema = z.object({
   model: z.string().min(1, 'model must not be empty'),
   apiKey: z.string().min(1, 'apiKey must not be empty'),
   /**
-   * エージェント権限 (ADR-0011)。プリセット名 or ケーパビリティ配列。
+   * エージェント権限 (ADR-0015)。プリセット名 or ケーパビリティ配列。
    * 未指定は read-only プリセット (resolvePermissions が既定を補う)。マシンローカル。
    */
   permissions: agentPermissionsSchema.optional(),
   /**
-   * Web 検索プロバイダ設定 (ADR-0013)。web ケーパビリティ有効時に web_search が使う。
+   * Web 検索プロバイダ設定 (ADR-0017)。web ケーパビリティ有効時に web_search が使う。
    * 未指定は許容 (web_search は未設定を明示メッセージで返す)。
    */
   webSearch: agentWebSearchSchema.optional(),
 });
 export type AgentConfig = z.infer<typeof agentConfigSchema>;
 
-// ---- エージェント機密領域 deny リスト (.loamium/agent-privacy.json — ADR-0014) ----
+// ---- エージェント機密領域 deny リスト (.loamium/agent-privacy.json — ADR-0018) ----
 
 /**
  * `.loamium/agent-privacy.json` のスキーマ。
@@ -487,7 +487,7 @@ export type AgentPrivacy = z.infer<typeof agentPrivacySchema>;
 // ---- エージェント REST API レスポンス (S53409d-2) ----
 
 /**
- * POST /api/agent/sessions のリクエスト (ADR-0011)。
+ * POST /api/agent/sessions のリクエスト (ADR-0015)。
  * permissions はセッション単位の権限上書き (プリセット名 or ケーパビリティ配列)。
  * body 無し / 空オブジェクトも許容 (未指定なら agent.json 既定にフォールバック)。
  */
@@ -531,7 +531,7 @@ export const agentSessionDetailResponseSchema = z.object({
   id: z.string(),
   messages: z.array(agentMessageSchema),
   /**
-   * 実効ケーパビリティ配列 (ADR-0011)。セッション権限 (or agent.json 既定) を
+   * 実効ケーパビリティ配列 (ADR-0015)。セッション権限 (or agent.json 既定) を
    * サーバー LOAMIUM_MODE でクランプした結果。UI の権限表示に使う。
    * 後方互換のため optional (旧クライアント/旧レスポンスとの互換)。
    */

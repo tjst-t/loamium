@@ -1,5 +1,5 @@
 /**
- * 組み込み既定 Web 検索プロバイダのユニットテスト (S5e0206 / ADR-0013)。
+ * 組み込み既定 Web 検索プロバイダのユニットテスト (S5e0206 / ADR-0017)。
  *
  * [AC-S5e0206-1-2] webSearch 未設定時の既定プロバイダ:
  *   parseDuckDuckGoLite が DDG lite HTML (uddg リダイレクト付き・属性順違い) から

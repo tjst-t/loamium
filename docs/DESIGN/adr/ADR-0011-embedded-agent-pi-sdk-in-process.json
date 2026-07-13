@@ -1,5 +1,5 @@
 {
-  "id": "ADR-0007",
+  "id": "ADR-0011",
   "title": "内蔵エージェントは pi SDK をサーバー内蔵 (in-process) で実装し、PTY ターミナル機構を廃止する",
   "status": "accepted",
   "date": "2026-07-10",

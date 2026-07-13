@@ -102,7 +102,7 @@ lint:
 	npm run lint --workspaces --if-present
 	npm run lint:tests --if-present
 
-# ローカル Web 検索アダプタ (ADR-0013 webSearch / API キー不要)。
+# ローカル Web 検索アダプタ (ADR-0017 webSearch / API キー不要)。
 # agent.json の webSearch.endpoint (http://127.0.0.1:8765/search) が指す先。
 # フォアグラウンド起動 — 別ターミナルで動かしたまま Loamium を使う。
 websearch:

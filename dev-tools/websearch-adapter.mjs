@@ -1,5 +1,5 @@
 /**
- * websearch-adapter — API キー不要のローカル Web 検索アダプタ (ADR-0013 の webSearch 用)。
+ * websearch-adapter — API キー不要のローカル Web 検索アダプタ (ADR-0017 の webSearch 用)。
  *
  * Loamium の web_search ツールは `GET <endpoint>?q=<query>` を叩き、
  * `{ results: [{ title, url, snippet }] }` 形状の JSON を期待する

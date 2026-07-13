@@ -1,5 +1,5 @@
 /**
- * エージェント書き込みツールのユニットテスト (S5bd678-2 / ADR-0012)。
+ * エージェント書き込みツールのユニットテスト (S5bd678-2 / ADR-0016)。
  *
  * [AC-S5bd678-2-1] 5 書き込みツールが REST と同一の note-service を経由して書き込み、
  *   ピュア Markdown・normalizeVaultPath を継承する。note_create は既存パスで作成しない、

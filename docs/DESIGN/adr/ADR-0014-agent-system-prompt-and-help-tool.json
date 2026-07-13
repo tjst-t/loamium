@@ -1,9 +1,9 @@
 {
-  "id": "ADR-0010",
+  "id": "ADR-0014",
   "title": "エージェントのシステムプロンプトは Loamium がコードで注入し、細かい使い方は help ツールでオンデマンド供給する",
   "status": "accepted",
   "date": "2026-07-12",
-  "context": "現状の内蔵エージェント (ADR-0007) は createAgentSession に systemPromptOverride も resourceLoader も渡しておらず、pi の DefaultResourceLoader が cwd(=vault)や ~/.pi から SYSTEM.md/AGENTS.md/skills を探すが何も見つからないため、実効システムプロンプトは空である。結果、モデルは自前の既定ペルソナで動き、Loamium の役割・制約 (読み取り専用ノート補助であること、ピュア Markdown、[[リンク]]出典) を一切知らない (実測: モデルが『ファイルの読み書き・コマンド実行もできる』と自己紹介した)。一方で、DQL 文法・テンプレート形式・DataView フェンス記法・frontmatter 規約といった『細かい機能の使い方』を全部システムプロンプトに詰めると、コンテキストを圧迫し陳腐化しやすい。役割・制約という常時必要な土台と、必要時だけ要る詳細知識を分離する必要がある。",
+  "context": "現状の内蔵エージェント (ADR-0011) は createAgentSession に systemPromptOverride も resourceLoader も渡しておらず、pi の DefaultResourceLoader が cwd(=vault)や ~/.pi から SYSTEM.md/AGENTS.md/skills を探すが何も見つからないため、実効システムプロンプトは空である。結果、モデルは自前の既定ペルソナで動き、Loamium の役割・制約 (読み取り専用ノート補助であること、ピュア Markdown、[[リンク]]出典) を一切知らない (実測: モデルが『ファイルの読み書き・コマンド実行もできる』と自己紹介した)。一方で、DQL 文法・テンプレート形式・DataView フェンス記法・frontmatter 規約といった『細かい機能の使い方』を全部システムプロンプトに詰めると、コンテキストを圧迫し陳腐化しやすい。役割・制約という常時必要な土台と、必要時だけ要る詳細知識を分離する必要がある。",
   "alternatives": [
     {
       "name": "base プロンプト(コード注入) + help ツールでオンデマンド詳細",

@@ -1,7 +1,7 @@
 /**
- * Loamium エージェント用書き込みツール群 (S5bd678-2 / ADR-0012)。
+ * Loamium エージェント用書き込みツール群 (S5bd678-2 / ADR-0016)。
  *
- * ADR-0012 契約: 書き込みケーパビリティは **REST と同一のサービス層** (note-service.ts:
+ * ADR-0016 契約: 書き込みケーパビリティは **REST と同一のサービス層** (note-service.ts:
  * PUT/POST/append/patch と同じコード) を呼ぶツールとして実装する。これで
  * ピュア Markdown 出力・normalizeVaultPath・.loamium/audit.log・[[リンク]] を
  * 自動継承する。エージェント専用の書き込み実装は新設しない (二重管理の排除)。
@@ -12,7 +12,7 @@
  *
  * 全ツール共通制約 (read ツールと同じ規約):
  * - normalizeVaultPath で `..` / vault 外 / 隠しセグメント (.loamium 等) を拒否。
- * - isDenied (ADR-0014 機密領域 privacy deny) にマッチするパスは拒否 (deny > allow)。
+ * - isDenied (ADR-0018 機密領域 privacy deny) にマッチするパスは拒否 (deny > allow)。
  * - execute() は throw せず、エラー時は content テキストで返す。
  * - 成功時に writeAuditEntry(config, ...) を**直接**呼ぶ (Hono middleware を通らないため)。
  *
@@ -69,7 +69,7 @@ function resolveWritablePath(
     return { ok: false, result: textResult(`パス正規化エラー: ${String(err)}`, { error: true }) };
   }
   if (isDenied(rel)) {
-    // ADR-0014: deny マッチは存在ごと隠す (deny > allow)。書き込みも拒否する。
+    // ADR-0018: deny マッチは存在ごと隠す (deny > allow)。書き込みも拒否する。
     return { ok: false, result: textResult(`書き込みできません: ${rel}`, { error: true }) };
   }
   return { ok: true, rel };
@@ -116,13 +116,13 @@ function serializeFrontmatter(fm: Record<string, string | number | boolean>): st
 // ---- ツールファクトリ ----------------------------------------------------------
 
 /**
- * 書き込みツールを生成する (ADR-0012)。caps に含まれる書き込みケーパビリティに
+ * 書き込みツールを生成する (ADR-0016)。caps に含まれる書き込みケーパビリティに
  * 対応するツールだけを配列へ入れて返す (無効なら広告されない)。
  *
  * @param config    ServerConfig (vaultRoot / mode)。note-service と audit に渡す。
  * @param _index    VaultIndex (将来のインデックス即時追従用に予約。現状ツール本体では未使用)。
- * @param isDenied  ADR-0014 機密領域 deny 判定。
- * @param caps      実効ケーパビリティ (ADR-0011)。
+ * @param isDenied  ADR-0018 機密領域 deny 判定。
+ * @param caps      実効ケーパビリティ (ADR-0015)。
  */
 export function createVaultWriteTools(
   config: ServerConfig,
@@ -315,7 +315,7 @@ export function createVaultWriteTools(
   return tools;
 }
 
-/** 書き込みツール名の固定セット (ADR-0011 deriveToolNames と一致)。sorted。 */
+/** 書き込みツール名の固定セット (ADR-0015 deriveToolNames と一致)。sorted。 */
 export const VAULT_WRITE_TOOL_NAMES = [
   'dataview_write',
   'journal_append',

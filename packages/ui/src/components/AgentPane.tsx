@@ -1249,7 +1249,7 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
                 })}
               </div>
 
-              {/* Web 有効化時の漏洩リスク警告 (AC-S5e0206-2-1, ADR-0013) */}
+              {/* Web 有効化時の漏洩リスク警告 (AC-S5e0206-2-1, ADR-0017) */}
               {selectedCapSet.has('web') && (
                 <div
                   className="agent-web-warning"

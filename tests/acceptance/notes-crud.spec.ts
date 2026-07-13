@@ -282,7 +282,7 @@ describe('health endpoint', () => {
     const res = await fetch(`${server.baseUrl}/api/health`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { status: string; mode: string; agent?: unknown };
-    // terminal フィールドは ADR-0007 により廃止 (S53409d-1)
+    // terminal フィールドは ADR-0011 により廃止 (S53409d-1)
     // agent フィールドは S53409d-2 で追加 (agent.json 未設定の場合は not_configured)
     expect(body).toMatchObject({
       status: 'ok',

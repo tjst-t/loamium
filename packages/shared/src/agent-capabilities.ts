@@ -1,5 +1,5 @@
 /**
- * エージェントのケーパビリティ権限モデル (ADR-0011)。
+ * エージェントのケーパビリティ権限モデル (ADR-0015)。
  *
  * 権限はケーパビリティ別トグルの集合で表現する。各ケーパビリティは独立に on/off でき、
  * 有効なケーパビリティ集合から LLM に広告されるツール集合を導出する。
@@ -19,14 +19,14 @@ import type { PermissionMode } from './schemas.js';
 // ---- ケーパビリティ定義 -----------------------------------------------------
 
 /**
- * エージェントが持ちうる全ケーパビリティ (ADR-0011)。
+ * エージェントが持ちうる全ケーパビリティ (ADR-0015)。
  *   - read           : 既存の読み取り系 (search/query/read_note/backlinks/tags) + help
  *   - journal_append : ジャーナルへの追記
  *   - note_create    : ノート新規作成
  *   - note_edit      : ノート編集
  *   - template_write : テンプレート適用による書き込み
  *   - dataview_write : dataview 経由の書き込み
- *   - web            : Web アクセス (ADR-0013 / S5e0206: web_fetch / web_search)
+ *   - web            : Web アクセス (ADR-0017 / S5e0206: web_fetch / web_search)
  */
 export const AGENT_CAPABILITIES = [
   'read',
@@ -52,7 +52,7 @@ export const AGENT_PRESET_NAMES = ['read-only', 'notes-rw', 'full'] as const;
 export type AgentPresetName = (typeof AGENT_PRESET_NAMES)[number];
 
 /**
- * プリセット名 → ケーパビリティ集合 (ADR-0011)。
+ * プリセット名 → ケーパビリティ集合 (ADR-0015)。
  *   - read-only : [read]
  *   - notes-rw  : [read, journal_append, note_create, note_edit]
  *   - full      : 全 7 ケーパビリティ
@@ -109,11 +109,11 @@ function normalizeCapabilities(caps: readonly Capability[]): Capability[] {
 /**
  * ケーパビリティ → そのケーパビリティが広告するツール名の集合。
  *
- * ADR-0010: help はどの権限セットでも利用可能であるべき。read が最小プリセットの
+ * ADR-0014: help はどの権限セットでも利用可能であるべき。read が最小プリセットの
  * 既定なので read 群に help を含めるが、caps に read が無くても help は常に広告する
  * (deriveToolNames 側で保証する)。
  *
- * web は ADR-0013 (S5e0206) で web_fetch / web_search を広告する。
+ * web は ADR-0017 (S5e0206) で web_fetch / web_search を広告する。
  * 既定 off の独立ケーパビリティであり、有効なとき (effectiveCaps に含まれるとき) だけ
  * これらのツールが広告される (clampByMode は web を read-only/append-only でも残す = 既存)。
  */
@@ -131,7 +131,7 @@ const CAPABILITY_TOOL_NAMES: Record<Capability, readonly string[]> = {
  * 有効ケーパビリティ集合 → LLM に広告するツール名集合。
  *
  * - 各ケーパビリティのツール名を集約し、重複排除・ソートして返す。
- * - help 常時広告 (ADR-0010): caps に read が無い場合でも help は必ず含める。
+ * - help 常時広告 (ADR-0014): caps に read が無い場合でも help は必ず含める。
  *   help はどの権限セットでも使えるべきツールであるため。
  */
 export function deriveToolNames(caps: readonly Capability[]): string[] {
@@ -141,7 +141,7 @@ export function deriveToolNames(caps: readonly Capability[]): string[] {
       names.add(name);
     }
   }
-  // help 常時広告 — read が無くても help だけは常に広告する (ADR-0010)。
+  // help 常時広告 — read が無くても help だけは常に広告する (ADR-0014)。
   names.add('help');
   return [...names].sort();
 }

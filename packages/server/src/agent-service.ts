@@ -4,7 +4,7 @@
  * - .loamium/agent.json を遅延読込し pi SDK のセッションを作成する。
  * - セッションは .loamium/agent-sessions/ 下の JSONL ファイルに永続化する。
  * - tools: VAULT_READ_TOOL_NAMES — pi SDK の allowlist 機能を使い Loamium 独自 5 ツールのみ
- *   公開する (ADR-0008)。noTools:'all' は customTools も含め全ツールを抑制するため NG。
+ *   公開する (ADR-0012)。noTools:'all' は customTools も含め全ツールを抑制するため NG。
  *   pi SDK 内部: allowedToolNames = new Set(options.tools) でフィルタリングされ、
  *   カスタムツールも isAllowedTool(name) を通るため empty-set では全ブロックになる。
  *   allowlist に 5 ツール名を渡すことで built-in (bash/edit/write/find/grep/ls/read) を
@@ -15,7 +15,7 @@
  *   (sdk.js:133-135, agent-session.js:1916)。excludeTools は CreateAgentSessionOptions の公開 API。
  * - REST の監査ログエントリは routes 側 (auditMiddleware) が行う。エージェント書き込み
  *   ツールは HTTP を通らないため、各ツールが note-service 経由の成功時に writeAuditEntry を
- *   直接呼ぶ (ADR-0012 / agent-write-tools.ts)。
+ *   直接呼ぶ (ADR-0016 / agent-write-tools.ts)。
  *
  * pi SDK 実 API (v0.80.x):
  *   - createAgentSession({ tools:[...names], customTools:[...], sessionManager, authStorage, modelRegistry })
@@ -74,7 +74,7 @@ import { buildAgentSystemPrompt } from './agent-prompt.js';
 /**
  * pi-coding-agent 組み込みツール名 (ToolName = "read"|"bash"|"edit"|"write"|"grep"|"find"|"ls")。
  * allToolNames は node_modules/@earendil-works/pi-coding-agent/dist/core/tools/index.js で確認。
- * excludeTools に渡して defense-in-depth — allowlist と二重に組み込みを排除する (ADR-0008)。
+ * excludeTools に渡して defense-in-depth — allowlist と二重に組み込みを排除する (ADR-0012)。
  */
 const PI_BUILTIN_TOOL_NAMES = ['read', 'bash', 'edit', 'write', 'grep', 'find', 'ls'] as const;
 import type { VaultIndex } from './noteIndex.js';
@@ -147,10 +147,10 @@ function isNodeError(err: unknown): err is NodeJS.ErrnoException {
   return err instanceof Error && 'code' in err;
 }
 
-// ---- ケーパビリティ権限 (ADR-0011) ------------------------------------------
+// ---- ケーパビリティ権限 (ADR-0015) ------------------------------------------
 
 /**
- * 実効ケーパビリティを決定する (ADR-0011)。
+ * 実効ケーパビリティを決定する (ADR-0015)。
  *
  *   実効権限 = clampByMode( sessionPerms ?? resolvePermissions(config.permissions), LOAMIUM_MODE )
  *
@@ -242,7 +242,7 @@ function buildModelRegistry(config: AgentConfig): {
 }
 
 /**
- * base システムプロンプトを注入する resourceLoader を生成する (S10a31c-1 / ADR-0010)。
+ * base システムプロンプトを注入する resourceLoader を生成する (S10a31c-1 / ADR-0014)。
  *
  * pi SDK は createAgentSession に resourceLoader が渡されないと DefaultResourceLoader を
  * 内部生成し、実効システムプロンプトは空になる (agent-session.js:708 の getSystemPrompt() が
@@ -271,8 +271,8 @@ async function buildAgentResourceLoader(vaultRoot: string): Promise<ResourceLoad
 /**
  * セッションを新規作成する (disk-backed JSONL)。
  * config は遅延読込済みを渡す。
- * index は vault 読み取りツール (ADR-0008) のクロージャへ渡す。
- * caps は実効ケーパビリティ (ADR-0011)。省略時は config.permissions の解決値
+ * index は vault 読み取りツール (ADR-0012) のクロージャへ渡す。
+ * caps は実効ケーパビリティ (ADR-0015)。省略時は config.permissions の解決値
  * (未指定なら read-only プリセット)。呼び出し側 (routes) が LOAMIUM_MODE で
  * クランプ済みの集合を渡す想定。
  *
@@ -297,14 +297,14 @@ export async function createPiSession(
 
   const sm = SessionManager.create(vaultRoot, dir);
 
-  // ADR-0014: 機密領域 deny リストをセッション生成時にロードし共通フィルタへ配線する。
+  // ADR-0018: 機密領域 deny リストをセッション生成時にロードし共通フィルタへ配線する。
   const { isDenied } = await loadAgentPrivacy(vaultRoot);
-  // ADR-0008/0012: read ツール + (有効ケーパビリティに含まれる) 書き込みツールを連結する。
-  // 書き込みツールは REST と同一の note-service を経由する (ADR-0012)。
+  // ADR-0012/0012: read ツール + (有効ケーパビリティに含まれる) 書き込みツールを連結する。
+  // 書き込みツールは REST と同一の note-service を経由する (ADR-0016)。
   const customTools = [
     ...createVaultReadTools(index, vaultRoot, isDenied),
     ...createVaultWriteTools(serverConfig, index, isDenied, effectiveCaps),
-    // ADR-0013: web が有効ケーパビリティに含まれるときだけ web_fetch / web_search を追加。
+    // ADR-0017: web が有効ケーパビリティに含まれるときだけ web_fetch / web_search を追加。
     // allowPrivate は本番既定 false (SSRF 防止)。
     ...createVaultWebTools(serverConfig, config, effectiveCaps),
   ];
@@ -315,15 +315,15 @@ export async function createPiSession(
     authStorage,
     modelRegistry,
     sessionManager: sm,
-    // ADR-0010: Loamium がコードで生成した base システムプロンプトを注入する。
+    // ADR-0014: Loamium がコードで生成した base システムプロンプトを注入する。
     resourceLoader,
-    // ADR-0008/0011: 有効ケーパビリティから allowlist を導出し LLM 広告ツールを制御する。
+    // ADR-0012/0011: 有効ケーパビリティから allowlist を導出し LLM 広告ツールを制御する。
     // noTools:'all' は customTools も含め全ツールを抑制するため使用しない。
     // tools に allowlist を渡すことで built-in を排除しカスタムツールのみ広告される。
     // excludeTools は defense-in-depth — allowlist 変更時でも組み込みが漏れない。
     // (pi-coding-agent/dist/core/sdk.js:132-135, agent-session.js:1916)
     //
-    // S5bd678 Story 2 (ADR-0012): customTools は read 系 6 種 + help に加え、有効
+    // S5bd678 Story 2 (ADR-0016): customTools は read 系 6 種 + help に加え、有効
     // ケーパビリティに含まれる書き込みツール (note_create 等) を含む。書き込みツールは
     // REST と同一の note-service を経由する。allowlist (deriveToolNames) と customTools の
     // 両方が同じ effectiveCaps から導出されるため、広告と実行の集合が一致する。
@@ -343,9 +343,9 @@ export async function createPiSession(
 /**
  * 既存セッションを開く (disk-backed。AgentSession はファイルから復元)。
  * config は遅延読込済みを渡す。
- * index は vault 読み取りツール (ADR-0008) のクロージャへ渡す。
+ * index は vault 読み取りツール (ADR-0012) のクロージャへ渡す。
  * mode はサーバー LOAMIUM_MODE。セッション権限ストアからロードした caps を
- * mode でクランプして allowlist を導出する (ADR-0011)。
+ * mode でクランプして allowlist を導出する (ADR-0015)。
  *
  * セッション権限ストアにエントリが無い (再起動前の古いセッション等) 場合は
  * config.permissions 既定へフォールバックする。これにより再オープン後も
@@ -378,13 +378,13 @@ export async function openPiSession(
   const dir = sessionDir(vaultRoot);
   const sm = SessionManager.open(sessionFile, dir);
 
-  // ADR-0014: 同上 — 既存セッションを開くたびに最新の deny リストを反映する。
+  // ADR-0018: 同上 — 既存セッションを開くたびに最新の deny リストを反映する。
   const { isDenied } = await loadAgentPrivacy(vaultRoot);
-  // ADR-0008/0012: read + 書き込みツール (復元した実効ケーパビリティ分のみ広告)。
+  // ADR-0012/0012: read + 書き込みツール (復元した実効ケーパビリティ分のみ広告)。
   const customTools = [
     ...createVaultReadTools(index, vaultRoot, isDenied),
     ...createVaultWriteTools(serverConfig, index, isDenied, effectiveCaps),
-    // ADR-0013: 復元した実効ケーパビリティに web が含まれるときだけ web ツールを追加。
+    // ADR-0017: 復元した実効ケーパビリティに web が含まれるときだけ web ツールを追加。
     ...createVaultWebTools(serverConfig, config, effectiveCaps),
   ];
   const resourceLoader = await buildAgentResourceLoader(vaultRoot);
@@ -394,9 +394,9 @@ export async function openPiSession(
     authStorage,
     modelRegistry,
     sessionManager: sm,
-    // ADR-0010: 同上 — base システムプロンプトを注入する。
+    // ADR-0014: 同上 — base システムプロンプトを注入する。
     resourceLoader,
-    // ADR-0008/0011/0012: 復元した実効ケーパビリティから allowlist を導出し、
+    // ADR-0012/0011/0012: 復元した実効ケーパビリティから allowlist を導出し、
     // 同じ集合から read + 書き込み customTools を生成する (広告と実行が一致)。
     tools: deriveToolNames(effectiveCaps),
     excludeTools: [...PI_BUILTIN_TOOL_NAMES],

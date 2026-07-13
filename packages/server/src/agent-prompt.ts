@@ -1,14 +1,14 @@
 /**
- * エージェント base システムプロンプト (S10a31c-1 / ADR-0010)。
+ * エージェント base システムプロンプト (S10a31c-1 / ADR-0014)。
  *
- * ADR-0010 決定: 実効システムプロンプトは Loamium がコードで生成し pi セッションに注入する。
+ * ADR-0014 決定: 実効システムプロンプトは Loamium がコードで生成し pi セッションに注入する。
  * DefaultResourceLoader の実効プロンプトは空 (customPrompt undefined) のため、
  * ここで生成した base プロンプトを resourceLoader.getSystemPrompt() 経由で注入する。
  *
  * 設計方針:
  * - このプロンプトには「役割・絶対制約・出力スタイル」のみを書く。
  * - DQL / テンプレート / DataView / journal 等の**詳細な使い方は含めない**
- *   (それらは help ツール = AGENT_HELP_TOPICS が必要時に供給する。ADR-0010)。
+ *   (それらは help ツール = AGENT_HELP_TOPICS が必要時に供給する。ADR-0014)。
  * - 純関数。外部状態に依存しない (テスト容易性)。
  */
 

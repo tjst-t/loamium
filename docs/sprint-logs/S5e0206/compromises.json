@@ -19,7 +19,7 @@
         "severity": "medium",
         "story": "S5e0206-2",
         "file": "packages/ui/tests/e2e/agent-tools.e2e.spec.ts",
-        "detail": "AC-S53409d-3-1 が『広告ツール=read5固定』を pin。ADR-0010(help 追加)+ADR-0011(ADR-0008 supersede、capability 導出)で意図的に変わった仕様に追随できず失敗。server 専用スプリント(S10a31c/S5bd678)で UI e2e を回さなかったため検出が遅れた。テストを弱体化ではなく正しい期待(read6=+help)へ厳密更新。",
+        "detail": "AC-S53409d-3-1 が『広告ツール=read5固定』を pin。ADR-0014(help 追加)+ADR-0015(ADR-0012 supersede、capability 導出)で意図的に変わった仕様に追随できず失敗。server 専用スプリント(S10a31c/S5bd678)で UI e2e を回さなかったため検出が遅れた。テストを弱体化ではなく正しい期待(read6=+help)へ厳密更新。",
         "resolved": true
       }
     ],

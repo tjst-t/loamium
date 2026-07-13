@@ -1,7 +1,7 @@
 /**
- * エージェント機密領域 deny リストの読込と強制 (ADR-0014 / Sf4ee2f)。
+ * エージェント機密領域 deny リストの読込と強制 (ADR-0018 / Sf4ee2f)。
  *
- * ADR-0014 契約:
+ * ADR-0018 契約:
  * - `.loamium/agent-privacy.json` に vault 相対の glob/パス deny リストを定義する
  *   (ADR-0002 様式 = .loamium 配下だが git 追跡)。
  * - マッチするノートは、エージェントの全ツール (read_note/backlinks/write 系すべて) が
@@ -79,7 +79,7 @@ function isNodeError(err: unknown): err is NodeJS.ErrnoException {
 
 /**
  * 共通フィルタビュー: VaultIndex の read メソッド (search/queryNotes/tags/backlinks) を
- * deny 除外した「同じ型」で返すラッパを構築する (ADR-0014: 強制点の集約)。
+ * deny 除外した「同じ型」で返すラッパを構築する (ADR-0018: 強制点の集約)。
  *
  * このビューが返す結果には deny ノートの存在・内容・タグ・スニペットが一切漏れない。
  * UI (人間) 向けの REST 検索/クエリ経路はこのビューを通らないため従来どおり。

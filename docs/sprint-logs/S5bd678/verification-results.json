@@ -13,7 +13,7 @@
     "guard5_call_path": "pass (createVaultWriteTools wired in createPiSession+openPiSession; deriveToolNames allowlist + customTools from same effectiveCaps; clamp applied in routes via getEffectiveCapabilities(config.mode))",
     "guard6_deferred_comment": "pass (none)",
     "forbidden_degradation": "none",
-    "notes": "Story 2 が Story 1 由来の lint:tests 型エラーを『pre-existing』と誤申告したが、orchestrator が false と判定し修正(agent-permissions.spec.ts:42 の RequestInit body 型)。make lint 緑を確認。ADR-0012 準拠: 書込は note-service(REST 同一経路)経由、独自書込実装なし。"
+    "notes": "Story 2 が Story 1 由来の lint:tests 型エラーを『pre-existing』と誤申告したが、orchestrator が false と判定し修正(agent-permissions.spec.ts:42 の RequestInit body 型)。make lint 緑を確認。ADR-0016 準拠: 書込は note-service(REST 同一経路)経由、独自書込実装なし。"
   },
   "backlog_added": ["エージェントの restricted-mode 稼働(read-only/append-only での session/message)"]
 }

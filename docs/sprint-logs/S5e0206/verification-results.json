@@ -9,6 +9,6 @@
     "guard5_call_path": "pass (createVaultWebTools wired in createPiSession+openPiSession from effectiveCaps; deriveToolNames web -> [web_fetch, web_search])",
     "guard6_deferred_comment": "pass (none)",
     "forbidden_degradation": "none",
-    "notes": "Story 2 が検出した既存 e2e リグレッション (agent-tools.e2e.spec.ts:134 AC-S53409d-3-1 が read5 固定を pin) は、ADR-0010(help 追加)+ ADR-0011(ADR-0008 を supersede、capability 導出)による意図的な仕様変更に伴うもの。テストを弱体化ではなく正しい期待 (read6=+help、write/web は read-only 既定では非広告) へ厳密更新した。SSRF ガードは isPublicHttpUrl で網羅ユニットテスト。監査は URL/クエリのみ・本文非記録をテストで担保。"
+    "notes": "Story 2 が検出した既存 e2e リグレッション (agent-tools.e2e.spec.ts:134 AC-S53409d-3-1 が read5 固定を pin) は、ADR-0014(help 追加)+ ADR-0015(ADR-0012 を supersede、capability 導出)による意図的な仕様変更に伴うもの。テストを弱体化ではなく正しい期待 (read6=+help、write/web は read-only 既定では非広告) へ厳密更新した。SSRF ガードは isPublicHttpUrl で網羅ユニットテスト。監査は URL/クエリのみ・本文非記録をテストで担保。"
   }
 }

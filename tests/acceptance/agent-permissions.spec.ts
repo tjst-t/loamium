@@ -1,5 +1,5 @@
 /**
- * [AC-S5bd678-1-3] ケーパビリティ権限モデル — セッション権限の永続化 + 再起動復元 (ADR-0011)。
+ * [AC-S5bd678-1-3] ケーパビリティ権限モデル — セッション権限の永続化 + 再起動復元 (ADR-0015)。
  *
  * - POST /api/agent/sessions が permissions (optional) を受理しセッションに永続化する。
  * - GET /api/agent/sessions/{id} が effectivePermissions (有効ケーパビリティ配列) を返す。

@@ -3031,7 +3031,7 @@
     "S53409d": {
       "title": "エージェント基盤 — Node 22 / ターミナル撤去 / pi SDK / チャット+読み取りツール",
       "status": "done",
-      "description": "ADR-0007/0008 の第1段。Node 22 LTS 化と旧ターミナル機構(node-pty / xterm.js / /api/terminal / TerminalPane)の完全撤去の上に、pi SDK (@earendil-works/pi-coding-agent) をサーバー内蔵し、OpenAI/Anthropic 互換エンドポイント接続・SSE チャット・vault 読み取りツール(search/query/read/backlinks/tags)・出典 [[リンク]] 遷移を提供する。書き込みツールと権限 UI は S5bd678。",
+      "description": "ADR-0011/0008 の第1段。Node 22 LTS 化と旧ターミナル機構(node-pty / xterm.js / /api/terminal / TerminalPane)の完全撤去の上に、pi SDK (@earendil-works/pi-coding-agent) をサーバー内蔵し、OpenAI/Anthropic 互換エンドポイント接続・SSE チャット・vault 読み取りツール(search/query/read/backlinks/tags)・出典 [[リンク]] 遷移を提供する。書き込みツールと権限 UI は S5bd678。",
       "milestone": true,
       "detail_level": "detailed",
       "stories": {
@@ -3040,7 +3040,7 @@
           "status": "done",
           "user_review_required": false,
           "review_reason": null,
-          "user_story": "Loamium を開発・運用する自分として、Node 22 LTS への更新と旧ターミナル機構の完全撤去をしたい。なぜなら、内蔵エージェント(ADR-0007)の前提であり、EOL 済みランタイムと不要な攻撃面を除きたいから。",
+          "user_story": "Loamium を開発・運用する自分として、Node 22 LTS への更新と旧ターミナル機構の完全撤去をしたい。なぜなら、内蔵エージェント(ADR-0011)の前提であり、EOL 済みランタイムと不要な攻撃面を除きたいから。",
           "acceptance_criteria": [
             {
               "id": "AC-S53409d-1-1",
@@ -3149,7 +3149,7 @@
           "acceptance_criteria": [
             {
               "id": "AC-S53409d-3-1",
-              "description": "エージェントに渡るツールは search / query(DQL)/ read / backlinks / tags のみ(ADR-0008)。bash・ファイル書き込み等の pi 組み込みツールはセッションに存在しない。",
+              "description": "エージェントに渡るツールは search / query(DQL)/ read / backlinks / tags のみ(ADR-0012)。bash・ファイル書き込み等の pi 組み込みツールはセッションに存在しない。",
               "test": null,
               "status": "pass"
             },
@@ -3201,7 +3201,7 @@
     "S5bd678": {
       "title": "エージェント権限モデル(ケーパビリティ別)+ 書き込みツール",
       "status": "done",
-      "description": "ADR-0008 の3段階を廃し ADR-0011 のケーパビリティ別トグル権限(read / journal_append / note_create / note_edit / template_write / dataview_write / web を独立 on/off)。agent.json の permissions 既定 + チャット UI でセッション上書き + プリセット(読取のみ/ノートRW/フル)+ 実効権限 = エージェント権限 ∩ LOAMIUM_MODE。書き込みは既存の監査済みサービス層経由(ADR-0012、ピュア Markdown・パス正規化・監査継承)。Template は templates/ 配下の規定 frontmatter ノート、DataView は dataview フェンスで、いずれも help 知識を使った通常のノート書き込みとして生成(新フォーマットなし)。ADR-0011/0012。",
+      "description": "ADR-0012 の3段階を廃し ADR-0015 のケーパビリティ別トグル権限(read / journal_append / note_create / note_edit / template_write / dataview_write / web を独立 on/off)。agent.json の permissions 既定 + チャット UI でセッション上書き + プリセット(読取のみ/ノートRW/フル)+ 実効権限 = エージェント権限 ∩ LOAMIUM_MODE。書き込みは既存の監査済みサービス層経由(ADR-0016、ピュア Markdown・パス正規化・監査継承)。Template は templates/ 配下の規定 frontmatter ノート、DataView は dataview フェンスで、いずれも help 知識を使った通常のノート書き込みとして生成(新フォーマットなし)。ADR-0015/0012。",
       "milestone": false,
       "detail_level": "detailed",
       "stories": {
@@ -3210,7 +3210,7 @@
           "status": "done",
           "user_review_required": false,
           "review_reason": null,
-          "user_story": "vault 所有者として、エージェントの権限をケーパビリティ別(read/journal_append/note_create/note_edit/template_write/dataview_write/web)に独立して on/off したい。なぜなら「読むだけ」「ノートRWだが Web 無し」など要求が分かれ、Web は書き込みと独立軸だから(ADR-0011)。",
+          "user_story": "vault 所有者として、エージェントの権限をケーパビリティ別(read/journal_append/note_create/note_edit/template_write/dataview_write/web)に独立して on/off したい。なぜなら「読むだけ」「ノートRWだが Web 無し」など要求が分かれ、Web は書き込みと独立軸だから(ADR-0015)。",
           "acceptance_criteria": [
             {
               "id": "AC-S5bd678-1-1",
@@ -3254,7 +3254,7 @@
           "status": "done",
           "user_review_required": false,
           "review_reason": null,
-          "user_story": "エージェント利用者として、権限を与えたときエージェントがジャーナル追記・ノート作成/編集・テンプレート/DataView 作成をできるようにしたい。なぜなら、読むだけでなく整理・下書きまで任せたいから。ただし REST と同じ不変条件(ピュア Markdown・パス安全・監査)を崩さないこと(ADR-0012)。",
+          "user_story": "エージェント利用者として、権限を与えたときエージェントがジャーナル追記・ノート作成/編集・テンプレート/DataView 作成をできるようにしたい。なぜなら、読むだけでなく整理・下書きまで任せたいから。ただし REST と同じ不変条件(ピュア Markdown・パス安全・監査)を崩さないこと(ADR-0016)。",
           "acceptance_criteria": [
             {
               "id": "AC-S5bd678-2-1",
@@ -3270,7 +3270,7 @@
             },
             {
               "id": "AC-S5bd678-2-3",
-              "description": "機密領域(ADR-0014 privacy deny)にマッチするパスへの書き込みは全書き込みツールで拒否される(deny > allow)。vault ルート外・.loamium/ 配下・.md 以外(notes 系)への不正書き込みも拒否される",
+              "description": "機密領域(ADR-0018 privacy deny)にマッチするパスへの書き込みは全書き込みツールで拒否される(deny > allow)。vault ルート外・.loamium/ 配下・.md 以外(notes 系)への不正書き込みも拒否される",
               "test": "[AC-S5bd678-2-3] in packages/server/src/agent-write-tools.test.ts",
               "status": "pass"
             }
@@ -3293,7 +3293,7 @@
           "status": "done",
           "user_review_required": false,
           "review_reason": null,
-          "user_story": "ノート利用者として、チャットUIから今回のセッションのエージェント権限をプリセットやトグルで選びたい。なぜなら、用途ごとに「読むだけ」「ノートも書く」を安全に切り替えたいから(ADR-0011)。",
+          "user_story": "ノート利用者として、チャットUIから今回のセッションのエージェント権限をプリセットやトグルで選びたい。なぜなら、用途ごとに「読むだけ」「ノートも書く」を安全に切り替えたいから(ADR-0015)。",
           "acceptance_criteria": [
             {
               "id": "AC-S5bd678-3-1",
@@ -3326,7 +3326,7 @@
     "S2fe109": {
       "title": "エージェント定期実行 — スケジューラ / ジョブ定義 / キャッチアップ",
       "status": "pending",
-      "description": "ADR-0009。サーバー内蔵スケジューラ、.loamium/agent-jobs.json(Git 追跡、.gitignore 再包含)のジョブ定義(name/schedule/prompt/permission/enabled)、anacron 方式キャッチアップ(最終実行時刻は使い捨て側)、POST /api/agent/jobs/{name}/run + loamium agent-run の REST/CLI 1:1、無人実行の上限(最大ターン数・タイムアウト)。",
+      "description": "ADR-0013。サーバー内蔵スケジューラ、.loamium/agent-jobs.json(Git 追跡、.gitignore 再包含)のジョブ定義(name/schedule/prompt/permission/enabled)、anacron 方式キャッチアップ(最終実行時刻は使い捨て側)、POST /api/agent/jobs/{name}/run + loamium agent-run の REST/CLI 1:1、無人実行の上限(最大ターン数・タイムアウト)。",
       "milestone": true,
       "detail_level": "coarse",
       "stories": {}
@@ -3336,14 +3336,14 @@
       "status": "done",
       "milestone": false,
       "detail_level": "detailed",
-      "description": "Loamium がコードで base システムプロンプト(役割=この vault の読み書きノート補助 / 絶対制約=ピュア Markdown・[[リンク]]出典・与えたツールのみ・権限と機密領域の尊重・日本語簡潔 / 出力スタイル)を pi の systemPromptOverride で注入。DQL・テンプレート・DataView・frontmatter 等の詳細な使い方は base に入れず help ツール(トピック指定でガイド本文を返す)でオンデマンド供給。ガイドは Loamium 同梱・バージョン管理。ADR-0010。",
+      "description": "Loamium がコードで base システムプロンプト(役割=この vault の読み書きノート補助 / 絶対制約=ピュア Markdown・[[リンク]]出典・与えたツールのみ・権限と機密領域の尊重・日本語簡潔 / 出力スタイル)を pi の systemPromptOverride で注入。DQL・テンプレート・DataView・frontmatter 等の詳細な使い方は base に入れず help ツール(トピック指定でガイド本文を返す)でオンデマンド供給。ガイドは Loamium 同梱・バージョン管理。ADR-0014。",
       "stories": {
         "S10a31c-1": {
           "title": "base システムプロンプトのコード注入",
           "status": "done",
           "user_review_required": false,
           "review_reason": null,
-          "user_story": "エージェント利用者として、Loamium のエージェントが自分の役割(この vault の読み書きノート補助)と絶対制約を理解した状態で応答してほしい。なぜなら、現状モデルは自前の既定ペルソナで動き『ファイルの読み書き・コマンド実行もできる』と誤認するから(ADR-0010)。",
+          "user_story": "エージェント利用者として、Loamium のエージェントが自分の役割(この vault の読み書きノート補助)と絶対制約を理解した状態で応答してほしい。なぜなら、現状モデルは自前の既定ペルソナで動き『ファイルの読み書き・コマンド実行もできる』と誤認するから(ADR-0014)。",
           "acceptance_criteria": [
             {
               "id": "AC-S10a31c-1-1",
@@ -3376,7 +3376,7 @@
           "status": "done",
           "user_review_required": false,
           "review_reason": null,
-          "user_story": "エージェントとして、DQL 文法やテンプレート形式など細かい使い方が必要になったとき help ツールでガイドを取得したい。なぜなら、全部をシステムプロンプトに詰めるとコンテキストを圧迫し陳腐化するから(ADR-0010)。",
+          "user_story": "エージェントとして、DQL 文法やテンプレート形式など細かい使い方が必要になったとき help ツールでガイドを取得したい。なぜなら、全部をシステムプロンプトに詰めるとコンテキストを圧迫し陳腐化するから(ADR-0014)。",
           "acceptance_criteria": [
             {
               "id": "AC-S10a31c-2-1",
@@ -3411,14 +3411,14 @@
       "status": "done",
       "milestone": true,
       "detail_level": "detailed",
-      "description": ".loamium/agent-privacy.json(git 追跡・ADR-0002 例外様式)の vault 相対 deny glob で、マッチするファイル/フォルダをエージェントの全ツールが読み書き拒否し、かつ search/query/backlinks/tags がエージェントに返す結果からも除外(存在・内容とも非開示)。サーバー側強制、付与ケーパビリティや web 設定に関わらず deny 優先。共通フィルタに集約。ADR-0014。",
+      "description": ".loamium/agent-privacy.json(git 追跡・ADR-0002 例外様式)の vault 相対 deny glob で、マッチするファイル/フォルダをエージェントの全ツールが読み書き拒否し、かつ search/query/backlinks/tags がエージェントに返す結果からも除外(存在・内容とも非開示)。サーバー側強制、付与ケーパビリティや web 設定に関わらず deny 優先。共通フィルタに集約。ADR-0018。",
       "stories": {
         "Sf4ee2f-1": {
           "title": "機密領域 deny リストの全経路強制",
           "status": "done",
           "user_review_required": false,
           "review_reason": null,
-          "user_story": "vault 所有者として、エージェントには一切触れさせたくない機密領域(パスワードメモ・個人情報・下書き等)を deny glob で指定し、読み書き・検索結果すべてから除外したい。なぜなら、付与した権限や Web 設定に関わらず、機密の存在もスニペットも漏らしたくないから(ADR-0014)。",
+          "user_story": "vault 所有者として、エージェントには一切触れさせたくない機密領域(パスワードメモ・個人情報・下書き等)を deny glob で指定し、読み書き・検索結果すべてから除外したい。なぜなら、付与した権限や Web 設定に関わらず、機密の存在もスニペットも漏らしたくないから(ADR-0018)。",
           "acceptance_criteria": [
             {
               "id": "AC-Sf4ee2f-1-1",
@@ -3464,18 +3464,18 @@
       "status": "done",
       "milestone": true,
       "detail_level": "detailed",
-      "description": "web を既定 off の opt-in ケーパビリティ(ADR-0011 の権限モデルに乗せる)として追加。URL 取得 + Web 検索ツール。有効化時に漏洩リスクを UI で明示警告し、Web アクセスを監査ログに URL 記録(内容は記録しない)。機密領域(ADR-0014)は web 設定に関わらず常に非開示。ADR-0013。",
+      "description": "web を既定 off の opt-in ケーパビリティ(ADR-0015 の権限モデルに乗せる)として追加。URL 取得 + Web 検索ツール。有効化時に漏洩リスクを UI で明示警告し、Web アクセスを監査ログに URL 記録(内容は記録しない)。機密領域(ADR-0018)は web 設定に関わらず常に非開示。ADR-0017。",
       "stories": {
         "S5e0206-1": {
           "title": "Web ツール(web_fetch / web_search)opt-in + 監査",
           "status": "done",
           "user_review_required": false,
           "review_reason": null,
-          "user_story": "エージェント利用者として、必要なときだけ Web アクセス(URL 取得・Web 検索)をエージェントに許可したい。なぜなら、Web で調べた内容をノートと突き合わせたいが、既定では漏洩面を開きたくないから(ADR-0013)。",
+          "user_story": "エージェント利用者として、必要なときだけ Web アクセス(URL 取得・Web 検索)をエージェントに許可したい。なぜなら、Web で調べた内容をノートと突き合わせたいが、既定では漏洩面を開きたくないから(ADR-0017)。",
           "acceptance_criteria": [
             {
               "id": "AC-S5e0206-1-1",
-              "description": "web ケーパビリティが有効なときのみ web_fetch / web_search が広告・実行される(既定 off、ADR-0011 の web ケーパビリティに乗る)。無効時は広告されない。deriveToolNames(web) が web ツール名を返し、customTools も web が有効なときだけ生成される",
+              "description": "web ケーパビリティが有効なときのみ web_fetch / web_search が広告・実行される(既定 off、ADR-0015 の web ケーパビリティに乗る)。無効時は広告されない。deriveToolNames(web) が web ツール名を返し、customTools も web が有効なときだけ生成される",
               "test": "[AC-S5e0206-1-1] in packages/shared/src/agent-capabilities.test.ts + packages/server/src/agent-web-tools.test.ts",
               "status": "pass"
             },
@@ -3487,7 +3487,7 @@
             },
             {
               "id": "AC-S5e0206-1-3",
-              "description": "すべての Web アクセス(web_fetch の URL / web_search のクエリ)が .loamium/audit.log に記録される(取得内容は記録しない)。機密領域(ADR-0014 privacy)は web 設定に関わらず読み取りツールで常に非開示のまま(web と privacy は独立軸)",
+              "description": "すべての Web アクセス(web_fetch の URL / web_search のクエリ)が .loamium/audit.log に記録される(取得内容は記録しない)。機密領域(ADR-0018 privacy)は web 設定に関わらず読み取りツールで常に非開示のまま(web と privacy は独立軸)",
               "test": "[AC-S5e0206-1-3] in packages/server/src/agent-web-tools.test.ts",
               "status": "pass"
             }
@@ -3515,7 +3515,7 @@
           "status": "done",
           "user_review_required": false,
           "review_reason": null,
-          "user_story": "ノート利用者として、エージェントに Web アクセスを許可するときは漏洩リスクを明示的に知りたい。なぜなら、vault 読み取りと Web 送信の併用はプロンプトインジェクション経由で情報が外部流出しうるから(ADR-0013)。",
+          "user_story": "ノート利用者として、エージェントに Web アクセスを許可するときは漏洩リスクを明示的に知りたい。なぜなら、vault 読み取りと Web 送信の併用はプロンプトインジェクション経由で情報が外部流出しうるから(ADR-0017)。",
           "acceptance_criteria": [
             {
               "id": "AC-S5e0206-2-1",
@@ -3841,7 +3841,7 @@
       "title": "エージェントの restricted-mode 稼働(read-only/append-only での session/message)",
       "description": "permissionMiddleware が /api/agent/* の POST を mutate 分類で 403 にするため、LOAMIUM_MODE=read-only/append-only ではエージェントの session 作成・メッセージ送信ができない(既存 agent-session-delete.spec.ts が 403 を pin)。ケーパビリティ clamp(read-only→{read,web})は導出レベルで正しいが、restricted mode で read-only エージェントを実稼働させるには control-plane(session/message/abort/delete)を vault-write mode ゲートから分離する設計判断が要る。",
       "added_in": "S5bd678",
-      "reason": "S5bd678-1 実装中に表面化(ADR-0011 の AND 意図と既存 middleware の緊張)。既存 pin を壊さないため本スプリントでは非変更",
+      "reason": "S5bd678-1 実装中に表面化(ADR-0015 の AND 意図と既存 middleware の緊張)。既存 pin を壊さないため本スプリントでは非変更",
       "status": "pending"
     }
   ]

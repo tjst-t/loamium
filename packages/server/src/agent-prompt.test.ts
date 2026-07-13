@@ -1,5 +1,5 @@
 /**
- * base システムプロンプトのテスト (S10a31c-1 / ADR-0010)。
+ * base システムプロンプトのテスト (S10a31c-1 / ADR-0014)。
  *
  * AC-S10a31c-1-1: Loamium がコードで生成した base システムプロンプトが pi セッションに
  *   注入される (createPiSession / openPiSession の両経路で resourceLoader を配線)。

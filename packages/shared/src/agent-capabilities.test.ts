@@ -102,7 +102,7 @@ describe('[AC-S5bd678-1-1] deriveToolNames', () => {
     expect(deriveToolNames(['web'])).toEqual(['help', 'web_fetch', 'web_search']);
   });
 
-  it('help 常時広告: caps が空でも help だけは広告する (ADR-0010)', () => {
+  it('help 常時広告: caps が空でも help だけは広告する (ADR-0014)', () => {
     expect(deriveToolNames([])).toEqual(['help']);
   });
 

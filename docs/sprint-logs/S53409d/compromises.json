@@ -15,7 +15,7 @@
   ],
   "blockers_encountered": [
     {
-      "blocker": "実行環境の Node が v20.20.2 のみ (EOL 済み)。ADR-0007 の Node 22 化 + pi SDK (Node>=22.19 要求) が実行不能。",
+      "blocker": "実行環境の Node が v20.20.2 のみ (EOL 済み)。ADR-0011 の Node 22 化 + pi SDK (Node>=22.19 要求) が実行不能。",
       "resolution": "ユーザー承認のうえ nvm で Node 22.23.1 をユーザー領域に導入し、~/.local/bin (PATH 先頭) に symlink。sudo 不要・システム node20 非変更・可逆。sub-agent/make も Node22 を解決。",
       "status": "resolved"
     },
@@ -28,8 +28,8 @@
   "scope_changes": [
     {
       "change": "カスタム read ツールを read_note に改名 + excludeTools で pi 組み込み全7種を明示拒否。",
-      "reason": "独立 verifier が『custom read が pi 組み込み read と名前衝突しており、pi の登録順が変われば任意ファイル読取の組み込み read が復活しうる』と指摘 (ADR-0008 の脆弱性)。衝突自体を排除して境界を堅牢化。AC-3-1 の期待ツール名を read_note に更新。",
-      "adr_ref": "ADR-0008"
+      "reason": "独立 verifier が『custom read が pi 組み込み read と名前衝突しており、pi の登録順が変われば任意ファイル読取の組み込み read が復活しうる』と指摘 (ADR-0012 の脆弱性)。衝突自体を排除して境界を堅牢化。AC-3-1 の期待ツール名を read_note に更新。",
+      "adr_ref": "ADR-0012"
     },
     {
       "change": "AC-S53409d-1-1 の『CI が Node 22 を要求』は本リポジトリに CI システム (.github/workflows 等) が存在しないため充足対象外 (N/A)。engines(全workspace)+ .nvmrc で Node22 をローカル強制する部分は充足。",

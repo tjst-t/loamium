@@ -167,7 +167,7 @@ export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
       return errorJson(c, 400, 'invalid_session_id', 'session id contains invalid characters');
     }
 
-    // 実効ケーパビリティ (ADR-0011) を導出する。
+    // 実効ケーパビリティ (ADR-0015) を導出する。
     // セッション権限ストア (無ければ agent.json 既定) → LOAMIUM_MODE でクランプ。
     // agent.json 未設定でも effectivePermissions は返す (config 既定 = read-only 相当)。
     const configResult = await loadAgentConfig(config.vaultRoot);
@@ -208,7 +208,7 @@ export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
 
   // ---- PUT /api/agent/sessions/{id}/permissions ------------------------------
   //
-  // セッション中の権限変更 (ADR-0011)。要求 permissions を LOAMIUM_MODE でクランプし、
+  // セッション中の権限変更 (ADR-0015)。要求 permissions を LOAMIUM_MODE でクランプし、
   // 実効ケーパビリティをセッション権限ストアへ保存する (create と同じく effectiveCaps を保存)。
   // その後 active キャッシュから退避し、次メッセージ送信時に新ツール集合で再オープンさせる。
   //

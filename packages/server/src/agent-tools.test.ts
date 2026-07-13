@@ -1,7 +1,7 @@
 /**
  * エージェントツール境界テスト (S53409d-3)。
  *
- * AC-S53409d-3-1: ツールセットが read 系 5 種のみ (ADR-0008)。カスタム read ツールは read_note に改名。
+ * AC-S53409d-3-1: ツールセットが read 系 5 種のみ (ADR-0012)。カスタム read ツールは read_note に改名。
  * AC-S53409d-3-4: read_note / backlinks ツールが vault 脱出パスを拒否する。
  */
 import { describe, expect, it, beforeEach } from 'vitest';
@@ -46,13 +46,13 @@ describe('createVaultReadTools', () => {
   //   1. createVaultReadTools() が返すツール名を直接アサート (下記 2 テスト)
   //   2. LLM への実リクエストを実測するガードは e2e (agent-tools.e2e.spec.ts) が担う
   //      — AC-3-1: advertisedTools === ['backlinks','query','read_note','search','tags']
-  //      — このアサートは削除・弱体化しないこと (ADR-0008 の回帰防止)。
+  //      — このアサートは削除・弱体化しないこと (ADR-0012 の回帰防止)。
 
   it('[AC-S53409d-3-1] 生成されるツール名は VAULT_READ_TOOL_NAMES と一致する (sorted)', () => {
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual([...VAULT_READ_TOOL_NAMES].sort());
-    // カスタム read ツールは read_note に改名 (ADR-0008 collision 排除)。
-    // help は ADR-0010 で追加された読み取り系ツール。
+    // カスタム read ツールは read_note に改名 (ADR-0012 collision 排除)。
+    // help は ADR-0014 で追加された読み取り系ツール。
     expect(names).toEqual(['backlinks', 'help', 'query', 'read_note', 'search', 'tags']);
   });
 

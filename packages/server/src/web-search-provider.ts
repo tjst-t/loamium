@@ -1,11 +1,11 @@
 /**
- * 組み込み既定 Web 検索プロバイダ (S5e0206 / ADR-0013)。
+ * 組み込み既定 Web 検索プロバイダ (S5e0206 / ADR-0017)。
  *
  * agent.json の `webSearch` が未設定のとき、web_search ツールが既定で使うプロバイダ。
  * API キー不要の keyless バックエンド (DuckDuckGo lite の HTML スクレイピング → 失敗時
  * Wikipedia 全文検索) を叩き、`SearchHit[]` に整形して返す。
  *
- * ADR-0013 契約: 検索プロバイダの実体は sprint ローカル判断。web ケーパビリティの
+ * ADR-0017 契約: 検索プロバイダの実体は sprint ローカル判断。web ケーパビリティの
  * opt-in 性 (既定 off) と監査 (クエリ記録・本文非記録) は呼び出し側 (agent-web-tools.ts)
  * が維持する。この層は純粋な取得・パースのみを担う。
  *

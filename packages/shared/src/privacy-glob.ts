@@ -1,5 +1,5 @@
 /**
- * エージェント機密領域 deny リスト用の軽量 glob マッチャ (ADR-0014)。
+ * エージェント機密領域 deny リスト用の軽量 glob マッチャ (ADR-0018)。
  *
  * `.loamium/agent-privacy.json` の deny パターン (vault 相対) をコンパイルし、
  * ノートの vault 相対パスが 1 つでもマッチすれば true を返すクロージャを生成する。

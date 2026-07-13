@@ -1,5 +1,5 @@
 /**
- * エージェント機密領域 deny リスト強制テスト (ADR-0014 / Sf4ee2f)。
+ * エージェント機密領域 deny リスト強制テスト (ADR-0018 / Sf4ee2f)。
  *
  * [AC-Sf4ee2f-1-1]: deny マッチのファイルは read_note / backlinks(ターゲット指定) で読めず、
  *   未発見として扱われる (存在も内容も知らせない)。
@@ -73,7 +73,7 @@ function tool(tools: ReturnType<typeof createVaultReadTools>, name: string) {
   return t;
 }
 
-describe('ADR-0014 deny リスト強制', () => {
+describe('ADR-0018 deny リスト強制', () => {
   let vaultRoot: string;
   let index: VaultIndex;
   let tools: ReturnType<typeof createVaultReadTools>;

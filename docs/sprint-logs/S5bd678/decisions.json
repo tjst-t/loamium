@@ -1,9 +1,9 @@
 {
   "sprint": "S5bd678",
   "decisions": [
-    { "id": "S5bd678-D1", "title": "既定 permissions は read-only プリセット(read のみ)", "rationale": "ADR は既定値を固定していないが DESIGN_PRINCIPLES priority 2『データ安全性 > 開発速度・迷ったら守る側』に従い、書き込みは明示 opt-in とする。web も既定 off(ADR-0013)。", "reference": "DESIGN_PRINCIPLES priority 2; ADR-0011; ADR-0013" },
-    { "id": "S5bd678-D2", "title": "LOAMIUM_MODE クランプ表: read-only→{read,web}, append-only→{read,web,journal_append}, full→恒等", "rationale": "実効権限 = 権限 ∩ MODE(ADR-0011)。既存 permissions.ts の append 分類(journal/notes append のみ許可)に整合させ、append-only では journal_append のみ書き込みを残す。web は vault 書き込み軸と独立(外部アクセス)のため MODE では剥がさない。", "reference": "ADR-0011 decision; permissions.ts classifyOp" },
-    { "id": "S5bd678-D3", "title": "書き込みツールは 5 種で ADR-0011 の 5 書き込みケーパビリティに 1:1。rename/delete は含めない", "rationale": "ADR-0012 forbidden『一括変換・一括削除は確認なしに行わない』。note_edit は old→new の非破壊 patch のみ。rename(リンク追従)/delete はエージェントに与えない(将来別ケーパビリティ)。template_write/dataview_write は通常ノート書き込みとして実装(新フォーマットなし)。", "reference": "ADR-0012 decision + forbidden" },
-    { "id": "S5bd678-D4", "title": "セッション権限は .loamium/agent-session-perms.json に永続化", "rationale": "pi の JSONL にはケーパビリティのスロットが無く、サーバー再起動後の openPiSession でも同じツール集合を導出する必要があるため、sessionId→caps のサイドカーに永続化する(マシンローカル、git 非追跡)。", "reference": "ADR-0011 (セッション上書き); AC-S5bd678-1-3" }
+    { "id": "S5bd678-D1", "title": "既定 permissions は read-only プリセット(read のみ)", "rationale": "ADR は既定値を固定していないが DESIGN_PRINCIPLES priority 2『データ安全性 > 開発速度・迷ったら守る側』に従い、書き込みは明示 opt-in とする。web も既定 off(ADR-0017)。", "reference": "DESIGN_PRINCIPLES priority 2; ADR-0015; ADR-0017" },
+    { "id": "S5bd678-D2", "title": "LOAMIUM_MODE クランプ表: read-only→{read,web}, append-only→{read,web,journal_append}, full→恒等", "rationale": "実効権限 = 権限 ∩ MODE(ADR-0015)。既存 permissions.ts の append 分類(journal/notes append のみ許可)に整合させ、append-only では journal_append のみ書き込みを残す。web は vault 書き込み軸と独立(外部アクセス)のため MODE では剥がさない。", "reference": "ADR-0015 decision; permissions.ts classifyOp" },
+    { "id": "S5bd678-D3", "title": "書き込みツールは 5 種で ADR-0015 の 5 書き込みケーパビリティに 1:1。rename/delete は含めない", "rationale": "ADR-0016 forbidden『一括変換・一括削除は確認なしに行わない』。note_edit は old→new の非破壊 patch のみ。rename(リンク追従)/delete はエージェントに与えない(将来別ケーパビリティ)。template_write/dataview_write は通常ノート書き込みとして実装(新フォーマットなし)。", "reference": "ADR-0016 decision + forbidden" },
+    { "id": "S5bd678-D4", "title": "セッション権限は .loamium/agent-session-perms.json に永続化", "rationale": "pi の JSONL にはケーパビリティのスロットが無く、サーバー再起動後の openPiSession でも同じツール集合を導出する必要があるため、sessionId→caps のサイドカーに永続化する(マシンローカル、git 非追跡)。", "reference": "ADR-0015 (セッション上書き); AC-S5bd678-1-3" }
   ]
 }

@@ -1,7 +1,7 @@
 /**
- * Loamium エージェント用読み取り専用ツール群 (S53409d-3 / ADR-0008)。
+ * Loamium エージェント用読み取り専用ツール群 (S53409d-3 / ADR-0012)。
  *
- * ADR-0008 決定: エージェントに渡すツールは Loamium のノート操作 API のみ。
+ * ADR-0012 決定: エージェントに渡すツールは Loamium のノート操作 API のみ。
  * 第 1 リリースでは読み取り系 5 種のみ: search / query / read_note / backlinks / tags。
  * write 系ツールは別 Story で追加する。
  *
@@ -40,7 +40,7 @@ function textResult(text: string, details: ToolDetails = {}) {
  * 5 種の読み取り専用ツールを生成する。
  * index と vaultRoot は各ツールのクロージャでキャプチャする。
  *
- * ADR-0014: isDenied は機密領域 deny 判定 (vault 相対パス → deny なら true)。
+ * ADR-0018: isDenied は機密領域 deny 判定 (vault 相対パス → deny なら true)。
  * 省略時は「常に false」= deny なし (既存呼び出し・既存テスト非破壊)。
  * read_note は isDenied で未発見扱いにし、search/query/backlinks/tags は
  * createPrivacyFilteredIndex を通した共通フィルタビュー経由に統一する
@@ -51,7 +51,7 @@ export function createVaultReadTools(
   vaultRoot: string,
   isDenied: (relPath: string) => boolean = () => false,
 ) {
-  // ADR-0014: read_note 以外のツールが参照するのは deny 除外済みの共通ビュー。
+  // ADR-0018: read_note 以外のツールが参照するのは deny 除外済みの共通ビュー。
   const view = createPrivacyFilteredIndex(index, isDenied);
 
   // ---- search -----------------------------------------------------------------
@@ -151,7 +151,7 @@ export function createVaultReadTools(
         }
         return textResult(`パス正規化エラー: ${String(err)}`, { error: true });
       }
-      // ADR-0014: deny マッチは存在ごと隠す — not-found と同一の文言/details で返す。
+      // ADR-0018: deny マッチは存在ごと隠す — not-found と同一の文言/details で返す。
       if (isDenied(rel)) {
         return textResult(`ノートが見つかりません: ${rel}`, { error: true });
       }
@@ -216,7 +216,7 @@ export function createVaultReadTools(
 
   // ---- help -------------------------------------------------------------------
   //
-  // S10a31c-2 / ADR-0010: DQL / テンプレート / DataView 等の詳細な使い方は
+  // S10a31c-2 / ADR-0014: DQL / テンプレート / DataView 等の詳細な使い方は
   // base システムプロンプトに常駐させず、この help ツールがトピック指定で供給する。
   // 読み取り系ツールに分類され (vault へ書き込まない)、read allowlist に含める。
 
@@ -240,5 +240,5 @@ export function createVaultReadTools(
   return [searchTool, queryTool, readTool, backlinksTool, tagsTool, helpTool] as const;
 }
 
-/** ツール名の固定セット (ADR-0008 / ADR-0010 に記録されたツール境界)。sorted */
+/** ツール名の固定セット (ADR-0012 / ADR-0014 に記録されたツール境界)。sorted */
 export const VAULT_READ_TOOL_NAMES = ['backlinks', 'help', 'query', 'read_note', 'search', 'tags'] as const;

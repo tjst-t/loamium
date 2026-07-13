@@ -1,9 +1,9 @@
 {
-  "id": "ADR-0012",
+  "id": "ADR-0016",
   "title": "エージェントの書き込みツールは既存の監査済みサービス層を経由し、Template/DataView も新フォーマットを導入しない",
   "status": "accepted",
   "date": "2026-07-12",
-  "context": "ADR-0011 のケーパビリティに対応する書き込みツール (journal_append / note_create / note_edit / template_write / dataview_write) を実装する。Loamium の中核原則 (DESIGN_PRINCIPLES priority 1: ピュア Markdown の正本性、forbidden: ブロックID・独自記法を書き込まない、priority 2: vault ルート外書き込み禁止・監査ログ) をエージェント経由の書き込みでも一切崩してはならない。特に Template と DataView は『特別なファイル形式』に見えるが、実体は Loamium 上ではただのノートである (Template = templates/ 配下の規定 frontmatter を持つノート、DataView = ノート本文中の dataview フェンス)。エージェントに独自の書き込み経路や独自フォーマットを持たせると、この不変条件が二重管理になり崩れやすい。",
+  "context": "ADR-0015 のケーパビリティに対応する書き込みツール (journal_append / note_create / note_edit / template_write / dataview_write) を実装する。Loamium の中核原則 (DESIGN_PRINCIPLES priority 1: ピュア Markdown の正本性、forbidden: ブロックID・独自記法を書き込まない、priority 2: vault ルート外書き込み禁止・監査ログ) をエージェント経由の書き込みでも一切崩してはならない。特に Template と DataView は『特別なファイル形式』に見えるが、実体は Loamium 上ではただのノートである (Template = templates/ 配下の規定 frontmatter を持つノート、DataView = ノート本文中の dataview フェンス)。エージェントに独自の書き込み経路や独自フォーマットを持たせると、この不変条件が二重管理になり崩れやすい。",
   "alternatives": [
     {
       "name": "既存の書き込みサービス層 (REST と同じコード) をツールから呼ぶ",
@@ -18,12 +18,12 @@
       "tradeoff": "エージェントが構造化操作しやすいが、正本がプレーン Markdown でなくなり DESIGN 原則1・forbidden に抵触する。"
     }
   ],
-  "decision": "書き込みケーパビリティは Loamium の既存書き込み経路 (REST の PUT/POST/append/patch/rename と同一のサービス層) を呼ぶツールとして実装する。これによりピュア Markdown 出力・normalizeVaultPath によるパス検証・.loamium/audit.log への監査記録・[[リンク]] 追従を自動継承する。Template 作成/修正は『templates/ 配下に規定 frontmatter を持つノートを書く』こと、DataView 作成は『ノート本文に dataview フェンスを書く』ことであり、いずれも新フォーマットではなく通常のノート書き込みとして、help ツール (ADR-0010) の知識を用いてエージェントが生成する。ブロックID・独自記法・非 Markdown 構造は一切書かせない。",
+  "decision": "書き込みケーパビリティは Loamium の既存書き込み経路 (REST の PUT/POST/append/patch/rename と同一のサービス層) を呼ぶツールとして実装する。これによりピュア Markdown 出力・normalizeVaultPath によるパス検証・.loamium/audit.log への監査記録・[[リンク]] 追従を自動継承する。Template 作成/修正は『templates/ 配下に規定 frontmatter を持つノートを書く』こと、DataView 作成は『ノート本文に dataview フェンスを書く』ことであり、いずれも新フォーマットではなく通常のノート書き込みとして、help ツール (ADR-0014) の知識を用いてエージェントが生成する。ブロックID・独自記法・非 Markdown 構造は一切書かせない。",
   "consequences": [
     "+ エージェント経由でも REST と同じ不変条件 (ピュア Markdown・パス安全・監査・リンク追従) が自動的に成り立つ",
     "+ Template/DataView に新しい正本形式が増えず、Obsidian 互換とピュア Markdown 原則を保てる",
     "+ 書き込みツールの挙動が REST/CLI と一致し、テストや理解が容易",
-    "+ 全書き込みが監査ログに残り、ADR-0011 の権限と組み合わせて追跡可能",
+    "+ 全書き込みが監査ログに残り、ADR-0015 の権限と組み合わせて追跡可能",
     "- サービス層が Hono ハンドラ内に密結合している場合、ツールから呼べるよう純関数へ切り出す小リファクタが必要になりうる",
     "- note_edit (既存ノートの書き換え) は破壊的操作であり、対応ケーパビリティが有効なときのみ許可し監査する",
     "既存ノートの一括変換・一括削除は forbidden (確認なしに行わない) — エージェントにも同じ制約を課す"

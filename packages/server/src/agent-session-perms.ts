@@ -1,5 +1,5 @@
 /**
- * セッション権限ストア (ADR-0011)。
+ * セッション権限ストア (ADR-0015)。
  *
  * チャット UI でセッション単位に上書きしたケーパビリティ集合を
  * `.loamium/agent-session-perms.json` (`{ [sessionId]: Capability[] }`) に永続化する。

@@ -1,15 +1,15 @@
 /**
- * Loamium エージェント用 Web ツール群 (S5e0206 / ADR-0013)。
+ * Loamium エージェント用 Web ツール群 (S5e0206 / ADR-0017)。
  *
- * ADR-0013 契約:
- * - web は ADR-0011 の独立ケーパビリティで **既定 off**。effectiveCaps に `web` が
+ * ADR-0017 契約:
+ * - web は ADR-0015 の独立ケーパビリティで **既定 off**。effectiveCaps に `web` が
  *   含まれるときだけ web_fetch / web_search を生成する (含まれなければ空配列 =
  *   LLM に広告されない、AC-S5e0206-1-1)。
  * - すべての Web アクセスは監査ログに **URL / クエリを記録** する (op: agent.web_fetch /
  *   agent.web_search)。**取得内容 (レスポンス本文) は監査に記録しない** (AC-S5e0206-1-3)。
  * - web_fetch は http/https の公開 URL のみ取得する (SSRF 防止、AC-S5e0206-1-2)。
  *   スキーム制限・localhost・プライベート/ループバック/リンクローカル IP は web-guard で拒否。
- * - web と privacy (ADR-0014 機密領域) は独立軸。web ツールは vault を読まないため
+ * - web と privacy (ADR-0018 機密領域) は独立軸。web ツールは vault を読まないため
  *   privacy deny には関与しない (機密領域は read 系ツールで従来どおり常に非開示)。
  *
  * 全ツール共通制約 (read/write ツールと同じ規約):
@@ -136,12 +136,12 @@ async function readTextCapped(
 // ---- ツールファクトリ ----------------------------------------------------------
 
 /**
- * Web ツール (web_fetch / web_search) を生成する (ADR-0013)。
+ * Web ツール (web_fetch / web_search) を生成する (ADR-0017)。
  * caps に `web` が含まれないとき空配列を返す (広告されない、AC-S5e0206-1-1)。
  *
  * @param serverConfig ServerConfig (mode / vaultRoot)。監査に渡す。
  * @param config       AgentConfig。webSearch 設定を参照する。
- * @param caps         実効ケーパビリティ (ADR-0011)。
+ * @param caps         実効ケーパビリティ (ADR-0015)。
  * @param opts         fetch 注入 / allowPrivate / サイズ上限 (テスト用)。
  */
 export function createVaultWebTools(
@@ -239,7 +239,7 @@ export function createVaultWebTools(
         const webSearch = config.webSearch;
 
         // webSearch 未設定 → 組み込み既定プロバイダ (DuckDuckGo lite → Wikipedia)。
-        // クエリは監査に記録するが、取得結果本文は記録しない (ADR-0013)。
+        // クエリは監査に記録するが、取得結果本文は記録しない (ADR-0017)。
         if (!webSearch) {
           let hits;
           try {
@@ -339,5 +339,5 @@ function renderSearchResults(json: unknown): string {
   return JSON.stringify(json);
 }
 
-/** Web ツール名の固定セット (ADR-0011 deriveToolNames の web マッピングと一致)。sorted。 */
+/** Web ツール名の固定セット (ADR-0015 deriveToolNames の web マッピングと一致)。sorted。 */
 export const VAULT_WEB_TOOL_NAMES = ['web_fetch', 'web_search'] as const;
