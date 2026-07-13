@@ -5,8 +5,8 @@
     "current_sprint": "S9e64e7",
     "total": 36,
     "done": 34,
-    "in_progress": 0,
-    "remaining": 2,
+    "in_progress": 1,
+    "remaining": 1,
     "percentage": 94
   },
   "execution_order": [
@@ -3778,7 +3778,7 @@
       "title": "スマートコマンド定義エディタ — V3 スプリット(YAML 正本)+ 全部補完",
       "description": "ADR-0011 準拠。commands/ 配下の loamium-command を開くと専用スプリットエディタ(左 YAML 補完編集 / 右ライブ検証+プレビュー+テスト実行、保存前バリデーション)。補完は DSL v2 語彙を反映。GUI(gui-spec + プロトタイプ command-editor.html V3 を基盤)。",
       "milestone": true,
-      "status": "done",
+      "status": "in_progress",
       "detail_level": "detailed",
       "depends_on": null,
       "stories": {
