@@ -544,6 +544,17 @@ export const agentSendMessageRequestSchema = z.object({
 });
 export type AgentSendMessageRequest = z.infer<typeof agentSendMessageRequestSchema>;
 
+/**
+ * PUT /api/agent/sessions/{id}/permissions のレスポンス (セッション中の権限変更)。
+ * 要求した permissions を LOAMIUM_MODE でクランプした実効ケーパビリティ配列を返す。
+ */
+export const agentSessionPermissionsResponseSchema = z.object({
+  effectivePermissions: z.array(z.enum(AGENT_CAPABILITIES)),
+});
+export type AgentSessionPermissionsResponse = z.infer<
+  typeof agentSessionPermissionsResponseSchema
+>;
+
 export const agentAbortResponseSchema = z.object({
   ok: z.boolean(),
 });

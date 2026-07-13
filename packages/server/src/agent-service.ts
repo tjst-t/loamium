@@ -427,6 +427,17 @@ export function getActiveSession(sessionId: string): AgentSession | undefined {
 }
 
 /**
+ * active キャッシュからセッションを退避する (ファイルは消さない)。
+ *
+ * セッション中の権限変更 (PUT permissions) 後に呼ぶ。次のメッセージ送信時に
+ * getSessionFromDisk → openPiSession が session-perms を再ロードし、新しい
+ * ケーパビリティ集合でセッションを再オープンする (ツール allowlist を更新)。
+ */
+export function evictActiveSession(sessionId: string): void {
+  activeSessionsById.delete(sessionId);
+}
+
+/**
  * sessionId を指定してディスクから JSONL を開き AgentSession を返す。
  * アクティブキャッシュがあれば再利用する (disk fast-path)。
  * サーバー再起動後のセッション復元に使用する。

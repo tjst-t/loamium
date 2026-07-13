@@ -18,12 +18,19 @@
  *   agent-session-list (ドロップダウン一覧),
  *   agent-session-item (各行, data-session-id),
  *   agent-session-delete (各行の削除ボタン),
- *   agent-perm-selector (新規セッションの権限セレクタ, data-preset),
+ *   agent-perm-button (セッションバーの権限ボタン: ポップオーバー開閉),
+ *   agent-perm-popover (権限ポップオーバー本体, data-preset),
  *   agent-perm-preset-<name> (プリセットボタン: read-only/notes-rw/full),
+ *   agent-perm-toggles (ケーパビリティ別トグル群),
  *   agent-perm-toggle-<cap> (ケーパビリティ別トグル, data-checked),
- *   agent-effective-perms (現在セッションの実効権限表示),
+ *   agent-web-warning (web 有効化時の漏洩リスク警告),
+ *   agent-effective-perms (現在セッションの実効権限表示; ポップオーバー内),
  *   agent-effective-cap-<cap> (実効ケーパビリティのバッジ),
  *   agent-perm-stripped-<cap> (要求したが LOAMIUM_MODE で剥がれたケーパビリティ)
+ *
+ * 権限 UI (改善2): 新規/既存いずれもセッションバーの agent-perm-button →
+ * agent-perm-popover に集約。新規 (未送信) はトグルが selectedCaps を更新し作成時に送信、
+ * 既存 (送信済み) はトグルで PUT /api/agent/sessions/{id}/permissions を呼びセッション中に権限変更する。
  *
  * localStorage キー:
  *   loamium.agent.currentSessionId — 現在のセッション ID (null = 新規未送信)
@@ -36,7 +43,10 @@ import {
   useMemo,
   type JSX,
   type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
 } from 'react';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import type { HealthResponse, NoteMeta, Capability, AgentPresetName } from '@loamium/shared';
 import { AGENT_CAPABILITIES, AGENT_PRESET_NAMES, AGENT_PRESETS } from '@loamium/shared';
 
@@ -168,6 +178,16 @@ async function apiDelete(url: string): Promise<unknown> {
   return res.json();
 }
 
+async function apiPut(url: string, body: unknown): Promise<unknown> {
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`HTTP ${String(res.status)}`);
+  return res.json();
+}
+
 // ---- SSE ストリーム読取 -------------------------------------------------------
 
 interface SseEvent {
@@ -210,34 +230,168 @@ async function* readSseStream(response: Response): AsyncGenerator<SseEvent> {
   }
 }
 
-// ---- [[WikiLink]] レンダリング ------------------------------------------------
+// ---- チャット Markdown レンダリング (marked + DOMPurify) -----------------------
 
-/** [[target]] または [[target|alias]] を解析する。 */
-function parseWikilinks(text: string): Array<{ type: 'text'; value: string } | { type: 'link'; target: string; display: string }> {
-  const parts: Array<{ type: 'text'; value: string } | { type: 'link'; target: string; display: string }> = [];
-  const re = /\[\[([^\]]+)\]\]/g;
-  let last = 0;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text)) !== null) {
-    if (m.index > last) {
-      parts.push({ type: 'text', value: text.slice(last, m.index) });
-    }
-    const inner = m[1] ?? '';
-    const pipeIdx = inner.indexOf('|');
-    const target = pipeIdx !== -1 ? inner.slice(0, pipeIdx) : inner;
-    const display = pipeIdx !== -1 ? inner.slice(pipeIdx + 1) : inner;
-    parts.push({ type: 'link', target, display });
-    last = m.index + m[0].length;
-  }
-  if (last < text.length) {
-    parts.push({ type: 'text', value: text.slice(last) });
-  }
-  return parts;
+/** HTML 特殊文字をエスケープする ([[リンク]] display をアンカーへ埋め込む前処理)。 */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 /**
- * アシスタントメッセージのテキスト中の [[リンク]] を解決してレンダリングする。
- * 存在するノートは agent-wikilink (クリックでナビゲート)、不在は agent-wikilink-broken。
+ * content を「コード領域 (``` フェンス / `インラインコード`)」と「非コード領域」に分割する。
+ * コード領域内の [[ ]] は装飾しないため、非コード領域のみを wikilink 置換の対象にする。
+ *
+ * shared/extract.ts のコードフェンス除外は「行単位で null にする (行番号を保つ)」インデックス用の
+ * ロジックで、ここで必要な「元テキストを保ったままコード/非コードに分割」とは目的が異なるため
+ * 局所実装する。フェンス行そのもの・フェンス内・インラインコードすべてをコード領域として扱う。
+ */
+function splitCodeRegions(content: string): Array<{ code: boolean; value: string }> {
+  const segments: Array<{ code: boolean; value: string }> = [];
+  const lines = content.split('\n');
+  let inFence = false;
+  let fenceMarker = '';
+  let bufNonCode: string[] = [];
+  let bufCode: string[] = [];
+
+  const flushNonCode = (): void => {
+    if (bufNonCode.length > 0) {
+      segments.push({ code: false, value: bufNonCode.join('\n') });
+      bufNonCode = [];
+    }
+  };
+  const flushCode = (): void => {
+    if (bufCode.length > 0) {
+      segments.push({ code: true, value: bufCode.join('\n') });
+      bufCode = [];
+    }
+  };
+
+  const fenceRe = /^(\s{0,3})(`{3,}|~{3,})/;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? '';
+    const isLast = i === lines.length - 1;
+    const nl = isLast ? '' : '\n';
+    const fence = fenceRe.exec(line);
+    const marker = fence?.[2]?.[0] ?? '';
+    if (fence && (!inFence || marker === fenceMarker)) {
+      if (!inFence) {
+        // フェンス開始: 直前の非コードを確定し、フェンス行をコードへ
+        flushNonCode();
+        inFence = true;
+        fenceMarker = marker;
+        bufCode.push(line + nl);
+      } else {
+        // フェンス終了: フェンス行をコードに含めて確定
+        bufCode.push(line + nl);
+        inFence = false;
+        fenceMarker = '';
+        flushCode();
+      }
+      continue;
+    }
+    if (inFence) {
+      bufCode.push(line + nl);
+    } else {
+      bufNonCode.push(line + nl);
+    }
+  }
+  flushCode();
+  flushNonCode();
+  return segments;
+}
+
+/**
+ * 非コード行の中でインラインコード (`...`) を保護しつつ、コード外の [[リンク]] のみ置換する。
+ * replacer は wikilink 一致に対して HTML 文字列を返す。
+ */
+function replaceWikilinksOutsideInlineCode(
+  text: string,
+  replacer: (target: string, display: string) => string,
+): string {
+  // インラインコードスパンを一旦プレースホルダに退避
+  const codeSpans: string[] = [];
+  const guarded = text.replace(/`[^`\n]*`/g, (m) => {
+    const idx = codeSpans.push(m) - 1;
+    return ` CODE${idx} `;
+  });
+  const linked = guarded.replace(/\[\[([^\]\n]+?)\]\]/g, (_full, innerRaw: string) => {
+    const inner = innerRaw;
+    const pipeIdx = inner.indexOf('|');
+    const target = pipeIdx !== -1 ? inner.slice(0, pipeIdx) : inner;
+    const display = pipeIdx !== -1 ? inner.slice(pipeIdx + 1) : inner;
+    return replacer(target, display);
+  });
+  // プレースホルダを戻す
+  return linked.replace(/ CODE(\d+) /g, (_m, n: string) => codeSpans[Number(n)] ?? '');
+}
+
+/**
+ * content を Markdown として整形描画する HTML を生成する。
+ *
+ * 1. コード領域を除外して [[リンク]] のみアンカー/スパンへ置換する (コード内は装飾しない)。
+ * 2. marked.parse (GFM, 改行有効) で Markdown を HTML 化する。
+ * 3. DOMPurify で無害化する (許可タグ + data-wl-target + a[href] http/https/mailto + target/rel)。
+ *
+ * 生成される wikilink 要素:
+ *   存在ノート → <a class="agent-wikilink" data-wl-target="<resolvedPath>" data-testid="agent-wikilink">display</a>
+ *   不在ノート → <span class="agent-wikilink broken" data-testid="agent-wikilink-broken" title="...">display</span>
+ */
+function renderChatMarkdown(content: string, notePaths: ReadonlySet<string>): string {
+  const wikilinkReplacer = (target: string, display: string): string => {
+    const trimmedTarget = target.trim();
+    const targetMd = trimmedTarget.endsWith('.md') ? trimmedTarget : `${trimmedTarget}.md`;
+    const exists = notePaths.has(targetMd) || notePaths.has(trimmedTarget);
+    const displayHtml = escapeHtml(display);
+    if (exists) {
+      const resolvedPath = notePaths.has(targetMd) ? targetMd : trimmedTarget;
+      return (
+        `<a class="agent-wikilink" data-wl-target="${escapeHtml(resolvedPath)}" ` +
+        `data-testid="agent-wikilink" role="link" tabindex="0">${displayHtml}</a>`
+      );
+    }
+    return (
+      `<span class="agent-wikilink broken" data-testid="agent-wikilink-broken" ` +
+      `title="${escapeHtml(`ノートが見つかりません: ${trimmedTarget}`)}">${displayHtml}</span>`
+    );
+  };
+
+  // コード領域を除外して非コード領域のみ [[リンク]] を置換する
+  const segments = splitCodeRegions(content);
+  const replaced = segments
+    .map((seg) =>
+      seg.code ? seg.value : replaceWikilinksOutsideInlineCode(seg.value, wikilinkReplacer),
+    )
+    .join('');
+
+  // GFM + 改行有効で Markdown → HTML
+  const rawHtml = marked.parse(replaced, { async: false, gfm: true, breaks: true });
+
+  // 無害化: 標準 Markdown タグ + wikilink 属性のみ許可
+  return DOMPurify.sanitize(rawHtml, {
+    ALLOWED_TAGS: [
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'p', 'br', 'hr',
+      'strong', 'em', 'del', 's',
+      'code', 'pre',
+      'ul', 'ol', 'li',
+      'blockquote',
+      'a', 'span',
+      'table', 'thead', 'tbody', 'tr', 'th', 'td',
+    ],
+    ALLOWED_ATTR: ['class', 'href', 'title', 'target', 'rel', 'role', 'tabindex', 'data-wl-target', 'data-testid'],
+    ALLOWED_URI_REGEXP: /^(?:https?:|mailto:)/i,
+  });
+}
+
+/**
+ * アシスタントメッセージを Markdown 整形描画する。
+ * [[リンク]] は onClick デリゲーションで onOpenNote へ繋ぐ (キーボード Enter も対応)。
+ * 外部リンク (http(s)) は新規タブで開く (marked が生成する a[href] に付与)。
  */
 function AssistantText({
   content,
@@ -248,52 +402,53 @@ function AssistantText({
   notePaths: ReadonlySet<string>;
   onOpenNote: (path: string) => void;
 }): JSX.Element {
-  const parts = useMemo(() => parseWikilinks(content), [content]);
+  const html = useMemo(() => renderChatMarkdown(content, notePaths), [content, notePaths]);
+
+  // クリックデリゲーション: data-wl-target を持つ要素 (またはその祖先) で onOpenNote を呼ぶ。
+  const handleClick = useCallback(
+    (e: ReactMouseEvent<HTMLDivElement>): void => {
+      const wl = (e.target as HTMLElement).closest('[data-wl-target]');
+      if (wl instanceof HTMLElement) {
+        const target = wl.getAttribute('data-wl-target');
+        if (target) {
+          e.preventDefault();
+          onOpenNote(target);
+          return;
+        }
+      }
+      // 外部リンク (http(s)/mailto) は新規タブで開く
+      const anchor = (e.target as HTMLElement).closest('a[href]');
+      if (anchor instanceof HTMLAnchorElement && !anchor.hasAttribute('data-wl-target')) {
+        e.preventDefault();
+        window.open(anchor.href, '_blank', 'noopener,noreferrer');
+      }
+    },
+    [onOpenNote],
+  );
+
+  // キーボード: フォーカスした wikilink 上で Enter を押すとナビゲート。
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLDivElement>): void => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && active.hasAttribute('data-wl-target')) {
+        const target = active.getAttribute('data-wl-target');
+        if (target) {
+          e.preventDefault();
+          onOpenNote(target);
+        }
+      }
+    },
+    [onOpenNote],
+  );
 
   return (
-    <>
-      {parts.map((part, i) => {
-        if (part.type === 'text') {
-          return <span key={i}>{part.value}</span>;
-        }
-        // リンクターゲットを解決: .md なし → .md を付与してノートパスと照合
-        const target = part.target;
-        const targetMd = target.endsWith('.md') ? target : `${target}.md`;
-        const exists = notePaths.has(targetMd) || notePaths.has(target);
-        if (exists) {
-          const resolvedPath = notePaths.has(targetMd) ? targetMd : target;
-          return (
-            <span
-              key={i}
-              data-testid="agent-wikilink"
-              className="agent-wikilink"
-              role="link"
-              tabIndex={0}
-              onClick={() => onOpenNote(resolvedPath)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  onOpenNote(resolvedPath);
-                }
-              }}
-            >
-              {part.display}
-            </span>
-          );
-        } else {
-          return (
-            <span
-              key={i}
-              data-testid="agent-wikilink-broken"
-              className="agent-wikilink broken"
-              title={`ノートが見つかりません: ${target}`}
-            >
-              {part.display}
-            </span>
-          );
-        }
-      })}
-    </>
+    <div
+      className="agent-md"
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
   );
 }
 
@@ -355,8 +510,8 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
   const [selectedCaps, setSelectedCaps] = useState<Capability[]>(() => [
     ...AGENT_PRESETS['read-only'],
   ]);
-  // ケーパビリティ別トグルの展開状態。
-  const [permExpanded, setPermExpanded] = useState(false);
+  // 権限ポップオーバーの開閉状態 (セッションバーの権限ボタンにアンカー)。
+  const [permOpen, setPermOpen] = useState(false);
   // 現在セッションの実効権限 (GET 詳細の effectivePermissions)。null = 未取得。
   const [effectivePerms, setEffectivePerms] = useState<Capability[] | null>(null);
   // 現在セッション作成時に「要求した」ケーパビリティ集合。剥がれ検出に使う。
@@ -367,8 +522,10 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const switcherRef = useRef<HTMLDivElement>(null);
+  const permRef = useRef<HTMLDivElement>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   /**
@@ -415,25 +572,7 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
     }
   }, []);
 
-  // ---- 権限セレクタ操作 (S5bd678-3) --------------------------------------------
-
-  /** プリセットボタン: そのプリセットのケーパビリティ集合に選択を同期する。 */
-  const handleSelectPreset = useCallback((name: AgentPresetName): void => {
-    setSelectedCaps([...AGENT_PRESETS[name]]);
-  }, []);
-
-  /** ケーパビリティ別トグル: 個別に on/off する (カスタム集合になりうる)。 */
-  const handleToggleCap = useCallback((cap: Capability): void => {
-    setSelectedCaps((prev) => {
-      const next = new Set(prev);
-      if (next.has(cap)) {
-        next.delete(cap);
-      } else {
-        next.add(cap);
-      }
-      return sortCaps(next);
-    });
-  }, []);
+  // ---- 権限セレクタ操作 (S5bd678-3 / S_agent-ui) -------------------------------
 
   /** GET 詳細の effectivePermissions を検証して Capability[] へ絞り込む。 */
   const parseEffective = useCallback((raw: unknown): Capability[] => {
@@ -441,6 +580,58 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
     const valid = new Set<string>(AGENT_CAPABILITIES);
     return sortCaps(raw.filter((v): v is Capability => typeof v === 'string' && valid.has(v)));
   }, []);
+
+  /**
+   * 権限変更を適用する。
+   * - 新規 (未送信) セッション (sessionId === null): selectedCaps を更新するだけ (作成時に送信)。
+   * - 既存 (送信済み) セッション: PUT /permissions を呼び、応答の実効権限で表示更新する。
+   */
+  const applyPermissions = useCallback(
+    (nextCaps: Capability[]): void => {
+      const sorted = sortCaps(nextCaps);
+      if (sessionId === null) {
+        setSelectedCaps(sorted);
+        return;
+      }
+      // 既存セッション: サーバーへ反映 (セッション中の権限変更)。
+      // 楽観的に selectedCaps も更新し、要求集合を剥がれ検出用に記録する。
+      setSelectedCaps(sorted);
+      setRequestedPerms(sorted);
+      void (async () => {
+        try {
+          const res = (await apiPut(`/api/agent/sessions/${sessionId}/permissions`, {
+            permissions: sorted,
+          })) as { effectivePermissions?: unknown };
+          setEffectivePerms(parseEffective(res.effectivePermissions));
+        } catch {
+          // 反映失敗は表示を変えない (楽観的更新は残す)
+        }
+      })();
+    },
+    [sessionId, parseEffective],
+  );
+
+  /** プリセットボタン: そのプリセットのケーパビリティ集合を適用する。 */
+  const handleSelectPreset = useCallback(
+    (name: AgentPresetName): void => {
+      applyPermissions([...AGENT_PRESETS[name]]);
+    },
+    [applyPermissions],
+  );
+
+  /** ケーパビリティ別トグル: 個別に on/off する (カスタム集合になりうる)。 */
+  const handleToggleCap = useCallback(
+    (cap: Capability): void => {
+      const base = new Set(selectedCaps);
+      if (base.has(cap)) {
+        base.delete(cap);
+      } else {
+        base.add(cap);
+      }
+      applyPermissions(sortCaps(base));
+    },
+    [selectedCaps, applyPermissions],
+  );
 
   // ---- 初期化 ---------------------------------------------------------------
 
@@ -539,6 +730,28 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
       document.removeEventListener('keydown', handleKey);
     };
   }, [switcherOpen]);
+
+  // ---- 権限ポップオーバー外クリック / Esc で閉じる (スイッチャーと同じパターン) --------
+
+  useEffect(() => {
+    if (!permOpen) return;
+
+    const handleClick = (e: MouseEvent): void => {
+      if (permRef.current && !permRef.current.contains(e.target as Node)) {
+        setPermOpen(false);
+      }
+    };
+    const handleKey = (e: globalThis.KeyboardEvent): void => {
+      if (e.key === 'Escape') setPermOpen(false);
+    };
+
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [permOpen]);
 
   // ---- 新規セッション (lazy) ---------------------------------------------------
 
@@ -846,6 +1059,41 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
     [handleSend],
   );
 
+  // ---- 入力欄オートグロー (上方向、上限 = チャット高の 1/3) ----------------------
+
+  /**
+   * textarea を内容に合わせて上方向に伸ばす。
+   * 上限はチャット (agent-messages) 実高の 1/3。超えたら overflow-y:auto でスクロール。
+   * 1 行時は既定高さ (CSS min-height) に戻る。上限は clientHeight から動的算出する
+   * (CSS で固定 px にしない = レイアウトに応じて 1/3 を守る)。
+   */
+  const autoGrowTextarea = useCallback((): void => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    // まず auto にして scrollHeight を正しく測る
+    ta.style.height = 'auto';
+    const chatH = messagesRef.current?.clientHeight ?? 0;
+    // 上限: チャット高の 1/3 (chatH が未確定なら緩い既定上限)
+    const maxH = chatH > 0 ? Math.floor(chatH / 3) : 200;
+    const next = Math.min(ta.scrollHeight, maxH);
+    ta.style.height = `${String(next)}px`;
+    ta.style.overflowY = ta.scrollHeight > maxH ? 'auto' : 'hidden';
+  }, []);
+
+  // inputText 変化 (入力・送信後クリア・復元) に追従してリサイズする。
+  useEffect(() => {
+    autoGrowTextarea();
+  }, [inputText, autoGrowTextarea]);
+
+  // チャット領域のリサイズ (ペイン幅/高さ変化) に追従して上限 1/3 を再算出する。
+  useEffect(() => {
+    const el = messagesRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => autoGrowTextarea());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [autoGrowTextarea]);
+
   // ---- 未設定ガイド ----------------------------------------------------------
 
   if (status === 'unconfigured') {
@@ -897,13 +1145,18 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
     return 'セッション';
   })();
 
-  // ---- 権限 UI 派生値 (S5bd678-3) ---------------------------------------------
+  // ---- 権限 UI 派生値 (S5bd678-3 / 権限ポップオーバー) --------------------------
 
-  // 権限セレクタは「新規未送信セッション」でのみ表示する (作成時に適用するため)。
-  const showPermSelector = sessionId === null;
+  // トグル/プリセットが反映する集合:
+  //   新規 (未送信) セッション → selectedCaps (作成時に送信する要求集合)
+  //   既存 (送信済み) セッション → 実効権限 (現在のセッション権限。トグルで PUT して更新)
+  const permCaps: Capability[] =
+    sessionId === null ? selectedCaps : effectivePerms ?? selectedCaps;
   // 選択集合に一致するプリセット (無ければ null = カスタム)。
-  const activePreset = matchPreset(selectedCaps);
-  const selectedCapSet = new Set(selectedCaps);
+  const activePreset = matchPreset(permCaps);
+  const selectedCapSet = new Set(permCaps);
+  // 権限ボタンのバッジ (有効ケーパビリティ数)。
+  const permCount = permCaps.length;
 
   // 実効権限表示: 送信済みセッションで effectivePerms が取得できていれば表示。
   const showEffective = sessionId !== null && effectivePerms !== null;
@@ -942,6 +1195,129 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
             <path d="M4 6l4 4 4-4" />
           </svg>
         </button>
+
+        {/* 権限ボタン + ポップオーバー (盾アイコン) */}
+        <div className="agent-perm-anchor" ref={permRef}>
+          <button
+            className="icon-btn agent-perm-btn"
+            data-testid="agent-perm-button"
+            title="権限"
+            aria-haspopup="true"
+            aria-expanded={permOpen}
+            onClick={() => setPermOpen((v) => !v)}
+            disabled={isStreaming}
+          >
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 1.6l5 1.8v3.2c0 3.1-2.1 5.4-5 6.4-2.9-1-5-3.3-5-6.4V3.4z" />
+            </svg>
+            <span className="agent-perm-btn-count" aria-hidden="true">{permCount}</span>
+          </button>
+
+          {permOpen && (
+            <div
+              className="agent-perm-popover"
+              data-testid="agent-perm-popover"
+              data-preset={activePreset ?? 'custom'}
+              role="dialog"
+              aria-label="エージェント権限"
+            >
+              <div className="agent-perm-presets" role="group" aria-label="権限プリセット">
+                <span className="agent-perm-label">権限</span>
+                {AGENT_PRESET_NAMES.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    className={`agent-perm-preset${activePreset === name ? ' active' : ''}`}
+                    data-testid={`agent-perm-preset-${name}`}
+                    aria-pressed={activePreset === name}
+                    disabled={isStreaming}
+                    onClick={() => handleSelectPreset(name)}
+                  >
+                    {PRESET_LABELS[name]}
+                  </button>
+                ))}
+                {activePreset === null && (
+                  <span className="agent-perm-custom-tag" aria-hidden="true">カスタム</span>
+                )}
+              </div>
+
+              <div className="agent-perm-toggles" data-testid="agent-perm-toggles">
+                {AGENT_CAPABILITIES.map((cap) => {
+                  const checked = selectedCapSet.has(cap);
+                  return (
+                    <label
+                      key={cap}
+                      className={`agent-perm-toggle${checked ? ' checked' : ''}`}
+                      data-testid={`agent-perm-toggle-${cap}`}
+                      data-checked={checked ? 'true' : 'false'}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={isStreaming}
+                        onChange={() => handleToggleCap(cap)}
+                      />
+                      <span>{CAPABILITY_LABELS[cap]}</span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              {/* Web 有効化時の漏洩リスク警告 (AC-S5e0206-2-1, ADR-0013) */}
+              {selectedCapSet.has('web') && (
+                <div
+                  className="agent-web-warning"
+                  data-testid="agent-web-warning"
+                  role="alert"
+                >
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M8 2L1.8 13h12.4z" />
+                    <path d="M8 6.5v3M8 11.5h.01" />
+                  </svg>
+                  <span>
+                    Web アクセスを有効にすると、ノート内に紛れた悪意あるテキスト
+                    (プロンプトインジェクション) 経由で vault の情報が外部へ送信される
+                    リスクがあります。信頼する vault でのみ有効にしてください。
+                  </span>
+                </div>
+              )}
+
+              {/* 実効/剥がれ表示 (送信済みセッション) */}
+              {showEffective && (
+                <div className="agent-effective-perms" data-testid="agent-effective-perms">
+                  <span className="agent-perm-label">実効</span>
+                  <div className="agent-effective-list">
+                    {(effectivePerms ?? []).length === 0 ? (
+                      <span className="agent-effective-empty">なし</span>
+                    ) : (
+                      (effectivePerms ?? []).map((cap) => (
+                        <span
+                          key={cap}
+                          className="agent-effective-cap"
+                          data-testid={`agent-effective-cap-${cap}`}
+                          title={cap === 'web' ? 'web_fetch / web_search が利用可能' : undefined}
+                        >
+                          {CAPABILITY_LABELS[cap]}
+                        </span>
+                      ))
+                    )}
+                    {strippedCaps.map((cap) => (
+                      <span
+                        key={cap}
+                        className="agent-effective-cap stripped"
+                        data-testid={`agent-perm-stripped-${cap}`}
+                        title="LOAMIUM_MODE により無効"
+                      >
+                        {CAPABILITY_LABELS[cap]}
+                        <span className="agent-perm-stripped-note"> (LOAMIUM_MODE により無効)</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* "+" 新規セッションボタン */}
         <button
@@ -993,120 +1369,8 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
         )}
       </div>
 
-      {/* 権限セレクタ (新規未送信セッション時のみ, S5bd678-3) */}
-      {showPermSelector && (
-        <div
-          className="agent-perm-selector"
-          data-testid="agent-perm-selector"
-          data-preset={activePreset ?? 'custom'}
-        >
-          <div className="agent-perm-presets" role="group" aria-label="権限プリセット">
-            <span className="agent-perm-label">権限</span>
-            {AGENT_PRESET_NAMES.map((name) => (
-              <button
-                key={name}
-                type="button"
-                className={`agent-perm-preset${activePreset === name ? ' active' : ''}`}
-                data-testid={`agent-perm-preset-${name}`}
-                aria-pressed={activePreset === name}
-                disabled={isStreaming}
-                onClick={() => handleSelectPreset(name)}
-              >
-                {PRESET_LABELS[name]}
-              </button>
-            ))}
-            <button
-              type="button"
-              className="agent-perm-expand"
-              data-testid="agent-perm-expand"
-              aria-expanded={permExpanded}
-              disabled={isStreaming}
-              onClick={() => setPermExpanded((v) => !v)}
-            >
-              {permExpanded ? '詳細を隠す' : '詳細'}
-              {activePreset === null && <span className="agent-perm-custom-dot" aria-hidden="true" />}
-            </button>
-          </div>
-          {permExpanded && (
-            <div className="agent-perm-toggles" data-testid="agent-perm-toggles">
-              {AGENT_CAPABILITIES.map((cap) => {
-                const checked = selectedCapSet.has(cap);
-                return (
-                  <label
-                    key={cap}
-                    className={`agent-perm-toggle${checked ? ' checked' : ''}`}
-                    data-testid={`agent-perm-toggle-${cap}`}
-                    data-checked={checked ? 'true' : 'false'}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={isStreaming}
-                      onChange={() => handleToggleCap(cap)}
-                    />
-                    <span>{CAPABILITY_LABELS[cap]}</span>
-                  </label>
-                );
-              })}
-            </div>
-          )}
-          {/* Web 有効化時の漏洩リスク警告 (AC-S5e0206-2-1, ADR-0013) */}
-          {selectedCapSet.has('web') && (
-            <div
-              className="agent-web-warning"
-              data-testid="agent-web-warning"
-              role="alert"
-            >
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M8 2L1.8 13h12.4z" />
-                <path d="M8 6.5v3M8 11.5h.01" />
-              </svg>
-              <span>
-                Web アクセスを有効にすると、ノート内に紛れた悪意あるテキスト
-                (プロンプトインジェクション) 経由で vault の情報が外部へ送信される
-                リスクがあります。信頼する vault でのみ有効にしてください。
-              </span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 実効権限表示 (送信済みセッション, S5bd678-3) */}
-      {showEffective && (
-        <div className="agent-effective-perms" data-testid="agent-effective-perms">
-          <span className="agent-perm-label">実効権限</span>
-          <div className="agent-effective-list">
-            {(effectivePerms ?? []).length === 0 ? (
-              <span className="agent-effective-empty">なし</span>
-            ) : (
-              (effectivePerms ?? []).map((cap) => (
-                <span
-                  key={cap}
-                  className="agent-effective-cap"
-                  data-testid={`agent-effective-cap-${cap}`}
-                  title={cap === 'web' ? 'web_fetch / web_search が利用可能' : undefined}
-                >
-                  {CAPABILITY_LABELS[cap]}
-                </span>
-              ))
-            )}
-            {strippedCaps.map((cap) => (
-              <span
-                key={cap}
-                className="agent-effective-cap stripped"
-                data-testid={`agent-perm-stripped-${cap}`}
-                title="LOAMIUM_MODE により無効"
-              >
-                {CAPABILITY_LABELS[cap]}
-                <span className="agent-perm-stripped-note"> (LOAMIUM_MODE により無効)</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* メッセージ一覧 */}
-      <div className="agent-messages" data-testid="agent-messages">
+      <div className="agent-messages" data-testid="agent-messages" ref={messagesRef}>
         {messages.length === 0 && (
           <div className="empty-state" style={{ padding: '32px 18px' }}>
             <div className="glyph">
