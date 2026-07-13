@@ -28,6 +28,7 @@ import {
   validateSessionId,
   deleteSession,
   getEffectiveCapabilities,
+  evictActiveSession,
 } from '../agent-service.js';
 import { parseBody, errorJson, setAudit, type AppEnv } from '../http.js';
 import {
@@ -35,7 +36,7 @@ import {
   agentCreateSessionRequestSchema,
   resolvePermissions,
 } from '@loamium/shared';
-import { loadSessionPerms } from '../agent-session-perms.js';
+import { loadSessionPerms, saveSessionPerms } from '../agent-session-perms.js';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { VaultIndex } from '../noteIndex.js';
 
@@ -203,6 +204,60 @@ export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
     } catch {
       return c.json({ id: sessionId, messages: [], effectivePermissions });
     }
+  });
+
+  // ---- PUT /api/agent/sessions/{id}/permissions ------------------------------
+  //
+  // セッション中の権限変更 (ADR-0011)。要求 permissions を LOAMIUM_MODE でクランプし、
+  // 実効ケーパビリティをセッション権限ストアへ保存する (create と同じく effectiveCaps を保存)。
+  // その後 active キャッシュから退避し、次メッセージ送信時に新ツール集合で再オープンさせる。
+  //
+  // 注: permissionMiddleware が /api/* の PUT を mutate 分類するため、read-only/append-only
+  // モードでは 403 になる (既存挙動)。full 前提。
+  app.put('/api/agent/sessions/:id/permissions', async (c) => {
+    const sessionId = c.req.param('id');
+
+    // セキュリティ: ファイルシステムへアクセスする前にセッション ID を検証する
+    try {
+      validateSessionId(sessionId);
+    } catch {
+      return errorJson(c, 400, 'invalid_session_id', 'session id contains invalid characters');
+    }
+
+    const configResult = await loadAgentConfig(config.vaultRoot);
+    if (!configResult.ok) {
+      return errorJson(c, 400, configResult.reason, configResult.message);
+    }
+
+    // permissions は create と同じスキーマ (プリセット名 or ケーパビリティ配列)。
+    const rawBody = await readOptionalJsonBody(c);
+    const parsed = agentCreateSessionRequestSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      const msg = parsed.error.issues
+        .map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`)
+        .join('; ');
+      return errorJson(c, 400, 'invalid_permissions', msg);
+    }
+
+    // 要求 permissions (未指定なら agent.json 既定) → LOAMIUM_MODE でクランプ。
+    const requested =
+      parsed.data.permissions !== undefined
+        ? resolvePermissions(parsed.data.permissions)
+        : resolvePermissions(configResult.config.permissions);
+    const effectiveCaps = getEffectiveCapabilities(
+      configResult.config,
+      requested,
+      config.mode,
+    );
+
+    // create と整合: 実効ケーパビリティを保存する (再オープン時に同じ集合を導出)。
+    await saveSessionPerms(config.vaultRoot, sessionId, effectiveCaps);
+    // active キャッシュから退避 → 次送信で新ツール集合で再オープンされる。
+    evictActiveSession(sessionId);
+
+    setAudit(c, 'agent.session.permissions', sessionId);
+
+    return c.json({ effectivePermissions: effectiveCaps });
   });
 
   // ---- DELETE /api/agent/sessions/{id} --------------------------------------

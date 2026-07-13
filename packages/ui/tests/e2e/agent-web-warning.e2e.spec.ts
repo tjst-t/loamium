@@ -79,6 +79,12 @@ async function openAgentPane(page: Page): Promise<void> {
   await expect(page.getByTestId('agent-pane')).toBeVisible();
 }
 
+/** 権限ボタンを押してポップオーバーを開く。 */
+async function openPermPopover(page: Page): Promise<void> {
+  await page.getByTestId('agent-perm-button').click();
+  await expect(page.getByTestId('agent-perm-popover')).toBeVisible();
+}
+
 test.describe.serial('agent web warning', () => {
   test.beforeAll(async () => {
     stubPort = await startStubLlm();
@@ -95,13 +101,12 @@ test.describe.serial('agent web warning', () => {
   }) => {
     await openAgentPane(page);
     await page.getByTestId('agent-new-session').click();
+    await openPermPopover(page);
 
-    await expect(page.getByTestId('agent-perm-selector')).toBeVisible();
     // web off (既定 read-only) では警告なし
     await expect(page.getByTestId('agent-web-warning')).toHaveCount(0);
 
-    // 詳細を展開して web トグルを on にする
-    await page.getByTestId('agent-perm-expand').click();
+    // ポップオーバー内トグルは常時表示。web トグルを on にする
     await expect(page.getByTestId('agent-perm-toggle-web')).toBeVisible();
     // 「(未実装)」注記が除去されている
     await expect(page.getByTestId('agent-perm-toggle-web')).not.toContainText('未実装');
@@ -122,18 +127,22 @@ test.describe.serial('agent web warning', () => {
   }) => {
     await openAgentPane(page);
     await page.getByTestId('agent-new-session').click();
+    await openPermPopover(page);
 
     // full プリセットを選択 → web を含む。警告も表示される。
     await page.getByTestId('agent-perm-preset-full').click();
-    await expect(page.getByTestId('agent-perm-selector')).toHaveAttribute('data-preset', 'full');
+    await expect(page.getByTestId('agent-perm-popover')).toHaveAttribute('data-preset', 'full');
     await expect(page.getByTestId('agent-web-warning')).toBeVisible();
 
-    // 送信 → 実サーバーが permissions 付きでセッションを作成
+    // ポップオーバーを閉じて送信 → 実サーバーが permissions 付きでセッションを作成
+    await page.getByTestId('agent-input').click();
     await page.getByTestId('agent-input').fill('Web を使って調べて');
     await page.getByTestId('agent-send').click();
     await expect(page.getByTestId('agent-msg-assistant')).toContainText(STUB_REPLY);
 
-    // 実効権限表示に web が含まれる (LOAMIUM_MODE=full なので web ツール利用可能)
+    // 実効権限表示に web が含まれる (LOAMIUM_MODE=full なので web ツール利用可能)。
+    // 表示は権限ポップオーバー内に集約されたので開いて確認する。
+    await openPermPopover(page);
     await expect(page.getByTestId('agent-effective-perms')).toBeVisible();
     await expect(page.getByTestId('agent-effective-cap-web')).toBeVisible();
     // web バッジのツールチップに利用可能ツールが示される
@@ -141,9 +150,5 @@ test.describe.serial('agent web warning', () => {
       'title',
       /web_fetch/,
     );
-
-    // 送信済みなので権限セレクタは消える (=作成時警告も消える)
-    await expect(page.getByTestId('agent-perm-selector')).toHaveCount(0);
-    await expect(page.getByTestId('agent-web-warning')).toHaveCount(0);
   });
 });
