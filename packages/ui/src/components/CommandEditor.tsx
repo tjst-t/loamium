@@ -46,6 +46,7 @@ import {
   type CommandRunResponse,
 } from '@loamium/shared';
 import { api } from '../api.js';
+import { commandDslCompletionExtension } from '../commandDslCompletion.js';
 
 // ---- CodeMirror 構文ハイライト (Editor.tsx と同じセット) ----
 const mdHighlight = HighlightStyle.define([
@@ -476,6 +477,8 @@ export function CommandEditor({
     ]),
     markdown({ base: markdownLanguage }),
     syntaxHighlighting(mdHighlight),
+    // DSL v2 補完 (AC-S9e64e7-3-1/-2/-3)
+    commandDslCompletionExtension(),
     EditorView.updateListener.of((update) => {
       if (update.docChanged && !suppressRef.current) {
         const text = update.state.doc.toString();
