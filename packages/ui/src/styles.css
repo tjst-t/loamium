@@ -2637,6 +2637,51 @@ button.callout-title { cursor: pointer; }
 .smart-drop-before { border-top: 3px double color-mix(in srgb, var(--accent) 40%, transparent); }
 .smart-drop-after { border-bottom: 3px double color-mix(in srgb, var(--accent) 40%, transparent); }
 
+/* ---- サイドバー: スマートコマンドセクション -------------------------------- */
+
+.sidebar-commands-sep {
+  height: 1px;
+  margin: 6px 8px;
+  background: var(--border-soft, rgba(128,128,128,0.15));
+}
+
+.sidebar-commands-section { }
+
+.sidebar-commands-header { }
+
+.sidebar-commands-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  text-align: left;
+}
+
+.sidebar-commands-body {
+  padding-left: 4px;
+}
+
+/* コマンドアイコン (⚡) のサイズ調整 — :where(svg) ガードを踏まえて明示 */
+.sidebar-cmd-ico {
+  color: var(--text-faint);
+}
+.sidebar-cmd-ico svg { width: 14px; height: 14px; }
+
+/* 無効コマンド行: 色を落として区別 */
+.sidebar-command-item.sidebar-command-invalid {
+  opacity: 0.55;
+}
+
+/* 無効コマンドの警告アイコン */
+.sidebar-cmd-warn {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  color: var(--warn, #b7791f);
+}
+.sidebar-cmd-warn svg { width: 12px; height: 12px; }
+
 /* ---- 右サイドバー トグル(バックリンク | Claude) (Sf1a90a-2) --------------- */
 .seg-toggle {
   display: inline-flex;

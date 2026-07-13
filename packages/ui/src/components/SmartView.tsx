@@ -22,13 +22,21 @@
  *   - folder-pin (pin.path not ending in .md) を展開可能行として描画。
  *   - note-pin (pin.path ending in .md) は従来どおり葉として描画。
  *
+ * スマートコマンドセクション追加:
+ *   - GET /api/commands でコマンド定義一覧を取得し「スマートコマンド」セクションとして描画。
+ *   - クリックすると onOpenNote(command.path) → loadNote → isCommandFile → CommandEditor。
+ *   - commandSaveToken prop インクリメントで再取得 (保存後のリフレッシュ)。
+ *
  * testid 契約:
  *   smart-view, smart-view-loading, smart-view-error, smart-view-empty,
  *   smart-folder (data-id, aria-expanded), smart-folder-icon (data-icon),
  *   smart-folder-loading, smart-folder-error,
  *   smart-note (data-path), smart-pin (data-id, data-path),
  *   smart-context-menu, smart-context-edit, smart-context-delete,
- *   smart-delete-dialog, smart-delete-confirm, smart-delete-cancel
+ *   smart-delete-dialog, smart-delete-confirm, smart-delete-cancel,
+ *   sidebar-commands-section, sidebar-commands-section-header,
+ *   sidebar-commands-section-toggle, sidebar-commands-empty,
+ *   sidebar-command-item (data-command-id, data-valid)
  */
 import {
   useCallback,
@@ -40,7 +48,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type DragEvent as ReactDragEvent,
 } from 'react';
-import type { NoteMeta, PermissionMode, SmartViewItem } from '@loamium/shared';
+import type { CommandSummary, NoteMeta, PermissionMode, SmartViewItem } from '@loamium/shared';
 import { api } from '../api.js';
 import {
   ChevronDownIcon,
@@ -446,6 +454,125 @@ function SmartFolderPin({
 }
 
 // --------------------------------------------------------------------------
+// スマートコマンドセクション (commands/*.yaml 一覧)
+// --------------------------------------------------------------------------
+
+/** ⚡ アイコン (スマートコマンドセクション用) */
+function CommandBoltIcon(): JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 2L4 9h5l-2 5 7-8H9l1.5-4z" />
+    </svg>
+  );
+}
+
+type CommandsLoadState =
+  | { kind: 'idle' }
+  | { kind: 'loading' }
+  | { kind: 'error'; message: string }
+  | { kind: 'loaded'; commands: CommandSummary[] };
+
+interface SmartCommandsSectionProps {
+  onOpenNote: (path: string) => void;
+  /** インクリメントで一覧を再取得する (保存後リフレッシュ用) */
+  saveToken?: number | undefined;
+}
+
+function SmartCommandsSection({ onOpenNote, saveToken }: SmartCommandsSectionProps): JSX.Element {
+  const [collapsed, setCollapsed] = useState(false);
+  const [state, setState] = useState<CommandsLoadState>({ kind: 'loading' });
+
+  useEffect(() => {
+    let cancelled = false;
+    setState({ kind: 'loading' });
+    api.listCommands().then(
+      (commands) => {
+        if (!cancelled) setState({ kind: 'loaded', commands });
+      },
+      (err: unknown) => {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : String(err);
+          setState({ kind: 'error', message });
+        }
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [saveToken]);
+
+  const toggle = useCallback((): void => {
+    setCollapsed((prev) => !prev);
+  }, []);
+
+  return (
+    <div className="sidebar-commands-section" data-testid="sidebar-commands-section">
+      {/* セクションヘッダ */}
+      <div className="sidebar-commands-header" data-testid="sidebar-commands-section-header">
+        <button
+          type="button"
+          className="tree-item sidebar-commands-toggle"
+          data-testid="sidebar-commands-section-toggle"
+          onClick={toggle}
+          aria-expanded={!collapsed}
+        >
+          <ChevronDownIcon className={collapsed ? 'chev closed' : 'chev'} />
+          <span className="smart-icon svg-icon sidebar-cmd-ico" aria-hidden="true">
+            <CommandBoltIcon />
+          </span>
+          <span className="name">スマートコマンド</span>
+        </button>
+      </div>
+
+      {/* セクション本体 */}
+      {!collapsed && (
+        <div className="tree-children sidebar-commands-body">
+          {state.kind === 'loading' && (
+            <div className="smart-folder-state" data-testid="sidebar-commands-loading">
+              読み込み中…
+            </div>
+          )}
+          {state.kind === 'error' && (
+            <div className="smart-folder-state smart-folder-state-error" data-testid="sidebar-commands-error">
+              <WarnTriangleIcon />
+              <span>取得に失敗しました</span>
+            </div>
+          )}
+          {state.kind === 'loaded' && state.commands.length === 0 && (
+            <div className="smart-folder-state" data-testid="sidebar-commands-empty">
+              <span>コマンドがありません</span>
+            </div>
+          )}
+          {state.kind === 'loaded' &&
+            state.commands.map((cmd) => (
+              <button
+                key={cmd.id}
+                type="button"
+                className={`tree-item sidebar-command-item${cmd.valid ? '' : ' sidebar-command-invalid'}`}
+                data-testid="sidebar-command-item"
+                data-command-id={cmd.id}
+                data-valid={String(cmd.valid)}
+                title={cmd.valid ? (cmd.description ?? cmd.name) : `[無効] ${cmd.error}`}
+                onClick={() => onOpenNote(cmd.path)}
+              >
+                <span className="smart-icon svg-icon sidebar-cmd-ico" aria-hidden="true">
+                  <CommandBoltIcon />
+                </span>
+                <span className="name">{cmd.name}</span>
+                {!cmd.valid && (
+                  <span className="sidebar-cmd-warn" aria-hidden="true">
+                    <WarnTriangleIcon />
+                  </span>
+                )}
+              </button>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --------------------------------------------------------------------------
 // SmartView (ルートコンポーネント)
 // --------------------------------------------------------------------------
 
@@ -456,6 +583,8 @@ export interface SmartViewProps {
   triggerAdd?: number;
   /** モード確定時に通知 (App.tsx がヘッダの + ボタン表示判定に使う) */
   onModeChange?: (mode: PermissionMode | null) => void;
+  /** インクリメントでコマンド一覧を再取得する (コマンド保存後のリフレッシュ用) */
+  commandSaveToken?: number;
 }
 
 type ViewLoadState =
@@ -468,7 +597,7 @@ type FormMode =
   | { type: 'create' }
   | { type: 'edit'; item: SmartViewItem };
 
-export function SmartView({ onOpenNote, onSwitchToPhysical, triggerAdd, onModeChange }: SmartViewProps): JSX.Element {
+export function SmartView({ onOpenNote, onSwitchToPhysical, triggerAdd, onModeChange, commandSaveToken }: SmartViewProps): JSX.Element {
   const [viewState, setViewState] = useState<ViewLoadState>({ kind: 'loading' });
   const [mode, setMode] = useState<PermissionMode | null>(null);
   const [formMode, setFormMode] = useState<FormMode>(null);
@@ -817,6 +946,15 @@ export function SmartView({ onOpenNote, onSwitchToPhysical, triggerAdd, onModeCh
               />
             );
           })}
+
+        {/* スマートコマンド一覧 — スマートフォルダとの区切り線 */}
+        {viewState.kind === 'loaded' && viewState.items.length > 0 && (
+          <div className="sidebar-commands-sep" aria-hidden="true" />
+        )}
+        <SmartCommandsSection
+          onOpenNote={onOpenNote}
+          saveToken={commandSaveToken}
+        />
       </div>
     </>
   );

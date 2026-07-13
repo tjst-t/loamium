@@ -198,6 +198,8 @@ export function App(): JSX.Element {
   // ---- スマートビュー: モード + 作成フォームトリガー ----
   const [smartViewMode, setSmartViewMode] = useState<PermissionMode | null>(null);
   const [smartAddTrigger, setSmartAddTrigger] = useState(0);
+  // コマンド保存後にスマートビューのコマンド一覧を再取得するトークン
+  const [commandSaveToken, setCommandSaveToken] = useState(0);
   // ---- スマートビュー: 新規ファイルメニュー (Sebf6b0-3) ----
   const [smartNewFileMenuOpen, setSmartNewFileMenuOpen] = useState(false);
   // 新規ファイルダイアログ用: パス入力値 + フォルダ候補
@@ -1401,6 +1403,7 @@ export function App(): JSX.Element {
             onSwitchToPhysical={() => switchSidebarView('physical')}
             triggerAdd={smartAddTrigger}
             onModeChange={setSmartViewMode}
+            commandSaveToken={commandSaveToken}
           />
         ) : (
           <FileTree
@@ -1550,6 +1553,8 @@ export function App(): JSX.Element {
               void refreshTags();
               void refreshPropertyKeys();
               setBacklinksToken((v) => v + 1);
+              // スマートビューのコマンド一覧を最新化する
+              setCommandSaveToken((v) => v + 1);
             }}
             onSaveError={(msg) => setAppError(`保存に失敗しました — ${msg}`)}
           />

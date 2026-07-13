@@ -1,0 +1,34 @@
+## sidebar-commands 実装ログ (2026-07-13)
+
+### 変更概要
+- packages/ui/src/components/SmartView.tsx: SmartCommandsSection コンポーネント追加
+  - GET /api/commands でコマンド定義一覧を取得
+  - スマートビュー末尾に「スマートコマンド」セクションを描画
+  - 折り畳み/展開可能 (collapsed state)
+  - valid=false コマンドを警告スタイル + アイコンで区別
+  - commandSaveToken prop でコマンド保存後に再取得
+- packages/ui/src/App.tsx:
+  - commandSaveToken state 追加 (onSaved ハンドラで increment)
+  - SmartView に commandSaveToken prop を渡す
+- packages/ui/src/styles.css:
+  - .sidebar-commands-sep, .sidebar-commands-section, .sidebar-cmd-ico 等を追加
+
+### テスト結果
+mock: 8 tests passed (sidebar-commands.mock.spec.ts)
+  - AC-sidebar-cmd-1: セクション表示
+  - AC-sidebar-cmd-2: valid/invalid 描画
+  - AC-sidebar-cmd-3: クリック → CommandEditor
+  - AC-sidebar-cmd-4: 空リスト
+  - AC-sidebar-cmd-5: 折り畳み/展開
+
+regression (command-editor.mock + smart-view.mock): 22 passed
+
+tsc --noEmit: clean
+make lint: clean
+
+### testid 契約
+- sidebar-commands-section
+- sidebar-commands-section-header
+- sidebar-commands-section-toggle
+- sidebar-commands-empty
+- sidebar-command-item[data-command-id][data-valid]
