@@ -1,0 +1,45 @@
+{
+  "stopped_at": "milestone_S53409d",
+  "compromises": [
+    {
+      "type": "test_assertion_weakened",
+      "severity": "low",
+      "story": "S53409d-2",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "rationale": "/api/health に agent フィールドを additive に追加したため、health の完全一致 toEqual を toMatchObject に変更。mode/status の検証は維持し、agent フィールドは agent-chat mock/e2e で別途完全検証している。作業回避のための緩和ではなく additive 変更への追従。",
+      "diff_summary": "expect(health).toEqual({status,mode}) → toMatchObject({status,mode})",
+      "recommended_action": "許容。将来 health スキーマが安定したら agent 込みの完全一致に戻してもよい。",
+      "adr_ref": "none",
+      "overlooked_by_autopilot": false
+    }
+  ],
+  "blockers_encountered": [
+    {
+      "blocker": "実行環境の Node が v20.20.2 のみ (EOL 済み)。ADR-0011 の Node 22 化 + pi SDK (Node>=22.19 要求) が実行不能。",
+      "resolution": "ユーザー承認のうえ nvm で Node 22.23.1 をユーザー領域に導入し、~/.local/bin (PATH 先頭) に symlink。sudo 不要・システム node20 非変更・可逆。sub-agent/make も Node22 を解決。",
+      "status": "resolved"
+    },
+    {
+      "blocker": "pi SDK の noTools:'all' が customTools も含め全ツールを抑制し、LLM にツールが一切広告されない (agent-tools.e2e AC-3-1 が advertisedTools=[] で失敗)。mock テストでは SSE を完全モックするため検出できなかった。",
+      "resolution": "pi ソースを読み root cause 特定 (allowedToolNames=[] が isAllowedTool で全除外)。tools:[VAULT_READ_TOOL_NAMES] の allowlist 方式へ変更し、組み込み除外しつつ独自5ツールを広告。実 e2e で advertisedTools が正しい5種になることを確認。",
+      "status": "resolved"
+    }
+  ],
+  "scope_changes": [
+    {
+      "change": "カスタム read ツールを read_note に改名 + excludeTools で pi 組み込み全7種を明示拒否。",
+      "reason": "独立 verifier が『custom read が pi 組み込み read と名前衝突しており、pi の登録順が変われば任意ファイル読取の組み込み read が復活しうる』と指摘 (ADR-0012 の脆弱性)。衝突自体を排除して境界を堅牢化。AC-3-1 の期待ツール名を read_note に更新。",
+      "adr_ref": "ADR-0012"
+    },
+    {
+      "change": "AC-S53409d-1-1 の『CI が Node 22 を要求』は本リポジトリに CI システム (.github/workflows 等) が存在しないため充足対象外 (N/A)。engines(全workspace)+ .nvmrc で Node22 をローカル強制する部分は充足。",
+      "reason": "リポジトリに CI 基盤が無い。CI 導入自体は本スプリントのスコープ外。",
+      "adr_ref": "none"
+    },
+    {
+      "change": "既存 flaky テスト smart-folder-editor.e2e (AC-S7b2f22-2-1) をスプリント外だが付随修正 (.first() 依存 → data-path 直接指定)。フルスイートで他テスト fixture に汚染される順序依存だった。",
+      "reason": "本スプリントが追加した agent e2e とは無関係の既存問題だが、フルスイートを緑にするため厳密化方向で修正 (アサーション強化)。",
+      "adr_ref": "none"
+    }
+  ]
+}

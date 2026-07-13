@@ -1,60 +1,22 @@
 /**
- * parseAllowedOrigins / terminalConfigFromEnv のユニットテスト (S79c210-3)。
+ * parseMaxUpload / configFromEnv のユニットテスト。
  */
 import { describe, expect, it } from 'vitest';
-import { parseAllowedOrigins, terminalConfigFromEnv } from './config.js';
+import { parseMaxUpload } from './config.js';
 
-describe('parseAllowedOrigins', () => {
-  it('未設定・空文字は空配列', () => {
-    expect(parseAllowedOrigins(undefined)).toEqual([]);
-    expect(parseAllowedOrigins('')).toEqual([]);
-    expect(parseAllowedOrigins('   ')).toEqual([]);
+describe('parseMaxUpload', () => {
+  it('素の整数はバイトとして解釈する', () => {
+    expect(parseMaxUpload('1024')).toBe(1024);
   });
 
-  it('カンマ区切りを URL.origin へ正規化する', () => {
-    expect(parseAllowedOrigins('http://10.10.254.36:8203, https://notes.lan')).toEqual([
-      'http://10.10.254.36:8203',
-      'https://notes.lan',
-    ]);
+  it('kb / mb / gb の単位付きを変換する (大小不区別)', () => {
+    expect(parseMaxUpload('512kb')).toBe(512 * 1024);
+    expect(parseMaxUpload('50MB')).toBe(50 * 1024 * 1024);
+    expect(parseMaxUpload('1GB')).toBe(1024 ** 3);
   });
 
-  it('末尾スラッシュやパスは origin へ畳まれる', () => {
-    expect(parseAllowedOrigins('http://10.10.254.36:8203/')).toEqual(['http://10.10.254.36:8203']);
-  });
-
-  it('パース不能なオリジンは無視する (壊れた設定でガードを緩めない)', () => {
-    expect(parseAllowedOrigins('not-a-url, http://ok.lan')).toEqual(['http://ok.lan']);
-  });
-
-  it('サブドメインワイルドカードを保持する (scheme 有無・大小文字を正規化)', () => {
-    expect(parseAllowedOrigins('*.tjstkm.net')).toEqual(['*.tjstkm.net']);
-    expect(parseAllowedOrigins('https://*.TjstKm.net')).toEqual(['https://*.tjstkm.net']);
-    expect(parseAllowedOrigins('*.tjstkm.net, http://10.10.254.36:8203')).toEqual([
-      '*.tjstkm.net',
-      'http://10.10.254.36:8203',
-    ]);
-  });
-
-  it('TLD 全体 (*.net) や不正なワイルドカードは弾く', () => {
-    expect(parseAllowedOrigins('*.net')).toEqual([]);
-    expect(parseAllowedOrigins('ftp://*.tjstkm.net')).toEqual([]);
-    expect(parseAllowedOrigins('*.tjstkm .net')).toEqual([]);
-  });
-});
-
-describe('terminalConfigFromEnv allowedOrigins', () => {
-  it('有効時に allowedOrigins を含める', () => {
-    const cfg = terminalConfigFromEnv(
-      { LOAMIUM_TERMINAL: '1', LOAMIUM_TERMINAL_ALLOWED_ORIGINS: 'http://10.10.254.36:8203' },
-      'full',
-    );
-    expect(cfg.enabled).toBe(true);
-    expect(cfg.allowedOrigins).toEqual(['http://10.10.254.36:8203']);
-  });
-
-  it('無効時 (env 未設定) でも allowedOrigins は解釈される', () => {
-    const cfg = terminalConfigFromEnv({ LOAMIUM_TERMINAL_ALLOWED_ORIGINS: 'https://notes.lan' }, 'full');
-    expect(cfg.enabled).toBe(false);
-    expect(cfg.allowedOrigins).toEqual(['https://notes.lan']);
+  it('不正な値は例外を投げる', () => {
+    expect(() => parseMaxUpload('notanumber')).toThrow(/invalid LOAMIUM_MAX_UPLOAD/);
+    expect(() => parseMaxUpload('')).toThrow(/invalid LOAMIUM_MAX_UPLOAD/);
   });
 });

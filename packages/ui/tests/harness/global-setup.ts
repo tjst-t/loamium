@@ -155,12 +155,6 @@ export default async function globalSetup(): Promise<void> {
       LOAMIUM_MODE: 'full',
       PORT: '0',
       LOAMIUM_MAX_UPLOAD: '5mb',
-      // ターミナル E2E (Sb7f458): 実シェルで有効化 (claude はログイン前提の外部依存)。
-      // dotfile (starship 等) 非依存の決定論的プロンプトにするためラッパ経由で起動する
-      // — 生の /bin/bash だと ~/.bashrc のプロンプトに引きずられ terminal specs が
-      // 環境依存で落ちる (test-shell.sh 参照)。
-      LOAMIUM_TERMINAL: '1',
-      LOAMIUM_TERMINAL_CMD: path.join(uiRoot, 'tests/harness/test-shell.sh'),
     },
     stdio: ['ignore', 'pipe', 'pipe'],
     detached: true,

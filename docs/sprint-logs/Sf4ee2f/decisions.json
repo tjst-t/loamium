@@ -1,0 +1,8 @@
+{
+  "sprint": "Sf4ee2f",
+  "decisions": [
+    { "id": "Sf4ee2f-D1", "title": "共通フィルタ集約: shared の privacy-glob + server の共通 index ビュー", "rationale": "ADR-0018『強制点はエージェントに渡る直前の共通フィルタに集約(各ツールに散らすとザル漏れ)』。glob マッチは shared に、結果除外は server の1つの privacy-filtered ビューに集約する。", "reference": "ADR-0018 notes; DESIGN_PRINCIPLES priority 2 (データ安全性)" },
+    { "id": "Sf4ee2f-D2", "title": "tags はエージェント向けに非 deny ノートから再集約する", "rationale": "tags() は全ノート集約のため出力フィルタでは deny ノート限定のタグが漏れる。QueryableNote.tags を持つ非 deny ノートからエージェント用に再集約する。", "reference": "ADR-0018 decision (tags 結果から除外)" },
+    { "id": "Sf4ee2f-D3", "title": "壊れた privacy JSON は安全側(deny-all)に倒す", "rationale": "priority 2『迷ったらファイルを守る側』。設定破損時に fail-open で機密を露出するより、エージェントの読み取りを止める fail-closed を選ぶ。ファイル不在は既定どおり空(何も隠さない)。", "reference": "DESIGN_PRINCIPLES priority 2; ADR-0018 (deny 優先)" }
+  ]
+}

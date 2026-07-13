@@ -73,11 +73,26 @@ export async function installCatchAll(page: Page): Promise<string[]> {
   await page.route('**/api/property-keys', (route) => {
     void route.fulfill(json({ keys: [] }));
   });
-  // GET /api/health (モード確認 — S8086d9-2 BookmarkStar / TerminalPane)。
-  // 既定は full モード・ターミナル無効。モードを変えるテストは後から自前の route で上書きする。
+  // GET /api/health (モード確認 — S8086d9-2 BookmarkStar)。
+  // 既定は full モード・エージェント未設定。モードを変えるテストは後から自前の route で上書きする。
   await page.route('**/api/health', (route) => {
     void route.fulfill(
-      json({ status: 'ok', mode: 'full', terminal: { enabled: false, reason: null } }),
+      json({ status: 'ok', mode: 'full', agent: { enabled: false, reason: 'not_configured' } }),
+    );
+  });
+  // GET /api/journal は起動時の定常呼び出し (App が今日のジャーナルを開く)。
+  // 既定は空内容の今日のエントリ。エディタを検証するテストは後から自前の route で上書きする。
+  await page.route('**/api/journal', (route) => {
+    void route.fulfill(
+      json({
+        date: '2026-07-11',
+        path: 'journals/2026-07-11.md',
+        content: '',
+        frontmatter: null,
+        body: '',
+        created: false,
+        mtime: 1000,
+      }),
     );
   });
   // GET /api/commands (スマートコマンド一覧 — Sde7a63-3)。

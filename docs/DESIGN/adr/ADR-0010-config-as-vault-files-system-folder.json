@@ -1,0 +1,41 @@
+{
+  "id": "ADR-0010",
+  "title": "設定系データは vault 内の Markdown / YAML ファイルで管理する(system フォルダ)。ADR-0002 を supersede する",
+  "status": "accepted",
+  "date": "2026-07-11",
+  "context": "設定系データの保存形態が混在していた: テンプレートは可視 templates/ の .md ファイル、スマートフォルダは .loamium/smart-folders.json(ADR-0002 の『.loamium は使い捨て』への明示的例外)、ブックマークはノート frontmatter(ADR-0004)、進行中の worktree のスマートコマンドはフォルダ定義。テンプレ=可視 md とスマートフォルダ=隠し JSON という不整合があり、agent(Claude Code)から見ると前者は notes API で編集できるが後者は専用 config API が要る、という非対称も生む。一貫性(全部ファイル)+ agent ネイティブ(ADR-0009: 同じ notes API で定義を作成/編集できる)+ ADR-0002 の例外解消を狙い、ユーザーが著す設定系データの保存形態を統一する必要があった。",
+  "alternatives": [
+    {
+      "name": "設定系ユーザー定義を vault の md/yaml ファイル(system フォルダ)に統一 (採用)",
+      "tradeoff": "全設定が『vault のファイル』で一貫し、agent が同じ notes API で操作でき、ADR-0002 の例外も消える。移行コストと定義ファイルの手編集リスクを負う。"
+    },
+    {
+      "name": "現状維持(テンプレ=md / スマートフォルダ=.loamium JSON の混在)",
+      "tradeoff": "移行不要だが不整合・agent 非対称・ADR-0002 例外が残る。不採用。"
+    },
+    {
+      "name": "全設定を .loamium に JSON で寄せる",
+      "tradeoff": "機械可読だが不透明・agent 編集に特殊 API・Obsidian で見えず、『ファイルが正・移植可能』という identity に反する。不採用。"
+    },
+    {
+      "name": "全設定を .md にする(全体設定も含む)",
+      "tradeoff": "本文のないアプリ全体設定を .md に押し込むと『frontmatter だけの空ノート』で不自然。素 YAML の方が honest。不採用。"
+    }
+  ],
+  "decision": "(1) ユーザーが著す設定系定義(テンプレート / スマートフォルダ / スマートコマンド / 保存クエリ)は vault 内の system/ フォルダにファイルとして置き Git 追跡する。app はツリーで既定非表示にし表示トグルを持つ(ディスク上は可視・先頭 . でない名前。app の隠しセグメント規則や .gitignore の .loamium とは別)。(2) per-item 定義は .md + YAML frontmatter とする(メタ情報=frontmatter、DQL は本文の ```dql フェンス)。配置は system/templates/*.md, system/smart-folders/*.md, system/commands/*.md。(3) 順序は各定義ファイルの order: frontmatter で持つ(GUI が書き換える前提。order → ファイル名で安定ソートし gap/tie を許容)。(4) アプリ全体の単一設定は system/settings.yaml(素 YAML)に置く。端末固有・再構築可能な状態(検索インデックスキャッシュ・ペイン幅・最後に開いたノート等)は従来どおり .loamium/(gitignore)に残す。(5) 境界原則: 『versioning + 移植 + 人/agent 編集したい』→ system/ のファイル。『再構築可能・端末依存』→ .loamium/。(6) 設定形式の一言原則: 設定は YAML — ノートっぽい per-item は md 内の frontmatter、単一設定は素の .yaml、どちらも同じ YAML パーサ(frontmatter は VISION で第一級)。これにより ADR-0002(.loamium/smart-folders.json + 例外)を supersede する。ADR-0003 の pin/query/icon モデルは維持し、『順序付き配列』という格納詳細のみ per-file + order: frontmatter に置き換える。",
+  "consequences": [
+    "+ 全設定系が『vault のファイル』に一貫し、agent が同じ notes API で定義を作成/編集でき ADR-0009(エージェントネイティブ)を強化する",
+    "+ 『.loamium は使い捨て』不変条件が純化する(ADR-0002 の例外が消え、.loamium は純キャッシュへ戻る)",
+    "+ 1 枚岩 JSON → 定義 1 個 = ファイル 1 個で diff / 手編集 / マージが楽。Obsidian で開け、移植可能",
+    "+ 定義 md を開くと本文の ```dql がライブプレビューでフォルダ結果を見せ、dataview 描画をドッグフーディングできる",
+    "- 移行が必要: templates/ → system/templates/(route の破壊的変更)、.loamium/smart-folders.json → system/smart-folders/*.md(読み書き実装の書き換え + 一回きりの移行 + 後方互換の寛容 read)。進行中のスマートコマンド worktree は既にフォルダ定義で作成済みのため、後追いで system/commands/ 規約へまとめて統一する(二重移行を許容)",
+    "- ユーザーが定義ファイルを壊しうる → 寛容 read + zod 検証 + 空/既定フォールバック(property-types / smart-folders の既存パターン)で吸収する",
+    "- system/ は Obsidian にも表示される(.obsidian 同様に許容範囲)。vault 直下にフォルダが増えるが app の非表示トグルで緩和",
+    "- 順序を order: frontmatter に置くため、GUI 並べ替え時に該当ファイルの order を再採番する処理が要る(gap/tie 許容の安定ソート)"
+  ],
+  "reversibility_cost": "medium",
+  "affects": ["server", "ui", "cli"],
+  "supersedes": "ADR-0002",
+  "superseded_by": null,
+  "notes": "ADR-0003 の SmartViewItem(pin/query・任意 icon)モデルは有効なまま。本 ADR は格納形態(per-file の .md)と順序(order: frontmatter)のみ更新する。data.json の datastores 改訂が必要(.loamium/smart-folders.json → system/smart-folders/*.md、system/settings.yaml を追記、per-item 定義の frontmatter スキーマを追記)。実装詳細(system フォルダ名を設定可能にするか、移行タイミング、寛容 read の具体、GUI の order 再採番方式)は sprint plan 送り。system フォルダ名は小文字 system/ を既定とする。"
+}

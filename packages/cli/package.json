@@ -6,6 +6,9 @@
   "bin": {
     "loamium": "bin/loamium.js"
   },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "lint": "tsc --noEmit"
   },

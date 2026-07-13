@@ -1,22 +1,19 @@
-# Roadmap generation — 設計判断ログ
+# Roadmap 反映 — エージェント次段 (ADR-0014〜0014)
 
-日時: 2026-07-03 / 生成: autopilot setup (autonomous)
+2026-07-12。`sprint roadmap`(ユーザー指示)。完了済み30スプリントの履歴は保全し、
+前方の coarse エージェントアークのみを ADR に沿って再構成した(全再生成は破壊的なため不採用)。
 
-## 構成: 6 Sprint、マイルストーン 2 箇所
+## 前方アーク(S53409d[done] の後)
+1. **S10a31c** — システムプロンプト + help ツール(ADR-0014)
+2. **Sf4ee2f** *[MILESTONE]* — 機密領域 deny リスト(ADR-0018)。書込/Web の前にセキュリティ境界を敷く
+3. **S5bd678**(再構成)— ケーパビリティ別権限 + 書き込みツール(ADR-0015 supersedes ADR-0012 / ADR-0016)
+4. **S5e0206** *[MILESTONE]* — Web アクセス opt-in(ADR-0017)。← 今回の autopilot 実行の最終目標
+5. **S2fe109** *[MILESTONE]* — 定期実行(ADR-0013)。今回の実行対象外(後段)
 
-1. `Sd63ad1` REST API コア(notes CRUD / journal / 監査ログ・権限モード)
-2. `S31ba00` インデックス(検索 / バックリンク / ファイル監視)
-3. `S0c9a48` CLI と Skill **[MILESTONE: エージェント統合 MVP]**
-4. `Sa704c3` UI 基盤(ファイルツリー / エディタ / ジャーナル着地)
-5. `S9ab6c3` エディタ体験(アウトライン操作 C 方式 / ライブプレビュー / 3 レジストリ)
-6. `S6fbf45` リンク機構(オートコンプリート / バックリンクパネル / リネーム追従)**[MILESTONE: UI MVP 完成]**
+## シーケンスの根拠
+- ADR-0014 を先頭に: 現行の読み取り専用エージェントにも効く高価値・低リスク改善(空プロンプト解消)
+- ADR-0018 を書込/Web の前に: deny 境界を先に敷くのが安全(セキュリティ・ファースト、DESIGN 原則2)
+- ADR-0015+0012: 権限モデルの本体。help 知識(Template/DataView)と機密境界の上に載せる
+- ADR-0017(Web)は最後: 漏洩面が最大、権限モデル確立後に opt-in で追加
 
-## 主要判断と根拠
-
-- **API-first の順序**: SPEC.md §7 の実装順序(API → CLI → Skill → UI)をそのまま採用。「API を先に作ると Claude Code でノートを書きながら開発できる」という SPEC の意図に一致。
-- **監査ログ・権限モードを Sprint 1 に配置**: SPEC §9「最優先の 3 つ」+ DESIGN_PRINCIPLES priority 2(データ安全性 > 開発速度)。後付けは危険と明記されているため。
-- **ファイル監視を Sprint 2 に配置**: SPEC §9 高-1/高-4(同期と競合制御・インデックス再構築はデータフローの最初から)。
-- **リネーム追従を Sprint 6 に配置**: SPEC §9 高-2。リンク UI と同時に完成させる(バックリンク基盤が先に必要)。
-- **マイルストーン配置**: Sprint 3 終了時(エージェント統合という独自価値が完成し、CLI で実際に触れる)と Sprint 6 終了時(MVP スコープ完了)。依存境界(S0c9a48 → Sa704c3 は独立トラック開始)とも一致。
-- **スコープ外に送ったもの**: Cloudflare Tunnel(実アカウント必要)、Claude Code タブ・Tauri・グラフビュー(SPEC で将来/MVP 後と明記)、transclusion・server レンダラー(3 レジストリの上に後付け可能)→ すべて backlog に記録。
-- **Tauri 化は MVP スコープ 5 項目に含まれるが roadmap から除外**: SPEC §3 で「デスクトップ化を急がず Cloudflare Tunnel 構成のままブラウザで運用する」選択肢が明記されており、VISION の成功基準にも含まれないため backlog へ。
+すべて coarse。各バッチ冒頭で just-in-time に elaboration する。

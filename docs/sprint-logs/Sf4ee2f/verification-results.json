@@ -1,0 +1,15 @@
+{
+  "sprint": "Sf4ee2f",
+  "overall_machine_status": "pass",
+  "tsc": "pass (shared + server)",
+  "tests": { "server+shared": "308 passed / 0 failed", "new_files": "47 passed (privacy-glob 16, agent-privacy 14, agent-tools 17)" },
+  "acceptance_criteria": { "AC-Sf4ee2f-1-1": "pass", "AC-Sf4ee2f-1-2": "pass", "AC-Sf4ee2f-1-3": "pass" },
+  "done_judgment": {
+    "guard4_priority9_exception": "n/a",
+    "guard5_call_path": "pass (loadAgentPrivacy+isDenied wired in createPiSession+openPiSession; read_note deny + createPrivacyFilteredIndex)",
+    "guard6_deferred_comment": "pass (none)",
+    "forbidden_degradation": "none",
+    "human_search_path_unchanged": "confirmed (REST search/notes/smart routes untouched)",
+    "overall": "done"
+  }
+}

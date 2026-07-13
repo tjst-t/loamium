@@ -1,0 +1,27 @@
+{
+  "id": "ADR-0007",
+  "title": "ランディングページは素の静的HTMLをCloudflare Pagesで公開する",
+  "status": "accepted",
+  "date": "2026-07-11",
+  "context": "Loamium のプロダクト告知用ランディングページ(LP)を作る。既に prototype/styles.css とHTMLモックがあり、ビジュアル言語は流用できる。LPは単一マーケ1ページで足り、本体(ノートアプリ)とは別サブプロジェクト。GitHub リモートは tjst-t/loamium。本体は既に Cloudflare Tunnel + Access を外部公開に使用しており、Cloudflare の管理面が存在する。公開先(Cloudflare Pages vs GitHub Pages)とビルド方式(素HTML vs 静的サイトジェネレータ)、および使い方ドキュメントの公開方針を、実装前に確定させる必要があった。",
+  "alternatives": [
+    { "name": "GitHub Pages + 素HTML", "tradeoff": "新サービス不要だがプロジェクトページは /loamium 接頭辞が付き相対パス徹底が必要。PR毎プレビューは自作。" },
+    { "name": "Cloudflare Pages + 素HTML", "tradeoff": "既存CFスタックと管理面が揃い、サブドメインrootでbase-path問題を回避、PR毎の自動プレビューURLが得られる。CFアカウント連携が要る。" },
+    { "name": "Astro / VitePress 等のSSG", "tradeoff": "コンポーネント化・多ページ・docs同居に強いが、1枚LPにはビルド工程が過剰。" },
+    { "name": "docs も今すぐ VitePress で公開", "tradeoff": "docs が薄い現時点では過剰。README/SPEC の実体Markdownが既にあり、当面はリンクで足りる。" }
+  ],
+  "decision": "LPは素のHTML/CSS(prototype/styles.css 流用)で単一1ページとして作り、Cloudflare Pages で公開する。使い方ドキュメントは当面 LP から GitHub README/リポジトリへリンクし、独立した docs サイトは作らない。",
+  "consequences": [
+    "+ ビルド工程ゼロ・依存ゼロで、素のエディタでも壊れず最速で公開できる",
+    "+ Cloudflare の管理面が本体(Tunnel+Access)と揃い、PR毎の自動プレビューURLでLP調整が回る",
+    "+ サブドメインrootに置けば絶対パスでもパスが壊れない(GitHub /loamium 接頭辞問題を回避)",
+    "+ LPソースは公開先に非依存 → GitHub Pages へ乗り換えても低コスト",
+    "- 静的のみ。フォーム送信等の動的機能は将来 Pages Functions 等の後付けが必要",
+    "docs が育ってきたら VitePress を docs. サブドメイン or /docs パスに後付けする(LPとは分離)。これは可逆な後回し判断。"
+  ],
+  "reversibility_cost": "low",
+  "affects": ["landing-page (新サブプロジェクト、system.json 未登載)"],
+  "supersedes": null,
+  "superseded_by": null,
+  "notes": "独自ドメイン(例 loamium.dev)は未定。必要になれば CNAME 設定で後付け可。LPの本体設計(VISION/domain/system)は不要と判断 — 中身はほぼ可逆・ローカルな判断で sprint の領分。"
+}

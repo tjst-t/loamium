@@ -1,0 +1,41 @@
+{
+  "story": "S53409d-1",
+  "story_type": "mixed",
+  "user_role": "Loamium を開発・運用する本人 (vault サーバーを起動しブラウザと API で使う)",
+  "entry_point": "make test / make build (Node 22) + http://localhost:{port}/api + ブラウザの右パネル",
+  "scenarios": [
+    {
+      "id": "scenario-1",
+      "linked_ac": ["AC-S53409d-1-1"],
+      "description": "Node 22 上でビルド・テスト・lint がすべて通る",
+      "preconditions": ["Node 22 LTS がインストールされている"],
+      "steps": [
+        { "n": 1, "action": "user runs `node --version`", "expected": "v22.x が表示される (engines が要求する範囲)" },
+        { "n": 2, "action": "user runs `make build && make test && make lint`", "expected": "すべて exit code 0。node-pty / xterm のビルドが発生しない" }
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "scenario-2",
+      "linked_ac": ["AC-S53409d-1-2"],
+      "description": "旧ターミナル API が存在しない (実 HTTP)",
+      "preconditions": ["make serve でサーバー起動済み"],
+      "steps": [
+        { "n": 1, "action": "GET /api/terminal (実 HTTP クライアント)", "expected": "404 Not Found" },
+        { "n": 2, "action": "GET /api/health", "expected": "200。レスポンス JSON に terminal キーが存在しない" },
+        { "n": 3, "action": "user runs `grep -r node-pty packages/*/package.json` 相当の依存検査", "expected": "node-pty / xterm 系依存が 0 件" }
+      ],
+      "cleanup": ["make stop"]
+    },
+    {
+      "id": "scenario-3",
+      "linked_ac": ["AC-S53409d-1-3"],
+      "description": "右パネルにターミナルタブがない (実ブラウザ — S53409d-2 の GUI テストファイルに同居)",
+      "preconditions": ["make serve でサーバー起動済み", "LOAMIUM_TERMINAL=1 を設定して起動 (無効であることの確認のため)"],
+      "steps": [
+        { "n": 1, "action": "ブラウザでノートを開き右パネルを表示する", "expected": "タブは『バックリンク』と『エージェント』のみ。ターミナル/Claude タブが存在しない (xterm DOM 要素なし)" }
+      ],
+      "cleanup": []
+    }
+  ]
+}

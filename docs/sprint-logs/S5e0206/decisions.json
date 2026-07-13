@@ -1,0 +1,29 @@
+{
+  "sprint": "S5e0206",
+  "decisions": [
+    {
+      "id": "S5e0206-D1",
+      "title": "web ツールは web_fetch(URL取得) + web_search(クエリ)の2種",
+      "rationale": "ADR-0017『URL 取得 + Web 検索ツール』。web_fetch は設定不要で完全にテスト可能。web_search は検索プロバイダ(agent.json 設定)依存で、未設定時はエラーにせず明示メッセージ(実プロバイダは sprint ローカル)。",
+      "reference": "ADR-0017 decision + notes"
+    },
+    {
+      "id": "S5e0206-D2",
+      "title": "SSRF 防止: isPublicHttpUrl でスキーム制限 + プライベート/ループバック/リンクローカル拒否",
+      "rationale": "任意 URL 取得はサーバーを踏み台にした内部アクセス(SSRF)経路になりうる。http/https のみ許可し、localhost/127./10./172.16-31/192.168/169.254/::1 等を拒否。純関数でユニットテスト。テスト時は allowPrivate オプションでローカルサーバへ実 fetch し、ツール本体(取得/整形/監査)を実機検証する。",
+      "reference": "ADR-0017 consequences (URL スキーム制限は sprint 検討); DESIGN_PRINCIPLES priority 2"
+    },
+    {
+      "id": "S5e0206-D3",
+      "title": "監査は URL/クエリのみ記録、取得内容は記録しない",
+      "rationale": "ADR-0017『Web アクセスを監査ログに URL 記録(内容は記録しない)』。プライバシーと監査可能性の両立。",
+      "reference": "ADR-0017 decision"
+    },
+    {
+      "id": "S5e0206-D4",
+      "title": "組み込み既定 Web 検索プロバイダ (DuckDuckGo lite → Wikipedia) を追加 (review-driven)",
+      "rationale": "ユーザー要望: webSearch 未設定でも既定で使える方が良い。ADR-0017 は検索プロバイダ実体を sprint ローカル判断と明記しており、opt-in 性(web 既定 off)・監査・機密非開示の契約は不変。未設定→組み込み DuckDuckGo lite(失敗時 Wikipedia)、agent.json の webSearch.endpoint があれば上書き。",
+      "reference": "ADR-0017 notes (プロバイダは sprint ローカル); milestone review"
+    }
+  ]
+}

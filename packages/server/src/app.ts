@@ -12,9 +12,11 @@ import { propertyTypesRoutes } from './routes/property-types.js';
 import { templatesRoutes } from './routes/templates.js';
 import { smartFoldersRoutes } from './routes/smart-folders.js';
 import { commandsRoutes } from './routes/commands.js';
+import { agentRoutes } from './routes/agent.js';
 import { auditMiddleware } from './audit.js';
 import { permissionMiddleware } from './permissions.js';
 import { indexSyncMiddleware } from './indexSync.js';
+import { loadAgentConfig } from './agent-service.js';
 import type { VaultIndex } from './noteIndex.js';
 
 export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv> {
@@ -82,17 +84,15 @@ export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv>
     return c.json({ error: 'internal_error', message: 'internal server error' }, 500);
   });
 
-  app.get('/api/health', (c) => {
-    // terminal は機能フラグ (Sb7f458-2) — UI が無効理由の表示・WS 接続可否の判定に使う。
-    // cmd は有効時のみ返す (無効サーバーの構成情報は最小限に)
+  app.get('/api/health', async (c) => {
+    // エージェント設定の有無を確認する (遅延読込 — 毎回ファイルを読む)
+    const agentResult = await loadAgentConfig(config.vaultRoot);
     const res: HealthResponse = {
       status: 'ok',
       mode: config.mode,
-      terminal: {
-        enabled: config.terminal.enabled,
-        reason: config.terminal.reason,
-        ...(config.terminal.enabled ? { cmd: config.terminal.cmd } : {}),
-      },
+      agent: agentResult.ok
+        ? { enabled: true, reason: null }
+        : { enabled: false, reason: agentResult.reason },
     };
     return c.json(res);
   });
@@ -118,6 +118,8 @@ export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv>
   app.route('/', smartFoldersRoutes(config, index));
   // スマートコマンド定義一覧 (Sd22b1f-1)
   app.route('/', commandsRoutes(config));
+  // エージェント (S53409d-3) — 権限・監査はルート内で管理
+  app.route('/', agentRoutes(config, index));
 
   return app;
 }

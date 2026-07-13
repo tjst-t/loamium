@@ -1,0 +1,42 @@
+{
+  "sprint": "S53409d",
+  "story": "S53409d-3",
+  "state_diagram": "stateDiagram-v2\n    Streaming --> ToolRunning: tool_start (チップ + スピナー)\n    ToolRunning --> Streaming: tool_end (チップ確定)\n    Streaming --> TextDelta: text_delta (本文逐次描画)\n    TextDelta --> LinkResolved: 描画時に [[WikiLink]] をリンク解決 (存在ノート=通常 / 不在=壊れ表示)",
+  "scenarios": {
+    "entry_point": "S53409d-2 のチャットペイン内 (アシスタントメッセージの一部として描画)",
+    "happy_path": "ユーザーが vault について質問 → エージェントが search 等を実行 (チップにツール名+引数要約、実行中スピナー) → 出典 [[リンク]] 付きで回答 → リンククリックで当該ノートへ遷移",
+    "data_states": {
+      "empty": "ツール未実行の応答: チップなしの通常バブル",
+      "loading": "tool_start〜tool_end 間: チップがスピナー付き実行中表示",
+      "error": "ツール実行失敗: チップがエラー表示になり、エージェントはテキストで続行 (会話は壊れない)"
+    },
+    "edge_cases": [
+      "存在しないノートへの [[リンク]] は壊れリンク (赤) 表示 — 既存規約踏襲",
+      "ツール引数が長い場合は要約表示 + 折りたたみで全文",
+      "連続ツール実行 (search → read × N) が個別チップで並ぶ"
+    ],
+    "success_feedback": "チップの実行中→確定遷移と出典リンクの表示",
+    "failure_feedback": "チップのエラー表示。チャット自体は継続可能"
+  },
+  "endpoint_contracts": [
+    {
+      "path": "/api/agent/sessions/{id}/messages",
+      "method": "POST",
+      "registered": false,
+      "request_fields": { "content": "string" },
+      "response_fields": { "(SSE)": "tool_start / tool_end イベントは S53409d-2 の契約を共有" },
+      "note": "ツール実体 (search/query/read/backlinks/tags) はサーバー内部サービス直呼び。ツールセットが read 系のみであることは tests/acceptance + unit で検証 (AC-S53409d-3-1/3-4)"
+    }
+  ],
+  "data_testids": [
+    "agent-tool-chip",
+    "agent-tool-chip-running",
+    "agent-tool-detail",
+    "agent-wikilink",
+    "agent-wikilink-broken"
+  ],
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/agent-tools.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/agent-tools.mock.spec.ts"
+  }
+}

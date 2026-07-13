@@ -13,7 +13,6 @@
  */
 import { Hono } from 'hono';
 import {
-  appendText,
   applyJournalTemplate,
   insertUnderHeading,
   isValidJournalDate,
@@ -28,6 +27,7 @@ import {
 } from '@loamium/shared';
 import type { ServerConfig } from '../config.js';
 import { noteMtime, readNote, writeNote } from '../vault.js';
+import { appendToJournal } from '../note-service.js';
 import { errorJson, parseBody, setAudit, type AppEnv } from '../http.js';
 
 export function journalRoutes(config: ServerConfig): Hono<AppEnv> {
@@ -87,22 +87,25 @@ export function journalRoutes(config: ServerConfig): Hono<AppEnv> {
     if (!isValidJournalDate(date)) {
       return errorJson(c, 400, 'invalid_date', `invalid date: "${date}" (expected YYYY-MM-DD)`);
     }
+    // audit パスは note-service に入る前に確定させる (振る舞い不変)。
     const rel = journalPath(date);
     setAudit(c, 'journal.append', rel);
 
-    const existing = await readNote(config.vaultRoot, rel);
-    const created = existing === null;
-
-    let newContent: string;
     if (body.data.section !== undefined && body.data.section !== '') {
-      // section 指定: 見出し配下の末尾に挿入する [AC-Sd22b1f-3-1]
-      newContent = insertUnderHeading(existing ?? '', body.data.section, body.data.content);
-    } else {
-      // section なし: 従来どおりファイル末尾に追記する (後方互換)
-      newContent = appendText(existing ?? '', body.data.content);
+      // section 指定: 見出し配下の末尾に挿入する [AC-Sd22b1f-3-1]。
+      // insertUnderHeading は直接 read/write で適用する (appendToJournal は section 未対応)。
+      const existing = await readNote(config.vaultRoot, rel);
+      const created = existing === null;
+      const newContent = insertUnderHeading(existing ?? '', body.data.section, body.data.content);
+      await writeNote(config.vaultRoot, rel, newContent);
+      const res: JournalAppendResponse = { date, path: rel, created };
+      return c.json(res, created ? 201 : 200);
     }
 
-    await writeNote(config.vaultRoot, rel, newContent);
+    // section なし: ADR-0016 準拠で note-service 経路を通す。
+    // appendToJournal は追記結果 (created 判定込み) を返す。
+    const { result } = await appendToJournal(config, date, body.data.content);
+    const created = result.ok ? result.created : false;
 
     const res: JournalAppendResponse = { date, path: rel, created };
     return c.json(res, created ? 201 : 200);

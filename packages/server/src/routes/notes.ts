@@ -12,8 +12,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import {
-  appendText,
-  countOccurrences,
   noteAppendRequestSchema,
   notePropertyWriteRequestSchema,
   notePatchRequestSchema,
@@ -30,6 +28,7 @@ import {
   extractOutgoingLinks,
   extractNoteMetaTags,
   countWords,
+  countOccurrences,
   VaultPathError,
   type NoteDeleteResponse,
   type NoteMetaResponse,
@@ -43,6 +42,7 @@ import {
 import type { ServerConfig } from '../config.js';
 import { deleteNote, listNoteFiles, noteMtime, readNote, writeNote } from '../vault.js';
 import type { VaultIndex } from '../noteIndex.js';
+import { appendToNote, patchNote } from '../note-service.js';
 import { errorJson, parseBody, setAudit, type AppEnv } from '../http.js';
 import { markdownToHtml, htmlToPdf } from '../export.js';
 import { writeAuditEntry } from '../audit.js';
@@ -571,12 +571,13 @@ export function notesRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
       setAudit(c, 'note.append', rel);
       const body = await parseBody(c, noteAppendRequestSchema);
       if (!body.ok) return body.response;
-      const existing = await readNote(config.vaultRoot, rel);
-      if (existing === null) {
-        return errorJson(c, 404, 'not_found', `note not found: ${rel}`);
+      // ADR-0016: 書き込みは note-service に集約 (REST/CLI/エージェント同一経路)。
+      const result = await appendToNote(config, rel, body.data.content);
+      if (!result.ok) {
+        // append は not_found のみ。REST は 404 として返す (従来と同一)。
+        return errorJson(c, 404, 'not_found', result.message);
       }
-      const appended = await writeNote(config.vaultRoot, rel, appendText(existing, body.data.content));
-      const res: NoteWriteResponse = { path: rel, created: false, mtime: appended.mtime };
+      const res: NoteWriteResponse = { path: rel, created: false, mtime: result.mtime };
       return c.json(res);
     }
 
@@ -584,24 +585,23 @@ export function notesRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
     setAudit(c, 'note.patch', rel);
     const body = await parseBody(c, notePatchRequestSchema);
     if (!body.ok) return body.response;
-
-    const patchResult = await applyNotePatch(config, rel, body.data.old, body.data.new);
-    if (!patchResult.ok) {
-      if ('notFound' in patchResult) {
-        return errorJson(c, 404, 'not_found', `note not found: ${rel}`);
+    // ADR-0016: old→new 部分置換の 409 セマンティクス (not-found / ambiguous) は
+    // note-service へ移し、ルートは結果型で HTTP ステータスを出し分ける (振る舞い不変)。
+    // applyNotePatch は commands executor (ADR-0021 / Sf2f114-4) でも再利用される。
+    const result = await patchNote(config, rel, body.data.old, body.data.new);
+    if (!result.ok) {
+      // 従来の HTTP マッピングを厳密に踏襲する (振る舞い不変):
+      //   ノート不在 → 404 not_found / old 0 箇所 → 409 old_not_found /
+      //   old 複数箇所 → 409 ambiguous_match。
+      if (result.reason === 'not_found') {
+        return errorJson(c, 404, 'not_found', result.message);
       }
-      if ('oldNotFound' in patchResult) {
-        return errorJson(c, 409, 'old_not_found', 'old string not found in note');
+      if (result.reason === 'ambiguous') {
+        return errorJson(c, 409, 'ambiguous_match', result.message);
       }
-      // ambiguous
-      return errorJson(
-        c,
-        409,
-        'ambiguous_match',
-        `old string matches ${patchResult.ambiguous} locations; provide a more specific old string`,
-      );
+      return errorJson(c, 409, 'old_not_found', result.message);
     }
-    const res: NoteWriteResponse = { path: rel, created: false, mtime: patchResult.mtime };
+    const res: NoteWriteResponse = { path: rel, created: false, mtime: result.mtime };
     return c.json(res);
   });
 

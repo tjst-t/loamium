@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { normalizeVaultFilePath, VaultPathError } from './path.js';
 import { parseQuery, DqlParseError } from './dql.js';
 import { commandParamSchema } from './loamium-command.js';
+import { AGENT_CAPABILITIES, agentPermissionsSchema } from './agent-capabilities.js';
 
 // ---- 権限モード ----
 
@@ -416,26 +417,157 @@ export const templateMissingVarsResponseSchema = z.object({
 });
 export type TemplateMissingVarsResponse = z.infer<typeof templateMissingVarsResponseSchema>;
 
-/**
- * ターミナル (WS /api/terminal) が無効な理由の機械可読コード (Sb7f458)。
- * - terminal_env_not_set: LOAMIUM_TERMINAL=1 が未設定 (デフォルト無効 — SPEC §6)
- * - mode_not_full:        LOAMIUM_MODE が full ではない (read-only / append-only)
- */
-export const terminalDisabledReasonSchema = z.enum(['terminal_env_not_set', 'mode_not_full']);
-export type TerminalDisabledReason = z.infer<typeof terminalDisabledReasonSchema>;
+
+export const agentHealthSchema = z.object({
+  enabled: z.boolean(),
+  reason: z.enum(['not_configured', 'invalid_config']).nullable(),
+});
+export type AgentHealth = z.infer<typeof agentHealthSchema>;
 
 export const healthResponseSchema = z.object({
   status: z.literal('ok'),
   mode: permissionModeSchema,
-  /** ターミナル機能フラグ (Sb7f458-2 — UI が無効理由の表示に使う)。additive 拡張 */
-  terminal: z.object({
-    enabled: z.boolean(),
-    reason: terminalDisabledReasonSchema.nullable(),
-    /** 有効時のみ: pty で起動するコマンド (タブ表示用) */
-    cmd: z.string().optional(),
-  }),
+  /**
+   * エージェント設定の有無 (S53409d-2)。
+   * agent.json が有効な場合 enabled:true。
+   * 旧バージョンとの後方互換のため optional (未設定時は not_configured 扱い)。
+   */
+  agent: agentHealthSchema.optional(),
 });
 export type HealthResponse = z.infer<typeof healthResponseSchema>;
+
+// ---- エージェント設定 (.loamium/agent.json — S53409d-2) ----
+
+/**
+ * Web 検索プロバイダ設定 (ADR-0017 / S5e0206)。web ケーパビリティが有効なとき
+ * web_search ツールが叩く検索エンドポイント。マシンローカル。
+ *
+ * - endpoint: GET で `?q=<query>` を付けて叩く検索 API の URL。
+ * - apiKey  : 任意。指定時は `Authorization: Bearer <apiKey>` で送る ($ENV_VAR 参照可)。
+ *
+ * 未設定 (undefined) は許容 — web が有効でも web_search は「未設定」を明示する
+ * (エラーにしない、AC-S5e0206-1-2)。
+ */
+export const agentWebSearchSchema = z.object({
+  endpoint: z.string().min(1, 'webSearch.endpoint must not be empty'),
+  apiKey: z.string().min(1).optional(),
+});
+export type AgentWebSearch = z.infer<typeof agentWebSearchSchema>;
+
+export const agentConfigSchema = z.object({
+  api: z.enum(['openai', 'anthropic']),
+  baseUrl: z.string().min(1, 'baseUrl must not be empty'),
+  model: z.string().min(1, 'model must not be empty'),
+  apiKey: z.string().min(1, 'apiKey must not be empty'),
+  /**
+   * エージェント権限 (ADR-0015)。プリセット名 or ケーパビリティ配列。
+   * 未指定は read-only プリセット (resolvePermissions が既定を補う)。マシンローカル。
+   */
+  permissions: agentPermissionsSchema.optional(),
+  /**
+   * Web 検索プロバイダ設定 (ADR-0017)。web ケーパビリティ有効時に web_search が使う。
+   * 未指定は許容 (web_search は未設定を明示メッセージで返す)。
+   */
+  webSearch: agentWebSearchSchema.optional(),
+});
+export type AgentConfig = z.infer<typeof agentConfigSchema>;
+
+// ---- エージェント機密領域 deny リスト (.loamium/agent-privacy.json — ADR-0018) ----
+
+/**
+ * `.loamium/agent-privacy.json` のスキーマ。
+ * vault 相対の glob/パス deny リストを定義する。マッチするノートはエージェントの
+ * 全ツール (read / search / query / backlinks / tags) から存在ごと隠される。
+ *
+ * 2 形状を受け付ける (どちらも同義):
+ *   - `{ "deny": ["private/**", "secret.md"] }`  … 明示オブジェクト形式 (推奨)
+ *   - `["private/**", "secret.md"]`              … 直接 string 配列 (簡易形式)
+ * どちらも parse 後は `{ deny: string[] }` に正規化する。
+ * 既定 (ファイル不在) は空 = 何も deny しない。
+ */
+export const agentPrivacySchema = z
+  .union([
+    z.object({ deny: z.array(z.string()) }),
+    z.array(z.string()),
+  ])
+  .transform((v) => (Array.isArray(v) ? { deny: v } : v));
+export type AgentPrivacy = z.infer<typeof agentPrivacySchema>;
+
+// ---- エージェント REST API レスポンス (S53409d-2) ----
+
+/**
+ * POST /api/agent/sessions のリクエスト (ADR-0015)。
+ * permissions はセッション単位の権限上書き (プリセット名 or ケーパビリティ配列)。
+ * body 無し / 空オブジェクトも許容 (未指定なら agent.json 既定にフォールバック)。
+ */
+export const agentCreateSessionRequestSchema = z.object({
+  permissions: agentPermissionsSchema.optional(),
+});
+export type AgentCreateSessionRequest = z.infer<typeof agentCreateSessionRequestSchema>;
+
+export const agentSessionCreateResponseSchema = z.object({
+  id: z.string(),
+});
+export type AgentSessionCreateResponse = z.infer<typeof agentSessionCreateResponseSchema>;
+
+export const agentSessionSummarySchema = z.object({
+  id: z.string(),
+  title: z.string().nullable(),
+  updatedAt: z.number(),
+});
+export type AgentSessionSummary = z.infer<typeof agentSessionSummarySchema>;
+
+export const agentSessionListResponseSchema = z.object({
+  sessions: z.array(agentSessionSummarySchema),
+});
+export type AgentSessionListResponse = z.infer<typeof agentSessionListResponseSchema>;
+
+export const agentToolSummarySchema = z.object({
+  name: z.string(),
+  argsSummary: z.string(),
+  status: z.enum(['running', 'done']),
+});
+export type AgentToolSummary = z.infer<typeof agentToolSummarySchema>;
+
+export const agentMessageSchema = z.object({
+  role: z.enum(['user', 'assistant']),
+  content: z.string(),
+  tools: z.array(agentToolSummarySchema),
+});
+export type AgentMessage = z.infer<typeof agentMessageSchema>;
+
+export const agentSessionDetailResponseSchema = z.object({
+  id: z.string(),
+  messages: z.array(agentMessageSchema),
+  /**
+   * 実効ケーパビリティ配列 (ADR-0015)。セッション権限 (or agent.json 既定) を
+   * サーバー LOAMIUM_MODE でクランプした結果。UI の権限表示に使う。
+   * 後方互換のため optional (旧クライアント/旧レスポンスとの互換)。
+   */
+  effectivePermissions: z.array(z.enum(AGENT_CAPABILITIES)).optional(),
+});
+export type AgentSessionDetailResponse = z.infer<typeof agentSessionDetailResponseSchema>;
+
+export const agentSendMessageRequestSchema = z.object({
+  content: z.string().min(1, 'content must not be empty'),
+});
+export type AgentSendMessageRequest = z.infer<typeof agentSendMessageRequestSchema>;
+
+/**
+ * PUT /api/agent/sessions/{id}/permissions のレスポンス (セッション中の権限変更)。
+ * 要求した permissions を LOAMIUM_MODE でクランプした実効ケーパビリティ配列を返す。
+ */
+export const agentSessionPermissionsResponseSchema = z.object({
+  effectivePermissions: z.array(z.enum(AGENT_CAPABILITIES)),
+});
+export type AgentSessionPermissionsResponse = z.infer<
+  typeof agentSessionPermissionsResponseSchema
+>;
+
+export const agentAbortResponseSchema = z.object({
+  ok: z.boolean(),
+});
+export type AgentAbortResponse = z.infer<typeof agentAbortResponseSchema>;
 
 // ---- 意味型スキーマ配信 (GET /api/property-types — S87f4b7-2) ----
 
@@ -508,25 +640,6 @@ export const propertyTypeWriteResponseSchema = z.object({
 });
 export type PropertyTypeWriteResponse = z.infer<typeof propertyTypeWriteResponseSchema>;
 
-// ---- ターミナル WS メッセージ (Sb7f458-1) ----
-
-/** クライアント → サーバー: キー入力 or 端末リサイズ */
-export const terminalClientMessageSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('input'), data: z.string() }),
-  z.object({
-    type: z.literal('resize'),
-    cols: z.number().int().min(1).max(1000),
-    rows: z.number().int().min(1).max(1000),
-  }),
-]);
-export type TerminalClientMessage = z.infer<typeof terminalClientMessageSchema>;
-
-/** サーバー → クライアント: pty 出力 or 子プロセス終了通知 */
-export const terminalServerMessageSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('output'), data: z.string() }),
-  z.object({ type: z.literal('exit'), exitCode: z.number() }),
-]);
-export type TerminalServerMessage = z.infer<typeof terminalServerMessageSchema>;
 
 // ---- スマートフォルダ定義 (ADR-0002 / ADR-0003 — S32940c-2) ----
 
