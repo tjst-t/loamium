@@ -1,8 +1,8 @@
 /**
- * CommandEditor mock テスト — ADR-0012 (commands/*.yaml) + S9e64e7-1/-2。
+ * CommandEditor mock テスト — ADR-0024 (commands/*.yaml) + S9e64e7-1/-2。
  * page.route で全 /api/* をモックし、フロントエンドの振る舞いだけを検証する。
  *
- * AC-ADR-0012-detect: commands/*.yaml → CommandEditor; 通常 .md ノートは Editor。
+ * AC-ADR-0024-detect: commands/*.yaml → CommandEditor; 通常 .md ノートは Editor。
  * AC-S9e64e7-1-1: commands/*.yaml を開くと CommandEditor (command-editor) が visible;
  *                 .md ノートは 通常 Editor が visible。
  * AC-S9e64e7-1-2: 保存ボタンは valid のとき有効; invalid (スキーマエラー) のとき aria-disabled。
@@ -20,7 +20,7 @@
  *                 partial-failure → step-result[data-ok=false] 表示。
  *                 id は stem (display name ではなく)。
  *
- * ADR-0012 notes:
+ * ADR-0024 notes:
  * - コマンド定義は commands/*.yaml ファイル全体が LoamiumCommand YAML (frontmatter なし)。
  * - isCommandFile(path) は path が 'commands/' + '.yaml'/'.yml' のみを検出する。
  * - 左ペインは素の YAML エディタ (Markdown/WikiLink/スラッシュメニュー拡張なし)。
@@ -37,7 +37,7 @@ const JOURNAL_PATH = `journals/${DATE}.md`;
 
 /**
  * notes リストに commands/create-todo.yaml を含める。
- * ADR-0012: commands/*.yaml は GET /api/notes では返らないが、
+ * ADR-0024: commands/*.yaml は GET /api/notes では返らないが、
  * モックでは notes[] に加えることで FileTree に tree-item として表示させる
  * (FileTree は notes 配列をそのまま描画するため path の拡張子は問わない)。
  */
@@ -63,7 +63,7 @@ function journal(): Record<string, unknown> {
 }
 
 /**
- * 有効なスマートコマンド定義 (ADR-0012: ファイル全体が LoamiumCommand YAML)。
+ * 有効なスマートコマンド定義 (ADR-0024: ファイル全体が LoamiumCommand YAML)。
  * frontmatter フェンス (---) なし、loamium-command: ラッパーキーなし。
  * params 3件、steps 1件。
  */
@@ -175,7 +175,7 @@ const NOTE_WITH_COMMAND_KEY_CONTENT = [
 
 /**
  * commands/*.yaml のソースを返す GET /api/commands/{id}/source モック応答。
- * ADR-0012: notes API の .md 強制を回避するために source エンドポイントを使う。
+ * ADR-0024: notes API の .md 強制を回避するために source エンドポイントを使う。
  */
 function commandSource(content: string, mtime = 2000, id = 'create-todo'): Record<string, unknown> {
   return {
@@ -210,10 +210,10 @@ async function openApp(page: Page): Promise<{ unexpected: string[] }> {
 }
 
 // ======================================================================
-// AC-ADR-0012: 検出 — commands/*.yaml → CommandEditor
+// AC-ADR-0024: 検出 — commands/*.yaml → CommandEditor
 // ======================================================================
 
-test('[AC-ADR-0012] commands/*.yaml を開くと CommandEditor が visible、通常 Editor は非表示', async ({ page }) => {
+test('[AC-ADR-0024] commands/*.yaml を開くと CommandEditor が visible、通常 Editor は非表示', async ({ page }) => {
   const { unexpected } = await openApp(page);
 
   // commands/create-todo.yaml を開いたときのレスポンス (source エンドポイント)
@@ -247,7 +247,7 @@ test('[AC-ADR-0012] commands/*.yaml を開くと CommandEditor が visible、通
   expect(unexpected).toEqual([]);
 });
 
-test('[AC-ADR-0012] commands/ 配下の .md は通常 Editor を表示する (CommandEditor ではない)', async ({ page }) => {
+test('[AC-ADR-0024] commands/ 配下の .md は通常 Editor を表示する (CommandEditor ではない)', async ({ page }) => {
   const { unexpected } = await openApp(page);
 
   await page.route('**/api/notes/commands/readme.md', (route) => {
@@ -279,7 +279,7 @@ test('[AC-ADR-0012] commands/ 配下の .md は通常 Editor を表示する (Co
   expect(unexpected).toEqual([]);
 });
 
-test('[AC-ADR-0012] commands/ 外の通常ノートは通常 Editor を表示する', async ({ page }) => {
+test('[AC-ADR-0024] commands/ 外の通常ノートは通常 Editor を表示する', async ({ page }) => {
   const { unexpected } = await openApp(page);
 
   await page.route('**/api/notes/notes/my-command.md', (route) => {
@@ -311,7 +311,7 @@ test('[AC-ADR-0012] commands/ 外の通常ノートは通常 Editor を表示す
   expect(unexpected).toEqual([]);
 });
 
-test('[AC-ADR-0012] 補完ポップアップに note-link/WikiLink 補完が出ない(DSL 補完のみ)', async ({ page }) => {
+test('[AC-ADR-0024] 補完ポップアップに note-link/WikiLink 補完が出ない(DSL 補完のみ)', async ({ page }) => {
   const { unexpected } = await openApp(page);
 
   await page.route('**/api/commands/create-todo/source', (route) => {

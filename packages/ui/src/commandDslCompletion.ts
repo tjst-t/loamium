@@ -1,5 +1,5 @@
 /**
- * CodeMirror 6 補完ソース — スマートコマンド DSL v2 (ADR-0011)。
+ * CodeMirror 6 補完ソース — スマートコマンド DSL v2 (ADR-0023)。
  *
  * 3 つのソースを提供する:
  *   1. kindCompletionSource   — "kind: " の直後に 6 種の kind 候補 + フィールド雛形

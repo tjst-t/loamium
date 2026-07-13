@@ -368,7 +368,7 @@ export function App(): JSX.Element {
       const d = docRef.current;
       if (d === null) return true;
       if (!dirtyRef.current) return true;
-      // ADR-0012: commands/*.yaml は CommandEditor が自分で保存するため App の saveNow は触らない
+      // ADR-0024: commands/*.yaml は CommandEditor が自分で保存するため App の saveNow は触らない
       if (isCommandFile(d.path)) return true;
       if (savingRef.current) return false;
       savingRef.current = true;
@@ -489,7 +489,7 @@ export function App(): JSX.Element {
       if (docRef.current?.path === path && previewRef.current === null) return path;
       if (!(await saveNow())) return null;
       try {
-        // ADR-0012: commands/*.yaml は notes API の .md 強制を回避して source エンドポイントで読む
+        // ADR-0024: commands/*.yaml は notes API の .md 強制を回避して source エンドポイントで読む
         if (isCommandFile(path)) {
           const stem = path.split('/').at(-1)?.replace(/\.ya?ml$/i, '') ?? path;
           const res = await api.getCommandSource(stem);
@@ -604,11 +604,11 @@ export function App(): JSX.Element {
    * 添付ファイルのプレビューを開く (Sf53ad6-2: ツリーの tree-file クリック)。
    * 開いているノートは保存してから切り替える (エディタは一時アンマウントされる)。
    * commands/*.yaml はコマンド定義ファイルなので FilePreview ではなく CommandEditor へ
-   * ルーティングする (ADR-0012)。
+   * ルーティングする (ADR-0024)。
    */
   const openFilePreview = useCallback(
     async (path: string): Promise<void> => {
-      // ADR-0012: commands/*.yaml は CommandEditor で開く (FilePreview には渡さない)
+      // ADR-0024: commands/*.yaml は CommandEditor で開く (FilePreview には渡さない)
       if (isCommandFile(path)) {
         await openNotePath(path);
         return;

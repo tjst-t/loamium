@@ -774,7 +774,7 @@ export type CommandRunRequest = z.infer<typeof commandRunRequestSchema>;
 
 /**
  * ステップ 1 件の実行結果。
- * - ok: true / skipped: true → 条件付きスキップ (ADR-0010)。副作用なし・失敗ではない。
+ * - ok: true / skipped: true → 条件付きスキップ (ADR-0022)。副作用なし・失敗ではない。
  * - ok: true / skipped 未定義 → 正常実行
  * - ok: false → 失敗 (error に失敗理由)
  */
@@ -788,7 +788,7 @@ export const commandStepResultSchema = z.object({
   /** 失敗理由 (ok:false のみ) */
   error: z.string().optional(),
   /**
-   * ADR-0010: when / when-not 条件によりスキップされたステップは skipped:true を返す。
+   * ADR-0022: when / when-not 条件によりスキップされたステップは skipped:true を返す。
    * ok:true かつ skipped:true → 副作用なし・次ステップ続行。
    * スキップはエラーではない (fail-stop を引き起こさない)。
    */

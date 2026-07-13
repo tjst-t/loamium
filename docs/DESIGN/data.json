@@ -1,5 +1,5 @@
 {
-  "$comment": "スマートフォルダ機能およびコマンドパレット/スマートコマンド機能の永続データ・API 契約のスケッチ。全体の DDL/OpenAPI ではなく、他コンポーネントがエンコード/デコードする load-bearing な形のみを固定する。関連 ADR: ADR-0001(DQL 再利用), ADR-0002(定義の永続化), ADR-0003(要素 = pin/query の 2 種), ADR-0004(bookmark = frontmatter プロパティ + スター toggle), ADR-0007(統合コマンドパレット), ADR-0008(スマートコマンド = vault 内 Markdown), ADR-0009(サーバー側実行 + ステップ・ユニオン)。",
+  "$comment": "スマートフォルダ機能およびコマンドパレット/スマートコマンド機能の永続データ・API 契約のスケッチ。全体の DDL/OpenAPI ではなく、他コンポーネントがエンコード/デコードする load-bearing な形のみを固定する。関連 ADR: ADR-0001(DQL 再利用), ADR-0002(定義の永続化), ADR-0003(要素 = pin/query の 2 種), ADR-0004(bookmark = frontmatter プロパティ + スター toggle), ADR-0019(統合コマンドパレット), ADR-0020(スマートコマンド = vault 内 Markdown), ADR-0021(サーバー側実行 + ステップ・ユニオン)。",
   "datastores": [
     {
       "name": ".loamium/smart-folders.json",
@@ -15,7 +15,7 @@
     },
     {
       "name": "commands/*.md(スマートコマンド定義)",
-      "purpose": "スマートコマンド 1 個 = commands/ 配下の .md 1 ファイル(ADR-0008)。frontmatter キー loamium-command にワークフロー定義、本文はステップから参照される挿入テキスト/プロンプト。再構築不能なユーザー資産。",
+      "purpose": "スマートコマンド 1 個 = commands/ 配下の .md 1 ファイル(ADR-0020)。frontmatter キー loamium-command にワークフロー定義、本文はステップから参照される挿入テキスト/プロンプト。再構築不能なユーザー資産。",
       "consistency": "ファイルが正。書き込みは通常のノート書き込み経路(Loamium エディタ / ノート API / 素のエディタ)で行い、専用の書き込み API は持たない。",
       "backup": "vault の Git 履歴(ノート本体と一体)。壊れた定義は一覧時に寛容 read で『無効』としてマークし、アプリを落とさない。"
     },
@@ -63,12 +63,12 @@
     {
       "entity": "LoamiumCommand(loamium-command frontmatter)",
       "stored_in": "commands/*.md の YAML frontmatter + 本文",
-      "table": "(.md ファイル 1 本 = コマンド 1 個、ADR-0008)",
+      "table": "(.md ファイル 1 本 = コマンド 1 個、ADR-0020)",
       "fields": [
         {"name": "name", "type": "string?", "notes": "パレット表示名。省略時はファイル名(拡張子なし)"},
         {"name": "description", "type": "string?", "notes": "パレットのサブテキスト"},
         {"name": "params", "type": "CommandParam[]", "notes": "実行前フォームの入力定義。templates の TemplateVarDef と同型: { name, label?, required?, default? , type?: 'string'|'text'|'date' }。type は加算拡張(text=複数行)で shared に置き templates とも共有"},
-        {"name": "steps", "type": "CommandStep[]", "notes": "順次実行されるステップ列(ADR-0009 のユニオン)。1 個以上必須"}
+        {"name": "steps", "type": "CommandStep[]", "notes": "順次実行されるステップ列(ADR-0021 のユニオン)。1 個以上必須"}
       ],
       "invariants": [
         "zod で厳格検証(実行時・保存内容の検証は寛容 read + 無効マーク。実行 API は無効定義を 4xx で拒否)",
@@ -79,7 +79,7 @@
     {
       "entity": "CommandStep(判別可能ユニオン)",
       "stored_in": "LoamiumCommand.steps[]",
-      "table": "(kind によるフラットな判別可能ユニオン、ADR-0009。v1 = 4 種 + 予約 1 種)",
+      "table": "(kind によるフラットな判別可能ユニオン、ADR-0021。v1 = 4 種 + 予約 1 種)",
       "fields": [
         {"name": "kind='journal-append'", "type": "{ kind, content, date?, section?, open? }", "notes": "ジャーナルへ追記。section 指定時は当該見出し配下の末尾へ挿入(journal API の新規能力と共有)"},
         {"name": "kind='note-append'", "type": "{ kind, target, content, open? }", "notes": "既存ノート末尾へ追記"},
@@ -138,14 +138,14 @@
     {
       "group": "Smart Commands",
       "base_path": "/api/commands",
-      "summary": "スマートコマンドの一覧と実行(ADR-0008/0009)。定義の作成・編集は通常のノート API(commands/*.md)で行うため CRUD エンドポイントは持たない。一覧はパレット(ADR-0007)の動的エントリ供給源を兼ねる。実行は監査ログ対象(op: 'command.run' + 各ステップの書き込み)。",
+      "summary": "スマートコマンドの一覧と実行(ADR-0020/0009)。定義の作成・編集は通常のノート API(commands/*.md)で行うため CRUD エンドポイントは持たない。一覧はパレット(ADR-0019)の動的エントリ供給源を兼ねる。実行は監査ログ対象(op: 'command.run' + 各ステップの書き込み)。",
       "endpoints": [
         {"method": "GET", "path": "/api/commands", "summary": "commands/*.md を寛容 read で列挙 { commands: CommandSummary[] }(name, path, description, params, valid, error?)。CLI: `loamium commands`"},
         {"method": "POST", "path": "/api/commands/{name}/run", "summary": "body { params: Record<string,string> } でステップ列を順次同期実行。レスポンスはステップ毎の結果(kind, ok, path?, error?)+ openPath?。必須 param 不足は 400 { error: 'missing_params', missing[] }。CLI: `loamium command run <name> --param k=v`"}
       ]
     },
     {
-      "group": "Journal 拡張(既存契約への加算、ADR-0009)",
+      "group": "Journal 拡張(既存契約への加算、ADR-0021)",
       "base_path": "/api/journal",
       "summary": "journal-append への section 指定の追加。既存 POST /api/journal/append の挙動は不変(追加のみ)。スマートコマンドの journal-append ステップと単発 API/CLI が同じ実装を共有する。",
       "endpoints": [

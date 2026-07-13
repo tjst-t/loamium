@@ -1,12 +1,12 @@
 /**
  * スマートコマンド定義一覧 + 実行エンドポイント (Sd22b1f-1/2)。
  *
- * - GET  /api/commands                  vault 内 commands/*.yaml(/.yml) を寛容 read で列挙する (ADR-0012)
- * - POST /api/commands/{name}/run       コマンドをステップ順に同期実行する (ADR-0009)
+ * - GET  /api/commands                  vault 内 commands/*.yaml(/.yml) を寛容 read で列挙する (ADR-0024)
+ * - POST /api/commands/{name}/run       コマンドをステップ順に同期実行する (ADR-0021)
  *
  * [AC-Sd22b1f-1-2] GET: 正常な定義は { name, path, description?, params, valid:true } で返す。
  * YAML が壊れたファイルも { name, path, valid:false, error } で一覧に含め、
- * アプリを落とさない (ADR-0012: 寛容 read、priority 2)。レスポンスは常に 200。
+ * アプリを落とさない (ADR-0024: 寛容 read、priority 2)。レスポンスは常に 200。
  *
  * [AC-Sd22b1f-2-1/2/3/4] POST run:
  * - steps を順次同期実行し、ステップ毎の {kind, ok, path?, error?} + openPath? を返す
@@ -61,7 +61,7 @@ function stemFrom(rel: string): string {
 
 /**
  * vault の commands/ ディレクトリを再帰的に走査し .yaml / .yml ファイルの
- * vault 相対パス一覧を返す (ADR-0012)。
+ * vault 相対パス一覧を返す (ADR-0024)。
  * listNoteFiles は .md のみ返すため、commands/ は独自に列挙する。
  * ドット始まりセグメント (.loamium / .git 等) は除外する。
  */
@@ -123,7 +123,7 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
 
   // -----------------------------------------------------------------------
   // GET /api/commands
-  // commands/*.yaml (および .yml) を列挙して寛容 read で一覧を返す (ADR-0012)
+  // commands/*.yaml (および .yml) を列挙して寛容 read で一覧を返す (ADR-0024)
   // -----------------------------------------------------------------------
 
   app.get('/api/commands', async (c) => {
@@ -281,7 +281,7 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
   app.post('/api/commands/:name/run', async (c) => {
     const name = decodeURIComponent(c.req.param('name'));
 
-    // 1. コマンドファイルを探す (ADR-0012: .yaml → .yml の順に試行)
+    // 1. コマンドファイルを探す (ADR-0024: .yaml → .yml の順に試行)
     // name はファイル名 (拡張子なし)。commands/{name}.yaml が対象。
     // name にスラッシュを含む場合はサブディレクトリを許容するが、
     // normalizeVaultFilePath で traversal を防ぐ (.md を補完しない)。
@@ -315,7 +315,7 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
     const commandPath = foundCommandPath;
     const content = foundContent;
 
-    // 2. コマンド定義を厳格パース (ADR-0012: ファイル全体 YAML)
+    // 2. コマンド定義を厳格パース (ADR-0024: ファイル全体 YAML)
     const parsed = parseLoamiumCommandFileWithError(content);
     if (!parsed.ok) {
       return errorJson(
@@ -358,7 +358,7 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
     // read-only → permissionMiddleware が既に 403 を返すためここには到達しない。
     // append-only → v1 4 種 (journal-append / note-append / note-create / template-instantiate)
     //               は許可。prop-set / note-patch は既存コンテンツを変更する MUTATE 操作
-    //               であり、純粋な追記ではないため append-only では拒否する (ADR-0009)。
+    //               であり、純粋な追記ではないため append-only では拒否する (ADR-0021)。
     //               コマンドに prop-set / note-patch ステップが 1 つでも含まれる場合は
     //               コマンド全体を 403 で拒否する (安全側の選択)。
     if (config.mode === 'append-only') {
@@ -405,7 +405,7 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
     for (const step of cmd.steps) {
       const kind = step.kind;
 
-      // ADR-0010: when / when-not 条件評価 (resolveTemplate 展開後に truthy 判定)
+      // ADR-0022: when / when-not 条件評価 (resolveTemplate 展開後に truthy 判定)
       // [AC-Sf2f114-2-1/2]
       try {
         const whenRaw = step.when;

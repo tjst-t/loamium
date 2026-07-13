@@ -23,7 +23,7 @@ export function classifyOp(method: string, reqPath: string): OpKind {
     if (reqPath === '/api/query') return 'read';
     if (reqPath === '/api/journal/append') return 'append';
     if (reqPath.startsWith('/api/notes/') && reqPath.endsWith('/append')) return 'append';
-    // スマートコマンド run (ADR-0009): append-only では v1 4 種すべてを許可。
+    // スマートコマンド run (ADR-0021): append-only では v1 4 種すべてを許可。
     // ハンドラ内で権限チェック済み (read-only → 403)。ここでは 'append' に分類して
     // ミドルウェアが止めないようにし、ハンドラが細かい制御を担う。
     if (reqPath.startsWith('/api/commands/') && reqPath.endsWith('/run')) return 'append';

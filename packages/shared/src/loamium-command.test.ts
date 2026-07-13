@@ -510,9 +510,9 @@ describe('[AC-Sf2f114-2-1] commandStepSchema with when / when-not', () => {
 });
 
 // ---------------------------------------------------------------------------
-// [ADR-0012] parseLoamiumCommandFile — ファイル全体 YAML パース
+// [ADR-0024] parseLoamiumCommandFile — ファイル全体 YAML パース
 // ---------------------------------------------------------------------------
-describe('[ADR-0012] parseLoamiumCommandFile', () => {
+describe('[ADR-0024] parseLoamiumCommandFile', () => {
   it('有効な全体 YAML → LoamiumCommand を返す', () => {
     const yaml = [
       'name: create-todo',
@@ -564,7 +564,7 @@ describe('[ADR-0012] parseLoamiumCommandFile', () => {
   });
 
   it('loamium-command: ラッパーキーを持つ古い形式 → 無効 (name/params/steps が欠ける)', () => {
-    // ADR-0012: トップレベルが LoamiumCommand であるべき。
+    // ADR-0024: トップレベルが LoamiumCommand であるべき。
     // loamium-command: をトップキーに持つ場合、steps が欠けるため invalid になる。
     const yaml = [
       'loamium-command:',
@@ -579,9 +579,9 @@ describe('[ADR-0012] parseLoamiumCommandFile', () => {
 });
 
 // ---------------------------------------------------------------------------
-// [ADR-0012] parseLoamiumCommandFileWithError
+// [ADR-0024] parseLoamiumCommandFileWithError
 // ---------------------------------------------------------------------------
-describe('[ADR-0012] parseLoamiumCommandFileWithError', () => {
+describe('[ADR-0024] parseLoamiumCommandFileWithError', () => {
   it('有効な全体 YAML → ok:true + command を返す', () => {
     const yaml = 'steps:\n  - kind: note-create\n    target: "out.md"\n    content: "# out"';
     const result = parseLoamiumCommandFileWithError(yaml);

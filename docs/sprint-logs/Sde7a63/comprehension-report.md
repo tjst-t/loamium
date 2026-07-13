@@ -8,21 +8,21 @@
 ## What changed(何が変わったか)
 
 **Sd22b1f — スマートコマンド基盤(バックエンド + CLI、非 GUI)**
-- スマートコマンド定義 = vault 内 `commands/*.md`(frontmatter `loamium-command` に params/steps、ADR-0008)。shared に zod スキーマ(`loamiumCommandSchema` / `commandStepSchema` 判別ユニオン 4 種 / `commandParamSchema`)+ `parseLoamiumCommand`。
+- スマートコマンド定義 = vault 内 `commands/*.md`(frontmatter `loamium-command` に params/steps、ADR-0020)。shared に zod スキーマ(`loamiumCommandSchema` / `commandStepSchema` 判別ユニオン 4 種 / `commandParamSchema`)+ `parseLoamiumCommand`。
 - `GET /api/commands`(寛容 read — 壊れた定義は `valid:false`+error で 200 維持)、CLI `loamium commands`。
-- `POST /api/commands/{name}/run`(サーバー側同期・逐次実行、`resolveTemplate` 展開、最初のエラーで停止・ロールバックなし、`openPath` 返却、ADR-0009)、CLI `command run --param k=v`。権限モード(read-only 403 / append-only 許可)+ 監査(`command.run` + 各ステップ書込)。**パス脱出は 400 拒否**。
+- `POST /api/commands/{name}/run`(サーバー側同期・逐次実行、`resolveTemplate` 展開、最初のエラーで停止・ロールバックなし、`openPath` 返却、ADR-0021)、CLI `command run --param k=v`。権限モード(read-only 403 / append-only 許可)+ 監査(`command.run` + 各ステップ書込)。**パス脱出は 400 拒否**。
 - `POST /api/journal/append` に `section?` 追加(見出し配下末尾へ挿入、shared `insertUnderHeading`)、CLI `--section`。create-todo を実サーバー受け入れテストで実証。
 
 **Sde7a63 — 統合コマンドパレット(UI)**
 - UI コマンドレジストリ(`commandRegistry.tsx`、Map upsert)+ 組み込み 5 コマンド(新規ノート/テンプレート/スマートフォルダ作成/詳細検索/今日のジャーナル)を既存ハンドラへ接続。Ctrl-K パレットに「コマンド」セクション追加(ノート/全文と共存)。
-- `>` コマンド専用モード(prefix 解析を `palettePrefix.ts` に単一集約、ADR-0007。将来 `#` 等を加算可能)。
+- `>` コマンド専用モード(prefix 解析を `palettePrefix.ts` に単一集約、ADR-0019。将来 `#` 等を加算可能)。
 - スマートコマンド表示(`source='smart'`、`valid:false` は非選択+理由)、`ParamFormModal`(required 検証・text→textarea・date→日付・default 反映)→ `POST run`。成功時 `openPath` 遷移、失敗時ステップ結果表示。
 - **create-todo の全フロー(Ctrl-K → `>` 絞り込み → フォーム → 実行 → ジャーナル `## Todo` セクション追記)を実サーバー E2E で検証**(raw ジャーナルファイル読取でセクション配下を確認)。
 
 ## Why this way(なぜこの設計か)
-- **定義を vault 内 Markdown に**: ピュア Markdown 原則 + Git 一体管理 + Loamium 自身/エージェントが普通のノート API で編集可能(ADR-0008)。専用 CRUD API を作らない。
+- **定義を vault 内 Markdown に**: ピュア Markdown 原則 + Git 一体管理 + Loamium 自身/エージェントが普通のノート API で編集可能(ADR-0020)。専用 CRUD API を作らない。
 - **サーバー側同期実行 + 閉じたステップ・ユニオン**: REST/CLI 1:1・監査・権限モードが単一経路に乗る(PRINCIPLES 優先度 3)。プラグイン API を作らない(forbidden)。ステップ語彙は加算拡張。
-- **パレットは既存 SearchPalette の加算拡張**: 1 キー(Ctrl-K)で全機能到達、発見性重視(ADR-0007)。レジストリは builtin/smart を同列に扱う。
+- **パレットは既存 SearchPalette の加算拡張**: 1 キー(Ctrl-K)で全機能到達、発見性重視(ADR-0019)。レジストリは builtin/smart を同列に扱う。
 
 ## What to verify(あなたに見てほしい点)
 1. `make serve` で起動 → **Ctrl-K** を押し、コマンドセクションと組み込み 5 コマンドが出るか。各コマンドが既存モーダル/ルーティングに繋がるか。

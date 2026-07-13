@@ -40,7 +40,7 @@ async function seedVaultFile(vault: string, rel: string, content: string): Promi
 }
 
 // ---------------------------------------------------------------------------
-// フィクスチャコマンド定義 (ADR-0012: .yaml 全体 = LoamiumCommand オブジェクト)
+// フィクスチャコマンド定義 (ADR-0024: .yaml 全体 = LoamiumCommand オブジェクト)
 // ---------------------------------------------------------------------------
 
 /** 正常なコマンド定義 — Todo 作成 + ジャーナル追記の 2 ステップ。 */
@@ -73,7 +73,7 @@ const EMPTY_STEPS_COMMAND = [
 beforeAll(async () => {
   const vault = await makeTempVault();
   server = await startServer({ vault });
-  // commands/ フォルダにフィクスチャを配置する (ADR-0012: .yaml は直接 fs 書き込み)
+  // commands/ フォルダにフィクスチャを配置する (ADR-0024: .yaml は直接 fs 書き込み)
   await seedVaultFile(vault, 'commands/create-todo.yaml', VALID_COMMAND);
   await seedVaultFile(vault, 'commands/broken.yaml', BROKEN_COMMAND);
   await seedVaultFile(vault, 'commands/empty-steps.yaml', EMPTY_STEPS_COMMAND);
@@ -101,7 +101,7 @@ async function listCommands(): Promise<ReturnType<typeof commandsResponseSchema.
 }
 
 describe('[AC-Sd22b1f-1-2] GET /api/commands', () => {
-  it('commands/ 配下の *.yaml をすべて一覧し 200 を返す (ADR-0012)', async () => {
+  it('commands/ 配下の *.yaml をすべて一覧し 200 を返す (ADR-0024)', async () => {
     const commands = await listCommands();
     const names = commands.map((c) => c.name).sort();
     // create-todo (valid), broken (invalid), empty-steps (invalid) の 3 件
@@ -220,7 +220,7 @@ describe('[AC-Sd22b1f-1-2] GET /api/commands', () => {
 // ---------------------------------------------------------------------------
 
 describe('[AC-Sf2f114-5-2] GET /api/commands — new param types passthrough', () => {
-  /** select param を持つ valid コマンド (ADR-0012: .yaml 全体 = LoamiumCommand) */
+  /** select param を持つ valid コマンド (ADR-0024: .yaml 全体 = LoamiumCommand) */
   const SELECT_PARAM_COMMAND = [
     'name: select-param-test',
     'description: select param command',

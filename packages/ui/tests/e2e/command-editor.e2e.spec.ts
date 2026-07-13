@@ -1,9 +1,9 @@
 /**
- * CommandEditor E2E テスト — ADR-0012 + S9e64e7-1 + S9e64e7-2。
+ * CommandEditor E2E テスト — ADR-0024 + S9e64e7-1 + S9e64e7-2。
  * 実サーバー + 実 Vite dev server に対して実行する。
  * (E2E はスプリント verify フェーズで実行する。sprint run では mock のみ実行する。)
  *
- * ADR-0012: commands/create-todo.yaml は ファイル全体が LoamiumCommand YAML。
+ * ADR-0024: commands/create-todo.yaml は ファイル全体が LoamiumCommand YAML。
  *           global-setup (seedVault) が commands/create-todo.yaml を書き込む。
  *
  * AC-S9e64e7-1-1: commands/create-todo.yaml を開くと CommandEditor が表示される。
@@ -19,7 +19,7 @@
 import { test, expect } from '@playwright/test';
 import { readHarnessState } from '../harness/state.js';
 
-test.describe('CommandEditor E2E (ADR-0012 + S9e64e7-1)', () => {
+test.describe('CommandEditor E2E (ADR-0024 + S9e64e7-1)', () => {
   test('[AC-S9e64e7-1-1] commands/create-todo.yaml を開くと CommandEditor が表示される', async ({ page }) => {
     const { uiUrl } = readHarnessState();
     await page.goto(uiUrl);

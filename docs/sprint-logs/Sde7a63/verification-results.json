@@ -7,6 +7,6 @@
     "ui-tests": {"command":"make test-ui","status":"pass_with_flake","exit":2,"passed":437,"failed":1,"note":"唯一の失敗は tests/e2e/smart-folder-editor.e2e.spec.ts:134(full-suite 負荷下フレーク、単独で 2 回とも pass)。パレット関連の失敗はゼロ。Sde7a63 の mock 51 + e2e 24 は全 green。"}
   },
   "sprint_tests": {"status":"pass","mock":51,"e2e":24,"note":"command-palette.mock(43+) + search-palette.mock(6) + smart-command-run.e2e + command-palette.e2e + search-palette.e2e。create-todo フローは実サーバー E2E で raw ジャーナル読取 → ## Todo セクション配下の追記を検証。"},
-  "verifier": {"verdict":"PASS_WITH_CONCERNS","note":"独立検証者: AC 全 conform、ADR-0007 準拠、forbidden-action なし、verify 時の e2e 修正は弱体化でなく強化と確認、フレーク 2 件は Sde7a63 未変更と確認。concerns(disabled Enter テスト実質化 / create-todo セクション検証 / 陳腐化コメント / date default)は全て修正済み。"},
+  "verifier": {"verdict":"PASS_WITH_CONCERNS","note":"独立検証者: AC 全 conform、ADR-0019 準拠、forbidden-action なし、verify 時の e2e 修正は弱体化でなく強化と確認、フレーク 2 件は Sde7a63 未変更と確認。concerns(disabled Enter テスト実質化 / create-todo セクション検証 / 陳腐化コメント / date default)は全て修正済み。"},
   "done_judgment": {"guard_6_deferred_comment_residue":"pass (none)","overall":"PASS: 全 Story AC 達成・実テスト green(mock 51 + e2e 24、create-todo フロー実証)、make lint pass、make test/test-ui はパレット関連ゼロ失敗で残るのは無関係な既知フレーク 2 件(単独 pass)、独立検証者 PASS_WITH_CONCERNS(concern 全対応)。"}
 }

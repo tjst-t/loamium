@@ -79,7 +79,7 @@ describe('parseLocation', () => {
     const route: Route = { kind: 'note', path: 'reading/失敗の科学.md' };
     expect(parseLocation(routeToPath(route))).toEqual(route);
   });
-  it('commands/*.yaml は .md を補完しない (ADR-0012)', () => {
+  it('commands/*.yaml は .md を補完しない (ADR-0024)', () => {
     expect(parseLocation('/n/commands/create-todo.yaml')).toEqual({
       kind: 'note',
       path: 'commands/create-todo.yaml',

@@ -7,7 +7,7 @@
 
 ## What changed
 
-**Sf2f114 — DSL v2 バックエンド(非 GUI、ADR-0010、加算のみ)**
+**Sf2f114 — DSL v2 バックエンド(非 GUI、ADR-0022、加算のみ)**
 - テンプレート: `{{param|フォールバック}}`(未定義/空で既定値)、相対日付 `{{date:+3d:FMT}}`、未定義→空。
 - `when:` / `when-not:`(真偽・存在のみ、式評価なし)。不成立ステップは `skipped:true` でスキップ(失敗扱いせず後続続行)。
 - `note-append` に `section?` / `create?` / `position(bottom|top|section)` を追加、journal-append と統一。
@@ -15,15 +15,15 @@
 - param 型 `select`(options 必須)/ `note` / `boolean` / `number`。
 - run-command / agent-run はスコープ外(バックログ)。
 
-**S9e64e7 — 定義エディタ(GUI、ADR-0011)**
+**S9e64e7 — 定義エディタ(GUI、ADR-0023)**
 - `commands/` 配下かつ `loamium-command` frontmatter のノートを開くと、専用スプリットエディタ。左=YAML/Markdown ソース(CodeMirror、補完付き)/ 右=ライブ検証(有効/無効+理由)+ params/steps プレビュー + テスト実行。**保存ボタンは不正だと無効**(保存前バリデーション)。正本は YAML 1 本。
 - 左ペイン補完: `kind:` 値(6 種)→ 選ぶと当該フィールドを雛形挿入、`{{...}}` 内の param 名 + `date:`/`now:` トークン + `|fallback`、`type:`/`position:` 値、section/note 補完。語彙は共有スキーマ由来。
 - テスト実行: 未保存なら自動保存 → `POST /api/commands/{stem-id}/run`(表示名でなくファイル stem を使用)。
 - 機能ガイド(空状態)に「スマートコマンドの使い方」節を追加。
 
 ## Why this way
-- DSL は制御フロー(IF/FOR/サブルーチン)を持たず宣言的のまま拡張(ADR-0010)。`when:` は真偽・存在のみで「言語化」の一線を守る。複雑処理は将来 agent-run へ委譲。
-- エディタは YAML を正本に保ち(ピュア Markdown 原則)、フォームがデータを所有しない。入力しやすさは「全部補完」で担保(ADR-0011、V3 プロトタイプ承認済み)。
+- DSL は制御フロー(IF/FOR/サブルーチン)を持たず宣言的のまま拡張(ADR-0022)。`when:` は真偽・存在のみで「言語化」の一線を守る。複雑処理は将来 agent-run へ委譲。
+- エディタは YAML を正本に保ち(ピュア Markdown 原則)、フォームがデータを所有しない。入力しやすさは「全部補完」で担保(ADR-0023、V3 プロトタイプ承認済み)。
 
 ## What to verify(実機)
 `make serve HOST=0.0.0.0` 稼働中 → http://10.10.254.36:8204/

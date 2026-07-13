@@ -3312,7 +3312,7 @@
     },
     "Sd22b1f": {
       "title": "スマートコマンド基盤 — 定義スキーマ/一覧・実行エンジン・journal section 追記 + CLI",
-      "description": "ADR-0008/0009 準拠。LoamiumCommand/CommandStep zod スキーマ(shared)、GET /api/commands(寛容 read)、POST /api/commands/{name}/run(同期実行・4 ステップ種・resolveTemplate 展開・権限/監査)、journal-append の section 拡張、CLI 1:1(commands / command run / journal-append --section)。UI なし。",
+      "description": "ADR-0020/0009 準拠。LoamiumCommand/CommandStep zod スキーマ(shared)、GET /api/commands(寛容 read)、POST /api/commands/{name}/run(同期実行・4 ステップ種・resolveTemplate 展開・権限/監査)、journal-append の section 拡張、CLI 1:1(commands / command run / journal-append --section)。UI なし。",
       "milestone": false,
       "status": "done",
       "depends_on": null,
@@ -3467,7 +3467,7 @@
       "milestone": true,
       "status": "done",
       "depends_on": null,
-      "description": "ADR-0007 準拠。UI コマンドレジストリ(builtin + smart)、Ctrl-K パレットの 3 セクション化(ノート/全文/コマンド)、'>' コマンド専用モード、スマートコマンドのパラメータフォーム → 実行 → openPath 遷移。GUI Sprint(gui-spec + prototype 対象。prototype はユーザー確認必須)。",
+      "description": "ADR-0019 準拠。UI コマンドレジストリ(builtin + smart)、Ctrl-K パレットの 3 セクション化(ノート/全文/コマンド)、'>' コマンド専用モード、スマートコマンドのパラメータフォーム → 実行 → openPath 遷移。GUI Sprint(gui-spec + prototype 対象。prototype はユーザー確認必須)。",
       "stories": {
         "Sde7a63-1": {
           "title": "コマンドレジストリ + 組み込みコマンド",
@@ -3522,7 +3522,7 @@
           "acceptance_criteria": [
             {
               "id": "AC-Sde7a63-2-1",
-              "description": "先頭 '>' でコマンド専用モードになり(ノート/全文セクション非表示、'>' 以降がコマンドクエリ)、'>' を消すと通常モードへ戻る。プレフィックス→モードの対応は 1 箇所に集約される(ADR-0007 notes)。",
+              "description": "先頭 '>' でコマンド専用モードになり(ノート/全文セクション非表示、'>' 以降がコマンドクエリ)、'>' を消すと通常モードへ戻る。プレフィックス→モードの対応は 1 箇所に集約される(ADR-0019 notes)。",
               "test": null,
               "status": "pass"
             },
@@ -3605,7 +3605,7 @@
     },
     "S5a66e4": {
       "title": "agent-run ステップ — Pi Agent 連携ワークフロー",
-      "description": "議事録まとめ等、AI Agent を起動するステップ種を実行エンジンに追加する(ADR-0009 の予約に対応)。Pi Agent 統合のマージ後、非同期ジョブモデル(状態管理・失敗時挙動・結果のファイル書き込み)を design adr で決定してから詳細化する。",
+      "description": "議事録まとめ等、AI Agent を起動するステップ種を実行エンジンに追加する(ADR-0021 の予約に対応)。Pi Agent 統合のマージ後、非同期ジョブモデル(状態管理・失敗時挙動・結果のファイル書き込み)を design adr で決定してから詳細化する。",
       "milestone": false,
       "status": "pending",
       "depends_on": null,
@@ -3614,7 +3614,7 @@
     },
     "Sf2f114": {
       "title": "スマートコマンド DSL v2 バックエンド — when/prop-set/note-patch/append 整理/param 型/テンプレート強化",
-      "description": "ADR-0010 準拠。shared スキーマ・実行エンジン・CLI を加算拡張: when:/when-not:、note-append の section?/create? + position 一般化、prop-set・note-patch ステップ、param 型 select/note/boolean/number、{{param|fallback}}・未定義→空・相対日付。すべて v1 を壊さない加算のみ。非 GUI。",
+      "description": "ADR-0022 準拠。shared スキーマ・実行エンジン・CLI を加算拡張: when:/when-not:、note-append の section?/create? + position 一般化、prop-set・note-patch ステップ、param 型 select/note/boolean/number、{{param|fallback}}・未定義→空・相対日付。すべて v1 を壊さない加算のみ。非 GUI。",
       "milestone": false,
       "status": "done",
       "detail_level": "detailed",
@@ -3641,7 +3641,7 @@
             },
             {
               "id": "AC-Sf2f114-1-3",
-              "description": "加算のみで既存テンプレート・journal パス生成・テンプレートノートを壊さない(回帰テスト green)。ADR-0010。",
+              "description": "加算のみで既存テンプレート・journal パス生成・テンプレートノートを壊さない(回帰テスト green)。ADR-0022。",
               "test": null,
               "status": "pass"
             }
@@ -3669,7 +3669,7 @@
             },
             {
               "id": "AC-Sf2f114-2-2",
-              "description": "スキップは失敗ではない(fail-stop の対象外、後続ステップは続行)。zod スキーマ・実行エンジン・受け入れテスト(実 HTTP)。ADR-0010。",
+              "description": "スキップは失敗ではない(fail-stop の対象外、後続ステップは続行)。zod スキーマ・実行エンジン・受け入れテスト(実 HTTP)。ADR-0022。",
               "test": null,
               "status": "pass"
             }
@@ -3697,7 +3697,7 @@
             },
             {
               "id": "AC-Sf2f114-3-2",
-              "description": "journal-append も同じ position/section モデルで整合(挙動は後方互換)。受け入れテスト(section 追記・create・top/bottom)。ADR-0010。",
+              "description": "journal-append も同じ position/section モデルで整合(挙動は後方互換)。受け入れテスト(section 追記・create・top/bottom)。ADR-0022。",
               "test": null,
               "status": "pass"
             }
@@ -3731,7 +3731,7 @@
             },
             {
               "id": "AC-Sf2f114-4-3",
-              "description": "両ステップとも判別ユニオンに加算・監査記録・権限(mutate 含みうるため full 前提、append-only では prop-set/note-patch を 403 か許可かを ADR に沿って判定)・CLI 1:1。受け入れテスト。ADR-0009/0010。",
+              "description": "両ステップとも判別ユニオンに加算・監査記録・権限(mutate 含みうるため full 前提、append-only では prop-set/note-patch を 403 か許可かを ADR に沿って判定)・CLI 1:1。受け入れテスト。ADR-0021/0010。",
               "test": null,
               "status": "pass"
             }
@@ -3759,7 +3759,7 @@
             },
             {
               "id": "AC-Sf2f114-5-2",
-              "description": "GET /api/commands が新 param 型(select の options 含む)をそのまま返す。加算のみで既存 string/text/date を壊さない。受け入れテスト。ADR-0010(フォーム描画は S9e64e7 エディタ側)。",
+              "description": "GET /api/commands が新 param 型(select の options 含む)をそのまま返す。加算のみで既存 string/text/date を壊さない。受け入れテスト。ADR-0022(フォーム描画は S9e64e7 エディタ側)。",
               "test": null,
               "status": "pass"
             }
@@ -3776,7 +3776,7 @@
     },
     "S9e64e7": {
       "title": "スマートコマンド定義エディタ — V3 スプリット(YAML 正本)+ 全部補完",
-      "description": "ADR-0011 準拠。commands/ 配下の loamium-command を開くと専用スプリットエディタ(左 YAML 補完編集 / 右ライブ検証+プレビュー+テスト実行、保存前バリデーション)。補完は DSL v2 語彙を反映。GUI(gui-spec + プロトタイプ command-editor.html V3 を基盤)。",
+      "description": "ADR-0023 準拠。commands/ 配下の loamium-command を開くと専用スプリットエディタ(左 YAML 補完編集 / 右ライブ検証+プレビュー+テスト実行、保存前バリデーション)。補完は DSL v2 語彙を反映。GUI(gui-spec + プロトタイプ command-editor.html V3 を基盤)。",
       "milestone": true,
       "status": "done",
       "detail_level": "detailed",
@@ -3791,13 +3791,13 @@
           "acceptance_criteria": [
             {
               "id": "AC-S9e64e7-1-1",
-              "description": "commands/ 配下かつ frontmatter に loamium-command キーを持つノートを開くと、通常の Editor ではなく CommandEditor(左: YAML/Markdown ソース CodeMirror、右: ペイン枠)を表示する。それ以外のノートは従来どおり。発動条件は commands/ 配下の loamium-command のみ(ADR-0011)。",
+              "description": "commands/ 配下かつ frontmatter に loamium-command キーを持つノートを開くと、通常の Editor ではなく CommandEditor(左: YAML/Markdown ソース CodeMirror、右: ペイン枠)を表示する。それ以外のノートは従来どおり。発動条件は commands/ 配下の loamium-command のみ(ADR-0023)。",
               "test": null,
               "status": "done"
             },
             {
               "id": "AC-S9e64e7-1-2",
-              "description": "左ペインは正本(YAML/Markdown 1 本)。編集内容は既存の PUT /api/notes 経路で保存する。保存ボタンは右ペインの検証が不正のとき aria-disabled で押せない(保存前バリデーション、ADR-0011)。",
+              "description": "左ペインは正本(YAML/Markdown 1 本)。編集内容は既存の PUT /api/notes 経路で保存する。保存ボタンは右ペインの検証が不正のとき aria-disabled で押せない(保存前バリデーション、ADR-0023)。",
               "test": null,
               "status": "done"
             },
@@ -3825,7 +3825,7 @@
           "acceptance_criteria": [
             {
               "id": "AC-S9e64e7-2-1",
-              "description": "左の YAML をリアルタイムにパース(共有 parseLoamiumCommandWithError 相当)し、右ペインに『有効/無効 + エラー理由』を表示。無効時は保存ボタンを無効化。DSL v2 の全 step 種別・param 型を検証に反映(ADR-0010/0011)。",
+              "description": "左の YAML をリアルタイムにパース(共有 parseLoamiumCommandWithError 相当)し、右ペインに『有効/無効 + エラー理由』を表示。無効時は保存ボタンを無効化。DSL v2 の全 step 種別・param 型を検証に反映(ADR-0022/0011)。",
               "test": null,
               "status": "done"
             },
@@ -3871,7 +3871,7 @@
             },
             {
               "id": "AC-S9e64e7-3-3",
-              "description": "補完の mock テスト(kind 補完 → フィールド雛形、param トークン補完)。プロトタイプの入力しやすさ方針(ADR-0011)を満たす。",
+              "description": "補完の mock テスト(kind 補完 → フィールド雛形、param トークン補完)。プロトタイプの入力しやすさ方針(ADR-0023)を満たす。",
               "test": null,
               "status": "done"
             }
@@ -4102,32 +4102,32 @@
       "depends_on": [
         "S89a350"
       ],
-      "reason": "params は TemplateVarDef 同型、変数展開は resolveTemplate(S89a350)を再利用する(ADR-0008)"
+      "reason": "params は TemplateVarDef 同型、変数展開は resolveTemplate(S89a350)を再利用する(ADR-0020)"
     },
     "Sde7a63": {
       "depends_on": [
         "Sd22b1f",
         "Sbd061c"
       ],
-      "reason": "パレットは既存 SearchPalette(Sbd061c)の拡張。smart エントリと実行は Sd22b1f の GET /api/commands / POST run を使う(ADR-0007)"
+      "reason": "パレットは既存 SearchPalette(Sbd061c)の拡張。smart エントリと実行は Sd22b1f の GET /api/commands / POST run を使う(ADR-0019)"
     },
     "S5a66e4": {
       "depends_on": [
         "Sd22b1f"
       ],
-      "reason": "実行エンジンのステップ・ユニオンに agent-run を加算する。Pi Agent 統合のマージ + agent-run ADR の追加が前提(ADR-0009 notes)"
+      "reason": "実行エンジンのステップ・ユニオンに agent-run を加算する。Pi Agent 統合のマージ + agent-run ADR の追加が前提(ADR-0021 notes)"
     },
     "Sf2f114": {
       "depends_on": [
         "Sd22b1f"
       ],
-      "reason": "DSL v2 は Sd22b1f の shared スキーマ/実行エンジン/CLI を加算拡張する (ADR-0010)"
+      "reason": "DSL v2 は Sd22b1f の shared スキーマ/実行エンジン/CLI を加算拡張する (ADR-0022)"
     },
     "S9e64e7": {
       "depends_on": [
         "Sf2f114"
       ],
-      "reason": "エディタの補完・プレビューは DSL v2 の語彙 (step/param 型) を反映するため先にバックエンドが必要 (ADR-0011)"
+      "reason": "エディタの補完・プレビューは DSL v2 の語彙 (step/param 型) を反映するため先にバックエンドが必要 (ADR-0023)"
     }
   },
   "backlog": [
@@ -4220,7 +4220,7 @@
     },
     {
       "title": "スラッシュメニューとコマンドレジストリの語彙共有の検討",
-      "description": "エディタ内挿入(SLASH_COMMANDS ハードコード配列)とコマンドレジストリの語彙・型を共有できるか検討(ADR-0007 consequences で統合しないと決めたが、共有の余地は残すとした)。",
+      "description": "エディタ内挿入(SLASH_COMMANDS ハードコード配列)とコマンドレジストリの語彙・型を共有できるか検討(ADR-0019 consequences で統合しないと決めたが、共有の余地は残すとした)。",
       "added_in": "roadmap-generation",
       "reason": "重複語彙の整理。機能価値より保守性のため優先度低"
     },
@@ -4238,7 +4238,7 @@
     },
     {
       "title": "スマートコマンド: run-command ステップ(コマンドから別コマンド呼出)",
-      "description": "部品化・再利用のため run-command を検討。ただし再帰・無限ループ(A→B→A)リスクと、when:+run-command+リスト型で実質『制御フロー言語』化する懸念(ADR-0009 の非スクリプティング方針と衝突)。入れる場合は再帰禁止・深さ1に強く制限し ADR で言語化を明記。DSL v2 検討時に保留と判断(ユーザー合意)。",
+      "description": "部品化・再利用のため run-command を検討。ただし再帰・無限ループ(A→B→A)リスクと、when:+run-command+リスト型で実質『制御フロー言語』化する懸念(ADR-0021 の非スクリプティング方針と衝突)。入れる場合は再帰禁止・深さ1に強く制限し ADR で言語化を明記。DSL v2 検討時に保留と判断(ユーザー合意)。",
       "added_in": "design-discussion",
       "reason": "表現力 vs シンプルさ/プラグインAPI禁止の緊張。当面は複雑処理は agent-run に委譲する方針"
     },

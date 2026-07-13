@@ -36,7 +36,7 @@
   },
   "verifier": {
     "verdict": "PASS_WITH_CONCERNS",
-    "report": "independent verifier (read-only): AC 全 conforms、forbidden-action なし、ADR-0008/0009/data.json 準拠、テスト authentic。concerns は low のみ(全て修正済み: section min(1) 整合 / dead code 除去 / 監査テスト自己完結化)。"
+    "report": "independent verifier (read-only): AC 全 conforms、forbidden-action なし、ADR-0020/0009/data.json 準拠、テスト authentic。concerns は low のみ(全て修正済み: section min(1) 整合 / dead code 除去 / 監査テスト自己完結化)。"
   },
   "done_judgment": {
     "guard_4_priority9_exception": "n/a (no exception claimed)",

@@ -11,7 +11,7 @@
  * - スマートコマンド (Sde7a63-3): GET /api/commands を取得して source='smart' として登録。
  *   valid:false は data-disabled='true' で非選択可能。
  * - コマンド専用モード (Sde7a63-2): 先頭 '>' でコマンドのみに絞り込む。
- *   プレフィックス解析は palettePrefix.ts の parsePaletteInput() に集約 (ADR-0007)。
+ *   プレフィックス解析は palettePrefix.ts の parsePaletteInput() に集約 (ADR-0019)。
  * - IME: compositionstart〜compositionend 間は全文検索を確定しない (decisions I3)。
  * - Esc / 外側クリックで閉じる。↑↓ で選択、Enter / クリックで開く。
  */
@@ -348,7 +348,7 @@ export function SearchPalette({
     setCommands(getCommands());
   }, [commandHandlers]);
 
-  /** Sde7a63-2: parsePaletteInput で mode / commandQuery を派生する (ADR-0007: 単一正源) */
+  /** Sde7a63-2: parsePaletteInput で mode / commandQuery を派生する (ADR-0019: 単一正源) */
   const { mode: paletteMode, query: commandQuery } = useMemo(
     () => parsePaletteInput(query),
     [query],

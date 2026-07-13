@@ -91,7 +91,7 @@ async function runCommand(
 // ---------------------------------------------------------------------------
 
 /** journal-append + note-create の 2 ステップ (open:true で openPath を確認)
- * ADR-0012: ファイル全体 = LoamiumCommand オブジェクト (.yaml)
+ * ADR-0024: ファイル全体 = LoamiumCommand オブジェクト (.yaml)
  */
 const CREATE_TODO_COMMAND = [
   'name: create-todo',
@@ -443,7 +443,7 @@ describe('[AC-Sd22b1f-2-3] append-only mode allows v1 commands', () => {
   it('[AC-Sd22b1f-2-3] append-only allows v1 commands (journal-append + note-create)', async () => {
     // v1 4 種のみで構成されたコマンドは append-only でも実行できる
     const { status, body } = await runCommand(server, 'create-todo', { title: 'ao-test' });
-    // append-only でも v1 ステップのコマンドは許可される (ADR-0009)
+    // append-only でも v1 ステップのコマンドは許可される (ADR-0021)
     expect(status).toBe(200);
     const parsed = commandRunResponseSchema.safeParse(body);
     expect(parsed.success).toBe(true);
@@ -620,7 +620,7 @@ describe('[AC-Sd22b1f-2-4] CLI command run', () => {
 });
 
 // ---------------------------------------------------------------------------
-// [AC-Sf2f114-3-1/2] note-append の section/create/position 一般化 (ADR-0010)
+// [AC-Sf2f114-3-1/2] note-append の section/create/position 一般化 (ADR-0022)
 // ---------------------------------------------------------------------------
 
 describe('[AC-Sf2f114-3-1] note-append with section/create/position', () => {
@@ -977,7 +977,7 @@ describe('[AC-Sf2f114-3-1] note-append with section/create/position', () => {
 });
 
 // ---------------------------------------------------------------------------
-// [AC-Sf2f114-2-1/2] when / when-not 条件付きステップ実行 (ADR-0010)
+// [AC-Sf2f114-2-1/2] when / when-not 条件付きステップ実行 (ADR-0022)
 // ---------------------------------------------------------------------------
 
 describe('[AC-Sf2f114-2-1/2] when / when-not 条件付きステップ実行', () => {
@@ -1267,7 +1267,7 @@ describe('[AC-Sf2f114-2-1/2] when / when-not 条件付きステップ実行', ()
 });
 
 // ---------------------------------------------------------------------------
-// [AC-Sf2f114-4-1/2/3] prop-set / note-patch ステップ (ADR-0009/0010)
+// [AC-Sf2f114-4-1/2/3] prop-set / note-patch ステップ (ADR-0021/0010)
 // ---------------------------------------------------------------------------
 
 describe('[AC-Sf2f114-4-1/2/3] prop-set / note-patch ステップ', () => {

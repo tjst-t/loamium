@@ -50,7 +50,7 @@ async function seedVault(vault: string): Promise<void> {
     // 過去のジャーナル (E2E の日付ナビゲーション用 — 今日から相対で作る)
     [journalPath(shiftJournalDate(today, -1))]: `# 昨日のジャーナル\n\n昨日のメモ。\n`,
     [journalPath(shiftJournalDate(today, -3))]: `# 3日前のジャーナル\n\n3日前のメモ。\n`,
-    // スマートコマンド定義 (S9e64e7-1 の E2E 用) — ADR-0012: .yaml ファイル全体 = LoamiumCommand
+    // スマートコマンド定義 (S9e64e7-1 の E2E 用) — ADR-0024: .yaml ファイル全体 = LoamiumCommand
     // params を含めないと cmd-param-row が描画されず AC-S9e64e7-1-3 が落ちる
     'commands/create-todo.yaml': [
       'name: create todo',

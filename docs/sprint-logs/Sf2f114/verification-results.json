@@ -6,6 +6,6 @@
     "test": {"command":"make test","status":"pass","exit":0,"passed":860,"failed":0},
     "ui-tests": {"status":"not_run","reason":"非 GUI(shared/server/cli のみ)。UI 変更なし。"}
   },
-  "verifier": {"verdict":"PASS","note":"独立検証者: 全 12 AC 準拠、加算的・無回帰(S4 リファクタは既存の潜在バグも修正)、ADR-0010 準拠(制御フロー無し=when は truthy/存在のみ)、forbidden なし、テスト真正。軽微ギャップ(CLI skip 表示・when-not/HH:mm/position-section テスト・コメント)は polish で対応済み。"},
+  "verifier": {"verdict":"PASS","note":"独立検証者: 全 12 AC 準拠、加算的・無回帰(S4 リファクタは既存の潜在バグも修正)、ADR-0022 準拠(制御フロー無し=when は truthy/存在のみ)、forbidden なし、テスト真正。軽微ギャップ(CLI skip 表示・when-not/HH:mm/position-section テスト・コメント)は polish で対応済み。"},
   "done_judgment": {"guard_6_deferred_comment_residue":"pass (none)","overall":"PASS: 全 5 Story AC 達成、make lint/test green(860/860)、独立検証者 PASS、加算のみで既存機能(journal/templates/properties/patch/create-todo)不変。"}
 }

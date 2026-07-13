@@ -1,9 +1,9 @@
 {
-  "id": "ADR-0012",
-  "title": "スマートコマンド定義は commands/*.yaml ファイルにする(ADR-0008 を supersede)",
+  "id": "ADR-0024",
+  "title": "スマートコマンド定義は commands/*.yaml ファイルにする(ADR-0020 を supersede)",
   "status": "accepted",
   "date": "2026-07-13",
-  "context": "ADR-0008 はスマートコマンド定義を commands/*.md + frontmatter キー loamium-command(特別な frontmatter を持つ Markdown ノート)とした。実運用で以下が判明した:(1)コマンド定義は本質的に構造化された設定であってノートではない。.md でラップし本文を持つ形は不自然。(2)定義エディタが .md を Markdown ノートとして開くため、Markdown 拡張(WikiLink『ノートにリンク』補完)が YAML の DSL 補完と競合し、kind 補完のはずが note-link 補完が出る不具合が発生した(ユーザー報告のスクリーンショット)。(3)loamium-command: ラッパーキット + 本文という二重構造が冗長。ユーザーは定義を素の YAML ファイルにする判断をした。\n\nADR-0008 が Markdown を選んだ理由(ピュア Markdown 原則、Git 追跡、普通のノートとして編集、Obsidian で開ける、本文に AI プロンプト長文)のうち、Git 追跡は .yaml でも成り立ち、『普通のノートとして編集/Obsidian』は元々定義には不要(散文編集する対象ではない)。本文プロンプトは agent-run 用だったが agent-run はバックログで、実装時にステップのフィールドや参照ノートで扱える。",
+  "context": "ADR-0020 はスマートコマンド定義を commands/*.md + frontmatter キー loamium-command(特別な frontmatter を持つ Markdown ノート)とした。実運用で以下が判明した:(1)コマンド定義は本質的に構造化された設定であってノートではない。.md でラップし本文を持つ形は不自然。(2)定義エディタが .md を Markdown ノートとして開くため、Markdown 拡張(WikiLink『ノートにリンク』補完)が YAML の DSL 補完と競合し、kind 補完のはずが note-link 補完が出る不具合が発生した(ユーザー報告のスクリーンショット)。(3)loamium-command: ラッパーキット + 本文という二重構造が冗長。ユーザーは定義を素の YAML ファイルにする判断をした。\n\nADR-0020 が Markdown を選んだ理由(ピュア Markdown 原則、Git 追跡、普通のノートとして編集、Obsidian で開ける、本文に AI プロンプト長文)のうち、Git 追跡は .yaml でも成り立ち、『普通のノートとして編集/Obsidian』は元々定義には不要(散文編集する対象ではない)。本文プロンプトは agent-run 用だったが agent-run はバックログで、実装時にステップのフィールドや参照ノートで扱える。",
   "alternatives": [
     {"name": "現状維持(commands/*.md + loamium-command frontmatter)", "tradeoff": "ノート一覧に出て開きやすいが、Markdown 拡張が DSL 編集と競合、二重構造が冗長。却下(supersede)"},
     {"name": ".yaml 化だがトップキー loamium-command: を残す", "tradeoff": "移行が緩いが、ファイル全体が定義なのにラッパーが残り冗長。却下"},
@@ -21,7 +21,7 @@
   ],
   "reversibility_cost": "medium",
   "affects": ["packages/shared", "packages/server", "packages/cli", "packages/ui"],
-  "supersedes": "ADR-0008",
+  "supersedes": "ADR-0020",
   "superseded_by": null,
-  "notes": "ADR-0011(定義エディタ V3+補完)の決定自体は不変(左 YAML ソース+補完 / 右プレビュー+検証+テスト実行)。変わるのは対象ファイルが .md frontmatter でなく .yaml 全体である点。ADR-0008 は superseded として履歴に残す。"
+  "notes": "ADR-0023(定義エディタ V3+補完)の決定自体は不変(左 YAML ソース+補完 / 右プレビュー+検証+テスト実行)。変わるのは対象ファイルが .md frontmatter でなく .yaml 全体である点。ADR-0020 は superseded として履歴に残す。"
 }

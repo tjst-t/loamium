@@ -98,7 +98,7 @@
   ],
   "files_expected": [
     "packages/ui/src/components/SearchPalette.tsx (Sde7a63-1 の拡張に '>' モード分岐を追加)",
-    "packages/ui/src/palettePrefix.ts (新規。getPrefixMode(input) → { mode, query } のユーティリティ。ADR-0007: プレフィックス対応は 1 箇所に集約)"
+    "packages/ui/src/palettePrefix.ts (新規。getPrefixMode(input) → { mode, query } のユーティリティ。ADR-0019: プレフィックス対応は 1 箇所に集約)"
   ],
   "planning_notes": "Sde7a63-1 完了後に着手。SearchPalette.tsx の query state を palettePrefix.ts の getPrefixMode で処理し、mode を派生させる。mode が 'command' のとき items にノート/全文候補を含めず、コマンドのみをフィルタする。palette-mode-command は input 行の右端(または input 下)に小さなバッジとして表示する。Sde7a63-3 とは独立しているが、-3 は -2 のコマンドモードと -1 のレジストリの両方に依存するため、-2 と -3 は直列実行が望ましい(-2 完了後 -3 着手)。"
 }

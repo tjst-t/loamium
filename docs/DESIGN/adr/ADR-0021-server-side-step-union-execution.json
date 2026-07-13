@@ -1,5 +1,5 @@
 {
-  "id": "ADR-0009",
+  "id": "ADR-0021",
   "title": "スマートコマンドはサーバー側で同期実行し、ステップ語彙は閉じた判別可能ユニオンとする(v1 は決定的操作のみ)",
   "status": "accepted",
   "date": "2026-07-10",
@@ -37,5 +37,5 @@
   "affects": ["packages/server", "packages/cli", "packages/shared", "packages/ui"],
   "supersedes": null,
   "superseded_by": null,
-  "notes": "Pi Agent 統合(別ブランチ)がマージされたら agent-run ステップの ADR を起こすこと。その ADR では 非同期ジョブ管理(状態・失敗時挙動・結果のファイル書き込み)を扱う。GET /api/commands(一覧)はパレット(ADR-0007)の動的エントリ供給源を兼ねる。"
+  "notes": "Pi Agent 統合(別ブランチ)がマージされたら agent-run ステップの ADR を起こすこと。その ADR では 非同期ジョブ管理(状態・失敗時挙動・結果のファイル書き込み)を扱う。GET /api/commands(一覧)はパレット(ADR-0019)の動的エントリ供給源を兼ねる。"
 }

@@ -1,5 +1,5 @@
 /**
- * ジャーナルのセクション挿入ヘルパー (ADR-0009 / Sd22b1f-2 / ADR-0010 / Sf2f114-3)。
+ * ジャーナルのセクション挿入ヘルパー (ADR-0021 / Sd22b1f-2 / ADR-0022 / Sf2f114-3)。
  *
  * journal-append ステップの section 指定に使う。単発の journal-append API/CLI
  * も同じ実装を共有する (Story Sd22b1f-3 で再利用する seam)。
@@ -109,7 +109,7 @@ export function insertUnderHeading(content: string, heading: string, text: strin
 }
 
 // ---------------------------------------------------------------------------
-// insertAtPosition — 位置指定汎用挿入ヘルパー (ADR-0010 / Sf2f114-3)
+// insertAtPosition — 位置指定汎用挿入ヘルパー (ADR-0022 / Sf2f114-3)
 // [AC-Sf2f114-3-1]
 // ---------------------------------------------------------------------------
 

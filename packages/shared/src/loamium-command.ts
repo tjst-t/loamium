@@ -1,28 +1,28 @@
 /**
- * スマートコマンド定義 (ADR-0012 supersedes ADR-0008 / ADR-0009 / ADR-0010) の zod スキーマとパース関数。
+ * スマートコマンド定義 (ADR-0024 supersedes ADR-0020 / ADR-0021 / ADR-0022) の zod スキーマとパース関数。
  *
- * ADR-0012: コマンド定義は vault 内 commands/*.yaml (または .yml) ファイルとし、
+ * ADR-0024: コマンド定義は vault 内 commands/*.yaml (または .yml) ファイルとし、
  * ファイル全体が LoamiumCommand オブジェクト (トップレベルに name?/description?/params[]/steps[])。
  * loamium-command: ラッパーキーも Markdown 本文も持たない。id = 拡張子を除いたファイル stem。
  *
  * params は templates の TemplateVar と同型 (name / label / required / default /
  * type: 'string'|'text'|'date')。steps は kind による判別可能ユニオン (6 種)。
  *
- * ADR-0010: 各ステップに任意の when / when-not フィールドを追加する (additive)。
+ * ADR-0022: 各ステップに任意の when / when-not フィールドを追加する (additive)。
  *   - when: 値が truthy なら実行、falsey ならスキップ。
  *   - when-not: 値が falsey なら実行、truthy ならスキップ。
  *   falsey 定義: 空文字列 ("") / "false" / "0" → falsey。それ以外 → truthy。
  *   両フィールドが指定された場合は両方が「実行条件を満たす」ときのみ実行する。
  *
- * parseLoamiumCommandFile(yamlText) — ADR-0012 用: ファイル全体の YAML テキストをパースする。
- * parseLoamiumCommand(frontmatter) — ADR-0008 互換 (旧 frontmatter ベース): 後方互換のため残す。
+ * parseLoamiumCommandFile(yamlText) — ADR-0024 用: ファイル全体の YAML テキストをパースする。
+ * parseLoamiumCommand(frontmatter) — ADR-0020 互換 (旧 frontmatter ベース): 後方互換のため残す。
  *   editor UI (CommandEditor.tsx) が parseLoamiumCommandWithError を呼んでいるため,
  *   その関数も旧シグネチャで残す (エディタ側の変更は別タスク)。
  */
 import { z } from 'zod';
 import { parse as parseYaml } from 'yaml';
 
-// ---- ADR-0010: 条件付きステップ実行の truthiness 評価 ----
+// ---- ADR-0022: 条件付きステップ実行の truthiness 評価 ----
 
 /**
  * 条件フィールド (when / when-not) の文字列 truthy 評価。
@@ -38,7 +38,7 @@ export function evaluateCondition(value: string): boolean {
   return true;
 }
 
-// ---- 条件付きステップの共通フィールド (ADR-0010) ----
+// ---- 条件付きステップの共通フィールド (ADR-0022) ----
 
 /**
  * 全ステップ種別が共有する任意フィールド (additive)。
@@ -63,7 +63,7 @@ const stepConditionFields = {
  *   'boolean' — チェックボックス (実行時は 'true' / '' の文字列)
  *   'number'  — 数値入力 (実行時は数値文字列 e.g. "42")
  *
- * ADR-0010 (Sf2f114-5): select/note/boolean/number を追加 (additive)。
+ * ADR-0022 (Sf2f114-5): select/note/boolean/number を追加 (additive)。
  * すべての型の実行時値は string として resolveTemplate に渡す (executor は変更なし)。
  * 文字列変換規約:
  *   boolean → チェック済み = 'true'、未チェック = '' (falsey)
@@ -116,10 +116,10 @@ export const commandParamSchema = z
   });
 export type CommandParam = z.infer<typeof commandParamSchema>;
 
-// ---- CommandStep — 判別可能ユニオン (ADR-0009, v1 = 4 種) ----
+// ---- CommandStep — 判別可能ユニオン (ADR-0021, v1 = 4 種) ----
 
 /**
- * 挿入位置の種別 (ADR-0010 / Sf2f114-3)。
+ * 挿入位置の種別 (ADR-0022 / Sf2f114-3)。
  * - bottom: ファイル末尾 (デフォルト)
  * - top:    frontmatter の直後 (本文先頭)
  * - section: section フィールドで指定した ATX 見出し配下末尾 (insertUnderHeading と同義)
@@ -135,7 +135,7 @@ export const journalAppendStepSchema = z.object({
   /** 空文字列は拒否 (journalAppendRequestSchema の section と整合)。 */
   section: z.string().min(1).optional(),
   /**
-   * 挿入位置 (ADR-0010 / Sf2f114-3)。省略時は後方互換挙動:
+   * 挿入位置 (ADR-0022 / Sf2f114-3)。省略時は後方互換挙動:
    * section あり → 'section'、なし → 'bottom'。
    */
   position: insertPositionSchema.optional(),
@@ -164,7 +164,7 @@ export const noteAppendStepSchema = z.object({
    */
   create: z.boolean().optional(),
   /**
-   * 挿入位置 (ADR-0010 / Sf2f114-3):
+   * 挿入位置 (ADR-0022 / Sf2f114-3):
    * - 省略時: section あり → 'section' と同義、なし → 'bottom'
    * - 'bottom': ファイル末尾に追記 (デフォルト)
    * - 'top': frontmatter の直後 (本文先頭) に挿入
@@ -197,7 +197,7 @@ export const templateInstantiateStepSchema = z.object({
 export type TemplateInstantiateStep = z.infer<typeof templateInstantiateStepSchema>;
 
 /**
- * prop-set: ノートの frontmatter プロパティを upsert/unset する (ADR-0009)。
+ * prop-set: ノートの frontmatter プロパティを upsert/unset する (ADR-0021)。
  * 既存の POST /api/notes/{path}/properties と同じ round-trip-safe パスを経由する。
  * target と string 値は resolveTemplate 展開される。
  * set / unset のいずれも省略された場合は no-op (ok:true を返す)。
@@ -216,7 +216,7 @@ export const propSetStepSchema = z.object({
 export type PropSetStep = z.infer<typeof propSetStepSchema>;
 
 /**
- * note-patch: ノート内の old テキストを new テキストで置換する (ADR-0009)。
+ * note-patch: ノート内の old テキストを new テキストで置換する (ADR-0021)。
  * 既存の POST /api/notes/{path}/patch と同じロジックを再利用する。
  * - 非マッチ → ok:false (ステップ失敗)
  * - 複数マッチ → ok:false (曖昧 — 既存パッチ API と同挙動)
@@ -235,7 +235,7 @@ export type NotePatchStep = z.infer<typeof notePatchStepSchema>;
 
 /**
  * CommandStep — kind による閉じた判別可能ユニオン。
- * v1 (ADR-0009) の 4 種 + v2 (ADR-0009/0010 Sf2f114-4) の 2 種 = 6 種。
+ * v1 (ADR-0021) の 4 種 + v2 (ADR-0021/0010 Sf2f114-4) の 2 種 = 6 種。
  * [AC-Sf2f114-4-3]
  */
 export const commandStepSchema = z.discriminatedUnion('kind', [
@@ -275,7 +275,7 @@ export function parseLoamiumCommand(
   if (frontmatter === null) return null;
   const raw = frontmatter['loamium-command'];
   if (raw === undefined) return null;
-  // zod で厳格パース (ADR-0008: 未知 kind は検証エラー)
+  // zod で厳格パース (ADR-0020: 未知 kind は検証エラー)
   const result = loamiumCommandSchema.safeParse(raw);
   if (!result.success) return null;
   return result.data;
@@ -284,7 +284,7 @@ export function parseLoamiumCommand(
 /**
  * parseLoamiumCommand と同様だが、エラーメッセージを返すバージョン。
  * GET /api/commands の valid:false + error フィールドに使う。
- * ADR-0008 互換 (旧 frontmatter ベース)。
+ * ADR-0020 互換 (旧 frontmatter ベース)。
  * editor UI (CommandEditor.tsx) が現在この関数を呼んでいるため、旧シグネチャで残す。
  * (エディタ側の YAML ファイル全体パースへの切り替えは別タスク)
  */
@@ -309,10 +309,10 @@ export function parseLoamiumCommandWithError(
   return { ok: true, command: result.data };
 }
 
-// ---- ADR-0012: ファイル全体 YAML パース ----
+// ---- ADR-0024: ファイル全体 YAML パース ----
 
 /**
- * commands/*.yaml ファイルの全テキストをパースして LoamiumCommand を返す (ADR-0012)。
+ * commands/*.yaml ファイルの全テキストをパースして LoamiumCommand を返す (ADR-0024)。
  * ファイル全体がトップレベルの LoamiumCommand オブジェクトであることを期待する。
  * loamium-command: ラッパーキーは不要 (持つと name/params/steps が欠けるため無効になる)。
  *
@@ -334,7 +334,7 @@ export function parseLoamiumCommandFile(yamlText: string): LoamiumCommand | null
 
 /**
  * parseLoamiumCommandFile と同様だが、エラーメッセージを返すバージョン。
- * GET /api/commands の valid:false + error フィールドに使う (ADR-0012)。
+ * GET /api/commands の valid:false + error フィールドに使う (ADR-0024)。
  */
 export function parseLoamiumCommandFileWithError(
   yamlText: string,

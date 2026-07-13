@@ -16,7 +16,7 @@ import { readHarnessState } from '../harness/state.js';
  * コマンドファイルの name は "create todo" (スペース入り、ファイル stem "create-todo" と異なる)。
  * これにより UI が id (stem) を使って run を呼ぶことが必要になる — 表示名で呼ぶと 404 になる。
  * [BUG-REGRESSION] このフィクスチャが id/stem に基づく実行フローのロックイン。
- * ADR-0012: .yaml ファイル全体 = LoamiumCommand オブジェクト
+ * ADR-0024: .yaml ファイル全体 = LoamiumCommand オブジェクト
  */
 const CREATE_TODO_COMMAND = [
   'name: create todo',

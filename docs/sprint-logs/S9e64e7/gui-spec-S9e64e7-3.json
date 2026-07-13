@@ -169,7 +169,7 @@
   ],
   "files_expected": [
     "packages/ui/src/components/CommandEditor.tsx (S9e64e7-1/-2 で作成済み。CodeMirror に commandDslCompletionSource を Extension として追加)",
-    "packages/ui/src/commandDslCompletion.ts (新規。CodeMirror の CompletionSource 関数群: kindCompletionSource / tokenCompletionSource(param名+date/now) / noteTargetCompletionSource / sectionCompletionSource / selectOptionsCompletionSource。DSL v2 語彙(ADR-0010)に追従)",
+    "packages/ui/src/commandDslCompletion.ts (新規。CodeMirror の CompletionSource 関数群: kindCompletionSource / tokenCompletionSource(param名+date/now) / noteTargetCompletionSource / sectionCompletionSource / selectOptionsCompletionSource。DSL v2 語彙(ADR-0022)に追従)",
     "packages/ui/src/api.ts (既存 listNotes メソッドを流用 or noteTargetCompletion 用に呼び出し追加)"
   ],
   "planning_notes": "S9e64e7-1/-2 完了後に着手(CompletionSource が CommandEditor の CodeMirror インスタンスに依存)。補完ソースは CodeMirror の CompletionSource 型に従った関数群を commandDslCompletion.ts に集約する。kind 補完はカーソル前の YAML コンテキストが 'kind: ' で終わるかを正規表現で判定する(簡易パーサで十分; lezer-markdown の全 AST 解析は過剰)。token 補完の param 名は親コンポーネントから CompletionSource に DI するか EditorView の stateField として持たせる(後者推奨)。vault ノート補完はマウント時に GET /api/notes を 1 回呼びキャッシュ(エラーは補完なしにフォールバック)。section 補完は静的ヒント(Todo/Done/Notes/Tasks 等)で実装し、ユーザーが自由入力できることを妨げない。Story 3 の mock テストは command-editor-completion.mock.spec.ts として分離し、补完ソース関数を直接テストする(Playwright の autocompletion ポップアップ操作は不安定になりやすいため Vitest ユニットテストとの併用を推奨)。"

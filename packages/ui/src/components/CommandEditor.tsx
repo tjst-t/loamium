@@ -1,9 +1,9 @@
 /**
- * CommandEditor — スマートコマンド定義の専用スプリットエディタ (ADR-0012)。
+ * CommandEditor — スマートコマンド定義の専用スプリットエディタ (ADR-0024)。
  *
  * レイアウト: 左ペイン (素の YAML CodeMirror) + 右ペイン (ライブ検証 + プレビュー + テスト実行)。
  *
- * ADR-0012: commands/*.yaml ファイル全体が LoamiumCommand YAML。
+ * ADR-0024: commands/*.yaml ファイル全体が LoamiumCommand YAML。
  *           Markdown/WikiLink/スラッシュメニュー拡張は一切含まない。
  *           DSL 補完のみ (commandDslCompletionExtension)。
  *
@@ -54,7 +54,7 @@ type ValidationResult =
   | { valid: false; error: string };
 
 /**
- * バッファ全体 (純粋 YAML) を parseLoamiumCommandFileWithError で検証する (ADR-0012)。
+ * バッファ全体 (純粋 YAML) を parseLoamiumCommandFileWithError で検証する (ADR-0024)。
  * frontmatter 抽出は不要 — ファイル全体が LoamiumCommand YAML。
  */
 function validateText(text: string): ValidationResult {
@@ -63,7 +63,7 @@ function validateText(text: string): ValidationResult {
   return { valid: false, error: result.error };
 }
 
-/** path (e.g. "commands/create-todo.yaml") からコマンド ID (stem) を取り出す (ADR-0012)。 */
+/** path (e.g. "commands/create-todo.yaml") からコマンド ID (stem) を取り出す (ADR-0024)。 */
 function extractCommandId(docPath: string): string {
   return docPath.split('/').at(-1)?.replace(/\.ya?ml$/i, '') ?? docPath;
 }
@@ -386,7 +386,7 @@ function TestRunParamForm({
 export interface CommandEditorProps {
   /** 開いているコマンド定義ファイルのパス (commands/*.yaml) */
   docPath: string;
-  /** ファイルの初期テキスト (純粋 YAML — ADR-0012) */
+  /** ファイルの初期テキスト (純粋 YAML — ADR-0024) */
   content: string;
   /** 同一パスのまま外部内容で置き換えたいとき増やす */
   resetToken: number;
@@ -436,7 +436,7 @@ export function CommandEditor({
   const [runState, setRunState] = useState<RunState>({ phase: 'idle' });
 
   /**
-   * 左ペイン CodeMirror 用 Extension リスト (ADR-0012)。
+   * 左ペイン CodeMirror 用 Extension リスト (ADR-0024)。
    * Markdown / WikiLink / スラッシュメニュー 拡張を含まない純粋 YAML エディタ。
    * DSL 補完 (commandDslCompletionExtension) のみ補完を提供する。
    */
@@ -457,7 +457,7 @@ export function CommandEditor({
       ...defaultKeymap,
       ...historyKeymap,
     ]),
-    // DSL v2 補完のみ (Markdown/WikiLink 拡張なし — ADR-0012 / user-reported bug fix)
+    // DSL v2 補完のみ (Markdown/WikiLink 拡張なし — ADR-0024 / user-reported bug fix)
     commandDslCompletionExtension(),
     EditorView.updateListener.of((update) => {
       if (update.docChanged && !suppressRef.current) {
@@ -528,7 +528,7 @@ export function CommandEditor({
     savingRef.current = true;
     try {
       const base = mtimeRef.current ?? undefined;
-      // ADR-0012: stem を使って source エンドポイントへ PUT (notes API は .md 強制のため使わない)
+      // ADR-0024: stem を使って source エンドポイントへ PUT (notes API は .md 強制のため使わない)
       const commandId = extractCommandId(docPath);
       const res = await api.putCommandSource(commandId, textRef.current, base);
       dirtyRef.current = false;
@@ -638,7 +638,7 @@ export function CommandEditor({
 
       {/* スプリットレイアウト */}
       <div className="cmd-editor-split">
-        {/* 左ペイン: 素の YAML CodeMirror (ADR-0012: Markdown 拡張なし、DSL 補完のみ) */}
+        {/* 左ペイン: 素の YAML CodeMirror (ADR-0024: Markdown 拡張なし、DSL 補完のみ) */}
         <div className="cmd-editor-left" data-testid="cmd-edit-yaml">
           <div className="cmd-editor-pane-bar">
             <span className="cmd-editor-pane-lang">YAML</span>

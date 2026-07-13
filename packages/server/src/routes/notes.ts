@@ -77,7 +77,7 @@ function notePathFrom(rawPath: string, stripAction: PostAction | 'meta' | 'expor
 }
 
 // ---------------------------------------------------------------------------
-// Core logic — reused by commands executor (ADR-0009 / Sf2f114-4)
+// Core logic — reused by commands executor (ADR-0021 / Sf2f114-4)
 // ---------------------------------------------------------------------------
 
 /**
