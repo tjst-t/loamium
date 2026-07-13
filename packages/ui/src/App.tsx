@@ -37,7 +37,7 @@ import {
   type SearchParams,
 } from './router.js';
 import { makeTagClickHandler } from './tag-click.js';
-import { isCommandNote } from './commandEditorUtils.js';
+import { isCommandFile } from './commandEditorUtils.js';
 import { BookmarkStar } from './components/BookmarkStar.js';
 import { CommandEditor } from './components/CommandEditor.js';
 import { Editor } from './components/Editor.js';
@@ -590,9 +590,16 @@ export function App(): JSX.Element {
   /**
    * 添付ファイルのプレビューを開く (Sf53ad6-2: ツリーの tree-file クリック)。
    * 開いているノートは保存してから切り替える (エディタは一時アンマウントされる)。
+   * commands/*.yaml はコマンド定義ファイルなので FilePreview ではなく CommandEditor へ
+   * ルーティングする (ADR-0012)。
    */
   const openFilePreview = useCallback(
     async (path: string): Promise<void> => {
+      // ADR-0012: commands/*.yaml は CommandEditor で開く (FilePreview には渡さない)
+      if (isCommandFile(path)) {
+        await openNotePath(path);
+        return;
+      }
       if (!(await saveNow())) return;
       setDoc((d) => (d !== null ? { ...d, text: contentRef.current } : d));
       // /files ページ表示中に添付を選んだらノート領域 (プレビュー) へ戻す
@@ -602,7 +609,7 @@ export function App(): JSX.Element {
       setPreview(path);
       setAppError(null);
     },
-    [applyHistory, saveNow],
+    [applyHistory, openNotePath, saveNow],
   );
 
   /**
@@ -1470,7 +1477,7 @@ export function App(): JSX.Element {
               {appError}
             </div>
           )}
-          {route.kind === 'note' && doc !== null && preview === null && !isCommandNote(doc.path, doc.frontmatter) && (
+          {route.kind === 'note' && doc !== null && preview === null && !isCommandFile(doc.path) && (
             <div className="save-status" data-testid="save-status" data-state={dirty ? 'dirty' : 'saved'}>
               <span className="dot" />
               <span>{dirty ? '未保存' : '保存済み'}</span>
@@ -1513,7 +1520,7 @@ export function App(): JSX.Element {
           />
         ) : preview !== null ? (
           <FilePreview path={preview} files={files} />
-        ) : doc !== null && isCommandNote(doc.path, doc.frontmatter) ? (
+        ) : doc !== null && isCommandFile(doc.path) ? (
           <CommandEditor
             docPath={doc.path}
             content={doc.text}

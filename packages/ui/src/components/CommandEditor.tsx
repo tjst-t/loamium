@@ -1,13 +1,17 @@
 /**
- * CommandEditor — スマートコマンド定義の専用スプリットエディタ (S9e64e7-1/-2)。
+ * CommandEditor — スマートコマンド定義の専用スプリットエディタ (ADR-0012)。
  *
- * レイアウト: 左ペイン (YAML/Markdown ソース CodeMirror) + 右ペイン (ライブ検証 + プレビュー + テスト実行)。
+ * レイアウト: 左ペイン (素の YAML CodeMirror) + 右ペイン (ライブ検証 + プレビュー + テスト実行)。
  *
- * AC-S9e64e7-1-1: commands/ + loamium-command のときのみ描画 (App.tsx 側で分岐)。
+ * ADR-0012: commands/*.yaml ファイル全体が LoamiumCommand YAML。
+ *           Markdown/WikiLink/スラッシュメニュー拡張は一切含まない。
+ *           DSL 補完のみ (commandDslCompletionExtension)。
+ *
+ * AC-S9e64e7-1-1: commands/*.yaml → CommandEditor を描画 (App.tsx 側で分岐)。
  * AC-S9e64e7-1-2: 保存ボタンは INVALID のとき aria-disabled。保存は PUT /api/notes/{path}。
  * AC-S9e64e7-1-3: testid は gui-spec / prototype V3 に準拠。
  *
- * AC-S9e64e7-2-1: YAML をリアルタイム検証 (parseLoamiumCommandWithError)。
+ * AC-S9e64e7-2-1: YAML をリアルタイム検証 (parseLoamiumCommandFileWithError)。
  *                 cmd-edit-validation[data-valid=true|false] で表示。invalid は save/test-run も無効。
  * AC-S9e64e7-2-2: 右ペインに params/steps プレビュー。
  *                 cmd-param-row[data-name][data-type][data-required]、
@@ -16,7 +20,7 @@
  *                 未保存(dirty)なら先に PUT 保存してから POST run。
  *                 params があれば TestRunParamForm (param-form-modal testid) を開き
  *                 params 収集後に CommandEditor 自身が api.runCommand を呼ぶ。
- *                 id は path の stem (commands/create-todo.md → create-todo)。
+ *                 id は path の stem (commands/create-todo.yaml → create-todo)。
  *                 結果は cmd-edit-run-result に step-result[data-kind][data-ok] で表示。
  *
  * prototype/command-editor.html V3 の split + validate バナー レイアウトを移植。
@@ -35,12 +39,8 @@ import {
 import { EditorState, type Extension } from '@codemirror/state';
 import { EditorView, keymap, highlightActiveLine, drawSelection } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
-import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
-import { syntaxHighlighting, HighlightStyle } from '@codemirror/language';
-import { tags } from '@lezer/highlight';
 import {
-  parseNote,
-  parseLoamiumCommandWithError,
+  parseLoamiumCommandFileWithError,
   type LoamiumCommand,
   type CommandParam,
   type CommandRunResponse,
@@ -48,47 +48,24 @@ import {
 import { api } from '../api.js';
 import { commandDslCompletionExtension } from '../commandDslCompletion.js';
 
-// ---- CodeMirror 構文ハイライト (Editor.tsx と同じセット) ----
-const mdHighlight = HighlightStyle.define([
-  { tag: tags.heading1, class: 'cm-md-heading cm-md-h1' },
-  { tag: tags.heading2, class: 'cm-md-heading cm-md-h2' },
-  { tag: tags.heading3, class: 'cm-md-heading cm-md-h3' },
-  { tag: tags.heading4, class: 'cm-md-heading' },
-  { tag: tags.heading5, class: 'cm-md-heading' },
-  { tag: tags.heading6, class: 'cm-md-heading' },
-  { tag: tags.strong, class: 'cm-md-strong' },
-  { tag: tags.emphasis, class: 'cm-md-em' },
-  { tag: tags.monospace, class: 'cm-md-code' },
-  { tag: tags.link, class: 'cm-md-link' },
-  { tag: tags.url, class: 'cm-md-link' },
-  { tag: tags.quote, class: 'cm-md-quote' },
-  { tag: tags.processingInstruction, class: 'cm-md-mark' },
-  { tag: tags.meta, class: 'cm-md-mark' },
-]);
-
-/** frontmatter 先頭 (ノートを開いた直後の位置) に合わせる。 */
-function initialAnchor(content: string): number {
-  const parsed = parseNote(content);
-  if (parsed.frontmatter === null) return 0;
-  return content.length - parsed.body.length;
-}
-
 /** 検証結果 */
 type ValidationResult =
   | { valid: true; command: LoamiumCommand }
   | { valid: false; error: string };
 
-/** 現在のテキストから frontmatter を取り出し parseLoamiumCommandWithError を呼ぶ。 */
+/**
+ * バッファ全体 (純粋 YAML) を parseLoamiumCommandFileWithError で検証する (ADR-0012)。
+ * frontmatter 抽出は不要 — ファイル全体が LoamiumCommand YAML。
+ */
 function validateText(text: string): ValidationResult {
-  const parsed = parseNote(text);
-  const result = parseLoamiumCommandWithError(parsed.frontmatter);
+  const result = parseLoamiumCommandFileWithError(text);
   if (result.ok) return { valid: true, command: result.command };
   return { valid: false, error: result.error };
 }
 
-/** path (e.g. "commands/create-todo.md") からコマンド ID (stem) を取り出す。 */
+/** path (e.g. "commands/create-todo.yaml") からコマンド ID (stem) を取り出す (ADR-0012)。 */
 function extractCommandId(docPath: string): string {
-  return docPath.split('/').at(-1)?.replace(/\.md$/, '') ?? docPath;
+  return docPath.split('/').at(-1)?.replace(/\.ya?ml$/i, '') ?? docPath;
 }
 
 /** ステップのキーフィールド (target / section / content / template など) の概要を返す。 */
@@ -407,9 +384,9 @@ function TestRunParamForm({
 // ============================================================
 
 export interface CommandEditorProps {
-  /** 開いているノートのパス */
+  /** 開いているコマンド定義ファイルのパス (commands/*.yaml) */
   docPath: string;
-  /** ノートの初期テキスト (frontmatter 含む完全ソース) */
+  /** ファイルの初期テキスト (純粋 YAML — ADR-0012) */
   content: string;
   /** 同一パスのまま外部内容で置き換えたいとき増やす */
   resetToken: number;
@@ -458,6 +435,11 @@ export function CommandEditor({
   // テスト実行ステートマシン (AC-S9e64e7-2-3)
   const [runState, setRunState] = useState<RunState>({ phase: 'idle' });
 
+  /**
+   * 左ペイン CodeMirror 用 Extension リスト (ADR-0012)。
+   * Markdown / WikiLink / スラッシュメニュー 拡張を含まない純粋 YAML エディタ。
+   * DSL 補完 (commandDslCompletionExtension) のみ補完を提供する。
+   */
   const buildExtensions = useCallback((): Extension[] => [
     history(),
     drawSelection(),
@@ -475,9 +457,7 @@ export function CommandEditor({
       ...defaultKeymap,
       ...historyKeymap,
     ]),
-    markdown({ base: markdownLanguage }),
-    syntaxHighlighting(mdHighlight),
-    // DSL v2 補完 (AC-S9e64e7-3-1/-2/-3)
+    // DSL v2 補完のみ (Markdown/WikiLink 拡張なし — ADR-0012 / user-reported bug fix)
     commandDslCompletionExtension(),
     EditorView.updateListener.of((update) => {
       if (update.docChanged && !suppressRef.current) {
@@ -501,7 +481,6 @@ export function CommandEditor({
     const view = new EditorView({
       state: EditorState.create({
         doc: content,
-        selection: { anchor: initialAnchor(content) },
         extensions: buildExtensions(),
       }),
       parent: host,
@@ -527,7 +506,6 @@ export function CommandEditor({
     view.setState(
       EditorState.create({
         doc: content,
-        selection: { anchor: initialAnchor(content) },
         extensions: buildExtensions(),
       }),
     );
@@ -608,7 +586,7 @@ export function CommandEditor({
   }, [runState.phase, handleSave, doRun]);
 
   // ブレッドクラム (commands / {stem})
-  const stem = docPath.split('/').at(-1)?.replace(/\.md$/, '') ?? docPath;
+  const stem = extractCommandId(docPath);
 
   const isValid = validation.valid;
   const parsedCommand: LoamiumCommand | null = validation.valid ? validation.command : null;
@@ -658,10 +636,10 @@ export function CommandEditor({
 
       {/* スプリットレイアウト */}
       <div className="cmd-editor-split">
-        {/* 左ペイン: YAML/Markdown ソース CodeMirror */}
+        {/* 左ペイン: 素の YAML CodeMirror (ADR-0012: Markdown 拡張なし、DSL 補完のみ) */}
         <div className="cmd-editor-left" data-testid="cmd-edit-yaml">
           <div className="cmd-editor-pane-bar">
-            <span className="cmd-editor-pane-lang">YAML/MD</span>
+            <span className="cmd-editor-pane-lang">YAML</span>
             <span className="cmd-editor-pane-label">{docPath} · ソース</span>
           </div>
           <div className="cmd-editor-cm-host" ref={hostRef} />

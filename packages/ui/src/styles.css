@@ -4513,6 +4513,69 @@ button.callout-title { cursor: pointer; }
 
 .cmd-editor-cm-host .cm-selectionBackground { background: rgba(110, 86, 207, 0.35); }
 
+/*
+ * CommandEditor の補完ポップアップ (ADR-0012 / user-reported fix: popup too small)。
+ * グローバルの .cm-editor .cm-tooltip-autocomplete ルールで wl-option 専用 UI が
+ * 設定されており cm-completionLabel が display:none になるため、
+ * .cmd-editor-cm-host スコープで上書きして DSL 補完ラベルを表示可能にする。
+ * :where(svg) ガードは維持する (グローバルルールで保証済み)。
+ */
+.cmd-editor-cm-host .cm-tooltip.cm-tooltip-autocomplete {
+  width: 360px;
+  min-width: 260px;
+  background: #1e2233;
+  border: 1px solid #45475a;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  padding: 4px;
+}
+/* DSL 補完ではヒント行不要 (ADR-0012: wikilink と無関係) */
+.cmd-editor-cm-host .cm-tooltip-autocomplete::before {
+  display: none;
+}
+.cmd-editor-cm-host .cm-tooltip-autocomplete > ul {
+  max-height: 300px;
+  overflow-y: auto;
+}
+.cmd-editor-cm-host .cm-tooltip-autocomplete > ul > li {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 5px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #cdd6f4;
+  cursor: pointer;
+}
+.cmd-editor-cm-host .cm-tooltip-autocomplete > ul > li:hover {
+  background: rgba(203,166,247,0.12);
+}
+.cmd-editor-cm-host .cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: rgba(203,166,247,0.22);
+  color: #cba6f7;
+}
+/* DSL 補完ラベルを表示する (グローバルルールの display:none を上書き) */
+.cmd-editor-cm-host .cm-tooltip-autocomplete .cm-completionLabel {
+  display: inline !important;
+  font-weight: 500;
+  flex: 1;
+}
+.cmd-editor-cm-host .cm-tooltip-autocomplete .cm-completionDetail {
+  display: inline !important;
+  font-size: 11px;
+  color: #6c7086;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+/* wl-option は DSL 補完では使わないが万が一来たとき可視にする */
+.cmd-editor-cm-host .cm-tooltip-autocomplete .wl-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+}
+
 /* 右ペイン: バリデーション + プレビュー + 保存 */
 .cmd-editor-right {
   display: flex;
