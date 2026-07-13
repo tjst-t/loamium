@@ -3778,10 +3778,141 @@
       "title": "スマートコマンド定義エディタ — V3 スプリット(YAML 正本)+ 全部補完",
       "description": "ADR-0011 準拠。commands/ 配下の loamium-command を開くと専用スプリットエディタ(左 YAML 補完編集 / 右ライブ検証+プレビュー+テスト実行、保存前バリデーション)。補完は DSL v2 語彙を反映。GUI(gui-spec + プロトタイプ command-editor.html V3 を基盤)。",
       "milestone": true,
-      "status": "pending",
-      "detail_level": "coarse",
+      "status": "in_progress",
+      "detail_level": "detailed",
       "depends_on": null,
-      "stories": {}
+      "stories": {
+        "S9e64e7-1": {
+          "title": "定義エディタの検出 + スプリットシェル(左 YAML / 右ペイン枠)+ 保存",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "コマンド作者として、commands/ 配下の loamium-command ノートを開いたら定義専用のスプリットエディタになってほしい。なぜなら、通常の素の Markdown 編集より定義を書きやすくしたいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S9e64e7-1-1",
+              "description": "commands/ 配下かつ frontmatter に loamium-command キーを持つノートを開くと、通常の Editor ではなく CommandEditor(左: YAML/Markdown ソース CodeMirror、右: ペイン枠)を表示する。それ以外のノートは従来どおり。発動条件は commands/ 配下の loamium-command のみ(ADR-0011)。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S9e64e7-1-2",
+              "description": "左ペインは正本(YAML/Markdown 1 本)。編集内容は既存の PUT /api/notes 経路で保存する。保存ボタンは右ペインの検証が不正のとき aria-disabled で押せない(保存前バリデーション、ADR-0011)。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S9e64e7-1-3",
+              "description": "mock テスト(検出/非検出の分岐、保存ボタンの有効/無効)+ e2e(commands ノートを開くと split 表示、保存)。プロトタイプ command-editor.html V3 のレイアウト/testid に一致。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S9e64e7-1-1": {
+              "title": "検出 + CommandEditor シェル",
+              "description": "App.tsx で commands/ + loamium-command 検出、CommandEditor(split)描画、保存経路。",
+              "status": "pending"
+            }
+          }
+        },
+        "S9e64e7-2": {
+          "title": "右ペイン — ライブ検証 + params/steps プレビュー + テスト実行",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "コマンド作者として、書いている定義が正しいか即分かり、その場でテスト実行したい。なぜなら、保存前に間違いに気づき、動作を確認したいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S9e64e7-2-1",
+              "description": "左の YAML をリアルタイムにパース(共有 parseLoamiumCommandWithError 相当)し、右ペインに『有効/無効 + エラー理由』を表示。無効時は保存ボタンを無効化。DSL v2 の全 step 種別・param 型を検証に反映(ADR-0010/0011)。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S9e64e7-2-2",
+              "description": "右ペインに params 一覧(name/型/必須/options 等)と steps 一覧(kind + 主要フィールド、when: の有無)をプレビュー表示。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S9e64e7-2-3",
+              "description": "『テスト実行』ボタンで、params があれば既存の ParamFormModal を開き POST /api/commands/{id}/run(未保存編集内容ではなく保存済み定義に対して実行。未保存時は保存を促すか実行前保存)。結果を表示。mock + e2e。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S9e64e7-2-1": {
+              "title": "ライブ検証 + プレビュー + テスト実行",
+              "description": "共有パーサでライブ検証、右ペイン描画、テスト実行を run 経路へ接続。",
+              "status": "pending"
+            }
+          }
+        },
+        "S9e64e7-3": {
+          "title": "左ペインの補完(kind / フィールド雛形 / トークン / section・note・select)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "コマンド作者として、YAML を書くとき補完で楽をしたい。なぜなら、step 種別やフィールド、パラメータ名を暗記せず入力したいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S9e64e7-3-1",
+              "description": "CodeMirror 補完: kind: の値を候補表示(6 種)。kind を選ぶと当該種別の残りフィールドを雛形挿入(例 note-append → target/content/section?/create?/position?)。DSL v2 の語彙を反映。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S9e64e7-3-2",
+              "description": "{{...}} 内をコマンドの宣言 param 名 + date:/now: トークン + |fallback で補完。section・target(vault ノート補完)・select の options 記述など補完可能箇所を補完。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S9e64e7-3-3",
+              "description": "補完の mock テスト(kind 補完 → フィールド雛形、param トークン補完)。プロトタイプの入力しやすさ方針(ADR-0011)を満たす。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S9e64e7-3-1": {
+              "title": "CodeMirror 補完ソース",
+              "description": "kind/フィールド雛形/トークン/ノート補完の completion source を実装。",
+              "status": "pending"
+            }
+          }
+        },
+        "S9e64e7-4": {
+          "title": "機能ガイドに smart command マニュアルを追加",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "利用者として、機能ガイドから smart command の使い方を知りたい。なぜなら、コマンドの作り方・実行方法を暗記せず参照したいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S9e64e7-4-1",
+              "description": "空状態の機能ガイド(既存スマートフォルダガイドと同パターン)に『スマートコマンドの使い方』節を追加: commands/ に定義を書く→ Ctrl-K/'>' で実行→ フォーム入力→ 実行、定義エディタで編集、の要点。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S9e64e7-4-2",
+              "description": "mock テストで当該ガイド節が空状態に表示されることを確認。既存ガイド(スマートフォルダ)は不変。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S9e64e7-4-1": {
+              "title": "ガイド節追加",
+              "description": "App.tsx 空状態のガイドに smart command 節を追加。",
+              "status": "pending"
+            }
+          }
+        }
+      }
     }
   },
   "dependencies": {
