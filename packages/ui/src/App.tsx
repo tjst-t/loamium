@@ -1612,6 +1612,27 @@ export function App(): JSX.Element {
                 </li>
               </ul>
             </div>
+            <div className="smart-command-guide" data-testid="smart-command-guide">
+              <h3>スマートコマンドの使い方</h3>
+              <ul>
+                <li>
+                  <strong>定義を書く</strong> — <code>commands/</code> フォルダにノートを作成し、
+                  frontmatter に <code>loamium-command:</code> ブロックを追加します。
+                  ノートを開くと自動で定義エディタ（スプリットビュー）に切り替わります。
+                </li>
+                <li>
+                  <strong>コマンドパレットで実行</strong> — <kbd>Ctrl</kbd>+<kbd>K</kbd> を押して{' '}
+                  <code>{'>'}</code> を入力すると、登録済みスマートコマンドの一覧が表示されます。
+                  選択するとフォームが開き、パラメータを入力して実行できます。
+                </li>
+                <li>
+                  <strong>定義エディタで編集</strong> — 左ペインで YAML を直接編集し、
+                  右ペインでライブ検証・プレビュー・テスト実行ができます。
+                  補完（<kbd>Ctrl</kbd>+<kbd>Space</kbd>）で <code>kind:</code> やパラメータトークン{' '}
+                  <code>{'{{param}}'}</code> を素早く入力できます。
+                </li>
+              </ul>
+            </div>
           </div>
         )}
 
