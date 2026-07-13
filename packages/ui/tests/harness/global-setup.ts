@@ -50,6 +50,23 @@ async function seedVault(vault: string): Promise<void> {
     // 過去のジャーナル (E2E の日付ナビゲーション用 — 今日から相対で作る)
     [journalPath(shiftJournalDate(today, -1))]: `# 昨日のジャーナル\n\n昨日のメモ。\n`,
     [journalPath(shiftJournalDate(today, -3))]: `# 3日前のジャーナル\n\n3日前のメモ。\n`,
+    // スマートコマンド定義 (S9e64e7-1 の E2E 用)
+    'commands/create-todo.md': [
+      '---',
+      'loamium-command:',
+      '  name: create todo',
+      '  description: タスクを今日のジャーナルの Todo に追記',
+      '  steps:',
+      '    - kind: journal-append',
+      '      content: "- [ ] {{summary}}"',
+      '      section: Todo',
+      '---',
+      '',
+      '# create todo',
+      '',
+      'タスクを追記するコマンドです。',
+      '',
+    ].join('\n'),
     // 汎用テンプレート (S89a350-3 の E2E 用)
     'templates/議事録.md': [
       '---',
