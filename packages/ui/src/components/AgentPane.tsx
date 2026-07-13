@@ -1225,9 +1225,6 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
                     {PRESET_LABELS[name]}
                   </button>
                 ))}
-                {activePreset === null && (
-                  <span className="agent-perm-custom-tag" aria-hidden="true">カスタム</span>
-                )}
               </div>
 
               <div className="agent-perm-toggles" data-testid="agent-perm-toggles">

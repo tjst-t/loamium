@@ -4134,13 +4134,6 @@ button.callout-title { cursor: pointer; }
   gap: 9px;
 }
 
-.agent-perm-custom-tag {
-  font-size: 10.5px;
-  color: var(--accent);
-  font-weight: 600;
-  margin-left: auto;
-}
-
 .agent-perm-label {
   font-size: 11px;
   font-weight: 600;
