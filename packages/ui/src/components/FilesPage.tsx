@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type Mouse
 import type { FileMeta, NoteMeta } from '@loamium/shared';
 import { buildTree, type TreeNode } from '../tree.js';
 import { fileCategoryOf, formatDateTime, formatSize, kindLabelOf } from '../file-kind.js';
+import { isCommandFile } from '../commandEditorUtils.js';
 import { renderFileEmbedFor } from '../renderers/embed.js';
 import {
   ChevronDownIcon,
@@ -223,7 +224,9 @@ export function FilesPage({
 
   const openEntry = useCallback(
     (entry: Entry): void => {
-      if (entry.kind === 'note') onOpenNote(entry.path);
+      // ノート(.md)、および commands/*.yaml スマートコマンド定義は編集エディタで開く。
+      // それ以外の添付は読取プレビュー。
+      if (entry.kind === 'note' || isCommandFile(entry.path)) onOpenNote(entry.path);
       else setPreviewPath(entry.path);
     },
     [onOpenNote],
@@ -340,7 +343,7 @@ export function FilesPage({
                       <button
                         className="row-act-btn"
                         data-testid="file-preview-btn"
-                        title={entry.kind === 'note' ? 'エディタで開く' : 'プレビュー'}
+                        title={entry.kind === 'note' || isCommandFile(entry.path) ? 'エディタで開く' : 'プレビュー'}
                         onClick={(e) => {
                           e.stopPropagation();
                           openEntry(entry);
