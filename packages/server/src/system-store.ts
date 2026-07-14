@@ -215,13 +215,7 @@ export async function writeSystemSmartFolder(
   id: string,
   yamlContent: string,
 ): Promise<{ created: boolean; mtime: number }> {
-  let relPath: string;
-  try {
-    relPath = normalizeSystemPath(`${SYSTEM_SMART_FOLDERS_DIR}/${id}.yaml`);
-  } catch (err) {
-    if (err instanceof VaultPathError) throw err;
-    throw err;
-  }
+  const relPath = normalizeSystemPath(`${SYSTEM_SMART_FOLDERS_DIR}/${id}.yaml`);
   return writeFileText(vaultRoot, relPath, yamlContent);
 }
 
@@ -328,13 +322,7 @@ export async function writeSystemCommand(
   id: string,
   yamlContent: string,
 ): Promise<{ created: boolean; mtime: number }> {
-  let relPath: string;
-  try {
-    relPath = normalizeSystemPath(`${SYSTEM_COMMANDS_DIR}/${id}.yaml`);
-  } catch (err) {
-    if (err instanceof VaultPathError) throw err;
-    throw err;
-  }
+  const relPath = normalizeSystemPath(`${SYSTEM_COMMANDS_DIR}/${id}.yaml`);
   return writeFileText(vaultRoot, relPath, yamlContent);
 }
 
@@ -461,13 +449,7 @@ export async function writeSystemTemplate(
   id: string,
   mdContent: string,
 ): Promise<{ created: boolean; mtime: number }> {
-  let relPath: string;
-  try {
-    relPath = normalizeSystemPath(`${SYSTEM_TEMPLATES_DIR}/${id}.md`);
-  } catch (err) {
-    if (err instanceof VaultPathError) throw err;
-    throw err;
-  }
+  const relPath = normalizeSystemPath(`${SYSTEM_TEMPLATES_DIR}/${id}.md`);
   return writeFileText(vaultRoot, relPath, mdContent);
 }
 

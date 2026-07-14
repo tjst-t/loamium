@@ -21,6 +21,7 @@ import {
   readSystemCommandMeta,
   writeSystemCommand,
   readSystemCommandRaw,
+  deleteSystemCommand,
   listSystemTemplates,
   readSystemTemplate,
   writeSystemTemplate,
@@ -244,6 +245,26 @@ describe('readSystemCommandRaw + writeSystemCommand', () => {
   it('存在しない ID → null', async () => {
     const raw = await readSystemCommandRaw(vaultRoot, 'ghost');
     expect(raw).toBeNull();
+  });
+});
+
+describe('deleteSystemCommand', () => {
+  it('書き込んだコマンドを削除できる', async () => {
+    await writeSystemCommand(vaultRoot, 'new-cmd', 'title: "新規"\norder: 1\n');
+    const deleted = await deleteSystemCommand(vaultRoot, 'new-cmd');
+    expect(deleted).toBe(true);
+    const raw = await readSystemCommandRaw(vaultRoot, 'new-cmd');
+    expect(raw).toBeNull();
+  });
+
+  it('存在しない ID の削除は false (エラーにならない)', async () => {
+    const deleted = await deleteSystemCommand(vaultRoot, 'ghost');
+    expect(deleted).toBe(false);
+  });
+
+  it('traversal ID の削除は false [AC-Sa10026-1-3]', async () => {
+    const deleted = await deleteSystemCommand(vaultRoot, '../secret');
+    expect(deleted).toBe(false);
   });
 });
 
