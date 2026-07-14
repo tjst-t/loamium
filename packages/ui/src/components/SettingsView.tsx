@@ -268,6 +268,38 @@ function ConnResult({
   );
 }
 
+// ---- SaveStatusBadge (module-scope: avoid re-creating type on each render) ----
+
+function SaveStatusBadge({ status, error }: { status: SaveStatus; error: string | null }): JSX.Element {
+  if (status === 'idle') {
+    return (
+      <span className="settings-status" data-testid="settings-status" data-state="idle">
+        <IconCheck />
+      </span>
+    );
+  }
+  if (status === 'saving') {
+    return (
+      <span className="settings-status" data-testid="settings-status" data-state="saving">
+        保存中…
+      </span>
+    );
+  }
+  if (status === 'saved') {
+    return (
+      <span className="settings-status" data-testid="settings-status" data-state="saved">
+        <IconCheck />
+        保存済み
+      </span>
+    );
+  }
+  return (
+    <span className="settings-status" data-testid="settings-status" data-state="error" style={{ color: 'var(--danger)' }}>
+      {error ?? '保存に失敗しました'}
+    </span>
+  );
+}
+
 // ---- SettingsView (main) ----
 
 export function SettingsView({ mode, onClose }: SettingsViewProps): JSX.Element {
@@ -355,12 +387,16 @@ export function SettingsView({ mode, onClose }: SettingsViewProps): JSX.Element 
       setPermissions(permRes.permissions);
       if (permRes.permissions !== null) {
         const eff = permRes.permissions.effective;
+        // effective は AGENT_CAPABILITIES の文字列 ('note_edit', 'note_create', 'web' 等)
+        const rawValue = permRes.permissions.value;
+        const validPresets = ['read-only', 'notes-rw', 'full'] as const;
+        const preset = validPresets.includes(rawValue as typeof validPresets[number])
+          ? (rawValue as typeof validPresets[number])
+          : 'full';
         setPermDraft({
-          mode: permRes.permissions.value !== null && typeof permRes.permissions.value === 'string'
-            ? permRes.permissions.value
-            : 'full',
-          capWrite: eff.includes('notes:write'),
-          capWeb: eff.includes('web:read'),
+          mode: preset,
+          capWrite: eff.includes('note_edit') || eff.includes('note_create'),
+          capWeb: eff.includes('web'),
         });
       }
     } catch {
@@ -423,7 +459,21 @@ export function SettingsView({ mode, onClose }: SettingsViewProps): JSX.Element 
           model: connDraft.model,
           apiKey: connDraft.apiKeyRef,
         }),
-        api.putAgentPermissions(permDraft.mode),
+        // permissions は capability 配列で渡す (preset 名 or 配列 — agentPermissionsSchema 準拠)
+        // capWrite = note_edit + note_create, capWeb = web (ADR-0017 opt-in)
+        api.putAgentPermissions(
+          permDraft.mode === 'full'
+            ? 'full'
+            : permDraft.mode === 'read-only'
+            ? 'read-only'
+            : permDraft.mode === 'notes-rw'
+            ? 'notes-rw'
+            : [
+                'read',
+                ...(permDraft.capWrite ? (['note_create', 'note_edit', 'journal_append'] as const) : []),
+                ...(permDraft.capWeb ? (['web'] as const) : []),
+              ],
+        ),
       ]);
       setAgentStatus('saved');
       setTimeout(() => setAgentStatus('idle'), 2000);
@@ -444,12 +494,14 @@ export function SettingsView({ mode, onClose }: SettingsViewProps): JSX.Element 
     }
     if (permissions !== null) {
       const eff = permissions.effective;
+      const validPresets = ['read-only', 'notes-rw', 'full'] as const;
+      const preset = validPresets.includes(permissions.value as typeof validPresets[number])
+        ? (permissions.value as typeof validPresets[number])
+        : 'full';
       setPermDraft({
-        mode: permissions.value !== null && typeof permissions.value === 'string'
-          ? permissions.value
-          : 'full',
-        capWrite: eff.includes('notes:write'),
-        capWeb: eff.includes('web:read'),
+        mode: preset,
+        capWrite: eff.includes('note_edit') || eff.includes('note_create'),
+        capWeb: eff.includes('web'),
       });
     }
     setAgentStatus('idle');
@@ -524,37 +576,6 @@ export function SettingsView({ mode, onClose }: SettingsViewProps): JSX.Element 
   const removeDenyEntry = useCallback((entry: string): void => {
     setDeny((prev) => prev.filter((e) => e !== entry));
   }, []);
-
-  // ---- ステータス表示 ----
-  function SaveStatusBadge({ status, error }: { status: SaveStatus; error: string | null }): JSX.Element {
-    if (status === 'idle') {
-      return (
-        <span className="settings-status" data-testid="settings-status" data-state="idle">
-          <IconCheck />
-        </span>
-      );
-    }
-    if (status === 'saving') {
-      return (
-        <span className="settings-status" data-testid="settings-status" data-state="saving">
-          保存中…
-        </span>
-      );
-    }
-    if (status === 'saved') {
-      return (
-        <span className="settings-status" data-testid="settings-status" data-state="saved">
-          <IconCheck />
-          保存済み
-        </span>
-      );
-    }
-    return (
-      <span className="settings-status" data-testid="settings-status" data-state="error" style={{ color: 'var(--danger)' }}>
-        {error ?? '保存に失敗しました'}
-      </span>
-    );
-  }
 
   const currentStatus = activeGroup === 'general' ? generalStatus
     : activeGroup === 'agent' ? agentStatus
@@ -898,8 +919,9 @@ export function SettingsView({ mode, onClose }: SettingsViewProps): JSX.Element 
                 value={permDraft.mode}
                 onChange={(e) => setPermDraft((d) => ({ ...d, mode: e.target.value }))}
               >
-                <option value="full">full(読み書き)</option>
-                <option value="append-only">append-only(追記のみ)</option>
+                {/* AGENT_PRESET_NAMES: 'read-only' | 'notes-rw' | 'full' */}
+                <option value="full">full(全ケーパビリティ)</option>
+                <option value="notes-rw">notes-rw(ノート読み書き)</option>
                 <option value="read-only">read-only(読み取りのみ)</option>
               </select>
             </div>
