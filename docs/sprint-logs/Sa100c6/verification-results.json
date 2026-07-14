@@ -1,0 +1,19 @@
+{
+  "sprint": "Sa100c6",
+  "verified_at": "2026-07-14",
+  "machine_verification": {"suite": "vitest run (unit + acceptance)", "result": "pass", "tests": 1225, "exit_code": 0},
+  "e2e": {"suite": "playwright (real server)", "new_specs": ["settings-hub-templates.e2e","settings-hub-sf.e2e","settings-hub-commands.e2e"], "result": "pass", "tests": 9},
+  "ac_traceability": {"total": 7, "with_tests": 7},
+  "lint": "pass",
+  "done_judgment": {
+    "guard1_tests_pass": "pass",
+    "guard2_ac_traceable": "pass (7/7)",
+    "guard3_test_discipline": "pass (real-server e2e + mock 一致確認済み)",
+    "guard4_realmode_smoke": "pass (make serve 実機で全3セクション目視: テンプレ本文=本体エディタ整形, SF=SmartFolderForm 埋込, コマンド=param/step 編集+試し実行)",
+    "guard5_destructive_multiversion": "n/a (データ移行なし。保存先/スキーマ不変)",
+    "guard6_diff_coverage": "pass (テンプレ/SF/コマンド管理 + DELETE endpoint に mock+e2e)",
+    "guard7_adr_conformance": "pass (ADR-0026 amendment=per-item ハブ集約・既存コンポーネント流用で二重管理回避; agent 非公開・mode クランプ・監査の境界維持)",
+    "guard8_machine_status": "pass"
+  },
+  "notes": "実装は worktree が古いベース(5d0c8a8)から分岐する問題のため非worktree・逐次で実施(SettingsView 共有のため)。テンプレ本文は本体エディタ(markdown+outlineExtension+editor-host)を流用し見出し/タスクをライブ整形。"
+}

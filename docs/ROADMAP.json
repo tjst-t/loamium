@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "Sa100c6",
+    "current_sprint": null,
     "total": 44,
-    "done": 41,
-    "in_progress": 1,
+    "done": 42,
+    "in_progress": 0,
     "remaining": 2,
-    "percentage": 93
+    "percentage": 95
   },
   "execution_order": [
     "Sd63ad1",
@@ -4778,7 +4778,7 @@
     "Sa100c6": {
       "title": "設定ハブに per-item 管理を集約 (テンプレ/SF/コマンド) — ADR-0026 amendment",
       "description": "ADR-0026 amendment(2026-07-14)に基づき、テンプレート/スマートフォルダ/スマートコマンドの管理を統一設定画面の第一級セクションとして集約する。導線リンク(Sa10026-7)をセクション埋め込みに置換。レイアウトはマスターディテール2ペイン(左=項目一覧+絞り込み+新規、右=広い編集ペイン。編集可能タイトルヘッダ + 下部フッタ)。テンプレ本文はアプリ本体と同じエディタ(CodeMirror + lezer-markdown)を流用、スマートフォルダは既存 SmartFolderForm、スマートコマンドは既存コマンドエディタ(param/step 追加・編集・削除・並べ替え・試し実行)を右ペインに埋め込む。保存先・型付き設定APIの境界(agent 非公開・LOAMIUM_MODE クランプ・監査ログ)は不変。承認済みプロトタイプ: prototype/settings-hub.html。",
-      "status": "in_progress",
+      "status": "done",
       "milestone": true,
       "detail_level": "detailed",
       "components": [
