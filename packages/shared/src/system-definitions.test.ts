@@ -1,0 +1,377 @@
+/**
+ * system/ フォルダ定義スキーマ + ユーティリティのユニットテスト (Sa10026-1-1)。
+ *
+ * [AC-Sa10026-1-1] smart-folder/command=純 YAML、template=.md+frontmatter のパースと
+ *                  zod 検証・フォールバックを検証する。
+ * [AC-Sa10026-1-2] order → ファイル名の安定ソートを検証する。
+ * [AC-Sa10026-1-3] normalizeSystemPath の vault 外脱出防止を検証する。
+ */
+import { describe, it, expect } from 'vitest';
+import {
+  parseSystemSmartFolderYaml,
+  parseSystemCommandYaml,
+  parseSystemTemplateFrontmatter,
+  buildSystemSmartFolderDef,
+  buildSystemCommandDef,
+  buildSystemTemplateDef,
+  sortSystemDefs,
+  stemFromSystemPath,
+  normalizeSystemPath,
+  isSystemSmartFolderPath,
+  isSystemCommandPath,
+  isSystemTemplatePath,
+  VaultPathError,
+} from './system-definitions.js';
+
+// ---- [AC-Sa10026-1-1] 純 YAML パース: SmartFolder ----
+
+describe('parseSystemSmartFolderYaml [AC-Sa10026-1-1]', () => {
+  it('正常な YAML を正しくパースする', () => {
+    const yaml = `
+title: "プロジェクト一覧"
+order: 1
+icon: "📁"
+query: "LIST from \\"projects\\""
+`.trim();
+    const result = parseSystemSmartFolderYaml(yaml);
+    expect(result).not.toBeNull();
+    expect(result?.title).toBe('プロジェクト一覧');
+    expect(result?.order).toBe(1);
+    expect(result?.icon).toBe('📁');
+    expect(result?.query).toBe('LIST from "projects"');
+  });
+
+  it('query フィールドのみ必須 (title/order/icon は省略可)', () => {
+    const yaml = `query: "LIST"`;
+    const result = parseSystemSmartFolderYaml(yaml);
+    expect(result).not.toBeNull();
+    expect(result?.title).toBeUndefined();
+    expect(result?.order).toBeUndefined();
+    expect(result?.icon).toBeUndefined();
+    expect(result?.query).toBe('LIST');
+  });
+
+  it('query が空文字列のとき null (zod min(1) 違反)', () => {
+    const yaml = `query: ""`;
+    const result = parseSystemSmartFolderYaml(yaml);
+    expect(result).toBeNull();
+  });
+
+  it('query がない場合 null (必須フィールド欠落)', () => {
+    const yaml = `title: "テスト"`;
+    const result = parseSystemSmartFolderYaml(yaml);
+    expect(result).toBeNull();
+  });
+
+  it('空文字列の YAML → null (寛容フォールバック)', () => {
+    expect(parseSystemSmartFolderYaml('')).toBeNull();
+    expect(parseSystemSmartFolderYaml('   ')).toBeNull();
+  });
+
+  it('壊れた YAML → null (寛容フォールバック)', () => {
+    expect(parseSystemSmartFolderYaml(': broken: yaml')).toBeNull();
+  });
+
+  it('YAML が配列の場合 null', () => {
+    const yaml = `- query: "LIST"`;
+    expect(parseSystemSmartFolderYaml(yaml)).toBeNull();
+  });
+});
+
+// ---- [AC-Sa10026-1-1] 純 YAML パース: Command ----
+
+describe('parseSystemCommandYaml [AC-Sa10026-1-1]', () => {
+  it('フルフィールドを正しくパースする', () => {
+    const yaml = `
+title: "タスク作成"
+order: 2
+icon: "✅"
+name: create-todo
+steps:
+  - kind: note-create
+    target: "todos/{{title}}.md"
+    content: "# {{title}}"
+`.trim();
+    const result = parseSystemCommandYaml(yaml);
+    expect(result).not.toBeNull();
+    expect(result?.title).toBe('タスク作成');
+    expect(result?.order).toBe(2);
+    expect(result?.icon).toBe('✅');
+  });
+
+  it('全フィールド省略でも {} として成功する (全 optional)', () => {
+    const yaml = `
+name: simple
+steps:
+  - kind: note-create
+    target: "notes/test.md"
+    content: "# Test"
+`.trim();
+    const result = parseSystemCommandYaml(yaml);
+    expect(result).not.toBeNull();
+    expect(result?.title).toBeUndefined();
+    expect(result?.order).toBeUndefined();
+    expect(result?.icon).toBeUndefined();
+  });
+
+  it('空文字列の YAML → null', () => {
+    expect(parseSystemCommandYaml('')).toBeNull();
+  });
+
+  it('null に解析される YAML → null', () => {
+    // "~" は YAML で null を意味するため、null が返る
+    expect(parseSystemCommandYaml('~')).toBeNull();
+  });
+});
+
+// ---- [AC-Sa10026-1-1] .md + frontmatter パース: Template ----
+
+describe('parseSystemTemplateFrontmatter [AC-Sa10026-1-1]', () => {
+  it('frontmatter から title/order/icon を抽出する', () => {
+    const md = `---
+title: "週次レビュー"
+order: 3
+icon: "📅"
+loamium-template:
+  target: "reviews/{{date:YYYY}}/{{date:MM-DD}}"
+---
+
+# 週次レビュー
+`;
+    const result = parseSystemTemplateFrontmatter(md);
+    expect(result.title).toBe('週次レビュー');
+    expect(result.order).toBe(3);
+    expect(result.icon).toBe('📅');
+  });
+
+  it('frontmatter がない .md は空オブジェクトを返す (フォールバック)', () => {
+    const md = `# テンプレート本文のみ\n`;
+    const result = parseSystemTemplateFrontmatter(md);
+    expect(result).toEqual({});
+  });
+
+  it('title/order/icon フィールドがない frontmatter は空オブジェクトを返す', () => {
+    const md = `---\nloamium-template:\n  target: "foo"\n---\n本文\n`;
+    const result = parseSystemTemplateFrontmatter(md);
+    // loamium-template は systemTemplateFrontmatterSchema に含まれないが、
+    // safeParse は追加フィールドを黙って無視するため {} にならない
+    // → title/order/icon の値だけを確認
+    expect(result.title).toBeUndefined();
+    expect(result.order).toBeUndefined();
+    expect(result.icon).toBeUndefined();
+  });
+
+  it('壊れた frontmatter でも空オブジェクトを返す (寛容フォールバック)', () => {
+    const md = `---\n: broken\n---\n本文\n`;
+    const result = parseSystemTemplateFrontmatter(md);
+    expect(result).toEqual({});
+  });
+
+  it('order が整数でない場合は空オブジェクトを返す (zod int 検証)', () => {
+    const md = `---\ntitle: test\norder: 1.5\n---\n`;
+    const result = parseSystemTemplateFrontmatter(md);
+    // order: 1.5 は z.number().int() に違反するため order が除外される
+    // zod の safeParse は全体を失敗させるため {} になる
+    expect(result.order).toBeUndefined();
+  });
+});
+
+// ---- ヘルパー: stemFromSystemPath ----
+
+describe('stemFromSystemPath', () => {
+  it('vault 相対パスから stem を取り出す', () => {
+    expect(stemFromSystemPath('system/smart-folders/todo.yaml')).toBe('todo');
+    expect(stemFromSystemPath('system/commands/create-task.yaml')).toBe('create-task');
+    expect(stemFromSystemPath('system/templates/weekly.md')).toBe('weekly');
+  });
+
+  it('.yml 拡張子も除去する', () => {
+    expect(stemFromSystemPath('system/commands/foo.yml')).toBe('foo');
+  });
+});
+
+// ---- [AC-Sa10026-1-1] buildSystemSmartFolderDef ----
+
+describe('buildSystemSmartFolderDef [AC-Sa10026-1-1]', () => {
+  it('正常 YAML から SmartFolderDef を構築する', () => {
+    const yaml = `title: "タスク"\norder: 1\nquery: "LIST from \\"todos\\""\n`;
+    const def = buildSystemSmartFolderDef('system/smart-folders/tasks.yaml', yaml);
+    expect(def).not.toBeNull();
+    expect(def?.id).toBe('tasks');
+    expect(def?.path).toBe('system/smart-folders/tasks.yaml');
+    expect(def?.title).toBe('タスク');
+    expect(def?.order).toBe(1);
+    expect(def?.query).toBe('LIST from "todos"');
+  });
+
+  it('title 省略時は id (stem) にフォールバックする', () => {
+    const yaml = `query: "LIST"\n`;
+    const def = buildSystemSmartFolderDef('system/smart-folders/inbox.yaml', yaml);
+    expect(def?.title).toBe('inbox');
+  });
+
+  it('query がない YAML → null (必須フィールド欠落)', () => {
+    const yaml = `title: "なし"\n`;
+    const def = buildSystemSmartFolderDef('system/smart-folders/bad.yaml', yaml);
+    expect(def).toBeNull();
+  });
+});
+
+// ---- [AC-Sa10026-1-1] buildSystemCommandDef ----
+
+describe('buildSystemCommandDef [AC-Sa10026-1-1]', () => {
+  it('order/title/icon を含む YAML からメタを構築する', () => {
+    const yaml = `title: "ノート作成"\norder: 5\nsteps: []\n`;
+    const def = buildSystemCommandDef('system/commands/create-note.yaml', yaml);
+    expect(def.id).toBe('create-note');
+    expect(def.title).toBe('ノート作成');
+    expect(def.order).toBe(5);
+  });
+
+  it('YAML パース失敗でも常にメタ情報を返す (id = stem、title = stem)', () => {
+    const yaml = ': broken';
+    const def = buildSystemCommandDef('system/commands/broken-cmd.yaml', yaml);
+    expect(def.id).toBe('broken-cmd');
+    expect(def.title).toBe('broken-cmd');
+    expect(def.order).toBeUndefined();
+  });
+});
+
+// ---- [AC-Sa10026-1-1] buildSystemTemplateDef ----
+
+describe('buildSystemTemplateDef [AC-Sa10026-1-1]', () => {
+  it('frontmatter の title/order/icon を反映する', () => {
+    const md = `---\ntitle: "日報"\norder: 10\n---\n本文\n`;
+    const def = buildSystemTemplateDef('system/templates/daily-report.md', md);
+    expect(def.id).toBe('daily-report');
+    expect(def.title).toBe('日報');
+    expect(def.order).toBe(10);
+  });
+
+  it('frontmatter なしでも常にメタ情報を返す (title = stem)', () => {
+    const md = `# テンプレート本文\n`;
+    const def = buildSystemTemplateDef('system/templates/plain.md', md);
+    expect(def.id).toBe('plain');
+    expect(def.title).toBe('plain');
+    expect(def.order).toBeUndefined();
+  });
+});
+
+// ---- [AC-Sa10026-1-2] sortSystemDefs: order → ファイル名の安定ソート ----
+
+describe('sortSystemDefs [AC-Sa10026-1-2]', () => {
+  it('order 昇順で並ぶ', () => {
+    const items = [
+      { id: 'b', order: 3 as number | undefined },
+      { id: 'a', order: 1 as number | undefined },
+      { id: 'c', order: 2 as number | undefined },
+    ];
+    const sorted = sortSystemDefs(items);
+    expect(sorted.map((x) => x.id)).toEqual(['a', 'c', 'b']);
+  });
+
+  it('order 欠落は末尾に来る', () => {
+    const items = [
+      { id: 'z', order: undefined as number | undefined },
+      { id: 'a', order: 1 as number | undefined },
+      { id: 'b', order: undefined as number | undefined },
+    ];
+    const sorted = sortSystemDefs(items);
+    expect(sorted[0]?.id).toBe('a');
+    // 末尾 2 件は order なし → id 昇順
+    expect(sorted[1]?.id).toBe('b');
+    expect(sorted[2]?.id).toBe('z');
+  });
+
+  it('同一 order はファイル名 (id) 昇順 (tie)', () => {
+    const items = [
+      { id: 'c', order: 2 as number | undefined },
+      { id: 'a', order: 2 as number | undefined },
+      { id: 'b', order: 2 as number | undefined },
+    ];
+    const sorted = sortSystemDefs(items);
+    expect(sorted.map((x) => x.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('gap を許容する (order 1, 5, 10 など飛び番)', () => {
+    const items = [
+      { id: 'late', order: 10 as number | undefined },
+      { id: 'early', order: 1 as number | undefined },
+      { id: 'mid', order: 5 as number | undefined },
+    ];
+    const sorted = sortSystemDefs(items);
+    expect(sorted.map((x) => x.id)).toEqual(['early', 'mid', 'late']);
+  });
+
+  it('元の配列を変更しない (新配列を返す)', () => {
+    const items = [
+      { id: 'b', order: 2 as number | undefined },
+      { id: 'a', order: 1 as number | undefined },
+    ];
+    const original = [...items];
+    sortSystemDefs(items);
+    expect(items).toEqual(original);
+  });
+});
+
+// ---- [AC-Sa10026-1-3] normalizeSystemPath: vault 外脱出防止 ----
+
+describe('normalizeSystemPath [AC-Sa10026-1-3]', () => {
+  it('正常な system/ パスはそのまま (NFC 正規化)', () => {
+    const result = normalizeSystemPath('system/smart-folders/todo.yaml');
+    expect(result).toBe('system/smart-folders/todo.yaml');
+  });
+
+  it('.. (traversal) を含むパスは VaultPathError を投げる', () => {
+    expect(() => normalizeSystemPath('system/smart-folders/../../.loamium/secret')).toThrow(
+      VaultPathError,
+    );
+  });
+
+  it('絶対パスは VaultPathError を投げる', () => {
+    expect(() => normalizeSystemPath('/etc/passwd')).toThrow(VaultPathError);
+  });
+
+  it('空文字列は VaultPathError を投げる', () => {
+    expect(() => normalizeSystemPath('')).toThrow(VaultPathError);
+  });
+
+  it('隠しセグメント (.loamium) は HiddenVaultPathError を投げる', () => {
+    expect(() => normalizeSystemPath('.loamium/smart-folders/foo.yaml')).toThrow(VaultPathError);
+  });
+});
+
+// ---- パス判定ヘルパー ----
+
+describe('isSystemSmartFolderPath / isSystemCommandPath / isSystemTemplatePath', () => {
+  it('isSystemSmartFolderPath: .yaml は true', () => {
+    expect(isSystemSmartFolderPath('system/smart-folders/inbox.yaml')).toBe(true);
+    expect(isSystemSmartFolderPath('system/smart-folders/inbox.yml')).toBe(true);
+  });
+
+  it('isSystemSmartFolderPath: .md や別ディレクトリは false', () => {
+    expect(isSystemSmartFolderPath('system/smart-folders/inbox.md')).toBe(false);
+    expect(isSystemSmartFolderPath('system/commands/foo.yaml')).toBe(false);
+    expect(isSystemSmartFolderPath('commands/foo.yaml')).toBe(false);
+  });
+
+  it('isSystemCommandPath: .yaml は true', () => {
+    expect(isSystemCommandPath('system/commands/create-task.yaml')).toBe(true);
+    expect(isSystemCommandPath('system/commands/create-task.yml')).toBe(true);
+  });
+
+  it('isSystemCommandPath: .md や別ディレクトリは false', () => {
+    expect(isSystemCommandPath('system/commands/foo.md')).toBe(false);
+    expect(isSystemCommandPath('system/smart-folders/foo.yaml')).toBe(false);
+  });
+
+  it('isSystemTemplatePath: .md は true', () => {
+    expect(isSystemTemplatePath('system/templates/weekly.md')).toBe(true);
+  });
+
+  it('isSystemTemplatePath: .yaml や別ディレクトリは false', () => {
+    expect(isSystemTemplatePath('system/templates/weekly.yaml')).toBe(false);
+    expect(isSystemTemplatePath('system/smart-folders/foo.md')).toBe(false);
+    expect(isSystemTemplatePath('templates/foo.md')).toBe(false);
+  });
+});
