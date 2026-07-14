@@ -375,3 +375,138 @@ describe('isSystemSmartFolderPath / isSystemCommandPath / isSystemTemplatePath',
     expect(isSystemTemplatePath('templates/foo.md')).toBe(false);
   });
 });
+
+// ---- [AC-Sa10026-3-1] parseAppSettings / serializeAppSettings ----
+
+import {
+  parseAppSettings,
+  serializeAppSettings,
+  DEFAULT_APP_SETTINGS,
+  appSettingsSchema,
+  SYSTEM_SETTINGS_PATH,
+} from './system-definitions.js';
+
+describe('parseAppSettings [AC-Sa10026-3-1]', () => {
+  it('null / undefined → 既定値を返す', () => {
+    expect(parseAppSettings(null)).toEqual(DEFAULT_APP_SETTINGS);
+    expect(parseAppSettings(undefined)).toEqual(DEFAULT_APP_SETTINGS);
+  });
+
+  it('空文字列 → 既定値を返す', () => {
+    expect(parseAppSettings('')).toEqual(DEFAULT_APP_SETTINGS);
+  });
+
+  it('空白のみ → 既定値を返す', () => {
+    expect(parseAppSettings('   ')).toEqual(DEFAULT_APP_SETTINGS);
+  });
+
+  it('壊れた YAML → 既定値を返す (例外を投げない) [AC-Sa10026-3-1]', () => {
+    expect(() => parseAppSettings('{ broken: [yaml: : ::\n')).not.toThrow();
+    expect(parseAppSettings('{ broken: [yaml: : ::\n')).toEqual(DEFAULT_APP_SETTINGS);
+  });
+
+  it('--- のみ (空ドキュメント) → 既定値を返す', () => {
+    expect(parseAppSettings('---\n')).toEqual(DEFAULT_APP_SETTINGS);
+  });
+
+  it('YAML が配列 → 既定値を返す', () => {
+    expect(parseAppSettings('- theme: dark\n')).toEqual(DEFAULT_APP_SETTINGS);
+  });
+
+  it('正常な YAML を全フィールド込みでパースする', () => {
+    const yaml = [
+      'theme: dark',
+      'defaultFolder: "projects"',
+      'journalTemplate: "system/templates/daily.md"',
+      'showSystemFolder: true',
+    ].join('\n');
+    const result = parseAppSettings(yaml);
+    expect(result.theme).toBe('dark');
+    expect(result.defaultFolder).toBe('projects');
+    expect(result.journalTemplate).toBe('system/templates/daily.md');
+    expect(result.showSystemFolder).toBe(true);
+  });
+
+  it('一部フィールドのみ — 欠落は既定値で補う', () => {
+    const result = parseAppSettings('theme: light\n');
+    expect(result.theme).toBe('light');
+    expect(result.defaultFolder).toBe('');
+    expect(result.journalTemplate).toBe('system/templates/journal.md');
+    expect(result.showSystemFolder).toBe(false);
+  });
+
+  it('未知フィールド (passthrough) は保持される', () => {
+    const result = parseAppSettings('theme: dark\nfutureField: someValue\n');
+    expect(result.theme).toBe('dark');
+    expect((result as Record<string, unknown>)['futureField']).toBe('someValue');
+  });
+
+  it('theme が不正値の場合はスキーマの既定 (system) にフォールバックする', () => {
+    const result = parseAppSettings('theme: invalid_value\n');
+    expect(result.theme).toBe('system');
+  });
+
+  it('DEFAULT_APP_SETTINGS の既定値が正しい', () => {
+    expect(DEFAULT_APP_SETTINGS.theme).toBe('system');
+    expect(DEFAULT_APP_SETTINGS.defaultFolder).toBe('');
+    expect(DEFAULT_APP_SETTINGS.journalTemplate).toBe('system/templates/journal.md');
+    expect(DEFAULT_APP_SETTINGS.showSystemFolder).toBe(false);
+  });
+
+  it('SYSTEM_SETTINGS_PATH が system/settings.yaml', () => {
+    expect(SYSTEM_SETTINGS_PATH).toBe('system/settings.yaml');
+  });
+});
+
+describe('serializeAppSettings [AC-Sa10026-3-1]', () => {
+  it('AppSettings を YAML テキストに変換する', () => {
+    const settings = { ...DEFAULT_APP_SETTINGS, theme: 'dark' as const };
+    const yaml = serializeAppSettings(settings);
+    // YAML テキストが 'theme: dark' を含む
+    expect(yaml).toMatch(/theme:\s*dark/);
+  });
+
+  it('serializeAppSettings → parseAppSettings の round-trip', () => {
+    const original = {
+      theme: 'light' as const,
+      defaultFolder: 'notes',
+      journalTemplate: 'system/templates/journal.md',
+      showSystemFolder: true,
+    };
+    const yaml = serializeAppSettings(original);
+    const restored = parseAppSettings(yaml);
+    expect(restored.theme).toBe(original.theme);
+    expect(restored.defaultFolder).toBe(original.defaultFolder);
+    expect(restored.journalTemplate).toBe(original.journalTemplate);
+    expect(restored.showSystemFolder).toBe(original.showSystemFolder);
+  });
+});
+
+describe('appSettingsSchema boundary [AC-Sa10026-3-2]', () => {
+  it('スキーマのキーに端末依存フィールドが含まれない', () => {
+    const terminalDependentFields = [
+      'lastOpenedNote',
+      'lastOpenNote',
+      'recentNotes',
+      'paneWidth',
+      'sidebarWidth',
+      'searchIndexCache',
+      'indexCache',
+      'windowSize',
+      'windowPosition',
+    ];
+    const schemaKeys = Object.keys(appSettingsSchema.shape);
+    for (const field of terminalDependentFields) {
+      expect(schemaKeys).not.toContain(field);
+    }
+  });
+
+  it('スキーマのフィールドは移植可能な設定のみ (4 フィールド)', () => {
+    const schemaKeys = Object.keys(appSettingsSchema.shape);
+    expect(schemaKeys).toContain('theme');
+    expect(schemaKeys).toContain('defaultFolder');
+    expect(schemaKeys).toContain('journalTemplate');
+    expect(schemaKeys).toContain('showSystemFolder');
+    expect(schemaKeys.length).toBe(4);
+  });
+});

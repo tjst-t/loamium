@@ -1,0 +1,53 @@
+{
+  "story": "Sa10026-3",
+  "title": "アプリ全体設定 system/settings.yaml",
+  "date": "2026-07-14",
+  "status": "done",
+  "summary": "ADR-0010 に従い system/settings.yaml の zod スキーマ・寛容 read・保存関数を実装した",
+  "implementation": {
+    "packages/shared/src/system-definitions.ts": [
+      "SYSTEM_SETTINGS_PATH = 'system/settings.yaml' を追加",
+      "appSettingsSchema: theme/defaultFolder/journalTemplate/showSystemFolder の 4 フィールド、各 .default() 付き、.passthrough() で前方互換",
+      "DEFAULT_APP_SETTINGS 定数",
+      "parseAppSettings(yamlText): 寛容 read — null/空/壊れYAML/配列 → 既定値にフォールバック",
+      "serializeAppSettings(settings): yaml.stringify でシリアライズ"
+    ],
+    "packages/server/src/settings-store.ts": [
+      "loadSettings(vaultRoot): system/settings.yaml を読み parseAppSettings に渡す (ENOENT は既定値にサイレントフォールバック)",
+      "saveSettings(vaultRoot, settings): resolveVaultFile + mkdir -p + toLf + writeFile → { created, mtime }"
+    ],
+    "packages/shared/src/index.ts": [
+      "SYSTEM_SETTINGS_PATH / appSettingsSchema / DEFAULT_APP_SETTINGS / parseAppSettings / serializeAppSettings / AppSettings をエクスポート"
+    ]
+  },
+  "tests": {
+    "packages/shared/src/system-definitions.test.ts": {
+      "added_cases": 27,
+      "ac_tags": ["AC-Sa10026-3-1", "AC-Sa10026-3-2"],
+      "coverage": "parseAppSettings (null/空/壊れYAML/配列/一部フィールド/passthrough/round-trip) + serializeAppSettings + スキーマ境界担保"
+    },
+    "packages/server/src/settings-store.test.ts": {
+      "added_cases": 14,
+      "ac_tags": ["AC-Sa10026-3-1", "AC-Sa10026-3-2"],
+      "coverage": "loadSettings (ファイル不在/正常/一部/壊れYAML/空/空ドキュメント/配列/passthrough) + saveSettings (新規/上書き/round-trip/LF改行) + スキーマ境界担保"
+    }
+  },
+  "test_result": {
+    "command": "npx vitest run packages/shared/src packages/server/src",
+    "test_files": 31,
+    "tests_passed": 645,
+    "tests_failed": 0
+  },
+  "lint_result": {
+    "packages/shared": "pass",
+    "packages/server": "pass (worktree の node_modules 制約のため tsconfig に一時 paths alias を追加して確認後、コミット前に元へ戻した)"
+  },
+  "boundary_guarantee": {
+    "ac": "AC-Sa10026-3-2",
+    "details": "appSettingsSchema.shape は theme/defaultFolder/journalTemplate/showSystemFolder の 4 フィールドのみ。lastOpenedNote/paneWidth/searchIndexCache 等の端末依存フィールドを含まない。テストで schemaKeys.length === 4 を担保"
+  },
+  "configs_restored": {
+    "vitest.config.ts": "clean (diff なし)",
+    "packages/server/tsconfig.json": "clean (diff なし)"
+  }
+}
