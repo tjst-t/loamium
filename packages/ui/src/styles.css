@@ -259,6 +259,56 @@ a { color: var(--link); text-decoration: none; }
 }
 .tree-error { color: var(--danger); }
 
+/* ---- system/ 表示トグル + 定義ファイル一覧 (Sa10026-4) ----------------- */
+
+.tree-system-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 7px 8px;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.tree-system-toggle:hover { color: var(--text); }
+.tree-system-toggle :where(svg) { width: 13px; height: 13px; flex-shrink: 0; transition: transform .12s; }
+.tree-system-toggle[data-state="shown"] .chev { transform: rotate(90deg); }
+.tree-system-toggle .lbl { flex: 1; }
+.tree-system-toggle .state { font-size: 10.5px; color: var(--text-faint); }
+
+.tree-system { padding-left: 2px; }
+
+.tree-group-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px 3px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* ドラッグ中のアイテム */
+.tree-item.dragging { opacity: .5; }
+
+/* ドラッグハンドル (ホバー時のみ表示) */
+.tree-item .drag-handle {
+  margin-left: auto;
+  color: var(--text-faint);
+  opacity: 0;
+  font-size: 12px;
+  line-height: 1;
+}
+.tree-item:hover .drag-handle { opacity: 1; }
+
 /* ---- Center workspace -------------------------------------------------- */
 
 .workspace {

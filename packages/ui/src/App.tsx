@@ -45,6 +45,7 @@ import { FilePreview } from './components/FilePreview.js';
 import { FilesPage } from './components/FilesPage.js';
 import { FileTree } from './components/FileTree.js';
 import { SmartView } from './components/SmartView.js';
+import { SystemFolderSection } from './components/SystemFolderSection.js';
 import { JournalNav } from './components/JournalNav.js';
 import { RightSidebar } from './components/RightSidebar.js';
 import { ContextMenu } from './components/ContextMenu.js';
@@ -193,6 +194,12 @@ export function App(): JSX.Element {
   const switchSidebarView = useCallback((mode: 'physical' | 'smart'): void => {
     setSidebarView(mode);
     localStorage.setItem('loamium.sidebarView', mode);
+  }, []);
+
+  // ---- system/ フォルダ表示トグル (Sa10026-4) — 既定は非表示 ----
+  const [showSystemFolder, setShowSystemFolder] = useState(false);
+  const toggleSystemFolder = useCallback((): void => {
+    setShowSystemFolder((v) => !v);
   }, []);
 
   // ---- スマートビュー: モード + 作成フォームトリガー ----
@@ -1406,17 +1413,27 @@ export function App(): JSX.Element {
             commandSaveToken={commandSaveToken}
           />
         ) : (
-          <FileTree
-            notes={notes}
-            extraFolders={extraFolders}
-            activePath={activeSidebarPath}
-            collapsed={collapsedFolders}
-            error={notesError}
-            onToggleFolder={toggleFolder}
-            onOpenNote={(path) => void openNotePath(path)}
-            onContextMenuNote={onContextMenuNote}
-            onContextMenuFolder={onContextMenuFolder}
-          />
+          <>
+            {/* system/ フォルダはクライアント側でフィルタ (AC-Sa10026-4-1) */}
+            <FileTree
+              notes={notes === null ? null : notes.filter((n) => !n.folder.startsWith('system'))}
+              extraFolders={extraFolders}
+              activePath={activeSidebarPath}
+              collapsed={collapsedFolders}
+              error={notesError}
+              onToggleFolder={toggleFolder}
+              onOpenNote={(path) => void openNotePath(path)}
+              onContextMenuNote={onContextMenuNote}
+              onContextMenuFolder={onContextMenuFolder}
+            />
+            {/* system/ 表示トグル + 定義ファイル一覧 (Sa10026-4) */}
+            <SystemFolderSection
+              notes={notes}
+              shown={showSystemFolder}
+              onToggle={toggleSystemFolder}
+              onOpenNote={(path) => void openNotePath(path)}
+            />
+          </>
         )}
 
         <div className="tree-section-title show-all-row">

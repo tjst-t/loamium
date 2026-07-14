@@ -1,0 +1,75 @@
+Story Sa10026-4: ツリーの system/ 既定非表示 + 表示トグル + order 再採番
+Date: 2026-07-14
+Branch: worktree-agent-a590c13ef880e81ab
+
+== 実装ファイル ==
+
+新規:
+  packages/ui/src/components/SystemFolderSection.tsx
+    - tree-system-toggle ボタン (data-testid, data-state, aria-expanded)
+    - tree-system セクション (shown/hidden を React state で制御)
+    - SystemGroup: サブフォルダ別グループ、HTML5 DnD + localOrder 状態
+    - persistOrder: ドロップ後に GET→order書換→PUT で永続化
+    - replaceYamlOrder / replaceMdOrder: .yaml / .md の order: 更新ユーティリティ
+
+変更:
+  packages/ui/src/App.tsx
+    - SystemFolderSection import 追加
+    - showSystemFolder / toggleSystemFolder 状態追加
+    - FileTree に渡す notes から system/ をフィルタ除外 (AC-Sa10026-4-1)
+    - SystemFolderSection コンポーネントを物理ビュー下部に追加
+
+  packages/ui/src/styles.css
+    - .tree-system-toggle / .tree-system / .tree-group-label / .tree-item.dragging
+      / .drag-handle スタイル追加 (プロトタイプ準拠)
+
+新規テスト:
+  packages/ui/tests/e2e/system-tree.mock.spec.ts
+  packages/ui/tests/e2e/system-tree.e2e.spec.ts (sprint verify で実行)
+
+== mock テスト結果 ==
+
+Running 9 tests using 1 worker
+  ✓  1 [AC-Sa10026-4-1] 起動直後は system/ がツリーに現れない (既定非表示) (1.1s)
+  ✓  2 [AC-Sa10026-4-1] tree-system-toggle クリックで system/ が表示され再クリックで隠れる (1.0s)
+  ✓  3 [AC-Sa10026-4-1] system/ ファイルは通常 file-tree に混入しない (963ms)
+  ✓  4 [AC-Sa10026-4-1] tree-system-toggle ON 後、グループラベルが正しく表示される (1.2s)
+  ✓  5 [AC-Sa10026-4-2] system/smart-folders/journal.yaml をクリックすると Editor で開く (990ms)
+  ✓  6 [AC-Sa10026-4-2] system/templates/journal.md をクリックすると Editor で開く (972ms)
+  ✓  7 [AC-Sa10026-4-2] ドラッグ&ドロップ後に PUT /api/notes/{path} が order 再採番で呼ばれる (1.6s)
+  ✓  8 [MOCK] 通常ノートが 0 件でも system/ トグルは機能する (1.2s)
+  ✓  9 [MOCK] system/ ノートが 0 件でも tree-system-toggle は表示される (961ms)
+
+9 passed (12.5s)
+
+== lint 結果 ==
+
+tsc --noEmit -p packages/ui/tsconfig.json: PASS
+tsc --noEmit -p packages/shared/tsconfig.json: PASS
+tsc --noEmit -p packages/server/tsconfig.json: PASS
+
+== 設計判断 ==
+
+D1. NoteMeta に order フィールドなし
+    NoteMeta (packages/shared) は path/title/tags/folder/mtime/size のみ。
+    order 値は各ファイルの YAML キー / MD frontmatter に格納されているが
+    GET /api/notes の一覧レスポンスには含まれない。
+    → ツリー初期表示はパスの辞書順、ドラッグ&ドロップ後に GET→PUT で order 永続。
+    → プロトタイプの "order 10" 数値バッジは省略 (コスト対効果上)。
+
+D2. system/ yaml ファイルを Editor で開く
+    isCommandFile は commands/*.yaml にのみ適用。
+    system/smart-folders/*.yaml / system/commands/*.yaml は通常の Editor で開く。
+    (CommandEditor と Editor の使い分けは ADR-0024 の commands/ パターンのみ)
+
+D3. drag-handle は視覚的ヒント (aria-hidden)
+    ドラッグはアイテム全体がドラッグ可能。drag-handle は hover 時のみ表示する
+    装飾テキスト (⠿) で aria-hidden=true。
+
+D4. 通常ノートが 0 件でも tree-system は DOM に存在する
+    中身が空の場合、Playwright は tree-system を "hidden" と判定 (0 height)。
+    テストは toBeAttached() でアタッチ確認し、toBeVisible() は使わない。
+
+== vitest.config.ts / tsconfig.json ==
+
+変更なし (最終差分に含まれない ✓)
