@@ -3,24 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Loamium — 統一設定ハブ (テンプレ/SF/コマンド集約案)</title>
+<title>Loamium — 統一設定ハブ (マスターディテール案)</title>
 <link rel="stylesheet" href="styles.css">
 <style>
-/* ==== 統一設定ハブ: テンプレート/スマートフォルダ/スマートコマンドを集約する探索プロトタイプ ==== */
+/* ==== 統一設定ハブ: テンプレ/SF/コマンドを集約 (マスターディテール2ペイン) ==== */
 .settings-view { display: flex; flex: 1; min-height: 0; background: var(--bg-editor); }
-.settings-nav {
-  width: 220px; flex-shrink: 0; border-right: 1px solid var(--border);
-  background: var(--bg-panel); padding: 14px 8px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto;
-}
-.settings-nav .nav-title {
-  font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
-  color: var(--text-faint); padding: 10px 10px 6px;
-}
-.nav-item {
-  display: flex; align-items: center; gap: 9px; width: 100%;
-  padding: 8px 10px; border: none; background: none; border-radius: 7px;
-  font-size: 13px; color: var(--text); cursor: pointer; text-align: left;
-}
+.settings-nav { width: 216px; flex-shrink: 0; border-right: 1px solid var(--border); background: var(--bg-panel); padding: 14px 8px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+.settings-nav .nav-title { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-faint); padding: 10px 10px 6px; }
+.nav-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 10px; border: none; background: none; border-radius: 7px; font-size: 13px; color: var(--text); cursor: pointer; text-align: left; }
 .nav-item:hover { background: var(--bg-hover); }
 .nav-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .nav-item :where(svg) { width: 16px; height: 16px; flex-shrink: 0; }
@@ -28,76 +18,77 @@
 .nav-item.active .count { color: var(--accent); }
 .settings-nav .nav-sep { height: 1px; background: var(--border); margin: 8px 8px; }
 
-.settings-main { flex: 1; overflow-y: auto; padding: 24px 30px; }
-.settings-head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
-.settings-head h1 { font-size: 20px; margin: 0; }
-.settings-head .head-actions { margin-left: auto; display: flex; gap: 8px; }
-.settings-sub { color: var(--text-muted); font-size: 13px; margin: 0 0 20px; }
-.settings-sub code { font-family: var(--font-mono); font-size: 11.5px; color: var(--accent); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+.settings-main { flex: 1; min-width: 0; display: flex; overflow: hidden; }
 
-.btn {
-  font: inherit; font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: 8px; cursor: pointer;
-  border: 1px solid var(--border-strong); background: var(--bg-app); color: var(--text);
-  display: inline-flex; align-items: center; gap: 6px;
-}
-.btn:hover { background: var(--bg-hover); }
-.btn :where(svg) { width: 14px; height: 14px; }
-.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn-primary:hover { background: var(--accent-hover); }
-.btn-sm { padding: 5px 9px; font-size: 12px; }
-
-.settings-panel { display: none; max-width: 720px; }
+/* 単一フォーム系 (全体/エージェント/プライバシー) */
+.settings-panel { display: none; flex: 1; overflow-y: auto; padding: 24px 30px; }
 .settings-panel.active { display: block; }
+.settings-field { margin-bottom: 16px; max-width: 560px; }
+.settings-field > label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; }
+.settings-field input, .settings-field select { width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg-app); color: var(--text); }
+.settings-head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.settings-head h1 { font-size: 19px; margin: 0; }
+.settings-sub { color: var(--text-muted); font-size: 13px; margin: 0 0 18px; }
+.settings-sub code { font-family: var(--font-mono); font-size: 11.5px; color: var(--accent); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+.compact-note { margin-top: 10px; padding: 10px 12px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--text-muted); max-width: 560px; }
 
-/* ---- 項目リスト (テンプレ/SF/コマンド共通) ---- */
-.item-list { display: flex; flex-direction: column; gap: 8px; }
-.item-card { border: 1px solid var(--border); border-radius: 10px; background: var(--bg-panel); overflow: hidden; }
-.item-card.editing { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.item-head { display: flex; align-items: center; gap: 11px; padding: 11px 13px; cursor: pointer; }
-.item-head:hover { background: var(--bg-hover); }
-.drag-handle { color: var(--text-faint); cursor: grab; display: inline-flex; }
-.drag-handle :where(svg) { width: 13px; height: 15px; }
-.item-emoji { font-size: 16px; width: 22px; text-align: center; }
-.item-ico { width: 30px; height: 30px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.item-ico :where(svg) { width: 16px; height: 16px; }
-.item-body { flex: 1; min-width: 0; }
-.item-name { font-size: 13.5px; font-weight: 600; }
-.item-meta { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
-.item-meta code, .mono { font-family: var(--font-mono); font-size: 11px; }
-.item-meta .dql { color: var(--co); }
-.item-actions { display: flex; gap: 2px; opacity: 0; }
-.item-head:hover .item-actions { opacity: 1; }
-.item-card.editing .item-actions { opacity: 1; }
-.icon-act { border: none; background: none; color: var(--text-faint); cursor: pointer; padding: 5px; border-radius: 6px; display: inline-flex; }
-.icon-act:hover { background: var(--bg-active); color: var(--text); }
-.icon-act.danger:hover { color: var(--danger); }
-.icon-act :where(svg) { width: 15px; height: 15px; }
+/* マスターディテール (テンプレ/SF/コマンド) */
+.md-panel { display: none; flex: 1; min-width: 0; }
+.md-panel.active { display: flex; }
+.md-master { width: 262px; flex-shrink: 0; border-right: 1px solid var(--border); display: flex; flex-direction: column; background: var(--bg-panel); }
+.md-master-head { display: flex; align-items: center; gap: 8px; padding: 16px 14px 10px; }
+.md-master-head h2 { font-size: 15px; margin: 0; flex: 1; }
+.md-new { border: none; background: var(--accent); color: #fff; border-radius: 7px; width: 26px; height: 26px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.md-new :where(svg) { width: 15px; height: 15px; }
+.md-filter { position: relative; margin: 0 12px 8px; }
+.md-filter :where(svg) { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: var(--text-faint); }
+.md-filter input { width: 100%; box-sizing: border-box; font: inherit; font-size: 12.5px; padding: 7px 9px 7px 29px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg-app); color: var(--text); }
+.md-filter input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+.md-items { flex: 1; overflow-y: auto; padding: 4px 8px 12px; }
+.md-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 10px; border: none; background: none; border-radius: 8px; cursor: pointer; text-align: left; color: var(--text); }
+.md-item:hover { background: var(--bg-hover); }
+.md-item.active { background: var(--accent-soft); }
+.md-item .drag { color: var(--text-faint); opacity: 0; display: inline-flex; }
+.md-item:hover .drag { opacity: 1; }
+.md-item .drag :where(svg) { width: 12px; height: 14px; }
+.md-item .emoji { font-size: 15px; width: 20px; text-align: center; }
+.md-item .ic { width: 26px; height: 26px; border-radius: 7px; background: var(--accent-soft); color: var(--accent); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.md-item .ic :where(svg) { width: 15px; height: 15px; }
+.md-item .txt { flex: 1; min-width: 0; }
+.md-item .nm { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.md-item.active .nm { color: var(--accent); }
+.md-item .sb { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.md-item .sb.mono { font-family: var(--font-mono); }
+.md-filtered { display: none !important; }
 
-/* ---- インライン編集領域 ---- */
-.item-edit { display: none; padding: 4px 14px 16px; border-top: 1px solid var(--border); }
-.item-card.editing .item-edit { display: block; }
-.field { margin: 14px 0; }
+.md-detail { flex: 1; min-width: 0; overflow-y: auto; padding: 22px 28px; }
+.md-detail-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+.md-detail-head h1 { font-size: 19px; margin: 0; }
+.md-detail-head .path { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-muted); }
+.md-detail-sub { font-size: 12.5px; color: var(--text-muted); margin: 0 0 18px; }
+
+.field { margin: 16px 0; }
 .field > label { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 5px; }
 .field .hint { font-size: 11px; color: var(--text-muted); margin: 4px 0 0; }
-.field input[type="text"], .field textarea, .field select {
-  width: 100%; box-sizing: border-box; font: inherit; font-size: 13px;
-  padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg-app); color: var(--text);
-}
-.field textarea { resize: vertical; min-height: 64px; }
-.field textarea.code { font-family: var(--font-mono); font-size: 12.5px; }
+.field input[type="text"], .field textarea, .field select { width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg-app); color: var(--text); }
+.field textarea.code { font-family: var(--font-mono); font-size: 12.5px; resize: vertical; min-height: 56px; }
 .field-row { display: flex; gap: 12px; }
-.field-row .field { flex: 1; }
 .seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 8px; overflow: hidden; }
 .seg button { border: none; background: var(--bg-app); font: inherit; font-size: 12.5px; padding: 7px 14px; cursor: pointer; color: var(--text-muted); }
 .seg button.on { background: var(--accent); color: #fff; font-weight: 600; }
 .preset-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .chip { font-size: 12px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--bg-app); cursor: pointer; color: var(--text-muted); }
 .chip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
-.edit-actions { display: flex; gap: 8px; margin-top: 6px; }
 
-/* ---- コマンドの params / steps ---- */
-.sub-label { font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--text-faint); margin: 16px 0 8px; }
-.mini-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; background: var(--bg-app); }
+/* テンプレ本文 = アプリと同じエディタ (CodeMirror 流用)。全高・全幅で広々 */
+.tmpl-editor-wrap { border: 1px solid var(--border-strong); border-radius: 10px; background: var(--bg-editor); padding: 10px 8px; min-height: 340px; }
+.tmpl-editor-wrap:focus-within { outline: 2px solid var(--accent); border-color: var(--accent); }
+.tmpl-editor-wrap .cm-editor { outline: none; }
+.tmpl-editor-wrap .cm-content.fm { color: var(--text-faint); font-family: var(--font-mono); font-size: 12px; }
+.tmpl-editor-wrap .hmark { color: var(--text-faint); font-weight: 400; }
+
+.sub-label { font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--text-faint); margin: 18px 0 8px; }
+.mini-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; background: var(--bg-panel); }
 .mini-row .grip { color: var(--text-faint); display: inline-flex; }
 .mini-row .grip :where(svg) { width: 12px; height: 14px; }
 .tag { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 5px; background: var(--accent-soft); color: var(--accent); }
@@ -110,271 +101,201 @@
 .add-mini { font-size: 12px; color: var(--accent); border: 1px dashed var(--border-strong); background: none; border-radius: 8px; padding: 7px 10px; width: 100%; cursor: pointer; }
 .add-mini:hover { background: var(--accent-soft); border-color: var(--accent); }
 
-.compact-note { margin-top: 10px; padding: 10px 12px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--text-muted); }
-.proto-note { margin: 24px 0 0; padding: 12px 14px; background: var(--co-bg); border-left: 3px solid var(--co); border-radius: 6px; font-size: 12px; color: var(--text-muted); line-height: 1.65; }
+.btn { font: inherit; font-size: 13px; font-weight: 600; padding: 8px 15px; border-radius: 8px; cursor: pointer; border: 1px solid var(--border-strong); background: var(--bg-app); color: var(--text); display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { background: var(--bg-hover); }
+.btn :where(svg) { width: 14px; height: 14px; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-ghost { border: none; background: none; color: var(--text-muted); }
+.btn-ghost.danger:hover { color: var(--danger); background: var(--danger-soft); }
+.detail-actions { display: flex; gap: 8px; margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--border); }
+.proto-note { margin: 20px 0 0; padding: 12px 14px; background: var(--co-bg); border-left: 3px solid var(--co); border-radius: 6px; font-size: 12px; color: var(--text-muted); line-height: 1.65; }
 .proto-note code { font-family: var(--font-mono); font-size: 11.5px; color: var(--text); }
-.settings-field { margin-bottom: 14px; }
-.settings-field > label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; }
-
-/* テンプレート本文をアプリのエディタで編集 (CodeMirror 流用) */
-.tmpl-editor-wrap { border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg-editor); padding: 8px 6px; max-height: 320px; overflow-y: auto; }
-.tmpl-editor-wrap:focus-within { outline: 2px solid var(--accent); border-color: var(--accent); }
-.tmpl-editor-wrap .cm-editor { outline: none; }
-.tmpl-editor-wrap .cm-content.fm { color: var(--text-faint); font-family: var(--font-mono); font-size: 12px; }
-.tmpl-editor-wrap .hmark { color: var(--text-faint); font-weight: 400; }
-
-/* セクション内 絞り込み検索 */
-.section-filter { position: relative; margin: 0 0 14px; max-width: 340px; }
-.section-filter :where(svg) { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--text-faint); }
-.section-filter input {
-  width: 100%; box-sizing: border-box; font: inherit; font-size: 13px;
-  padding: 8px 10px 8px 32px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg-app); color: var(--text);
-}
-.section-filter input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
-.item-card.filtered-out { display: none; }
 </style>
 </head>
 <body>
 <div class="app">
   <aside class="sidebar" data-testid="sidebar">
-    <div class="sidebar-header">
-      <div class="vault-badge">L</div>
-      <div class="vault-name">loamium-notes</div>
-      <button class="icon-btn" title="検索 (Ctrl+K)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M14 14l-3.5-3.5"/></svg></button>
-    </div>
+    <div class="sidebar-header"><div class="vault-badge">L</div><div class="vault-name">loamium-notes</div>
+      <button class="icon-btn" title="検索"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M14 14l-3.5-3.5"/></svg></button></div>
     <div class="tree-section-title">Notes</div>
-    <div class="tree">
-      <button class="tree-item" data-path="journals/2026/07/2026-07-14.md">2026-07-14.md</button>
-      <button class="tree-item" data-path="projects/Hydra.md">Hydra 設計メモ.md</button>
-    </div>
+    <div class="tree"><button class="tree-item">2026-07-14.md</button><button class="tree-item">Hydra 設計メモ.md</button></div>
   </aside>
 
   <main class="workspace">
-    <div class="settings-view" data-testid="settings-view" role="region" aria-label="設定">
+    <div class="settings-view" data-testid="settings-view">
       <nav class="settings-nav" data-testid="settings-nav">
         <div class="nav-title">設定</div>
-        <button class="nav-item active" data-group="general" onclick="showGroup('general')">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><path d="M2.5 6.5h11"/></svg>全体</button>
-        <button class="nav-item" data-group="agent" onclick="showGroup('agent')">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4.5" width="10" height="8" rx="2"/><path d="M8 4.5V2.5M6 8.5h.01M10 8.5h.01"/></svg>エージェント</button>
-        <button class="nav-item" data-group="privacy" onclick="showGroup('privacy')">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2l5 2v4c0 3-2.2 5-5 6-2.8-1-5-3-5-6V4z"/></svg>プライバシー</button>
-
+        <button class="nav-item active" data-group="general" onclick="showGroup('general')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><path d="M2.5 6.5h11"/></svg>全体</button>
+        <button class="nav-item" data-group="agent" onclick="showGroup('agent')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4.5" width="10" height="8" rx="2"/><path d="M8 4.5V2.5M6 8.5h.01M10 8.5h.01"/></svg>エージェント</button>
+        <button class="nav-item" data-group="privacy" onclick="showGroup('privacy')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2l5 2v4c0 3-2.2 5-5 6-2.8-1-5-3-5-6V4z"/></svg>プライバシー</button>
         <div class="nav-sep"></div>
         <div class="nav-title">コンテンツ</div>
-        <button class="nav-item" data-group="templates" onclick="showGroup('templates')">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><path d="M5 6h6M5 8.5h6M5 11h3.5"/></svg>テンプレート<span class="count">3</span></button>
-        <button class="nav-item" data-group="smart-folders" onclick="showGroup('smart-folders')">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 5.5l1-2h3l1 1.5h5v6a1.5 1.5 0 01-1.5 1.5h-8A1.5 1.5 0 011 11z"/></svg>スマートフォルダ<span class="count">4</span></button>
-        <button class="nav-item" data-group="commands" onclick="showGroup('commands')">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5l2.5 3L4 11M8.5 11h3.5"/></svg>スマートコマンド<span class="count">2</span></button>
+        <button class="nav-item" data-group="templates" onclick="showGroup('templates')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><path d="M5 6h6M5 8.5h6M5 11h3.5"/></svg>テンプレート<span class="count">3</span></button>
+        <button class="nav-item" data-group="smart-folders" onclick="showGroup('smart-folders')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 5.5l1-2h3l1 1.5h5v6a1.5 1.5 0 01-1.5 1.5h-8A1.5 1.5 0 011 11z"/></svg>スマートフォルダ<span class="count">4</span></button>
+        <button class="nav-item" data-group="commands" onclick="showGroup('commands')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5l2.5 3L4 11M8.5 11h3.5"/></svg>スマートコマンド<span class="count">2</span></button>
       </nav>
 
       <div class="settings-main">
-        <!-- 全体 (既存・簡略) -->
+        <!-- 単一フォーム系 -->
         <section class="settings-panel active" data-group="general">
           <div class="settings-head"><h1>全体</h1></div>
           <p class="settings-sub">アプリ全体設定 — <code>system/settings.yaml</code></p>
-          <div class="settings-field"><label>テーマ</label>
-            <select><option>システムに合わせる</option><option>ライト</option><option>ダーク</option></select></div>
-          <div class="settings-field"><label>新規ノートの既定フォルダ</label>
-            <input type="text" value="notes"></div>
-          <div class="compact-note">エージェント・プライバシーは従来どおり左ナビの各項目に。</div>
+          <div class="settings-field"><label>テーマ</label><select><option>システムに合わせる</option><option>ライト</option><option>ダーク</option></select></div>
+          <div class="settings-field"><label>新規ノートの既定フォルダ</label><input type="text" value="notes"></div>
         </section>
         <section class="settings-panel" data-group="agent">
           <div class="settings-head"><h1>エージェント</h1></div>
-          <p class="settings-sub">接続・権限 — <code>.loamium/agent-*.json</code>(既存の設定UI)</p>
-          <div class="compact-note">baseUrl / APIキー($ENV)/ 接続テスト / モデル一覧 / 権限 / … は既存のまま。</div>
+          <p class="settings-sub">接続・権限 — <code>.loamium/agent-*.json</code></p>
+          <div class="compact-note">baseUrl / APIキー($ENV)/ 接続テスト / モデル一覧 / 権限 は既存の設定UIのまま。</div>
         </section>
         <section class="settings-panel" data-group="privacy">
           <div class="settings-head"><h1>プライバシー</h1></div>
-          <p class="settings-sub">agent 機密領域 deny-list(既存の設定UI)</p>
+          <p class="settings-sub">agent 機密領域 deny-list</p>
         </section>
 
-        <!-- ============ テンプレート ============ -->
-        <section class="settings-panel" data-group="templates">
-          <div class="settings-head">
-            <h1>テンプレート</h1>
-            <div class="head-actions"><button class="btn btn-primary"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>新規テンプレート</button></div>
+        <!-- マスターディテール: テンプレート -->
+        <section class="md-panel" data-group="templates">
+          <div class="md-master">
+            <div class="md-master-head"><h2>テンプレート</h2><button class="md-new" title="新規"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg></button></div>
+            <div class="md-filter"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M14 14l-3.5-3.5"/></svg><input type="text" placeholder="絞り込み" oninput="filterMaster('templates',this.value)"></div>
+            <div class="md-items" data-items="templates"></div>
           </div>
-          <p class="settings-sub">ノート作成の雛形 — <code>system/templates/*.md</code>。ここで直接編集できます。</p>
-          <div class="section-filter"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M14 14l-3.5-3.5"/></svg><input type="text" placeholder="テンプレートを絞り込み" oninput="filterSection(this,'templates')"></div>
-          <div class="item-list" data-list="templates">
-            <div class="item-card editing">
-              <div class="item-head">
-                <span class="item-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><path d="M5 6h6M5 8.5h6M5 11h3.5"/></svg></span>
-                <div class="item-body"><div class="item-name">journal</div><div class="item-meta"><code>system/templates/journal.md</code> · デイリージャーナルの既定</div></div>
-                <div class="item-actions"><button class="icon-act" title="複製"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="8" height="8" rx="1.5"/><path d="M3 11V4a1.5 1.5 0 011.5-1.5H11"/></svg></button><button class="icon-act danger" title="削除"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4.5h10M6.5 4V3h3v1M5 4.5l.5 8h5l.5-8"/></svg></button></div>
-              </div>
-              <div class="item-edit">
-                <div class="field"><label>名前</label><input type="text" value="journal"></div>
-                <div class="field"><label>本文(Loamium エディタで編集)</label>
-                  <div class="tmpl-editor-wrap">
-                    <div class="cm-editor" data-testid="template-editor" contenteditable="true" spellcheck="false">
-                      <div class="cm-line"><span class="gutter"></span><span class="cm-content fm">---</span></div>
-                      <div class="cm-line"><span class="gutter"></span><span class="cm-content fm">tags: []</span></div>
-                      <div class="cm-line"><span class="gutter"></span><span class="cm-content fm">---</span></div>
-                      <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h1"><span class="hmark"># </span>{{date:YYYY-MM-DD}} {{date:ddd}}</span></div>
-                      <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
-                      <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h2"><span class="hmark">## </span>今日の予定</span></div>
-                      <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><button class="task-checkbox" aria-label="未完了タスク"></button><span>{{task}}</span></span></div>
-                      <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
-                      <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h2"><span class="hmark">## </span>やったこと</span></div>
-                      <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
-                      <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h2"><span class="hmark">## </span>メモ</span></div>
-                    </div>
-                  </div>
-                  <p class="hint">アプリ本体と<strong>同じエディタ(CodeMirror + lezer-markdown)</strong>を流用 — 見出し・タスク・アウトラインがライブ整形。<code>{{date:...}}</code> 等のテンプレ変数もそのまま使えます。</p>
-                </div>
-                <div class="edit-actions"><button class="btn btn-primary">保存</button><button class="btn">キャンセル</button></div>
-              </div>
-            </div>
-            <div class="item-card">
-              <div class="item-head"><span class="item-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><path d="M5 6h6M5 8.5h6M5 11h3.5"/></svg></span>
-                <div class="item-body"><div class="item-name">議事録</div><div class="item-meta"><code>system/templates/議事録.md</code></div></div>
-                <div class="item-actions"><button class="icon-act">✎</button></div></div>
-            </div>
-            <div class="item-card">
-              <div class="item-head"><span class="item-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><path d="M5 6h6M5 8.5h6M5 11h3.5"/></svg></span>
-                <div class="item-body"><div class="item-name">読書メモ</div><div class="item-meta"><code>system/templates/読書メモ.md</code></div></div>
-                <div class="item-actions"><button class="icon-act">✎</button></div></div>
-            </div>
-          </div>
+          <div class="md-detail" data-detail="templates"></div>
         </section>
 
-        <!-- ============ スマートフォルダ ============ -->
-        <section class="settings-panel" data-group="smart-folders">
-          <div class="settings-head">
-            <h1>スマートフォルダ</h1>
-            <div class="head-actions"><button class="btn btn-primary"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>新規スマートフォルダ</button></div>
+        <!-- マスターディテール: スマートフォルダ -->
+        <section class="md-panel" data-group="smart-folders">
+          <div class="md-master">
+            <div class="md-master-head"><h2>スマートフォルダ</h2><button class="md-new" title="新規"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg></button></div>
+            <div class="md-filter"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M14 14l-3.5-3.5"/></svg><input type="text" placeholder="絞り込み" oninput="filterMaster('smart-folders',this.value)"></div>
+            <div class="md-items" data-items="smart-folders"></div>
           </div>
-          <p class="settings-sub">DQL クエリ / ピンで作る動的フォルダ — <code>system/smart-folders/*.yaml</code>。ドラッグで並べ替え。</p>
-          <div class="section-filter"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M14 14l-3.5-3.5"/></svg><input type="text" placeholder="スマートフォルダを絞り込み" oninput="filterSection(this,'smart-folders')"></div>
-          <div class="item-list" data-list="smart-folders">
-            <div class="item-card editing">
-              <div class="item-head">
-                <span class="drag-handle"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="6" cy="4" r="1.3"/><circle cx="10" cy="4" r="1.3"/><circle cx="6" cy="8" r="1.3"/><circle cx="10" cy="8" r="1.3"/><circle cx="6" cy="12" r="1.3"/><circle cx="10" cy="12" r="1.3"/></svg></span>
-                <span class="item-emoji">📓</span>
-                <div class="item-body"><div class="item-name">Daily Journal</div><div class="item-meta"><span class="dql mono">LIST FROM "journals" SORT file.name DESC LIMIT 14</span></div></div>
-                <div class="item-actions"><button class="icon-act danger" title="削除"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4.5h10M6.5 4V3h3v1M5 4.5l.5 8h5l.5-8"/></svg></button></div>
-              </div>
-              <div class="item-edit">
-                <div class="field-row">
-                  <div class="field" style="flex:0 0 90px"><label>アイコン</label><input type="text" value="📓" style="text-align:center"></div>
-                  <div class="field"><label>名前</label><input type="text" value="Daily Journal"></div>
-                </div>
-                <div class="field"><label>種類</label>
-                  <div class="seg"><button class="on">クエリ (DQL)</button><button>ピン (フォルダ/ノート)</button></div>
-                </div>
-                <div class="field"><label>DQL クエリ</label>
-                  <textarea class="code" rows="2">LIST FROM "journals" SORT file.name DESC LIMIT 14</textarea>
-                  <div class="preset-chips">
-                    <span class="chip on">journal(N)</span><span class="chip">tag(#…)</span><span class="chip">folder("…")</span><span class="chip">custom</span>
-                  </div>
-                </div>
-                <div class="edit-actions"><button class="btn btn-primary">保存</button><button class="btn">キャンセル</button></div>
-              </div>
-            </div>
-            <div class="item-card">
-              <div class="item-head"><span class="drag-handle"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="6" cy="4" r="1.3"/><circle cx="10" cy="4" r="1.3"/><circle cx="6" cy="8" r="1.3"/><circle cx="10" cy="8" r="1.3"/><circle cx="6" cy="12" r="1.3"/><circle cx="10" cy="12" r="1.3"/></svg></span><span class="item-emoji">✅</span>
-                <div class="item-body"><div class="item-name">Todos</div><div class="item-meta"><span class="dql mono">TASK WHERE !completed</span></div></div>
-                <div class="item-actions"><button class="icon-act">✎</button></div></div>
-            </div>
-            <div class="item-card">
-              <div class="item-head"><span class="drag-handle"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="6" cy="4" r="1.3"/><circle cx="10" cy="4" r="1.3"/><circle cx="6" cy="8" r="1.3"/><circle cx="10" cy="8" r="1.3"/><circle cx="6" cy="12" r="1.3"/><circle cx="10" cy="12" r="1.3"/></svg></span><span class="item-emoji">🕒</span>
-                <div class="item-body"><div class="item-name">Recent</div><div class="item-meta"><span class="dql mono">LIST SORT file.mtime DESC LIMIT 10</span></div></div>
-                <div class="item-actions"><button class="icon-act">✎</button></div></div>
-            </div>
-            <div class="item-card">
-              <div class="item-head"><span class="drag-handle"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="6" cy="4" r="1.3"/><circle cx="10" cy="4" r="1.3"/><circle cx="6" cy="8" r="1.3"/><circle cx="10" cy="8" r="1.3"/><circle cx="6" cy="12" r="1.3"/><circle cx="10" cy="12" r="1.3"/></svg></span><span class="item-emoji">⭐</span>
-                <div class="item-body"><div class="item-name">Bookmarks</div><div class="item-meta"><span class="dql mono">LIST WHERE bookmark = true</span></div></div>
-                <div class="item-actions"><button class="icon-act">✎</button></div></div>
-            </div>
-          </div>
+          <div class="md-detail" data-detail="smart-folders"></div>
         </section>
 
-        <!-- ============ スマートコマンド ============ -->
-        <section class="settings-panel" data-group="commands">
-          <div class="settings-head">
-            <h1>スマートコマンド</h1>
-            <div class="head-actions"><button class="btn btn-primary"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>新規コマンド</button></div>
+        <!-- マスターディテール: スマートコマンド -->
+        <section class="md-panel" data-group="commands">
+          <div class="md-master">
+            <div class="md-master-head"><h2>スマートコマンド</h2><button class="md-new" title="新規"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg></button></div>
+            <div class="md-filter"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M14 14l-3.5-3.5"/></svg><input type="text" placeholder="絞り込み" oninput="filterMaster('commands',this.value)"></div>
+            <div class="md-items" data-items="commands"></div>
           </div>
-          <p class="settings-sub">パラメータ + ステップで作る操作 — <code>system/commands/*.yaml</code>。パレット(Ctrl+K → <code>&gt;</code>)から実行。</p>
-          <div class="section-filter"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M14 14l-3.5-3.5"/></svg><input type="text" placeholder="コマンドを絞り込み" oninput="filterSection(this,'commands')"></div>
-          <div class="item-list" data-list="commands">
-            <div class="item-card editing">
-              <div class="item-head">
-                <span class="item-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5l2.5 3L4 11M8.5 11h3.5"/></svg></span>
-                <div class="item-body"><div class="item-name">Todo を追加</div><div class="item-meta">1 パラメータ · 1 ステップ · <code>journal-append</code></div></div>
-                <div class="item-actions"><button class="icon-act danger" title="削除"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4.5h10M6.5 4V3h3v1M5 4.5l.5 8h5l.5-8"/></svg></button></div>
-              </div>
-              <div class="item-edit">
-                <div class="field-row">
-                  <div class="field"><label>名前</label><input type="text" value="Todo を追加"></div>
-                </div>
-                <div class="field"><label>説明</label><input type="text" value="今日のジャーナルの「今日の予定」に Todo を1件追記します。"></div>
-
-                <div class="sub-label">パラメータ</div>
-                <div class="mini-row">
-                  <span class="grip"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="6" cy="4" r="1.3"/><circle cx="10" cy="4" r="1.3"/><circle cx="6" cy="8" r="1.3"/><circle cx="10" cy="8" r="1.3"/><circle cx="6" cy="12" r="1.3"/><circle cx="10" cy="12" r="1.3"/></svg></span>
-                  <span class="tag">text</span>
-                  <span class="m-main">タスク <span class="m-sub">{{task}}</span> · 必須</span>
-                  <button class="m-del"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
-                </div>
-                <button class="add-mini">＋ パラメータを追加</button>
-
-                <div class="sub-label">ステップ</div>
-                <div class="mini-row">
-                  <span class="grip"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="6" cy="4" r="1.3"/><circle cx="10" cy="4" r="1.3"/><circle cx="6" cy="8" r="1.3"/><circle cx="10" cy="8" r="1.3"/><circle cx="6" cy="12" r="1.3"/><circle cx="10" cy="12" r="1.3"/></svg></span>
-                  <span class="tag step">journal-append</span>
-                  <span class="m-main">「今日の予定」に追記 <span class="m-sub">- [ ] {{task}}</span></span>
-                  <button class="m-del"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
-                </div>
-                <button class="add-mini">＋ ステップを追加(journal-append / note-append / note-create / template-instantiate / prop-set / …)</button>
-
-                <div class="edit-actions" style="margin-top:14px"><button class="btn btn-primary">保存</button><button class="btn">キャンセル</button><button class="btn" style="margin-left:auto"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 3l9 5-9 5z"/></svg>試し実行</button></div>
-              </div>
-            </div>
-            <div class="item-card">
-              <div class="item-head"><span class="item-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5l2.5 3L4 11M8.5 11h3.5"/></svg></span>
-                <div class="item-body"><div class="item-name">メモを追記</div><div class="item-meta">1 パラメータ · 1 ステップ · <code>journal-append</code></div></div>
-                <div class="item-actions"><button class="icon-act">✎</button></div></div>
-            </div>
-          </div>
-          <div class="proto-note">
-            <strong>探索プロトタイプ注記</strong> — テンプレート/スマートフォルダ/スマートコマンドを設定ハブの左ナビに<strong>第一級セクション</strong>として集約する案(現状は導線リンクのみ)。保存先は不変(<code>system/*.yaml</code> / <code>*.md</code>)、既存の作成/編集ロジック(SmartFolderForm・コマンドエディタ)を各セクションに埋め込む形。<br>
-            ※ これは ADR-0026 の「per-item はハブに再実装せず導線リンク」判断の見直しになります。方向性 OK なら ADR-0026 を amend し、実装 Story を切ります。
-          </div>
+          <div class="md-detail" data-detail="commands"></div>
         </section>
       </div>
     </div>
   </main>
 </div>
+
 <script>
-  function showGroup(g) {
-    document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.toggle('active', n.dataset.group === g); });
-    document.querySelectorAll('.settings-panel').forEach(function(p){ p.classList.toggle('active', p.dataset.group === g); });
-  }
-  // セクション内の絞り込み(名前で前方一致・部分一致)
-  function filterSection(input, group) {
-    var q = input.value.trim().toLowerCase();
-    var list = document.querySelector('.item-list[data-list="' + group + '"]');
-    list.querySelectorAll('.item-card').forEach(function(card){
-      var name = (card.querySelector('.item-name')?.textContent || '').toLowerCase();
-      var meta = (card.querySelector('.item-meta')?.textContent || '').toLowerCase();
-      card.classList.toggle('filtered-out', q !== '' && !name.includes(q) && !meta.includes(q));
-    });
-  }
-  // カード見出しクリックで編集トグル
-  document.querySelectorAll('.item-head').forEach(function(h){
-    h.addEventListener('click', function(e){
-      if (e.target.closest('.item-actions')) return;
-      var card = h.closest('.item-card');
-      var wasEditing = card.classList.contains('editing');
-      card.parentElement.querySelectorAll('.item-card').forEach(function(c){ c.classList.remove('editing'); });
-      if (!wasEditing) card.classList.add('editing');
-    });
+const GRIP = '<span class="drag"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="6" cy="4" r="1.3"/><circle cx="10" cy="4" r="1.3"/><circle cx="6" cy="8" r="1.3"/><circle cx="10" cy="8" r="1.3"/><circle cx="6" cy="12" r="1.3"/><circle cx="10" cy="12" r="1.3"/></svg></span>';
+const GRIP2 = GRIP.replace('class="drag"','class="grip"');
+const TMPL_ICO = '<span class="ic"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><path d="M5 6h6M5 8.5h6M5 11h3.5"/></svg></span>';
+const CMD_ICO = '<span class="ic"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5l2.5 3L4 11M8.5 11h3.5"/></svg></span>';
+const TRASH = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4.5h10M6.5 4V3h3v1M5 4.5l.5 8h5l.5-8"/></svg>';
+const DUP = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="8" height="8" rx="1.5"/><path d="M3 11V4a1.5 1.5 0 011.5-1.5H11"/></svg>';
+const XI = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
+
+const DATA = {
+  templates: [
+    { id:'journal', path:'system/templates/journal.md', note:'デイリージャーナルの既定',
+      body:'---\ntags: []\n---\n# {{date:YYYY-MM-DD}} {{date:ddd}}\n\n## 今日の予定\n- [ ] \n\n## やったこと\n\n## メモ\n\n## 明日へ' },
+    { id:'議事録', path:'system/templates/議事録.md', note:'会議メモの雛形',
+      body:'# {{title}} 議事録\n\n日時: {{date:YYYY-MM-DD}} {{now:HH:mm}}\n参加者: \n\n## 議題\n\n## 決定事項\n- [ ] \n\n## TODO\n- [ ] ' },
+    { id:'読書メモ', path:'system/templates/読書メモ.md', note:'本の記録',
+      body:'# {{title}}\n\n著者: \n読了日: {{date:YYYY-MM-DD}}\n評価: ★★★☆☆\n\n## 要点\n\n## 感想' },
+  ],
+  'smart-folders': [
+    { id:'journal', emoji:'📓', name:'Daily Journal', kind:'query', dql:'LIST FROM "journals" SORT file.name DESC LIMIT 14', preset:'journal(N)' },
+    { id:'todos', emoji:'✅', name:'Todos', kind:'query', dql:'TASK WHERE !completed', preset:'custom' },
+    { id:'recent', emoji:'🕒', name:'Recent', kind:'query', dql:'LIST SORT file.mtime DESC LIMIT 10', preset:'custom' },
+    { id:'bookmarks', emoji:'⭐', name:'Bookmarks', kind:'query', dql:'LIST WHERE bookmark = true', preset:'custom' },
+  ],
+  commands: [
+    { id:'todo-add', name:'Todo を追加', desc:'今日のジャーナルの「今日の予定」に Todo を1件追記します。',
+      params:[{type:'text',name:'タスク',v:'task',req:true}], steps:[{kind:'journal-append',main:'「今日の予定」に追記',sub:'- [ ] {{task}}'}] },
+    { id:'log-memo', name:'メモを追記', desc:'今日のジャーナルの「メモ」に1行メモを追記します。',
+      params:[{type:'text',name:'メモ',v:'text',req:true}], steps:[{kind:'journal-append',main:'「メモ」に追記',sub:'- {{text}}'}] },
+  ],
+};
+const selected = { templates:'journal', 'smart-folders':'journal', commands:'todo-add' };
+
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// テンプレ本文 → アプリのエディタ整形 (frontmatter/見出し/タスク)
+function formatBody(body){
+  let inFm = false, seenFm = false, out = '';
+  body.split('\n').forEach(function(line){
+    let cls = '', inner = esc(line);
+    if (line === '---') { if(!seenFm){ inFm = !inFm; if(!inFm) seenFm = true; } cls='fm'; }
+    else if (inFm) { cls='fm'; }
+    else if (/^# /.test(line)) { cls='md-h1'; inner = '<span class="hmark"># </span>'+esc(line.slice(2)); }
+    else if (/^## /.test(line)) { cls='md-h2'; inner = '<span class="hmark">## </span>'+esc(line.slice(3)); }
+    else if (/^- \[ \] ?/.test(line)) { cls='md-list'; inner = '<button class="task-checkbox" aria-label="未完了タスク"></button><span>'+esc(line.replace(/^- \[ \] ?/,''))+'</span>'; }
+    else if (/^- /.test(line)) { cls='md-list'; inner = '<span>'+esc(line)+'</span>'; }
+    out += '<div class="cm-line"><span class="gutter"></span><span class="cm-content '+cls+'">'+inner+'</span></div>';
   });
+  return out;
+}
+
+function renderMaster(group){
+  const box = document.querySelector('.md-items[data-items="'+group+'"]');
+  box.innerHTML = DATA[group].map(function(it){
+    const active = selected[group]===it.id ? ' active' : '';
+    if (group==='templates')
+      return '<button class="md-item'+active+'" data-id="'+it.id+'" onclick="selectItem(\'templates\',\''+it.id+'\')">'+TMPL_ICO+'<span class="txt"><div class="nm">'+esc(it.id)+'</div><div class="sb mono">'+esc(it.path.split('/').pop())+'</div></span></button>';
+    if (group==='smart-folders')
+      return '<button class="md-item'+active+'" data-id="'+it.id+'" onclick="selectItem(\'smart-folders\',\''+it.id+'\')">'+GRIP+'<span class="emoji">'+it.emoji+'</span><span class="txt"><div class="nm">'+esc(it.name)+'</div><div class="sb mono">'+esc(it.dql)+'</div></span></button>';
+    return '<button class="md-item'+active+'" data-id="'+it.id+'" onclick="selectItem(\'commands\',\''+it.id+'\')">'+CMD_ICO+'<span class="txt"><div class="nm">'+esc(it.name)+'</div><div class="sb">'+it.params.length+' パラメータ · '+it.steps.length+' ステップ</div></span></button>';
+  }).join('');
+}
+
+function renderDetail(group){
+  const box = document.querySelector('.md-detail[data-detail="'+group+'"]');
+  const it = DATA[group].find(function(x){return x.id===selected[group];});
+  if (!it){ box.innerHTML=''; return; }
+  if (group==='templates'){
+    box.innerHTML =
+      '<div class="md-detail-head"><h1>'+esc(it.id)+'</h1><span class="path">'+esc(it.path)+'</span></div>'+
+      '<p class="md-detail-sub">'+esc(it.note||'')+'</p>'+
+      '<div class="field"><label>名前</label><input type="text" value="'+esc(it.id)+'"></div>'+
+      '<div class="field"><label>本文(Loamium エディタで編集)</label><div class="tmpl-editor-wrap"><div class="cm-editor" data-testid="template-editor" contenteditable="true" spellcheck="false">'+formatBody(it.body)+'</div></div>'+
+      '<p class="hint">アプリ本体と<strong>同じエディタ(CodeMirror + lezer-markdown)</strong>を流用 — 見出し・タスク・アウトラインがライブ整形。<code>{{date:...}}</code> 等の変数も使えます。</p></div>'+
+      '<div class="detail-actions"><button class="btn btn-primary">保存</button><button class="btn">キャンセル</button><button class="btn btn-ghost">'+DUP+'複製</button><button class="btn btn-ghost danger" style="margin-left:auto">'+TRASH+'削除</button></div>';
+  } else if (group==='smart-folders'){
+    const chips = ['journal(N)','tag(#…)','folder("…")','custom'].map(function(c){return '<span class="chip'+(c===it.preset?' on':'')+'">'+c+'</span>';}).join('');
+    box.innerHTML =
+      '<div class="md-detail-head"><h1>'+esc(it.name)+'</h1><span class="path">system/smart-folders/'+esc(it.id)+'.yaml</span></div>'+
+      '<div class="field-row"><div class="field" style="flex:0 0 96px"><label>アイコン</label><input type="text" value="'+it.emoji+'" style="text-align:center"></div><div class="field" style="flex:1"><label>名前</label><input type="text" value="'+esc(it.name)+'"></div></div>'+
+      '<div class="field"><label>種類</label><div class="seg"><button class="on">クエリ (DQL)</button><button>ピン (フォルダ/ノート)</button></div></div>'+
+      '<div class="field"><label>DQL クエリ</label><textarea class="code" rows="3">'+esc(it.dql)+'</textarea><div class="preset-chips">'+chips+'</div></div>'+
+      '<div class="detail-actions"><button class="btn btn-primary">保存</button><button class="btn">キャンセル</button><button class="btn btn-ghost danger" style="margin-left:auto">'+TRASH+'削除</button></div>';
+  } else {
+    const params = it.params.map(function(p){return '<div class="mini-row">'+GRIP2+'<span class="tag">'+p.type+'</span><span class="m-main">'+esc(p.name)+' <span class="m-sub">{{'+p.v+'}}</span>'+(p.req?' · 必須':'')+'</span><button class="m-del">'+XI+'</button></div>';}).join('');
+    const steps = it.steps.map(function(s){return '<div class="mini-row">'+GRIP2+'<span class="tag step">'+s.kind+'</span><span class="m-main">'+esc(s.main)+' <span class="m-sub">'+esc(s.sub)+'</span></span><button class="m-del">'+XI+'</button></div>';}).join('');
+    box.innerHTML =
+      '<div class="md-detail-head"><h1>'+esc(it.name)+'</h1><span class="path">system/commands/'+esc(it.id)+'.yaml</span></div>'+
+      '<div class="field"><label>名前</label><input type="text" value="'+esc(it.name)+'"></div>'+
+      '<div class="field"><label>説明</label><input type="text" value="'+esc(it.desc)+'"></div>'+
+      '<div class="sub-label">パラメータ</div>'+params+'<button class="add-mini">＋ パラメータを追加</button>'+
+      '<div class="sub-label">ステップ</div>'+steps+'<button class="add-mini">＋ ステップを追加 (journal-append / note-append / note-create / template-instantiate / prop-set / …)</button>'+
+      '<div class="detail-actions"><button class="btn btn-primary">保存</button><button class="btn">キャンセル</button><button class="btn" style="margin-left:auto"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 3l9 5-9 5z"/></svg>試し実行</button></div>';
+  }
+}
+
+function selectItem(group,id){ selected[group]=id; renderMaster(group); renderDetail(group); }
+function filterMaster(group,q){
+  q = q.trim().toLowerCase();
+  document.querySelectorAll('.md-items[data-items="'+group+'"] .md-item').forEach(function(el){
+    el.classList.toggle('md-filtered', q!=='' && el.textContent.toLowerCase().indexOf(q)<0);
+  });
+}
+function showGroup(g){
+  document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.toggle('active', n.dataset.group===g); });
+  document.querySelectorAll('.settings-panel,.md-panel').forEach(function(p){ p.classList.toggle('active', p.dataset.group===g); });
+}
+['templates','smart-folders','commands'].forEach(function(g){ renderMaster(g); renderDetail(g); });
 </script>
 </body>
 </html>
