@@ -37,5 +37,14 @@
   "affects": ["server", "ui", "cli"],
   "supersedes": "ADR-0002",
   "superseded_by": null,
-  "notes": "ADR-0003 の SmartViewItem(pin/query・任意 icon)モデルは有効なまま。本 ADR は格納形態(per-file の .md)と順序(order: frontmatter)のみ更新する。data.json の datastores 改訂が必要(.loamium/smart-folders.json → system/smart-folders/*.md、system/settings.yaml を追記、per-item 定義の frontmatter スキーマを追記)。実装詳細(system フォルダ名を設定可能にするか、移行タイミング、寛容 read の具体、GUI の order 再採番方式)は sprint plan 送り。system フォルダ名は小文字 system/ を既定とする。"
+  "notes": "ADR-0003 の SmartViewItem(pin/query・任意 icon)モデルは有効なまま。本 ADR は格納形態(per-file の .md)と順序(order: frontmatter)のみ更新する。data.json の datastores 改訂が必要(.loamium/smart-folders.json → system/smart-folders/*.md、system/settings.yaml を追記、per-item 定義の frontmatter スキーマを追記)。実装詳細(system フォルダ名を設定可能にするか、移行タイミング、寛容 read の具体、GUI の order 再採番方式)は sprint plan 送り。system フォルダ名は小文字 system/ を既定とする。",
+  "amendments": [
+    {
+      "date": "2026-07-14",
+      "sprint": "Sa10026",
+      "change": "per-item 定義の格納形式を種別ごとに分ける。スマートフォルダ(system/smart-folders/*.yaml)とスマートコマンド(system/commands/*.yaml)は純 YAML(title / order / icon / query。DQL は query: フィールドに文字列で保持)とする。テンプレート(system/templates/*.md)はノート本文そのものなので従来どおり .md + frontmatter を維持する。",
+      "rationale": "ユーザー指示。スマートフォルダ/コマンドは『ノートっぽさ』が薄い純設定であり、素 YAML の方が honest(ADR-0010 原則6『ノートっぽい per-item は md、単一設定は素の .yaml』の趣旨と整合)。トレードオフ: 定義を開いたときの本文 ```dql ライブプレビュー(dogfooding)は smart-folders/commands では失われ、query 文字列の編集に一本化される。テンプレートは本文があるため .md を維持。",
+      "supersedes_decision_point": "decision (2) の per-item = .md + frontmatter を、smart-folders / commands に限り .yaml へ変更(templates は不変)。"
+    }
+  ]
 }

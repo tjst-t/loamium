@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loamium — 統一設定 (Sa10026-7)</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+/* ==== 統一設定画面 (Sa10026-7 / ADR-0026) ==== */
+.settings-view { display: flex; flex: 1; min-height: 0; background: var(--bg-editor); }
+.settings-nav {
+  width: 210px; flex-shrink: 0; border-right: 1px solid var(--border);
+  background: var(--bg-panel); padding: 14px 8px; display: flex; flex-direction: column; gap: 2px;
+}
+.settings-nav .nav-title {
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--text-faint); padding: 6px 10px 8px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 8px 10px; border: none; background: none; border-radius: 7px;
+  font-size: 13px; color: var(--text); cursor: pointer; text-align: left;
+}
+.nav-item:hover { background: var(--bg-hover); }
+.nav-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.nav-item :where(svg) { width: 16px; height: 16px; flex-shrink: 0; }
+.settings-nav .nav-sep { height: 1px; background: var(--border); margin: 10px 6px; }
+.settings-link {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 7px 10px; border: none; background: none; border-radius: 7px;
+  font-size: 12.5px; color: var(--text-muted); cursor: pointer; text-align: left;
+}
+.settings-link:hover { background: var(--bg-hover); color: var(--text); }
+.settings-link :where(svg) { width: 15px; height: 15px; flex-shrink: 0; }
+.settings-link .ext { margin-left: auto; color: var(--text-faint); }
+.settings-link .ext :where(svg) { width: 13px; height: 13px; }
+
+.settings-main { flex: 1; overflow-y: auto; padding: 26px 34px; }
+.settings-head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.settings-head h1 { font-size: 20px; margin: 0; }
+.settings-head .settings-status {
+  margin-left: auto; font-size: 12px; color: var(--ok);
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.settings-head .settings-status[data-state="idle"] { color: var(--text-faint); }
+.settings-head .settings-status :where(svg) { width: 14px; height: 14px; }
+.settings-sub { color: var(--text-muted); font-size: 13px; margin: 0 0 22px; }
+
+.mode-banner {
+  display: none; align-items: center; gap: 9px; margin: 0 0 20px;
+  background: var(--warn-soft); border: 1px solid #ecdcb3; color: #8a6d1f;
+  border-radius: 9px; padding: 10px 13px; font-size: 12.5px;
+}
+.mode-banner :where(svg) { width: 15px; height: 15px; flex-shrink: 0; }
+
+.settings-panel { display: none; max-width: 640px; }
+.settings-panel.active { display: block; }
+.field-group { margin-bottom: 26px; }
+.field-group > h2 {
+  font-size: 12px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  color: var(--text-faint); margin: 0 0 12px; padding-bottom: 7px; border-bottom: 1px solid var(--border);
+}
+.settings-field { margin-bottom: 16px; }
+.settings-field > label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; }
+.settings-field .hint { font-size: 11.5px; color: var(--text-muted); margin: 4px 0 0; }
+.settings-field input[type="text"], .settings-field select {
+  width: 100%; box-sizing: border-box; font: inherit; font-size: 13px;
+  padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: 8px;
+  background: var(--bg-app); color: var(--text);
+}
+.settings-field input:focus, .settings-field select:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+.env-field { display: flex; align-items: center; gap: 8px; }
+.env-field input { font-family: var(--font-mono); font-size: 12.5px; }
+.env-badge {
+  flex-shrink: 0; font-size: 11px; font-weight: 600; color: var(--accent);
+  background: var(--accent-soft); border-radius: 6px; padding: 3px 8px; white-space: nowrap;
+}
+.env-field input { flex: 1; width: auto; min-width: 0; }
+.conn-test { flex-shrink: 0; padding: 8px 13px; font-size: 12.5px; white-space: nowrap; }
+.conn-result { font-size: 12px; margin: 8px 0 0; display: none; align-items: center; gap: 6px; }
+.conn-result :where(svg) { width: 14px; height: 14px; flex-shrink: 0; }
+.conn-result[data-state="ok"] { display: inline-flex; color: var(--ok); }
+.conn-result[data-state="error"] { display: inline-flex; color: var(--danger); }
+.conn-result[data-state="testing"] { display: inline-flex; color: var(--text-muted); }
+.conn-result .spinner { width: 12px; height: 12px; border: 1.6px solid var(--border-strong); border-top-color: var(--accent); border-radius: 50%; animation: agent-spin .8s linear infinite; }
+@keyframes agent-spin { to { transform: rotate(360deg); } }
+.model-row { display: flex; gap: 8px; }
+.model-row .btn { flex-shrink: 0; }
+/* モデル用コンボボックス(普通の select 風ドロップダウン + 直接入力可) */
+.combobox { position: relative; flex: 1; min-width: 0; }
+.combobox input { width: 100%; box-sizing: border-box; padding-right: 34px; }
+.combo-toggle {
+  position: absolute; top: 0; right: 0; height: 100%; width: 32px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; background: none; color: var(--text-muted); cursor: pointer; border-radius: 0 8px 8px 0;
+}
+.combo-toggle:hover { color: var(--text); }
+.combo-toggle :where(svg) { width: 15px; height: 15px; transition: transform .12s; }
+.combobox.open .combo-toggle :where(svg) { transform: rotate(180deg); }
+.combo-menu {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20;
+  margin: 0; padding: 4px; list-style: none;
+  background: var(--bg-app); border: 1px solid var(--border-strong); border-radius: 8px; box-shadow: var(--shadow-lg);
+  display: none; max-height: 240px; overflow-y: auto;
+}
+.combobox.open .combo-menu { display: block; }
+.combo-menu li { padding: 7px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+.combo-menu li:hover { background: var(--bg-hover); }
+.combo-menu li.sel { color: var(--accent); font-weight: 600; }
+.toggle-row { display: flex; align-items: center; gap: 12px; }
+.toggle-row .toggle-label { flex: 1; }
+.switch {
+  position: relative; width: 40px; height: 22px; flex-shrink: 0;
+  background: var(--border-strong); border-radius: 11px; border: none; cursor: pointer; transition: background .15s;
+}
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: var(--shadow); }
+.switch[aria-checked="true"] { background: var(--accent); }
+.switch[aria-checked="true"]::after { transform: translateX(18px); }
+
+.deny-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.deny-entry {
+  display: flex; align-items: center; gap: 10px; padding: 7px 11px;
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; font-family: var(--font-mono); font-size: 12.5px;
+}
+.deny-entry .path { flex: 1; }
+.deny-entry .del { border: none; background: none; color: var(--text-faint); cursor: pointer; display: inline-flex; }
+.deny-entry .del:hover { color: var(--danger); }
+.deny-entry .del :where(svg) { width: 14px; height: 14px; }
+.deny-add-row { display: flex; gap: 8px; }
+.deny-add-row input { flex: 1; font-family: var(--font-mono); }
+.btn {
+  font: inherit; font-size: 13px; font-weight: 600; padding: 8px 16px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border-strong); background: var(--bg-app); color: var(--text);
+}
+.btn:hover { background: var(--bg-hover); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-ghost { border: none; background: none; color: var(--accent); padding: 8px 10px; }
+.settings-actions { display: flex; gap: 10px; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border); }
+.readonly .switch, .readonly input, .readonly select, .readonly .btn-primary, .readonly .deny-entry .del, .readonly .deny-add-row { opacity: .5; pointer-events: none; }
+.readonly .mode-banner { display: flex; }
+
+.proto-note {
+  margin-top: 30px; padding: 12px 14px; background: var(--co-bg); border-left: 3px solid var(--co);
+  border-radius: 6px; font-size: 12px; color: var(--text-muted); line-height: 1.6;
+}
+.proto-note code { font-family: var(--font-mono); font-size: 11.5px; color: var(--text); }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- 左サイドバー(既存シェル。設定は sidebar-settings から開く) -->
+  <aside class="sidebar" data-testid="sidebar">
+    <div class="sidebar-header">
+      <div class="vault-badge">L</div>
+      <div class="vault-name">loamium-notes</div>
+      <button class="icon-btn" data-testid="sidebar-search" title="検索 (Ctrl+K)">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M14 14l-3.5-3.5"/></svg>
+      </button>
+      <button class="icon-btn active" data-testid="sidebar-settings" title="設定" aria-current="page">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v1.6M8 12.9v1.6M2.7 4.7l1.4.8M11.9 10.5l1.4.8M2.7 11.3l1.4-.8M11.9 5.5l1.4-.8"/></svg>
+      </button>
+    </div>
+    <div class="tree-section-title">Notes</div>
+    <div class="tree" data-testid="file-tree">
+      <button class="tree-item" data-testid="tree-item" data-path="journals/2026/07/2026-07-13.md">2026-07-13.md</button>
+      <button class="tree-item" data-testid="tree-item" data-path="projects/Hydra 設計メモ.md">Hydra 設計メモ.md</button>
+      <button class="tree-item" data-testid="tree-item" data-path="週次レビュー.md">週次レビュー.md</button>
+    </div>
+  </aside>
+
+  <!-- 統一設定ビュー -->
+  <main class="workspace">
+    <div class="settings-view" data-testid="settings-view" role="region" aria-label="設定">
+      <!-- 左ナビ: 全体 / エージェント / プライバシー + 導線リンク -->
+      <nav class="settings-nav" data-testid="settings-nav" aria-label="設定カテゴリ">
+        <div class="nav-title">設定</div>
+        <button class="nav-item active" data-testid="settings-nav-item" data-group="general" onclick="showGroup('general')">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><path d="M2.5 6.5h11"/></svg>
+          全体
+        </button>
+        <button class="nav-item" data-testid="settings-nav-item" data-group="agent" onclick="showGroup('agent')">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4.5" width="10" height="8" rx="2"/><path d="M8 4.5V2.5M6 8.5h.01M10 8.5h.01"/></svg>
+          エージェント
+        </button>
+        <button class="nav-item" data-testid="settings-nav-item" data-group="privacy" onclick="showGroup('privacy')">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2l5 2v4c0 3-2.2 5-5 6-2.8-1-5-3-5-6V4z"/></svg>
+          プライバシー
+        </button>
+
+        <div class="nav-sep"></div>
+        <div class="nav-title">個別管理へ</div>
+        <a class="settings-link" data-testid="settings-link" data-target="templates" href="templates/">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><path d="M5 6h6M5 8.5h6M5 11h3.5"/></svg>
+          テンプレート<span class="ext"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3h7v7M13 3l-8 8"/></svg></span>
+        </a>
+        <a class="settings-link" data-testid="settings-link" data-target="smart-folders" href="claude-sidebar.html">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 5.5l1-2h3l1 1.5h5v6a1.5 1.5 0 01-1.5 1.5h-8A1.5 1.5 0 011 11z"/></svg>
+          スマートフォルダ<span class="ext"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3h7v7M13 3l-8 8"/></svg></span>
+        </a>
+        <a class="settings-link" data-testid="settings-link" data-target="commands" href="command-editor.html">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5l2.5 3L4 11M8.5 11h3.5"/></svg>
+          スマートコマンド<span class="ext"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3h7v7M13 3l-8 8"/></svg></span>
+        </a>
+      </nav>
+
+      <!-- 右: パネル -->
+      <div class="settings-main" id="settingsMain">
+        <div class="settings-head">
+          <h1 id="panelTitle">全体</h1>
+          <span class="settings-status" data-testid="settings-status" data-state="idle">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>
+            保存済み
+          </span>
+        </div>
+        <p class="settings-sub" id="panelSub">アプリ全体設定 — <code>system/settings.yaml</code>(vault のファイル・agent 編集可)</p>
+
+        <div class="mode-banner" data-testid="mode-banner">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1.5l6 11H2z"/><path d="M8 6.5v3M8 11h.01"/></svg>
+          read-only モード: 設定は変更できません(<code>LOAMIUM_MODE</code>)
+        </div>
+
+        <!-- 全体 -->
+        <section class="settings-panel active" data-testid="settings-panel" data-group="general">
+          <div class="field-group">
+            <h2>表示</h2>
+            <div class="settings-field">
+              <label for="f-theme">テーマ</label>
+              <select id="f-theme" data-testid="settings-field" data-name="theme"><option>ライト</option><option>ダーク</option><option>システムに合わせる</option></select>
+            </div>
+            <div class="settings-field">
+              <div class="toggle-row">
+                <div class="toggle-label">
+                  <label>設定フォルダ(<code>system/</code>)をツリーに表示</label>
+                  <p class="hint">OFF でも system/ は vault 内に存在します(既定は非表示)。Sa10026-4 のトグルと連動。</p>
+                </div>
+                <button class="switch" role="switch" aria-checked="false" data-testid="settings-field" data-name="showSystemFolder"></button>
+              </div>
+            </div>
+          </div>
+          <div class="field-group">
+            <h2>既定</h2>
+            <div class="settings-field">
+              <label for="f-folder">新規ノートの既定フォルダ</label>
+              <input type="text" id="f-folder" data-testid="settings-field" data-name="defaultFolder" value="notes">
+              <p class="hint">新規ノート作成モーダルにこのフォルダ(<code>notes/</code>)を prefill します。空なら vault 直下。モーダル上で消せば任意の場所に作成できます(Sa10026-8)。</p>
+            </div>
+            <div class="settings-field">
+              <label for="f-jtmpl">ジャーナルテンプレート</label>
+              <input type="text" id="f-jtmpl" data-testid="settings-field" data-name="journalTemplate" value="system/templates/journal.md">
+              <p class="hint">ADR-0010 移行後の新パス。空なら空ファイルで生成。</p>
+            </div>
+          </div>
+          <div class="settings-actions">
+            <button class="btn btn-primary" data-testid="settings-save" data-group="general">保存</button>
+            <button class="btn" data-testid="settings-reset" data-group="general">元に戻す</button>
+          </div>
+        </section>
+
+        <!-- エージェント -->
+        <section class="settings-panel" data-testid="settings-panel" data-group="agent">
+          <div class="field-group">
+            <h2>接続</h2>
+            <div class="settings-field">
+              <label for="f-apitype">API 種別</label>
+              <select id="f-apitype" data-testid="settings-field" data-name="apiType"><option>anthropic</option><option>openai 互換</option><option>内蔵(ローカル LLM)</option></select>
+            </div>
+            <div class="settings-field">
+              <label for="f-baseurl">baseUrl</label>
+              <input type="text" id="f-baseurl" data-testid="settings-field" data-name="baseUrl" value="https://api.anthropic.com">
+            </div>
+            <div class="settings-field">
+              <label for="f-key">API キー</label>
+              <div class="env-field">
+                <input type="text" id="f-key" data-testid="settings-field" data-name="apiKeyEnv" value="$ANTHROPIC_API_KEY">
+                <span class="env-badge">$ENV 参照</span>
+                <button class="btn conn-test" data-testid="settings-conn-test" onclick="testConn()">接続テスト</button>
+              </div>
+              <p class="conn-result" data-testid="settings-conn-result" data-state="idle"></p>
+              <p class="hint">キーの実値は保存しません。環境変数名(<code>$…</code>)のみを保存・表示します。接続テストは baseUrl + キーで実際に API を1回呼び、成否をここに表示します。</p>
+            </div>
+            <div class="settings-field">
+              <label for="f-model">モデル</label>
+              <div class="model-row">
+                <div class="combobox" data-testid="settings-model-combobox">
+                  <input type="text" id="f-model" data-testid="settings-field" data-name="model" value="claude-sonnet-4-6" placeholder="モデル ID(直接入力可)" autocomplete="off">
+                  <button type="button" class="combo-toggle" data-testid="settings-model-toggle" aria-label="モデル候補を表示" aria-expanded="false" onclick="toggleModelMenu(event)">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+                  </button>
+                  <ul class="combo-menu" data-testid="settings-model-options" role="listbox">
+                    <li role="option" tabindex="-1" onclick="pickModel('claude-opus-4-8')">claude-opus-4-8</li>
+                    <li role="option" tabindex="-1" class="sel" onclick="pickModel('claude-sonnet-4-6')">claude-sonnet-4-6</li>
+                    <li role="option" tabindex="-1" onclick="pickModel('claude-haiku-4-5')">claude-haiku-4-5</li>
+                  </ul>
+                </div>
+                <button class="btn" data-testid="settings-model-refresh" onclick="loadModels()" title="API からモデル一覧を取得">一覧取得</button>
+              </div>
+              <p class="hint">接続先 API から取得(<code>一覧取得</code>)した候補をドロップダウン表示。一覧に無い ID の直接入力も可能。</p>
+            </div>
+          </div>
+          <div class="field-group">
+            <h2>権限 <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-faint)">— agent 自身は変更不可(自己昇格防止 / Sa10026-6)</span></h2>
+            <div class="settings-field">
+              <label for="f-mode">実行モード</label>
+              <select id="f-mode" data-testid="settings-field" data-name="mode"><option>full(読み書き)</option><option>append-only(追記のみ)</option><option>read-only(読み取りのみ)</option></select>
+            </div>
+            <div class="settings-field">
+              <div class="toggle-row"><div class="toggle-label"><label>書き込みツールを許可</label></div>
+                <button class="switch" role="switch" aria-checked="true" data-testid="settings-field" data-name="cap.write"></button></div>
+            </div>
+            <div class="settings-field">
+              <div class="toggle-row"><div class="toggle-label"><label>Web アクセスを許可</label><p class="hint">漏洩面が最大。既定は OFF(ADR-0017 opt-in)。</p></div>
+                <button class="switch" role="switch" aria-checked="false" data-testid="settings-field" data-name="cap.web"></button></div>
+            </div>
+          </div>
+          <div class="settings-actions">
+            <button class="btn btn-primary" data-testid="settings-save" data-group="agent">保存</button>
+            <button class="btn" data-testid="settings-reset" data-group="agent">元に戻す</button>
+          </div>
+        </section>
+
+        <!-- プライバシー -->
+        <section class="settings-panel" data-testid="settings-panel" data-group="privacy">
+          <div class="field-group">
+            <h2>agent 機密領域 deny-list</h2>
+            <p class="hint" style="margin:-4px 0 12px">ここに一致するパスは agent から読めません(ADR-0018)。agent 自身は編集できません。</p>
+            <div class="deny-list" data-testid="deny-list">
+              <div class="deny-entry" data-testid="deny-entry" data-value="private/**">
+                <span class="path">private/**</span>
+                <button class="del" data-testid="deny-del" title="削除"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
+              </div>
+              <div class="deny-entry" data-testid="deny-entry" data-value="secrets/**">
+                <span class="path">secrets/**</span>
+                <button class="del" data-testid="deny-del" title="削除"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
+              </div>
+            </div>
+            <div class="deny-add-row">
+              <input type="text" data-testid="deny-add-input" placeholder="例: finances/**">
+              <button class="btn" data-testid="deny-add">追加</button>
+            </div>
+          </div>
+          <div class="settings-actions">
+            <button class="btn btn-primary" data-testid="settings-save" data-group="privacy">保存</button>
+          </div>
+        </section>
+
+        <div class="proto-note">
+          <strong>プロトタイプ注記(Sa10026-7 / ADR-0026)</strong><br>
+          保存経路は見た目は 1 画面でも保存先は分岐します: <code>全体</code>→<code>system/settings.yaml</code>(agent 編集可)、<code>エージェント/プライバシー</code>→<code>.loamium/agent-*.json</code>(agent 編集<em>不可</em>)。
+          いずれも型付き設定 API(zod・REST↔CLI 1:1・監査ログ)経由で、権限/privacy/apiKey 書込は agent ツール allowlist から除外(Sa10026-6)。
+          テンプレ/スマートフォルダ/コマンドはこの画面に埋め込まず既存管理 UI へ導線リンク。
+          <code>?mode=ro</code> を URL に付けて開くと read-only 無効化状態を確認できます。
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  // プロトタイプ用の最小トグル(タブ切替 + read-only プレビュー)。実装は React。
+  var SUB = {
+    general: 'アプリ全体設定 — <code>system/settings.yaml</code>(vault のファイル・agent 編集可)',
+    agent: 'エージェント接続・権限 — <code>.loamium/agent-*.json</code>(型付き設定 API 経由・agent 編集不可)',
+    privacy: 'agent 機密領域 — <code>.loamium/agent-privacy.json</code>(agent 編集不可)'
+  };
+  var TITLE = { general: '全体', agent: 'エージェント', privacy: 'プライバシー' };
+  function showGroup(g) {
+    document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.toggle('active', n.dataset.group === g); });
+    document.querySelectorAll('.settings-panel').forEach(function(p){ p.classList.toggle('active', p.dataset.group === g); });
+    document.getElementById('panelTitle').textContent = TITLE[g];
+    document.getElementById('panelSub').innerHTML = SUB[g];
+  }
+  document.querySelectorAll('.switch').forEach(function(s){
+    s.addEventListener('click', function(){ s.setAttribute('aria-checked', s.getAttribute('aria-checked') === 'true' ? 'false' : 'true'); });
+  });
+  if (location.search.indexOf('mode=ro') >= 0) { document.getElementById('settingsMain').classList.add('readonly'); }
+
+  // 接続テスト(プロトタイプ: 実装は POST /api/settings/agent/connection/test を呼ぶ)
+  function testConn() {
+    var r = document.querySelector('[data-testid="settings-conn-result"]');
+    r.setAttribute('data-state', 'testing');
+    r.innerHTML = '<span class="spinner"></span> 接続を確認中…';
+    setTimeout(function () {
+      r.setAttribute('data-state', 'ok');
+      r.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg> 接続成功 — claude-sonnet-4-6 に到達(210ms)';
+    }, 700);
+  }
+  // モデルのコンボボックス(普通のドロップダウン + 直接入力)
+  function toggleModelMenu(e) {
+    e.stopPropagation();
+    var cb = document.querySelector('.combobox');
+    var open = cb.classList.toggle('open');
+    cb.querySelector('.combo-toggle').setAttribute('aria-expanded', String(open));
+  }
+  function pickModel(v) {
+    document.getElementById('f-model').value = v;
+    var cb = document.querySelector('.combobox');
+    cb.querySelectorAll('.combo-menu li').forEach(function (li) { li.classList.toggle('sel', li.textContent === v); });
+    cb.classList.remove('open');
+  }
+  document.addEventListener('click', function (e) {
+    var cb = document.querySelector('.combobox');
+    if (cb && !cb.contains(e.target)) cb.classList.remove('open');
+  });
+  // 一覧取得(プロトタイプ: 実装は GET /api/settings/agent/models を呼び候補を更新)
+  function loadModels() {
+    var r = document.querySelector('[data-testid="settings-conn-result"]');
+    r.setAttribute('data-state', 'ok');
+    r.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg> 3 件のモデルを取得しました(ドロップダウンに反映)';
+    document.querySelector('.combobox').classList.add('open');
+  }
+</script>
+</body>
+</html>

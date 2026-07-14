@@ -1,0 +1,40 @@
+{
+  "id": "ADR-0026",
+  "title": "統一設定UI: 人間向けの型付き設定APIで集約し、agent 編集境界と保存場所は維持する",
+  "status": "accepted",
+  "date": "2026-07-13",
+  "context": "memo_todo の『統一設定メニュー』。現状ユーザーが調整する設定は2つの保存場所に散在している: (a) アプリ全体設定と per-item 定義(テンプレート/スマートフォルダ/コマンド)は system/ のファイル(ADR-0010、agent が notes API で編集可能)、(b) agent の接続(baseUrl/model/apiKey)・権限/capability・プライバシー deny-list は .loamium/agent-*.json(ADR-0012/0015/0017/0018、agent 自身は編集不可=自己昇格防止)。UI 側には統一された設定画面がなく、SmartFolderForm 等の個別管理UIと AgentPane が別々に存在する。ここで『設定は vault のファイルで agent も notes API で編集』(ADR-0010)と『agent は自分の権限・deny-list・apiKey を編集できてはならない』(ADR-0012/0015/0018 のセキュリティ境界)を、1つの統一UIでどう両立させるかが load-bearing な論点。統一UIを素朴に notes API へ寄せると agent の編集面が広がり自己昇格を招く。逆に UI が生ファイルを直接叩くと、zod 検証・LOAMIUM_MODE クランプ・監査ログ・境界担保が各 UI 実装に散る。",
+  "alternatives": [
+    {
+      "name": "人間向け統一設定UI + 専用の型付き設定API、保存場所は現状維持 (採用)",
+      "tradeoff": "GUI は型付き設定API経由でファイルを書く。system/(app 設定)と .loamium/(agent 接続・権限・privacy)の保存場所はそのまま、agent 編集不可設定は notes API 非対象を維持し境界を UI に明示。移行不要。API/CLI/shared スキーマの増加を負う。"
+    },
+    {
+      "name": "全設定を system/ に寄せ notes API で統一",
+      "tradeoff": "見た目の一貫性は最大だが、agent が自分の権限/deny-list/apiKey を書き換え可能になり、別途自己昇格対策の再封じが必要。不採用。"
+    },
+    {
+      "name": "統一UIが生ファイルを直接 read/write(専用API無し)",
+      "tradeoff": "軽量だが zod 検証・LOAMIUM_MODE クランプ・境界担保が各 UI 実装に散り、REST↔CLI 1:1 とスキーマ共有(プロジェクト規則)から外れる。不採用。"
+    },
+    {
+      "name": "per-item コレクション(テンプレ/スマートフォルダ/コマンド)も統一設定ハブに再実装して集約",
+      "tradeoff": "既存の SmartFolderForm 等と二重管理になる。統一ハブからは既存管理UIへの導線(リンク)を置くに留める。不採用。"
+    }
+  ],
+  "decision": "人間向けの統一設定画面を1つ設け、アプリ全体設定(system/settings.yaml)と agent 設定(.loamium/agent-*.json)を専用の型付き設定API(zod 検証・REST↔CLI 1:1・shared スキーマ)経由で編集する。保存場所は現状維持(system/=agent 編集可、.loamium/agent-*=agent 編集不可のまま)、agent の権限・deny-list・apiKey は設定API/GUI からのみ書け notes API と agent ツールからは到達不可(自己昇格防止の境界を維持)。テンプレート/スマートフォルダ/コマンドの per-item 管理は再実装せず、設定画面から既存管理UIへの導線(リンク)を置く。",
+  "consequences": [
+    "+ 設定が人間から見て1画面に集約され、散在(SmartFolderForm / AgentPane / 生ファイル手編集)が解消される",
+    "+ ADR-0010(agent 編集可の system/ 設定)と agent セキュリティ境界(ADR-0012/0015/0018)が、保存場所そのままで両立する。移行ゼロ",
+    "+ 型付き設定API + shared スキーマにより将来の設定追加が一貫する(zod 検証・LOAMIUM_MODE クランプ・監査ログを1箇所で担保)。REST↔CLI 1:1 を維持(loamium settings 系 CLI が対応)",
+    "- 設定API endpoint のうち権限/privacy/apiKey 書き込みは agent ツール allowlist から明示除外する実装が必須(自己昇格防止の要)。漏れると境界が崩れる",
+    "- system/ と .loamium/ で保存場所が二分されたままなので、統一UIの内部で『どの API / ファイルに書くか』を設定項目ごとに分岐する必要がある(見た目の統一と保存の分離)",
+    "- per-item コレクションはハブに埋め込まないため、テンプレ/スマートフォルダ/コマンドは導線リンク経由。ハブ単体で全設定が完結はしない(意図的な割り切り)",
+    "書き込み系設定APIは監査ログ(.loamium/audit.log)へ記録する(プロジェクト規則)"
+  ],
+  "reversibility_cost": "medium",
+  "affects": ["ui", "server", "cli"],
+  "supersedes": null,
+  "superseded_by": null,
+  "notes": "実装詳細は sprint plan 送り: 型付き設定API のエンドポイント分割(settings.yaml / agent 接続 / agent 権限 / privacy)、agent ツール allowlist からの設定API除外の強制箇所、GUI レイアウト(左ナビ: 全体 / エージェント / … + テンプレ/スマートフォルダ/コマンドへの導線リンク)、apiKey の $ENV_VAR 参照(平文保存しない既存方針)の GUI 表示の扱い、LOAMIUM_MODE(read-only/append-only)での書き込み設定の無効化。data.json 改訂は不要(保存場所・スキーマ位置は現状維持)。ADR-0010/0012/0015/0017/0018 は有効なまま(本 ADR は UI 集約と書き込み経路の契約のみ追加)。"
+}

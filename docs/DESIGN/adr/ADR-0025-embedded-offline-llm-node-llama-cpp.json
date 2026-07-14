@@ -1,0 +1,41 @@
+{
+  "id": "ADR-0025",
+  "title": "内蔵オフライン LLM エンジン — node-llama-cpp を in-process + OpenAI 互換 shim で提供し、モデルは別途 DL",
+  "status": "accepted",
+  "date": "2026-07-13",
+  "context": "ADR-0011 で内蔵エージェントは pi SDK in-process とし、接続先は baseUrl 指定の OpenAI/Anthropic 互換エンドポイント(ローカル LLM 含む)とした。ただし現状は『ユーザーが自前で Ollama / LM Studio 等の推論サーバーを立て、そこへ繋ぐ』前提であり、外部 API キーも推論サーバーも無いオフラインのノート PC 単体ではエージェント機能が無効になる。本 ADR は、外部 LLM が無い環境でも zero-config で agent を動かすため、推論エンジンを Loamium 本体に同梱するかどうかと、その統合位置を決める load-bearing な判断である。制約: 『超軽量・ノート PC で動く』= CPU 前提で 3-4B クラス Q4 GGUF を主対象とする。『モデルは別途 DL』= エンジンのみ同梱しモデルは同梱しない。前提として Node 22 化は ADR-0011 で済んでいる。",
+  "alternatives": [
+    {
+      "name": "node-llama-cpp を in-process + OpenAI 互換 shim (採用)",
+      "tradeoff": "Hono に極薄の OpenAI 互換ルート (/api/local-llm/v1/chat/completions) を置き pi の baseUrl をそこへ向ける。ADR-0011 のエージェント/ツール/監査/セッション配線を無改造で再利用でき、エンジンは shim の裏で差し替え可能。代償はネイティブ addon の再導入と OS 別プレビルドの配布。"
+    },
+    {
+      "name": "llama.cpp サーバー (llama-server / llamafile) をサイドカー",
+      "tradeoff": "子プロセスが OpenAI 互換を直接喋るため seam は最短。代償は子プロセス管理・OS 別バイナリ配布・プロセス境界越しの監査。本 ADR の退避先。"
+    },
+    {
+      "name": "Ollama を同梱管理",
+      "tradeoff": "モデル管理・OpenAI 互換 API が完成済みだが数百 MB で『超軽量』から外れ、実体は外部依存の同梱になる。"
+    },
+    {
+      "name": "内蔵せず Ollama 等を検出/案内のみ",
+      "tradeoff": "実装最小 (ADR-0011 の延長) だがユーザーに別インストールを課し zero-config にならない。ユーザー要望により不採用。"
+    }
+  ],
+  "decision": "node-llama-cpp を Hono サーバー内 (in-process) に組み込み、Hono に極薄の OpenAI 互換ルートを設けて pi の baseUrl をローカルへ向けることで、内蔵オフライン LLM をエージェントのフォールバックとして提供する。モデルは同梱せず、アプリ内 DL フローで GGUF を .loamium/models/ (gitignore・使い捨て) に取得する。バックエンド選択の優先度は『設定済み外部エンドポイント > モデルが存在する内蔵エンジン > 無効 (DL 促し)』とする。",
+  "consequences": [
+    "+ 外部 API キーも別サーバーも無いオフラインのノート PC 単体で、モデルを 1 つ落とすだけでエージェントが動く (真の zero-config フォールバック)",
+    "+ OpenAI 互換 shim を挟むため ADR-0011 のエージェント/ツール/監査/セッション配線は無改造。エンジンは shim の裏で差し替え可能 (将来のサイドカー化も境界で吸収)",
+    "+ モデルは .loamium/models/ で『消しても vault は無傷』= インデックス/エージェントセッションと同格の使い捨て資産 (ADR-0010/ADR-0011 と整合)",
+    "+ local-first・『データを預からない』思想を推論レイヤまで拡張できる (VISION の魂と整合)",
+    "- ネイティブ addon (node-llama-cpp) を再導入する。ADR-0011 が node-pty 撤去で減らしたネイティブ依存・攻撃面が部分的に戻る。OS 別プレビルド配布と CI・Tauri 同梱の手当てが必要 (ADR-0008 に波及)",
+    "- in-process ゆえモデルロード時のメモリ (3-4B Q4 で ~2-3GB) がサーバープロセスに乗り、推論中はリクエストを直列化する (単一ユーザーローカル前提のため許容)",
+    "- CPU 実行は速度・品質が限られ、外部 API の代替ではなく『無いよりまし』のフォールバックである",
+    "- モデルの出所 (Hugging Face 等の GGUF)・帯域・ストレージはユーザーに委ねる。推奨モデルのキュレーションと任意 URL 指定 UI が必要"
+  ],
+  "reversibility_cost": "medium",
+  "affects": ["server", "ui"],
+  "supersedes": null,
+  "superseded_by": null,
+  "notes": "node-llama-cpp v3 (ESM, getLlama()/LlamaChatSession, GGUF, Metal/CUDA/Vulkan 任意・CPU フォールバック, Node 22+) を想定。GPU があれば使うが必須にしない。shim は OpenAI /v1/chat/completions の最小サブセット (stream 含む) で足りる。エンジン差し替えは shim 境界のおかげで low だが、ネイティブ addon の配布・CI・Tauri 同梱への投資と ADR-0008 への波及があるため総合 reversibility は medium とした。退避先はサイドカー (案2)。dev VM ではネイティブ addon の GLIBC/gcc ビルド問題の実績があり、CI・ビルド系の注意点として残す。VISION は現状オフライン LLM に言及がない — フォールバックは additive で local-first を強めるが、success_criteria または tech_constraints への一文追記は別途 design で確認したい。"
+}

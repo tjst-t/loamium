@@ -3,11 +3,11 @@
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
     "current_sprint": null,
-    "total": 42,
+    "total": 43,
     "done": 40,
     "in_progress": 0,
-    "remaining": 2,
-    "percentage": 95
+    "remaining": 3,
+    "percentage": 93
   },
   "execution_order": [
     "Sd63ad1",
@@ -46,6 +46,7 @@
     "Sf4ee2f",
     "S5bd678",
     "S5e0206",
+    "Sa10026",
     "S2fe109",
     "Sd22b1f",
     "Sde7a63",
@@ -2333,9 +2334,12 @@
               "status": "pass"
             }
           ],
-          "tasks": [
-            "renderEmptyPropertiesEntry の commitFirst で propsOpenState を open にする"
-          ]
+          "tasks": {
+            "Sr7e401-1-1": {
+              "title": "renderEmptyPropertiesEntry の commitFirst で propsOpenState を open にする",
+              "status": "done"
+            }
+          }
         },
         "Sr7e401-2": {
           "title": "ノート追加メニューのグレイアウト解消",
@@ -2352,9 +2356,12 @@
               "status": "pass"
             }
           ],
-          "tasks": [
-            "styles.css .nm-item/.nm-main を var(--text)、svg/.nm-sub を var(--text-muted) に"
-          ]
+          "tasks": {
+            "Sr7e401-2-1": {
+              "title": "styles.css .nm-item/.nm-main を var(--text)、svg/.nm-sub を var(--text-muted) に",
+              "status": "done"
+            }
+          }
         },
         "Sr7e401-3": {
           "title": "空タスク・素の完了タスクもチェックボックス化",
@@ -2371,9 +2378,12 @@
               "status": "pass"
             }
           ],
-          "tasks": [
-            "outline.ts の検出を TaskMarker 依存から ListItem ベースの行頭括弧検出へ置換"
-          ]
+          "tasks": {
+            "Sr7e401-3-1": {
+              "title": "outline.ts の検出を TaskMarker 依存から ListItem ベースの行頭括弧検出へ置換",
+              "status": "done"
+            }
+          }
         },
         "Sr7e401-4": {
           "title": "箇条書き(-/*/+)を装飾ドットで表示",
@@ -2390,10 +2400,16 @@
               "status": "pass"
             }
           ],
-          "tasks": [
-            "outline.ts に BulletWidget + listDepth を追加し ListMark を装飾ドットに置換",
-            "styles.css に .cm-list-bullet を追加"
-          ]
+          "tasks": {
+            "Sr7e401-4-1": {
+              "title": "outline.ts に BulletWidget + listDepth を追加し ListMark を装飾ドットに置換",
+              "status": "done"
+            },
+            "Sr7e401-4-2": {
+              "title": "styles.css に .cm-list-bullet を追加",
+              "status": "done"
+            }
+          }
         }
       }
     },
@@ -4436,6 +4452,327 @@
           }
         }
       }
+    },
+    "Sa10026": {
+      "title": "設定系 system/ 統一 + 統一設定UI(ADR-0010 + ADR-0026)",
+      "description": "ADR-0010 と ADR-0026 を1 Sprint で束ねる。前半(ADR-0010): ユーザーが著す設定系(テンプレート/スマートフォルダ/スマートコマンド/保存クエリ)を vault 内 system/ フォルダの per-file .md(frontmatter=メタ/order/icon + 本文 ```dql)へ統一し、アプリ全体設定を素の system/settings.yaml に置く。.loamium/smart-folders.json(ADR-0002 の例外)と templates/・commands/ を一括で system/ へ移行し、.loamium は純キャッシュへ戻す。後半(ADR-0026): 人間向けの統一設定画面を1つ設け、型付き設定API(zod・REST↔CLI 1:1・shared スキーマ・監査ログ・LOAMIUM_MODE クランプ)経由で『全体 / agent 接続 / agent 権限 / privacy deny-list』の4群を編集する。保存場所は現状維持(system/=agent 編集可、.loamium/agent-*=agent 編集不可)、設定書込 API は agent ツール allowlist から明示除外し自己昇格を防ぐ(ADR-0012/0015/0018 の境界維持)。per-item 管理は再実装せず既存 UI への導線リンクに留める。境界原則(system/=正本・移植 / .loamium/=使い捨て・端末依存)で両アークが接続する。",
+      "status": "pending",
+      "milestone": true,
+      "detail_level": "detailed",
+      "components": [
+        "shared",
+        "server",
+        "ui",
+        "cli"
+      ],
+      "dependencies": null,
+      "stories": {
+        "Sa10026-1": {
+          "title": "per-file 定義スキーマと system/ 規約基盤",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "設定を編集する人として、設定定義を1個=1ファイルの見える Markdown で持ちたい。なぜなら、diff/手編集/マージが楽で、agent も同じ notes API で編集でき、定義 md を開くと本文の ```dql がライブプレビューされるから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sa10026-1-1",
+              "description": "server が system/ フォルダ規約(小文字 system/・可視・git 追跡)を認識し、per-item 定義を種別ごとの形式で読み書きできる: スマートフォルダ(system/smart-folders/*.yaml)とスマートコマンド(system/commands/*.yaml)は純 YAML(title/order/icon/query。DQL は query 文字列)、テンプレート(system/templates/*.md)は .md + YAML frontmatter。いずれも zod 検証、不正時は寛容 read + 既定/空フォールバック。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa10026-1-2",
+              "description": "同一種別の複数定義は order: frontmatter → ファイル名 の安定ソート(gap/tie 許容)で順序が決まる。order 欠落は末尾扱い。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa10026-1-3",
+              "description": "system/ 配下のパスも packages/shared のパス正規化(NFC・.. 脱出検証・.md/.yaml 判定)を経由し、vault 外へ抜けない。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sa10026-1-1": {
+              "title": "shared: system-config スキーマ(yaml / md 両形式)",
+              "description": "per-item 定義の zod スキーマを shared に定義。smart-folder/command は純 YAML(title/order/icon/query)、template は .md + frontmatter。YAML パースと frontmatter 抽出ユーティリティ + ユニットテスト。",
+              "status": "pending"
+            },
+            "Sa10026-1-2": {
+              "title": "server: system/ 読み書き層(寛容 read)",
+              "description": "system/ 配下の per-file 定義(*.yaml / *.md)を読み書きする層。zod 検証失敗は既定/空へフォールバック。order(yaml キー / md frontmatter)→ ファイル名の安定ソート実装。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sa10026-2": {
+          "title": "設定系3系統の一括移行 + 破壊的多版テスト",
+          "status": "pending",
+          "user_review_required": true,
+          "review_reason": "データ移行(既存 vault の設定ファイルを別配置へ書き換える)。移行の冪等性と非破壊を人手で確認する。",
+          "user_story": "既存 vault を持つ利用者として、テンプレート・スマートフォルダ・スマートコマンドが自動で system/ に移行されてほしい。なぜなら、設定が全部『vault の見えるファイル』に一貫し、.loamium の使い捨て不変条件が純化するから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sa10026-2-1",
+              "description": "起動時に .loamium/smart-folders.json があれば system/smart-folders/*.yaml へ一回きり移行し、以後は system/ を正本として読み書きする(旧 JSON は寛容 read で取り込み後、正本から外す)。ADR-0002 の .loamium 例外が消える。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa10026-2-2",
+              "description": "templates/ → system/templates/(.md 維持)、commands/ → system/commands/(*.yaml へ変換)を移行し、旧パス(JOURNAL_TEMPLATE_PATH 等・route)は新パスへ解決する。旧パスに残るファイルは寛容 read で後方互換に扱う。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa10026-2-3",
+              "description": "旧形式(v0: フラット JSON / 旧パス配置)→ 移行 → 新形式(system/ per-file)の破壊的多版テストが green。移行は冪等で、二重実行・部分移行済み状態でもデータを失わない。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sa10026-2-1": {
+              "title": "移行ランナー(3系統・冪等)",
+              "description": ".loamium/smart-folders.json(→ *.yaml)/ templates/(→ .md)/ commands/(→ *.yaml)を system/ 配下へ一回きり移行する冪等ランナー。移行済みマーカーで二重実行を防止。監査ログ(.loamium/audit.log)に記録。",
+              "status": "pending"
+            },
+            "Sa10026-2-2": {
+              "title": "route 更新 + 後方互換の寛容 read",
+              "description": "templates/commands の read/write を system/ 配下へ切替。旧パス参照(journal テンプレ・commands ルート)を新パスへ解決し、旧配置に残るファイルも読めるフォールバックを残す。",
+              "status": "pending"
+            },
+            "Sa10026-2-3": {
+              "title": "破壊的多版テスト(旧→移行→新)",
+              "description": "v0 フラット JSON + 旧パス配置を含む fixture を用意し、移行実行→新配置検証→冪等再実行を通す破壊的多版テスト(test-discipline Rule 8)。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sa10026-3": {
+          "title": "アプリ全体設定 system/settings.yaml",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "利用者として、アプリ全体設定を素の YAML 1 枚で持ちたい。なぜなら、frontmatter だけの空ノートより honest で、同じ YAML パーサで読め、versioning/移植できるから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sa10026-3-1",
+              "description": "server が system/settings.yaml を型付き(shared zod スキーマ)で読み書きし、無ければ既定値へフォールバックする。壊れた YAML は寛容 read で既定に落ちる。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa10026-3-2",
+              "description": "端末固有・再構築可能な状態(検索インデックスキャッシュ / ペイン幅 / 最後に開いたノート)は従来どおり .loamium/(gitignore)に残り、settings.yaml には入らない(ADR-0010 境界原則)。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sa10026-3-1": {
+              "title": "shared: settings スキーマ + server load/save",
+              "description": "アプリ全体設定の zod スキーマを shared に定義。server で system/settings.yaml を load/save(既定フォールバック)+ ユニットテスト。境界原則に沿って端末依存状態は対象外とする。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sa10026-4": {
+          "title": "ツリーの system/ 既定非表示 + 表示トグル + order 再採番",
+          "status": "pending",
+          "user_review_required": true,
+          "review_reason": "GUI。ツリー表示と並べ替えの体験を実機で確認する。",
+          "user_story": "アプリ利用者として、設定フォルダを普段は隠したい。なぜなら、日々のノートツリーを散らかさず、必要な時だけ表示・編集したいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sa10026-4-1",
+              "description": "system/ はツリーで既定非表示。表示トグルで現れ、再度トグルで隠れる(ディスク上は可視・.gitignore 対象外・app の隠しセグメント規則とは別)。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa10026-4-2",
+              "description": "表示中は system/ 配下の定義 md を通常ノートと同じエディタで開いて編集でき、GUI 並べ替えで該当ファイル群の order: frontmatter を再採番する(gap/tie 許容の安定ソート)。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sa10026-4-1": {
+              "title": "ui: ツリー system/ フィルタ + 表示トグル",
+              "description": "ツリーで system/ を既定非表示にし表示トグルを追加。表示中は定義 md を編集エディタで開く(プレビューでなく)。",
+              "status": "pending"
+            },
+            "Sa10026-4-2": {
+              "title": "ui: 並べ替え時の order 再採番 + mock/e2e",
+              "description": "GUI 並べ替えで order: を再採番し system/ 配下へ書き戻す。mock(edge)+ e2e(実サーバー)テスト。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sa10026-5": {
+          "title": "型付き設定API 4群(全体 / agent 接続 / agent 権限 / privacy)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "設定を変えたい人として、アプリ全体・agent 接続・agent 権限・privacy を型付きの設定 API 経由で編集したい。なぜなら、zod 検証・LOAMIUM_MODE クランプ・監査ログを1箇所で担保でき、REST↔CLI 1:1 で CLI からも同じ操作ができるから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sa10026-5-1",
+              "description": "設定 API が4群(system/settings.yaml / agent 接続 baseUrl・model・apiKey 参照 / agent 権限・capability / privacy deny-list)を zod 検証付きで read/write する。保存場所は現状維持で、項目ごとに system/ か .loamium/agent-*.json へ書き分ける。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa10026-5-2",
+              "description": "書き込み系設定 API は .loamium/audit.log に記録し、LOAMIUM_MODE(read-only/append-only)では書込を無効化(拒否)する。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa10026-5-3",
+              "description": "各設定 API に 1:1 対応する loamium settings 系 CLI サブコマンドがあり、リクエスト/レスポンスは packages/shared の zod スキーマを共有する。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa10026-5-4",
+              "description": "agent 接続の疎通確認と候補列挙を設定 API が提供する: POST /api/settings/agent/connection/test が baseUrl + apiKey($ENV 解決)+ model で実 API を1回呼び { ok, model?, latencyMs?, error? } を返す(キー実値は返さない)。GET /api/settings/agent/models が接続先のモデル一覧を返し GUI のドロップダウン候補にする(取得失敗時も直接入力可)。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sa10026-5-1": {
+              "title": "shared: 設定4群スキーマ + server routes",
+              "description": "4群の zod スキーマを shared に定義。server に設定 API(read/write)を実装し、項目ごとに system/settings.yaml か .loamium/agent-*.json へ分岐。監査ログ + LOAMIUM_MODE クランプを1箇所で担保。",
+              "status": "pending"
+            },
+            "Sa10026-5-2": {
+              "title": "cli: loamium settings 系サブコマンド + acceptance",
+              "description": "設定 API と 1:1 の CLI サブコマンドを実装(REST↔CLI 1:1)。実 HTTP クライアントの acceptance テスト。",
+              "status": "pending"
+            },
+            "Sa10026-5-3": {
+              "title": "server: 接続テスト + モデル一覧エンドポイント",
+              "description": "POST /api/settings/agent/connection/test(実 API を1回呼び疎通確認)と GET /api/settings/agent/models(接続先のモデル一覧、失敗時フォールバック)を実装。apiKey は $ENV 解決し実値は保存/返却しない。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sa10026-6": {
+          "title": "設定書込APIを agent ツール allowlist から除外(自己昇格防止)",
+          "status": "pending",
+          "user_review_required": true,
+          "review_reason": "セキュリティ境界(自己昇格防止)。agent が権限/deny-list/apiKey を書き換えられないこと、advertised-toolset に設定書込ツールが現れないことを人手で確認する。",
+          "user_story": "Loamium を運用する自分として、agent が自分の権限・deny-list・apiKey を書き換えられないことを保証したい。なぜなら、自己昇格(privilege escalation)を防ぎ ADR-0012/0015/0018 のセキュリティ境界を守るためだから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sa10026-6-1",
+              "description": "設定書き込み API(特に agent 権限 / privacy deny-list / apiKey)は agent ツール allowlist から明示除外され、notes API・agent ツール経由では到達不可。agent からの書込試行は拒否される。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa10026-6-2",
+              "description": "advertised-toolset に設定書込ツールが含まれないことを固定する e2e(agent-tools.e2e の advertised-toolset pin)で境界の回帰を防止する。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sa10026-6-1": {
+              "title": "server: allowlist 除外 + 到達不可 acceptance",
+              "description": "設定書込 API を agent ツール allowlist から除外する実装。agent 経由で到達不可であることの acceptance テスト。",
+              "status": "pending"
+            },
+            "Sa10026-6-2": {
+              "title": "agent-tools.e2e の advertised-toolset pin 更新",
+              "description": "設定書込ツールが advertised-toolset に現れないことを pin する e2e を更新(境界回帰防止)。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sa10026-7": {
+          "title": "統一設定画面(左ナビ集約 + 既存管理UIへの導線)",
+          "status": "pending",
+          "user_review_required": true,
+          "review_reason": "GUI・マイルストーン露出面。統一設定画面の体験と apiKey/モード無効化の見せ方を実機で確認する。",
+          "user_story": "利用者として、散在する設定を1つの画面で調整したい。なぜなら、SmartFolderForm / AgentPane / 生ファイル手編集に分かれた設定を一望・変更したいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sa10026-7-1",
+              "description": "統一設定画面が左ナビ(全体 / エージェント / プライバシー)を持ち、各群を型付き設定 API 経由で編集・保存できる。保存は監査ログに記録される。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa10026-7-2",
+              "description": "テンプレート/スマートフォルダ/コマンドの per-item 管理はハブに再実装せず、既存管理 UI への導線リンクを置く(ハブ単体では完結しない意図的割り切り)。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa10026-7-3",
+              "description": "apiKey は平文保存せず $ENV_VAR 参照として表示し、LOAMIUM_MODE(read-only/append-only)では書込 UI が無効化される。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sa10026-7-1": {
+              "title": "ui: 統一設定画面 + 型付きAPI 連携",
+              "description": "左ナビ(全体/エージェント/プライバシー)の統一設定画面を実装し、型付き設定 API と連携。テンプレ/スマートフォルダ/コマンドは導線リンク。",
+              "status": "pending"
+            },
+            "Sa10026-7-2": {
+              "title": "ui: apiKey $ENV 表示 + モード無効化 + mock/e2e",
+              "description": "apiKey の $ENV_VAR 表示、read-only/append-only での書込無効化。mock(edge)+ e2e(実サーバー)テスト。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sa10026-8": {
+          "title": "新規ノート作成のパス対応統一(既定フォルダ prefill + フォルダ補完)",
+          "status": "pending",
+          "user_review_required": true,
+          "review_reason": "GUI。新規ノートモーダルの統一・パス補完・既定フォルダ prefill の体験を実機で確認する。",
+          "user_story": "ノート作成者として、新規ノートをパス込みで作りたい。なぜなら、フォルダを指定して一発で作れ、既定フォルダを設定していればファイル名だけで済み、消せば好きな場所に作れるから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sa10026-8-1",
+              "description": "新規ノート作成モーダルがパス入力(folder/note-name、.md 自動補完)を受け付け、スマートフォルダの新規作成(smart-newfile / Sebf6b0-3)と同一の入力・フォルダ補完・作成ロジックに統一される。旧「ノート名だけ・vault ルート固定」は廃止し、共有コンポーネント化する。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa10026-8-2",
+              "description": "system/settings.yaml の defaultFolder が設定されていれば、モーダルのパス入力に既定で `<defaultFolder>/` が prefill される。空にすれば vault 直下や任意パスに作成でき、既定のままならファイル名を足すだけで defaultFolder 配下に作成される。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa10026-8-3",
+              "description": "入力中、既存フォルダのパスがドロップダウンで補完される(候補は既存ノートの folder から導出。smart-newfile と同じ deriveFolderCandidates を共有)。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sa10026-8-1": {
+              "title": "ui: 新規ノートモーダルを smart-newfile と統一",
+              "description": "new-note ダイアログ(NameDialog・folder 固定)を廃し、smart-newfile のパス入力+フォルダ補完コンポーネントに統一(共有化)。作成ロジック(createSmartNewNote 相当)へ一本化。",
+              "status": "pending"
+            },
+            "Sa10026-8-2": {
+              "title": "ui: defaultFolder prefill 配線 + mock/e2e",
+              "description": "settings.yaml の defaultFolder を取得し、モーダル起動時に `<defaultFolder>/` を prefill(未設定なら空)。mock(prefill 有無/補完/検証)+ e2e(実サーバーで defaultFolder→作成→開くまで)。",
+              "status": "pending"
+            }
+          }
+        }
+      }
     }
   },
   "dependencies": {
@@ -4688,6 +5025,14 @@
         "Sf2f114"
       ],
       "reason": "エディタの補完・プレビューは DSL v2 の語彙 (step/param 型) を反映するため先にバックエンドが必要 (ADR-0023)"
+    },
+    "Sa10026": {
+      "depends_on": [
+        "S32940c",
+        "Sebf6b0",
+        "S53409d"
+      ],
+      "reason": "設定の system/ 統一はスマートフォルダ格納(S32940c)/編集UI(Sebf6b0)の上に載り、統一設定UIの agent 権限・privacy・接続編集は内蔵エージェント基盤(S53409d, ADR-0012/0015/0018 境界)を前提とする"
     }
   },
   "backlog": [

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loamium — 新規ノート(パス対応・統一) (Sa10026-8)</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+/* ==== 新規ノート作成モーダル(パス対応・統一) — Sa10026-8 / ADR-0010 ==== */
+.dialog h2 { font-size: 16px; margin: 0 0 3px; }
+.dialog .dialog-sub { font-size: 12.5px; color: var(--text-muted); margin: 0 0 14px; }
+.dialog .dialog-sub code { font-family: var(--font-mono); font-size: 11.5px; color: var(--accent); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+.nn-combobox { position: relative; }
+.nn-input {
+  width: 100%; box-sizing: border-box; font: inherit; font-size: 13.5px; font-family: var(--font-mono);
+  padding: 10px 12px; border: 1px solid var(--accent); border-radius: 9px;
+  background: var(--bg-app); color: var(--text); outline: 2px solid var(--accent-soft);
+}
+.nn-hint { font-size: 11.5px; color: var(--text-muted); margin: 7px 2px 0; }
+.nn-dropdown {
+  position: absolute; top: calc(100% + 5px); left: 0; right: 0; z-index: 5;
+  background: var(--bg-app); border: 1px solid var(--border-strong); border-radius: 9px;
+  box-shadow: var(--shadow-lg); padding: 4px; max-height: 210px; overflow-y: auto;
+}
+.nn-dd-label { font-size: 10.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--text-faint); padding: 6px 9px 4px; }
+.nn-option {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 7px 9px; border: none; background: none; border-radius: 6px;
+  font-size: 12.5px; font-family: var(--font-mono); color: var(--text); cursor: pointer; text-align: left;
+}
+.nn-option:hover, .nn-option.active { background: var(--bg-hover); }
+.nn-option :where(svg) { width: 14px; height: 14px; flex-shrink: 0; color: var(--text-muted); }
+.nn-option .mark { margin-left: auto; font-family: var(--font-sans); font-size: 11px; color: var(--accent); }
+.btn {
+  font: inherit; font-size: 13px; font-weight: 600; padding: 8px 16px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border-strong); background: var(--bg-app); color: var(--text);
+}
+.btn:hover { background: var(--bg-hover); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); }
+.proto-note {
+  margin: 22px auto 0; max-width: 440px; padding: 12px 14px; background: var(--co-bg); border-left: 3px solid var(--co);
+  border-radius: 6px; font-size: 12px; color: var(--text-muted); line-height: 1.6;
+}
+.proto-note code { font-family: var(--font-mono); font-size: 11.5px; color: var(--text); }
+.proto-toolbar { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; z-index: 80; }
+.proto-toolbar .btn { box-shadow: var(--shadow); }
+</style>
+</head>
+<body>
+<!-- 背景(ダミーのエディタ) -->
+<div class="app">
+  <aside class="sidebar" data-testid="sidebar">
+    <div class="sidebar-header">
+      <div class="vault-badge">L</div>
+      <div class="vault-name">loamium-notes</div>
+    </div>
+    <div class="tree-section-title">Notes</div>
+    <div class="tree">
+      <button class="tree-item" data-path="journals/2026/07/2026-07-13.md">2026-07-13.md</button>
+      <button class="tree-item" data-path="projects/Hydra 設計メモ.md">Hydra 設計メモ.md</button>
+      <button class="tree-item" data-path="読書メモ SF短編.md">読書メモ SF短編.md</button>
+    </div>
+  </aside>
+  <main class="workspace"></main>
+</div>
+
+<!-- 新規ノート作成モーダル(統一・パス対応) -->
+<div class="dialog-backdrop" data-testid="new-note-dialog" role="dialog" aria-modal="true">
+  <div class="dialog">
+    <h2>新規ノート</h2>
+    <p class="dialog-sub">パス込みで作成できます。既定フォルダ <code>notes/</code> を入れてあります(消せば任意の場所に作成)。</p>
+    <div class="nn-combobox">
+      <input type="text" class="nn-input" data-testid="new-note-path" value="notes/" placeholder="folder/note-name(.md は自動補完)" autocomplete="off" spellcheck="false">
+      <div class="nn-dropdown" data-testid="new-note-path-dropdown">
+        <div class="nn-dd-label">既存フォルダ</div>
+        <button class="nn-option active" data-testid="new-note-path-option" data-path="notes">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4.5l1-1.5h3l1 1.5h6v7.5a1 1 0 01-1 1H3a1 1 0 01-1-1z"/></svg>
+          notes/ <span class="mark">既定</span>
+        </button>
+        <button class="nn-option" data-testid="new-note-path-option" data-path="projects">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4.5l1-1.5h3l1 1.5h6v7.5a1 1 0 01-1 1H3a1 1 0 01-1-1z"/></svg>
+          projects/
+        </button>
+        <button class="nn-option" data-testid="new-note-path-option" data-path="journals/2026/07">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4.5l1-1.5h3l1 1.5h6v7.5a1 1 0 01-1 1H3a1 1 0 01-1-1z"/></svg>
+          journals/2026/07/
+        </button>
+      </div>
+    </div>
+    <p class="nn-hint">スマートフォルダの新規作成モーダルと同じ入力・補完・作成ロジックに統一。</p>
+    <div class="dialog-actions">
+      <button class="btn" data-testid="new-note-cancel">キャンセル</button>
+      <button class="btn btn-primary" data-testid="new-note-confirm">作成</button>
+    </div>
+  </div>
+</div>
+
+<div class="proto-note">
+  <strong>Sa10026-8 注記</strong> — 現状の「ノート名だけ・vault ルート固定」を廃し、<code>smart-newfile</code>(Sebf6b0-3)と<em>同一コンポーネント</em>に統一。<code>settings.yaml</code> の <code>defaultFolder</code>(=<code>notes</code>)があれば <code>notes/</code> を prefill。空にすれば任意パス、既定のままならファイル名を足すだけ。既存フォルダはドロップダウンで補完。
+</div>
+
+<div class="proto-toolbar">
+  <button class="btn" onclick="setPrefill(true)">既定フォルダあり(notes/)</button>
+  <button class="btn" onclick="setPrefill(false)">既定フォルダなし(空)</button>
+</div>
+<script>
+  // プロトタイプ: 既定フォルダの prefill 有無を切り替えて確認
+  function setPrefill(on) {
+    var input = document.querySelector('[data-testid="new-note-path"]');
+    input.value = on ? 'notes/' : '';
+    document.querySelector('.dialog-sub').innerHTML = on
+      ? 'パス込みで作成できます。既定フォルダ <code>notes/</code> を入れてあります(消せば任意の場所に作成)。'
+      : 'パス込みで作成できます(既定フォルダ未設定)。<code>folder/name</code> で任意の場所に作成。';
+    input.focus();
+  }
+  document.querySelectorAll('.nn-option').forEach(function (o) {
+    o.addEventListener('click', function () {
+      document.querySelector('[data-testid="new-note-path"]').value = o.dataset.path + '/';
+      document.querySelectorAll('.nn-option').forEach(function (x) { x.classList.remove('active'); });
+      o.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>

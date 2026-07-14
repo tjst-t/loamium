@@ -1,0 +1,63 @@
+{
+  "story_id": "Sa10026-4",
+  "story_title": "ツリーの system/ 既定非表示 + 表示トグル + order 再採番",
+  "state_diagram": "stateDiagram-v2\n    [*] --> TreeDefault : 起動 / GET /api/notes\n    TreeDefault --> SystemVisible : 設定表示トグル ON (tree-system-toggle)\n    SystemVisible --> TreeDefault : トグル OFF\n    SystemVisible --> SystemExpanded : system/ ノードを展開\n    SystemExpanded --> EditingDefinition : 定義ファイル(.yaml / templates は .md)をクリック → 編集エディタで開く\n    SystemExpanded --> Reordering : 定義をドラッグ&ドロップ\n    Reordering --> Persisted : PUT 定義ファイル (order 再採番)\n    Persisted --> SystemExpanded\n    EditingDefinition --> [*]",
+  "endpoint_contracts": [
+    {
+      "endpoint": "GET /api/notes",
+      "note": "既存。レスポンスに system/ 配下の定義ファイル(smart-folders/commands は .yaml、templates は .md、settings.yaml)も含む(folder が 'system' で始まる)。ツリーは tree-system-toggle が OFF の間、folder が 'system' で始まるエントリを描画から除外する(サーバは全件返す・クライアントフィルタ)。",
+      "response_shape": "{ notes: [{ path, title, tags, folder }] } — 例: { path:'system/smart-folders/journal.yaml', folder:'system/smart-folders' }"
+    },
+    {
+      "endpoint": "PUT /api/notes/{path}",
+      "note": "並べ替え永続。ドラッグ&ドロップ後、対象の system/ 定義ファイル群の order(smart-folders/commands は YAML の order キー、templates は frontmatter の order)を安定ソートで再採番して書き戻す(gap/tie 許容)。監査ログ対象。",
+      "response_shape": "{ ok:true, mtime }"
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "system_hidden_by_default",
+      "description": "起動直後は system/ がツリーに現れない(既定非表示)。",
+      "steps": [
+        "GET /api/notes が system/ 配下を含む notes を返す",
+        "tree-item[data-path^='system/'] は DOM 上に描画されない(または hidden)",
+        "tree-system-toggle が data-state='hidden' で visible"
+      ]
+    },
+    {
+      "name": "toggle_reveals_system",
+      "description": "設定表示トグルで system/ ツリーが現れ、再トグルで隠れる。",
+      "steps": [
+        "tree-system-toggle をクリック",
+        "tree-system-toggle が data-state='shown' になる",
+        "tree-section[data-testid='tree-system'] が visible",
+        "tree-item[data-path='system/smart-folders/journal.yaml'] が visible",
+        "再度 tree-system-toggle をクリック → tree-system が hidden"
+      ]
+    },
+    {
+      "name": "open_definition_in_editor",
+      "description": "system/ 配下の定義ファイルは通常ノートと同じ編集エディタで開く(プレビューでなく)。",
+      "steps": [
+        "tree-system-toggle ON",
+        "tree-item[data-path='system/smart-folders/journal.yaml'] をクリック",
+        "editor[data-testid='editor'] に YAML(title / order / icon / query)がソース表示される",
+        "save-status が 'saved'"
+      ]
+    },
+    {
+      "name": "reorder_reassigns_order",
+      "description": "ドラッグ&ドロップで system/ 定義を並べ替えると order が再採番され永続する。",
+      "steps": [
+        "tree-system-toggle ON → tree-system を展開",
+        "tree-item[data-path='system/smart-folders/journal.yaml'] を 2 番目へドラッグ",
+        "PUT /api/notes/system/smart-folders/*.yaml が order 再採番で呼ばれる",
+        "リロード後も並び順が保持される"
+      ]
+    }
+  ],
+  "test_files": {
+    "mock": "packages/ui/tests/e2e/system-tree.mock.spec.ts",
+    "e2e": "packages/ui/tests/e2e/system-tree.e2e.spec.ts"
+  }
+}

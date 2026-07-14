@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loamium — system/ 表示トグル (Sa10026-4)</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+/* ==== system/ ツリー表示トグル (Sa10026-4 / ADR-0010) ==== */
+.tree-system-toggle {
+  display: flex; align-items: center; gap: 7px; width: 100%;
+  margin-top: 8px; padding: 7px 8px; border: none; border-top: 1px solid var(--border);
+  background: none; color: var(--text-muted); font-size: 12px; cursor: pointer; text-align: left;
+}
+.tree-system-toggle:hover { color: var(--text); }
+.tree-system-toggle :where(svg) { width: 13px; height: 13px; flex-shrink: 0; transition: transform .12s; }
+.tree-system-toggle[data-state="shown"] .chev { transform: rotate(90deg); }
+.tree-system-toggle .lbl { flex: 1; }
+.tree-system-toggle .state { font-size: 10.5px; color: var(--text-faint); }
+
+.tree-system { display: none; padding-left: 2px; }
+.tree-system.shown { display: block; }
+.tree-group-label {
+  display: flex; align-items: center; gap: 6px; padding: 5px 8px 3px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--text-faint);
+}
+.tree-item.dragging { opacity: .5; }
+.tree-item .drag-handle { margin-left: auto; color: var(--text-faint); opacity: 0; }
+.tree-item:hover .drag-handle { opacity: 1; }
+.tree-item .drag-handle :where(svg) { width: 12px; height: 12px; }
+.tree-item .ord { margin-left: auto; font-family: var(--font-mono); font-size: 10px; color: var(--text-faint); }
+.tree-item:hover .ord { display: none; }
+.sys-badge {
+  font-size: 9.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft);
+  border-radius: 5px; padding: 1px 5px; margin-left: 6px;
+}
+.proto-note {
+  margin: 16px 10px; padding: 11px 12px; background: var(--co-bg); border-left: 3px solid var(--co);
+  border-radius: 6px; font-size: 11.5px; color: var(--text-muted); line-height: 1.6;
+}
+.proto-note code { font-family: var(--font-mono); font-size: 11px; color: var(--text); }
+.workspace-hint { padding: 40px; color: var(--text-muted); max-width: 520px; }
+.workspace-hint h1 { font-size: 17px; color: var(--text); }
+.workspace-hint code { font-family: var(--font-mono); font-size: 12px; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" data-testid="sidebar">
+    <div class="sidebar-header">
+      <div class="vault-badge">L</div>
+      <div class="vault-name">loamium-notes</div>
+      <button class="icon-btn" data-testid="sidebar-search" title="検索 (Ctrl+K)">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M14 14l-3.5-3.5"/></svg>
+      </button>
+      <a class="icon-btn" href="settings.html" data-testid="sidebar-settings" title="設定">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v1.6M8 12.9v1.6M2.7 4.7l1.4.8M11.9 10.5l1.4.8M2.7 11.3l1.4-.8M11.9 5.5l1.4-.8"/></svg>
+      </a>
+    </div>
+
+    <div class="tree-section-title">Notes</div>
+    <div class="tree" data-testid="file-tree">
+      <button class="tree-item active" data-testid="tree-item" data-path="journals/2026/07/2026-07-13.md">2026-07-13.md</button>
+      <button class="tree-item" data-testid="tree-item" data-path="projects/Hydra 設計メモ.md">Hydra 設計メモ.md</button>
+      <button class="tree-item" data-testid="tree-item" data-path="週次レビュー.md">週次レビュー.md</button>
+    </div>
+
+    <!-- system/ 表示トグル(既定 hidden) -->
+    <button class="tree-system-toggle" data-testid="tree-system-toggle" data-state="shown" aria-expanded="true" onclick="toggleSystem()">
+      <svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>
+      <span class="lbl">設定フォルダ <code style="font-family:var(--font-mono);font-size:11px">system/</code></span>
+      <span class="state" data-testid="tree-system-state">表示中</span>
+    </button>
+
+    <!-- system/ ツリー(定義 md。order → ファイル名で安定ソート) -->
+    <div class="tree-system shown" data-testid="tree-system">
+      <div class="tree-group-label">smart-folders</div>
+      <button class="tree-item" data-testid="tree-item" data-path="system/smart-folders/journal.yaml" draggable="true">journal.yaml<span class="ord">order 10</span></button>
+      <button class="tree-item" data-testid="tree-item" data-path="system/smart-folders/projects.yaml" draggable="true">projects.yaml<span class="ord">order 20</span></button>
+      <button class="tree-item" data-testid="tree-item" data-path="system/smart-folders/recent.yaml" draggable="true">recent.yaml<span class="ord">order 30</span></button>
+      <div class="tree-group-label">templates</div>
+      <button class="tree-item" data-testid="tree-item" data-path="system/templates/journal.md" draggable="true">journal.md<span class="ord">order 10</span></button>
+      <button class="tree-item" data-testid="tree-item" data-path="system/templates/meeting.md" draggable="true">meeting.md<span class="ord">order 20</span></button>
+      <div class="tree-group-label">commands</div>
+      <button class="tree-item" data-testid="tree-item" data-path="system/commands/create-todo.yaml" draggable="true">create-todo.yaml<span class="ord">order 10</span></button>
+      <div class="tree-group-label">settings.yaml</div>
+      <button class="tree-item" data-testid="tree-item" data-path="system/settings.yaml">settings.yaml</button>
+    </div>
+
+    <div class="proto-note">
+      <strong>Sa10026-4 注記</strong><br>
+      既定は<em>非表示</em>。トグル ON で <code>system/</code> を表示。定義ファイル(<code>.yaml</code> / テンプレは <code>.md</code>)はクリックで<em>編集エディタ</em>で開く。ドラッグ&ドロップで並べ替えると各ファイルの <code>order:</code> を安定ソートで再採番(<code>PUT /api/notes/…</code>)。<code>system/</code> はディスク上は可視で <code>.gitignore</code> 対象外(<code>.loamium</code> とは別)。
+    </div>
+  </aside>
+
+  <main class="workspace">
+    <div class="workspace-hint">
+      <h1>スマートフォルダ / コマンドは YAML、テンプレートは Markdown</h1>
+      <p>例: <code>system/smart-folders/journal.yaml</code> は純 YAML(<code>title</code> / <code>order</code> / <code>icon</code> / <code>query</code>)。DQL は <code>query:</code> フィールドに文字列で持ちます。テンプレートはノート本文そのものなので <code>system/templates/journal.md</code>(frontmatter + 本文)のまま。</p>
+      <p style="color:var(--text-faint)">この画面は Sa10026-4(ツリー表示トグル)のプロトタイプです。統一設定画面は <a href="settings.html">settings.html</a>。</p>
+    </div>
+  </main>
+</div>
+<script>
+  function toggleSystem() {
+    var t = document.querySelector('.tree-system-toggle');
+    var body = document.querySelector('.tree-system');
+    var shown = t.getAttribute('data-state') === 'shown';
+    t.setAttribute('data-state', shown ? 'hidden' : 'shown');
+    t.setAttribute('aria-expanded', shown ? 'false' : 'true');
+    t.querySelector('[data-testid="tree-system-state"]').textContent = shown ? '非表示' : '表示中';
+    body.classList.toggle('shown', !shown);
+  }
+</script>
+</body>
+</html>
