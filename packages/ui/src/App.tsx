@@ -55,6 +55,7 @@ import { SearchPalette } from './components/SearchPalette.js';
 import { SearchPage } from './components/SearchPage.js';
 import { TemplatePicker } from './components/TemplatePicker.js';
 import { TemplateModal } from './components/TemplateModal.js';
+import { SettingsView } from './components/SettingsView.js';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -258,6 +259,11 @@ export function App(): JSX.Element {
   // ---- ジャーナル ----
   const [today, setToday] = useState<string | null>(null);
   const [journalListOpen, setJournalListOpen] = useState(false);
+
+  // ---- 設定画面 (Sa10026-7) ----
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  /** GET /api/health から取得したサーバーモード (設定画面の read-only 制御に使う) */
+  const [appMode, setAppMode] = useState<PermissionMode>('full');
 
   // ---- ポップアップ ----
   const [dialog, setDialog] = useState<DialogState>(null);
@@ -679,6 +685,10 @@ export function App(): JSX.Element {
     void refreshTags();
     // 設定取得: defaultFolder の prefill 用 (Sa10026-8 / graceful degradation)
     void api.getSystemSettings().then((s) => setDefaultFolder(s.defaultFolder ?? ''));
+    // サーバーモード取得: 設定画面の read-only 制御用 (Sa10026-7)
+    void api.getHealth().then((h) => {
+      setAppMode(h.mode);
+    }).catch(() => { /* health fetch failure is non-fatal */ });
     // ジャーナル日付ナビ用の today (server 応答があれば上書きされる)
     setToday(todayJournalDate());
     // 現在のエントリに履歴インデックスを刻む
@@ -1283,7 +1293,13 @@ export function App(): JSX.Element {
           >
             <SearchIcon />
           </button>
-          <button className="icon-btn" data-testid="sidebar-settings" title="設定 (未実装)" disabled>
+          <button
+            className={`icon-btn${settingsOpen ? ' active' : ''}`}
+            data-testid="sidebar-settings"
+            title="設定"
+            aria-current={settingsOpen ? 'page' : undefined}
+            onClick={() => setSettingsOpen((v) => !v)}
+          >
             <GearIcon />
           </button>
         </div>
@@ -1505,7 +1521,14 @@ export function App(): JSX.Element {
 
       {/* ================= 中央: メイン 1 画面 ================= */}
       <main className="workspace">
-        <div className="editor-header">
+        {/* ---- 統一設定画面 (Sa10026-7) ---- */}
+        {settingsOpen && (
+          <SettingsView
+            mode={appMode}
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
+        <div className="editor-header" style={settingsOpen ? { display: 'none' } : undefined}>
           <div className="nav-group">
             <button
               className="nav-btn"
@@ -1586,13 +1609,13 @@ export function App(): JSX.Element {
           )}
         </div>
 
-        {route.kind === 'search' ? (
+        {route.kind === 'search' && !settingsOpen ? (
           <SearchPage
             params={route.params}
             onNavigate={openSearch}
             onOpenNoteInEditor={(path) => void openNotePath(path)}
           />
-        ) : route.kind === 'files' ? (
+        ) : settingsOpen ? null : route.kind === 'files' ? (
           <FilesPage
             notes={notes}
             files={files}

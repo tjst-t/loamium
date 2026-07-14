@@ -100,12 +100,66 @@ export async function installCatchAll(page: Page): Promise<string[]> {
   await page.route('**/api/commands', (route) => {
     void route.fulfill(json({ commands: [] }));
   });
-  // GET /api/settings/system (アプリ全体設定 — Sa10026-3/-5/-8)。
+  // GET/PUT /api/settings/system (アプリ全体設定 — Sa10026-3/-5/-8/-7)。
   // 既定は defaultFolder:'' (設定なし)。defaultFolder を検証するテストは後から上書きする。
   await page.route('**/api/settings/system', (route) => {
-    void route.fulfill(
-      json({ settings: { theme: 'system', defaultFolder: '', journalTemplate: 'system/templates/journal.md', showSystemFolder: false } }),
-    );
+    const method = route.request().method();
+    if (method === 'GET') {
+      void route.fulfill(
+        json({ settings: { theme: 'system', defaultFolder: '', journalTemplate: 'system/templates/journal.md', showSystemFolder: false } }),
+      );
+    } else if (method === 'PUT') {
+      const body = route.request().postDataJSON() as { settings: Record<string, unknown> };
+      void route.fulfill(json({ settings: body.settings }));
+    } else {
+      void route.fallback();
+    }
+  });
+  // GET/PUT /api/settings/agent/connection (Sa10026-7 エージェント接続設定)。
+  await page.route('**/api/settings/agent/connection', (route) => {
+    const method = route.request().method();
+    if (method === 'GET') {
+      void route.fulfill(json({ connection: {
+        api: 'anthropic',
+        baseUrl: 'https://api.anthropic.com',
+        model: 'claude-sonnet-4-6',
+        apiKeyRef: '$ANTHROPIC_API_KEY',
+      } }));
+    } else if (method === 'PUT') {
+      void route.fulfill(json({ ok: true }));
+    } else {
+      void route.fallback();
+    }
+  });
+  // POST /api/settings/agent/connection/test (Sa10026-7 接続テスト)。
+  await page.route('**/api/settings/agent/connection/test', (route) => {
+    void route.fulfill(json({ ok: true, model: 'claude-sonnet-4-6', latencyMs: 210 }));
+  });
+  // GET /api/settings/agent/models (Sa10026-7 モデル一覧)。
+  await page.route('**/api/settings/agent/models', (route) => {
+    void route.fulfill(json({ models: ['claude-opus-4-8', 'claude-sonnet-4-6', 'claude-haiku-4-5'], source: 'api' }));
+  });
+  // GET/PUT /api/settings/agent/permissions (Sa10026-7 エージェント権限)。
+  await page.route('**/api/settings/agent/permissions', (route) => {
+    const method = route.request().method();
+    if (method === 'GET') {
+      void route.fulfill(json({ permissions: { value: 'full', effective: ['notes:write', 'notes:read'] } }));
+    } else if (method === 'PUT') {
+      void route.fulfill(json({ ok: true }));
+    } else {
+      void route.fallback();
+    }
+  });
+  // GET/PUT /api/settings/agent/privacy (Sa10026-7 プライバシー deny-list)。
+  await page.route('**/api/settings/agent/privacy', (route) => {
+    const method = route.request().method();
+    if (method === 'GET') {
+      void route.fulfill(json({ deny: ['private/**', 'secrets/**'] }));
+    } else if (method === 'PUT') {
+      void route.fulfill(json({ ok: true }));
+    } else {
+      void route.fallback();
+    }
   });
   return unexpected;
 }
