@@ -967,3 +967,179 @@ export const commandSourceWriteResponseSchema = z.object({
   mtime: z.number(),
 });
 export type CommandSourceWriteResponse = z.infer<typeof commandSourceWriteResponseSchema>;
+
+// ============================================================
+// 設定 API (Sa10026-5)
+// ============================================================
+
+// ---- Group 1: アプリ全体設定 (system/settings.yaml) ----
+
+/**
+ * アプリ全体設定スキーマ。`system/settings.yaml` に保存する (ADR-0010: system/ は agent 編集可)。
+ * 現状は空オブジェクト (将来の設定項目追加を見越して定義のみ)。
+ * passthrough() を使い、既知外フィールドを保持する (後方互換)。
+ */
+export const appSettingsSchema = z.object({}).passthrough();
+export type AppSettings = z.infer<typeof appSettingsSchema>;
+
+/** GET /api/settings/system のレスポンス。 */
+export const appSettingsResponseSchema = z.object({
+  settings: appSettingsSchema,
+});
+export type AppSettingsResponse = z.infer<typeof appSettingsResponseSchema>;
+
+/** PUT /api/settings/system のリクエスト。 */
+export const appSettingsWriteRequestSchema = z.object({
+  settings: appSettingsSchema,
+});
+export type AppSettingsWriteRequest = z.infer<typeof appSettingsWriteRequestSchema>;
+
+// ---- Group 2: agent 接続設定 (.loamium/agent.json) ----
+
+/**
+ * GET /api/settings/agent/connection のレスポンス。
+ * apiKey は $ENV_VAR 参照名をそのまま返す (実値は返さない)。
+ * 未設定 (agent.json 不在) は null を返す。
+ */
+export const agentConnectionResponseSchema = z.object({
+  connection: z
+    .object({
+      api: z.enum(['openai', 'anthropic']),
+      baseUrl: z.string(),
+      model: z.string(),
+      /** $ENV_VAR 参照名、または "(set)" / "(unset)" — 実値は絶対に返さない */
+      apiKeyRef: z.string(),
+      webSearch: z
+        .object({
+          endpoint: z.string(),
+          /** $ENV_VAR 参照名、または "(set)" / "(unset)" */
+          apiKeyRef: z.string().optional(),
+        })
+        .optional(),
+    })
+    .nullable(),
+});
+export type AgentConnectionResponse = z.infer<typeof agentConnectionResponseSchema>;
+
+/**
+ * PUT /api/settings/agent/connection のリクエスト。
+ * apiKey は "$ENV_VAR" 形式の参照名を保存する (実値を含む生文字列も受け付けるが、保存するだけ。
+ * GUI は必ず $ENV 参照を渡すことを想定)。
+ */
+export const agentConnectionWriteRequestSchema = z.object({
+  api: z.enum(['openai', 'anthropic']),
+  baseUrl: z.string().min(1, 'baseUrl must not be empty'),
+  model: z.string().min(1, 'model must not be empty'),
+  /** $ENV_VAR 参照名 (例: "$OPENAI_API_KEY") をそのまま保存する */
+  apiKey: z.string().min(1, 'apiKey must not be empty'),
+  webSearch: z
+    .object({
+      endpoint: z.string().min(1, 'webSearch.endpoint must not be empty'),
+      apiKey: z.string().min(1).optional(),
+    })
+    .optional(),
+});
+export type AgentConnectionWriteRequest = z.infer<typeof agentConnectionWriteRequestSchema>;
+
+/** PUT /api/settings/agent/connection のレスポンス。 */
+export const agentConnectionWriteResponseSchema = z.object({
+  ok: z.boolean(),
+});
+export type AgentConnectionWriteResponse = z.infer<typeof agentConnectionWriteResponseSchema>;
+
+// ---- Group 3: agent 権限・capability (.loamium/agent.json permissions) ----
+
+/**
+ * GET /api/settings/agent/permissions のレスポンス。
+ * 未設定 (agent.json 不在) は null。
+ */
+export const agentPermissionsResponseSchema = z.object({
+  permissions: z
+    .object({
+      /** agent.json の permissions フィールド (プリセット名 or ケーパビリティ配列) */
+      value: z.union([z.string(), z.array(z.string())]).nullable(),
+      /** LOAMIUM_MODE でクランプした実効ケーパビリティ */
+      effective: z.array(z.string()),
+    })
+    .nullable(),
+});
+export type AgentPermissionsResponse = z.infer<typeof agentPermissionsResponseSchema>;
+
+/**
+ * PUT /api/settings/agent/permissions のリクエスト。
+ * agent.json の permissions フィールドのみ更新する (接続設定は変更しない)。
+ */
+export const agentPermissionsWriteRequestSchema = z.object({
+  /** プリセット名 (read-only / notes-rw / full) またはケーパビリティ配列 */
+  permissions: z.union([z.string(), z.array(z.string())]),
+});
+export type AgentPermissionsWriteRequest = z.infer<typeof agentPermissionsWriteRequestSchema>;
+
+/** PUT /api/settings/agent/permissions のレスポンス。 */
+export const agentPermissionsWriteResponseSchema = z.object({
+  ok: z.boolean(),
+});
+export type AgentPermissionsWriteResponse = z.infer<typeof agentPermissionsWriteResponseSchema>;
+
+// ---- Group 4: privacy deny-list (.loamium/agent-privacy.json) ----
+
+/**
+ * GET /api/settings/agent/privacy のレスポンス。
+ * ファイル不在時は空配列。
+ */
+export const agentPrivacySettingsResponseSchema = z.object({
+  deny: z.array(z.string()),
+});
+export type AgentPrivacySettingsResponse = z.infer<typeof agentPrivacySettingsResponseSchema>;
+
+/** PUT /api/settings/agent/privacy のリクエスト。 */
+export const agentPrivacyWriteRequestSchema = z.object({
+  deny: z.array(z.string()),
+});
+export type AgentPrivacyWriteRequest = z.infer<typeof agentPrivacyWriteRequestSchema>;
+
+/** PUT /api/settings/agent/privacy のレスポンス。 */
+export const agentPrivacyWriteResponseSchema = z.object({
+  ok: z.boolean(),
+});
+export type AgentPrivacyWriteResponse = z.infer<typeof agentPrivacyWriteResponseSchema>;
+
+// ---- 接続テスト (POST /api/settings/agent/connection/test) ----
+
+/** POST /api/settings/agent/connection/test のリクエスト。 */
+export const agentConnectionTestRequestSchema = z.object({
+  /** テスト対象の baseUrl (省略時は現在の agent.json の値を使う) */
+  baseUrl: z.string().min(1).optional(),
+  /** テスト対象のモデル (省略時は現在の agent.json の値を使う) */
+  model: z.string().min(1).optional(),
+  /** api 種別 (省略時は現在の agent.json の値を使う) */
+  api: z.enum(['openai', 'anthropic']).optional(),
+  /** $ENV_VAR 参照名 (省略時は現在の agent.json の値を使う。実値は不可) */
+  apiKeyRef: z.string().optional(),
+});
+export type AgentConnectionTestRequest = z.infer<typeof agentConnectionTestRequestSchema>;
+
+/** POST /api/settings/agent/connection/test のレスポンス (常に 200)。 */
+export const agentConnectionTestResponseSchema = z.object({
+  ok: z.boolean(),
+  /** 応答が返ってきたモデル名 (成功時のみ) */
+  model: z.string().optional(),
+  /** リクエストから応答までのミリ秒 */
+  latencyMs: z.number().optional(),
+  /** エラーメッセージ (失敗時のみ。apiKey 実値は含まない) */
+  error: z.string().optional(),
+});
+export type AgentConnectionTestResponse = z.infer<typeof agentConnectionTestResponseSchema>;
+
+// ---- モデル一覧 (GET /api/settings/agent/models) ----
+
+/**
+ * GET /api/settings/agent/models のレスポンス (常に 200)。
+ * 取得成功時 source:'api'、失敗時 source:'fallback' (空リストで直接入力を妨げない)。
+ */
+export const agentModelsResponseSchema = z.object({
+  models: z.array(z.string()),
+  source: z.enum(['api', 'fallback']),
+  error: z.string().optional(),
+});
+export type AgentModelsResponse = z.infer<typeof agentModelsResponseSchema>;

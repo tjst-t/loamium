@@ -164,3 +164,5 @@ export {
   type AgentPresetName,
   type AgentPermissions,
 } from './agent-capabilities.js';
+
+// 注: 設定 API スキーマ (Sa10026-5) は export * from './schemas.js' で一括エクスポート済み。
