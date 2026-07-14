@@ -115,6 +115,23 @@
 .proto-note code { font-family: var(--font-mono); font-size: 11.5px; color: var(--text); }
 .settings-field { margin-bottom: 14px; }
 .settings-field > label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; }
+
+/* テンプレート本文をアプリのエディタで編集 (CodeMirror 流用) */
+.tmpl-editor-wrap { border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg-editor); padding: 8px 6px; max-height: 320px; overflow-y: auto; }
+.tmpl-editor-wrap:focus-within { outline: 2px solid var(--accent); border-color: var(--accent); }
+.tmpl-editor-wrap .cm-editor { outline: none; }
+.tmpl-editor-wrap .cm-content.fm { color: var(--text-faint); font-family: var(--font-mono); font-size: 12px; }
+.tmpl-editor-wrap .hmark { color: var(--text-faint); font-weight: 400; }
+
+/* セクション内 絞り込み検索 */
+.section-filter { position: relative; margin: 0 0 14px; max-width: 340px; }
+.section-filter :where(svg) { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--text-faint); }
+.section-filter input {
+  width: 100%; box-sizing: border-box; font: inherit; font-size: 13px;
+  padding: 8px 10px 8px 32px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg-app); color: var(--text);
+}
+.section-filter input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+.item-card.filtered-out { display: none; }
 </style>
 </head>
 <body>
@@ -181,7 +198,8 @@
             <div class="head-actions"><button class="btn btn-primary"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>新規テンプレート</button></div>
           </div>
           <p class="settings-sub">ノート作成の雛形 — <code>system/templates/*.md</code>。ここで直接編集できます。</p>
-          <div class="item-list">
+          <div class="section-filter"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M14 14l-3.5-3.5"/></svg><input type="text" placeholder="テンプレートを絞り込み" oninput="filterSection(this,'templates')"></div>
+          <div class="item-list" data-list="templates">
             <div class="item-card editing">
               <div class="item-head">
                 <span class="item-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><path d="M5 6h6M5 8.5h6M5 11h3.5"/></svg></span>
@@ -190,18 +208,23 @@
               </div>
               <div class="item-edit">
                 <div class="field"><label>名前</label><input type="text" value="journal"></div>
-                <div class="field"><label>本文(frontmatter + Markdown)</label>
-                  <textarea class="code" rows="7">---
-tags: []
----
-# {{date:YYYY-MM-DD}} {{date:ddd}}
-
-## 今日の予定
-
-## やったこと
-
-## メモ</textarea>
-                  <p class="hint"><code>{{date:...}}</code> 等のテンプレ変数が使えます。</p>
+                <div class="field"><label>本文(Loamium エディタで編集)</label>
+                  <div class="tmpl-editor-wrap">
+                    <div class="cm-editor" data-testid="template-editor" contenteditable="true" spellcheck="false">
+                      <div class="cm-line"><span class="gutter"></span><span class="cm-content fm">---</span></div>
+                      <div class="cm-line"><span class="gutter"></span><span class="cm-content fm">tags: []</span></div>
+                      <div class="cm-line"><span class="gutter"></span><span class="cm-content fm">---</span></div>
+                      <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h1"><span class="hmark"># </span>{{date:YYYY-MM-DD}} {{date:ddd}}</span></div>
+                      <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+                      <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h2"><span class="hmark">## </span>今日の予定</span></div>
+                      <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><button class="task-checkbox" aria-label="未完了タスク"></button><span>{{task}}</span></span></div>
+                      <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+                      <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h2"><span class="hmark">## </span>やったこと</span></div>
+                      <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+                      <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h2"><span class="hmark">## </span>メモ</span></div>
+                    </div>
+                  </div>
+                  <p class="hint">アプリ本体と<strong>同じエディタ(CodeMirror + lezer-markdown)</strong>を流用 — 見出し・タスク・アウトラインがライブ整形。<code>{{date:...}}</code> 等のテンプレ変数もそのまま使えます。</p>
                 </div>
                 <div class="edit-actions"><button class="btn btn-primary">保存</button><button class="btn">キャンセル</button></div>
               </div>
@@ -226,7 +249,8 @@ tags: []
             <div class="head-actions"><button class="btn btn-primary"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>新規スマートフォルダ</button></div>
           </div>
           <p class="settings-sub">DQL クエリ / ピンで作る動的フォルダ — <code>system/smart-folders/*.yaml</code>。ドラッグで並べ替え。</p>
-          <div class="item-list">
+          <div class="section-filter"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M14 14l-3.5-3.5"/></svg><input type="text" placeholder="スマートフォルダを絞り込み" oninput="filterSection(this,'smart-folders')"></div>
+          <div class="item-list" data-list="smart-folders">
             <div class="item-card editing">
               <div class="item-head">
                 <span class="drag-handle"><svg viewBox="0 0 16 16" fill="currentColor"><circle cx="6" cy="4" r="1.3"/><circle cx="10" cy="4" r="1.3"/><circle cx="6" cy="8" r="1.3"/><circle cx="10" cy="8" r="1.3"/><circle cx="6" cy="12" r="1.3"/><circle cx="10" cy="12" r="1.3"/></svg></span>
@@ -276,7 +300,8 @@ tags: []
             <div class="head-actions"><button class="btn btn-primary"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>新規コマンド</button></div>
           </div>
           <p class="settings-sub">パラメータ + ステップで作る操作 — <code>system/commands/*.yaml</code>。パレット(Ctrl+K → <code>&gt;</code>)から実行。</p>
-          <div class="item-list">
+          <div class="section-filter"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M14 14l-3.5-3.5"/></svg><input type="text" placeholder="コマンドを絞り込み" oninput="filterSection(this,'commands')"></div>
+          <div class="item-list" data-list="commands">
             <div class="item-card editing">
               <div class="item-head">
                 <span class="item-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5l2.5 3L4 11M8.5 11h3.5"/></svg></span>
@@ -329,6 +354,16 @@ tags: []
   function showGroup(g) {
     document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.toggle('active', n.dataset.group === g); });
     document.querySelectorAll('.settings-panel').forEach(function(p){ p.classList.toggle('active', p.dataset.group === g); });
+  }
+  // セクション内の絞り込み(名前で前方一致・部分一致)
+  function filterSection(input, group) {
+    var q = input.value.trim().toLowerCase();
+    var list = document.querySelector('.item-list[data-list="' + group + '"]');
+    list.querySelectorAll('.item-card').forEach(function(card){
+      var name = (card.querySelector('.item-name')?.textContent || '').toLowerCase();
+      var meta = (card.querySelector('.item-meta')?.textContent || '').toLowerCase();
+      card.classList.toggle('filtered-out', q !== '' && !name.includes(q) && !meta.includes(q));
+    });
   }
   // カード見出しクリックで編集トグル
   document.querySelectorAll('.item-head').forEach(function(h){
