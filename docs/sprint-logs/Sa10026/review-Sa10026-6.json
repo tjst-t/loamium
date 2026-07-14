@@ -1,0 +1,2 @@
+{"story_id":"Sa10026-6","reviewer":"実装エージェント + フルスイート検証","critical_findings":0,
+ "conclusion":"agent が設定書込に到達できるルートは元々存在しなかった(構造的除外: settings ケーパビリティが CAPABILITY_TOOL_NAMES に無い / パス境界: normalizeVaultPath が .loamium hidden segment を拒否)。回帰 pin を追加: deriveToolNames(full)=13種固定、agent-settings-boundary.spec.ts(notes API から .loamium/* 全拒否)10件、agent-tools.e2e に自己昇格防止コメント。SETTINGS_EXCLUDED_TOOL_NAMES 定数追加。"}

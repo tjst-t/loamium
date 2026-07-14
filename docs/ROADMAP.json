@@ -4663,7 +4663,7 @@
         },
         "Sa10026-6": {
           "title": "設定書込APIを agent ツール allowlist から除外(自己昇格防止)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": true,
           "review_reason": "セキュリティ境界(自己昇格防止)。agent が権限/deny-list/apiKey を書き換えられないこと、advertised-toolset に設定書込ツールが現れないことを人手で確認する。",
           "user_story": "Loamium を運用する自分として、agent が自分の権限・deny-list・apiKey を書き換えられないことを保証したい。なぜなら、自己昇格(privilege escalation)を防ぎ ADR-0012/0015/0018 のセキュリティ境界を守るためだから。",
@@ -4672,25 +4672,25 @@
               "id": "AC-Sa10026-6-1",
               "description": "設定書き込み API(特に agent 権限 / privacy deny-list / apiKey)は agent ツール allowlist から明示除外され、notes API・agent ツール経由では到達不可。agent からの書込試行は拒否される。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sa10026-6-2",
               "description": "advertised-toolset に設定書込ツールが含まれないことを固定する e2e(agent-tools.e2e の advertised-toolset pin)で境界の回帰を防止する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sa10026-6-1": {
               "title": "server: allowlist 除外 + 到達不可 acceptance",
               "description": "設定書込 API を agent ツール allowlist から除外する実装。agent 経由で到達不可であることの acceptance テスト。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa10026-6-2": {
               "title": "agent-tools.e2e の advertised-toolset pin 更新",
               "description": "設定書込ツールが advertised-toolset に現れないことを pin する e2e を更新(境界回帰防止)。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
@@ -4735,7 +4735,7 @@
         },
         "Sa10026-8": {
           "title": "新規ノート作成のパス対応統一(既定フォルダ prefill + フォルダ補完)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": true,
           "review_reason": "GUI。新規ノートモーダルの統一・パス補完・既定フォルダ prefill の体験を実機で確認する。",
           "user_story": "ノート作成者として、新規ノートをパス込みで作りたい。なぜなら、フォルダを指定して一発で作れ、既定フォルダを設定していればファイル名だけで済み、消せば好きな場所に作れるから。",
@@ -4744,31 +4744,31 @@
               "id": "AC-Sa10026-8-1",
               "description": "新規ノート作成モーダルがパス入力(folder/note-name、.md 自動補完)を受け付け、スマートフォルダの新規作成(smart-newfile / Sebf6b0-3)と同一の入力・フォルダ補完・作成ロジックに統一される。旧「ノート名だけ・vault ルート固定」は廃止し、共有コンポーネント化する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sa10026-8-2",
               "description": "system/settings.yaml の defaultFolder が設定されていれば、モーダルのパス入力に既定で `<defaultFolder>/` が prefill される。空にすれば vault 直下や任意パスに作成でき、既定のままならファイル名を足すだけで defaultFolder 配下に作成される。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sa10026-8-3",
               "description": "入力中、既存フォルダのパスがドロップダウンで補完される(候補は既存ノートの folder から導出。smart-newfile と同じ deriveFolderCandidates を共有)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sa10026-8-1": {
               "title": "ui: 新規ノートモーダルを smart-newfile と統一",
               "description": "new-note ダイアログ(NameDialog・folder 固定)を廃し、smart-newfile のパス入力+フォルダ補完コンポーネントに統一(共有化)。作成ロジック(createSmartNewNote 相当)へ一本化。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa10026-8-2": {
               "title": "ui: defaultFolder prefill 配線 + mock/e2e",
               "description": "settings.yaml の defaultFolder を取得し、モーダル起動時に `<defaultFolder>/` を prefill(未設定なら空)。mock(prefill 有無/補完/検証)+ e2e(実サーバーで defaultFolder→作成→開くまで)。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }

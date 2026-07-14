@@ -1,0 +1,2 @@
+{"story_id":"Sa10026-8","reviewer":"統合 reconciliation + フルスイート/mock 検証","critical_findings":0,
+ "note":"NewNoteDialog(smart-newfile と統一・共有 deriveFolderCandidates)。defaultFolder prefill は GET /api/settings/system(-5 提供)経由。-8 が重複追加した appSettingsSchema(schemas.ts)と GET /api/settings/system(app.ts inline)を撤去し -5/正本に一本化。mock 14 pass。フルスイート 1216 pass。"}
