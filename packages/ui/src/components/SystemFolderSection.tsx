@@ -45,8 +45,10 @@ const SETTINGS_PATH = 'system/settings.yaml';
  */
 function replaceYamlOrder(content: string, newOrder: number): string {
   const orderLine = `order: ${newOrder}`;
-  if (/^order:\s*\S+/m.test(content)) {
-    return content.replace(/^order:\s*\S+/m, orderLine);
+  // NOTE: /^order:\s*\S+/m は \s が \n を含むため行をまたいでしまう。
+  // /^order:.*$/m で同一行内のみ置換する。
+  if (/^order:.*$/m.test(content)) {
+    return content.replace(/^order:.*$/m, orderLine);
   }
   return `${orderLine}\n${content}`;
 }
@@ -62,8 +64,8 @@ function replaceMdOrder(content: string, newOrder: number): string {
     const innerFm: string = m[1];
     const orderLine = `order: ${newOrder}`;
     let newInner: string;
-    if (/^order:\s*\S+/m.test(innerFm)) {
-      newInner = innerFm.replace(/^order:\s*\S+/m, orderLine);
+    if (/^order:.*$/m.test(innerFm)) {
+      newInner = innerFm.replace(/^order:.*$/m, orderLine);
     } else {
       newInner = `${innerFm}\n${orderLine}`;
     }
