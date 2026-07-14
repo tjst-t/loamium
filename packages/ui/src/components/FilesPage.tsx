@@ -170,18 +170,29 @@ export function FilesPage({
     [notes, files],
   );
 
-  const inScope = useCallback(
-    (folder: string): boolean => {
-      if (selectedFolder === '') return true;
-      return folder === selectedFolder || folder.startsWith(`${selectedFolder}/`);
-    },
+  /**
+   * 選択フォルダの「直下」だけを表示する (Sa10026-9 #6)。
+   * 以前は子孫を全部フラット表示していたが、直下ナビゲーションに変更する。
+   * フィルタ入力中は横断検索を許可 (直下に限定するとファイルを探せないため)。
+   */
+  const inDirectScope = useCallback(
+    (folder: string): boolean => folder === selectedFolder,
     [selectedFolder],
   );
+
+  const filtering = filter.trim() !== '';
 
   const visible = useMemo<Entry[]>(() => {
     const f = filter.trim().normalize('NFC').toLowerCase();
     return entries
-      .filter((e) => inScope(e.folder))
+      .filter((e) =>
+        f === ''
+          ? inDirectScope(e.folder)
+          : // フィルタ中は選択フォルダ配下 (子孫含む) を横断検索
+            selectedFolder === '' ||
+            e.folder === selectedFolder ||
+            e.folder.startsWith(`${selectedFolder}/`),
+      )
       .filter(
         (e) =>
           f === '' ||
@@ -189,7 +200,38 @@ export function FilesPage({
           e.path.toLowerCase().includes(f),
       )
       .sort((a, b) => b.mtime - a.mtime || a.path.localeCompare(b.path, 'ja'));
-  }, [entries, filter, inScope]);
+  }, [entries, filter, inDirectScope, selectedFolder]);
+
+  /**
+   * 選択フォルダの直下サブフォルダ (Sa10026-9 #6)。一覧テーブルにフォルダ行として出す。
+   * フィルタ中はフォルダ行を出さない (横断ファイル検索モードのため)。
+   */
+  const subfolders = useMemo<{ name: string; path: string }[]>(() => {
+    if (filtering) return [];
+    const prefix = selectedFolder === '' ? '' : `${selectedFolder}/`;
+    const set = new Set<string>();
+    for (const e of entries) {
+      const folder = e.folder;
+      if (selectedFolder === '') {
+        // ルート直下の第 1 セグメント
+        if (folder === '') continue;
+        set.add(folder.split('/')[0] ?? folder);
+      } else if (folder === selectedFolder || folder.startsWith(prefix)) {
+        const rest = folder === selectedFolder ? '' : folder.slice(prefix.length);
+        if (rest !== '') set.add(`${selectedFolder}/${rest.split('/')[0] ?? rest}`);
+      }
+    }
+    return [...set]
+      .map((path) => ({ name: path.split('/').at(-1) ?? path, path }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+  }, [entries, selectedFolder, filtering]);
+
+  /** パンくず: ルート + 選択フォルダの各階層 (親へ戻れる — #6 任意)。 */
+  const crumbs = useMemo<{ name: string; path: string }[]>(() => {
+    if (selectedFolder === '') return [];
+    const parts = selectedFolder.split('/');
+    return parts.map((name, i) => ({ name, path: parts.slice(0, i + 1).join('/') }));
+  }, [selectedFolder]);
 
   const totalSize = useMemo(() => visible.reduce((s, e) => s + e.size, 0), [visible]);
 
@@ -295,6 +337,33 @@ export function FilesPage({
         </span>
       </div>
 
+      {/* パンくず: 親フォルダへ戻れる (Sa10026-9 #6) */}
+      <nav className="files-breadcrumb" data-testid="files-breadcrumb" aria-label="フォルダ階層">
+        <button
+          type="button"
+          className="files-crumb"
+          data-testid="files-crumb"
+          data-path=""
+          onClick={() => setSelectedFolder('')}
+        >
+          すべてのファイル
+        </button>
+        {crumbs.map((c) => (
+          <span key={c.path} className="files-crumb-seg">
+            <span className="sep">/</span>
+            <button
+              type="button"
+              className="files-crumb"
+              data-testid="files-crumb"
+              data-path={c.path}
+              onClick={() => setSelectedFolder(c.path)}
+            >
+              {c.name}
+            </button>
+          </span>
+        ))}
+      </nav>
+
       <div className="files-main">
         <div className="files-tree-col" data-testid="files-tree">
           <button
@@ -320,6 +389,29 @@ export function FilesPage({
               </tr>
             </thead>
             <tbody>
+              {/* 直下サブフォルダ行 (Sa10026-9 #6): クリックでそのフォルダへ移動 */}
+              {subfolders.map((sf) => (
+                <tr
+                  key={`dir:${sf.path}`}
+                  className="folder-row"
+                  data-testid="folder-row"
+                  data-path={sf.path}
+                  onClick={() => setSelectedFolder(sf.path)}
+                >
+                  <td>
+                    <div className="fn-cell">
+                      <span className="fn-ico">
+                        <FolderIcon />
+                      </span>
+                      <span className="fn-name">{sf.name}</span>
+                    </div>
+                  </td>
+                  <td className="col-kind">フォルダ</td>
+                  <td className="col-size">—</td>
+                  <td className="col-mtime">—</td>
+                  <td />
+                </tr>
+              ))}
               {visible.map((entry) => (
                 <tr
                   key={entry.path}
@@ -394,11 +486,13 @@ export function FilesPage({
             </tbody>
           </table>
 
-          {loaded && visible.length === 0 && (
+          {loaded && visible.length === 0 && subfolders.length === 0 && (
             <div className="files-empty" data-testid="files-empty">
               {entries.length === 0
                 ? 'このフォルダにはまだファイルがありません。ノートを作成するか、assets/ にファイルをアップロードしてください。'
-                : '絞り込み条件に一致するファイルはありません。'}
+                : filtering
+                  ? '絞り込み条件に一致するファイルはありません。'
+                  : 'このフォルダには直下のファイル・サブフォルダがありません。'}
             </div>
           )}
         </div>

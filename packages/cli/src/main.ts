@@ -55,6 +55,9 @@ import {
   commandsResponseSchema,
   commandRunResponseSchema,
   appSettingsResponseSchema,
+  systemFileListResponseSchema,
+  systemFileSourceResponseSchema,
+  systemFileSourceWriteResponseSchema,
   agentConnectionResponseSchema,
   agentConnectionTestResponseSchema,
   agentPermissionsResponseSchema,
@@ -877,6 +880,73 @@ function buildProgram(): Command {
     });
 
   program.addCommand(settingsCmd);
+
+  // ---- system/ 設定ファイル (Sa10026-9 #1) — REST と 1:1 対応 ----
+
+  const systemFilesCmd = new Command('system-files');
+  systemFilesCmd
+    .description('system/ 設定ファイルを管理する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} });
+
+  // loamium system-files list (GET /api/system-files)
+  systemFilesCmd
+    .command('list')
+    .description('system/ 配下の設定ファイル (yaml + md) を一覧する (GET /api/system-files)')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, '/api/system-files');
+      output(opts, result, () => {
+        const res = parseAs(result, systemFileListResponseSchema, 'system-files list');
+        for (const f of res.files) {
+          println(`${f.path}\t${String(f.size)}`);
+        }
+      });
+    });
+
+  // loamium system-files get <path> (GET /api/system-files/{path}/source)
+  systemFilesCmd
+    .command('get')
+    .description('system/ ファイルの生テキストを取得する (GET /api/system-files/{path}/source)')
+    .argument('<path>', 'vault 相対パス (例: system/settings.yaml)')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (path: string, opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, `/api/system-files/${encodeFilePath(path)}/source`);
+      output(opts, result, () => {
+        const res = parseAs(result, systemFileSourceResponseSchema, 'system-files get');
+        process.stdout.write(res.content);
+      });
+    });
+
+  // loamium system-files set <path> <content> (PUT /api/system-files/{path}/source)
+  systemFilesCmd
+    .command('set')
+    .description('system/ ファイルへ生テキストを書き込む (PUT /api/system-files/{path}/source)')
+    .argument('<path>', 'vault 相対パス (例: system/settings.yaml)')
+    .argument('<content>', '書き込む生テキスト (YAML / Markdown)')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (path: string, content: string, opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(
+        base,
+        `/api/system-files/${encodeFilePath(path)}/source`,
+        putJson({ content }),
+      );
+      output(opts, result, () => {
+        const res = parseAs(result, systemFileSourceWriteResponseSchema, 'system-files set');
+        println(res.created ? `created ${res.path}` : `updated ${res.path}`);
+      });
+    });
+
+  program.addCommand(systemFilesCmd);
 
   // ---- エクスポート (ADR-0006 / Sa8ee62-1) ----
 

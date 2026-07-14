@@ -96,6 +96,16 @@ async function seedVault(vault: string): Promise<void> {
       '参加者: {{参加者}}',
       '',
     ].join('\n'),
+    // system/ 設定ファイル (Sa10026-9 #1/#4 の E2E 用) — GET /api/system-files で列挙され、
+    // サイドバーの system/ ネストフォルダツリーに描画される。
+    'system/settings.yaml': [
+      'theme: system',
+      'defaultFolder: ',
+      'journalTemplate: system/templates/journal.md',
+      'showSystemFolder: false',
+    ].join('\n'),
+    'system/smart-folders/recent.yaml': ['title: 最近', 'order: 10', 'query: file.mtime'].join('\n'),
+    'system/templates/journal.md': ['---', 'title: ジャーナル', 'order: 10', '---', '# 今日の振り返り', ''].join('\n'),
   };
   for (const [rel, content] of Object.entries(files)) {
     const abs = path.join(vault, rel);

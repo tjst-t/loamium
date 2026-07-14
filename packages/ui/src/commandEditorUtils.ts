@@ -28,6 +28,16 @@ export function isCommandFile(path: string): boolean {
 }
 
 /**
+ * system/ 配下の設定ファイル (yaml / md) かを判定する (Sa10026-9 #4)。
+ * true のとき、notes API (.md 強制) ではなく
+ * GET/PUT /api/system-files/{path}/source 経由で読み書きする。
+ * commands/*.yaml (トップレベル・レガシー) は CommandEditor が扱うため対象外。
+ */
+export function isSystemSourceFile(path: string): boolean {
+  return path === 'system' || path.startsWith('system/');
+}
+
+/**
  * @deprecated ADR-0024 以降は isCommandFile(path) を使用する。
  * 後方互換のため残す。frontmatter 引数は無視する。
  */

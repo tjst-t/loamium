@@ -28,6 +28,9 @@ describe('routeToPath', () => {
     expect(routeToPath({ kind: 'files' })).toBe('/files');
     expect(routeToPath({ kind: 'home' })).toBe('/');
   });
+  it('settings は /settings (Sa10026-9 #2)', () => {
+    expect(routeToPath({ kind: 'settings' })).toBe('/settings');
+  });
   it('search は条件を URL クエリに載せ、空値・既定 sort は省略する (S935867-1)', () => {
     expect(
       routeToPath({ kind: 'search', params: { q: 'バックアップ', tag: 'infra', folder: 'projects', sort: 'updated' } }),
@@ -48,6 +51,9 @@ describe('parseLocation', () => {
   });
   it('/files はファイル一覧', () => {
     expect(parseLocation('/files')).toEqual({ kind: 'files' });
+  });
+  it('/settings は設定ページ (Sa10026-9 #2)', () => {
+    expect(parseLocation('/settings')).toEqual({ kind: 'settings' });
   });
   it('/ と未知パスは home', () => {
     expect(parseLocation('/')).toEqual({ kind: 'home' });

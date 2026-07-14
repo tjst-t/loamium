@@ -265,6 +265,59 @@ export const fileRenameResponseSchema = z.object({
 });
 export type FileRenameResponse = z.infer<typeof fileRenameResponseSchema>;
 
+// ---- system/ 設定ファイル一覧 + ソース読み書き (Sa10026-9 #1) ----
+
+/**
+ * system/ 配下の 1 ファイルのメタ情報。
+ * settings.yaml / smart-folders/*.yaml / templates/*.md / commands/*.yaml を
+ * フォルダ構造付きで列挙する (path は "system/…" の vault 相対パス、NFC)。
+ */
+export const systemFileMetaSchema = z.object({
+  /** vault 相対パス (例: "system/smart-folders/recent.yaml"、NFC) */
+  path: z.string(),
+  /** バイト数 */
+  size: z.number().int().nonnegative(),
+  /** ファイルの mtime (ms epoch) */
+  mtime: z.number(),
+});
+export type SystemFileMeta = z.infer<typeof systemFileMetaSchema>;
+
+/** GET /api/system-files のレスポンス (path 昇順)。 */
+export const systemFileListResponseSchema = z.object({
+  files: z.array(systemFileMetaSchema),
+});
+export type SystemFileListResponse = z.infer<typeof systemFileListResponseSchema>;
+
+/** GET /api/system-files/{path}/source のレスポンス (yaml / md の生テキスト)。 */
+export const systemFileSourceResponseSchema = z.object({
+  /** vault 相対パス (NFC) */
+  path: z.string(),
+  /** 生テキスト (pure YAML または pure Markdown) */
+  content: z.string(),
+  /** ファイル mtime (ms epoch) */
+  mtime: z.number(),
+});
+export type SystemFileSourceResponse = z.infer<typeof systemFileSourceResponseSchema>;
+
+/** PUT /api/system-files/{path}/source のリクエストボディ。 */
+export const systemFileSourceWriteRequestSchema = z.object({
+  content: z.string(),
+  /**
+   * 楽観的競合検出。指定時、対象ファイルの現 mtime (ms epoch) と不一致なら 409 conflict。
+   * 省略時は無条件で上書き (last-write-wins)。
+   */
+  mtime: z.number().int().nonnegative().optional(),
+});
+export type SystemFileSourceWriteRequest = z.infer<typeof systemFileSourceWriteRequestSchema>;
+
+/** PUT /api/system-files/{path}/source のレスポンス。 */
+export const systemFileSourceWriteResponseSchema = z.object({
+  path: z.string(),
+  created: z.boolean(),
+  mtime: z.number(),
+});
+export type SystemFileSourceWriteResponse = z.infer<typeof systemFileSourceWriteResponseSchema>;
+
 // ---- クエリ (dataview 風 DQL — Sb1593c) ----
 
 export const queryRequestSchema = z.object({

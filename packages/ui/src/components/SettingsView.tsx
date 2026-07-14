@@ -36,6 +36,11 @@ interface SettingsViewProps {
   /** read-only / append-only モードか (App が GET /api/health 結果を渡す) */
   mode: 'full' | 'append-only' | 'read-only';
   onClose: () => void;
+  /**
+   * 全体設定 (defaultFolder 等) の保存成功後に呼ぶ (Sa10026-9 #7)。
+   * App 側で defaultFolder を再取得し、同一セッションの新規ノートに即反映するため。
+   */
+  onSaved?: () => void;
 }
 
 // ---- アイコン (SVG) ----
@@ -302,7 +307,7 @@ function SaveStatusBadge({ status, error }: { status: SaveStatus; error: string 
 
 // ---- SettingsView (main) ----
 
-export function SettingsView({ mode, onClose }: SettingsViewProps): JSX.Element {
+export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX.Element {
   const readonly = mode === 'read-only' || mode === 'append-only';
 
   const [activeGroup, setActiveGroup] = useState<SettingsGroup>('general');
@@ -435,11 +440,13 @@ export function SettingsView({ mode, onClose }: SettingsViewProps): JSX.Element 
       setGeneralSettings(generalDraft);
       setGeneralStatus('saved');
       setTimeout(() => setGeneralStatus('idle'), 2000);
+      // Sa10026-9 #7: 保存成功を App へ通知し defaultFolder 等を再取得させる
+      onSaved?.();
     } catch (err) {
       setGeneralStatus('error');
       setGeneralError(err instanceof Error ? err.message : String(err));
     }
-  }, [generalDraft]);
+  }, [generalDraft, onSaved]);
 
   const resetGeneral = useCallback((): void => {
     setGeneralDraft(generalSettings);

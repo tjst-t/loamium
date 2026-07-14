@@ -34,6 +34,7 @@ export interface SearchParams {
 export type Route =
   | { readonly kind: 'note'; readonly path: string }
   | { readonly kind: 'files' }
+  | { readonly kind: 'settings' }
   | { readonly kind: 'search'; readonly params: SearchParams }
   | { readonly kind: 'home' };
 
@@ -70,6 +71,8 @@ export function routeToPath(route: Route): string {
   switch (route.kind) {
     case 'files':
       return '/files';
+    case 'settings':
+      return '/settings';
     case 'home':
       return '/';
     case 'search': {
@@ -100,6 +103,7 @@ export function parseLocation(pathname: string, search = ''): Route {
     path = path.slice(0, qIdx);
   }
   if (path === '/files') return { kind: 'files' };
+  if (path === '/settings') return { kind: 'settings' };
   if (path === '/search') return { kind: 'search', params: parseSearchParams(query) };
   const m = /^\/n\/(.+)$/.exec(path);
   const raw = m?.[1];

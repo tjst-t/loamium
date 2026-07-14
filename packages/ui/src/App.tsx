@@ -24,6 +24,7 @@ import {
   type PermissionMode,
   type PropertyKeyCount,
   type PropertyTypeDef,
+  type SystemFileMeta,
   type TagCount,
   type TemplateSummary,
 } from '@loamium/shared';
@@ -37,7 +38,7 @@ import {
   type SearchParams,
 } from './router.js';
 import { makeTagClickHandler } from './tag-click.js';
-import { isCommandFile } from './commandEditorUtils.js';
+import { isCommandFile, isSystemSourceFile } from './commandEditorUtils.js';
 import { BookmarkStar } from './components/BookmarkStar.js';
 import { CommandEditor } from './components/CommandEditor.js';
 import { Editor } from './components/Editor.js';
@@ -62,6 +63,7 @@ import {
   CheckCircleIcon,
   CloseIcon,
   DocumentIcon,
+  FolderIcon,
   GearIcon,
   LinkIcon,
   NewNoteIcon,
@@ -87,6 +89,12 @@ interface OpenDoc {
   resetToken: number;
   /** サーバーから取得した frontmatter (BookmarkStar の初期値に使う) */
   frontmatter: Record<string, unknown> | null;
+  /**
+   * system/ 設定ファイル (yaml / md) を GET/PUT /api/system-files/{path}/source 経由で
+   * 読み書きするドキュメントか (Sa10026-9 #4)。notes API は .md を強制するため、
+   * settings.yaml / smart-folders/*.yaml 等はこの経路で扱う。
+   */
+  isSystemSource: boolean;
 }
 
 type DialogState =
@@ -198,12 +206,6 @@ export function App(): JSX.Element {
     localStorage.setItem('loamium.sidebarView', mode);
   }, []);
 
-  // ---- system/ フォルダ表示トグル (Sa10026-4) — 既定は非表示 ----
-  const [showSystemFolder, setShowSystemFolder] = useState(false);
-  const toggleSystemFolder = useCallback((): void => {
-    setShowSystemFolder((v) => !v);
-  }, []);
-
   // ---- スマートビュー: モード + 作成フォームトリガー ----
   const [smartViewMode, setSmartViewMode] = useState<PermissionMode | null>(null);
   const [smartAddTrigger, setSmartAddTrigger] = useState(0);
@@ -227,6 +229,8 @@ export function App(): JSX.Element {
   const [notes, setNotes] = useState<NoteMeta[] | null>(null);
   const [notesError, setNotesError] = useState<string | null>(null);
   const [files, setFiles] = useState<FileMeta[] | null>(null);
+  // system/ 設定ファイル一覧 (Sa10026-9 #1/#4) — サイドバー system/ ツリーの描画元
+  const [systemFiles, setSystemFiles] = useState<SystemFileMeta[] | null>(null);
   // 意味型スキーマ (.loamium/property-types.json → キー→型定義)。既定 {} (S87f4b7-2)
   const [propertyTypes, setPropertyTypes] = useState<Record<string, PropertyTypeDef>>({});
   // vault 横断のプロパティキー候補 (件数付き — Sd13ab1-2)。キーファースト追加の zone ①
@@ -260,8 +264,7 @@ export function App(): JSX.Element {
   const [today, setToday] = useState<string | null>(null);
   const [journalListOpen, setJournalListOpen] = useState(false);
 
-  // ---- 設定画面 (Sa10026-7) ----
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  // ---- 設定画面 (Sa10026-7 → Sa10026-9 #2: ルート化) ----
   /** GET /api/health から取得したサーバーモード (設定画面の read-only 制御に使う) */
   const [appMode, setAppMode] = useState<PermissionMode>('full');
 
@@ -356,6 +359,12 @@ export function App(): JSX.Element {
     }
   }, []);
 
+  // system/ 配下の設定ファイル一覧 (Sa10026-9 #1/#4)。yaml + md をフォルダ構造付きで持つ。
+  const refreshSystemFiles = useCallback(async (): Promise<void> => {
+    const res = await api.listSystemFiles();
+    setSystemFiles(res.files);
+  }, []);
+
   // ---- トースト (Sf53ad6-2) ----
   const toastCounterRef = useRef(0);
   const removeToast = useCallback((id: number): void => {
@@ -399,7 +408,10 @@ export function App(): JSX.Element {
       const text = contentRef.current;
       try {
         const base = opts?.force === true || d.mtime === null ? undefined : d.mtime;
-        const res = await api.putNote(d.path, text, base);
+        // Sa10026-9 #4: system/ 設定ファイルは system-files source 経由で書く (notes API は .md 強制)
+        const res = d.isSystemSource
+          ? await api.putSystemFileSource(d.path, text, base)
+          : await api.putNote(d.path, text, base);
         markSaved(d.path, res.mtime);
         if (docRef.current !== null) docRef.current = { ...docRef.current, mtime: res.mtime };
         if (contentRef.current === text) {
@@ -408,7 +420,9 @@ export function App(): JSX.Element {
         }
         setConflictPath(null);
         setAppError(null);
-        if (res.created) void refreshNotes();
+        if (res.created) void (d.isSystemSource ? refreshSystemFiles() : refreshNotes());
+        // system/ 設定ファイル保存後は system/ ツリーの mtime 等を最新化する (Sa10026-9 #4)
+        if (d.isSystemSource) void refreshSystemFiles();
         // 保存でインデックスが更新される → タグ候補ソースを最新化する (S45fa45)
         void refreshTags();
         // frontmatter キーが増減しうる → キーファースト候補も最新化する (Sd13ab1-2)
@@ -426,7 +440,7 @@ export function App(): JSX.Element {
         savingRef.current = false;
       }
     },
-    [markSaved, refreshNotes, refreshTags, refreshPropertyKeys],
+    [markSaved, refreshNotes, refreshSystemFiles, refreshTags, refreshPropertyKeys],
   );
 
   const onEditorChange = useCallback(
@@ -460,7 +474,13 @@ export function App(): JSX.Element {
   }, []);
 
   const setOpenDoc = useCallback(
-    (path: string, text: string, mtime: number | null, frontmatter: Record<string, unknown> | null): void => {
+    (
+      path: string,
+      text: string,
+      mtime: number | null,
+      frontmatter: Record<string, unknown> | null,
+      opts?: { isSystemSource?: boolean },
+    ): void => {
       resetCounterRef.current += 1;
       const next: OpenDoc = {
         path,
@@ -469,6 +489,7 @@ export function App(): JSX.Element {
         journalDate: journalDateOf(path),
         resetToken: resetCounterRef.current,
         frontmatter,
+        isSystemSource: opts?.isSystemSource ?? false,
       };
       contentRef.current = text;
       dirtyRef.current = false;
@@ -515,6 +536,14 @@ export function App(): JSX.Element {
           const res = await api.getCommandSource(stem);
           setPreview(null);
           setOpenDoc(res.path, res.content, res.mtime, null);
+          setAppError(null);
+          return res.path;
+        }
+        // Sa10026-9 #4: system/ 配下の設定ファイル (yaml / md) は system-files source 経由で読む
+        if (isSystemSourceFile(path)) {
+          const res = await api.getSystemFileSource(path);
+          setPreview(null);
+          setOpenDoc(res.path, res.content, res.mtime, null, { isSystemSource: true });
           setAppError(null);
           return res.path;
         }
@@ -600,6 +629,27 @@ export function App(): JSX.Element {
   }, [applyHistory, saveNow]);
 
   /**
+   * 設定ページ (/settings) へ遷移 (Sa10026-9 #2)。歯車から呼ぶ。履歴に積む。
+   * 編集中のノートは保存し、text を同期してからルートを切り替える (戻るで復元)。
+   */
+  const showSettings = useCallback((): void => {
+    void saveNow();
+    setDoc((d) => (d !== null ? { ...d, text: contentRef.current } : d));
+    setPreview(null);
+    applyHistory({ kind: 'settings' }, 'push');
+  }, [applyHistory, saveNow]);
+
+  /**
+   * 設定保存後に App 側の設定 state を再取得する (Sa10026-9 #7)。
+   * 設定画面で defaultFolder を変更・保存しても、マウント時に一度だけ取得した
+   * App の defaultFolder が古いままになり、同一セッションの新規ノートに反映されない
+   * 問題を解消する。SettingsView の保存成功 / 設定ページ離脱時に呼ぶ。
+   */
+  const refreshDefaultFolder = useCallback((): void => {
+    void api.getSystemSettings().then((s) => setDefaultFolder(s.defaultFolder ?? ''));
+  }, []);
+
+  /**
    * 詳細検索ページ (/search?…) へ遷移 (S935867-1)。条件は URL クエリに同期する。
    * Cmd+K パレットの「詳細検索を開く」導線・検索フォーム送信・履歴クリックから呼ばれる。
    */
@@ -680,6 +730,7 @@ export function App(): JSX.Element {
     didInitRef.current = true;
     void refreshNotes();
     void refreshFiles();
+    void refreshSystemFiles();
     void refreshPropertyTypes();
     void refreshPropertyKeys();
     void refreshTags();
@@ -704,6 +755,8 @@ export function App(): JSX.Element {
       });
     } else if (r0.kind === 'files') {
       applyHistory({ kind: 'files' }, 'replace');
+    } else if (r0.kind === 'settings') {
+      applyHistory({ kind: 'settings' }, 'replace');
     } else if (r0.kind === 'search') {
       applyHistory({ kind: 'search', params: r0.params }, 'replace');
     } else {
@@ -721,6 +774,9 @@ export function App(): JSX.Element {
       syncNavFlags();
       const r = parseLocation(window.location.pathname, window.location.search);
       if (r.kind === 'files') {
+        setPreview(null);
+        applyHistory(r, 'none');
+      } else if (r.kind === 'settings') {
         setPreview(null);
         applyHistory(r, 'none');
       } else if (r.kind === 'search') {
@@ -1228,8 +1284,13 @@ export function App(): JSX.Element {
     setConflictPath(null);
     if (d === null) return;
     try {
-      const res = await api.getNote(d.path);
-      setOpenDoc(res.path, res.content, res.mtime, res.frontmatter);
+      if (d.isSystemSource) {
+        const res = await api.getSystemFileSource(d.path);
+        setOpenDoc(res.path, res.content, res.mtime, null, { isSystemSource: true });
+      } else {
+        const res = await api.getNote(d.path);
+        setOpenDoc(res.path, res.content, res.mtime, res.frontmatter);
+      }
       setAppError(null);
     } catch (err) {
       setAppError(`再読み込みに失敗しました — ${errMessage(err)}`);
@@ -1292,15 +1353,6 @@ export function App(): JSX.Element {
             onClick={() => setPaletteOpen(true)}
           >
             <SearchIcon />
-          </button>
-          <button
-            className={`icon-btn${settingsOpen ? ' active' : ''}`}
-            data-testid="sidebar-settings"
-            title="設定"
-            aria-current={settingsOpen ? 'page' : undefined}
-            onClick={() => setSettingsOpen((v) => !v)}
-          >
-            <GearIcon />
           </button>
         </div>
 
@@ -1497,38 +1549,46 @@ export function App(): JSX.Element {
               onContextMenuNote={onContextMenuNote}
               onContextMenuFolder={onContextMenuFolder}
             />
-            {/* system/ 表示トグル + 定義ファイル一覧 (Sa10026-4) */}
+            {/* system/ ネストフォルダツリー (Sa10026-9 #4/#5: トグル撤去・常時表示) */}
             <SystemFolderSection
-              notes={notes}
-              shown={showSystemFolder}
-              onToggle={toggleSystemFolder}
+              systemFiles={systemFiles}
+              activePath={activeSidebarPath}
+              collapsed={collapsedFolders}
+              onToggleFolder={toggleFolder}
               onOpenNote={(path) => void openNotePath(path)}
             />
           </>
         )}
 
-        <div className="tree-section-title show-all-row">
-          <span className="recent-hint">画像・PDF 等の添付はこちら</span>
+        {/* 最下部バー (Sa10026-9 #3): 左=歯車(設定) / 右=フォルダ(すべてのファイル) */}
+        <div className="sidebar-bottom-bar" data-testid="sidebar-bottom-bar">
           <button
-            className="show-all"
+            className={`sidebar-bottom-btn${route.kind === 'settings' ? ' active' : ''}`}
+            data-testid="sidebar-settings"
+            title="設定"
+            aria-current={route.kind === 'settings' ? 'page' : undefined}
+            onClick={showSettings}
+          >
+            <GearIcon />
+          </button>
+          <button
+            className={`sidebar-bottom-btn${route.kind === 'files' ? ' active' : ''}`}
             data-testid="sidebar-show-all"
+            title="すべてのファイル (画像・PDF・添付を含む)"
+            aria-current={route.kind === 'files' ? 'page' : undefined}
             onClick={showFiles}
           >
-            すべてのファイルを表示 →
+            <FolderIcon />
           </button>
         </div>
       </aside>
 
       {/* ================= 中央: メイン 1 画面 ================= */}
       <main className="workspace">
-        {/* ---- 統一設定画面 (Sa10026-7) ---- */}
-        {settingsOpen && (
-          <SettingsView
-            mode={appMode}
-            onClose={() => setSettingsOpen(false)}
-          />
-        )}
-        <div className="editor-header" style={settingsOpen ? { display: 'none' } : undefined}>
+        <div
+          className="editor-header"
+          style={route.kind === 'settings' ? { display: 'none' } : undefined}
+        >
           <div className="nav-group">
             <button
               className="nav-btn"
@@ -1552,6 +1612,8 @@ export function App(): JSX.Element {
           <nav className="route-crumbs breadcrumb" data-testid="route-display" aria-label="現在のルート">
             {route.kind === 'files' ? (
               <span className="route-token">/files</span>
+            ) : route.kind === 'settings' ? (
+              <span className="route-token">/settings</span>
             ) : route.kind === 'search' ? (
               <>
                 <span className="route-token">/search</span>
@@ -1592,7 +1654,7 @@ export function App(): JSX.Element {
               <span>{dirty ? '未保存' : '保存済み'}</span>
             </div>
           )}
-          {route.kind === 'note' && doc !== null && preview === null && (
+          {route.kind === 'note' && doc !== null && preview === null && !doc.isSystemSource && (
             <BookmarkStar
               key={doc.path}
               docPath={doc.path}
@@ -1609,13 +1671,24 @@ export function App(): JSX.Element {
           )}
         </div>
 
-        {route.kind === 'search' && !settingsOpen ? (
+        {route.kind === 'settings' ? (
+          <SettingsView
+            mode={appMode}
+            onClose={() => {
+              // 履歴があれば戻る (エディタへ)。無ければ開いているノート or ジャーナルへ。
+              if (canBack) window.history.back();
+              else if (doc !== null) applyHistory({ kind: 'note', path: doc.path }, 'push');
+              else void openJournalNav();
+            }}
+            onSaved={refreshDefaultFolder}
+          />
+        ) : route.kind === 'search' ? (
           <SearchPage
             params={route.params}
             onNavigate={openSearch}
             onOpenNoteInEditor={(path) => void openNotePath(path)}
           />
-        ) : settingsOpen ? null : route.kind === 'files' ? (
+        ) : route.kind === 'files' ? (
           <FilesPage
             notes={notes}
             files={files}

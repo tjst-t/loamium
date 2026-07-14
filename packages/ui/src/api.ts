@@ -35,6 +35,9 @@ import {
   commandRunResponseSchema,
   commandSourceResponseSchema,
   commandSourceWriteResponseSchema,
+  systemFileListResponseSchema,
+  systemFileSourceResponseSchema,
+  systemFileSourceWriteResponseSchema,
   appSettingsResponseSchema,
   agentConnectionResponseSchema,
   agentPermissionsResponseSchema,
@@ -70,6 +73,9 @@ import {
   type CommandRunResponse,
   type CommandSourceResponse,
   type CommandSourceWriteResponse,
+  type SystemFileListResponse,
+  type SystemFileSourceResponse,
+  type SystemFileSourceWriteResponse,
   type CommandSummary,
   type AppSettings,
   type AgentConnectionResponse,
@@ -419,6 +425,41 @@ export const api = {
    */
   getCommandSource(id: string): Promise<CommandSourceResponse> {
     return request(commandSourceResponseSchema, `/api/commands/${encodeURIComponent(id)}/source`);
+  },
+
+  /**
+   * system/ 配下の全設定ファイル (yaml + md) をフォルダ構造付きで列挙する
+   * (GET /api/system-files — Sa10026-9 #1)。settings.yaml / smart-folders/*.yaml /
+   * templates/*.md / commands/*.yaml を含む。取得失敗時は空リスト (graceful degradation)。
+   */
+  async listSystemFiles(): Promise<SystemFileListResponse> {
+    try {
+      return await request(systemFileListResponseSchema, '/api/system-files');
+    } catch {
+      return { files: [] };
+    }
+  },
+
+  /**
+   * system/ 配下ファイルの生テキストを取得する (GET /api/system-files/{path}/source)。
+   * notes API の .md 強制を回避し、yaml / md を同じ経路で読む。
+   */
+  getSystemFileSource(path: string): Promise<SystemFileSourceResponse> {
+    return request(systemFileSourceResponseSchema, `/api/system-files/${encodeNotePath(path)}/source`);
+  },
+
+  /**
+   * system/ 配下ファイルへ生テキストを書き込む (PUT /api/system-files/{path}/source)。
+   * mtime: 楽観的競合検出 (省略時は無条件上書き)。
+   */
+  putSystemFileSource(path: string, content: string, mtime?: number): Promise<SystemFileSourceWriteResponse> {
+    const body: { content: string; mtime?: number } = { content };
+    if (mtime !== undefined) body.mtime = mtime;
+    return request(systemFileSourceWriteResponseSchema, `/api/system-files/${encodeNotePath(path)}/source`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
   },
 
   /**

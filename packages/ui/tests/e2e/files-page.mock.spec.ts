@@ -104,9 +104,20 @@ test('[MOCK] 空 vault は files-empty を表示し、file-row は出ない', as
   expect(unexpected).toEqual([]);
 });
 
-test('[MOCK] ノート + 添付が一覧表示され、名前で絞り込める', async ({ page }) => {
+test('[MOCK] 直下ナビ: ルートは直下のみ (フォルダ行 + 直下ファイル)、フォルダへ潜れる (#6)', async ({ page }) => {
   const { unexpected } = await openFiles(page, { notes: NOTES, files: FILES });
-  await expect(page.getByTestId('file-row')).toHaveCount(4);
+  // ルート直下: ファイルは inbox.md のみ、projects/ と assets/ はフォルダ行
+  await expect(page.locator('[data-testid="file-row"][data-path="inbox.md"]')).toBeVisible();
+  await expect(page.locator('[data-testid="folder-row"][data-path="assets"]')).toBeVisible();
+  await expect(page.locator('[data-testid="folder-row"][data-path="projects"]')).toBeVisible();
+  // ルート直下の子孫ファイルはフラット表示されない
+  await expect(
+    page.locator('[data-testid="file-row"][data-path="assets/network-topology.png"]'),
+  ).toHaveCount(0);
+
+  // assets フォルダ行をクリック → assets の直下へ移動
+  await page.locator('[data-testid="folder-row"][data-path="assets"]').click();
+  await expect(page.getByTestId('file-row')).toHaveCount(2);
   await expect(
     page.locator('[data-testid="file-row"][data-path="assets/network-topology.png"]'),
   ).toContainText('PNG 画像');
@@ -125,6 +136,8 @@ test('[MOCK] ノート + 添付が一覧表示され、名前で絞り込める'
 
 test('[MOCK] 削除確認: キャンセルで残り、確定で DELETE され一覧から消える', async ({ page }) => {
   const { unexpected, deleted } = await openFiles(page, { notes: NOTES, files: FILES });
+  // #6: assets 直下へ移動してから削除
+  await page.locator('[data-testid="folder-row"][data-path="assets"]').click();
   const targetRow = page.locator('[data-testid="file-row"][data-path="assets/capacity.csv"]');
   await expect(targetRow).toBeVisible();
 
@@ -143,15 +156,51 @@ test('[MOCK] 削除確認: キャンセルで残り、確定で DELETE され一
   await targetRow.getByTestId('file-delete-btn').click();
   await page.getByTestId('delete-confirm').click();
   await expect(targetRow).toHaveCount(0);
-  await expect(page.getByTestId('file-row')).toHaveCount(3);
+  // assets 直下は 2 件 → 1 件になる (#6: 直下ナビ)
+  await expect(page.getByTestId('file-row')).toHaveCount(1);
   expect(deleted).toEqual(['assets/capacity.csv']);
   await expect(page.getByTestId('app-error')).toHaveCount(0);
   expect(unexpected).toEqual([]);
 });
 
+test('[MOCK] #6 パンくずで親フォルダへ戻れる / ネストしたサブフォルダを辿れる', async ({ page }) => {
+  const NESTED: NoteMock[] = [
+    { path: 'a/b/deep.md', title: 'deep', tags: [], folder: 'a/b', mtime: 100, size: 10 },
+    { path: 'a/mid.md', title: 'mid', tags: [], folder: 'a', mtime: 200, size: 10 },
+  ];
+  const { unexpected } = await openFiles(page, { notes: NESTED, files: [] });
+
+  // ルート: a フォルダ行のみ (直下ファイルなし)
+  await expect(page.locator('[data-testid="folder-row"][data-path="a"]')).toBeVisible();
+  await expect(page.getByTestId('file-row')).toHaveCount(0);
+
+  // a へ潜る → mid.md (直下ファイル) + b (サブフォルダ行)
+  await page.locator('[data-testid="folder-row"][data-path="a"]').click();
+  await expect(page.locator('[data-testid="file-row"][data-path="a/mid.md"]')).toBeVisible();
+  await expect(page.locator('[data-testid="folder-row"][data-path="a/b"]')).toBeVisible();
+
+  // さらに a/b へ潜る → deep.md
+  await page.locator('[data-testid="folder-row"][data-path="a/b"]').click();
+  await expect(page.locator('[data-testid="file-row"][data-path="a/b/deep.md"]')).toBeVisible();
+  await expect(page.locator('[data-testid="file-row"][data-path="a/mid.md"]')).toHaveCount(0);
+
+  // パンくずで a に戻る
+  await page.locator('[data-testid="files-crumb"][data-path="a"]').click();
+  await expect(page.locator('[data-testid="file-row"][data-path="a/mid.md"]')).toBeVisible();
+  await expect(page.locator('[data-testid="folder-row"][data-path="a/b"]')).toBeVisible();
+
+  // パンくずのルートで最上位へ
+  await page.locator('[data-testid="files-crumb"][data-path=""]').click();
+  await expect(page.locator('[data-testid="folder-row"][data-path="a"]')).toBeVisible();
+  expect(unexpected).toEqual([]);
+});
+
 test('[MOCK] /api/notes 失敗でも取得できた添付は表示され、app-error に漏れない', async ({ page }) => {
   await openFiles(page, { failNotes: true, files: FILES });
-  // ノートは取れないが添付 2 件は一覧に出る
+  // #6: 添付は assets/ 配下。ルートでは assets フォルダ行が出る
+  await expect(page.locator('[data-testid="folder-row"][data-path="assets"]')).toBeVisible();
+  // assets 直下へ潜ると添付 2 件が出る
+  await page.locator('[data-testid="folder-row"][data-path="assets"]').click();
   await expect(page.getByTestId('file-row')).toHaveCount(2);
   await expect(
     page.locator('[data-testid="file-row"][data-path="assets/network-topology.png"]'),

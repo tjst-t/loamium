@@ -212,6 +212,8 @@ test('[MOCK] 非 .md はサイドバーツリーに出ず /files に種別付き
   // 「すべてのファイルを表示」→ /files に非 .md が種別付きで並ぶ
   await page.getByTestId('sidebar-show-all').click();
   await expect(page).toHaveURL(/\/files$/);
+  // #6 直下ナビ: 添付は assets/ 配下。assets フォルダへ潜る
+  await page.locator('[data-testid="folder-row"][data-path="assets"]').click();
   const png = page.locator('[data-testid="file-row"][data-path="assets/rack.png"]');
   await expect(png).toBeVisible();
   // アイコンの種別区別 (画像=ico-img / PDF=ico-pdf / データ=ico-data)
@@ -280,6 +282,8 @@ test('[MOCK] 添付のリネーム・削除は /files から files API を叩き
   // 添付のリネーム/削除 UI は /files に集約 (S79c210-1)
   await page.getByTestId('sidebar-show-all').click();
   await expect(page).toHaveURL(/\/files$/);
+  // #6 直下ナビ: assets フォルダへ潜る
+  await page.locator('[data-testid="folder-row"][data-path="assets"]').click();
   const item = page.locator('[data-testid="file-row"][data-path="assets/old.png"]');
   await expect(item).toBeVisible();
 

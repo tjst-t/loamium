@@ -58,6 +58,11 @@ export async function installCatchAll(page: Page): Promise<string[]> {
   await page.route('**/api/files', (route) => {
     void route.fulfill(json({ files: [] }));
   });
+  // GET /api/system-files (system/ 設定ファイル一覧 — Sa10026-9 #1) も起動時の定常呼び出し。
+  // 既定は空リスト。system/ ツリーを検証するテストは後から自前の route で上書きする。
+  await page.route('**/api/system-files', (route) => {
+    void route.fulfill(json({ files: [] }));
+  });
   // GET /api/property-types (意味型スキーマ — S87f4b7-2) も起動時の定常呼び出し。
   // 既定は空 {} (ヒューリスティックのみ)。JSON定義を検証するテストは後から上書きする。
   await page.route('**/api/property-types', (route) => {

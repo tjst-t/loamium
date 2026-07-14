@@ -94,6 +94,8 @@ test('[AC-S79c210-1-2] 非ノート asset はツリーに出ず /files に集約
   // 「すべてのファイルを表示」→ /files に asset が集約される
   await page.getByTestId('sidebar-show-all').click();
   await expect(page).toHaveURL(/\/files$/);
+  // #6 直下ナビ: 名前フィルタで横断検索して asset を確認する
+  await page.getByTestId('files-filter').fill('picture.png');
   await expect(
     page.locator(`[data-testid="file-row"][data-path="${ROOT}-a/picture.png"]`),
   ).toBeVisible();

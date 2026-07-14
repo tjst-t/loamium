@@ -239,6 +239,50 @@ export async function listVaultFiles(
   return out;
 }
 
+/**
+ * system/ 配下の全ファイル (yaml + md その他) を列挙する (Sa10026-9 #1)。
+ * 拡張子を問わず列挙する (settings.yaml / smart-folders/*.yaml / templates/*.md /
+ * commands/*.yaml を含む)。ドット始まりのセグメントは除外 (hidden protection)。
+ * ディレクトリが無ければ空配列 (寛容 — ファイルが正)。パス昇順、NFC・"/" 区切り。
+ */
+export async function listSystemFiles(
+  vaultRoot: string,
+): Promise<{ path: string; size: number; mtime: number }[]> {
+  const root = path.resolve(vaultRoot);
+  const systemAbs = path.join(root, 'system');
+  const out: { path: string; size: number; mtime: number }[] = [];
+  const walk = async (dirAbs: string): Promise<void> => {
+    let entries;
+    try {
+      entries = await fs.readdir(dirAbs, { withFileTypes: true });
+    } catch {
+      return; // system/ が無い等は無視 (寛容)
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue; // hidden protection
+      const abs = path.join(dirAbs, entry.name);
+      if (entry.isDirectory()) {
+        await walk(abs);
+      } else if (entry.isFile()) {
+        let st;
+        try {
+          st = await fs.stat(abs);
+        } catch {
+          continue; // 走査中に消えたファイル
+        }
+        out.push({
+          path: path.relative(root, abs).split(path.sep).join('/').normalize('NFC'),
+          size: st.size,
+          mtime: Math.trunc(st.mtimeMs),
+        });
+      }
+    }
+  };
+  await walk(systemAbs);
+  out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  return out;
+}
+
 /** ノートを削除する。存在しなければ false。 */
 export async function deleteNote(vaultRoot: string, relPath: string): Promise<boolean> {
   const abs = resolveVaultFile(vaultRoot, relPath);

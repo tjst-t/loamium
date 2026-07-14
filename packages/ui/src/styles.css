@@ -259,30 +259,41 @@ a { color: var(--link); text-decoration: none; }
 }
 .tree-error { color: var(--danger); }
 
-/* ---- system/ 表示トグル + 定義ファイル一覧 (Sa10026-4) ----------------- */
+/* ---- system/ ネストフォルダツリー (Sa10026-9 #4/#5) --------------------- */
 
-.tree-system-toggle {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: 100%;
-  margin-top: 8px;
-  padding: 7px 8px;
-  border: none;
+/* 常時表示。FileTree のみを伸縮させ、system/ ツリーは内容高さで下部に積む。 */
+.tree-system {
+  flex: 0 0 auto;
+  max-height: 40%;
+  overflow-y: auto;
   border-top: 1px solid var(--border);
-  background: none;
-  color: var(--text-muted);
-  font-size: 12px;
-  cursor: pointer;
-  text-align: left;
+  padding-top: 4px;
 }
-.tree-system-toggle:hover { color: var(--text); }
-.tree-system-toggle :where(svg) { width: 13px; height: 13px; flex-shrink: 0; transition: transform .12s; }
-.tree-system-toggle[data-state="shown"] .chev { transform: rotate(90deg); }
-.tree-system-toggle .lbl { flex: 1; }
-.tree-system-toggle .state { font-size: 10.5px; color: var(--text-faint); }
+.tree-system .tree-empty { padding: 8px; color: var(--text-faint); font-size: 12px; }
 
-.tree-system { padding-left: 2px; }
+/* ---- サイドバー最下部バー (Sa10026-9 #3): 左=歯車 / 右=フォルダ --------- */
+
+.sidebar-bottom-bar {
+  display: flex;
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+.sidebar-bottom-btn {
+  flex: 1 1 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 0;
+  color: var(--text-muted);
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+.sidebar-bottom-btn + .sidebar-bottom-btn { border-left: 1px solid var(--border); }
+.sidebar-bottom-btn:hover { background: var(--bg-hover); color: var(--text); }
+.sidebar-bottom-btn.active { color: var(--accent); background: var(--accent-soft); }
+.sidebar-bottom-btn :where(svg) { width: 16px; height: 16px; }
 
 .tree-group-label {
   display: flex;
@@ -2876,6 +2887,31 @@ button.callout-title { cursor: pointer; }
   color: var(--text);
 }
 .files-count { margin-left: auto; font-size: 12px; color: var(--text-faint); }
+
+/* パンくず (Sa10026-9 #6): 親フォルダへ戻れる */
+.files-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.files-breadcrumb .files-crumb {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.files-breadcrumb .files-crumb:hover { background: var(--bg-hover); color: var(--text); }
+.files-breadcrumb .sep { color: var(--text-faint); margin: 0 1px; }
+
+/* 一覧テーブルのフォルダ行 (Sa10026-9 #6) */
+.files-table tr.folder-row td { cursor: pointer; }
+.files-table tr.folder-row .fn-name { font-weight: 600; }
 
 .files-main { flex: 1; display: flex; min-height: 0; }
 
