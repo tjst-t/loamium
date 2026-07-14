@@ -100,5 +100,12 @@ export async function installCatchAll(page: Page): Promise<string[]> {
   await page.route('**/api/commands', (route) => {
     void route.fulfill(json({ commands: [] }));
   });
+  // GET /api/settings/system (アプリ全体設定 — Sa10026-3/-5/-8)。
+  // 既定は defaultFolder:'' (設定なし)。defaultFolder を検証するテストは後から上書きする。
+  await page.route('**/api/settings/system', (route) => {
+    void route.fulfill(
+      json({ settings: { theme: 'system', defaultFolder: '', journalTemplate: 'system/templates/journal.md', showSystemFolder: false } }),
+    );
+  });
   return unexpected;
 }

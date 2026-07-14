@@ -967,3 +967,24 @@ export const commandSourceWriteResponseSchema = z.object({
   mtime: z.number(),
 });
 export type CommandSourceWriteResponse = z.infer<typeof commandSourceWriteResponseSchema>;
+
+// ---- アプリ全体設定 (Sa10026-3/-5/-8) ----
+
+/**
+ * アプリ全体設定スキーマ (system/settings.yaml)。
+ * defaultFolder が新規ノート作成モーダルの prefill に使われる (Sa10026-8)。
+ */
+export const appSettingsSchema = z.object({
+  theme: z.enum(['light', 'dark', 'system']).default('system'),
+  /** 新規ノート作成モーダルの保存先デフォルトフォルダ (vault 相対、"" = ルート)。 */
+  defaultFolder: z.string().default(''),
+  journalTemplate: z.string().default('system/templates/journal.md'),
+  showSystemFolder: z.boolean().default(false),
+}).passthrough();
+export type AppSettings = z.infer<typeof appSettingsSchema>;
+
+/** GET /api/settings/system のレスポンス。 */
+export const appSettingsResponseSchema = z.object({
+  settings: appSettingsSchema,
+});
+export type AppSettingsResponse = z.infer<typeof appSettingsResponseSchema>;

@@ -35,6 +35,7 @@ import {
   commandRunResponseSchema,
   commandSourceResponseSchema,
   commandSourceWriteResponseSchema,
+  appSettingsResponseSchema,
   type TemplateInstantiateResponse,
   type TemplateSummary,
   type PropertyKeyCount,
@@ -63,6 +64,7 @@ import {
   type CommandSourceResponse,
   type CommandSourceWriteResponse,
   type CommandSummary,
+  type AppSettings,
 } from '@loamium/shared';
 
 export class ApiError extends Error {
@@ -404,6 +406,21 @@ export const api = {
    */
   getCommandSource(id: string): Promise<CommandSourceResponse> {
     return request(commandSourceResponseSchema, `/api/commands/${encodeURIComponent(id)}/source`);
+  },
+
+  /**
+   * アプリ全体設定を取得する (GET /api/settings/system — Sa10026-3/-5)。
+   * 404 / 接続エラーの場合は既定値 { defaultFolder: '' } を返す (graceful degradation)。
+   * [AC-Sa10026-8-2]
+   */
+  async getSystemSettings(): Promise<AppSettings> {
+    try {
+      const res = await request(appSettingsResponseSchema, '/api/settings/system');
+      return res.settings;
+    } catch {
+      // 設定取得失敗時 (Sa10026-5 未実装環境など) は既定値で動く
+      return { theme: 'system', defaultFolder: '', journalTemplate: 'system/templates/journal.md', showSystemFolder: false };
+    }
   },
 
   /**

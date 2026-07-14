@@ -1,7 +1,9 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import type { HealthResponse } from '@loamium/shared';
-import { DqlParseError, HiddenVaultPathError, JournalDateError, VaultPathError } from '@loamium/shared';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
+import type { HealthResponse, AppSettingsResponse } from '@loamium/shared';
+import { DqlParseError, HiddenVaultPathError, JournalDateError, VaultPathError, appSettingsSchema } from '@loamium/shared';
 import type { ServerConfig } from './config.js';
 import type { AppEnv } from './http.js';
 import { notesRoutes } from './routes/notes.js';
@@ -82,6 +84,30 @@ export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv>
     // 未想定エラー — スタックを stderr に記録し、詳細はレスポンスに含めない
     console.error(`[loamium] ${method} ${path} → 500 ${name}: ${message}\n${stack}`);
     return c.json({ error: 'internal_error', message: 'internal server error' }, 500);
+  });
+
+  /**
+   * GET /api/settings/system — アプリ全体設定 (system/settings.yaml) を読み取り返す。
+   * ファイルが存在しない場合は既定値を返す (Sa10026-3/-5/-8 の最小実装)。
+   * [AC-Sa10026-8-2]
+   */
+  app.get('/api/settings/system', async (c) => {
+    const settingsPath = path.resolve(config.vaultRoot, 'system', 'settings.yaml');
+    let raw: unknown = {};
+    try {
+      const text = await fs.readFile(settingsPath, 'utf-8');
+      const { parse: parseYaml } = await import('yaml');
+      const parsed = parseYaml(text);
+      if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        raw = parsed;
+      }
+    } catch {
+      // ファイル不在や parse 失敗時は既定値を使う (アプリを止めない)
+    }
+    const result = appSettingsSchema.safeParse(raw);
+    const settings = result.success ? result.data : appSettingsSchema.parse({});
+    const res: AppSettingsResponse = { settings };
+    return c.json(res);
   });
 
   app.get('/api/health', async (c) => {

@@ -120,10 +120,13 @@ test('[AC-S79c210-1-3] フォルダの中にフォルダとノートを作成で
   await expect(nested).toBeVisible();
 
   // そのフォルダの中にノートを作る → フォルダが実体化しノートが開く
+  // Sa10026-8: new-note-input → new-note-path (パス入力に統一)
+  // context-new-note はフォルダを初期値に prefill するので、ファイル名を追記する
   await nested.click({ button: 'right' });
   await expect(page.getByTestId('tree-context-menu')).toBeVisible();
   await page.getByTestId('context-new-note').click();
-  await page.getByTestId('new-note-input').fill('inner');
+  // input には既に "st-tree-e2e-b/nested/" が prefill されているので "inner" を追記
+  await page.getByTestId('new-note-path').type('inner');
   await page.getByTestId('new-note-confirm').click();
 
   const inner = page.locator(`[data-testid="tree-item"][data-path="${ROOT}-b/nested/inner.md"]`);
