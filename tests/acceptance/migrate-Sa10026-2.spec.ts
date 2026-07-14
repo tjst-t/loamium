@@ -174,6 +174,30 @@ describe('AC-Sa10026-2-1: smart-folders migration', () => {
     expect(ids).toContain('existing');
   });
 
+  it('[AC-Sa10026-2-1] traversal を含む id はスキップされ、他の item は正常移行する', async () => {
+    const oldConfig = {
+      version: 1,
+      items: [
+        { kind: 'query', id: '../../escape', name: 'Bad', dql: 'LIST LIMIT 1' },
+        { kind: 'query', id: 'safe', name: 'Safe', dql: 'LIST LIMIT 1' },
+      ],
+    };
+    await seedFile('.loamium/smart-folders.json', JSON.stringify(oldConfig));
+
+    // 移行時に traversal id で例外を投げずサーバが起動すること
+    server = await startServer({ vault });
+    const { baseUrl } = server;
+
+    const res = await fetch(`${baseUrl}/api/smart-folders`);
+    const body = (await res.json()) as { items: Array<{ id: string }> };
+    const ids = body.items.map((i) => i.id);
+    // safe は移行される / traversal id は含まれない
+    expect(ids).toContain('safe');
+    expect(ids).not.toContain('../../escape');
+    // vault 外へ escape.yaml が書かれていない
+    await expect(stat(path.join(vault, '..', 'escape.yaml'))).rejects.toThrow();
+  });
+
   it('[AC-Sa10026-2-3] 冪等: 二重起動しても smart-folders データが失われない', async () => {
     const oldConfig = {
       version: 1,

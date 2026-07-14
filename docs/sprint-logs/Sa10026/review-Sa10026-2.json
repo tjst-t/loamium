@@ -1,0 +1,7 @@
+{"story_id":"Sa10026-2","reviewer":"sub-agent (/review)","critical_findings":0,
+ "auto_fixable":[
+   {"id":"AF-1","desc":"migrate.ts の smart-folder id が path.join 直呼びで traversal 未検証","status":"fixed","fix":"normalizeSystemPath 経由 + traversal id スキップ + テスト追加"},
+   {"id":"AF-2","desc":"order コメント誤記(配列インデックス保持と誤記)","status":"fixed"}],
+ "design_decisions":[
+   {"id":"DD-3","desc":"system/ 手動削除後にマーカー残存で再移行されない","resolution":"現状維持(マーカー削除で再実行と文書化)"},
+   {"id":"DD-4","desc":"移行で order 情報が失われファイル名順になる","resolution":"現状維持(新仕様。UI 並べ替えで order 付与)"}]}

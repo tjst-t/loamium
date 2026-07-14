@@ -25,6 +25,8 @@ import {
   SYSTEM_SMART_FOLDERS_DIR,
   SYSTEM_COMMANDS_DIR,
   SYSTEM_TEMPLATES_DIR,
+  normalizeSystemPath,
+  VaultPathError,
 } from '@loamium/shared';
 import { writeAuditEntry } from './audit.js';
 import type { ServerConfig } from './config.js';
@@ -67,7 +69,7 @@ async function writeUtf8Lf(absPath: string, content: string): Promise<void> {
  *   item.name  → title:
  *   item.icon  → icon:
  *   item.dql   → query:
- *   (order は記録しない — 元の並び順は items 配列のインデックス)
+ *   (order は記録しない — 移行後の順序はファイル stem のアルファベット昇順。元の配列順は引き継がない)
  *
  * [AC-Sa10026-2-1]
  */
@@ -110,7 +112,20 @@ async function migrateSmartFolders(
     }
 
     const id = item.id;
-    const destRel = `${SYSTEM_SMART_FOLDERS_DIR}/${id}.yaml`;
+    // id は zod で min(1) のみ検証。traversal を含む id を弾くため
+    // normalizeSystemPath(NFC + `..` 脱出検証)を必ず経由する。
+    let destRel: string;
+    try {
+      destRel = normalizeSystemPath(`${SYSTEM_SMART_FOLDERS_DIR}/${id}.yaml`);
+    } catch (err) {
+      if (err instanceof VaultPathError) {
+        results.push(`smart-folders: invalid id "${id}" (path traversal), skip`);
+        console.error(`[loamium/migrate] smart-folders invalid id "${id}": ${String(err)}`);
+        skipped++;
+        continue;
+      }
+      throw err;
+    }
     const destAbs = path.join(vaultRoot, ...destRel.split('/'));
 
     if (await fileExists(destAbs)) {
