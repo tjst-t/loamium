@@ -4580,7 +4580,7 @@
         },
         "Sa10026-4": {
           "title": "ツリーの system/ 既定非表示 + 表示トグル + order 再採番",
-          "status": "pending",
+          "status": "done",
           "user_review_required": true,
           "review_reason": "GUI。ツリー表示と並べ替えの体験を実機で確認する。",
           "user_story": "アプリ利用者として、設定フォルダを普段は隠したい。なぜなら、日々のノートツリーを散らかさず、必要な時だけ表示・編集したいから。",
@@ -4602,12 +4602,12 @@
             "Sa10026-4-1": {
               "title": "ui: ツリー system/ フィルタ + 表示トグル",
               "description": "ツリーで system/ を既定非表示にし表示トグルを追加。表示中は定義 md を編集エディタで開く(プレビューでなく)。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa10026-4-2": {
               "title": "ui: 並べ替え時の order 再採番 + mock/e2e",
               "description": "GUI 並べ替えで order: を再採番し system/ 配下へ書き戻す。mock(edge)+ e2e(実サーバー)テスト。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
