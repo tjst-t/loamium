@@ -145,7 +145,8 @@ describe('PUT /api/commands/{id}/source (full mode)', () => {
     ).toBe(true);
     if (!parsed.success) throw new Error('unreachable');
     expect(parsed.data.id).toBe('update-me');
-    expect(parsed.data.path).toBe('commands/update-me.yaml');
+    // Sa10026-2: PUT は常に system/commands/ に書き込む (正本へ昇格)
+    expect(parsed.data.path).toBe('system/commands/update-me.yaml');
     expect(parsed.data.created).toBe(false);
     expect(typeof parsed.data.mtime).toBe('number');
 
@@ -188,7 +189,8 @@ describe('PUT /api/commands/{id}/source (full mode)', () => {
     expect(putRes.status).toBe(200);
     const body = commandSourceWriteResponseSchema.parse(await putRes.json());
     expect(body.created).toBe(true);
-    expect(body.path).toBe('commands/brand-new.yaml');
+    // Sa10026-2: 新規 PUT も system/commands/ に作成する (正本)
+    expect(body.path).toBe('system/commands/brand-new.yaml');
 
     // GET で取得できる
     const getRes = await fetch(`${server.baseUrl}/api/commands/brand-new/source`);

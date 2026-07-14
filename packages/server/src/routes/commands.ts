@@ -1,8 +1,13 @@
 /**
- * スマートコマンド定義一覧 + 実行エンドポイント (Sd22b1f-1/2)。
+ * スマートコマンド定義一覧 + 実行エンドポイント (Sd22b1f-1/2, Sa10026-2-2)。
  *
- * - GET  /api/commands                  vault 内 commands/*.yaml(/.yml) を寛容 read で列挙する (ADR-0024)
+ * POST-Sa10026-2 正本: system/commands/*.yaml (ADR-0010 amendment)
+ *
+ * - GET  /api/commands                  system/commands/*.yaml を優先 (fallback: commands/*.yaml)
  * - POST /api/commands/{name}/run       コマンドをステップ順に同期実行する (ADR-0021)
+ *
+ * 後方互換: system/commands/ に存在しないコマンドは commands/ からフォールバック読み込み。
+ * 同名コマンドは system/commands/ が優先 (shadowing)。
  *
  * [AC-Sd22b1f-1-2] GET: 正常な定義は { name, path, description?, params, valid:true } で返す。
  * YAML が壊れたファイルも { name, path, valid:false, error } で一覧に含め、
@@ -34,6 +39,8 @@ import {
   todayJournalDate,
   buildBodyTemplate,
   VaultPathError,
+  SYSTEM_COMMANDS_DIR,
+  SYSTEM_TEMPLATES_DIR,
   commandRunRequestSchema,
   commandSourceWriteRequestSchema,
   type CommandRunResponse,
@@ -50,34 +57,40 @@ import { writeAuditEntry } from '../audit.js';
 import { firstFreePath } from '../vault-paths.js';
 import { applyPropSet, applyNotePatch } from './notes.js';
 
-const COMMANDS_DIR = 'commands';
-const COMMANDS_PREFIX = `${COMMANDS_DIR}/`;
+/** 旧パス (後方互換フォールバック) */
+const LEGACY_COMMANDS_DIR = 'commands';
+const LEGACY_COMMANDS_PREFIX = `${LEGACY_COMMANDS_DIR}/`;
+const SYSTEM_COMMANDS_PREFIX = `${SYSTEM_COMMANDS_DIR}/`;
 
-/** vault 相対パスからファイル名 (拡張子なし) を取り出す (.yaml / .yml を除去)。 */
+/** vault 相対パスから stem (拡張子なし) を取り出す。system/ / legacy/ 両方に対応。 */
 function stemFrom(rel: string): string {
-  const basename = rel.slice(COMMANDS_PREFIX.length);
+  let basename: string;
+  if (rel.startsWith(SYSTEM_COMMANDS_PREFIX)) {
+    basename = rel.slice(SYSTEM_COMMANDS_PREFIX.length);
+  } else {
+    basename = rel.slice(LEGACY_COMMANDS_PREFIX.length);
+  }
   return basename.replace(/\.ya?ml$/i, '');
 }
 
 /**
- * vault の commands/ ディレクトリを再帰的に走査し .yaml / .yml ファイルの
- * vault 相対パス一覧を返す (ADR-0024)。
- * listNoteFiles は .md のみ返すため、commands/ は独自に列挙する。
- * ドット始まりセグメント (.loamium / .git 等) は除外する。
+ * vault の dirPath ディレクトリを再帰的に走査し .yaml / .yml ファイルの
+ * vault 相対パス一覧を返す。
+ * ドット始まりセグメントは除外する。ディレクトリが存在しない場合は空配列。
  */
-async function listYamlCommandFiles(vaultRoot: string): Promise<string[]> {
-  const commandsAbs = path.resolve(vaultRoot, COMMANDS_DIR);
+async function listYamlFilesInDir(vaultRoot: string, dirPath: string): Promise<string[]> {
+  const dirAbs = path.resolve(vaultRoot, dirPath);
   const out: string[] = [];
-  const walk = async (dirAbs: string): Promise<void> => {
+  const walk = async (dirA: string): Promise<void> => {
     let entries;
     try {
-      entries = await fs.readdir(dirAbs, { withFileTypes: true });
+      entries = await fs.readdir(dirA, { withFileTypes: true });
     } catch {
-      return; // commands/ が存在しない場合など
+      return;
     }
     for (const entry of entries) {
       if (entry.name.startsWith('.')) continue;
-      const abs = path.join(dirAbs, entry.name);
+      const abs = path.join(dirA, entry.name);
       if (entry.isDirectory()) {
         await walk(abs);
       } else if (entry.isFile() && /\.ya?ml$/i.test(entry.name)) {
@@ -89,9 +102,32 @@ async function listYamlCommandFiles(vaultRoot: string): Promise<string[]> {
       }
     }
   };
-  await walk(commandsAbs);
+  await walk(dirAbs);
   out.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   return out;
+}
+
+/**
+ * system/commands/ を優先し、fallback: commands/ として全 YAML コマンドファイルを列挙する。
+ * 同名コマンド (stem) は system/commands/ が shadowing する。
+ * [AC-Sa10026-2-2]
+ */
+async function listAllCommandFiles(vaultRoot: string): Promise<string[]> {
+  const systemFiles = await listYamlFilesInDir(vaultRoot, SYSTEM_COMMANDS_DIR);
+  const legacyFiles = await listYamlFilesInDir(vaultRoot, LEGACY_COMMANDS_DIR);
+
+  const systemStems = new Set(systemFiles.map(stemFrom));
+  const combined: string[] = [...systemFiles];
+
+  for (const f of legacyFiles) {
+    const stem = stemFrom(f);
+    if (!systemStems.has(stem)) {
+      combined.push(f); // system/ にない場合のみ追加
+    }
+  }
+
+  combined.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  return combined;
 }
 
 /** 1 ファイルの内容から CommandSummary を組み立てる (寛容: 壊れは valid:false)。 */
@@ -123,11 +159,12 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
 
   // -----------------------------------------------------------------------
   // GET /api/commands
-  // commands/*.yaml (および .yml) を列挙して寛容 read で一覧を返す (ADR-0024)
+  // system/commands/*.yaml を優先し、fallback: commands/*.yaml を列挙して
+  // 寛容 read で一覧を返す (ADR-0024, Sa10026-2-2)
   // -----------------------------------------------------------------------
 
   app.get('/api/commands', async (c) => {
-    const all = await listYamlCommandFiles(config.vaultRoot);
+    const all = await listAllCommandFiles(config.vaultRoot);
     const commands: CommandSummary[] = [];
 
     for (const rel of all) {
@@ -155,17 +192,18 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
 
   // -----------------------------------------------------------------------
   // GET /api/commands/{id}/source
-  // commands/{id}.yaml (または .yml) の生テキストを返す。
-  // notes API の .md 強制を回避し CommandEditor が YAML を読み書きできるようにする。
-  // read-only / append-only モードでも読み取りは許可 (副作用なし)。
+  // system/commands/{id}.yaml を優先し、なければ commands/{id}.yaml を試みる。
+  // (Sa10026-2-2: system/ 正本、後方互換フォールバック)
   // -----------------------------------------------------------------------
 
   app.get('/api/commands/:id/source', async (c) => {
     const id = decodeURIComponent(c.req.param('id'));
 
-    let commandPathBase: string;
+    let systemBase: string;
+    let legacyBase: string;
     try {
-      commandPathBase = normalizeVaultFilePath(`${COMMANDS_DIR}/${id}`);
+      systemBase = normalizeVaultFilePath(`${SYSTEM_COMMANDS_DIR}/${id}`);
+      legacyBase = normalizeVaultFilePath(`${LEGACY_COMMANDS_DIR}/${id}`);
     } catch (err) {
       if (err instanceof VaultPathError) {
         return errorJson(c, 400, 'invalid_path', `invalid command id: ${err.message}`);
@@ -173,17 +211,20 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
       throw err;
     }
 
-    // .yaml を優先し、なければ .yml を試みる
+    // system/commands/ を優先、fallback: commands/
     let foundPath: string | undefined;
     let foundContent: string | undefined;
-    for (const ext of ['.yaml', '.yml']) {
-      const candidate = `${commandPathBase}${ext}`;
-      const content = await readNote(config.vaultRoot, candidate);
-      if (content !== null) {
-        foundPath = candidate;
-        foundContent = content;
-        break;
+    for (const base of [systemBase, legacyBase]) {
+      for (const ext of ['.yaml', '.yml']) {
+        const candidate = `${base}${ext}`;
+        const content = await readNote(config.vaultRoot, candidate);
+        if (content !== null) {
+          foundPath = candidate;
+          foundContent = content;
+          break;
+        }
       }
+      if (foundPath !== undefined) break;
     }
 
     if (foundPath === undefined || foundContent === undefined) {
@@ -203,7 +244,8 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
 
   // -----------------------------------------------------------------------
   // PUT /api/commands/{id}/source
-  // commands/{id}.yaml の生テキストを書き込む。
+  // system/commands/{id}.yaml に書き込む (Sa10026-2-2: system/ が正本)。
+  // 既存ファイルが commands/ にある場合は commands/ も確認して楽観的競合検出。
   // - read-only → permissionMiddleware が 403 を返すためここには到達しない。
   // - append-only → コマンド定義の変更は MUTATE 操作のため 403 (note write と同じ扱い)。
   // - mtime 指定時: 現 mtime と不一致なら 409 conflict (楽観的競合検出)。
@@ -217,9 +259,11 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
 
     const id = decodeURIComponent(c.req.param('id'));
 
-    let commandPathBase: string;
+    let systemBase: string;
+    let legacyBase: string;
     try {
-      commandPathBase = normalizeVaultFilePath(`${COMMANDS_DIR}/${id}`);
+      systemBase = normalizeVaultFilePath(`${SYSTEM_COMMANDS_DIR}/${id}`);
+      legacyBase = normalizeVaultFilePath(`${LEGACY_COMMANDS_DIR}/${id}`);
     } catch (err) {
       if (err instanceof VaultPathError) {
         return errorJson(c, 400, 'invalid_path', `invalid command id: ${err.message}`);
@@ -231,29 +275,35 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
     if (!body.ok) return body.response;
     const { content, mtime: baseMtime } = body.data;
 
-    // 既存ファイルを探す (.yaml → .yml の順)。なければ .yaml として新規作成。
+    // 既存ファイルを探す: system/commands/ → commands/ の順
+    // 既存ファイルがあればその mtime で楽観的競合検出し、書き込み先は system/commands/ に統一する
     let targetPath: string | undefined;
     let isNew = false;
-    for (const ext of ['.yaml', '.yml']) {
-      const candidate = `${commandPathBase}${ext}`;
-      const existingMtime = await noteMtime(config.vaultRoot, candidate);
-      if (existingMtime !== null) {
-        // 楽観的競合検出
-        if (baseMtime !== undefined && existingMtime !== baseMtime) {
-          return errorJson(c, 409, 'conflict', `command source has been modified since mtime=${String(baseMtime)}`);
+
+    for (const base of [systemBase, legacyBase]) {
+      for (const ext of ['.yaml', '.yml']) {
+        const candidate = `${base}${ext}`;
+        const existingMtime = await noteMtime(config.vaultRoot, candidate);
+        if (existingMtime !== null) {
+          if (baseMtime !== undefined && existingMtime !== baseMtime) {
+            return errorJson(c, 409, 'conflict', `command source has been modified since mtime=${String(baseMtime)}`);
+          }
+          // 書き込み先は常に system/commands/{id}.yaml (正本へ昇格)
+          targetPath = `${systemBase}.yaml`;
+          break;
         }
-        targetPath = candidate;
-        break;
       }
+      if (targetPath !== undefined) break;
     }
 
     if (targetPath === undefined) {
-      // 新規作成: commands/{id}.yaml
-      targetPath = `${commandPathBase}.yaml`;
+      // 新規作成: system/commands/{id}.yaml
+      targetPath = `${systemBase}.yaml`;
       isNew = true;
     }
 
-    const writeResult = await writeNote(config.vaultRoot, targetPath, content);
+    await writeNote(config.vaultRoot, targetPath, content);
+    const finalMtime = (await noteMtime(config.vaultRoot, targetPath)) ?? Date.now();
     setAudit(c, 'command.source.write', targetPath);
     await writeAuditEntry(config, {
       ts: new Date().toISOString(),
@@ -267,8 +317,10 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
     const res: CommandSourceWriteResponse = {
       id,
       path: targetPath,
-      created: isNew || writeResult.created,
-      mtime: writeResult.mtime,
+      // isNew: コマンドがどこにも存在しなかった場合のみ true
+      // legacy path からの昇格は updated 扱い (既存コマンドの移行)
+      created: isNew,
+      mtime: finalMtime,
     };
     return c.json(res);
   });
@@ -281,13 +333,13 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
   app.post('/api/commands/:name/run', async (c) => {
     const name = decodeURIComponent(c.req.param('name'));
 
-    // 1. コマンドファイルを探す (ADR-0024: .yaml → .yml の順に試行)
-    // name はファイル名 (拡張子なし)。commands/{name}.yaml が対象。
-    // name にスラッシュを含む場合はサブディレクトリを許容するが、
-    // normalizeVaultFilePath で traversal を防ぐ (.md を補完しない)。
-    let commandPathBase: string;
+    // 1. コマンドファイルを探す (Sa10026-2-2: system/commands/ 優先, fallback: commands/)
+    // name はファイル名 (拡張子なし)。normalizeVaultFilePath で traversal を防ぐ。
+    let systemBase: string;
+    let legacyBase: string;
     try {
-      commandPathBase = normalizeVaultFilePath(`${COMMANDS_DIR}/${name}`);
+      systemBase = normalizeVaultFilePath(`${SYSTEM_COMMANDS_DIR}/${name}`);
+      legacyBase = normalizeVaultFilePath(`${LEGACY_COMMANDS_DIR}/${name}`);
     } catch (err) {
       if (err instanceof VaultPathError) {
         return errorJson(c, 400, 'invalid_path', `invalid command name: ${err.message}`);
@@ -295,17 +347,20 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
       throw err;
     }
 
-    // .yaml を優先し、なければ .yml を試みる
+    // system/commands/ を優先し、なければ commands/ を試みる
     let foundCommandPath: string | undefined;
     let foundContent: string | undefined;
-    for (const ext of ['.yaml', '.yml']) {
-      const candidate = `${commandPathBase}${ext}`;
-      const c2 = await readNote(config.vaultRoot, candidate);
-      if (c2 !== null) {
-        foundCommandPath = candidate;
-        foundContent = c2;
-        break;
+    for (const base of [systemBase, legacyBase]) {
+      for (const ext of ['.yaml', '.yml']) {
+        const candidate = `${base}${ext}`;
+        const c2 = await readNote(config.vaultRoot, candidate);
+        if (c2 !== null) {
+          foundCommandPath = candidate;
+          foundContent = c2;
+          break;
+        }
       }
+      if (foundCommandPath !== undefined) break;
     }
 
     if (foundCommandPath === undefined || foundContent === undefined) {
@@ -643,10 +698,23 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
             }
           }
 
-          // テンプレートパスを正規化 — traversal/hidden-segment は 400 で即拒否
+          // テンプレートパスを正規化 — system/templates/ を優先, fallback: templates/
+          // traversal/hidden-segment は 400 で即拒否
           let templatePath: string;
+          let templateContent: string | null = null;
+
+          // system/templates/{name}.md を試みる
           try {
-            templatePath = normalizeVaultPath(`templates/${templateNameRaw}`);
+            const systemTemplatePath = normalizeVaultPath(`${SYSTEM_TEMPLATES_DIR}/${templateNameRaw}`);
+            templateContent = await readNote(config.vaultRoot, systemTemplatePath);
+            if (templateContent !== null) {
+              templatePath = systemTemplatePath;
+            } else {
+              // fallback: templates/{name}.md (後方互換)
+              const legacyTemplatePath = normalizeVaultPath(`templates/${templateNameRaw}`);
+              templateContent = await readNote(config.vaultRoot, legacyTemplatePath);
+              templatePath = legacyTemplatePath;
+            }
           } catch (err) {
             if (err instanceof VaultPathError) {
               return errorJson(
@@ -659,9 +727,8 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
             throw err;
           }
 
-          const templateContent = await readNote(config.vaultRoot, templatePath);
           if (templateContent === null) {
-            results.push({ kind, ok: false, error: `template not found: ${templatePath}` });
+            results.push({ kind, ok: false, error: `template not found: ${templateNameRaw}` });
             break;
           }
 
@@ -677,9 +744,12 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
           }
           for (const [k, v] of Object.entries(stepVars)) mergedVars[k] = v;
 
-          // target 解決
+          // target 解決 (どちらのパスプレフィックスも剥がす)
+          const templateNameForTarget = templatePath.startsWith(`${SYSTEM_TEMPLATES_DIR}/`)
+            ? templatePath.slice(`${SYSTEM_TEMPLATES_DIR}/`.length).replace(/\.md$/i, '')
+            : templatePath.slice('templates/'.length).replace(/\.md$/i, '');
           const targetPattern =
-            cfg.target ?? templatePath.slice('templates/'.length).replace(/\.md$/i, '');
+            cfg.target ?? templateNameForTarget;
           const targetRes = resolveTemplate(targetPattern, {
             vars: mergedVars,
             date: now,

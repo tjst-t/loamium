@@ -1,0 +1,151 @@
+
+ RUN  v3.2.6 /home/ubuntu/ghq/github.com/tjst-t/loamium/.claude/worktrees/agent-aacc0041df3095a16
+
+ ✓ tests/acceptance/command-source.spec.ts > GET /api/commands/{id}/source > 存在する .yaml ファイルの生テキストと mtime を返す (200) 16ms
+ ✓ tests/acceptance/command-source.spec.ts > GET /api/commands/{id}/source > 存在しない id → 404 4ms
+ ✓ tests/acceptance/command-source.spec.ts > GET /api/commands/{id}/source > .yml 拡張子のファイルも返す 6ms
+ ✓ tests/acceptance/command-source.spec.ts > GET /api/commands/{id}/source > 不正な id (path traversal) → 400 4ms
+ ✓ tests/acceptance/migrate-Sa10026-2.spec.ts > AC-Sa10026-2-1: smart-folders migration > 旧 .loamium/smart-folders.json の query item が system/smart-folders/*.yaml へ移行される 2348ms
+ ✓ tests/acceptance/smart-folders.spec.ts > [AC-S32940c-2-1] GET /api/smart-folders — 欠損ファイルは空フォールバック > 定義ファイル未作成でも 200 かつ {version:1, items:[]} が返る 2265ms
+ ✓ tests/acceptance/migrate-Sa10026-2.spec.ts > AC-Sa10026-2-1: smart-folders migration > pin item は system/ へ移行されない (query item のみ) 2122ms
+ ✓ tests/acceptance/smart-folders.spec.ts > [AC-S32940c-2-1] GET /api/smart-folders — 欠損ファイルは空フォールバック > 破損した JSON でも 200 かつ empty フォールバック (never 500) 2079ms
+ ✓ tests/acceptance/command-source.spec.ts > PUT /api/commands/{id}/source (full mode) > 書き込みが成功し、GET で新しい content が返る 20ms
+ ✓ tests/acceptance/command-source.spec.ts > PUT /api/commands/{id}/source (full mode) > mtime 省略時は無条件上書き (last-write-wins) 4ms
+ ✓ tests/acceptance/command-source.spec.ts > PUT /api/commands/{id}/source (full mode) > stale mtime → 409 conflict 3ms
+ ✓ tests/acceptance/command-source.spec.ts > PUT /api/commands/{id}/source (full mode) > 存在しない id を PUT すると新規作成 (created:true) 11ms
+ ✓ tests/acceptance/command-source.spec.ts > PUT /api/commands/{id}/source — 権限モード > read-only モード → PUT は 403 2279ms
+ ✓ tests/acceptance/migrate-Sa10026-2.spec.ts > AC-Sa10026-2-1: smart-folders migration > system/ が既に存在する場合は json へのフォールバックをしない 2375ms
+ ✓ tests/acceptance/smart-folders.spec.ts > [AC-S32940c-2-2] PUT /api/smart-folders — アトミック書き込み + 監査ログ > 有効な定義を PUT すると 200 + ファイル作成 + 監査ログ smart-folders.write 2324ms
+ ✓ tests/acceptance/command-source.spec.ts > PUT /api/commands/{id}/source — 権限モード > append-only モード → PUT は 403 2098ms
+ ✓ tests/acceptance/smart-folders.spec.ts > [AC-S32940c-2-2] PUT /api/smart-folders — アトミック書き込み + 監査ログ > PUT した定義は GET で同じ内容が返る (scenario-1 step 3) 2164ms
+ ✓ tests/acceptance/migrate-Sa10026-2.spec.ts > AC-Sa10026-2-1: smart-folders migration > [AC-Sa10026-2-3] 冪等: 二重起動しても smart-folders データが失われない 4406ms
+ ✓ tests/acceptance/command-source.spec.ts > PUT /api/commands/{id}/source — 権限モード > append-only モード → GET は許可 (200) 2442ms
+ ✓ tests/acceptance/smart-folders.spec.ts > [AC-S32940c-2-3] GET /api/smart-folders/{id}/notes — クエリ・ピン解決 > query 種は executeQuery 経由で NoteMeta[] が返る (scenario-1 step 4) 2376ms
+ ✓ tests/acceptance/migrate-Sa10026-2.spec.ts > AC-Sa10026-2-1: smart-folders migration > [AC-Sa10026-2-3] 部分移行済み状態でも安全 (一部ファイルが既に存在) 2097ms
+ ✓ tests/acceptance/smart-folders.spec.ts > [AC-S32940c-2-3] GET /api/smart-folders/{id}/notes — クエリ・ピン解決 > pin 種 — 存在するノートは NoteMeta 1 件で返る 2171ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-2] GET /api/commands > commands/ 配下の *.yaml をすべて一覧し 200 を返す (ADR-0024) 26ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-2] GET /api/commands > 正常なコマンドは valid:true で id / name / description / params / path を返す 17ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-2] GET /api/commands > 壊れた YAML のコマンドは valid:false + error + id で一覧に含まれる (200 維持) 13ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-2] GET /api/commands > steps が空のコマンドは valid:false になる 9ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-2] GET /api/commands > 壊れた定義があっても 200 を維持する (アプリを落とさない) 7ms
+ ✓ tests/acceptance/migrate-Sa10026-2.spec.ts > AC-Sa10026-2-2: templates migration > templates/ が system/templates/ へ移行される 2162ms
+ ✓ tests/acceptance/smart-folders.spec.ts > [AC-S32940c-2-3] GET /api/smart-folders/{id}/notes — クエリ・ピン解決 > pin 種 — 存在しない pin は結果から除外 (エラーにならない、ファイルを壊さない) [scenario-1 step 6] 2303ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-2] GET /api/commands > commands/ が空の vault では { commands: [] } を 200 で返す 2396ms
+ ✓ tests/acceptance/migrate-Sa10026-2.spec.ts > AC-Sa10026-2-2: templates migration > system/templates/ を優先し、同名 templates/ はシャドウされる 2181ms
+ ✓ tests/acceptance/smart-folders.spec.ts > [AC-S32940c-2-3] GET /api/smart-folders/{id}/notes — クエリ・ピン解決 > 未知の id は 404 が返る 2118ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-2] GET /api/commands > [AC-Sd22b1f-1-2] 非UTF-8バイナリファイルがあっても GET /api/commands は 200 を返す 2049ms
+ ✓ tests/acceptance/migrate-Sa10026-2.spec.ts > AC-Sa10026-2-2: templates migration > instantiate で system/templates/ を優先する 2058ms
+ ✓ tests/acceptance/smart-folders.spec.ts > [AC-S32940c-2-4] zod スキーマ検証 — 不正定義は 4xx でファイル不変 > ../escape.md を含む pin.path は 4xx でファイル未変更 (scenario-1 step 5) 2161ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sf2f114-5-2] GET /api/commands — new param types passthrough > [AC-Sf2f114-5-2] select param command は valid:true で options が passthrough される 20ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sf2f114-5-2] GET /api/commands — new param types passthrough > [AC-Sf2f114-5-2] select-without-options command は valid:false で一覧に含まれる 11ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-3] CLI loamium commands > exit 0 で全コマンドを stdout に出力する 357ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-3] CLI loamium commands > 有効なコマンドは description も出力する 387ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-3] CLI loamium commands > 無効なコマンドは [INVALID] マーク付きで出力する 325ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-3] CLI loamium commands > --json フラグで API レスポンスの生 JSON をそのまま出力する 263ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-3] CLI loamium commands > サーバー未起動の場合は exit 1 + server_unreachable エラー 243ms
+ ✓ tests/acceptance/migrate-Sa10026-2.spec.ts > AC-Sa10026-2-2: templates migration > 後方互換: templates/ のみ存在する場合も instantiate できる 2204ms
+ ✓ tests/acceptance/smart-folders.spec.ts > [AC-S32940c-2-4] zod スキーマ検証 — 不正定義は 4xx でファイル不変 > 無効な DQL (query.dql) は 4xx でファイル未変更 2102ms
+ ✓ packages/server/src/system-store.test.ts > listSystemSmartFolders [AC-Sa10026-1-1, AC-Sa10026-1-2] > system/smart-folders/ が存在しない場合は空配列を返す 6ms
+ ✓ packages/server/src/system-store.test.ts > listSystemSmartFolders [AC-Sa10026-1-1, AC-Sa10026-1-2] > 正常な .yaml ファイルを読み込んで返す 25ms
+ ✓ packages/server/src/system-store.test.ts > listSystemSmartFolders [AC-Sa10026-1-1, AC-Sa10026-1-2] > 複数ファイルを order → ファイル名の安定ソートで返す [AC-Sa10026-1-2] 12ms
+ ✓ packages/server/src/system-store.test.ts > listSystemSmartFolders [AC-Sa10026-1-1, AC-Sa10026-1-2] > order なしは末尾に来る [AC-Sa10026-1-2] 4ms
+ ✓ packages/server/src/system-store.test.ts > listSystemSmartFolders [AC-Sa10026-1-1, AC-Sa10026-1-2] > query フィールドがない (不正) ファイルはスキップする [AC-Sa10026-1-1] 4ms
+ ✓ packages/server/src/system-store.test.ts > listSystemSmartFolders [AC-Sa10026-1-1, AC-Sa10026-1-2] > 壊れた YAML ファイルはスキップする [AC-Sa10026-1-1] 4ms
+ ✓ packages/server/src/system-store.test.ts > listSystemSmartFolders [AC-Sa10026-1-1, AC-Sa10026-1-2] > .md ファイルは含まない (YAML のみ) 1ms
+ ✓ packages/server/src/system-store.test.ts > readSystemSmartFolder [AC-Sa10026-1-1, AC-Sa10026-1-3] > 存在するファイルを読み込んで SmartFolderDef を返す 1ms
+ ✓ packages/server/src/system-store.test.ts > readSystemSmartFolder [AC-Sa10026-1-1, AC-Sa10026-1-3] > 存在しない ID → null 1ms
+ ✓ packages/server/src/system-store.test.ts > readSystemSmartFolder [AC-Sa10026-1-1, AC-Sa10026-1-3] > traversal ID (../etc) → null [AC-Sa10026-1-3] 0ms
+ ✓ packages/server/src/system-store.test.ts > writeSystemSmartFolder + deleteSystemSmartFolder > ファイルを書き込み、読み込み、削除できる 2ms
+ ✓ packages/server/src/system-store.test.ts > writeSystemSmartFolder + deleteSystemSmartFolder > 2 回目の書き込みは created: false 1ms
+ ✓ packages/server/src/system-store.test.ts > writeSystemSmartFolder + deleteSystemSmartFolder > 存在しない ID を削除すると false を返す 0ms
+ ✓ packages/server/src/system-store.test.ts > writeSystemSmartFolder + deleteSystemSmartFolder > traversal ID への書き込みは VaultPathError を投げる [AC-Sa10026-1-3] 1ms
+ ✓ packages/server/src/system-store.test.ts > systemSmartFolderMtime > 存在するファイルの mtime を返す 1ms
+ ✓ packages/server/src/system-store.test.ts > systemSmartFolderMtime > 存在しない ID → null 0ms
+ ✓ packages/server/src/system-store.test.ts > listSystemCommands [AC-Sa10026-1-1, AC-Sa10026-1-2] > system/commands/ が存在しない場合は空配列を返す 0ms
+ ✓ packages/server/src/system-store.test.ts > listSystemCommands [AC-Sa10026-1-1, AC-Sa10026-1-2] > 正常な .yaml ファイルを読み込んで返す 2ms
+ ✓ packages/server/src/system-store.test.ts > listSystemCommands [AC-Sa10026-1-1, AC-Sa10026-1-2] > 複数ファイルを order → ファイル名の安定ソートで返す [AC-Sa10026-1-2] 2ms
+ ✓ packages/server/src/system-store.test.ts > listSystemCommands [AC-Sa10026-1-1, AC-Sa10026-1-2] > 壊れた YAML でも id = stem、title = stem のメタ情報を返す [AC-Sa10026-1-1] 1ms
+ ✓ packages/server/src/system-store.test.ts > readSystemCommandRaw + writeSystemCommand > 書き込んだ生テキストをそのまま読み返せる 1ms
+ ✓ packages/server/src/system-store.test.ts > readSystemCommandRaw + writeSystemCommand > 存在しない ID → null 0ms
+ ✓ packages/server/src/system-store.test.ts > deleteSystemCommand > 書き込んだコマンドを削除できる 1ms
+ ✓ packages/server/src/system-store.test.ts > deleteSystemCommand > 存在しない ID の削除は false (エラーにならない) 0ms
+ ✓ packages/server/src/system-store.test.ts > deleteSystemCommand > traversal ID の削除は false [AC-Sa10026-1-3] 0ms
+ ✓ packages/server/src/system-store.test.ts > readSystemCommandMeta > 存在するコマンドのメタ情報を返す 1ms
+ ✓ packages/server/src/system-store.test.ts > readSystemCommandMeta > 存在しない ID → null 1ms
+ ✓ packages/server/src/system-store.test.ts > readSystemCommandMeta > traversal ID → null [AC-Sa10026-1-3] 0ms
+ ✓ packages/server/src/system-store.test.ts > listSystemTemplates [AC-Sa10026-1-1, AC-Sa10026-1-2] > system/templates/ が存在しない場合は空配列を返す 0ms
+ ✓ packages/server/src/system-store.test.ts > listSystemTemplates [AC-Sa10026-1-1, AC-Sa10026-1-2] > frontmatter を持つ .md ファイルを読み込んで返す 5ms
+ ✓ packages/server/src/system-store.test.ts > listSystemTemplates [AC-Sa10026-1-1, AC-Sa10026-1-2] > 複数ファイルを order → ファイル名の安定ソートで返す [AC-Sa10026-1-2] 3ms
+ ✓ packages/server/src/system-store.test.ts > listSystemTemplates [AC-Sa10026-1-1, AC-Sa10026-1-2] > frontmatter なし .md は title = stem のフォールバックを返す [AC-Sa10026-1-1] 1ms
+ ✓ packages/server/src/system-store.test.ts > listSystemTemplates [AC-Sa10026-1-1, AC-Sa10026-1-2] > .yaml ファイルは含まない (.md のみ) 2ms
+ ✓ packages/server/src/system-store.test.ts > readSystemTemplate + writeSystemTemplate + deleteSystemTemplate > ファイルを書き込み、読み込み、削除できる 2ms
+ ✓ packages/server/src/system-store.test.ts > readSystemTemplate + writeSystemTemplate + deleteSystemTemplate > traversal ID への書き込みは VaultPathError を投げる [AC-Sa10026-1-3] 1ms
+ ✓ packages/server/src/system-store.test.ts > readSystemTemplate + writeSystemTemplate + deleteSystemTemplate > 存在しない ID を削除すると false を返す 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > parseSystemSmartFolderYaml [AC-Sa10026-1-1] > 正常な YAML を正しくパースする 7ms
+ ✓ packages/shared/src/system-definitions.test.ts > parseSystemSmartFolderYaml [AC-Sa10026-1-1] > query フィールドのみ必須 (title/order/icon は省略可) 1ms
+ ✓ packages/shared/src/system-definitions.test.ts > parseSystemSmartFolderYaml [AC-Sa10026-1-1] > query が空文字列のとき null (zod min(1) 違反) 1ms
+ ✓ packages/shared/src/system-definitions.test.ts > parseSystemSmartFolderYaml [AC-Sa10026-1-1] > query がない場合 null (必須フィールド欠落) 1ms
+ ✓ packages/shared/src/system-definitions.test.ts > parseSystemSmartFolderYaml [AC-Sa10026-1-1] > 空文字列の YAML → null (寛容フォールバック) 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > parseSystemSmartFolderYaml [AC-Sa10026-1-1] > 壊れた YAML → null (寛容フォールバック) 1ms
+ ✓ packages/shared/src/system-definitions.test.ts > parseSystemSmartFolderYaml [AC-Sa10026-1-1] > YAML が配列の場合 null 1ms
+ ✓ packages/shared/src/system-definitions.test.ts > parseSystemCommandYaml [AC-Sa10026-1-1] > フルフィールドを正しくパースする 1ms
+ ✓ packages/shared/src/system-definitions.test.ts > parseSystemCommandYaml [AC-Sa10026-1-1] > 全フィールド省略でも {} として成功する (全 optional) 1ms
+ ✓ packages/shared/src/system-definitions.test.ts > parseSystemCommandYaml [AC-Sa10026-1-1] > 空文字列の YAML → null 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > parseSystemCommandYaml [AC-Sa10026-1-1] > null に解析される YAML → null 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > parseSystemTemplateFrontmatter [AC-Sa10026-1-1] > frontmatter から title/order/icon を抽出する 1ms
+ ✓ packages/shared/src/system-definitions.test.ts > parseSystemTemplateFrontmatter [AC-Sa10026-1-1] > frontmatter がない .md は空オブジェクトを返す (フォールバック) 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > parseSystemTemplateFrontmatter [AC-Sa10026-1-1] > title/order/icon フィールドがない frontmatter は空オブジェクトを返す 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > parseSystemTemplateFrontmatter [AC-Sa10026-1-1] > 壊れた frontmatter でも空オブジェクトを返す (寛容フォールバック) 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > parseSystemTemplateFrontmatter [AC-Sa10026-1-1] > order が整数でない場合は空オブジェクトを返す (zod int 検証) 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > stemFromSystemPath > vault 相対パスから stem を取り出す 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > stemFromSystemPath > .yml 拡張子も除去する 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > buildSystemSmartFolderDef [AC-Sa10026-1-1] > 正常 YAML から SmartFolderDef を構築する 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > buildSystemSmartFolderDef [AC-Sa10026-1-1] > title 省略時は id (stem) にフォールバックする 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > buildSystemSmartFolderDef [AC-Sa10026-1-1] > query がない YAML → null (必須フィールド欠落) 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > buildSystemCommandDef [AC-Sa10026-1-1] > order/title/icon を含む YAML からメタを構築する 1ms
+ ✓ packages/shared/src/system-definitions.test.ts > buildSystemCommandDef [AC-Sa10026-1-1] > YAML パース失敗でも常にメタ情報を返す (id = stem、title = stem) 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > buildSystemTemplateDef [AC-Sa10026-1-1] > frontmatter の title/order/icon を反映する 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > buildSystemTemplateDef [AC-Sa10026-1-1] > frontmatter なしでも常にメタ情報を返す (title = stem) 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > sortSystemDefs [AC-Sa10026-1-2] > order 昇順で並ぶ 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > sortSystemDefs [AC-Sa10026-1-2] > order 欠落は末尾に来る 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > sortSystemDefs [AC-Sa10026-1-2] > 同一 order はファイル名 (id) 昇順 (tie) 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > sortSystemDefs [AC-Sa10026-1-2] > gap を許容する (order 1, 5, 10 など飛び番) 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > sortSystemDefs [AC-Sa10026-1-2] > 元の配列を変更しない (新配列を返す) 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > normalizeSystemPath [AC-Sa10026-1-3] > 正常な system/ パスはそのまま (NFC 正規化) 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > normalizeSystemPath [AC-Sa10026-1-3] > .. (traversal) を含むパスは VaultPathError を投げる 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > normalizeSystemPath [AC-Sa10026-1-3] > 絶対パスは VaultPathError を投げる 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > normalizeSystemPath [AC-Sa10026-1-3] > 空文字列は VaultPathError を投げる 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > normalizeSystemPath [AC-Sa10026-1-3] > 隠しセグメント (.loamium) は HiddenVaultPathError を投げる 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > isSystemSmartFolderPath / isSystemCommandPath / isSystemTemplatePath > isSystemSmartFolderPath: .yaml は true 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > isSystemSmartFolderPath / isSystemCommandPath / isSystemTemplatePath > isSystemSmartFolderPath: .md や別ディレクトリは false 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > isSystemSmartFolderPath / isSystemCommandPath / isSystemTemplatePath > isSystemCommandPath: .yaml は true 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > isSystemSmartFolderPath / isSystemCommandPath / isSystemTemplatePath > isSystemCommandPath: .md や別ディレクトリは false 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > isSystemSmartFolderPath / isSystemCommandPath / isSystemTemplatePath > isSystemTemplatePath: .md は true 0ms
+ ✓ packages/shared/src/system-definitions.test.ts > isSystemSmartFolderPath / isSystemCommandPath / isSystemTemplatePath > isSystemTemplatePath: .yaml や別ディレクトリは false 0ms
+ ✓ tests/acceptance/smart-folders.spec.ts > [AC-S32940c-2-4] zod スキーマ検証 — 不正定義は 4xx でファイル不変 > kind 以外の不正な body (版なし・items 欠落) も 4xx 1779ms
+ ✓ tests/acceptance/migrate-Sa10026-2.spec.ts > AC-Sa10026-2-2: templates migration > [AC-Sa10026-2-3] 冪等: templates/ 移行が二重実行で重複しない 3469ms
+ ✓ tests/acceptance/smart-folders.spec.ts > [AC-S32940c-2-2] read-only モードでは PUT を 403 (scenario-2) > read-only サーバーでは PUT /api/smart-folders が 403 (scenario-2 step 1) 1730ms
+ ✓ tests/acceptance/migrate-Sa10026-2.spec.ts > AC-Sa10026-2-2: commands migration > commands/*.yaml が system/commands/*.yaml へ移行される 1698ms
+ ✓ tests/acceptance/smart-folders.spec.ts > [AC-S32940c-2-2] read-only モードでは PUT を 403 (scenario-2) > read-only モードでも GET /api/smart-folders は 200 (scenario-2 step 2) 1645ms
+ ✓ tests/acceptance/migrate-Sa10026-2.spec.ts > AC-Sa10026-2-2: commands migration > system/commands/ を優先し、同名 commands/ はシャドウされる 1631ms
+ ✓ tests/acceptance/smart-folders.spec.ts > [AC-S32940c-2-2] read-only モードでは PUT を 403 (scenario-2) > append-only モードでも PUT /api/smart-folders は 403 (書込は full のみ) 1622ms
+ ✓ tests/acceptance/migrate-Sa10026-2.spec.ts > AC-Sa10026-2-2: commands migration > GET source で system/commands/ を優先する 1791ms
+ ✓ tests/acceptance/smart-folders.spec.ts > [AC-Sebf6b0-1-1][AC-Sebf6b0-1-2] フォルダ pin の解決 — 配下ノートを返す > フォルダ pin は配下 (サブフォルダ含む) の全ノートを path 昇順で返す 1769ms
+ ✓ tests/acceptance/migrate-Sa10026-2.spec.ts > AC-Sa10026-2-2: commands migration > PUT source で system/commands/ に書き込まれる 1712ms
+ ✓ tests/acceptance/smart-folders.spec.ts > [AC-Sebf6b0-1-1][AC-Sebf6b0-1-2] フォルダ pin の解決 — 配下ノートを返す > ノート pin は後方互換で単一 NoteMeta を返す [AC-Sebf6b0-1-2] 1703ms
+ ✓ tests/acceptance/migrate-Sa10026-2.spec.ts > AC-Sa10026-2-2: commands migration > 後方互換: commands/ のみ存在するコマンドも run できる 1615ms
+ ✓ tests/acceptance/smart-folders.spec.ts > [AC-Sebf6b0-1-1][AC-Sebf6b0-1-2] フォルダ pin の解決 — 配下ノートを返す > 存在しないフォルダへのフォルダ pin は空配列を返す (エラーにならない) [AC-Sebf6b0-1-2] 1689ms
+ ✓ tests/acceptance/smart-folders.spec.ts > [AC-Sebf6b0-1-schema] PUT /api/smart-folders — フォルダパスの pin.path を受け入れる > フォルダパス (拡張子なし) の pin.path を持つ設定の PUT が 200 を返す 1774ms
+ ✓ tests/acceptance/migrate-Sa10026-2.spec.ts > AC-Sa10026-2-2: commands migration > [AC-Sa10026-2-3] 冪等: commands/ 移行が二重実行でデータを失わない 3395ms
+ ✓ tests/acceptance/smart-folders.spec.ts > [AC-Sebf6b0-1-schema] PUT /api/smart-folders — フォルダパスの pin.path を受け入れる > path traversal を含むフォルダパスは 4xx で拒否される 1638ms
+ ✓ tests/acceptance/migrate-Sa10026-2.spec.ts > AC-Sa10026-2-3: destructive multi-version migration > v0 フラット JSON + 旧パス fixture → 移行 → 全種 system/ で正常動作 1665ms
+ ✓ tests/acceptance/smart-folders.spec.ts > [AC-Sebf6b0-1-schema] PUT /api/smart-folders — フォルダパスの pin.path を受け入れる > 隠しセグメントを含むフォルダパスは 4xx で拒否される 1621ms
+ ✓ tests/acceptance/smart-folders.spec.ts > [AC-S32940c-2-5] .gitignore — smart-folders.json は git 追跡対象 (scenario-3) > git check-ignore で smart-folders.json は無視されない (exit code 1) 5ms
+ ✓ tests/acceptance/smart-folders.spec.ts > [AC-S32940c-2-5] .gitignore — smart-folders.json は git 追跡対象 (scenario-3) > git check-ignore で audit.log は無視される (exit code 0) 4ms
+ ✓ tests/acceptance/migrate-Sa10026-2.spec.ts > AC-Sa10026-2-3: destructive multi-version migration > [AC-Sa10026-2-3] 壊れた旧 JSON でも他系統の移行は継続する 1464ms
+
+ Test Files  6 passed (6)
+      Tests  142 passed (142)
+   Start at  01:46:53
+   Duration  40.67s (transform 436ms, setup 0ms, collect 1.27s, tests 100.99s, environment 1ms, prepare 376ms)
+
