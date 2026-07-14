@@ -96,7 +96,8 @@ test('[AC-Sa704c3-1-3] 直近一覧から新規ノート作成・リネーム・
   await page.getByTestId('sidebar-new-note').click();
   await page.getByTestId('new-note-menu-blank').click();
   await expect(page.getByTestId('new-note-dialog')).toBeVisible();
-  await page.getByTestId('new-note-input').fill('E2E 新規ノート');
+  // Sa10026-8: new-note-input → new-note-path (パス入力に統一)
+  await page.getByTestId('new-note-path').fill('E2E 新規ノート');
   await page.getByTestId('new-note-confirm').click();
 
   const created = page.locator('[data-testid="tree-item"][data-path="E2E 新規ノート.md"]');
@@ -153,7 +154,8 @@ test('[AC-Sa704c3-1-3] コンテキストメニューの「同じフォルダに
   await parentItem.click({ button: 'right' });
   await expect(page.getByTestId('tree-context-menu')).toBeVisible();
   await page.getByTestId('context-new-note').click();
-  await page.getByTestId('new-note-input').fill('子ノート');
+  // Sa10026-8: new-note-input → new-note-path (フォルダが prefill されているので追記)
+  await page.getByTestId('new-note-path').type('子ノート');
   await page.getByTestId('new-note-confirm').click();
   const child = page.locator('[data-testid="tree-item"][data-path="proj-e2e/子ノート.md"]');
   await expect(child).toBeVisible();

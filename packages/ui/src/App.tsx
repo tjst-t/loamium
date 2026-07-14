@@ -50,6 +50,7 @@ import { JournalNav } from './components/JournalNav.js';
 import { RightSidebar } from './components/RightSidebar.js';
 import { ContextMenu } from './components/ContextMenu.js';
 import { ConflictDialog, DeleteDialog, NameDialog } from './components/dialogs.js';
+import { NewNoteDialog } from './components/NewNoteDialog.js';
 import { SearchPalette } from './components/SearchPalette.js';
 import { SearchPage } from './components/SearchPage.js';
 import { TemplatePicker } from './components/TemplatePicker.js';
@@ -214,6 +215,12 @@ export function App(): JSX.Element {
   const [smartNewFileNotes, setSmartNewFileNotes] = useState<NoteMeta[] | null>(null);
   const [smartNewFilePathOpen, setSmartNewFilePathOpen] = useState(false);
   const smartNewFilePathBlurRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ---- 新規ノートダイアログ (統一・Sa10026-8) ----
+  /** settings.yaml の defaultFolder (初期ロード後に確定する)。 */
+  const [defaultFolder, setDefaultFolder] = useState('');
+  /** 新規ノートダイアログ用のフォルダ補完ソース (遅延ロード)。 */
+  const [newNoteNotes, setNewNoteNotes] = useState<NoteMeta[] | null>(null);
 
   // ---- サイドバー: ノート一覧と添付 ----
   const [notes, setNotes] = useState<NoteMeta[] | null>(null);
@@ -670,6 +677,8 @@ export function App(): JSX.Element {
     void refreshPropertyTypes();
     void refreshPropertyKeys();
     void refreshTags();
+    // 設定取得: defaultFolder の prefill 用 (Sa10026-8 / graceful degradation)
+    void api.getSystemSettings().then((s) => setDefaultFolder(s.defaultFolder ?? ''));
     // ジャーナル日付ナビ用の today (server 応答があれば上書きされる)
     setToday(todayJournalDate());
     // 現在のエントリに履歴インデックスを刻む
@@ -921,6 +930,24 @@ export function App(): JSX.Element {
     );
   }, [smartNewFileNotes]);
 
+  /**
+   * 新規ノートダイアログ用のフォルダ候補を遅延ロードする (Sa10026-8)。
+   * ノート一覧は既に refreshNotes() で取得済みの場合が多いが、
+   * ダイアログが開く前にロードされていない場合に備えて API を呼ぶ。
+   */
+  const loadNewNoteNotes = useCallback((): void => {
+    if (newNoteNotes !== null) return;
+    // 既にロード済みのノート一覧を使い回す (API 節約)
+    if (notes !== null) {
+      setNewNoteNotes(notes);
+      return;
+    }
+    void api.listNotes().then(
+      (res) => setNewNoteNotes(res.notes),
+      () => setNewNoteNotes([]),
+    );
+  }, [newNoteNotes, notes]);
+
   const createSmartNewNote = useCallback(async (): Promise<void> => {
     const trimPath = smartNewFilePath.trim();
     if (!trimPath) return;
@@ -945,6 +972,34 @@ export function App(): JSX.Element {
       }
     }
   }, [smartNewFilePath, applyHistory, expandAncestors, refreshNotes, setOpenDoc]);
+
+  /**
+   * 新規ノートダイアログ(統一) → ノート作成 (Sa10026-8)。
+   * smart-newfile と同一の作成ロジックを共有する。
+   * notePath は既に .md 付き (NewNoteDialog が補完済み)。
+   */
+  const createUnifiedNewNote = useCallback(
+    async (notePath: string): Promise<void> => {
+      setDialog(null);
+      setNewNoteNotes(null);
+      try {
+        const res = await api.putNote(notePath, '', 0);
+        await refreshNotes();
+        expandAncestors(dirnameOf(res.path));
+        setOpenDoc(res.path, '', res.mtime, null);
+        applyHistory({ kind: 'note', path: res.path }, 'push');
+        setAppError(null);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 409) {
+          setAppError(`同名のノートが既に存在します — ${notePath}`);
+          void refreshNotes();
+        } else {
+          setAppError(`ノートを作成できませんでした — ${errMessage(err)}`);
+        }
+      }
+    },
+    [applyHistory, expandAncestors, refreshNotes, setOpenDoc],
+  );
 
   /**
    * モーダル確定 → instantiate API → 解決先パス(衝突時は連番)に作成されたノートを開く。
@@ -1790,16 +1845,24 @@ export function App(): JSX.Element {
       )}
 
       {dialog?.type === 'new-note' && (
-        <NameDialog
-          title="新規ノート"
-          sub={dialog.folder === '' ? 'vault ルートに作成' : `${dialog.folder}/ に作成`}
-          initial=""
-          placeholder="ノート名"
-          confirmLabel="作成"
-          testids={{ dialog: 'new-note-dialog', input: 'new-note-input', confirm: 'new-note-confirm', cancel: 'new-note-cancel' }}
-          validate={validateNoteName(dialog.folder)}
-          onConfirm={(name) => void createNote(dialog.folder, name)}
-          onCancel={() => setDialog(null)}
+        <NewNoteDialog
+          initialPath={
+            // フォルダ指定あり (コンテキストメニュー等) → そのフォルダを prefill
+            // フォルダ指定なし → defaultFolder を prefill (空なら空文字)
+            dialog.folder !== ''
+              ? `${dialog.folder}/`
+              : defaultFolder !== ''
+                ? `${defaultFolder}/`
+                : ''
+          }
+          notes={newNoteNotes}
+          defaultFolder={dialog.folder !== '' ? '' : defaultFolder}
+          onConfirm={(notePath) => void createUnifiedNewNote(notePath)}
+          onCancel={() => {
+            setDialog(null);
+            setNewNoteNotes(null);
+          }}
+          onRequestNotes={loadNewNoteNotes}
         />
       )}
 

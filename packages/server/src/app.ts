@@ -85,6 +85,9 @@ export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv>
     return c.json({ error: 'internal_error', message: 'internal server error' }, 500);
   });
 
+  // GET /api/settings/system は settingsRoutes (Sa10026-5) が提供する。
+  // (Sa10026-8 の暫定インラインハンドラは重複のため統合時に撤去)
+
   app.get('/api/health', async (c) => {
     // エージェント設定の有無を確認する (遅延読込 — 毎回ファイルを読む)
     const agentResult = await loadAgentConfig(config.vaultRoot);
