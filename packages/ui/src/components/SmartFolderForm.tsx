@@ -19,7 +19,7 @@
  *   パスが `.md` 末尾 → note-pin (葉)。それ以外 → folder-pin (展開可能)。
  *   保存時: パスが既存ノートパスでも既存フォルダでもない場合はエラーを表示してブロック。
  */
-import { useEffect, useRef, useState, type ChangeEvent, type JSX } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type ChangeEvent, type JSX } from 'react';
 import type { NoteMeta, SmartViewItem, TagCount } from '@loamium/shared';
 import { filterTagSuggestions } from '@loamium/shared';
 import { api } from '../api.js';
@@ -102,15 +102,33 @@ export interface SmartFolderFormProps {
   existingNames: ReadonlySet<string>;
   onSave: (item: SmartViewItem) => void;
   onCancel: () => void;
+  /**
+   * true のとき sf-form-actions (キャンセル/保存ボタン) を非表示にする。
+   * master-detail の右ペインに埋め込む場合は親側のフッタで制御するため使用。
+   * (Sa100c6-2)
+   */
+  hideActions?: boolean;
+  /**
+   * true のとき全フィールドを読み取り専用にする。(Sa100c6-2)
+   */
+  readonly?: boolean;
 }
 
-export function SmartFolderForm({
+/** SmartFolderForm を外部から命令的に操作するためのハンドル。(Sa100c6-2) */
+export interface SmartFolderFormHandle {
+  /** フォームのバリデーション + onSave を実行する。 */
+  triggerSave: () => void;
+}
+
+export const SmartFolderForm = forwardRef<SmartFolderFormHandle, SmartFolderFormProps>(function SmartFolderForm({
   initial,
   existingIds,
   existingNames,
   onSave,
   onCancel,
-}: SmartFolderFormProps): JSX.Element {
+  hideActions = false,
+  readonly = false,
+}, ref) {
   const isEdit = initial !== undefined;
 
   // --- 共通フィールド ---
@@ -326,6 +344,11 @@ export function SmartFolderForm({
     }
   };
 
+  // imperativeHandle: 外部 (SmartFoldersPanel) から保存をトリガーできるようにする (Sa100c6-2)
+  useImperativeHandle(ref, () => ({
+    triggerSave: handleSave,
+  }));
+
   return (
     <div className="sf-form" data-testid="sf-form">
       {/* 名前 */}
@@ -337,6 +360,7 @@ export function SmartFolderForm({
           data-testid="sf-form-name"
           value={name}
           placeholder={kind === 'pin' ? '表示名 (省略可)' : 'フォルダ名'}
+          disabled={readonly}
           onChange={(e) => {
             setName(e.target.value);
             setError(null);
@@ -354,6 +378,7 @@ export function SmartFolderForm({
             data-testid="sf-form-icon"
             value={icon}
             placeholder="clock / star / 📝 など"
+            disabled={readonly}
             onFocus={handleIconFocus}
             onBlur={handleIconBlur}
             onChange={(e) => {
@@ -390,6 +415,7 @@ export function SmartFolderForm({
             className={`sf-form-kind-btn${kind === 'query' ? ' active' : ''}`}
             data-testid="sf-form-kind-query"
             aria-pressed={kind === 'query'}
+            disabled={readonly}
             onClick={() => {
               setKind('query');
               setError(null);
@@ -402,6 +428,7 @@ export function SmartFolderForm({
             className={`sf-form-kind-btn${kind === 'pin' ? ' active' : ''}`}
             data-testid="sf-form-kind-pin"
             aria-pressed={kind === 'pin'}
+            disabled={readonly}
             onClick={() => {
               setKind('pin');
               setError(null);
@@ -422,6 +449,7 @@ export function SmartFolderForm({
               className="sf-form-select"
               data-testid="sf-form-preset"
               value={preset}
+              disabled={readonly}
               onChange={handlePresetChange}
             >
               <option value="recent">最近更新 N 件</option>
@@ -443,6 +471,7 @@ export function SmartFolderForm({
                 value={presetN}
                 min={1}
                 max={999}
+                disabled={readonly}
                 onChange={(e) => {
                   const v = parseInt(e.target.value, 10);
                   setPresetN(Number.isNaN(v) || v < 1 ? 1 : v);
@@ -462,6 +491,7 @@ export function SmartFolderForm({
                   data-testid="sf-form-preset-tag"
                   value={presetTag}
                   placeholder="example"
+                  disabled={readonly}
                   onFocus={handleTagFocus}
                   onBlur={handleTagBlur}
                   onChange={(e) => {
@@ -499,6 +529,7 @@ export function SmartFolderForm({
               data-testid="sf-form-dql"
               value={computedDql}
               rows={3}
+              disabled={readonly}
               onChange={handleDqlChange}
             />
           </div>
@@ -516,6 +547,7 @@ export function SmartFolderForm({
               data-testid="sf-form-path"
               value={path}
               placeholder="notes/example.md または projects/"
+              disabled={readonly}
               onFocus={handlePathFocus}
               onBlur={handlePathBlur}
               onChange={(e) => {
@@ -564,24 +596,27 @@ export function SmartFolderForm({
 
       {error !== null && <div className="sf-form-error" data-testid="sf-form-error">{error}</div>}
 
-      <div className="sf-form-actions">
-        <button
-          type="button"
-          className="btn"
-          data-testid="sf-form-cancel"
-          onClick={onCancel}
-        >
-          キャンセル
-        </button>
-        <button
-          type="button"
-          className="btn primary"
-          data-testid="sf-form-save"
-          onClick={handleSave}
-        >
-          {isEdit ? '更新' : '追加'}
-        </button>
-      </div>
+      {!hideActions && (
+        <div className="sf-form-actions">
+          <button
+            type="button"
+            className="btn"
+            data-testid="sf-form-cancel"
+            onClick={onCancel}
+          >
+            キャンセル
+          </button>
+          <button
+            type="button"
+            className="btn primary"
+            data-testid="sf-form-save"
+            disabled={readonly}
+            onClick={handleSave}
+          >
+            {isEdit ? '更新' : '追加'}
+          </button>
+        </div>
+      )}
     </div>
   );
-}
+});

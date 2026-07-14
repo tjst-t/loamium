@@ -22,6 +22,7 @@ import {
 } from 'react';
 import { api } from '../api.js';
 import { TemplatesPanel } from './TemplatesPanel.js';
+import { SmartFoldersPanel } from './SmartFoldersPanel.js';
 import type {
   AppSettings,
   AgentConnectionResponse,
@@ -701,13 +702,9 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
           {activeGroup === 'templates' && (
             <TemplatesPanel mode={mode} />
           )}
-          {/* スマートフォルダ — Sa100c6-2 で実装 */}
+          {/* スマートフォルダ — Sa100c6-2 */}
           {activeGroup === 'smart-folders' && (
-            <section className="md-panel active" data-testid="md-panel" data-group="smart-folders">
-              <div className="md-placeholder">
-                <p>スマートフォルダ管理は別 Story (Sa100c6-2) で実装予定です。</p>
-              </div>
-            </section>
+            <SmartFoldersPanel mode={mode} />
           )}
           {/* スマートコマンド — Sa100c6-3 で実装 */}
           {activeGroup === 'commands' && (
