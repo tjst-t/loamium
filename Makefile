@@ -89,11 +89,12 @@ verify: test
 # templates/ にも配置する (アプリが拾うのは vault 直下の templates/ のみ)。
 samples:
 	@DEST="$${LOAMIUM_VAULT:-$(DEV_VAULT)}"; \
-	mkdir -p "$$DEST" "$$DEST/templates" "$$DEST/.loamium"; \
+	mkdir -p "$$DEST" "$$DEST/templates" "$$DEST/.loamium" "$$DEST/system/commands"; \
 	cp -R --update=none samples "$$DEST/" 2>/dev/null || cp -R -n samples "$$DEST/"; \
 	cp -R --update=none samples/templates/. "$$DEST/templates/" 2>/dev/null || cp -Rn samples/templates/. "$$DEST/templates/" 2>/dev/null || true; \
 	[ -f "$$DEST/.loamium/smart-folders.json" ] || cp samples/smart-folders.json "$$DEST/.loamium/smart-folders.json"; \
-	echo "サンプルを $$DEST/samples/ へ、テンプレートを $$DEST/templates/ へ、スマートフォルダのデフォルト設定を $$DEST/.loamium/smart-folders.json へ投入しました (既存は上書きしません)"
+	cp -R --update=none samples/commands/. "$$DEST/system/commands/" 2>/dev/null || cp -Rn samples/commands/. "$$DEST/system/commands/" 2>/dev/null || true; \
+	echo "サンプルを $$DEST/samples/ へ、テンプレートを $$DEST/templates/ へ、スマートフォルダのデフォルト設定を $$DEST/.loamium/smart-folders.json へ、サンプルのスマートコマンドを $$DEST/system/commands/ へ投入しました (既存は上書きしません)"
 
 build:
 	npm run build --workspaces --if-present

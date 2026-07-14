@@ -1,0 +1,11 @@
+name: Todo を追加
+description: 今日のジャーナルの「今日の予定」に Todo を1件追記します。
+params:
+  - name: task
+    type: text
+    label: タスク
+    required: true
+steps:
+  - kind: journal-append
+    section: 今日の予定
+    content: "- [ ] {{task}}"

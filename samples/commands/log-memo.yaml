@@ -1,0 +1,11 @@
+name: メモを追記
+description: 今日のジャーナルの「メモ」に1行メモを追記します。
+params:
+  - name: text
+    type: text
+    label: メモ
+    required: true
+steps:
+  - kind: journal-append
+    section: メモ
+    content: "- {{text}}"
