@@ -54,6 +54,12 @@ import {
   smartFoldersResolveResponseSchema,
   commandsResponseSchema,
   commandRunResponseSchema,
+  appSettingsResponseSchema,
+  agentConnectionResponseSchema,
+  agentConnectionTestResponseSchema,
+  agentPermissionsResponseSchema,
+  agentPrivacySettingsResponseSchema,
+  agentModelsResponseSchema,
 } from '@loamium/shared';
 import {
   apiFetch,
@@ -637,6 +643,240 @@ function buildProgram(): Command {
     });
 
   program.addCommand(commandCmd);
+
+  // ---- 設定 API (Sa10026-5) ----
+  // REST と 1:1 対応する loamium settings 系サブコマンド (AC-Sa10026-5-3)
+
+  const settingsCmd = new Command('settings');
+  settingsCmd
+    .description('設定を管理する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} });
+
+  // loamium settings system (GET /api/settings/system)
+  settingsCmd
+    .command('system')
+    .description('アプリ全体設定を取得する (GET /api/settings/system)')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, '/api/settings/system');
+      output(opts, result, () => {
+        const res = parseAs(result, appSettingsResponseSchema, 'settings system');
+        println(JSON.stringify(res.settings, null, 2));
+      });
+    });
+
+  // loamium settings system set <json-string> (PUT /api/settings/system)
+  settingsCmd
+    .command('system-set')
+    .description('アプリ全体設定を保存する (PUT /api/settings/system)')
+    .argument('<json>', '設定 JSON 文字列 (例: \'{}\')')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (json: string, opts: JsonOpt) => {
+      let settings: unknown;
+      try {
+        settings = JSON.parse(json) as unknown;
+      } catch {
+        throw new CliError('invalid_json', 'settings must be valid JSON');
+      }
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, '/api/settings/system', putJson({ settings }));
+      output(opts, result, () => {
+        parseAs(result, appSettingsResponseSchema, 'settings system-set');
+        println('settings saved');
+      });
+    });
+
+  // loamium settings agent-connection (GET /api/settings/agent/connection)
+  settingsCmd
+    .command('agent-connection')
+    .description('agent 接続設定を取得する (GET /api/settings/agent/connection)')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, '/api/settings/agent/connection');
+      output(opts, result, () => {
+        const res = parseAs(result, agentConnectionResponseSchema, 'settings agent-connection');
+        if (res.connection === null) {
+          println('agent connection: not configured');
+        } else {
+          println(`api:      ${res.connection.api}`);
+          println(`baseUrl:  ${res.connection.baseUrl}`);
+          println(`model:    ${res.connection.model}`);
+          println(`apiKey:   ${res.connection.apiKeyRef}`);
+          if (res.connection.webSearch !== undefined) {
+            println(`webSearch.endpoint: ${res.connection.webSearch.endpoint}`);
+          }
+        }
+      });
+    });
+
+  // loamium settings agent-connection-set (PUT /api/settings/agent/connection)
+  settingsCmd
+    .command('agent-connection-set')
+    .description('agent 接続設定を保存する (PUT /api/settings/agent/connection)')
+    .requiredOption('--api <api>', 'API 種別: openai | anthropic')
+    .requiredOption('--base-url <url>', 'ベース URL (例: https://api.openai.com/v1)')
+    .requiredOption('--model <model>', 'モデル名 (例: gpt-4o)')
+    .requiredOption('--api-key <ref>', 'apiKey の $ENV_VAR 参照名 (例: $OPENAI_API_KEY)')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (opts: JsonOpt & { api: string; baseUrl: string; model: string; apiKey: string }) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(
+        base,
+        '/api/settings/agent/connection',
+        putJson({ api: opts.api, baseUrl: opts.baseUrl, model: opts.model, apiKey: opts.apiKey }),
+      );
+      output(opts, result, () => {
+        println('agent connection settings saved');
+      });
+    });
+
+  // loamium settings agent-connection-test (POST /api/settings/agent/connection/test)
+  settingsCmd
+    .command('agent-connection-test')
+    .description('agent 接続をテストする (POST /api/settings/agent/connection/test)')
+    .option('--base-url <url>', 'テスト対象の baseUrl (省略時は agent.json の値)')
+    .option('--model <model>', 'テスト対象のモデル (省略時は agent.json の値)')
+    .option('--api <api>', 'API 種別: openai | anthropic (省略時は agent.json の値)')
+    .option('--api-key-ref <ref>', 'apiKey 参照名 (省略時は agent.json の値)')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (opts: JsonOpt & { baseUrl?: string; model?: string; api?: string; apiKeyRef?: string }) => {
+      const body: Record<string, string> = {};
+      if (opts.baseUrl !== undefined) body.baseUrl = opts.baseUrl;
+      if (opts.model !== undefined) body.model = opts.model;
+      if (opts.api !== undefined) body.api = opts.api;
+      if (opts.apiKeyRef !== undefined) body.apiKeyRef = opts.apiKeyRef;
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(
+        base,
+        '/api/settings/agent/connection/test',
+        postJson(body),
+      );
+      output(opts, result, () => {
+        const res = parseAs(result, agentConnectionTestResponseSchema, 'settings agent-connection-test');
+        if (res.ok) {
+          println(`ok\tmodel=${res.model ?? 'unknown'}\tlatencyMs=${String(res.latencyMs ?? 0)}`);
+        } else {
+          println(`fail\t${res.error ?? 'unknown error'}`);
+        }
+      });
+    });
+
+  // loamium settings agent-models (GET /api/settings/agent/models)
+  settingsCmd
+    .command('agent-models')
+    .description('agent 接続先のモデル一覧を取得する (GET /api/settings/agent/models)')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, '/api/settings/agent/models');
+      output(opts, result, () => {
+        const res = parseAs(result, agentModelsResponseSchema, 'settings agent-models');
+        if (res.source === 'fallback') {
+          println(`source: fallback${res.error !== undefined ? ` (${res.error})` : ''}`);
+        }
+        for (const model of res.models) {
+          println(model);
+        }
+      });
+    });
+
+  // loamium settings agent-permissions (GET /api/settings/agent/permissions)
+  settingsCmd
+    .command('agent-permissions')
+    .description('agent 権限・capability を取得する (GET /api/settings/agent/permissions)')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, '/api/settings/agent/permissions');
+      output(opts, result, () => {
+        const res = parseAs(result, agentPermissionsResponseSchema, 'settings agent-permissions');
+        if (res.permissions === null) {
+          println('agent permissions: not configured');
+        } else {
+          const value = res.permissions.value !== null
+            ? (Array.isArray(res.permissions.value) ? res.permissions.value.join(',') : String(res.permissions.value))
+            : '(none)';
+          println(`permissions: ${value}`);
+          println(`effective:   ${res.permissions.effective.join(',')}`);
+        }
+      });
+    });
+
+  // loamium settings agent-permissions-set <value> (PUT /api/settings/agent/permissions)
+  settingsCmd
+    .command('agent-permissions-set')
+    .description('agent 権限・capability を保存する (PUT /api/settings/agent/permissions)')
+    .argument('<permissions>', 'プリセット名 (read-only/notes-rw/full) またはコンマ区切りケーパビリティ (例: read,note_edit)')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (perms: string, opts: JsonOpt) => {
+      // "read,note_edit" のようなコンマ区切りはケーパビリティ配列として扱う
+      const permissions = perms.includes(',') ? perms.split(',').map((s) => s.trim()) : perms;
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(
+        base,
+        '/api/settings/agent/permissions',
+        putJson({ permissions }),
+      );
+      output(opts, result, () => {
+        println('agent permissions saved');
+      });
+    });
+
+  // loamium settings agent-privacy (GET /api/settings/agent/privacy)
+  settingsCmd
+    .command('agent-privacy')
+    .description('privacy deny-list を取得する (GET /api/settings/agent/privacy)')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, '/api/settings/agent/privacy');
+      output(opts, result, () => {
+        const res = parseAs(result, agentPrivacySettingsResponseSchema, 'settings agent-privacy');
+        for (const glob of res.deny) {
+          println(glob);
+        }
+      });
+    });
+
+  // loamium settings agent-privacy-set <glob...> (PUT /api/settings/agent/privacy)
+  settingsCmd
+    .command('agent-privacy-set')
+    .description('privacy deny-list を設定する (PUT /api/settings/agent/privacy)')
+    .argument('<globs...>', 'vault 相対 glob パターン (例: private/** secret.md)')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (globs: string[], opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, '/api/settings/agent/privacy', putJson({ deny: globs }));
+      output(opts, result, () => {
+        parseAs(result, agentPrivacySettingsResponseSchema, 'settings agent-privacy-set');
+        println(`privacy deny-list saved (${String(globs.length)} glob(s))`);
+      });
+    });
+
+  program.addCommand(settingsCmd);
 
   // ---- エクスポート (ADR-0006 / Sa8ee62-1) ----
 
