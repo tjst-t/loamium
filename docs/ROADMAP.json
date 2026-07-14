@@ -4508,7 +4508,7 @@
         },
         "Sa10026-2": {
           "title": "設定系3系統の一括移行 + 破壊的多版テスト",
-          "status": "pending",
+          "status": "done",
           "user_review_required": true,
           "review_reason": "データ移行(既存 vault の設定ファイルを別配置へ書き換える)。移行の冪等性と非破壊を人手で確認する。",
           "user_story": "既存 vault を持つ利用者として、テンプレート・スマートフォルダ・スマートコマンドが自動で system/ に移行されてほしい。なぜなら、設定が全部『vault の見えるファイル』に一貫し、.loamium の使い捨て不変条件が純化するから。",
@@ -4517,42 +4517,42 @@
               "id": "AC-Sa10026-2-1",
               "description": "起動時に .loamium/smart-folders.json があれば system/smart-folders/*.yaml へ一回きり移行し、以後は system/ を正本として読み書きする(旧 JSON は寛容 read で取り込み後、正本から外す)。ADR-0002 の .loamium 例外が消える。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sa10026-2-2",
               "description": "templates/ → system/templates/(.md 維持)、commands/ → system/commands/(*.yaml へ変換)を移行し、旧パス(JOURNAL_TEMPLATE_PATH 等・route)は新パスへ解決する。旧パスに残るファイルは寛容 read で後方互換に扱う。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sa10026-2-3",
               "description": "旧形式(v0: フラット JSON / 旧パス配置)→ 移行 → 新形式(system/ per-file)の破壊的多版テストが green。移行は冪等で、二重実行・部分移行済み状態でもデータを失わない。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sa10026-2-1": {
               "title": "移行ランナー(3系統・冪等)",
               "description": ".loamium/smart-folders.json(→ *.yaml)/ templates/(→ .md)/ commands/(→ *.yaml)を system/ 配下へ一回きり移行する冪等ランナー。移行済みマーカーで二重実行を防止。監査ログ(.loamium/audit.log)に記録。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa10026-2-2": {
               "title": "route 更新 + 後方互換の寛容 read",
               "description": "templates/commands の read/write を system/ 配下へ切替。旧パス参照(journal テンプレ・commands ルート)を新パスへ解決し、旧配置に残るファイルも読めるフォールバックを残す。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa10026-2-3": {
               "title": "破壊的多版テスト(旧→移行→新)",
               "description": "v0 フラット JSON + 旧パス配置を含む fixture を用意し、移行実行→新配置検証→冪等再実行を通す破壊的多版テスト(test-discipline Rule 8)。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sa10026-3": {
           "title": "アプリ全体設定 system/settings.yaml",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "利用者として、アプリ全体設定を素の YAML 1 枚で持ちたい。なぜなら、frontmatter だけの空ノートより honest で、同じ YAML パーサで読め、versioning/移植できるから。",
@@ -4561,20 +4561,20 @@
               "id": "AC-Sa10026-3-1",
               "description": "server が system/settings.yaml を型付き(shared zod スキーマ)で読み書きし、無ければ既定値へフォールバックする。壊れた YAML は寛容 read で既定に落ちる。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sa10026-3-2",
               "description": "端末固有・再構築可能な状態(検索インデックスキャッシュ / ペイン幅 / 最後に開いたノート)は従来どおり .loamium/(gitignore)に残り、settings.yaml には入らない(ADR-0010 境界原則)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sa10026-3-1": {
               "title": "shared: settings スキーマ + server load/save",
               "description": "アプリ全体設定の zod スキーマを shared に定義。server で system/settings.yaml を load/save(既定フォールバック)+ ユニットテスト。境界原則に沿って端末依存状態は対象外とする。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
