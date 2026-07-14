@@ -17,7 +17,7 @@
  * [AC-Sa10026-1-3] system/ 配下のパスも normalizeVaultFilePath 経由で vault 外脱出を防ぐ。
  */
 import { z } from 'zod';
-import { parse as parseYaml } from 'yaml';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { parseNote } from './markdown.js';
 import { normalizeVaultFilePath, VaultPathError } from './path.js';
 
@@ -338,3 +338,113 @@ export function buildSystemTemplateDef(
 
 // VaultPathError を再エクスポート (呼び出し側が catch できるようにする)
 export { VaultPathError };
+
+// ---- アプリ全体設定 (system/settings.yaml — ADR-0010, Sa10026-3) ----
+
+/**
+ * `system/settings.yaml` の vault 相対パス定数。
+ */
+export const SYSTEM_SETTINGS_PATH = `${SYSTEM_DIR}/settings.yaml`;
+
+/**
+ * アプリ全体設定の zod スキーマ (ADR-0010: system/settings.yaml)。
+ *
+ * 設計原則 (ADR-0010 境界原則):
+ * - ここに含めるのは「versioning + 移植 + 人/agent 編集したい」設定のみ。
+ * - 端末固有・再構築可能な状態 (インデックスキャッシュ / ペイン幅 / 最後に開いたノート等)
+ *   は `.loamium/` に残す。[AC-Sa10026-3-2]
+ *
+ * 前方互換: z.object の各フィールドは既定値付きかつ optional とし、
+ * 未知キーは passthrough() で無視する (将来フィールド追加に対して backward-compatible)。
+ *
+ * [AC-Sa10026-3-1]
+ */
+export const appSettingsSchema = z.object({
+  /**
+   * UI テーマ。
+   * - 'light'  : 常にライトテーマ
+   * - 'dark'   : 常にダークテーマ
+   * - 'system' : OS 設定に追従 (既定)
+   */
+  theme: z.enum(['light', 'dark', 'system']).default('system'),
+  /**
+   * 新規ノート作成モーダルの保存先デフォルトフォルダ (vault 相対、"" = ルート)。
+   * 別 Story Sa10026-8 が消費する。
+   */
+  defaultFolder: z.string().default(''),
+  /**
+   * ジャーナルテンプレートの vault 相対パス。
+   */
+  journalTemplate: z.string().default('system/templates/journal.md'),
+  /**
+   * ツリービューで system/ フォルダを表示するか。
+   * false が既定 (system/ はアプリ管理領域で通常は隠す)。
+   * 別 Story Sa10026-4 が消費する。
+   */
+  showSystemFolder: z.boolean().default(false),
+}).passthrough();
+
+export type AppSettings = z.infer<typeof appSettingsSchema>;
+
+/**
+ * `AppSettings` の既定値。`system/settings.yaml` が存在しないときに使う。
+ * スキーマの既定値と同値を定数として提供する (型チェック + 参照用)。
+ */
+export const DEFAULT_APP_SETTINGS: AppSettings = {
+  theme: 'system',
+  defaultFolder: '',
+  journalTemplate: 'system/templates/journal.md',
+  showSystemFolder: false,
+};
+
+/**
+ * `system/settings.yaml` の生テキストをパースして `AppSettings` を返す (寛容 read)。
+ *
+ * - 空テキスト / null テキスト → 既定値を返す
+ * - YAML パースエラー → 既定値を返す + console.error ログ
+ * - zod 検証失敗 → フィールドごとに既定値へフォールバック (schema の `.default()` が担う)
+ *
+ * この関数は決して例外を投げない (priority 6: アプリを止めない)。
+ * [AC-Sa10026-3-1]
+ */
+export function parseAppSettings(yamlText: string | null | undefined): AppSettings {
+  if (yamlText === null || yamlText === undefined || yamlText.trim() === '') {
+    return { ...DEFAULT_APP_SETTINGS };
+  }
+  let raw: unknown;
+  try {
+    raw = parseYaml(yamlText);
+  } catch (err) {
+    console.error(`[loamium] failed to parse system/settings.yaml: ${String(err)}`);
+    return { ...DEFAULT_APP_SETTINGS };
+  }
+  // YAML の空ドキュメント ("---\n" 等) は null を返すことがある
+  if (raw === null || raw === undefined) {
+    return { ...DEFAULT_APP_SETTINGS };
+  }
+  // 配列や非オブジェクトは不正な設定とみなし既定へ
+  if (typeof raw !== 'object' || Array.isArray(raw)) {
+    console.error('[loamium] system/settings.yaml is not a YAML object, using defaults');
+    return { ...DEFAULT_APP_SETTINGS };
+  }
+  const result = appSettingsSchema.safeParse(raw);
+  if (result.success) {
+    return result.data as AppSettings;
+  }
+  // 個別フィールドが壊れている場合: スキーマの .default() が機能するため
+  // ここに到達するのはスキーマ構造上の parse 失敗 (通常は到達しない)。
+  // 念のため既定値に落とす。
+  console.error(
+    `[loamium] system/settings.yaml validation error, using defaults: ${result.error.message}`,
+  );
+  return { ...DEFAULT_APP_SETTINGS };
+}
+
+/**
+ * `AppSettings` オブジェクトを YAML テキストに変換する。
+ * スキーマの未知キー (passthrough) も保持した上でシリアライズする。
+ * 使用する yaml ライブラリ (packages/shared 依存済み) で stringify する。
+ */
+export function serializeAppSettings(settings: AppSettings): string {
+  return stringifyYaml(settings);
+}
