@@ -222,6 +222,10 @@ export function App(): JSX.Element {
   // ---- 新規ノートダイアログ (統一・Sa10026-8) ----
   /** settings.yaml の defaultFolder (初期ロード後に確定する)。 */
   const [defaultFolder, setDefaultFolder] = useState('');
+  /** settings.yaml の theme ('light' | 'dark' | 'system')。 */
+  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
+  /** settings.yaml の showSystemFolder (既定 false = 非表示)。 */
+  const [showSystemFolder, setShowSystemFolder] = useState(false);
   /** 新規ノートダイアログ用のフォルダ補完ソース (遅延ロード)。 */
   const [newNoteNotes, setNewNoteNotes] = useState<NoteMeta[] | null>(null);
 
@@ -293,6 +297,32 @@ export function App(): JSX.Element {
   const resetCounterRef = useRef(0);
   docRef.current = doc;
   previewRef.current = preview;
+
+  // ---- テーマ適用: html[data-theme] を theme 設定に追従させる ----
+  useEffect(() => {
+    const html = document.documentElement;
+    if (theme === 'dark') {
+      html.setAttribute('data-theme', 'dark');
+      return undefined;
+    }
+    if (theme === 'light') {
+      html.removeAttribute('data-theme');
+      return undefined;
+    }
+    // 'system': prefers-color-scheme: dark に追従
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const apply = (dark: boolean): void => {
+      if (dark) {
+        html.setAttribute('data-theme', 'dark');
+      } else {
+        html.removeAttribute('data-theme');
+      }
+    };
+    apply(mq.matches);
+    const onChange = (e: MediaQueryListEvent): void => apply(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, [theme]);
 
   const refreshNotes = useCallback(async (): Promise<void> => {
     try {
@@ -641,12 +671,15 @@ export function App(): JSX.Element {
 
   /**
    * 設定保存後に App 側の設定 state を再取得する (Sa10026-9 #7)。
-   * 設定画面で defaultFolder を変更・保存しても、マウント時に一度だけ取得した
-   * App の defaultFolder が古いままになり、同一セッションの新規ノートに反映されない
-   * 問題を解消する。SettingsView の保存成功 / 設定ページ離脱時に呼ぶ。
+   * defaultFolder / theme / showSystemFolder を一括再取得し、リロードなしで即反映する。
+   * SettingsView の保存成功コールバック (onSaved) から呼ぶ。
    */
-  const refreshDefaultFolder = useCallback((): void => {
-    void api.getSystemSettings().then((s) => setDefaultFolder(s.defaultFolder ?? ''));
+  const refreshAppSettings = useCallback((): void => {
+    void api.getSystemSettings().then((s) => {
+      setDefaultFolder(s.defaultFolder ?? '');
+      setTheme(s.theme);
+      setShowSystemFolder(s.showSystemFolder);
+    });
   }, []);
 
   /**
@@ -734,8 +767,12 @@ export function App(): JSX.Element {
     void refreshPropertyTypes();
     void refreshPropertyKeys();
     void refreshTags();
-    // 設定取得: defaultFolder の prefill 用 (Sa10026-8 / graceful degradation)
-    void api.getSystemSettings().then((s) => setDefaultFolder(s.defaultFolder ?? ''));
+    // 設定取得: defaultFolder / theme / showSystemFolder の初期ロード (Sa10026-8 / graceful degradation)
+    void api.getSystemSettings().then((s) => {
+      setDefaultFolder(s.defaultFolder ?? '');
+      setTheme(s.theme);
+      setShowSystemFolder(s.showSystemFolder);
+    });
     // サーバーモード取得: 設定画面の read-only 制御用 (Sa10026-7)
     void api.getHealth().then((h) => {
       setAppMode(h.mode);
@@ -1549,14 +1586,16 @@ export function App(): JSX.Element {
               onContextMenuNote={onContextMenuNote}
               onContextMenuFolder={onContextMenuFolder}
             />
-            {/* system/ ネストフォルダツリー (Sa10026-9 #4/#5: トグル撤去・常時表示) */}
-            <SystemFolderSection
-              systemFiles={systemFiles}
-              activePath={activeSidebarPath}
-              collapsed={collapsedFolders}
-              onToggleFolder={toggleFolder}
-              onOpenNote={(path) => void openNotePath(path)}
-            />
+            {/* system/ ネストフォルダツリー (showSystemFolder=true のときのみ表示) */}
+            {showSystemFolder && (
+              <SystemFolderSection
+                systemFiles={systemFiles}
+                activePath={activeSidebarPath}
+                collapsed={collapsedFolders}
+                onToggleFolder={toggleFolder}
+                onOpenNote={(path) => void openNotePath(path)}
+              />
+            )}
           </>
         )}
 
@@ -1680,7 +1719,7 @@ export function App(): JSX.Element {
               else if (doc !== null) applyHistory({ kind: 'note', path: doc.path }, 'push');
               else void openJournalNav();
             }}
-            onSaved={refreshDefaultFolder}
+            onSaved={refreshAppSettings}
           />
         ) : route.kind === 'search' ? (
           <SearchPage

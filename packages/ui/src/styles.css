@@ -31,6 +31,35 @@
   --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, "Noto Sans Mono CJK JP", monospace;
 }
 
+/* ---- ダークテーマ パレット ---- */
+[data-theme="dark"] {
+  --bg-app: #1a1b21;
+  --bg-panel: #1f2028;
+  --bg-editor: #24252e;
+  --bg-hover: #2d2e3a;
+  --bg-active: #302d4a;
+  --border: #2e2f3a;
+  --border-strong: #3a3b4a;
+  --text: #e2e3ec;
+  --text-muted: #9899a8;
+  --text-faint: #5e5f6e;
+  --accent: #9d8aee;
+  --accent-hover: #b4a3f5;
+  --accent-soft: #2a2542;
+  --link: #8a8af0;
+  --danger: #f07070;
+  --danger-soft: #2e1f1f;
+  --warn: #e0a94a;
+  --warn-soft: #2a2010;
+  --ok: #4ec989;
+  --code-bg: #1e1e2a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 4px 16px rgba(0, 0, 0, 0.40);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.40), 0 16px 48px rgba(0, 0, 0, 0.60);
+}
+
+/* CodeMirror アクティブ行はダークで CSS 変数参照できないため直接上書き */
+[data-theme="dark"] .editor-host .cm-activeLine { background: #2c2d3a; }
+
 * { box-sizing: border-box; }
 
 html, body, #root {

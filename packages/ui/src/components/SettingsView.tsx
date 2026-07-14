@@ -779,7 +779,7 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
               <div className="toggle-row">
                 <div className="toggle-label">
                   <label>設定フォルダ(<code>system/</code>)をツリーに表示</label>
-                  <p className="hint">OFF でも system/ は vault 内に存在します。Sa10026-4 のトグルと連動。</p>
+                  <p className="hint">OFF(既定)ではサイドバーに設定フォルダ system/ を表示しません。ファイルは vault 内に存在します。</p>
                 </div>
                 <Switch
                   checked={generalDraft.showSystemFolder}
