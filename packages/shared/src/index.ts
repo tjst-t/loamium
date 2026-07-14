@@ -156,6 +156,7 @@ export {
   AGENT_CAPABILITIES,
   AGENT_PRESET_NAMES,
   AGENT_PRESETS,
+  SETTINGS_EXCLUDED_TOOL_NAMES,
   agentPermissionsSchema,
   resolvePermissions,
   deriveToolNames,

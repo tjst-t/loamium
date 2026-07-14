@@ -105,6 +105,43 @@ describe('createVaultReadTools', () => {
     expect(text).toMatch(/パスエラー|hidden|traversal/i);
   });
 
+  // ---- AC-Sa10026-6-1: 設定書込 API の agent ツール除外 (自己昇格防止) ----------
+
+  it('[AC-Sa10026-6-1] read_note ツールが ".loamium/agent-privacy.json" (deny-list) を拒否する', async () => {
+    // agent が deny-list 自体を読み取って自己の動作を調査できないことを確認。
+    const readTool = tools.find((t) => t.name === 'read_note');
+    expect(readTool).toBeDefined();
+    if (!readTool) return;
+
+    const result = await readTool.execute(
+      'tc-sa10026-6-1',
+      { path: '.loamium/agent-privacy.json' },
+      noSignal,
+      noUpdate,
+      fakeCtx,
+    );
+    const text = (result.content[0] as { type: 'text'; text: string } | undefined)?.text ?? '';
+    expect(text).toMatch(/パスエラー|hidden|traversal/i);
+  });
+
+  it('[AC-Sa10026-6-1] VAULT_READ_TOOL_NAMES に settings 書込系ツール名が含まれない (advertised-toolset pin)', () => {
+    // VAULT_READ_TOOL_NAMES は agent-tools.e2e.spec.ts の '[AC-S53409d-3-1]' でも
+    // 実 LLM リクエストの tools フィールドを実測して固定される (ADR-0012 回帰防止)。
+    // 設定書込系ツール名が含まれないことを unit でも確認する。
+    const settingsToolPatterns = [
+      'settings',
+      'agent_config',
+      'agent_permission',
+      'agent_privacy',
+      'agent_connection',
+    ];
+    for (const pattern of settingsToolPatterns) {
+      for (const toolName of VAULT_READ_TOOL_NAMES) {
+        expect(toolName).not.toContain(pattern);
+      }
+    }
+  });
+
   // ---- 正常系テスト -----------------------------------------------------------
 
   it('search ツールが vault 内のノートを検索できる', async () => {

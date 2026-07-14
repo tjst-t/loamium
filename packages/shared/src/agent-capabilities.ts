@@ -173,3 +173,35 @@ export function clampByMode(caps: readonly Capability[], mode: PermissionMode): 
   if (allowed === null) return normalized;
   return normalized.filter((c) => allowed.has(c));
 }
+
+// ---- 自己昇格防止: 設定書込 API の agent ツール除外 (ADR-0026 / Sa10026-6) ----
+
+/**
+ * 設定書込 API ルート (Sa10026-5) に対応する「想定されうる」ツール名パターン。
+ *
+ * ADR-0026 設計制約 (binding):
+ *   - `/api/settings/agent/permissions`, `/api/settings/agent/privacy`,
+ *     `/api/settings/agent/connection` の apiKey 書込は agent 自身が実行できてはならない。
+ *   - CAPABILITY_TOOL_NAMES に settings 系ケーパビリティは存在せず、deriveToolNames は
+ *     いかなる caps 集合を渡されても設定書込ツールを返さない (構造的除外)。
+ *
+ * この定数は「設定書込に相当するツール名が advertised-toolset に**現れないことを固定**する
+ * 回帰テスト (AC-Sa10026-6-2)」で参照される。
+ * 新しい settings ケーパビリティを追加する場合はこのリストも更新し、
+ * テストが失敗することで自己昇格の危険を検出できるようにする。
+ *
+ * [AC-Sa10026-6-1] agent ツール allowlist から設定書込を除外する構造的保証。
+ */
+export const SETTINGS_EXCLUDED_TOOL_NAMES = [
+  // settings write API に対応するツール名候補 (現在は存在しないが将来の誤追加を pin する)
+  'settings_write',
+  'settings_system_write',
+  'settings_agent_write',
+  'settings_agent_connection_write',
+  'settings_agent_permissions_write',
+  'settings_agent_privacy_write',
+  'agent_config_write',
+  'agent_permission_write',
+  'agent_privacy_write',
+  'agent_connection_write',
+] as const;
