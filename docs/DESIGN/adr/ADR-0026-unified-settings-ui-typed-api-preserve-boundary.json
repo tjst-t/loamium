@@ -36,5 +36,14 @@
   "affects": ["ui", "server", "cli"],
   "supersedes": null,
   "superseded_by": null,
-  "notes": "実装詳細は sprint plan 送り: 型付き設定API のエンドポイント分割(settings.yaml / agent 接続 / agent 権限 / privacy)、agent ツール allowlist からの設定API除外の強制箇所、GUI レイアウト(左ナビ: 全体 / エージェント / … + テンプレ/スマートフォルダ/コマンドへの導線リンク)、apiKey の $ENV_VAR 参照(平文保存しない既存方針)の GUI 表示の扱い、LOAMIUM_MODE(read-only/append-only)での書き込み設定の無効化。data.json 改訂は不要(保存場所・スキーマ位置は現状維持)。ADR-0010/0012/0015/0017/0018 は有効なまま(本 ADR は UI 集約と書き込み経路の契約のみ追加)。"
+  "notes": "実装詳細は sprint plan 送り: 型付き設定API のエンドポイント分割(settings.yaml / agent 接続 / agent 権限 / privacy)、agent ツール allowlist からの設定API除外の強制箇所、GUI レイアウト(左ナビ: 全体 / エージェント / … + テンプレ/スマートフォルダ/コマンドへの導線リンク)、apiKey の $ENV_VAR 参照(平文保存しない既存方針)の GUI 表示の扱い、LOAMIUM_MODE(read-only/append-only)での書き込み設定の無効化。data.json 改訂は不要(保存場所・スキーマ位置は現状維持)。ADR-0010/0012/0015/0017/0018 は有効なまま(本 ADR は UI 集約と書き込み経路の契約のみ追加)。",
+  "amendments": [
+    {
+      "date": "2026-07-14",
+      "sprint": "Sa100c6",
+      "change": "decision の『per-item コレクション(テンプレート/スマートフォルダ/コマンド)はハブに再実装せず導線リンクに留める』を撤回し、これらを統一設定画面の第一級セクションとして集約する(マスターディテール2ペイン: 左=項目一覧+絞り込み+新規、右=広い編集ペイン)。テンプレート本文はアプリ本体と同じエディタ(CodeMirror + lezer-markdown)を流用して編集、スマートフォルダは既存 SmartFolderForm を、スマートコマンドは既存コマンドエディタ(param/step 追加・編集・削除・並べ替え・試し実行)を右ペインに埋め込む。",
+      "rationale": "ユーザー指示(プロトタイプ settings-hub.html を反復レビューし確定)。当初の不採用理由は『既存管理UIとの二重管理』だったが、新規に再実装するのではなく既存の作成/編集コンポーネント(SmartFolderForm・コマンドエディタ・本体エディタ)を各セクションに埋め込んで流用する方針のため二重管理は生じない。保存先・スキーマ・型付き設定APIの境界(agent 非公開・LOAMIUM_MODE クランプ)は不変。導線リンク(旧方針)は各セクション埋め込みに置き換える。",
+      "supersedes_decision_point": "alternatives[3]『per-item コレクションも統一設定ハブに再実装して集約(不採用)』および consequences の『per-item はハブに埋め込まず導線リンク』を、既存コンポーネント流用を条件に採用へ変更。"
+    }
+  ]
 }

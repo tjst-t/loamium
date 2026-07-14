@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": null,
-    "total": 43,
+    "current_sprint": "Sa100c6",
+    "total": 44,
     "done": 41,
-    "in_progress": 0,
+    "in_progress": 1,
     "remaining": 2,
-    "percentage": 95
+    "percentage": 93
   },
   "execution_order": [
     "Sd63ad1",
@@ -47,6 +47,7 @@
     "S5bd678",
     "S5e0206",
     "Sa10026",
+    "Sa100c6",
     "S2fe109",
     "Sd22b1f",
     "Sde7a63",
@@ -4773,6 +4774,130 @@
           }
         }
       }
+    },
+    "Sa100c6": {
+      "title": "設定ハブに per-item 管理を集約 (テンプレ/SF/コマンド) — ADR-0026 amendment",
+      "description": "ADR-0026 amendment(2026-07-14)に基づき、テンプレート/スマートフォルダ/スマートコマンドの管理を統一設定画面の第一級セクションとして集約する。導線リンク(Sa10026-7)をセクション埋め込みに置換。レイアウトはマスターディテール2ペイン(左=項目一覧+絞り込み+新規、右=広い編集ペイン。編集可能タイトルヘッダ + 下部フッタ)。テンプレ本文はアプリ本体と同じエディタ(CodeMirror + lezer-markdown)を流用、スマートフォルダは既存 SmartFolderForm、スマートコマンドは既存コマンドエディタ(param/step 追加・編集・削除・並べ替え・試し実行)を右ペインに埋め込む。保存先・型付き設定APIの境界(agent 非公開・LOAMIUM_MODE クランプ・監査ログ)は不変。承認済みプロトタイプ: prototype/settings-hub.html。",
+      "status": "in_progress",
+      "milestone": true,
+      "detail_level": "detailed",
+      "components": [
+        "ui",
+        "server"
+      ],
+      "dependencies": null,
+      "stories": {
+        "Sa100c6-1": {
+          "title": "設定ハブのマスターディテール基盤 + テンプレート管理セクション",
+          "status": "pending",
+          "user_review_required": true,
+          "review_reason": "GUI・マイルストーン露出面。設定ハブの再構成とテンプレ本文編集(本体エディタ流用)の体験を実機で確認する。",
+          "user_story": "設定を管理する人として、テンプレートを設定画面内で一覧・作成・編集・削除したい。なぜなら、設定を1画面に集約でき、本文編集は本体と同じエディタで快適に行えるから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sa100c6-1-1",
+              "description": "統一設定画面の左ナビが『設定(全体/エージェント/プライバシー)』と『コンテンツ(テンプレート/スマートフォルダ/コマンド)』の2グループになり、コンテンツ各セクションはマスターディテール2ペイン(左=項目一覧+絞り込み検索+新規、右=編集ペイン)で表示される。Sa10026-7 の per-item 導線リンクは撤去される。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa100c6-1-2",
+              "description": "テンプレートセクションで一覧(名前/パスで絞り込み)・新規作成・複製・削除ができ、選択項目の本文をアプリ本体と同じエディタ(CodeMirror + lezer-markdown = 見出し/タスク/frontmatter がライブ整形)で編集して system/templates/*.md へ保存できる。編集可能なタイトルヘッダ(= ファイル名/名前)+ 本文全高エディタ + 下部フッタ(保存/キャンセル/複製/削除)の構成。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa100c6-1-3",
+              "description": "保存・削除・作成は監査ログ(.loamium/audit.log)に記録され、LOAMIUM_MODE(read-only/append-only)では書込操作(保存/新規/複製/削除)が無効化される。設定ファイル群への書込は引き続き agent ツールから到達不可(Sa10026-6 境界維持)。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sa100c6-1-1": {
+              "title": "ui: SettingsView をマスターディテール基盤に再構成",
+              "description": "左ナビを設定/コンテンツの2グループへ。コンテンツ用の master(一覧+絞り込み+新規)/detail(ヘッダ+本体+フッタ)レイアウトを共通コンポーネント化。Sa10026-7 の導線リンクを撤去。プロトタイプ prototype/settings-hub.html をビジュアルの正とする。",
+              "status": "pending"
+            },
+            "Sa100c6-1-2": {
+              "title": "ui: テンプレート管理セクション(本体エディタ流用)",
+              "description": "テンプレ一覧/新規/複製/削除 + 選択本文を本体の Editor コンポーネント(CodeMirror)を流用して編集。編集可能タイトルヘッダ、全高エディタ、フッタ。system/templates 書込は system-files source API(Sa10026)を流用。",
+              "status": "pending"
+            },
+            "Sa100c6-1-3": {
+              "title": "server: system/templates の list/create/delete を確保 + mock/e2e",
+              "description": "テンプレ一覧・新規作成・複製・削除に必要な API を確保(system-files/templates 既存流用 + 不足分を追加、監査ログ + mode クランプ + agent 非公開)。mock(edge)+ e2e(実サーバーで作成→編集→保存→反映)。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sa100c6-2": {
+          "title": "スマートフォルダ管理セクション(既存 SmartFolderForm 流用)",
+          "status": "pending",
+          "user_review_required": true,
+          "review_reason": "GUI。設定ハブ内のスマートフォルダ編集(既存フォーム流用)と並べ替えを実機で確認する。",
+          "user_story": "設定を管理する人として、スマートフォルダを設定画面内で一覧・作成・編集・削除・並べ替えしたい。なぜなら、既存の作成フォームをそのまま設定ハブで使えて一元管理できるから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sa100c6-2-1",
+              "description": "スマートフォルダセクションで一覧(絞り込み・ドラッグ並べ替え)・新規・削除ができ、選択項目を既存 SmartFolderForm(名前/アイコン/種類 クエリ⇄ピン/DQL + プリセット)で右ペインに編集して system/smart-folders/*.yaml へ保存できる。編集可能タイトルヘッダ + フッタ(保存/キャンセル/削除)。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa100c6-2-2",
+              "description": "並べ替えは order を安定ソートで再採番して永続する。保存/削除は監査ログ記録 + LOAMIUM_MODE クランプ。既存のサイドバー・スマートビュー表示と整合する(同じ system/smart-folders/*.yaml が正本)。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sa100c6-2-1": {
+              "title": "ui: スマートフォルダ管理セクション(SmartFolderForm 流用)",
+              "description": "master-detail 右ペインに既存 SmartFolderForm を埋め込み。一覧/絞り込み/新規/削除/並べ替え。既存 smart-folders CRUD API を流用。",
+              "status": "pending"
+            },
+            "Sa100c6-2-2": {
+              "title": "ui: 並べ替え order 永続 + mock/e2e",
+              "description": "ドラッグ並べ替えで order 再採番・永続。mock(edge)+ e2e(実サーバーで作成→編集→並べ替え→反映)。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sa100c6-3": {
+          "title": "スマートコマンド管理セクション(既存コマンドエディタ流用 + param/step 編集)",
+          "status": "pending",
+          "user_review_required": true,
+          "review_reason": "GUI。コマンドの param/step 編集(確定済みも編集可)と試し実行を実機で確認する。",
+          "user_story": "設定を管理する人として、スマートコマンドを設定画面内で一覧・作成・編集・削除したい。なぜなら、パラメータ/ステップを既存エディタで組み立て、確定済みのものも後から編集できると便利だから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sa100c6-3-1",
+              "description": "スマートコマンドセクションで一覧(絞り込み)・新規・削除ができ、選択項目を既存コマンドエディタ(名前/説明/パラメータ/ステップ)で右ペインに編集して system/commands/*.yaml へ保存できる。パラメータ・ステップは追加/編集/削除/並べ替えでき、確定済みの行も編集ボタンで後から変更できる。編集可能タイトルヘッダ + フッタ。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa100c6-3-2",
+              "description": "フッタの『試し実行』でコマンドを実行し結果(成否・追記先など)を確認できる。保存/削除は監査ログ記録 + LOAMIUM_MODE クランプ。パレット(Ctrl+K → >)からの実行と整合する(同じ system/commands/*.yaml が正本)。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sa100c6-3-1": {
+              "title": "ui: スマートコマンド管理セクション(コマンドエディタ流用)",
+              "description": "master-detail 右ペインに既存コマンドエディタを埋め込み。名前/説明/param/step の add/edit/delete/reorder(確定済み行も編集可)。一覧/絞り込み/新規/削除。",
+              "status": "pending"
+            },
+            "Sa100c6-3-2": {
+              "title": "ui: 試し実行 + 保存経路 + mock/e2e",
+              "description": "『試し実行』で POST /api/commands/{name}/run を叩き結果表示。保存は system/commands 書込。mock(edge)+ e2e(実サーバーで作成→編集→保存→試し実行→反映)。",
+              "status": "pending"
+            }
+          }
+        }
+      }
     }
   },
   "dependencies": {
@@ -5033,6 +5158,12 @@
         "S53409d"
       ],
       "reason": "設定の system/ 統一はスマートフォルダ格納(S32940c)/編集UI(Sebf6b0)の上に載り、統一設定UIの agent 権限・privacy・接続編集は内蔵エージェント基盤(S53409d, ADR-0012/0015/0018 境界)を前提とする"
+    },
+    "Sa100c6": {
+      "depends_on": [
+        "Sa10026"
+      ],
+      "reason": "設定ハブ集約は Sa10026 の統一設定UI(-7)+ 型付き設定API(-5)+ system-files API(#1)+ 自己昇格防止境界(-6)の上に載る"
     }
   },
   "backlog": [

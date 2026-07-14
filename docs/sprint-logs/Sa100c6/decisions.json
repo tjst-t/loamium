@@ -1,0 +1,9 @@
+{
+  "sprint": "Sa100c6",
+  "touched_adrs": ["ADR-0026", "ADR-0010", "ADR-0012", "ADR-0015", "ADR-0018"],
+  "decisions": [
+    {"timestamp":"2026-07-14T00:00:00Z","category":"planning","title":"per-item 管理を設定ハブに集約(ADR-0026 amend)","detail":"ユーザー確定。テンプレ/SF/コマンドを統一設定画面の第一級セクション(マスターディテール2ペイン)に集約。導線リンク(Sa10026-7)を撤去しセクション埋め込みに置換。ADR-0026 に amendment 追記済み(既存コンポーネント流用で二重管理回避)。","reference":"ADR-0026 amendments[0]","adr_ref":"ADR-0026","drift_flag":"none"},
+    {"timestamp":"2026-07-14T00:00:00Z","category":"planning","title":"既存編集コンポーネントを流用(再実装しない)","detail":"テンプレ本文=本体 Editor(CodeMirror)、SF=既存 SmartFolderForm、コマンド=既存コマンドエディタ を右ペインに埋め込む。保存先(system/*.yaml, *.md)・型付き設定APIの境界(agent 非公開・mode クランプ・監査ログ)は不変。","reference":"ADR-0026 amendment rationale, DESIGN_PRINCIPLES priority 5(シンプルさ/機能統一)","adr_ref":"ADR-0026","drift_flag":"none"},
+    {"timestamp":"2026-07-14T00:00:00Z","category":"planning","title":"レイアウト=マスターディテール2ペイン + ヘッダ編集タイトル + フッタ","detail":"プロトタイプ settings-hub.html を反復レビューし確定(名前欄はヘッダのタイトルに集約、本文は枠なし全高エディタ、操作は下部フッタ、param/step は編集ボタン付き)。","reference":"prototype/settings-hub.html(承認済み)","adr_ref":"ADR-0026","drift_flag":"none"}
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "story_id":"Sa100c6-1",
+  "story_title":"設定ハブのマスターディテール基盤 + テンプレート管理",
+  "state_diagram":"stateDiagram-v2\n    [*] --> Settings : sidebar-settings → /settings\n    Settings --> Templates : nav-item[data-group=templates]\n    Templates --> Selected : md-item クリック → detail 表示\n    Selected --> Editing : タイトル/本文を編集\n    Editing --> Saved : フッタ保存 → PUT system/templates/{id}.md\n    Selected --> New : 新規(md-new)→ 空テンプレ detail\n    Selected --> Duplicated : 複製 → 新ファイル作成\n    Selected --> Deleted : 削除 → DELETE\n    Templates --> Filtered : 絞り込み入力 → 一覧フィルタ\n    Saved --> Templates\n    ReadOnly : LOAMIUM_MODE=read-only → 保存/新規/複製/削除 無効",
+  "endpoint_contracts":[
+    {"endpoint":"GET /api/system-files","note":"system/ 配下の設定ファイル一覧(Sa10026)。テンプレは system/templates/*.md を抽出。","response_shape":"{ files:[{path,size,mtime}] }"},
+    {"endpoint":"GET/PUT /api/system-files/{path}/source","note":"テンプレ本文の読み書き(Sa10026)。PUT は mode クランプ + 監査 + agent 非公開。","response_shape":"{ content, mtime } / { ok, mtime }"},
+    {"endpoint":"POST/DELETE (create/delete template)","note":"新規作成・複製・削除に必要な経路(system-files 書込 + 削除)。不足なら追加。","response_shape":"{ ok, path }"}
+  ],
+  "scenarios":[
+    {"name":"nav_two_groups","description":"左ナビが設定/コンテンツの2グループでコンテンツ各項目が master-detail。","steps":["/settings を開く","settings-nav に nav-item[data-group=general/agent/privacy] と [data-group=templates/smart-folders/commands] が見える","Sa10026-7 の per-item 導線リンク(settings-link)は存在しない"]},
+    {"name":"templates_master_detail","description":"テンプレ一覧→選択→右で本文編集→保存。","steps":["nav-item[data-group=templates] をクリック","md-items[data-items=templates] に md-item が並ぶ","md-item[data-id=journal] をクリック→ md-detail にタイトルヘッダ(detail-title=journal)+ template-editor(CodeMirror 整形)+ フッタ","本文を編集しフッタ保存 → PUT system/templates/journal.md/source","絞り込み md-filter に '議事' 入力 → 議事録のみ表示"]},
+    {"name":"template_new_and_delete","description":"新規作成と削除。","steps":["md-new クリック→ 空テンプレ detail","タイトルに名前入力 + 本文編集 + 保存 → 新規 .md 作成","フッタ削除 → 一覧から消える"]},
+    {"name":"readonly_disables_writes","description":"read-only モードで書込無効。","steps":["GET /api/health mode=read-only","フッタの保存/複製/削除・md-new が disabled"]}
+  ],
+  "test_files":{"mock":"packages/ui/tests/e2e/settings-hub-templates.mock.spec.ts","e2e":"packages/ui/tests/e2e/settings-hub-templates.e2e.spec.ts"}
+}

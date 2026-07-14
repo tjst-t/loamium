@@ -1,0 +1,14 @@
+{
+  "story_id":"Sa100c6-2",
+  "story_title":"スマートフォルダ管理セクション(SmartFolderForm 流用)",
+  "state_diagram":"stateDiagram-v2\n    [*] --> SF : nav-item[data-group=smart-folders]\n    SF --> Selected : md-item クリック\n    Selected --> Editing : SmartFolderForm 編集(名前/アイコン/種類/DQL)\n    Editing --> Saved : 保存 → PUT smart-folders\n    SF --> Reorder : ドラッグ並べ替え → order 再採番\n    SF --> New : md-new → 新規\n    Selected --> Deleted : 削除",
+  "endpoint_contracts":[
+    {"endpoint":"GET/PUT/DELETE /api/smart-folders","note":"既存スマートフォルダ CRUD(S32940c/Sebf6b0)。正本は system/smart-folders/*.yaml(Sa10026-2 移行後)。","response_shape":"{ items:[{id,kind,name,icon,dql|path,order}] }"}
+  ],
+  "scenarios":[
+    {"name":"sf_master_detail","description":"一覧→選択→SmartFolderForm 編集→保存。","steps":["nav-item[data-group=smart-folders] クリック","md-items[data-items=smart-folders] に md-item(emoji+name+dql)","md-item[data-id=journal] クリック→ 右ペインに sf-form(sf-form-name/sf-form-icon/種類 seg/DQL)","名前/DQL 編集しフッタ保存 → PUT /api/smart-folders","絞り込みで名前/DQL フィルタ"]},
+    {"name":"sf_reorder_persist","description":"並べ替えで order 永続。","steps":["md-item をドラッグで並べ替え","order 再採番が PUT され、リロード後も保持"]},
+    {"name":"sf_new_delete","description":"新規/削除。","steps":["md-new → 空フォーム","名前+DQL 入力し保存 → 新規 yaml","フッタ削除 → DELETE → 一覧から消える"]}
+  ],
+  "test_files":{"mock":"packages/ui/tests/e2e/settings-hub-sf.mock.spec.ts","e2e":"packages/ui/tests/e2e/settings-hub-sf.e2e.spec.ts"}
+}
