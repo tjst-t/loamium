@@ -102,9 +102,10 @@
 .tag.step { background: var(--co-bg); color: var(--co); }
 .mini-row .m-main { flex: 1; font-size: 12.5px; }
 .mini-row .m-sub { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
-.mini-row .m-del { border: none; background: none; color: var(--text-faint); cursor: pointer; display: inline-flex; }
-.mini-row .m-del:hover { color: var(--danger); }
-.mini-row .m-del :where(svg) { width: 13px; height: 13px; }
+.mini-row .m-act { border: none; background: none; color: var(--text-faint); cursor: pointer; display: inline-flex; padding: 4px; border-radius: 6px; }
+.mini-row .m-act:hover { background: var(--bg-active); color: var(--text); }
+.mini-row .m-act.m-del:hover { color: var(--danger); background: var(--danger-soft); }
+.mini-row .m-act :where(svg) { width: 14px; height: 14px; }
 .add-mini { font-size: 12px; color: var(--accent); border: 1px dashed var(--border-strong); background: none; border-radius: 8px; padding: 7px 10px; width: 100%; cursor: pointer; }
 .add-mini:hover { background: var(--accent-soft); border-color: var(--accent); }
 
@@ -203,6 +204,7 @@ const CMD_ICO = '<span class="ic"><svg viewBox="0 0 16 16" fill="none" stroke="c
 const TRASH = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4.5h10M6.5 4V3h3v1M5 4.5l.5 8h5l.5-8"/></svg>';
 const DUP = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="8" height="8" rx="1.5"/><path d="M3 11V4a1.5 1.5 0 011.5-1.5H11"/></svg>';
 const XI = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
+const PENCIL = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2.5l2.5 2.5-8 8H3v-2.5z"/><path d="M10 3.5l2.5 2.5"/></svg>';
 
 const DATA = {
   templates: [
@@ -280,8 +282,8 @@ function renderDetail(group){
       '</div>'+
       footerSF;
   } else {
-    const params = it.params.map(function(p){return '<div class="mini-row">'+GRIP2+'<span class="tag">'+p.type+'</span><span class="m-main">'+esc(p.name)+' <span class="m-sub">{{'+p.v+'}}</span>'+(p.req?' · 必須':'')+'</span><button class="m-del">'+XI+'</button></div>';}).join('');
-    const steps = it.steps.map(function(s){return '<div class="mini-row">'+GRIP2+'<span class="tag step">'+s.kind+'</span><span class="m-main">'+esc(s.main)+' <span class="m-sub">'+esc(s.sub)+'</span></span><button class="m-del">'+XI+'</button></div>';}).join('');
+    const params = it.params.map(function(p){return '<div class="mini-row">'+GRIP2+'<span class="tag">'+p.type+'</span><span class="m-main">'+esc(p.name)+' <span class="m-sub">{{'+p.v+'}}</span>'+(p.req?' · 必須':'')+'</span><button class="m-act" title="編集">'+PENCIL+'</button><button class="m-act m-del" title="削除">'+XI+'</button></div>';}).join('');
+    const steps = it.steps.map(function(s){return '<div class="mini-row">'+GRIP2+'<span class="tag step">'+s.kind+'</span><span class="m-main">'+esc(s.main)+' <span class="m-sub">'+esc(s.sub)+'</span></span><button class="m-act" title="編集">'+PENCIL+'</button><button class="m-act m-del" title="削除">'+XI+'</button></div>';}).join('');
     box.innerHTML =
       '<div class="md-detail-header"><div class="detail-title-wrap"><input class="detail-title" value="'+esc(it.name)+'" aria-label="コマンド名"><div class="detail-path">system/commands/'+esc(it.id)+'.yaml</div></div></div>'+
       '<div class="md-detail-body">'+
