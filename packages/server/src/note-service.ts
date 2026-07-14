@@ -121,7 +121,7 @@ export async function createNote(
 }
 
 /**
- * ジャーナル (journals/YYYY-MM-DD.md) の末尾に追記する
+ * ジャーナル (journals/YYYY/MM/YYYY-MM-DD.md) の末尾に追記する
  * (REST: POST /api/journal/append)。
  * date 未指定 (null/undefined) は今日 (サーバーローカル)。存在しなければ作成して追記する。
  * 無効な日付は JournalDateError を投げる (呼び出し側で 400 / エラーテキストに写像)。

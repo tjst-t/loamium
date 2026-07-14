@@ -70,7 +70,7 @@ import {
 } from './icons.js';
 
 const AUTOSAVE_DEBOUNCE_MS = 1500;
-const JOURNAL_FILE_RE = /^journals\/(\d{4}-\d{2}-\d{2})\.md$/;
+const JOURNAL_FILE_RE = /^journals\/\d{4}\/\d{2}\/(\d{4}-\d{2}-\d{2})\.md$/;
 
 type HistoryMode = 'push' | 'replace' | 'none';
 
@@ -79,7 +79,7 @@ interface OpenDoc {
   /** エディタへ渡す本文 (docPath / resetToken 変更時のみ反映される) */
   text: string;
   mtime: number | null;
-  /** journals/YYYY-MM-DD.md のときの日付 */
+  /** journals/YYYY/MM/YYYY-MM-DD.md のときの日付 */
   journalDate: string | null;
   resetToken: number;
   /** サーバーから取得した frontmatter (BookmarkStar の初期値に使う) */

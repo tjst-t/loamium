@@ -1,7 +1,7 @@
 /**
  * デイリージャーナルエンドポイント。
  *
- * - GET  /api/journal[?date=YYYY-MM-DD]  取得。存在しなければ journals/YYYY-MM-DD.md を自動生成
+ * - GET  /api/journal[?date=YYYY-MM-DD]  取得。存在しなければ journals/YYYY/MM/YYYY-MM-DD.md を自動生成
  * - POST /api/journal/append             今日 (または body.date の日) のジャーナル末尾に追記
  *
  * タイムゾーンはサーバーローカル (shared/journal.ts)。

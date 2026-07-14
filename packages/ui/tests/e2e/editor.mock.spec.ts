@@ -10,7 +10,7 @@ import { installCatchAll, json, type PutBody } from '../harness/mock-helpers.js'
 
 const TODAY_JOURNAL = {
   date: '2026-07-03',
-  path: 'journals/2026-07-03.md',
+  path: 'journals/2026/07/2026-07-03.md',
   content: '',
   frontmatter: null,
   body: '',

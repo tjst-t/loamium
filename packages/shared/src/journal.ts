@@ -1,7 +1,7 @@
 /**
  * デイリージャーナルの日付処理。
  *
- * - ジャーナルは vault 内の journals/YYYY-MM-DD.md
+ * - ジャーナルは vault 内の journals/YYYY/MM/YYYY-MM-DD.md
  * - タイムゾーンはサーバーローカル (VISION: 個人用・自宅サーバー前提)
  */
 
@@ -42,13 +42,17 @@ export function isValidJournalDate(date: string): boolean {
 
 /**
  * 日付文字列から vault 相対のジャーナルパスを返す。
+ * 年/月でサブディレクトリに分割する (journals/YYYY/MM/YYYY-MM-DD.md)。
+ * 1 ディレクトリにファイルが際限なく溜まるのを防ぐため。
  * 無効な日付は JournalDateError を投げる。
  */
 export function journalPath(date: string): string {
-  if (!isValidJournalDate(date)) {
+  const m = DATE_RE.exec(date);
+  if (!m || !isValidJournalDate(date)) {
     throw new JournalDateError(`invalid journal date: "${date}" (expected YYYY-MM-DD)`);
   }
-  return `${JOURNAL_DIR}/${date}.md`;
+  const [, year, month] = m;
+  return `${JOURNAL_DIR}/${year}/${month}/${date}.md`;
 }
 
 /**

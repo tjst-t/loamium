@@ -11,7 +11,7 @@ import { readHarnessState } from '../harness/state.js';
 import { installCatchAll, json } from '../harness/mock-helpers.js';
 
 const TODAY = '2026-07-08';
-const JOURNAL_PATH = `journals/${TODAY}.md`;
+const JOURNAL_PATH = `journals/${TODAY.slice(0, 4)}/${TODAY.slice(5, 7)}/${TODAY}.md`;
 
 // --------------------------------------------------------------------------
 // 共通 boot
@@ -771,7 +771,7 @@ test('[AC-S7b2f22-1-7] read-only では項目があっても旧ボタン類が�
 test('[AC-Sebf6b0-2-1] sf-form-path に "proj" を入力するとフォルダ候補が表示される', async ({
   page,
 }) => {
-  // boot の notes: journals/2026-07-08.md (folder=journals), notes/alpha.md (folder=notes), notes/beta.md (folder=notes)
+  // boot の notes: journals/2026/07/2026-07-08.md (folder=journals/2026/07), notes/alpha.md (folder=notes), notes/beta.md (folder=notes)
   // ここでは projects/ フォルダ配下のノートを返すように上書き
   const unexpected = await installCatchAll(page);
   await page.route('**/api/notes', (route) => {

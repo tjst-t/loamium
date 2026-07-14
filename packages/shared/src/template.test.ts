@@ -74,7 +74,7 @@ describe('[AC-S89a350-1-2] {{date:FORMAT}} / {{now:FORMAT}} の整形', () => {
     const res = resolveTemplate('{{date:YYYY-MM-DD}}', { date: base });
     expect(res.text).toBe(dateStr);
     expect(journalPath(res.text)).toBe(journalPath(dateStr));
-    expect(`journals/${res.text}.md`).toBe(journalPath('2026-07-06'));
+    expect(`journals/2026/07/${res.text}.md`).toBe(journalPath('2026-07-06'));
   });
 
   it('date は date 基準日、now は now 基準時刻を使う (注入可能)', () => {

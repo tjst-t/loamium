@@ -7,13 +7,13 @@ import { test, expect, type Page } from '@playwright/test';
 import { readHarnessState } from '../harness/state.js';
 import { installCatchAll, json } from '../harness/mock-helpers.js';
 
-const JOURNAL_PATH = 'journals/2026-07-13.md';
+const JOURNAL_PATH = 'journals/2026/07/2026-07-13.md';
 
 async function openApp(page: Page): Promise<string[]> {
   const unexpected = await installCatchAll(page);
   await page.route('**/api/notes', (route) => {
     void route.fulfill(
-      json({ notes: [{ path: JOURNAL_PATH, title: '2026-07-13', tags: [], folder: 'journals' }] }),
+      json({ notes: [{ path: JOURNAL_PATH, title: '2026-07-13', tags: [], folder: 'journals/2026/07' }] }),
     );
   });
   await page.route('**/api/journal', (route) => {

@@ -32,8 +32,8 @@ describe('isValidJournalDate', () => {
 });
 
 describe('journalPath', () => {
-  it('maps a date to journals/YYYY-MM-DD.md', () => {
-    expect(journalPath('2026-07-03')).toBe('journals/2026-07-03.md');
+  it('maps a date to journals/YYYY/MM/YYYY-MM-DD.md', () => {
+    expect(journalPath('2026-07-03')).toBe('journals/2026/07/2026-07-03.md');
   });
 
   it('throws JournalDateError for invalid dates', () => {

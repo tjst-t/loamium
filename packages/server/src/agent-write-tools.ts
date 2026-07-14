@@ -141,7 +141,7 @@ export function createVaultWriteTools(
         name: 'journal_append',
         label: 'ジャーナル追記',
         description:
-          'デイリージャーナル (journals/YYYY-MM-DD.md) の末尾に Markdown テキストを追記する。' +
+          'デイリージャーナル (journals/YYYY/MM/YYYY-MM-DD.md) の末尾に Markdown テキストを追記する。' +
           'date 省略時は今日。ジャーナルが無ければ作成して追記する。',
         parameters: Type.Object({
           text: Type.String({ description: '追記する Markdown テキスト' }),

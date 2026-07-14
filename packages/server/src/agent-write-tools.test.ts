@@ -116,17 +116,17 @@ describe('createVaultWriteTools', () => {
 
   // ---- AC-S5bd678-2-1: journal_append -----------------------------------------
 
-  it('[AC-S5bd678-2-1] journal_append が journals/YYYY-MM-DD.md を作成・追記する', async () => {
+  it('[AC-S5bd678-2-1] journal_append が journals/YYYY/MM/YYYY-MM-DD.md を作成・追記する', async () => {
     const jt = tool('journal_append');
     const res = await jt.execute('t1', { text: '朝のメモ', date: '2026-07-12' }, noSignal, noUpdate, fakeCtx);
-    expect(textOf(res)).toContain('journals/2026-07-12.md');
+    expect(textOf(res)).toContain('journals/2026/07/2026-07-12.md');
 
-    const written = await readFile(path.join(vaultRoot, 'journals', '2026-07-12.md'), 'utf8');
+    const written = await readFile(path.join(vaultRoot, 'journals', '2026', '07', '2026-07-12.md'), 'utf8');
     expect(written).toBe('朝のメモ\n');
 
     // 二度目は追記される
     await jt.execute('t2', { text: '昼のメモ', date: '2026-07-12' }, noSignal, noUpdate, fakeCtx);
-    const after = await readFile(path.join(vaultRoot, 'journals', '2026-07-12.md'), 'utf8');
+    const after = await readFile(path.join(vaultRoot, 'journals', '2026', '07', '2026-07-12.md'), 'utf8');
     expect(after).toBe('朝のメモ\n昼のメモ\n');
   });
 

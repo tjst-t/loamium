@@ -33,7 +33,7 @@ export async function installCatchAll(page: Page): Promise<string[]> {
   });
   // GET /api/notes/{path}/meta (S11493d-1/2 インフォパネル) も定常呼び出し。
   // 既定は空のメタで応答する。メタを検証するテストは後から自前の route で上書きする。
-  // NOTE: path には '/' が含まれる (例: journals/2026-07-10.md) のため ** を使う。
+  // NOTE: path には '/' が含まれる (例: journals/2026/07/2026-07-10.md) のため ** を使う。
   await page.route('**/api/notes/**/meta', (route) => {
     const url = new URL(route.request().url());
     const segments = url.pathname.split('/');
@@ -86,7 +86,7 @@ export async function installCatchAll(page: Page): Promise<string[]> {
     void route.fulfill(
       json({
         date: '2026-07-11',
-        path: 'journals/2026-07-11.md',
+        path: 'journals/2026/07/2026-07-11.md',
         content: '',
         frontmatter: null,
         body: '',
