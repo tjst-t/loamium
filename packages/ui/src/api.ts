@@ -36,6 +36,14 @@ import {
   commandSourceResponseSchema,
   commandSourceWriteResponseSchema,
   appSettingsResponseSchema,
+  agentConnectionResponseSchema,
+  agentPermissionsResponseSchema,
+  agentPrivacySettingsResponseSchema,
+  agentConnectionTestResponseSchema,
+  agentModelsResponseSchema,
+  agentConnectionWriteResponseSchema,
+  agentPermissionsWriteResponseSchema,
+  agentPrivacyWriteResponseSchema,
   type TemplateInstantiateResponse,
   type TemplateSummary,
   type PropertyKeyCount,
@@ -65,6 +73,12 @@ import {
   type CommandSourceWriteResponse,
   type CommandSummary,
   type AppSettings,
+  type AgentConnectionResponse,
+  type AgentPermissionsResponse,
+  type AgentPrivacySettingsResponse,
+  type AgentConnectionTestResponse,
+  type AgentModelsResponse,
+  type AgentConnectionTestRequest,
 } from '@loamium/shared';
 
 export class ApiError extends Error {
@@ -436,5 +450,108 @@ export const api = {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
     });
+  },
+
+  // ---- 設定 API (Sa10026-7) ----
+
+  /**
+   * アプリ全体設定を保存する (PUT /api/settings/system)。
+   * [AC-Sa10026-7-1]
+   */
+  putSystemSettings(settings: AppSettings): Promise<{ settings: AppSettings }> {
+    return request(appSettingsResponseSchema, '/api/settings/system', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ settings }),
+    });
+  },
+
+  /**
+   * agent 接続設定を取得する (GET /api/settings/agent/connection)。
+   * apiKey は $ENV_VAR 参照名 (apiKeyRef) として返る。実値は含まれない。
+   * [AC-Sa10026-7-1] [AC-Sa10026-7-3]
+   */
+  getAgentConnection(): Promise<AgentConnectionResponse> {
+    return request(agentConnectionResponseSchema, '/api/settings/agent/connection');
+  },
+
+  /**
+   * agent 接続設定を保存する (PUT /api/settings/agent/connection)。
+   * apiKey には $ENV_VAR 参照名を渡す。
+   * [AC-Sa10026-7-1]
+   */
+  putAgentConnection(params: {
+    api: 'openai' | 'anthropic';
+    baseUrl: string;
+    model: string;
+    apiKey: string;
+  }): Promise<{ ok: boolean }> {
+    return request(agentConnectionWriteResponseSchema, '/api/settings/agent/connection', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+  },
+
+  /**
+   * agent 権限・capability を取得する (GET /api/settings/agent/permissions)。
+   * [AC-Sa10026-7-1]
+   */
+  getAgentPermissions(): Promise<AgentPermissionsResponse> {
+    return request(agentPermissionsResponseSchema, '/api/settings/agent/permissions');
+  },
+
+  /**
+   * agent 権限を保存する (PUT /api/settings/agent/permissions)。
+   * [AC-Sa10026-7-1]
+   */
+  putAgentPermissions(permissions: string | string[]): Promise<{ ok: boolean }> {
+    return request(agentPermissionsWriteResponseSchema, '/api/settings/agent/permissions', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ permissions }),
+    });
+  },
+
+  /**
+   * agent 機密領域 deny-list を取得する (GET /api/settings/agent/privacy)。
+   * [AC-Sa10026-7-1]
+   */
+  getAgentPrivacy(): Promise<AgentPrivacySettingsResponse> {
+    return request(agentPrivacySettingsResponseSchema, '/api/settings/agent/privacy');
+  },
+
+  /**
+   * agent 機密領域 deny-list を保存する (PUT /api/settings/agent/privacy)。
+   * [AC-Sa10026-7-1]
+   */
+  putAgentPrivacy(deny: string[]): Promise<{ ok: boolean }> {
+    return request(agentPrivacyWriteResponseSchema, '/api/settings/agent/privacy', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ deny }),
+    });
+  },
+
+  /**
+   * agent 接続テスト (POST /api/settings/agent/connection/test)。
+   * 接続結果を ok/error で返す。apiKey 実値はレスポンスに含まれない。
+   * [AC-Sa10026-7-1]
+   */
+  testAgentConnection(params: AgentConnectionTestRequest): Promise<AgentConnectionTestResponse> {
+    return request(agentConnectionTestResponseSchema, '/api/settings/agent/connection/test', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+  },
+
+  /**
+   * agent モデル一覧を取得する (GET /api/settings/agent/models)。
+   * 取得失敗時は source:'fallback' で空リストが返る (直接入力は引き続き可能)。
+   * [AC-Sa10026-7-1]
+   */
+  getAgentModels(): Promise<AgentModelsResponse> {
+    return request(agentModelsResponseSchema, '/api/settings/agent/models');
   },
 };
