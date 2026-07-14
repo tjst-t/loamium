@@ -138,6 +138,10 @@ test.describe.serial('agent tools', () => {
     // ADR-0015 (ADR-0012 を supersede): 広告ツールは有効ケーパビリティから導出される。
     //   このセッションは既定=read-only プリセット (read のみ) のため書き込み/web ツールは
     //   広告されない。書き込み/web ツールが混じっていないこと自体が capability ゲートの実測。
+    //
+    // [AC-Sa10026-6-2] 自己昇格防止 (ADR-0026 / Sa10026-6):
+    //   設定書込ツール (settings_write / agent_config_write 等) がこの一覧に現れないことも
+    //   実リクエストレベルで固定する。このアサートを削除・弱体化しないこと。
     expect(advertisedTools).toEqual(['backlinks', 'help', 'query', 'read_note', 'search', 'tags']);
   });
 

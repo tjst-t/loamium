@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AGENT_CAPABILITIES,
   AGENT_PRESETS,
+  SETTINGS_EXCLUDED_TOOL_NAMES,
   agentPermissionsSchema,
   clampByMode,
   deriveToolNames,
@@ -135,6 +136,54 @@ describe('[AC-S5bd678-1-1] deriveToolNames', () => {
       'web_fetch',
       'web_search',
     ]);
+  });
+});
+
+// ---- AC-Sa10026-6-1/6-2: 設定書込 API の agent ツール除外 (自己昇格防止) ----
+
+describe('[AC-Sa10026-6-1] deriveToolNames が設定書込ツールを含まない (構造的除外)', () => {
+  it('全ケーパビリティ (full プリセット) の toolset に設定書込ツールが含まれない', () => {
+    const allTools = deriveToolNames([...AGENT_CAPABILITIES]);
+    for (const excluded of SETTINGS_EXCLUDED_TOOL_NAMES) {
+      expect(allTools).not.toContain(excluded);
+    }
+  });
+
+  it('read-only プリセットの toolset に設定書込ツールが含まれない', () => {
+    const tools = deriveToolNames(AGENT_PRESETS['read-only']);
+    for (const excluded of SETTINGS_EXCLUDED_TOOL_NAMES) {
+      expect(tools).not.toContain(excluded);
+    }
+  });
+
+  it('notes-rw プリセットの toolset に設定書込ツールが含まれない', () => {
+    const tools = deriveToolNames(AGENT_PRESETS['notes-rw']);
+    for (const excluded of SETTINGS_EXCLUDED_TOOL_NAMES) {
+      expect(tools).not.toContain(excluded);
+    }
+  });
+
+  it('[AC-Sa10026-6-2] full プリセットの advertised-toolset は固定 13 種のみ (settings 書込ツールが混入しない回帰 pin)', () => {
+    // このアサートを削除・弱体化しないこと (Sa10026-6 の回帰防止 pin)。
+    // 設定書込ツールを CAPABILITY_TOOL_NAMES に追加した場合、このテストが失敗し
+    // 自己昇格の危険を検出する。
+    expect(deriveToolNames(AGENT_PRESETS.full)).toEqual([
+      'backlinks',
+      'dataview_write',
+      'help',
+      'journal_append',
+      'note_create',
+      'note_edit',
+      'query',
+      'read_note',
+      'search',
+      'tags',
+      'template_write',
+      'web_fetch',
+      'web_search',
+    ]);
+    // ちょうど 13 種であること (設定書込ツール混入で増えたら失敗)
+    expect(deriveToolNames(AGENT_PRESETS.full)).toHaveLength(13);
   });
 });
 
