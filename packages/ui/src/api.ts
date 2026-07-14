@@ -43,7 +43,6 @@ import {
   agentModelsResponseSchema,
   agentConnectionWriteResponseSchema,
   agentPermissionsWriteResponseSchema,
-  agentPrivacyWriteResponseSchema,
   type TemplateInstantiateResponse,
   type TemplateSummary,
   type PropertyKeyCount,
@@ -523,10 +522,12 @@ export const api = {
 
   /**
    * agent 機密領域 deny-list を保存する (PUT /api/settings/agent/privacy)。
+   * 実サーバーは保存後の deny-list ({ deny }) をそのまま返す
+   * (agentPrivacySettingsResponseSchema と同形。書込専用の { ok } ではない)。
    * [AC-Sa10026-7-1]
    */
-  putAgentPrivacy(deny: string[]): Promise<{ ok: boolean }> {
-    return request(agentPrivacyWriteResponseSchema, '/api/settings/agent/privacy', {
+  putAgentPrivacy(deny: string[]): Promise<AgentPrivacySettingsResponse> {
+    return request(agentPrivacySettingsResponseSchema, '/api/settings/agent/privacy', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ deny }),

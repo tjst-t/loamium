@@ -156,7 +156,9 @@ export async function installCatchAll(page: Page): Promise<string[]> {
     if (method === 'GET') {
       void route.fulfill(json({ deny: ['private/**', 'secrets/**'] }));
     } else if (method === 'PUT') {
-      void route.fulfill(json({ ok: true }));
+      // 実サーバーに合わせ、保存後の deny-list をそのまま返す ({ deny })。
+      const body = route.request().postDataJSON() as { deny: string[] };
+      void route.fulfill(json({ deny: body.deny }));
     } else {
       void route.fallback();
     }

@@ -404,7 +404,8 @@ test('[AC-Sa10026-7-1] deny-list エントリを追加できる', async ({ page 
     } else if (method === 'PUT') {
       const body = route.request().postDataJSON() as { deny: string[] };
       putCalls.push(body);
-      void route.fulfill(json({ ok: true }));
+      // 実サーバーに合わせ、保存後の deny-list をそのまま返す ({ deny })。
+      void route.fulfill(json({ deny: body.deny }));
     } else {
       void route.fallback();
     }
@@ -461,7 +462,9 @@ test('[AC-Sa10026-7-1] deny-list エントリを削除できる', async ({ page 
     if (route.request().method() === 'GET') {
       void route.fulfill(json({ deny: ['private/**', 'secrets/**'] }));
     } else {
-      void route.fulfill(json({ ok: true }));
+      // 実サーバーに合わせ、保存後の deny-list をそのまま返す ({ deny })。
+      const body = route.request().postDataJSON() as { deny: string[] };
+      void route.fulfill(json({ deny: body.deny }));
     }
   });
 

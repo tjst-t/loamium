@@ -80,12 +80,19 @@ export function NewNoteDialog(props: NewNoteDialogProps): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // マウント時の自動フォーカスでは候補ドロップダウンを開かない。
+  // (開くと絶対配置のドロップダウンが下のアクションボタンを覆い、
+  //  実 vault にフォルダが存在する場合にキャンセル/作成がクリック不能になる。
+  //  ドロップダウンはユーザーの能動的なフォーカス/入力で開く。)
+  const suppressAutoOpenRef = useRef(true);
 
   useEffect(() => {
     inputRef.current?.focus();
     // 末尾にカーソルを置く (prefill があれば末尾にファイル名を追記しやすい)
     const len = inputRef.current?.value.length ?? 0;
     inputRef.current?.setSelectionRange(len, len);
+    // 初回の自動フォーカスが済んだら以後は通常どおり開く
+    suppressAutoOpenRef.current = false;
   }, []);
 
   // フォルダ候補計算
@@ -142,6 +149,13 @@ export function NewNoteDialog(props: NewNoteDialogProps): JSX.Element {
             spellCheck={false}
             onFocus={() => {
               if (blurTimerRef.current !== null) clearTimeout(blurTimerRef.current);
+              props.onRequestNotes();
+              // マウント時の自動フォーカスではドロップダウンを開かない
+              if (!suppressAutoOpenRef.current) setDropdownOpen(true);
+            }}
+            onClick={() => {
+              // ユーザーの能動的なクリックでは (自動フォーカス済みで onFocus が
+              // 再発火しない場合でも) ドロップダウンを開く
               props.onRequestNotes();
               setDropdownOpen(true);
             }}
