@@ -4469,7 +4469,7 @@
       "stories": {
         "Sa10026-1": {
           "title": "per-file 定義スキーマと system/ 規約基盤",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "設定を編集する人として、設定定義を1個=1ファイルの見える Markdown で持ちたい。なぜなら、diff/手編集/マージが楽で、agent も同じ notes API で編集でき、定義 md を開くと本文の ```dql がライブプレビューされるから。",
@@ -4478,31 +4478,31 @@
               "id": "AC-Sa10026-1-1",
               "description": "server が system/ フォルダ規約(小文字 system/・可視・git 追跡)を認識し、per-item 定義を種別ごとの形式で読み書きできる: スマートフォルダ(system/smart-folders/*.yaml)とスマートコマンド(system/commands/*.yaml)は純 YAML(title/order/icon/query。DQL は query 文字列)、テンプレート(system/templates/*.md)は .md + YAML frontmatter。いずれも zod 検証、不正時は寛容 read + 既定/空フォールバック。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sa10026-1-2",
               "description": "同一種別の複数定義は order: frontmatter → ファイル名 の安定ソート(gap/tie 許容)で順序が決まる。order 欠落は末尾扱い。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sa10026-1-3",
               "description": "system/ 配下のパスも packages/shared のパス正規化(NFC・.. 脱出検証・.md/.yaml 判定)を経由し、vault 外へ抜けない。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sa10026-1-1": {
               "title": "shared: system-config スキーマ(yaml / md 両形式)",
               "description": "per-item 定義の zod スキーマを shared に定義。smart-folder/command は純 YAML(title/order/icon/query)、template は .md + frontmatter。YAML パースと frontmatter 抽出ユーティリティ + ユニットテスト。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa10026-1-2": {
               "title": "server: system/ 読み書き層(寛容 read)",
               "description": "system/ 配下の per-file 定義(*.yaml / *.md)を読み書きする層。zod 検証失敗は既定/空へフォールバック。order(yaml キー / md frontmatter)→ ファイル名の安定ソート実装。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
