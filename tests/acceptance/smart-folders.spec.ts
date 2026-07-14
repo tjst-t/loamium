@@ -8,7 +8,7 @@
  * カバー: AC-S32940c-2-1〜5
  */
 import { exec } from 'node:child_process';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -133,7 +133,11 @@ describe('[AC-S32940c-2-2] PUT /api/smart-folders — アトミック書き込�
     const parsed = smartViewConfigSchema.safeParse(body);
     expect(parsed.success).toBe(true);
 
-    // ファイルが 2-space JSON で作成されている
+    // Sa10026-2: query item は system/smart-folders/{id}.yaml に書き込まれる
+    const yamlStat = await stat(path.join(vault, 'system', 'smart-folders', 'recent.yaml'));
+    expect(yamlStat.isFile()).toBe(true);
+
+    // pin item は .loamium/smart-folders.json に 2-space JSON で書き込まれる (pin-only)
     const fileContent = await readFile(
       path.join(vault, '.loamium', 'smart-folders.json'),
       'utf8',
@@ -143,7 +147,10 @@ describe('[AC-S32940c-2-2] PUT /api/smart-folders — アトミック書き込�
     const fileParsed = smartViewConfigSchema.safeParse(fileJson);
     expect(fileParsed.success).toBe(true);
     if (fileParsed.success) {
-      expect(fileParsed.data.items).toHaveLength(2);
+      // JSON には pin item のみ (query は system/ YAML が正本)
+      expect(fileParsed.data.items).toHaveLength(1);
+      expect(fileParsed.data.items[0]?.id).toBe('dash');
+      expect(fileParsed.data.items[0]?.kind).toBe('pin');
     }
 
     // 監査ログに smart-folders.write が記録されている

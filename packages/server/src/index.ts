@@ -3,6 +3,7 @@ import { createApp } from './app.js';
 import { configFromEnv } from './config.js';
 import { VaultIndex } from './noteIndex.js';
 import { startWatcher } from './watcher.js';
+import { runMigration } from './migrate.js';
 
 const config = configFromEnv();
 
@@ -13,6 +14,9 @@ if (!Number.isInteger(port) || port < 0 || port > 65535) {
 
 // バインド先。デフォルトはローカルのみ (無認証のため)。LAN 公開は LOAMIUM_HOST=0.0.0.0 で明示的に。
 const hostname = process.env.LOAMIUM_HOST ?? '127.0.0.1';
+
+// Sa10026-2: 設定系3系統の一括移行 (冪等・エラーは止まらない)
+await runMigration(config);
 
 // インデックスは使い捨て・ファイルが正: 起動時に vault 全走査で構築してから受け付ける
 const index = new VaultIndex(config.vaultRoot);

@@ -1,15 +1,18 @@
 /**
  * デイリージャーナルエンドポイント。
  *
- * - GET  /api/journal[?date=YYYY-MM-DD]  取得。存在しなければ journals/YYYY-MM-DD.md を自動生成
+ * - GET  /api/journal[?date=YYYY-MM-DD]  取得。存在しなければ journals/YYYY/MM/YYYY-MM-DD.md を自動生成
  * - POST /api/journal/append             今日 (または body.date の日) のジャーナル末尾に追記
  *
  * タイムゾーンはサーバーローカル (shared/journal.ts)。
- * 遅延生成 (S67ea41): 既定 journal テンプレート (templates/journal.md) があれば、対象日基準で
+ * 遅延生成 (S67ea41): 既定 journal テンプレートがあれば、対象日基準で
  * `{{date:...}}` 等を展開した本文でファイルを作成する。テンプレートが無ければ従来どおり空ファイル
  * (後方互換)。結果は解決済みピュア Markdown (テンプレ記法 {{...}} は残らない)。
  * read-only モードでは自動生成せず、テンプレート適用済みの仮想ジャーナルを返す (ファイルを書かない)。
  * 既存ジャーナルは上書きしない (冪等)。
+ *
+ * Sa10026-2-2: テンプレートは system/templates/journal.md を優先し、
+ * 存在しない場合は templates/journal.md (旧パス後方互換) にフォールバックする。
  */
 import { Hono } from 'hono';
 import {
@@ -20,6 +23,7 @@ import {
   journalDateToLocalDate,
   journalPath,
   JOURNAL_TEMPLATE_PATH,
+  SYSTEM_TEMPLATES_DIR,
   parseNote,
   todayJournalDate,
   type JournalAppendResponse,
@@ -45,9 +49,13 @@ export function journalRoutes(config: ServerConfig): Hono<AppEnv> {
     let mtime: number | null = null;
     if (content === null) {
       // 遅延生成の本文を既定 journal テンプレートから解決する (S67ea41-1)。
+      // Sa10026-2-2: system/templates/journal.md を優先、fallback: templates/journal.md
       // テンプレートが無ければ従来どおり空ファイル(後方互換 — AC1)。
       // {{date:...}} は対象日基準で展開する(明日/過去日ジャーナルも対象日 — AC2)。
-      const template = await readNote(config.vaultRoot, JOURNAL_TEMPLATE_PATH);
+      const systemJournalTemplate = `${SYSTEM_TEMPLATES_DIR}/journal.md`;
+      const template =
+        (await readNote(config.vaultRoot, systemJournalTemplate)) ??
+        (await readNote(config.vaultRoot, JOURNAL_TEMPLATE_PATH));
       content =
         template !== null
           ? applyJournalTemplate(template, { date: journalDateToLocalDate(date), now: new Date() })
