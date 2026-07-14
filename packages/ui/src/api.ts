@@ -38,6 +38,7 @@ import {
   systemFileListResponseSchema,
   systemFileSourceResponseSchema,
   systemFileSourceWriteResponseSchema,
+  systemFileDeleteResponseSchema,
   appSettingsResponseSchema,
   agentConnectionResponseSchema,
   agentPermissionsResponseSchema,
@@ -76,6 +77,7 @@ import {
   type SystemFileListResponse,
   type SystemFileSourceResponse,
   type SystemFileSourceWriteResponse,
+  type SystemFileDeleteResponse,
   type CommandSummary,
   type AppSettings,
   type AgentConnectionResponse,
@@ -459,6 +461,16 @@ export const api = {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
+    });
+  },
+
+  /**
+   * system/ 配下ファイルを削除する (DELETE /api/system-files/{path}/source)。
+   * agent 非公開・監査ログ記録・mode クランプ済み (Sa100c6-1 AC-3)。
+   */
+  deleteSystemFile(path: string): Promise<SystemFileDeleteResponse> {
+    return request(systemFileDeleteResponseSchema, `/api/system-files/${encodeNotePath(path)}/source`, {
+      method: 'DELETE',
     });
   },
 

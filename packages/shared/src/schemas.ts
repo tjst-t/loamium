@@ -318,6 +318,13 @@ export const systemFileSourceWriteResponseSchema = z.object({
 });
 export type SystemFileSourceWriteResponse = z.infer<typeof systemFileSourceWriteResponseSchema>;
 
+/** DELETE /api/system-files/{path}/source のレスポンス。 */
+export const systemFileDeleteResponseSchema = z.object({
+  path: z.string(),
+  deleted: z.boolean(),
+});
+export type SystemFileDeleteResponse = z.infer<typeof systemFileDeleteResponseSchema>;
+
 // ---- クエリ (dataview 風 DQL — Sb1593c) ----
 
 export const queryRequestSchema = z.object({

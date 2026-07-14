@@ -1,14 +1,17 @@
 /**
- * 統一設定画面 (Sa10026-7)。
+ * 統一設定ハブ (Sa10026-7 + Sa100c6-1)。
  *
- * - 左ナビ: 全体 / エージェント / プライバシー + 導線リンク (テンプレート / SF / コマンド)
+ * - 左ナビ 2 グループ:
+ *   【設定】全体 / エージェント / プライバシー (既存パネルそのまま)
+ *   【コンテンツ】テンプレート / スマートフォルダ / スマートコマンド (master-detail 2 ペイン)
  * - 各タブは型付き設定 API 経由で編集・保存。
  * - apiKey は平文保存せず $ENV_VAR 参照 (apiKeyRef) として表示。
  * - LOAMIUM_MODE read-only / append-only では書込 UI を disabled + mode バナー表示。
  * - モデルはカスタム select 風コンボボックス (native datalist 使用禁止)。
- * - テンプレ/SF/コマンドは per-item 管理 UI への導線リンクのみ。
+ * - per-item 導線リンク (settings-link) は Sa100c6-1 で撤去。
  *
  * [AC-Sa10026-7-1] [AC-Sa10026-7-2] [AC-Sa10026-7-3]
+ * [AC-Sa100c6-1-1] [AC-Sa100c6-1-2] [AC-Sa100c6-1-3]
  */
 import {
   useCallback,
@@ -18,6 +21,7 @@ import {
   type JSX,
 } from 'react';
 import { api } from '../api.js';
+import { TemplatesPanel } from './TemplatesPanel.js';
 import type {
   AppSettings,
   AgentConnectionResponse,
@@ -29,7 +33,7 @@ import type {
 
 // ---- 型 ----
 
-type SettingsGroup = 'general' | 'agent' | 'privacy';
+type SettingsGroup = 'general' | 'agent' | 'privacy' | 'templates' | 'smart-folders' | 'commands';
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 interface SettingsViewProps {
@@ -71,14 +75,6 @@ function IconPrivacy(): JSX.Element {
   );
 }
 
-function IconExtLink(): JSX.Element {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
-      <path d="M6 3h7v7M13 3l-8 8" />
-    </svg>
-  );
-}
-
 function IconCheck(): JSX.Element {
   return (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
@@ -108,6 +104,31 @@ function IconChevronDown(): JSX.Element {
   return (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
       <path d="M4 6l4 4 4-4" />
+    </svg>
+  );
+}
+
+function IconTemplate(): JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+      <rect x="2.5" y="2.5" width="11" height="11" rx="2" />
+      <path d="M5 6h6M5 8.5h6M5 11h3.5" />
+    </svg>
+  );
+}
+
+function IconSmartFolder(): JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+      <path d="M2.5 5.5l1-2h3l1 1.5h5v6a1.5 1.5 0 01-1.5 1.5h-8A1.5 1.5 0 011 11z" />
+    </svg>
+  );
+}
+
+function IconCommand(): JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+      <path d="M4 5l2.5 3L4 11M8.5 11h3.5" />
     </svg>
   );
 }
@@ -429,6 +450,7 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
     setActiveGroup(g);
     if (g === 'agent') void loadAgent();
     if (g === 'privacy') void loadPrivacy();
+    // コンテンツ系 (templates/smart-folders/commands) は各パネルが自分でロードする
   }, [loadAgent, loadPrivacy]);
 
   // ---- 全体: 保存 ----
@@ -586,16 +608,21 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
 
   const currentStatus = activeGroup === 'general' ? generalStatus
     : activeGroup === 'agent' ? agentStatus
-    : privacyStatus;
+    : activeGroup === 'privacy' ? privacyStatus
+    : 'idle'; // コンテンツグループは各パネルが独自ステータスを持つ
   const currentError = activeGroup === 'general' ? generalError
     : activeGroup === 'agent' ? agentError
-    : privacyError;
+    : activeGroup === 'privacy' ? privacyError
+    : null;
 
-  const mainClass = `settings-main${readonly ? ' readonly' : ''}`;
+  // コンテンツグループ (master-detail) かどうか
+  const isContentGroup = activeGroup === 'templates' || activeGroup === 'smart-folders' || activeGroup === 'commands';
+
+  const mainClass = `settings-main${readonly ? ' readonly' : ''}${isContentGroup ? ' settings-main-md' : ''}`;
 
   return (
     <div className="settings-view" data-testid="settings-view" role="region" aria-label="設定">
-      {/* 左ナビ */}
+      {/* 左ナビ: 2グループ (設定/コンテンツ) — AC-Sa100c6-1-1 */}
       <nav className="settings-nav" data-testid="settings-nav" aria-label="設定カテゴリ">
         <div className="nav-title">設定</div>
 
@@ -631,59 +658,68 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
         </button>
 
         <div className="nav-sep" />
-        <div className="nav-title">個別管理へ</div>
+        <div className="nav-title">コンテンツ</div>
 
-        {/* AC-Sa10026-7-2: 既存 UI への導線リンク (per-item 管理はここに再実装しない) */}
+        {/* AC-Sa100c6-1-1: コンテンツ系 (master-detail)。settings-link は撤去。 */}
         <button
           type="button"
-          className="settings-link"
-          data-testid="settings-link"
-          data-target="templates"
-          onClick={() => {
-            switchGroup('general');
-            // テンプレート管理UIへの導線 (既存ビューへの切替は親が担当)
-          }}
+          className={`nav-item${activeGroup === 'templates' ? ' active' : ''}`}
+          data-testid="settings-nav-item"
+          data-group="templates"
+          onClick={() => switchGroup('templates')}
         >
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
-            <rect x="2.5" y="2.5" width="11" height="11" rx="2" />
-            <path d="M5 6h6M5 8.5h6M5 11h3.5" />
-          </svg>
+          <IconTemplate />
           テンプレート
-          <span className="ext"><IconExtLink /></span>
         </button>
         <button
           type="button"
-          className="settings-link"
-          data-testid="settings-link"
-          data-target="smart-folders"
-          onClick={() => {
-            switchGroup('general');
-          }}
+          className={`nav-item${activeGroup === 'smart-folders' ? ' active' : ''}`}
+          data-testid="settings-nav-item"
+          data-group="smart-folders"
+          onClick={() => switchGroup('smart-folders')}
         >
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
-            <path d="M2.5 5.5l1-2h3l1 1.5h5v6a1.5 1.5 0 01-1.5 1.5h-8A1.5 1.5 0 011 11z" />
-          </svg>
+          <IconSmartFolder />
           スマートフォルダ
-          <span className="ext"><IconExtLink /></span>
         </button>
         <button
           type="button"
-          className="settings-link"
-          data-testid="settings-link"
-          data-target="commands"
-          onClick={() => {
-            switchGroup('general');
-          }}
+          className={`nav-item${activeGroup === 'commands' ? ' active' : ''}`}
+          data-testid="settings-nav-item"
+          data-group="commands"
+          onClick={() => switchGroup('commands')}
         >
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
-            <path d="M4 5l2.5 3L4 11M8.5 11h3.5" />
-          </svg>
+          <IconCommand />
           スマートコマンド
-          <span className="ext"><IconExtLink /></span>
         </button>
       </nav>
 
-      {/* 右: パネル */}
+      {/* 右: パネル or master-detail */}
+      {isContentGroup ? (
+        /* ============ コンテンツグループ: master-detail 2 ペイン ============ */
+        <div className="settings-main settings-main-md" id="settingsMain">
+          {/* テンプレート */}
+          {activeGroup === 'templates' && (
+            <TemplatesPanel mode={mode} />
+          )}
+          {/* スマートフォルダ — Sa100c6-2 で実装 */}
+          {activeGroup === 'smart-folders' && (
+            <section className="md-panel active" data-testid="md-panel" data-group="smart-folders">
+              <div className="md-placeholder">
+                <p>スマートフォルダ管理は別 Story (Sa100c6-2) で実装予定です。</p>
+              </div>
+            </section>
+          )}
+          {/* スマートコマンド — Sa100c6-3 で実装 */}
+          {activeGroup === 'commands' && (
+            <section className="md-panel active" data-testid="md-panel" data-group="commands">
+              <div className="md-placeholder">
+                <p>スマートコマンド管理は別 Story (Sa100c6-3) で実装予定です。</p>
+              </div>
+            </section>
+          )}
+        </div>
+      ) : (
+      /* ============ 設定グループ: 既存シングルフォームパネル ============ */
       <div className={mainClass} id="settingsMain">
         <div className="settings-head">
           <h1 id="panelTitle">
@@ -1054,6 +1090,7 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
           </div>
         </section>
       </div>
+      )} {/* end ternary isContentGroup */}
     </div>
   );
 }

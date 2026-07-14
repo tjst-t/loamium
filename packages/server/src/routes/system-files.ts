@@ -28,10 +28,11 @@ import {
   type SystemFileListResponse,
   type SystemFileSourceResponse,
   type SystemFileSourceWriteResponse,
+  type SystemFileDeleteResponse,
 } from '@loamium/shared';
 import type { ServerConfig } from '../config.js';
 import { errorJson, parseBody, setAudit, type AppEnv } from '../http.js';
-import { listSystemFiles, noteMtime, readNote, writeNote } from '../vault.js';
+import { listSystemFiles, noteMtime, readNote, writeNote, deleteNote } from '../vault.js';
 import { writeAuditEntry } from '../audit.js';
 
 const SOURCE_PREFIX = '/api/system-files/';
@@ -128,6 +129,34 @@ export function systemFilesRoutes(config: ServerConfig): Hono<AppEnv> {
       status: 200,
     });
     const res: SystemFileSourceWriteResponse = { path: rel, created, mtime };
+    return c.json(res);
+  });
+
+  // ---- 削除 ----
+  // read-only / append-only では permissionMiddleware が mutate として 403 を返す。
+  // agent ツール allowlist には含めない (自己昇格防止 / Sa10026-6 と同方針)。
+  app.delete(`${SOURCE_PREFIX}*`, async (c) => {
+    let rel: string;
+    try {
+      rel = systemPathFrom(c.req.path);
+    } catch (err) {
+      if (err instanceof VaultPathError) return errorJson(c, 400, 'invalid_path', err.message);
+      throw err;
+    }
+    setAudit(c, 'system.file.delete', rel);
+    const deleted = await deleteNote(config.vaultRoot, rel);
+    await writeAuditEntry(config, {
+      ts: new Date().toISOString(),
+      op: 'system.file.delete',
+      path: rel,
+      mode: config.mode,
+      result: deleted ? 'ok' : 'error',
+      status: deleted ? 200 : 404,
+    });
+    if (!deleted) {
+      return errorJson(c, 404, 'not_found', `system file not found: ${rel}`);
+    }
+    const res: SystemFileDeleteResponse = { path: rel, deleted: true };
     return c.json(res);
   });
 
