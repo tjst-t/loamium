@@ -23,6 +23,7 @@ import {
 import { api } from '../api.js';
 import { TemplatesPanel } from './TemplatesPanel.js';
 import { SmartFoldersPanel } from './SmartFoldersPanel.js';
+import { CommandsPanel } from './CommandsPanel.js';
 import type {
   AppSettings,
   AgentConnectionResponse,
@@ -706,13 +707,9 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
           {activeGroup === 'smart-folders' && (
             <SmartFoldersPanel mode={mode} />
           )}
-          {/* スマートコマンド — Sa100c6-3 で実装 */}
+          {/* スマートコマンド — Sa100c6-3 */}
           {activeGroup === 'commands' && (
-            <section className="md-panel active" data-testid="md-panel" data-group="commands">
-              <div className="md-placeholder">
-                <p>スマートコマンド管理は別 Story (Sa100c6-3) で実装予定です。</p>
-              </div>
-            </section>
+            <CommandsPanel mode={mode} />
           )}
         </div>
       ) : (
