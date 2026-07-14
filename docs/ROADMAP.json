@@ -4866,7 +4866,7 @@
         },
         "Sa100c6-3": {
           "title": "スマートコマンド管理セクション(既存コマンドエディタ流用 + param/step 編集)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": true,
           "review_reason": "GUI。コマンドの param/step 編集(確定済みも編集可)と試し実行を実機で確認する。",
           "user_story": "設定を管理する人として、スマートコマンドを設定画面内で一覧・作成・編集・削除したい。なぜなら、パラメータ/ステップを既存エディタで組み立て、確定済みのものも後から編集できると便利だから。",
@@ -4875,25 +4875,25 @@
               "id": "AC-Sa100c6-3-1",
               "description": "スマートコマンドセクションで一覧(絞り込み)・新規・削除ができ、選択項目を既存コマンドエディタ(名前/説明/パラメータ/ステップ)で右ペインに編集して system/commands/*.yaml へ保存できる。パラメータ・ステップは追加/編集/削除/並べ替えでき、確定済みの行も編集ボタンで後から変更できる。編集可能タイトルヘッダ + フッタ。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sa100c6-3-2",
               "description": "フッタの『試し実行』でコマンドを実行し結果(成否・追記先など)を確認できる。保存/削除は監査ログ記録 + LOAMIUM_MODE クランプ。パレット(Ctrl+K → >)からの実行と整合する(同じ system/commands/*.yaml が正本)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sa100c6-3-1": {
               "title": "ui: スマートコマンド管理セクション(コマンドエディタ流用)",
               "description": "master-detail 右ペインに既存コマンドエディタを埋め込み。名前/説明/param/step の add/edit/delete/reorder(確定済み行も編集可)。一覧/絞り込み/新規/削除。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa100c6-3-2": {
               "title": "ui: 試し実行 + 保存経路 + mock/e2e",
               "description": "『試し実行』で POST /api/commands/{name}/run を叩き結果表示。保存は system/commands 書込。mock(edge)+ e2e(実サーバーで作成→編集→保存→試し実行→反映)。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
