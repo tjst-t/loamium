@@ -4696,7 +4696,7 @@
         },
         "Sa10026-7": {
           "title": "統一設定画面(左ナビ集約 + 既存管理UIへの導線)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": true,
           "review_reason": "GUI・マイルストーン露出面。統一設定画面の体験と apiKey/モード無効化の見せ方を実機で確認する。",
           "user_story": "利用者として、散在する設定を1つの画面で調整したい。なぜなら、SmartFolderForm / AgentPane / 生ファイル手編集に分かれた設定を一望・変更したいから。",
@@ -4705,31 +4705,31 @@
               "id": "AC-Sa10026-7-1",
               "description": "統一設定画面が左ナビ(全体 / エージェント / プライバシー)を持ち、各群を型付き設定 API 経由で編集・保存できる。保存は監査ログに記録される。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sa10026-7-2",
               "description": "テンプレート/スマートフォルダ/コマンドの per-item 管理はハブに再実装せず、既存管理 UI への導線リンクを置く(ハブ単体では完結しない意図的割り切り)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sa10026-7-3",
               "description": "apiKey は平文保存せず $ENV_VAR 参照として表示し、LOAMIUM_MODE(read-only/append-only)では書込 UI が無効化される。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sa10026-7-1": {
               "title": "ui: 統一設定画面 + 型付きAPI 連携",
               "description": "左ナビ(全体/エージェント/プライバシー)の統一設定画面を実装し、型付き設定 API と連携。テンプレ/スマートフォルダ/コマンドは導線リンク。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa10026-7-2": {
               "title": "ui: apiKey $ENV 表示 + モード無効化 + mock/e2e",
               "description": "apiKey の $ENV_VAR 表示、read-only/append-only での書込無効化。mock(edge)+ e2e(実サーバー)テスト。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
