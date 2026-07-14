@@ -4613,7 +4613,7 @@
         },
         "Sa10026-5": {
           "title": "型付き設定API 4群(全体 / agent 接続 / agent 権限 / privacy)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "設定を変えたい人として、アプリ全体・agent 接続・agent 権限・privacy を型付きの設定 API 経由で編集したい。なぜなら、zod 検証・LOAMIUM_MODE クランプ・監査ログを1箇所で担保でき、REST↔CLI 1:1 で CLI からも同じ操作ができるから。",
@@ -4622,42 +4622,42 @@
               "id": "AC-Sa10026-5-1",
               "description": "設定 API が4群(system/settings.yaml / agent 接続 baseUrl・model・apiKey 参照 / agent 権限・capability / privacy deny-list)を zod 検証付きで read/write する。保存場所は現状維持で、項目ごとに system/ か .loamium/agent-*.json へ書き分ける。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sa10026-5-2",
               "description": "書き込み系設定 API は .loamium/audit.log に記録し、LOAMIUM_MODE(read-only/append-only)では書込を無効化(拒否)する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sa10026-5-3",
               "description": "各設定 API に 1:1 対応する loamium settings 系 CLI サブコマンドがあり、リクエスト/レスポンスは packages/shared の zod スキーマを共有する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sa10026-5-4",
               "description": "agent 接続の疎通確認と候補列挙を設定 API が提供する: POST /api/settings/agent/connection/test が baseUrl + apiKey($ENV 解決)+ model で実 API を1回呼び { ok, model?, latencyMs?, error? } を返す(キー実値は返さない)。GET /api/settings/agent/models が接続先のモデル一覧を返し GUI のドロップダウン候補にする(取得失敗時も直接入力可)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sa10026-5-1": {
               "title": "shared: 設定4群スキーマ + server routes",
               "description": "4群の zod スキーマを shared に定義。server に設定 API(read/write)を実装し、項目ごとに system/settings.yaml か .loamium/agent-*.json へ分岐。監査ログ + LOAMIUM_MODE クランプを1箇所で担保。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa10026-5-2": {
               "title": "cli: loamium settings 系サブコマンド + acceptance",
               "description": "設定 API と 1:1 の CLI サブコマンドを実装(REST↔CLI 1:1)。実 HTTP クライアントの acceptance テスト。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa10026-5-3": {
               "title": "server: 接続テスト + モデル一覧エンドポイント",
               "description": "POST /api/settings/agent/connection/test(実 API を1回呼び疎通確認)と GET /api/settings/agent/models(接続先のモデル一覧、失敗時フォールバック)を実装。apiKey は $ENV 解決し実値は保存/返却しない。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
@@ -5184,6 +5184,12 @@
       "description": "KIND_SCAFFOLDS はスキーマ由来でなく手書き(DSL 拡張時に陳腐化しうる)/ note 型 param のノートピッカー(現状 text)/ when-not: の data-when プレビューの mock テスト追加/ commandDslCompletion の module-level note-path キャッシュの鮮度。独立検証者が低リスクとして列挙。",
       "added_in": "S9e64e7",
       "reason": "低リスク。エディタ改善時にまとめて"
+    },
+    {
+      "title": "system/ 並べ替えの並行 persistOrder 競合",
+      "description": "高速ドラッグ連打で order PUT が並行し 409 が silent。debounce / pending-write ロックで解消。",
+      "added_in": "Sa10026-4 review",
+      "status": "pending"
     }
   ]
 }

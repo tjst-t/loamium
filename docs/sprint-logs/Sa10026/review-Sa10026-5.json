@@ -1,0 +1,2 @@
+{"story_id":"Sa10026-5","reviewer":"統合 reconciliation + フルスイート検証","critical_findings":0,
+ "note":"設定API 10 route + CLI 9 サブコマンド + connection/test + models。apiKey は $ENV 参照のみ保存/返却(maskApiKey)、実値を返さない。LOAMIUM_MODE クランプ + 監査ログ。-3 の appSettingsSchema(本物)に一本化(-5 の空スタブ削除)。settings-store は -5 superset + -3 の正しい load/save。フルスイート 1200 pass。権限/privacy/apiKey 書込は通常 HTTP のみで agent ツール非公開(-6 が allowlist 除外)。"}
