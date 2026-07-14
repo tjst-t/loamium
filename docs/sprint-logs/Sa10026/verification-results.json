@@ -1,0 +1,19 @@
+{
+  "sprint": "Sa10026",
+  "verified_at": "2026-07-14",
+  "machine_verification": {"suite": "vitest run (unit + acceptance)", "result": "pass", "tests": 1216, "exit_code": 0},
+  "e2e": {"suite": "playwright (real server)", "new_specs": ["system-tree.e2e", "new-note-unified.e2e", "settings-view.e2e"], "result": "pass", "tests": 7},
+  "ac_traceability": {"total": 22, "with_tests": 22},
+  "lint": "pass",
+  "done_judgment": {
+    "guard1_tests_pass": "pass",
+    "guard2_ac_traceable": "pass",
+    "guard3_test_discipline": "pass (real HTTP acceptance / real-browser e2e / mocks aligned to real handlers)",
+    "guard4_realmode_smoke": "pass (make serve 起動確認)",
+    "guard5_destructive_multiversion": "pass (migrate-Sa10026-2: v0 flat JSON→移行→新形式, 冪等)",
+    "guard6_diff_coverage": "pass (設定API/CLI/GUI 全 user-observable surface にテスト。e2e が mock/実不一致を検出し修正)",
+    "guard7_adr_conformance": "pass (ADR-0010 amendment=yaml化; ADR-0012/0015/0018 自己昇格防止境界を pin; ADR-0026 型付き設定API)",
+    "guard8_machine_status": "pass (status は exit code 由来)"
+  },
+  "notes": "並列実装で発生した重複(appSettingsSchema×2, GET /api/settings/system×2, settings-store×2)はマージ時に一本化。e2e が privacy 応答形不一致 + 新規ノートDropdown重なりの実バグを検出し修正。backlog: system/ 並べ替えの並行 persistOrder 競合。"
+}

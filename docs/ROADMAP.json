@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "Sa10026",
+    "current_sprint": null,
     "total": 43,
-    "done": 40,
-    "in_progress": 1,
+    "done": 41,
+    "in_progress": 0,
     "remaining": 2,
-    "percentage": 93
+    "percentage": 95
   },
   "execution_order": [
     "Sd63ad1",
@@ -4456,7 +4456,7 @@
     "Sa10026": {
       "title": "設定系 system/ 統一 + 統一設定UI(ADR-0010 + ADR-0026)",
       "description": "ADR-0010 と ADR-0026 を1 Sprint で束ねる。前半(ADR-0010): ユーザーが著す設定系(テンプレート/スマートフォルダ/スマートコマンド/保存クエリ)を vault 内 system/ フォルダの per-file .md(frontmatter=メタ/order/icon + 本文 ```dql)へ統一し、アプリ全体設定を素の system/settings.yaml に置く。.loamium/smart-folders.json(ADR-0002 の例外)と templates/・commands/ を一括で system/ へ移行し、.loamium は純キャッシュへ戻す。後半(ADR-0026): 人間向けの統一設定画面を1つ設け、型付き設定API(zod・REST↔CLI 1:1・shared スキーマ・監査ログ・LOAMIUM_MODE クランプ)経由で『全体 / agent 接続 / agent 権限 / privacy deny-list』の4群を編集する。保存場所は現状維持(system/=agent 編集可、.loamium/agent-*=agent 編集不可)、設定書込 API は agent ツール allowlist から明示除外し自己昇格を防ぐ(ADR-0012/0015/0018 の境界維持)。per-item 管理は再実装せず既存 UI への導線リンクに留める。境界原則(system/=正本・移植 / .loamium/=使い捨て・端末依存)で両アークが接続する。",
-      "status": "in_progress",
+      "status": "done",
       "milestone": true,
       "detail_level": "detailed",
       "components": [
