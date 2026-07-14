@@ -11,7 +11,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { journalAppendResponseSchema } from '@loamium/shared';
+import { journalAppendResponseSchema, journalPath } from '@loamium/shared';
 import {
   cleanupVault,
   makeTempVault,
@@ -48,7 +48,7 @@ async function journalAppend(
 
 /** 指定日のジャーナルをファイルから読む。 */
 async function readJournal(vault: string, date: string): Promise<string> {
-  return readFile(path.join(vault, 'journals', `${date}.md`), 'utf8');
+  return readFile(path.join(vault, journalPath(date)), 'utf8');
 }
 
 /** PUT /api/notes/{path} でノートをシードする。 */
@@ -85,7 +85,7 @@ describe('[AC-Sd22b1f-3-1] POST /api/journal/append with section', () => {
   it('[AC-Sd22b1f-3-1] section present: inserts under that heading', async () => {
     const date = '2026-04-01';
     // 既存ジャーナルに見出しを仕込む
-    await putNote(server, `journals/${date}.md`, '# 日記\n\n## Todo\n\n- [ ] 既存\n\n## Done\n\n- [x] 済み\n');
+    await putNote(server, journalPath(date), '# 日記\n\n## Todo\n\n- [ ] 既存\n\n## Done\n\n- [x] 済み\n');
 
     const { status, body } = await journalAppend(server, {
       content: '- [ ] 新規タスク',
@@ -110,7 +110,7 @@ describe('[AC-Sd22b1f-3-1] POST /api/journal/append with section', () => {
   it('[AC-Sd22b1f-3-1] section present, heading absent: appends heading + text at EOF', async () => {
     const date = '2026-04-02';
     // 見出しのないジャーナル
-    await putNote(server, `journals/${date}.md`, '# 日記\n\n本文のみ\n');
+    await putNote(server, journalPath(date), '# 日記\n\n本文のみ\n');
 
     const { status } = await journalAppend(server, {
       content: '- [ ] 新規',
@@ -132,7 +132,7 @@ describe('[AC-Sd22b1f-3-1] POST /api/journal/append with section', () => {
   it('[AC-Sd22b1f-3-1] section absent: legacy appendText behavior is unchanged (regression)', async () => {
     const date = '2026-04-03';
     // 既存ジャーナル
-    await putNote(server, `journals/${date}.md`, '# 日記\n\n- 既存行\n');
+    await putNote(server, journalPath(date), '# 日記\n\n- 既存行\n');
 
     const { status } = await journalAppend(server, {
       content: '- 追記行',
@@ -195,7 +195,7 @@ describe('[AC-Sd22b1f-3-2] CLI journal-append --section', () => {
 
   it('[AC-Sd22b1f-3-2] --section inserts under heading via CLI (non-dash content)', async () => {
     // 既存ジャーナルに ## Todo 見出しを仕込む
-    await putNote(server, `journals/${today}.md`, '# 日記\n\n## Todo\n\n既存CLIタスク\n');
+    await putNote(server, journalPath(today), '# 日記\n\n## Todo\n\n既存CLIタスク\n');
 
     // Non-dash content works without "--" separator.
     const result = await runCli(
@@ -223,7 +223,7 @@ describe('[AC-Sd22b1f-3-2] CLI journal-append --section', () => {
     // The "--" separator tells Commander to stop option-parsing; subsequent args
     // are treated as positional arguments.
     const date = '2026-05-03';
-    await putNote(server, `journals/${date}.md`, '# 日記\n\n## Todo\n\n');
+    await putNote(server, journalPath(date), '# 日記\n\n## Todo\n\n');
 
     const result = await runCli(
       ['journal-append', '--section', 'Todo', '--', '- [ ] dashタスク', date],
@@ -244,7 +244,7 @@ describe('[AC-Sd22b1f-3-2] CLI journal-append --section', () => {
   it('[AC-Sd22b1f-3-2] --section with absent heading: appends heading + text via CLI', async () => {
     const date = '2026-05-01';
     // 見出しのないジャーナル
-    await putNote(server, `journals/${date}.md`, '# 日記\n\n本文\n');
+    await putNote(server, journalPath(date), '# 日記\n\n本文\n');
 
     const result = await runCli(
       ['journal-append', '新しいCLIタスク', date, '--section', 'Tasks'],
@@ -260,7 +260,7 @@ describe('[AC-Sd22b1f-3-2] CLI journal-append --section', () => {
 
   it('[AC-Sd22b1f-3-2] --json output works with --section', async () => {
     const date = '2026-05-02';
-    await putNote(server, `journals/${date}.md`, '## Todo\n\n- item\n');
+    await putNote(server, journalPath(date), '## Todo\n\n- item\n');
 
     const result = await runCli(
       ['journal-append', 'json-test-item', date, '--section', 'Todo', '--json'],

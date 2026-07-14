@@ -5,6 +5,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { journalPath } from '@loamium/shared';
 import {
   cleanupVault,
   makeTempVault,
@@ -80,7 +81,7 @@ describe('[AC-Sd63ad1-3-1] audit log records every write API call', () => {
     expect(ops).toContainEqual(['note.write', 'a.md']);
     expect(ops).toContainEqual(['note.append', 'a.md']);
     expect(ops).toContainEqual(['note.patch', 'a.md']);
-    expect(ops).toContainEqual(['journal.append', 'journals/2026-05-01.md']);
+    expect(ops).toContainEqual(['journal.append', journalPath('2026-05-01')]);
     expect(ops).toContainEqual(['note.delete', 'a.md']);
 
     for (const line of lines) {
@@ -98,7 +99,7 @@ describe('[AC-Sd63ad1-3-1] audit log records every write API call', () => {
     const lines = await readAuditLog(server.vault);
     expect(lines.map((l) => [l.op, l.path])).toContainEqual([
       'journal.create',
-      'journals/2026-05-02.md',
+      journalPath('2026-05-02'),
     ]);
   });
 
@@ -176,7 +177,7 @@ describe('[AC-Sd63ad1-3-2] read-only mode rejects all writes with 403', () => {
     // Sa704c3: 仮想ジャーナル (ファイル無し) は mtime: null
     expect(body.mtime).toBeNull();
     await expect(
-      readFile(path.join(server.vault, 'journals', '2026-06-01.md'), 'utf8'),
+      readFile(path.join(server.vault, journalPath('2026-06-01')), 'utf8'),
     ).rejects.toThrow();
   });
 

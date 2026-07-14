@@ -5,6 +5,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { journalPath } from '@loamium/shared';
 import {
   cleanupVault,
   makeTempVault,
@@ -45,13 +46,13 @@ describe("[AC-Sd63ad1-2-1] GET /api/journal auto-generates today's journal", () 
       mtime: number | null;
     };
     expect(body.date).toBe(today);
-    expect(body.path).toBe(`journals/${today}.md`);
+    expect(body.path).toBe(journalPath(today));
     expect(body.created).toBe(true);
     // Sa704c3: 実ファイルの mtime を返す (UI の楽観的競合検出の基準値)
     expect(typeof body.mtime).toBe('number');
 
     // ファイルが実際に自動生成されている (ファイルが正本)
-    const abs = path.join(server.vault, 'journals', `${today}.md`);
+    const abs = path.join(server.vault, journalPath(today));
     expect((await stat(abs)).isFile()).toBe(true);
 
     // 2 回目は既存を返す (created=false)
@@ -65,10 +66,10 @@ describe("[AC-Sd63ad1-2-1] GET /api/journal auto-generates today's journal", () 
     expect(res.status).toBe(200);
     const body = (await res.json()) as { date: string; path: string; created: boolean };
     expect(body.date).toBe('2026-01-15');
-    expect(body.path).toBe('journals/2026-01-15.md');
+    expect(body.path).toBe(journalPath('2026-01-15'));
     expect(body.created).toBe(true);
 
-    const abs = path.join(server.vault, 'journals', '2026-01-15.md');
+    const abs = path.join(server.vault, journalPath('2026-01-15'));
     expect((await stat(abs)).isFile()).toBe(true);
   });
 
@@ -84,7 +85,7 @@ describe("[AC-Sd63ad1-2-1] GET /api/journal auto-generates today's journal", () 
   });
 
   it('returns parsed frontmatter for a journal that has one', async () => {
-    await fetch(`${server.baseUrl}/api/notes/journals/2026-02-01.md`, {
+    await fetch(`${server.baseUrl}/api/notes/${journalPath('2026-02-01').split('/').map(encodeURIComponent).join('/')}`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ content: '---\nmood: good\n---\n- morning note\n' }),
@@ -112,9 +113,9 @@ describe('[AC-Sd63ad1-2-2] POST /api/journal/append', () => {
     expect(res.status).toBe(200); // today のファイルは前のテストで生成済み
     const body = (await res.json()) as { date: string; path: string };
     expect(body.date).toBe(today);
-    expect(body.path).toBe(`journals/${today}.md`);
+    expect(body.path).toBe(journalPath(today));
 
-    const raw = await readFile(path.join(server.vault, 'journals', `${today}.md`), 'utf8');
+    const raw = await readFile(path.join(server.vault, journalPath(today)), 'utf8');
     expect(raw.endsWith('- 決定: X を採用\n')).toBe(true);
   });
 

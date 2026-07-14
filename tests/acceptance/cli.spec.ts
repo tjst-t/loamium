@@ -11,6 +11,7 @@ import { chmod, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { journalPath } from '@loamium/shared';
 import { cleanupVault, makeTempVault, startServer, type TestServer } from './helpers/server.js';
 import { parseStderrJson, runCli } from './helpers/cli.js';
 
@@ -88,14 +89,14 @@ describe('[AC-S0c9a48-1-1] loamium の 10 サブコマンドが API と 1:1 で�
     const jappend = await cli(['journal-append', '作業ログ: CLI 実装完了']);
     expect(jappend.code).toBe(0);
     expect(jappend.stdout).toContain(`appended to journal ${today}`);
-    expect(jappend.stdout).toContain(`journals/${today}.md`);
+    expect(jappend.stdout).toContain(journalPath(today));
 
     const journalAfter = await cli(['journal']);
     expect(journalAfter.code).toBe(0);
     expect(journalAfter.stdout).toContain('作業ログ: CLI 実装完了');
 
     // ファイルが正本: journals/{today}.md に実際に追記されている
-    const onDisk = await readFile(path.join(server.vault, 'journals', `${today}.md`), 'utf8');
+    const onDisk = await readFile(path.join(server.vault, journalPath(today)), 'utf8');
     expect(onDisk).toContain('作業ログ: CLI 実装完了');
 
     // 過去日付の指定 (journal-append <content> [date] / journal [date])

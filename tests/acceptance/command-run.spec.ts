@@ -11,7 +11,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { commandRunResponseSchema } from '@loamium/shared';
+import { commandRunResponseSchema, journalPath } from '@loamium/shared';
 import { cleanupVault, makeTempVault, startServer, type TestServer } from './helpers/server.js';
 import { runCli } from './helpers/cli.js';
 
@@ -239,7 +239,7 @@ describe('[AC-Sd22b1f-2] command run — full mode', () => {
 
   it('[AC-Sd22b1f-2-1] journal-append section inserts under heading', async () => {
     // 既存ジャーナルに ## Todo 見出しを仕込む
-    await putNote(server, 'journals/2026-07-11.md', '# 2026-07-11\n\n## Todo\n\n- [ ] 既存\n');
+    await putNote(server, journalPath('2026-07-11'), '# 2026-07-11\n\n## Todo\n\n- [ ] 既存\n');
     const { status, body } = await runCommand(server, 'section-test', { task: '新規タスク' });
     expect(status).toBe(200);
     const parsed = commandRunResponseSchema.safeParse(body);
@@ -247,7 +247,7 @@ describe('[AC-Sd22b1f-2] command run — full mode', () => {
     if (!parsed.success) throw new Error('unreachable');
     expect(parsed.data.results[0]?.ok).toBe(true);
 
-    const journal = await readFile(path.join(server.vault, 'journals/2026-07-11.md'), 'utf8');
+    const journal = await readFile(path.join(server.vault, journalPath('2026-07-11')), 'utf8');
     expect(journal).toContain('- [ ] 既存');
     expect(journal).toContain('- [ ] 新規タスク');
     // 新規タスクが既存の後に追加されていること
@@ -889,7 +889,7 @@ describe('[AC-Sf2f114-3-1] note-append with section/create/position', () => {
   // -----------------------------------------------------------------------
 
   it('[AC-Sf2f114-3-2] journal-append unchanged — backward compat (section present)', async () => {
-    await putNote(server, 'journals/2026-07-12.md', '# 2026-07-12\n\n## Log\n\n- existing\n');
+    await putNote(server, journalPath('2026-07-12'), '# 2026-07-12\n\n## Log\n\n- existing\n');
     await seedNote(server.vault, 'commands/journal-compat-section.yaml', [
       'name: journal-compat-section',
       'steps:',
@@ -906,7 +906,7 @@ describe('[AC-Sf2f114-3-1] note-append with section/create/position', () => {
     if (!parsed.success) throw new Error('unreachable');
     expect(parsed.data.results[0]?.ok).toBe(true);
 
-    const content = await readFile(path.join(server.vault, 'journals/2026-07-12.md'), 'utf8');
+    const content = await readFile(path.join(server.vault, journalPath('2026-07-12')), 'utf8');
     expect(content).toContain('- existing');
     expect(content).toContain('- new entry');
     const existingIdx = content.indexOf('- existing');
@@ -915,7 +915,7 @@ describe('[AC-Sf2f114-3-1] note-append with section/create/position', () => {
   });
 
   it('[AC-Sf2f114-3-2] journal-append unchanged — backward compat (section absent, bottom)', async () => {
-    await putNote(server, 'journals/2026-07-10.md', '# 2026-07-10\n\nsome text\n');
+    await putNote(server, journalPath('2026-07-10'), '# 2026-07-10\n\nsome text\n');
     await seedNote(server.vault, 'commands/journal-compat-bottom.yaml', [
       'name: journal-compat-bottom',
       'steps:',
@@ -931,7 +931,7 @@ describe('[AC-Sf2f114-3-1] note-append with section/create/position', () => {
     if (!parsed.success) throw new Error('unreachable');
     expect(parsed.data.results[0]?.ok).toBe(true);
 
-    const content = await readFile(path.join(server.vault, 'journals/2026-07-10.md'), 'utf8');
+    const content = await readFile(path.join(server.vault, journalPath('2026-07-10')), 'utf8');
     expect(content).toContain('some text');
     expect(content).toContain('appended line');
     const someIdx = content.indexOf('some text');

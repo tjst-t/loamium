@@ -22,7 +22,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
-import { commandRunResponseSchema } from '@loamium/shared';
+import { commandRunResponseSchema, journalPath } from '@loamium/shared';
 import {
   cleanupVault,
   makeTempVault,
@@ -149,7 +149,7 @@ describe('[AC-Sd22b1f-3-3] create-todo section コマンド実証', () => {
     // 今日のジャーナルを初期化 (## Todo セクションあり)
     await seedNote(
       vault,
-      `journals/${today}.md`,
+      journalPath(today),
       `# ${today}\n\n## Todo\n\n## Done\n`,
     );
   });
@@ -181,7 +181,7 @@ describe('[AC-Sd22b1f-3-3] create-todo section コマンド実証', () => {
 
     // 今日のジャーナルに行が追記されていること
     const journal = await readFile(
-      path.join(server.vault, 'journals', `${today}.md`),
+      path.join(server.vault, journalPath(today)),
       'utf8',
     );
     expect(journal).toContain('- [ ] レポートを書く');
@@ -208,7 +208,7 @@ describe('[AC-Sd22b1f-3-3] create-todo section コマンド実証', () => {
     expect(status).toBe(200);
 
     const journal = await readFile(
-      path.join(server.vault, 'journals', `${today}.md`),
+      path.join(server.vault, journalPath(today)),
       'utf8',
     );
     // - [ ] 会議の準備 が追記されていること
@@ -255,7 +255,7 @@ describe('[AC-Sd22b1f-3-3] create-todo section コマンド実証', () => {
     // テスト用ジャーナルを直接書く
     await seedNote(
       server.vault,
-      `journals/${date}.md`,
+      journalPath(date),
       `# ${date}\n\n## Todo\n\n`,
     );
 
@@ -273,7 +273,7 @@ describe('[AC-Sd22b1f-3-3] create-todo section コマンド実証', () => {
 
     // today のジャーナルに追記される
     const todayJournal = await readFile(
-      path.join(server.vault, 'journals', `${today}.md`),
+      path.join(server.vault, journalPath(today)),
       'utf8',
     );
     // create-todo-with-due は section="Todo" で today のジャーナルに書く
