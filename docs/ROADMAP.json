@@ -4833,7 +4833,7 @@
         },
         "Sa100c6-2": {
           "title": "スマートフォルダ管理セクション(既存 SmartFolderForm 流用)",
-          "status": "pending",
+          "status": "done",
           "user_review_required": true,
           "review_reason": "GUI。設定ハブ内のスマートフォルダ編集(既存フォーム流用)と並べ替えを実機で確認する。",
           "user_story": "設定を管理する人として、スマートフォルダを設定画面内で一覧・作成・編集・削除・並べ替えしたい。なぜなら、既存の作成フォームをそのまま設定ハブで使えて一元管理できるから。",
@@ -4842,25 +4842,25 @@
               "id": "AC-Sa100c6-2-1",
               "description": "スマートフォルダセクションで一覧(絞り込み・ドラッグ並べ替え)・新規・削除ができ、選択項目を既存 SmartFolderForm(名前/アイコン/種類 クエリ⇄ピン/DQL + プリセット)で右ペインに編集して system/smart-folders/*.yaml へ保存できる。編集可能タイトルヘッダ + フッタ(保存/キャンセル/削除)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sa100c6-2-2",
               "description": "並べ替えは order を安定ソートで再採番して永続する。保存/削除は監査ログ記録 + LOAMIUM_MODE クランプ。既存のサイドバー・スマートビュー表示と整合する(同じ system/smart-folders/*.yaml が正本)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sa100c6-2-1": {
               "title": "ui: スマートフォルダ管理セクション(SmartFolderForm 流用)",
               "description": "master-detail 右ペインに既存 SmartFolderForm を埋め込み。一覧/絞り込み/新規/削除/並べ替え。既存 smart-folders CRUD API を流用。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa100c6-2-2": {
               "title": "ui: 並べ替え order 永続 + mock/e2e",
               "description": "ドラッグ並べ替えで order 再採番・永続。mock(edge)+ e2e(実サーバーで作成→編集→並べ替え→反映)。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
