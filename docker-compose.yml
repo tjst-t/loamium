@@ -1,0 +1,10 @@
+services:
+  loamium:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./vault:/vault
+    environment:
+      LOAMIUM_HOST: "0.0.0.0"
+    restart: unless-stopped

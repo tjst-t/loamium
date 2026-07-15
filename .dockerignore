@@ -1,0 +1,10 @@
+dev-vault/
+node_modules
+.git
+reports/
+test-results/
+*.log
+.env
+.env.*
+!.env.example
+prototype/
