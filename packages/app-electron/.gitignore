@@ -1,0 +1,4 @@
+dist/
+resources/loamium-server.exe
+resources/loamium-server
+node_modules/

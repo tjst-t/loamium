@@ -1,0 +1,45 @@
+{
+  "name": "loamium-app-electron",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Loamium Electron desktop app",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "tsc --project tsconfig.json && electron dist/main.js",
+    "build": "tsc --project tsconfig.json",
+    "pack:win": "npm run build && electron-builder --win zip --x64",
+    "pack:linux": "npm run build && electron-builder --linux AppImage --x64",
+    "pack:mac": "npm run build && electron-builder --mac dmg"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "electron": "^35.0.0",
+    "electron-builder": "^25.0.0",
+    "typescript": "^5.0.0"
+  },
+  "build": {
+    "appId": "com.loamium.app",
+    "productName": "Loamium",
+    "electronVersion": "35.7.5",
+    "files": [
+      "dist/**/*",
+      "!dist/**/*.d.ts"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/loamium-server.exe",
+        "to": "loamium-server.exe",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "target": [{ "target": "zip", "arch": ["x64"] }]
+    },
+    "linux": {
+      "target": [{ "target": "AppImage", "arch": ["x64"] }]
+    },
+    "mac": {
+      "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }]
+    }
+  }
+}
