@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "Sc0d318",
+    "current_sprint": null,
     "total": 45,
-    "done": 42,
+    "done": 43,
     "in_progress": 0,
-    "remaining": 3,
-    "percentage": 95
+    "remaining": 2,
+    "percentage": 96
   },
   "execution_order": [
     "Sd63ad1",
@@ -4904,13 +4904,13 @@
       "title": "コンテナデプロイ — Dockerfile + docker-compose + 静的 UI 配信 + DEPLOY.md",
       "description": "ADR-0008 準拠。デプロイ形態の第一弾としてコンテナ化を整備する。(1) Hono サーバーに serveStatic を追加して本番ビルドの UI を静的配信、(2) マルチステージ Dockerfile + docker-compose.yml で vault を volume マウント、(3) DEPLOY.md で Native / Docker / 外部公開オプション(Cloudflare Tunnel / Tailscale / Caddy)の手順を文書化。Cloudflare Tunnel は外部公開のオプションであり必須ではない(ADR-0008)。Tauri は future sprint 参照のみ。",
       "milestone": true,
-      "status": "pending",
+      "status": "done",
       "detail_level": "detailed",
       "depends_on": null,
       "stories": {
         "Sc0d318-1": {
           "title": "静的 UI 配信（serveStatic）",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ユーザーとして、コンテナや本番サーバーで node 一本を起動するだけで UI と API の両方にアクセスできる。",
@@ -4919,44 +4919,44 @@
               "id": "AC-Sc0d318-1-1",
               "description": "環境変数 LOAMIUM_UI_DIST が設定されている場合、serveStatic がその dist パスから静的ファイルを配信する",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sc0d318-1-2",
               "description": "LOAMIUM_UI_DIST が未設定の場合、静的配信ミドルウェアは登録されず、開発モードの動作を維持する",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sc0d318-1-3",
               "description": "/api/* へのリクエストは静的配信にかかわらず既存の API ルートにルーティングされる",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sc0d318-1-4",
               "description": "静的ファイルが存在しないパス（SPA ルート）は index.html にフォールバックする",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sc0d318-1-5",
               "description": "make lint および make build がエラーなく完了する",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "Sc0d318-1-1": {
               "title": "serveStatic 実装",
               "description": "app.ts に LOAMIUM_UI_DIST 環境変数条件で serveStatic を追加、SPA フォールバック実装",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sc0d318-2": {
           "title": "Dockerfile + docker-compose.yml",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "運用者として、docker compose up 一コマンドで Loamium をコンテナ起動し、ホスト側の ./vault を正本として永続利用できる。",
@@ -4965,49 +4965,49 @@
               "id": "AC-Sc0d318-2-1",
               "description": "Dockerfile はマルチステージ(builder=npm ci + make build、runner=実行ファイルのみ)で構成される",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sc0d318-2-2",
               "description": "VOLUME [/vault] が宣言され LOAMIUM_VAULT=/vault がデフォルト設定されている",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sc0d318-2-3",
               "description": "docker-compose.yml に volumes: ./vault:/vault、ports: 3000:3000、LOAMIUM_HOST=0.0.0.0 が定義されている",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sc0d318-2-4",
               "description": ".dockerignore で dev-vault/, node_modules, .git 等が除外されている",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sc0d318-2-5",
               "description": "docker build -t loamium:local . が成功する",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "Sc0d318-2-1": {
               "title": "Dockerfile作成",
               "description": "マルチステージ Dockerfile を作成",
-              "status": "pending"
+              "status": "done"
             },
             "Sc0d318-2-2": {
               "title": "docker-compose.yml + .dockerignore",
               "description": "docker-compose.yml と .dockerignore を作成",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sc0d318-3": {
           "title": "DEPLOY.md 作成",
-          "status": "pending",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "新たに Loamium を導入するユーザーとして、Native / Docker / 外部公開オプションの手順を一つのドキュメントで参照でき、自分の環境に合った方法を選択できる。",
@@ -5016,32 +5016,32 @@
               "id": "AC-Sc0d318-3-1",
               "description": "DEPLOY.md が存在し、Native セクション（make build → node 起動、環境変数説明）がある",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sc0d318-3-2",
               "description": "Docker セクションがあり docker compose up のコマンド例・vault マウント説明がある",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sc0d318-3-3",
               "description": "外部公開オプションセクションがあり Cloudflare Tunnel / Tailscale / Caddy が紹介され任意である旨が明記されている",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sc0d318-3-4",
               "description": "Tauri について将来実装予定として言及がある",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "Sc0d318-3-1": {
               "title": "DEPLOY.md 執筆",
               "description": "全セクション（Native/Docker/外部公開オプション/Tauri言及）を含む DEPLOY.md を作成",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
