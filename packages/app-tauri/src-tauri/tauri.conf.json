@@ -8,7 +8,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "externalBin": []
+    "externalBin": ["binaries/loamium-server"]
   },
   "app": {
     "windows": [],
