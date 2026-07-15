@@ -5052,7 +5052,7 @@
       "title": "Tauri デスクトップ MVP — sidecar + WebView + vault 選択 + クロスビルド",
       "description": "ADR-0008/0027 準拠。既存 Node.js/Hono サーバーを bun compile でスタンドアロンバイナリ化し、Tauri v2 WebView でネイティブデスクトップアプリとして動かす。初回 + 後からも vault を選択できる仕組み(ネイティブメニュー File > Vault を変更…)、GitHub Actions による mac/win/linux クロスビルドと Releases 自動公開までを MVP スコープとする。",
       "milestone": true,
-      "status": "pending",
+      "status": "done",
       "detail_level": "detailed",
       "depends_on": null,
       "stories": {
