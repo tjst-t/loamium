@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
+import { serveStatic } from '@hono/node-server/serve-static';
 import type { HealthResponse } from '@loamium/shared';
 import { DqlParseError, HiddenVaultPathError, JournalDateError, VaultPathError } from '@loamium/shared';
 import type { ServerConfig } from './config.js';
@@ -129,6 +130,15 @@ export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv>
   app.route('/', settingsRoutes(config));
   // system/ 設定ファイル一覧 + source read/write (Sa10026-9 #1) — agent ツール非公開
   app.route('/', systemFilesRoutes(config));
+
+  // 静的 UI 配信 — LOAMIUM_UI_DIST が設定されている本番モードのみ有効。
+  // 開発モード(未設定)では Vite 開発サーバーが担当するため何もしない。
+  // API ルート登録の後ろに置くことで /api/* は既存ルートが先にマッチする。
+  const uiDist = process.env.LOAMIUM_UI_DIST ?? '';
+  if (uiDist !== '') {
+    app.use('/*', serveStatic({ root: uiDist }));
+    app.use('/*', serveStatic({ path: 'index.html', root: uiDist }));
+  }
 
   return app;
 }
