@@ -747,18 +747,16 @@ function buildProgram(): Command {
   // loamium settings agent-connection-test (POST /api/settings/agent/connection/test)
   settingsCmd
     .command('agent-connection-test')
-    .description('agent 接続をテストする (POST /api/settings/agent/connection/test)')
+    .description('agent 接続をテストする (POST /api/settings/agent/connection/test)。model 不要で /models エンドポイントにより疎通確認。')
     .option('--base-url <url>', 'テスト対象の baseUrl (省略時は agent.json の値)')
-    .option('--model <model>', 'テスト対象のモデル (省略時は agent.json の値)')
     .option('--api <api>', 'API 種別: openai | anthropic (省略時は agent.json の値)')
-    .option('--api-key-ref <ref>', 'apiKey 参照名 (省略時は agent.json の値)')
+    .option('--api-key-ref <ref>', 'apiKey 参照名または直値 (省略時は agent.json の値)')
     .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
     .exitOverride()
     .configureOutput({ writeErr: () => {} })
-    .action(async (opts: JsonOpt & { baseUrl?: string; model?: string; api?: string; apiKeyRef?: string }) => {
+    .action(async (opts: JsonOpt & { baseUrl?: string; api?: string; apiKeyRef?: string }) => {
       const body: Record<string, string> = {};
       if (opts.baseUrl !== undefined) body.baseUrl = opts.baseUrl;
-      if (opts.model !== undefined) body.model = opts.model;
       if (opts.api !== undefined) body.api = opts.api;
       if (opts.apiKeyRef !== undefined) body.apiKeyRef = opts.apiKeyRef;
       const base = await resolveBaseUrl();
@@ -770,7 +768,13 @@ function buildProgram(): Command {
       output(opts, result, () => {
         const res = parseAs(result, agentConnectionTestResponseSchema, 'settings agent-connection-test');
         if (res.ok) {
-          println(`ok\tmodel=${res.model ?? 'unknown'}\tlatencyMs=${String(res.latencyMs ?? 0)}`);
+          const modelCount = res.models !== undefined ? res.models.length : 0;
+          println(`ok\tmodels=${String(modelCount)}\tlatencyMs=${String(res.latencyMs ?? 0)}`);
+          if (res.models !== undefined) {
+            for (const m of res.models) {
+              println(`  ${m}`);
+            }
+          }
         } else {
           println(`fail\t${res.error ?? 'unknown error'}`);
         }

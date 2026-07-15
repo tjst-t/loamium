@@ -113,12 +113,15 @@ export function settingsRoutes(config: ServerConfig): Hono<AppEnv> {
               : {}),
           } as { endpoint: string; apiKeyRef?: string })
         : undefined;
+    const maskedKey = maskApiKey(cfg.apiKey);
     const res: AgentConnectionResponse = {
       connection: {
         api: cfg.api,
         baseUrl: cfg.baseUrl,
         model: cfg.model,
-        apiKeyRef: maskApiKey(cfg.apiKey),
+        apiKeyRef: maskedKey,
+        // hasApiKey: true = キー設定済み(実値は返さない)。UI が「保存済み」プレースホルダを出す。
+        hasApiKey: cfg.apiKey.length > 0,
         ...(webSearch !== undefined ? { webSearch } : {}),
       },
     };
@@ -133,6 +136,19 @@ export function settingsRoutes(config: ServerConfig): Hono<AppEnv> {
     if (!bodyResult.ok) return bodyResult.response;
 
     const { api, baseUrl, model, apiKey, webSearch } = bodyResult.data;
+
+    // apiKey が省略された場合は既存の値を維持する (UI が保存済みキーを上書きしないため)
+    let resolvedApiKey: string;
+    if (apiKey !== undefined) {
+      resolvedApiKey = apiKey;
+    } else {
+      const existing = await loadAgentJson(config.vaultRoot);
+      if (!existing.ok) {
+        return errorJson(c, 400, 'agent_config_missing', 'apiKey is required when no existing agent configuration exists');
+      }
+      resolvedApiKey = existing.config.apiKey;
+    }
+
     // exactOptionalPropertyTypes: webSearch.apiKey を条件付きで渡す
     const wsArg =
       webSearch !== undefined
@@ -146,7 +162,7 @@ export function settingsRoutes(config: ServerConfig): Hono<AppEnv> {
         api,
         baseUrl,
         model,
-        apiKey,
+        apiKey: resolvedApiKey,
         ...(wsArg !== undefined ? { webSearch: wsArg } : {}),
       });
       return c.json({ ok: true });
@@ -166,22 +182,21 @@ export function settingsRoutes(config: ServerConfig): Hono<AppEnv> {
 
     const req = bodyResult.data;
 
-    // baseUrl / model / api は req から取るか、現在の agent.json から補う
+    // baseUrl / api / apiKeyRef は req から取るか、現在の agent.json から補う
+    // model は接続テストに不要 (fetchModelList は model 不要)
     const agentResult = await loadAgentJson(config.vaultRoot);
     const baseFromConfig = agentResult.ok ? agentResult.config.baseUrl : undefined;
-    const modelFromConfig = agentResult.ok ? agentResult.config.model : undefined;
     const apiFromConfig = agentResult.ok ? agentResult.config.api : undefined;
     const apiKeyRefFromConfig = agentResult.ok ? agentResult.config.apiKey : undefined;
 
     const baseUrl = req.baseUrl ?? baseFromConfig;
-    const model = req.model ?? modelFromConfig;
     const api = req.api ?? apiFromConfig;
     const apiKeyRef = req.apiKeyRef ?? apiKeyRefFromConfig;
 
-    if (baseUrl === undefined || model === undefined || api === undefined || apiKeyRef === undefined) {
+    if (baseUrl === undefined || api === undefined || apiKeyRef === undefined) {
       const res: AgentConnectionTestResponse = {
         ok: false,
-        error: 'connection settings not configured; provide baseUrl, model, api, and apiKeyRef in the request or configure agent.json first',
+        error: 'connection settings not configured; provide baseUrl, api, and apiKeyRef in the request or configure agent.json first',
       };
       return c.json(res);
     }
@@ -196,14 +211,14 @@ export function settingsRoutes(config: ServerConfig): Hono<AppEnv> {
       return c.json(res);
     }
 
-    // 接続テスト: ミニマムなリクエスト (1 回だけ) を実 API へ送る
+    // 接続テスト: model 不要の /models エンドポイントで疎通確認し、モデル一覧も返す
     const start = Date.now();
     try {
-      const testResponse = await testApiConnection({ api, baseUrl, model, apiKey: resolvedApiKey });
+      const models = await fetchModelList({ api, baseUrl, apiKey: resolvedApiKey });
       const latencyMs = Date.now() - start;
       const res: AgentConnectionTestResponse = {
         ok: true,
-        model: testResponse.model ?? model,
+        models,
         latencyMs,
       };
       return c.json(res);

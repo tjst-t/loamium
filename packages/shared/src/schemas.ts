@@ -1069,6 +1069,11 @@ export const agentConnectionResponseSchema = z.object({
       model: z.string(),
       /** $ENV_VAR 参照名、または "(set)" / "(unset)" — 実値は絶対に返さない */
       apiKeyRef: z.string(),
+      /**
+       * API キーが設定済みかを示す boolean (UI が「保存済み」プレースホルダを出すために使う)。
+       * apiKeyRef が "$ENV_VAR" のときも true。実値は含まない。
+       */
+      hasApiKey: z.boolean().optional(),
       webSearch: z
         .object({
           endpoint: z.string(),
@@ -1083,15 +1088,20 @@ export type AgentConnectionResponse = z.infer<typeof agentConnectionResponseSche
 
 /**
  * PUT /api/settings/agent/connection のリクエスト。
- * apiKey は "$ENV_VAR" 形式の参照名を保存する (実値を含む生文字列も受け付けるが、保存するだけ。
- * GUI は必ず $ENV 参照を渡すことを想定)。
+ * apiKey は直値 (sk-... 等) または "$ENV_VAR" 形式の参照名を保存する。
+ * apiKey を省略した場合、サーバーは既存の apiKey を維持する (上書きしない)。
+ * これにより UI が「保存済み」プレースホルダを表示している状態で保存しても
+ * キーが "(set)" で上書きされることを防ぐ。
  */
 export const agentConnectionWriteRequestSchema = z.object({
   api: z.enum(['openai', 'anthropic']),
   baseUrl: z.string().min(1, 'baseUrl must not be empty'),
   model: z.string().min(1, 'model must not be empty'),
-  /** $ENV_VAR 参照名 (例: "$OPENAI_API_KEY") をそのまま保存する */
-  apiKey: z.string().min(1, 'apiKey must not be empty'),
+  /**
+   * 直値 (sk-xxx 等) または "$ENV_VAR" 形式の参照名。
+   * 省略時はサーバーが既存の apiKey をそのまま維持する。
+   */
+  apiKey: z.string().min(1, 'apiKey must not be empty').optional(),
   webSearch: z
     .object({
       endpoint: z.string().min(1, 'webSearch.endpoint must not be empty'),
@@ -1170,11 +1180,14 @@ export type AgentPrivacyWriteResponse = z.infer<typeof agentPrivacyWriteResponse
 export const agentConnectionTestRequestSchema = z.object({
   /** テスト対象の baseUrl (省略時は現在の agent.json の値を使う) */
   baseUrl: z.string().min(1).optional(),
-  /** テスト対象のモデル (省略時は現在の agent.json の値を使う) */
+  /**
+   * テスト対象のモデル (省略可。接続テストは model 不要の /models エンドポイントで実施する)。
+   * @deprecated model は接続テストに不要になった。互換性のため残すが無視される。
+   */
   model: z.string().min(1).optional(),
   /** api 種別 (省略時は現在の agent.json の値を使う) */
   api: z.enum(['openai', 'anthropic']).optional(),
-  /** $ENV_VAR 参照名 (省略時は現在の agent.json の値を使う。実値は不可) */
+  /** $ENV_VAR 参照名または直値 (省略時は現在の agent.json の値を使う) */
   apiKeyRef: z.string().optional(),
 });
 export type AgentConnectionTestRequest = z.infer<typeof agentConnectionTestRequestSchema>;
@@ -1182,8 +1195,11 @@ export type AgentConnectionTestRequest = z.infer<typeof agentConnectionTestReque
 /** POST /api/settings/agent/connection/test のレスポンス (常に 200)。 */
 export const agentConnectionTestResponseSchema = z.object({
   ok: z.boolean(),
-  /** 応答が返ってきたモデル名 (成功時のみ) */
-  model: z.string().optional(),
+  /**
+   * 接続テスト成功時に取得したモデル一覧。UI はこれを使ってドロップダウンを populate する。
+   * テスト失敗時は undefined (または空配列)。
+   */
+  models: z.array(z.string()).optional(),
   /** リクエストから応答までのミリ秒 */
   latencyMs: z.number().optional(),
   /** エラーメッセージ (失敗時のみ。apiKey 実値は含まない) */

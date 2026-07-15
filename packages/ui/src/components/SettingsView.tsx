@@ -354,6 +354,12 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
     model: string;
     apiKeyRef: string;
   }>({ api: 'anthropic', baseUrl: 'https://api.anthropic.com', model: 'claude-sonnet-4-6', apiKeyRef: '$ANTHROPIC_API_KEY' });
+  /**
+   * ユーザーが API キーフィールドを実際に編集したかを追跡する。
+   * false = 保存済みキーを表示中 (PUT 時に apiKey を送らない = 既存キー維持)。
+   * true  = ユーザーが新しい値を入力した (PUT 時に apiKey を送る)。
+   */
+  const [apiKeyDirty, setApiKeyDirty] = useState(false);
   const [permissions, setPermissions] = useState<AgentPermissionsResponse['permissions']>(null);
   const [permDraft, setPermDraft] = useState<{
     mode: string;
@@ -411,6 +417,8 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
           model: connRes.connection.model,
           apiKeyRef: connRes.connection.apiKeyRef,
         });
+        // 既存キーがある場合はフォームを「未変更」として初期化
+        setApiKeyDirty(false);
       }
       setPermissions(permRes.permissions);
       if (permRes.permissions !== null) {
@@ -488,7 +496,9 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
           api: connDraft.api,
           baseUrl: connDraft.baseUrl,
           model: connDraft.model,
-          apiKey: connDraft.apiKeyRef,
+          // apiKeyDirty=false のときは apiKey を送らない (既存キーを維持)
+          // apiKeyDirty=true のときはフォームの現在値を送る
+          ...(apiKeyDirty ? { apiKey: connDraft.apiKeyRef } : {}),
         }),
         // permissions は capability 配列で渡す (preset 名 or 配列 — agentPermissionsSchema 準拠)
         // capWrite = note_edit + note_create, capWeb = web (ADR-0017 opt-in)
@@ -507,12 +517,13 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
         ),
       ]);
       setAgentStatus('saved');
+      setApiKeyDirty(false); // 保存成功 → 次回保存は変更があった場合のみ送る
       setTimeout(() => setAgentStatus('idle'), 2000);
     } catch (err) {
       setAgentStatus('error');
       setAgentError(err instanceof Error ? err.message : String(err));
     }
-  }, [connDraft, permDraft]);
+  }, [connDraft, permDraft, apiKeyDirty]);
 
   const resetAgent = useCallback((): void => {
     if (connection !== null) {
@@ -522,6 +533,7 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
         model: connection.model,
         apiKeyRef: connection.apiKeyRef,
       });
+      setApiKeyDirty(false); // リセット時もキーは未変更に戻す
     }
     if (permissions !== null) {
       const eff = permissions.effective;
@@ -544,17 +556,26 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
     setConnState('testing');
     setConnMessage('');
     try {
+      // モデルは送らない (接続テストは /models エンドポイントで疎通確認)
       const res: AgentConnectionTestResponse = await api.testAgentConnection({
         baseUrl: connDraft.baseUrl,
-        model: connDraft.model,
         api: connDraft.api,
         apiKeyRef: connDraft.apiKeyRef,
       });
       if (res.ok) {
         const latency = res.latencyMs !== undefined ? `(${String(res.latencyMs)}ms)` : '';
-        const mdl = res.model !== undefined ? res.model : connDraft.model;
+        const modelCount = res.models !== undefined ? res.models.length : 0;
         setConnState('ok');
-        setConnMessage(`接続成功 — ${mdl} に到達${latency}`);
+        setConnMessage(
+          modelCount > 0
+            ? `接続成功 — ${String(modelCount)} 件のモデルを取得${latency}`
+            : `接続成功${latency}`,
+        );
+        // テスト成功 → 返ってきたモデル一覧でドロップダウンを populate
+        if (res.models !== undefined && res.models.length > 0) {
+          setModelOptions(res.models);
+          setModelComboForceOpen(true);
+        }
       } else {
         setConnState('error');
         setConnMessage(res.error ?? '接続に失敗しました');
@@ -889,19 +910,42 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
             <div className="settings-field">
               <label htmlFor="f-key">API キー</label>
               <div className="env-field">
-                {/* AC-Sa10026-7-3: apiKey は $ENV_VAR 参照として表示 (平文保存なし) */}
+                {/*
+                  直値 (sk-... 等) を直接入力できる。$ENV_VAR 形式での環境変数参照も可。
+                  apiKeyDirty=false のときは保存済みキーのプレースホルダを表示し、
+                  ユーザーが入力し始めたら dirty フラグを立てる。
+                */}
                 <input
                   type="text"
                   id="f-key"
                   data-testid="settings-field"
                   data-name="apiKeyEnv"
                   disabled={readonly}
-                  value={connDraft.apiKeyRef}
-                  onChange={(e) =>
-                    setConnDraft((d) => ({ ...d, apiKeyRef: e.target.value }))
+                  value={apiKeyDirty ? connDraft.apiKeyRef : ''}
+                  placeholder={
+                    !apiKeyDirty
+                      ? (connection?.hasApiKey === true
+                          ? (connDraft.apiKeyRef.startsWith('$')
+                              ? connDraft.apiKeyRef
+                              : '保存済み')
+                          : 'sk-... または $ENV_VAR')
+                      : undefined
                   }
+                  onChange={(e) => {
+                    setApiKeyDirty(true);
+                    setConnDraft((d) => ({ ...d, apiKeyRef: e.target.value }));
+                  }}
+                  onFocus={() => {
+                    // フォーカス時に既存値をフィールドにコピーして編集しやすくする
+                    // (ただし実値は取れないため $ENV_VAR の場合のみコピー)
+                    if (!apiKeyDirty && connDraft.apiKeyRef.startsWith('$')) {
+                      setApiKeyDirty(true);
+                    }
+                  }}
                 />
-                <span className="env-badge">$ENV 参照</span>
+                {!apiKeyDirty && connDraft.apiKeyRef.startsWith('$') && (
+                  <span className="env-badge">$ENV 参照</span>
+                )}
                 <button
                   type="button"
                   className="btn conn-test"
@@ -913,7 +957,10 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
                 </button>
               </div>
               <ConnResult state={connState} message={connMessage} />
-              <p className="hint">キーの実値は保存しません。環境変数名(<code>$…</code>)のみを保存・表示します。</p>
+              <p className="hint">
+                API キーを直接入力できます(<code>$ENV_VAR</code> 形式で環境変数名を指定することも可能)。
+                キーは <code>.loamium/</code>(ローカル・git 管理外)に保存されます。
+              </p>
             </div>
             <div className="settings-field">
               <label>モデル</label>

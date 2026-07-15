@@ -214,11 +214,11 @@ describe('[AC-Sa10026-5-3] loamium settings agent-connection-test', () => {
     server = await startServer({ vault, mode: 'full' });
   });
 
-  it('returns fail line when connection is unreachable', async () => {
+  it('returns fail line when connection is unreachable ($ENV_VAR not set)', async () => {
+    // モデルは不要 — /models エンドポイントで疎通確認するため
     const res = await runCli([
       'settings', 'agent-connection-test',
       '--base-url', 'http://127.0.0.1:1/v1',
-      '--model', 'stub',
       '--api', 'openai',
       '--api-key-ref', '$MISSING_SA10026',
     ], { env: { LOAMIUM_URL: server.baseUrl } });
@@ -227,10 +227,10 @@ describe('[AC-Sa10026-5-3] loamium settings agent-connection-test', () => {
   });
 
   it('--json flag outputs raw JSON', async () => {
+    // モデルは不要 — /models エンドポイントで疎通確認するため
     const res = await runCli([
       'settings', 'agent-connection-test',
       '--base-url', 'http://127.0.0.1:1/v1',
-      '--model', 'stub',
       '--api', 'openai',
       '--api-key-ref', '$MISSING_SA10026',
       '--json',

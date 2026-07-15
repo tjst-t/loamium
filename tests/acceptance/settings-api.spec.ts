@@ -137,7 +137,7 @@ describe('[AC-Sa10026-5-1] agent connection settings (GET/PUT /api/settings/agen
     expect(body.connection).toBeNull();
   });
 
-  it('GET returns masked apiKey (not the actual value)', async () => {
+  it('GET returns masked apiKey (not the actual value) and hasApiKey:true', async () => {
     await seedAgentJson(vault, {
       api: 'openai',
       baseUrl: 'http://127.0.0.1:1/v1',
@@ -147,10 +147,11 @@ describe('[AC-Sa10026-5-1] agent connection settings (GET/PUT /api/settings/agen
     const res = await fetch(`${server.baseUrl}/api/settings/agent/connection`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
-      connection: { api: string; baseUrl: string; model: string; apiKeyRef: string };
+      connection: { api: string; baseUrl: string; model: string; apiKeyRef: string; hasApiKey?: boolean };
     };
     expect(body.connection).not.toBeNull();
     expect(body.connection.apiKeyRef).toBe('(set)'); // 実値は返さない
+    expect(body.connection.hasApiKey).toBe(true); // キー設定済みを示すフラグ
     expect(JSON.stringify(body)).not.toContain('sk-realkey-never-show');
   });
 
@@ -213,6 +214,35 @@ describe('[AC-Sa10026-5-1] agent connection settings (GET/PUT /api/settings/agen
     const raw = await readFile(path.join(vault, '.loamium', 'agent.json'), 'utf8');
     const json = JSON.parse(raw) as { permissions: unknown };
     expect(json.permissions).toBe('notes-rw');
+  });
+
+  it('PUT without apiKey preserves existing apiKey (直値上書き防止)', async () => {
+    // 既存キーを設定
+    await seedAgentJson(vault, {
+      api: 'anthropic',
+      baseUrl: 'https://api.anthropic.com/v1',
+      model: 'claude-3-5-haiku-20241022',
+      apiKey: 'sk-existing-real-key',
+    });
+
+    // apiKey を省略して PUT (UI が保存済みキーを変更しない場合の想定動作)
+    const put = await fetch(`${server.baseUrl}/api/settings/agent/connection`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        api: 'anthropic',
+        baseUrl: 'https://api.anthropic.com/v1',
+        model: 'claude-opus-4-8',
+        // apiKey は省略 → 既存キーを維持する
+      }),
+    });
+    expect(put.status).toBe(200);
+
+    // agent.json を直接読んで apiKey が維持されているか確認
+    const raw = await readFile(path.join(vault, '.loamium', 'agent.json'), 'utf8');
+    const json = JSON.parse(raw) as { apiKey: string; model: string };
+    expect(json.apiKey).toBe('sk-existing-real-key'); // 既存キーが維持される
+    expect(json.model).toBe('claude-opus-4-8'); // モデルは更新される
   });
 });
 
@@ -504,12 +534,13 @@ describe('[AC-Sa10026-5-4] connection test (POST /api/settings/agent/connection/
     expect(body.ok).toBe(false);
   });
 
-  it('returns ok:true when a local HTTP stub returns a valid response', async () => {
-    // ローカル HTTP スタブ: POST /chat/completions → 200 { model:'stub' }
+  it('returns ok:true when a local HTTP stub returns a valid response (via /models endpoint)', async () => {
+    // ローカル HTTP スタブ: GET /models → 200 { data: [{ id: 'stub-model' }] }
+    // 接続テストは model 不要の /models エンドポイントで疎通確認する
     const stub = await startStubServer((req, res2) => {
-      if (req.method === 'POST' && req.url?.startsWith('/chat/completions')) {
+      if (req.method === 'GET' && req.url?.startsWith('/models')) {
         res2.writeHead(200, { 'content-type': 'application/json' });
-        res2.end(JSON.stringify({ model: 'stub-model', choices: [] }));
+        res2.end(JSON.stringify({ data: [{ id: 'stub-model-a' }, { id: 'stub-model-b' }] }));
       } else {
         res2.writeHead(404);
         res2.end();
@@ -524,14 +555,14 @@ describe('[AC-Sa10026-5-4] connection test (POST /api/settings/agent/connection/
         body: JSON.stringify({
           api: 'openai',
           baseUrl: `http://127.0.0.1:${stub.port}`,
-          model: 'stub-model',
           apiKeyRef: 'stub-key', // $ENV でない実値 — 解決せずそのまま使う
         }),
       });
       expect(res.status).toBe(200);
-      const body = (await res.json()) as { ok: boolean; model?: string; latencyMs?: number };
+      const body = (await res.json()) as { ok: boolean; models?: string[]; latencyMs?: number };
       expect(body.ok).toBe(true);
-      expect(body.model).toBe('stub-model');
+      expect(Array.isArray(body.models)).toBe(true);
+      expect(body.models).toContain('stub-model-a');
       expect(body.latencyMs).toBeTypeOf('number');
     } finally {
       await stub.stop();

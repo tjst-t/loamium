@@ -168,8 +168,8 @@ test('[AC-Sa10026-7-1] 全体設定を変更して保存すると PUT /api/setti
 // [AC-Sa10026-7-3] apiKey は $ENV_VAR 参照として表示
 // ============================================================
 
-test('[AC-Sa10026-7-3] エージェントタブで apiKeyEnv は $ENV_VAR 参照名を表示する', async ({ page }) => {
-  // 接続情報が設定済みの mock
+test('[AC-Sa10026-7-3] エージェントタブで $ENV_VAR 参照のキーはプレースホルダで表示され $ENV 参照バッジが出る', async ({ page }) => {
+  // 接続情報が設定済みの mock ($ENV_VAR 形式)
   const unexpected = await installCatchAll(page);
   await page.route('**/api/notes', (route) => {
     const url = route.request().url();
@@ -193,6 +193,7 @@ test('[AC-Sa10026-7-3] エージェントタブで apiKeyEnv は $ENV_VAR 参照
           baseUrl: 'https://api.anthropic.com',
           model: 'claude-sonnet-4-6',
           apiKeyRef: '$ANTHROPIC_API_KEY',
+          hasApiKey: true,
         },
       }));
     } else {
@@ -207,16 +208,72 @@ test('[AC-Sa10026-7-3] エージェントタブで apiKeyEnv は $ENV_VAR 参照
   await page.locator('[data-testid="settings-nav-item"][data-group="agent"]').click();
   await expect(page.locator('[data-testid="settings-panel"][data-group="agent"]')).toBeVisible();
 
-  // apiKeyEnv フィールドが $ANTHROPIC_API_KEY を表示 (平文キーではない)
+  // apiKeyEnv フィールド: $ENV_VAR の場合は value が空でプレースホルダで参照名を表示
   const apiKeyField = page.locator('[data-testid="settings-field"][data-name="apiKeyEnv"]');
   await expect(apiKeyField).toBeVisible();
-  await expect(apiKeyField).toHaveValue('$ANTHROPIC_API_KEY');
+  // 未変更状態では値は空 (プレースホルダで表示)
+  await expect(apiKeyField).toHaveValue('');
+  // プレースホルダに $ENV_VAR 名が出ている
+  await expect(apiKeyField).toHaveAttribute('placeholder', '$ANTHROPIC_API_KEY');
+  // $ENV 参照バッジが visible (apiKeyDirty=false かつ $ENV_VAR 形式のとき表示)
+  await expect(page.locator('.env-badge')).toBeVisible();
 
   // baseUrl も表示
   await expect(page.locator('[data-testid="settings-field"][data-name="baseUrl"]')).toHaveValue('https://api.anthropic.com');
 
   // model も表示
   await expect(page.locator('[data-testid="settings-field"][data-name="model"]')).toHaveValue('claude-sonnet-4-6');
+
+  expect(unexpected).toEqual([]);
+});
+
+test('[AC-Sa10026-7-3] 直値キーが保存済みの場合は「保存済み」プレースホルダを表示する', async ({ page }) => {
+  // 接続情報が設定済みの mock (リテラルキー — apiKeyRef が "(set)")
+  const unexpected = await installCatchAll(page);
+  await page.route('**/api/notes', (route) => {
+    const url = route.request().url();
+    if (!url.includes('/api/notes/')) {
+      void route.fulfill(json({ notes: NOTES }));
+      return;
+    }
+    void route.fallback();
+  });
+  await page.route('**/api/journal**', (route) => {
+    void route.fulfill(json(journalResponse()));
+  });
+  await page.route('**/api/smart-folders', (route) => {
+    void route.fulfill(json({ folders: [] }));
+  });
+  await page.route('**/api/settings/agent/connection', (route) => {
+    if (route.request().method() === 'GET') {
+      void route.fulfill(json({
+        connection: {
+          api: 'openai',
+          baseUrl: 'https://api.openai.com/v1',
+          model: 'gpt-4o',
+          apiKeyRef: '(set)',
+          hasApiKey: true,
+        },
+      }));
+    } else {
+      void route.fulfill(json({ ok: true }));
+    }
+  });
+
+  await page.goto(readHarnessState().uiUrl);
+  await expect(page.getByTestId('editor')).toBeVisible();
+
+  await page.getByTestId('sidebar-settings').click();
+  await page.locator('[data-testid="settings-nav-item"][data-group="agent"]').click();
+  await expect(page.locator('[data-testid="settings-panel"][data-group="agent"]')).toBeVisible();
+
+  // apiKeyEnv フィールド: リテラルキーの場合は「保存済み」プレースホルダ
+  const apiKeyField = page.locator('[data-testid="settings-field"][data-name="apiKeyEnv"]');
+  await expect(apiKeyField).toBeVisible();
+  await expect(apiKeyField).toHaveValue('');
+  await expect(apiKeyField).toHaveAttribute('placeholder', '保存済み');
+  // $ENV 参照バッジは非表示 (リテラルキーなので不要)
+  await expect(page.locator('.env-badge')).not.toBeVisible();
 
   expect(unexpected).toEqual([]);
 });
@@ -242,7 +299,8 @@ test('[AC-Sa10026-7-1] 接続テストボタンで成功メッセージが表示
     void route.fulfill(json({ folders: [] }));
   });
   await page.route('**/api/settings/agent/connection/test', (route) => {
-    void route.fulfill(json({ ok: true, model: 'claude-sonnet-4-6', latencyMs: 210 }));
+    // 新スキーマ: models 配列 + latencyMs (model は廃止)
+    void route.fulfill(json({ ok: true, models: ['claude-sonnet-4-6', 'claude-opus-4-8'], latencyMs: 210 }));
   });
 
   await page.goto(readHarnessState().uiUrl);
@@ -257,6 +315,45 @@ test('[AC-Sa10026-7-1] 接続テストボタンで成功メッセージが表示
   // 結果が ok 状態になる
   await expect(page.getByTestId('settings-conn-result')).toHaveAttribute('data-state', 'ok');
   await expect(page.getByTestId('settings-conn-result')).toContainText('接続成功');
+
+  expect(unexpected).toEqual([]);
+});
+
+test('[MOCK] 接続テスト成功後にモデル一覧がドロップダウンに populate される', async ({ page }) => {
+  const unexpected = await installCatchAll(page);
+  await page.route('**/api/notes', (route) => {
+    const url = route.request().url();
+    if (!url.includes('/api/notes/')) {
+      void route.fulfill(json({ notes: NOTES }));
+      return;
+    }
+    void route.fallback();
+  });
+  await page.route('**/api/journal**', (route) => {
+    void route.fulfill(json(journalResponse()));
+  });
+  await page.route('**/api/smart-folders', (route) => {
+    void route.fulfill(json({ folders: [] }));
+  });
+  await page.route('**/api/settings/agent/connection/test', (route) => {
+    void route.fulfill(json({ ok: true, models: ['model-alpha', 'model-beta', 'model-gamma'], latencyMs: 100 }));
+  });
+
+  await page.goto(readHarnessState().uiUrl);
+  await expect(page.getByTestId('editor')).toBeVisible();
+
+  await page.getByTestId('sidebar-settings').click();
+  await page.locator('[data-testid="settings-nav-item"][data-group="agent"]').click();
+
+  // 接続テスト実行
+  await page.getByTestId('settings-conn-test').click();
+
+  // テスト成功 → モデルがドロップダウンに反映されてコンボボックスが開く
+  await expect(page.getByTestId('settings-conn-result')).toHaveAttribute('data-state', 'ok');
+  await expect(page.getByTestId('settings-model-combobox')).toHaveClass(/open/);
+  const options = page.getByTestId('settings-model-options');
+  await expect(options).toBeVisible();
+  await expect(options.locator('li')).toHaveCount(3);
 
   expect(unexpected).toEqual([]);
 });
@@ -627,6 +724,148 @@ test('[MOCK] agent.json 未設定時 (connection: null) でもエージェント
 
   // パネルは表示される (未設定でもクラッシュしない)
   await expect(page.locator('[data-testid="settings-panel"][data-group="agent"]')).toBeVisible();
+
+  expect(unexpected).toEqual([]);
+});
+
+// ============================================================
+// [MOCK] apiKey 未変更時は PUT に apiKey を含めない (直値上書き防止)
+// ============================================================
+
+test('[MOCK] 保存済み apiKey を変更しない場合、PUT リクエストに apiKey を含めない', async ({ page }) => {
+  const putCalls: Array<Record<string, unknown>> = [];
+
+  const unexpected = await installCatchAll(page);
+  await page.route('**/api/notes', (route) => {
+    const url = route.request().url();
+    if (!url.includes('/api/notes/')) {
+      void route.fulfill(json({ notes: NOTES }));
+      return;
+    }
+    void route.fallback();
+  });
+  await page.route('**/api/journal**', (route) => {
+    void route.fulfill(json(journalResponse()));
+  });
+  await page.route('**/api/smart-folders', (route) => {
+    void route.fulfill(json({ folders: [] }));
+  });
+  await page.route('**/api/settings/agent/connection', (route) => {
+    if (route.request().method() === 'GET') {
+      void route.fulfill(json({
+        connection: {
+          api: 'anthropic',
+          baseUrl: 'https://api.anthropic.com',
+          model: 'claude-sonnet-4-6',
+          apiKeyRef: '(set)',
+          hasApiKey: true,
+        },
+      }));
+    } else if (route.request().method() === 'PUT') {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      putCalls.push(body);
+      void route.fulfill(json({ ok: true }));
+    } else {
+      void route.fallback();
+    }
+  });
+  await page.route('**/api/settings/agent/permissions', (route) => {
+    if (route.request().method() === 'GET') {
+      void route.fulfill(json({ permissions: null }));
+    } else {
+      void route.fulfill(json({ ok: true }));
+    }
+  });
+
+  await page.goto(readHarnessState().uiUrl);
+  await expect(page.getByTestId('editor')).toBeVisible();
+
+  await page.getByTestId('sidebar-settings').click();
+  await page.locator('[data-testid="settings-nav-item"][data-group="agent"]').click();
+  await expect(page.locator('[data-testid="settings-panel"][data-group="agent"]')).toBeVisible();
+
+  // apiKey フィールドに何も入力せず保存 (dirty=false)
+  await page.locator('[data-testid="settings-save"][data-group="agent"]').click();
+
+  await expect(async () => {
+    expect(putCalls.length).toBeGreaterThan(0);
+  }).toPass({ timeout: 3000 });
+
+  // PUT リクエストに apiKey フィールドが含まれていないことを確認
+  const connCall = putCalls[0];
+  expect(connCall).toBeDefined();
+  expect('apiKey' in (connCall ?? {})).toBe(false);
+
+  expect(unexpected).toEqual([]);
+});
+
+test('[MOCK] apiKey を新たに入力した場合は PUT に apiKey を含める', async ({ page }) => {
+  const putCalls: Array<Record<string, unknown>> = [];
+
+  const unexpected = await installCatchAll(page);
+  await page.route('**/api/notes', (route) => {
+    const url = route.request().url();
+    if (!url.includes('/api/notes/')) {
+      void route.fulfill(json({ notes: NOTES }));
+      return;
+    }
+    void route.fallback();
+  });
+  await page.route('**/api/journal**', (route) => {
+    void route.fulfill(json(journalResponse()));
+  });
+  await page.route('**/api/smart-folders', (route) => {
+    void route.fulfill(json({ folders: [] }));
+  });
+  await page.route('**/api/settings/agent/connection', (route) => {
+    if (route.request().method() === 'GET') {
+      void route.fulfill(json({
+        connection: {
+          api: 'anthropic',
+          baseUrl: 'https://api.anthropic.com',
+          model: 'claude-sonnet-4-6',
+          apiKeyRef: '(set)',
+          hasApiKey: true,
+        },
+      }));
+    } else if (route.request().method() === 'PUT') {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      putCalls.push(body);
+      void route.fulfill(json({ ok: true }));
+    } else {
+      void route.fallback();
+    }
+  });
+  await page.route('**/api/settings/agent/permissions', (route) => {
+    if (route.request().method() === 'GET') {
+      void route.fulfill(json({ permissions: null }));
+    } else {
+      void route.fulfill(json({ ok: true }));
+    }
+  });
+
+  await page.goto(readHarnessState().uiUrl);
+  await expect(page.getByTestId('editor')).toBeVisible();
+
+  await page.getByTestId('sidebar-settings').click();
+  await page.locator('[data-testid="settings-nav-item"][data-group="agent"]').click();
+  await expect(page.locator('[data-testid="settings-panel"][data-group="agent"]')).toBeVisible();
+
+  // 新しい apiKey を入力 (dirty=true になる)
+  const apiKeyField = page.locator('[data-testid="settings-field"][data-name="apiKeyEnv"]');
+  await apiKeyField.fill('sk-new-test-key-12345');
+
+  // 保存
+  await page.locator('[data-testid="settings-save"][data-group="agent"]').click();
+
+  await expect(async () => {
+    expect(putCalls.length).toBeGreaterThan(0);
+  }).toPass({ timeout: 3000 });
+
+  // PUT リクエストに apiKey が含まれていることを確認
+  const connCall = putCalls[0];
+  expect(connCall).toBeDefined();
+  expect((connCall as { apiKey?: string }).apiKey).toBe('sk-new-test-key-12345');
 
   expect(unexpected).toEqual([]);
 });

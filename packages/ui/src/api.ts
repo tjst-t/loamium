@@ -529,14 +529,15 @@ export const api = {
 
   /**
    * agent 接続設定を保存する (PUT /api/settings/agent/connection)。
-   * apiKey には $ENV_VAR 参照名を渡す。
+   * apiKey は直値 (sk-... 等) または $ENV_VAR 参照名を渡す。
+   * apiKey を省略すると、サーバーは既存の apiKey を維持する (上書きしない)。
    * [AC-Sa10026-7-1]
    */
   putAgentConnection(params: {
     api: 'openai' | 'anthropic';
     baseUrl: string;
     model: string;
-    apiKey: string;
+    apiKey?: string;
   }): Promise<{ ok: boolean }> {
     return request(agentConnectionWriteResponseSchema, '/api/settings/agent/connection', {
       method: 'PUT',
