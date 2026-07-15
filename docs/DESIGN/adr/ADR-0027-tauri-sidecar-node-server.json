@@ -1,0 +1,41 @@
+{
+  "id": "ADR-0027",
+  "title": "Tauri デスクトップの Node バックエンド同梱方式は sidecar バイナリ(bun compile)とし、Rust 化はしない",
+  "status": "accepted",
+  "date": "2026-07-15",
+  "context": "ADR-0008 はデプロイ対象を『Tauri デスクトップ + コンテナ/サーバ』の 2 形態とし、両者が同一の Node.js/Hono + ローカル fs バックエンドを共有することを決定した。Tauri 実装の詳細（Node バックエンドの同梱方法・vault パス解決・認証境界）は sprint plan 送りとされていた。Tauri でデスクトップアプリを実現する際、Node.js バックエンドを動かす方法として以下の選択肢がある: (A) Tauri sidecar — Node.js サーバーをスタンドアロンバイナリにして Tauri が起動/停止する、(B) Rust 化 — ファイル読み書き・検索等の機能を Rust で再実装する、(C) Tauri + Node ランタイム同梱 — Node.js ランタイム自体を sidecar として同梱し tsx でサーバーを起動する。ADR-0008 の核心は『同一の Node/fs バックエンドを保守する』ことであり、Rust 化は実質的な再実装となり ADR-0008 の前提を崩す。",
+  "alternatives": [
+    {
+      "name": "Tauri sidecar — bun compile でスタンドアロンバイナリ化(採用)",
+      "tradeoff": "bun compile で packages/server を単一バイナリに固め、Tauri の sidecar 機能で起動/停止する。Node.js ランタイム不要でバイナリのみ配布できる。既存の Hono/chokidar/Fuse.js コードを一切変更しない。bun の Node.js 互換性(特に @earendil-works/pi-coding-agent の native module 依存)を要検証。"
+    },
+    {
+      "name": "Tauri sidecar — Node.js ランタイムごと同梱",
+      "tradeoff": "node バイナリ + tsx + ソースをまとめて sidecar にする。互換性リスクがほぼゼロだが配布サイズが大きい(Node.js ランタイム ~50MB)。bun 互換問題が起きた場合の fallback として温存する。"
+    },
+    {
+      "name": "Rust 化(一部または全面)",
+      "tradeoff": "fs/chokidar/Fuse.js を Rust で再実装。パフォーマンスは上がるがコードが二重管理になり ADR-0008 の『同一バックエンドを保守』という決定と矛盾する。不採用。"
+    },
+    {
+      "name": "Tauri + Node ランタイムをバンドルツール(tauri-plugin-bundled-runtime 等)で同梱",
+      "tradeoff": "2026 年時点で公式プラグインが未成熟。将来成熟したら再評価。現状は不採用。"
+    }
+  ],
+  "decision": "Tauri デスクトップの Node バックエンド同梱方式として『bun compile による sidecar バイナリ』を採用する。packages/server を bun compile で単一の platform-native バイナリ(loamium-server)にビルドし、packages/app-tauri の src-tauri/binaries/ に配置して Tauri の externalBin sidecar として起動する。vault パスは Tauri の dialog.open() で選択し app-local config(AppData/Library/etc.)に保存する。認証境界はローカル無認証のまま(コンテナ形態と同じ ADR-0008 の決定)。GitHub Actions でプラットフォーム別(mac/win/linux)のマトリクスビルドを行い、生成物を GitHub Releases に公開する。bun compile の互換性問題(native module 等)が発覚した場合は、Node.js ランタイム同梱 fallback に切り替える(本 ADR を amendment する)。",
+  "consequences": [
+    "+ 既存の Node.js/Hono/chokidar/Fuse.js コードをそのまま使える。コンテナ形態との機能差異なし(ADR-0008 充足)",
+    "+ 配布物は Tauri バイナリ(WebView 同梱 ~5-10MB) + server バイナリ(~50-80MB with bun runtime)。Node.js インストール不要",
+    "+ bun compile は単一バイナリを生成するためインストール手順が簡単",
+    "+ GitHub Actions の matrix build(ubuntu/macos/windows)で CI/CD が完結",
+    "- bun の Node.js 互換性は完全ではない。特に @earendil-works/pi-coding-agent の native module 依存(node-gyp ビルド成果物)は bun compile 時に要検証",
+    "- native module が bun 非互換の場合は Node.js ランタイム同梱 fallback が必要(サイズ +50MB)",
+    "- Tauri の sidecar は起動/終了の制御は持つが IPC は WebView ← REST API 経由のまま(ポート番号の WebView への伝達が必要: 起動ログを読むか固定ポートにする)",
+    "- クロスビルドは GitHub Actions に依存。ローカルビルドは各 OS でのみ可能"
+  ],
+  "reversibility_cost": "medium",
+  "affects": ["server", "ui", "packaging"],
+  "supersedes": null,
+  "superseded_by": null,
+  "notes": "sidecar のポート伝達方式: server は起動時に 'loamium server listening on http://127.0.0.1:{PORT}' を stdout に出す。Tauri の sidecar stdout を読んでポート番号を WebView の window.__LOAMIUM_API_PORT に注入する。または PORT を固定値(例: 57312)にして衝突リスクを許容する(個人用ツールなので許容範囲)。vault 初回セットアップ: Tauri 起動時に app-local config に vault パスがなければ dialog.open({directory: true}) を表示し、選択後に server sidecar を起動する。サンプルをそのままコピーする 'サンプル vault で始める' オプションも提供する。"
+}

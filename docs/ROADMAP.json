@@ -3,11 +3,11 @@
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
     "current_sprint": null,
-    "total": 45,
+    "total": 46,
     "done": 43,
     "in_progress": 0,
-    "remaining": 2,
-    "percentage": 96
+    "remaining": 3,
+    "percentage": 93
   },
   "execution_order": [
     "Sd63ad1",
@@ -54,7 +54,8 @@
     "Sde7a63",
     "Sf2f114",
     "S9e64e7",
-    "S5a66e4"
+    "S5a66e4",
+    "S4a8d2f"
   ],
   "sprints": {
     "Sd63ad1": {
@@ -5042,6 +5043,189 @@
               "title": "DEPLOY.md 執筆",
               "description": "全セクション（Native/Docker/外部公開オプション/Tauri言及）を含む DEPLOY.md を作成",
               "status": "done"
+            }
+          }
+        }
+      }
+    },
+    "S4a8d2f": {
+      "title": "Tauri デスクトップ MVP — sidecar + WebView + vault 選択 + クロスビルド",
+      "description": "ADR-0008/0027 準拠。既存 Node.js/Hono サーバーを bun compile でスタンドアロンバイナリ化し、Tauri v2 WebView でネイティブデスクトップアプリとして動かす。初回 + 後からも vault を選択できる仕組み(ネイティブメニュー File > Vault を変更…)、GitHub Actions による mac/win/linux クロスビルドと Releases 自動公開までを MVP スコープとする。",
+      "milestone": true,
+      "status": "pending",
+      "detail_level": "detailed",
+      "depends_on": null,
+      "stories": {
+        "S4a8d2f-1": {
+          "title": "Tauri プロジェクト骨格と sidecar 接続",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ユーザーとして、loamium アプリを起動したら既存 Web UI がネイティブウィンドウで開いてほしい。なぜなら、ブラウザなしで使いたいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S4a8d2f-1-1",
+              "description": "packages/app-tauri/ が作成され、cargo tauri build --no-bundle でコンパイルできる",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S4a8d2f-1-2",
+              "description": "tauri.conf.json に externalBin: [\"loamium-server\"] が設定されている",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S4a8d2f-1-3",
+              "description": "WebView が sidecar の localhost:57312 を開く(PORT 固定)",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S4a8d2f-1-1": {
+              "title": "cargo tauri init で packages/app-tauri/ を初期化",
+              "description": "Tauri v2、devUrl=http://localhost:57312、externalBin 設定",
+              "status": "pending"
+            },
+            "S4a8d2f-1-2": {
+              "title": "Rust main.rs — sidecar 起動・停止と WebView 接続",
+              "description": "tauri_plugin_shell で loamium-server を spawn、stdout からサーバー起動を検知して WebView をロード",
+              "status": "pending"
+            }
+          }
+        },
+        "S4a8d2f-2": {
+          "title": "Server を bun compile で sidecar バイナリ化",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ユーザーとして、Node.js を別途インストールせずに Loamium サーバーが起動してほしい。なぜなら、デスクトップアプリはランタイムを含んで配布されるべきだから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S4a8d2f-2-1",
+              "description": "bun build --compile で packages/server/src/index.ts → loamium-server バイナリが生成できる",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S4a8d2f-2-2",
+              "description": "生成バイナリが起動して GET /api/health に応答する(acceptance smoke テスト)",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S4a8d2f-2-3",
+              "description": "pi-sdk native module の bun 互換性を確認し、非互換なら decisions.json にフォールバック計画を記録",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S4a8d2f-2-1": {
+              "title": "bun インストール + compile スクリプト",
+              "description": "bun install、packages/app-tauri/scripts/build-sidecar.sh を作成",
+              "status": "pending"
+            },
+            "S4a8d2f-2-2": {
+              "title": "sidecar smoke テスト",
+              "description": "コンパイル済みバイナリを起動して /api/health をチェックする acceptance テストを tests/acceptance/ に追加",
+              "status": "pending"
+            }
+          }
+        },
+        "S4a8d2f-3": {
+          "title": "Vault 選択ダイアログと設定永続化(初回 + 後から変更)",
+          "status": "pending",
+          "user_review_required": true,
+          "review_reason": "ネイティブダイアログと vault 切替の実動作は headless Linux では確認不可。実機での目視確認が必要。",
+          "user_story": "ユーザーとして、初回起動時に vault フォルダを選択でき、後からもメニューで変更できてほしい。なぜなら、vault の場所は変わることがあり、毎回アプリを再インストールせず切り替えたいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S4a8d2f-3-1",
+              "description": "初回起動時(vault 未設定)に Tauri dialog.open() でフォルダ選択ダイアログが表示される",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S4a8d2f-3-2",
+              "description": "選択した vault パスが tauri-plugin-store で app-local config に保存され、再起動後も同じ vault が使われる",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S4a8d2f-3-3",
+              "description": "ネイティブメニュー「File > Vault を変更…」からいつでも再選択ダイアログを開ける",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S4a8d2f-3-4",
+              "description": "vault 変更後は sidecar が新しい LOAMIUM_VAULT で再起動し、UI がリロードされる",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S4a8d2f-3-5",
+              "description": "vault パスの config read/write を Rust ユニットテストで確認できる",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S4a8d2f-3-1": {
+              "title": "tauri-plugin-store で vault パス設定の読み書き",
+              "description": "Rust 側: 起動時に store を読み、未設定なら dialog.open() を呼ぶ",
+              "status": "pending"
+            },
+            "S4a8d2f-3-2": {
+              "title": "ネイティブメニュー \"File > Vault を変更…\" の実装",
+              "description": "tauri::menu でメニューを追加し、クリック時に dialog.open() + sidecar 再起動 + WebView リロード",
+              "status": "pending"
+            },
+            "S4a8d2f-3-3": {
+              "title": "Rust ユニットテスト(config read/write)",
+              "description": "vault パス保存・読み込みのユニットテストを src-tauri/src/ に追加",
+              "status": "pending"
+            }
+          }
+        },
+        "S4a8d2f-4": {
+          "title": "GitHub Actions クロスビルド(v* タグ → Releases 自動公開)",
+          "status": "pending",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "リリース管理者として、v* タグを push するだけで Mac/Windows/Linux 向けインストーラーが GitHub Releases に自動公開されてほしい。なぜなら、手動クロスビルドは環境依存が多く大変だから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S4a8d2f-4-1",
+              "description": ".github/workflows/tauri-build.yml が存在し、ubuntu/macos/windows の matrix build が設定されている",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S4a8d2f-4-2",
+              "description": "v* タグをトリガーにして GitHub Releases に artifacts を公開する",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S4a8d2f-4-3",
+              "description": "workflow YAML が actionlint で valid と判定される",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S4a8d2f-4-1": {
+              "title": ".github/workflows/tauri-build.yml 作成",
+              "description": "matrix: [ubuntu-latest, macos-latest, windows-latest]、bun install + bun compile + cargo tauri build、tauri-action で Releases 公開",
+              "status": "pending"
+            },
+            "S4a8d2f-4-2": {
+              "title": "actionlint で workflow 検証",
+              "description": "actionlint をインストールして workflow を lint",
+              "status": "pending"
             }
           }
         }

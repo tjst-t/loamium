@@ -1,0 +1,30 @@
+{
+  "sprint_id": "S4a8d2f",
+  "touched_adrs": ["ADR-0008", "ADR-0027"],
+  "decisions": [
+    {
+      "id": "D-S4a8d2f-1",
+      "title": "sidecar ビルドツールは bun compile を採用",
+      "decision": "ADR-0027 に従い bun compile で loamium-server をスタンドアロンバイナリ化する",
+      "rationale": "ADR-0027 accepted: Node.js ランタイム不要の単一バイナリ配布が目標。Rust 化は ADR-0008 の『同一バックエンド保守』と矛盾するため不採用。",
+      "reference": "ADR-0027, ADR-0008",
+      "adr_ref": "ADR-0027"
+    },
+    {
+      "id": "D-S4a8d2f-2",
+      "title": "API ポートは固定 57312",
+      "decision": "sidecar の PORT を 57312 に固定し、WebView の devUrl / url を http://localhost:57312 にする",
+      "rationale": "個人用途のため衝突リスクを許容。動的ポートは sidecar stdout 解析が必要で MVP 複雑度が上がる。",
+      "reference": "ADR-0027 notes",
+      "adr_ref": "ADR-0027"
+    },
+    {
+      "id": "D-S4a8d2f-3",
+      "title": "vault 変更 UI はネイティブメニュー(File > Vault を変更…)",
+      "decision": "Tauri menu API でネイティブメニュー項目を追加し、いつでも vault 選択ダイアログを再開できるようにする",
+      "rationale": "どの画面からでもアクセスできる。既存の設定 UI(packages/ui)への変更を避け、Tauri 側で完結する。ユーザーからの明示的な要求。",
+      "reference": "VISION: ローカル Markdown を正本とする",
+      "adr_ref": "none"
+    }
+  ]
+}
