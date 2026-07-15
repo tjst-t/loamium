@@ -1,0 +1,19 @@
+{
+  "productName": "Loamium",
+  "version": "0.1.0",
+  "identifier": "com.loamium.app",
+  "build": {
+    "frontendDist": "../ui/dist"
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "externalBin": ["binaries/loamium-server"]
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  }
+}

@@ -6,6 +6,7 @@ export default defineConfig({
       'packages/*/src/**/*.test.ts',
       'packages/*/tests/unit/**/*.spec.ts',
       'tests/acceptance/**/*.spec.ts',
+      'tests/acceptance/**/*.test.ts',
     ],
     reporters: ['default', 'junit'],
     outputFile: {

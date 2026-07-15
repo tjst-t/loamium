@@ -25,6 +25,18 @@
       "rationale": "どの画面からでもアクセスできる。既存の設定 UI(packages/ui)への変更を避け、Tauri 側で完結する。ユーザーからの明示的な要求。",
       "reference": "VISION: ローカル Markdown を正本とする",
       "adr_ref": "none"
+    },
+    {
+      "id": "D-S4a8d2f-4",
+      "title": "bun compile 成否と pi-sdk 互換性の確認結果",
+      "decision": "bun v1.3.14 による bun compile は成功。バイナリ起動・/api/health 応答確認済み。@earendil-works/pi-coding-agent は bun compile と互換性あり。",
+      "rationale": "bun build --compile --target=bun-linux-x64 で packages/server/src/index.ts を 3419 モジュールバンドル後コンパイル成功(約 757ms)。生成バイナリを PORT=57399 LOAMIUM_VAULT=/tmp/test-vault で起動し、GET /api/health → {status:'ok'} を確認。@earendil-works/pi-coding-agent の native module (@mariozechner/clipboard-linux-x64-gnu など)も bun にバンドルされエラーなし。フォールバック計画(Node.js ランタイム同梱方式)は不要だが、CI 環境で bun 未インストールの場合に備え smoke テストは graceful-skip 実装済み。",
+      "reference": "Story S4a8d2f-2, packages/app-tauri/scripts/build-sidecar.sh, tests/acceptance/sidecar-smoke.test.ts",
+      "adr_ref": "ADR-0027",
+      "outcome": "success",
+      "bun_version": "1.3.14",
+      "pi_sdk_compatibility": "compatible — native modules bundled without errors",
+      "fallback_plan": "Node.js ランタイム同梱方式 (node --experimental-sea-config) は現時点では不要。bun compile が CI で使えない場合は pkg / nexe を代替として検討。"
     }
   ]
 }

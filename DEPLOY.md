@@ -126,6 +126,25 @@ your.domain.example {
 
 ---
 
-## 4. Tauri デスクトップ（将来実装予定）
+## 4. Tauri デスクトップ
 
-Tauri を使ったネイティブデスクトップアプリ形式のデプロイは将来の Sprint で実装予定です。詳細は ADR-0008 を参照してください。
+Tauri v2 を使ったネイティブデスクトップアプリ（`packages/app-tauri/`）。GitHub Releases から各 OS のインストーラーをダウンロードして実行するだけで使えます。
+
+- 初回起動時にフォルダ選択ダイアログが表示されます。vault として使いたいフォルダを選択してください。
+- 以後は「File > Vault を変更…」メニューからいつでも vault を切り替えられます。
+- Node.js や bun のインストールは不要です（バイナリに同梱済み）。
+
+### セルフビルド（開発者向け）
+
+```bash
+# 前提: bun, Rust, および OS ごとの依存パッケージ（DEPLOY.md 外 — README 参照）
+
+# 1. サイドカーバイナリをビルド
+bash packages/app-tauri/scripts/build-sidecar.sh
+
+# 2. Tauri アプリをビルド（バンドルなし — バイナリのみ確認）
+cargo build --release --manifest-path packages/app-tauri/src-tauri/Cargo.toml
+
+# 3. フル bundle（インストーラー生成）
+cargo tauri build --project-path packages/app-tauri
+```
