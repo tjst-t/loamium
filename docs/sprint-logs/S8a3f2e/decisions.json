@@ -38,7 +38,37 @@
       "reference": "DESIGN_PRINCIPLES:priority2 / ADR-0026:consequences(監査ログ)"
     }
   ],
-  "implementation_decisions": [],
+  "implementation_decisions": [
+    {
+      "id": "I1",
+      "category": "implementation",
+      "decision": "shim パスを /api/llm/v1/chat/completions に確定、localLlmBaseUrl() を唯一の baseUrl 導出点に",
+      "rationale": "pi の openai-completions クライアントの実挙動に一致。導出を一元化し agent-service と shim のズレを防ぐ",
+      "reference": "ADR-0025"
+    },
+    {
+      "id": "I2",
+      "category": "implementation",
+      "decision": "backend 明示選択・非フォールバック(resolveBackend + AgentBackendNotReadyError)",
+      "rationale": "ADR-0025 amendment。未準備で他方へ暗黙切替しないことをテストで固定",
+      "reference": "ADR-0025 amendment(2026-07-16)"
+    },
+    {
+      "id": "I3",
+      "category": "implementation",
+      "decision": "engine 層は動的 import + 決定的スタブで addon 非依存にテスト。実 GGUF/ネイティブ推論は環境制約で未実施",
+      "rationale": "GB級モデル・sandbox 制約。ネイティブビルド失敗が workspace 全体を壊さない設計",
+      "reference": "MEMORY:node-llama-cpp-build / DESIGN_PRINCIPLES forbidden(テスト無効化しない)"
+    },
+    {
+      "id": "V1",
+      "category": "verify",
+      "decision": "S8a3f2e-5 の実経路 acceptance が S8a3f2e-2 の 3 shim 欠陥を発見・修正",
+      "rationale": "ユニットのみでは実サーバー/実 pi 経路の欠陥(遅延ロード欠落=常時503 等)を検出できなかった。実経路 smoke の必要性を確認",
+      "reference": "skill-retrospective"
+    }
+  ],
   "elaborated_at": "2026-07-16",
-  "summary": "ADR-0025 に従い node-llama-cpp を packages/server に in-process 組込し、pi SDK の baseUrl を向けられる OpenAI 互換 shim (POST /api/llm/chat 系) をローカルで提供する。GGUF モデルを .loamium/models/ (gitignore・使い捨て) に置き、REST でダウンロード/一覧/削除できるようにする。統一設定UI (ADR-0026) にバックエンド切替 (外部 API キー ↔ ローカルモデル) とモデル選択を足し、ネット遮断下でエージェントが動くことを acceptance テストで確認する。"
+  "summary": "ADR-0025 に従い node-llama-cpp を packages/server に in-process 組込し、pi SDK の baseUrl を向けられる OpenAI 互換 shim (POST /api/llm/chat 系) をローカルで提供する。GGUF モデルを .loamium/models/ (gitignore・使い捨て) に置き、REST でダウンロード/一覧/削除できるようにする。統一設定UI (ADR-0026) にバックエンド切替 (外部 API キー ↔ ローカルモデル) とモデル選択を足し、ネット遮断下でエージェントが動くことを acceptance テストで確認する。",
+  "verified_at": "2026-07-16"
 }

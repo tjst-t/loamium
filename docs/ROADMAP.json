@@ -4,10 +4,10 @@
   "progress": {
     "current_sprint": null,
     "total": 55,
-    "done": 46,
+    "done": 47,
     "in_progress": 0,
-    "remaining": 9,
-    "percentage": 84
+    "remaining": 8,
+    "percentage": 85
   },
   "execution_order": [
     "Sd63ad1",
@@ -5596,232 +5596,232 @@
       "title": "内蔵オフライン LLM — node-llama-cpp in-process + OpenAI 互換 shim",
       "description": "ADR-0025 準拠。node-llama-cpp を packages/server に in-process で組み込み、既存 OpenAI 互換インターフェース（POST /api/llm/chat）として提供する。モデルファイルは .loamium/models/ に配置し、REST API でダウンロード・一覧・削除ができる。設定 UI からモデルを選択し、エージェントの LLM バックエンドを「OpenAI API キー」↔「ローカルモデル」で切り替えられる。インターネット接続なしでエージェントが動作することを acceptance テストで確認する。",
       "milestone": false,
-      "status": "pending",
+      "status": "done",
       "depends_on": null,
       "detail_level": "detailed",
       "stories": {
         "S8a3f2e-1": {
           "title": "Loamium を運用する自分として、node-llama-cpp を packages/server に in-process で組み込みたい。なぜなら、外部推論サーバーなしでノート PC 単体のプロセス内で GGUF 推論を回す土台(ADR-0025 の採用案)が要るから。",
           "story_type": "infra",
-          "status": "pending",
+          "status": "done",
           "acceptance_criteria": [
             {
               "id": "AC-S8a3f2e-1-1",
               "description": "packages/server/package.json の dependencies に node-llama-cpp v3 系 (ESM, Node 22+) を追加し、npm install が dev VM (Node 22 / gcc-13) で完了すること。ネイティブ addon のビルド注意(CC=/usr/bin/gcc-13, GLIBC 問題)を CLAUDE.md ないし docs のビルドノートに明記する。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S8a3f2e-1-2",
               "description": "packages/server/src に local-llm エンジンモジュール(例 local-llm-engine.ts)を新設し、getLlama() → loadModel(gguf パス) → LlamaChatSession を薄くラップした loadEngine(modelPath) / unloadEngine() / isLoaded() を公開する。GPU (Metal/CUDA/Vulkan) があれば使い、無ければ CPU フォールバックする(必須にしない)。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S8a3f2e-1-3",
               "description": "モデルロード中/推論中はリクエストを直列化する(単一ユーザーローカル前提)。同時プロンプトは順に処理され、in-flight 中の新規推論はキュー or 明示エラーで返す。ユニットテストでロード→簡易 completion→アンロードの往復が検証できる(小さなテスト用 GGUF もしくはロード層をモックした境界テスト)。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S8a3f2e-1-4",
               "description": ".loamium/models/ 配下をモデル種別のサブフォルダに分けることをパスヘルパー(vault-paths 等)で一元化する: .loamium/models/llm/ (LLM GGUF) と .loamium/models/asr/ (音声認識・将来の Whisper 用)。ディレクトリは初回アクセス時に作成する。node-llama-cpp のネイティブ addon 追加による攻撃面増(ADR-0025 の consequences)を CI/ビルドの注意点として記録する。",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "T1": {
               "title": "package.json に node-llama-cpp を追加し、dev VM (Node22/gcc-13) でネイティブビルド確認・ビルドノート記載",
-              "status": "pending"
+              "status": "done"
             },
             "T2": {
               "title": "local-llm-engine.ts: getLlama/loadModel/LlamaChatSession の薄いラッパー(load/unload/isLoaded)を実装",
-              "status": "pending"
+              "status": "done"
             },
             "T3": {
               "title": "推論の直列化(mutex/キュー)とアンロード管理を実装",
-              "status": "pending"
+              "status": "done"
             },
             "T4": {
               "title": ".loamium/models/ パスヘルパー集約 + エンジン層のユニット/境界テスト",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S8a3f2e-2": {
           "title": "内蔵エージェントとして、pi SDK の baseUrl を向けられるローカルの OpenAI 互換 shim を叩きたい。なぜなら、ADR-0011 のエージェント/ツール/監査/セッション配線を無改造で再利用しつつ、推論だけを内蔵エンジンへ差し替えたいから。",
           "story_type": "api",
-          "status": "pending",
+          "status": "done",
           "acceptance_criteria": [
             {
               "id": "AC-S8a3f2e-2-1",
               "description": "Hono に極薄の OpenAI 互換ルート POST /api/llm/chat(ADR-0025 の /api/local-llm/v1/chat/completions 相当。実パスはこのスプリントで確定し settings.ts/agent-service の baseUrl 導出と一致させる)を追加し、OpenAI /v1/chat/completions の最小サブセット({model, messages[], stream, max_tokens, temperature})を受ける。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S8a3f2e-2-2",
               "description": "非ストリーム時は {id, object:'chat.completion', choices:[{message:{role:'assistant', content}}], usage} 形の OpenAI 互換 JSON を返す。stream:true 時は text/event-stream で data: {choices:[{delta:{content}}]} を逐次送出し、末尾に data: [DONE] を送る。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S8a3f2e-2-3",
               "description": "モデル未ロード/未存在時は shim が OpenAI 互換のエラー形({error:{message, type}})かつ適切な HTTP ステータス(例 503)で返し、pi 側がフォールバック不能を検知できる。GET /api/llm/v1/models 相当でロード可能な内蔵モデル一覧(S8a3f2e-3 の一覧)を OpenAI models 形({data:[{id}]})で返す。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S8a3f2e-2-4",
               "description": "agent-service.ts の buildModelRegistry が、ユーザーが明示選択したバックエンドに従って登録する(自動フォールバックしない): backend=local 選択時のみ baseUrl を shim の URL へ・apiKey をダミーへ向け、backend=external 選択時は従来どおり外部 baseUrl/apiKey を使う。選択済みバックエンドが未準備(local だがモデル未選択/未存在、external だがキー無し)なら接続を無効として扱い、他方へ暗黙に切り替えない。既存の createAgentSession 配線(tools/excludeTools/customTools/resourceLoader/監査)は一切変更しない。ユニット/統合テストで local 選択時の shim 経由 1 ターン成立と、未準備時に自動フォールバックしないことを検証する(エンジン層はスタブ可)。",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "T1": {
               "title": "routes に local-llm shim ルート (POST /api/llm/chat + GET /api/llm/v1/models) を新設し app.ts に配線",
-              "status": "pending"
+              "status": "done"
             },
             "T2": {
               "title": "OpenAI chat.completions ↔ LlamaChatSession のリクエスト/レスポンス変換(非ストリーム)",
-              "status": "pending"
+              "status": "done"
             },
             "T3": {
               "title": "SSE ストリーミング(delta 逐次 + [DONE])実装",
-              "status": "pending"
+              "status": "done"
             },
             "T4": {
               "title": "agent-service.buildModelRegistry のローカルバックエンド分岐(baseUrl=shim)+ shim 経由 1 ターンの統合テスト",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S8a3f2e-3": {
           "title": "ユーザーとして、REST API で GGUF モデルをダウンロード・一覧・削除したい。なぜなら、モデルは同梱されず(ADR-0025)、.loamium/models/ に自分で取得・管理する必要があるから。",
           "story_type": "api",
-          "status": "pending",
+          "status": "done",
           "acceptance_criteria": [
             {
               "id": "AC-S8a3f2e-3-1",
               "description": "GET /api/llm/models が .loamium/models/llm/ 配下の .gguf ファイルを走査し [{id, filename, sizeBytes, path(vault 相対)}] を返す。ディレクトリ未作成/ファイル不在でも空配列で 200 を返す。将来の音声認識モデル(.loamium/models/asr/)と分離できるよう、モデル種別(kind=llm)をパスから導出する構造にする。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S8a3f2e-3-2",
               "description": "POST /api/llm/models/download が {url, filename?} を受け、指定 URL(Hugging Face 等の GGUF)を .loamium/models/llm/<filename> へダウンロードする。保存先は必ず .loamium/models/llm/ 内に収める(パストラバーサル・vault 外脱出・サブフォルダ脱出を検証ユーティリティで禁止 = DESIGN_PRINCIPLES priority 2)。進捗は取得可能な形(SSE か GET /api/llm/models/download/:id/status のポーリング)で返し、完了・失敗が判別できる。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S8a3f2e-3-3",
               "description": "DELETE /api/llm/models/:filename が .loamium/models/llm/<filename> を削除する。存在しなければ 404。現在ロード中モデルの削除時はアンロードしてから消す or 明示エラー。filename は英数・ハイフン・アンダースコア・ドットのみ許可し(パス区切りは不可)、不正名はファイルシステムに触れる前に 400。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S8a3f2e-3-4",
               "description": ".gitignore で .loamium/models/ 配下(llm/ ・asr/ 含む)が除外される(.loamium/* により既に除外、再包含しないこと)ことを確認し、モデルが『消しても vault 無傷』の使い捨て資産(ADR-0025/ADR-0010)であることをテスト or ドキュメントで担保する。書き込み系(download/delete)は監査ログ(.loamium/audit.log)に記録する。",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "T1": {
               "title": "GET /api/llm/models: .loamium/models/ 走査 + メタ返却",
-              "status": "pending"
+              "status": "done"
             },
             "T2": {
               "title": "POST /api/llm/models/download: URL DL + パス封じ込め検証 + 進捗/完了報告",
-              "status": "pending"
+              "status": "done"
             },
             "T3": {
               "title": "DELETE /api/llm/models/:filename: 検証・ロード中ガード・404 処理",
-              "status": "pending"
+              "status": "done"
             },
             "T4": {
               "title": "監査ログ配線 + .gitignore 確認 + REST スキーマ(shared/zod)追加",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S8a3f2e-4": {
           "title": "ユーザーとして、統一設定UIでエージェントの LLM バックエンドを『外部 API キー』↔『ローカルモデル』で切り替え、ローカルモデルを選びたい。なぜなら、オフライン時に内蔵エンジンへフォールバックし、モデルを選んで使いたいから(ADR-0026 の設定ハブ、ADR-0025 のバックエンド優先度)。",
           "story_type": "gui",
-          "status": "pending",
+          "status": "done",
           "acceptance_criteria": [
             {
               "id": "AC-S8a3f2e-4-1",
               "description": "設定画面(SettingsView)のエージェント接続セクションに『バックエンド』の明示選択(external = OpenAI/Anthropic API キー / local = ローカルモデル)を追加する。選択は自動フォールバックではなくユーザーが手で切り替える。external 選択時は既存の baseUrl/model/apiKey フォームを表示、local 選択時は .loamium/models/llm/ に置かれたモデル一覧のドロップダウン(GET /api/llm/models の結果)を表示する。切替はブラウザ的ルーティング/1画面方針(DESIGN_PRINCIPLES ui_ux)を崩さない。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S8a3f2e-4-2",
               "description": "ユーザーが選んだバックエンド(external|local)とローカルモデル参照は型付き設定API(ADR-0026 の PUT /api/settings/agent/connection 拡張。backend フィールドと local model 参照を shared zod スキーマへ追加)で .loamium/agent.json に保存され、agent-service は保存された明示選択にそのまま従う(優先度の自動導出・自動フォールバックは行わない)。設定は agent ツール allowlist から到達不可(自己昇格防止 ADR-0026)を維持。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S8a3f2e-4-3",
               "description": "local バックエンド選択時、.loamium/models/llm/ にモデルが1つも無い場合、UI はモデル未取得を示し S8a3f2e-3 のダウンロードUI(URL 入力 + 推奨モデルの提示)への導線を出す。フォルダに手で置いたモデルも一覧に現れ選択できる(UI からの DL は任意手段)。ダウンロード/削除/選択が同セクションで完結する。この状態でバックエンドが local のままモデル未選択なら接続は無効(自動で external に切り替えない)。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S8a3f2e-4-4",
               "description": "LOAMIUM_MODE=read-only/append-only では設定の書き込み(バックエンド切替・DL・削除)が無効化/403 になる(既存 permissionMiddleware / ADR-0026 のクランプ)。GUI 上でも無効表示になる。プロトタイプ CSS を完全移植し、インライン SVG アイコンが巨大化しない(:where(svg) フォールバック維持)ことを目視確認する。",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "T1": {
               "title": "shared スキーマに backend('external'|'local') と localModel 参照を追加し agent.json 保存/読込を拡張",
-              "status": "pending"
+              "status": "done"
             },
             "T2": {
               "title": "SettingsView: バックエンド切替トグル + local モデルドロップダウン(GET /api/llm/models)",
-              "status": "pending"
+              "status": "done"
             },
             "T3": {
               "title": "モデル DL/削除 UI(URL 入力・推奨提示・進捗表示)と未取得時の導線",
-              "status": "pending"
+              "status": "done"
             },
             "T4": {
               "title": "read-only/append-only での無効化 + プロトタイプ CSS 移植・アイコン目視確認",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S8a3f2e-5": {
           "title": "Loamium を使う自分として、インターネット接続なしでエージェントが動くことを acceptance テストで確認したい。なぜなら、ADR-0025 のゴールは『真の zero-config オフラインフォールバック』であり、それを回帰で守りたいから。",
           "story_type": "mixed",
-          "status": "pending",
+          "status": "done",
           "acceptance_criteria": [
             {
               "id": "AC-S8a3f2e-5-1",
               "description": "acceptance/e2e テストで、外部ネットワークを遮断(fetch を localhost 以外拒否するガード、または実際の egress ブロック)した状態で、backend=local を明示選択し .loamium/models/llm/ にモデル1つがある構成のエージェントセッションを作り、1 プロンプト送信 → shim(/api/llm/chat)経由で応答が返ることを確認する。エンジン実体は小型 GGUF もしくは決定的スタブエンジンで代替してよいが、経路(pi → shim → engine)は本物を通す。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S8a3f2e-5-2",
               "description": "同テストで、外部 baseUrl への発信が一切発生しないこと(外部 fetch がゼロ、または遮断で失敗しても shim フォールバックで成立)をアサートする。既存 agent-tools.e2e の advertised-toolset pin(メモリ: agent-toolset e2e pin)を壊さないことを確認する。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S8a3f2e-5-3",
               "description": "明示選択の挙動が回帰テストで固定される: backend=external ならローカルモデルがあっても外部を使う、backend=local かつ .loamium/models/llm/ にモデル在りなら内蔵を使う、選択済みバックエンドが未準備(local だがモデル無し/external だがキー無し)ならエージェント接続は無効で、他方へ自動フォールバックしないこと。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S8a3f2e-5-4",
               "description": "オフライン acceptance テストが CI で実行可能(ネイティブ addon ビルド前提、Node22)であり、テスト無効化・アサーション弱体化・エラー握りつぶしを行わない(DESIGN_PRINCIPLES forbidden)。real-server spec の直列化(既知 flake 債務)に配慮する。",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "T1": {
               "title": "オフライン遮断ハーネス(外部 fetch ブロック)+ 決定的スタブ/小型 GGUF の用意",
-              "status": "pending"
+              "status": "done"
             },
             "T2": {
               "title": "pi → shim → engine を通すオフライン e2e(session 作成 → prompt → 応答)",
-              "status": "pending"
+              "status": "done"
             },
             "T3": {
               "title": "外部発信ゼロのアサート + agent-toolset e2e pin 非破壊確認",
-              "status": "pending"
+              "status": "done"
             },
             "T4": {
               "title": "バックエンド優先度の回帰テスト + CI 実行配線",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
