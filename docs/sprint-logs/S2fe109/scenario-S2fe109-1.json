@@ -1,0 +1,67 @@
+{
+  "story": "S2fe109-1",
+  "story_type": "api",
+  "user_role": "開発者 (agent-jobs.json でジョブを設定した後 REST で確認する)",
+  "entry_point": "http://localhost:{port}/api  — 実 HTTP クライアント (fetch) で実サーバーに接続",
+  "scenarios": [
+    {
+      "id": "scenario-1",
+      "linked_ac": ["AC-S2fe109-1-1", "AC-S2fe109-1-3"],
+      "description": "有効な agent-jobs.json を vault に置き、GET /api/agent/jobs でジョブ一覧を取得する",
+      "preconditions": [
+        "vault に .loamium/agent-jobs.json が存在する (name/schedule/prompt/permission/enabled フィールドを持つジョブ定義)",
+        ".gitignore に !.loamium/agent-jobs.json が含まれている"
+      ],
+      "steps": [
+        {
+          "n": 1,
+          "action": "GET /api/agent/jobs",
+          "expected": "status 200; body { jobs: [{ name, schedule, enabled, lastRunAt }] }; ジョブが少なくとも 1 件含まれる"
+        },
+        {
+          "n": 2,
+          "action": ".gitignore ファイルを読み !.loamium/agent-jobs.json の行が存在することを確認",
+          "expected": "!.loamium/agent-jobs.json が .gitignore に含まれる"
+        }
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "scenario-2",
+      "linked_ac": ["AC-S2fe109-1-2"],
+      "description": "不正なジョブ定義(permission が不正値)を含む agent-jobs.json でサーバーを起動し、サーバーが警告をログして他のジョブは正常返却する",
+      "preconditions": [
+        "agent-jobs.json に name: 'bad-job', permission: 'invalid-permission' の不正エントリと、name: 'good-job' の正常エントリが含まれる"
+      ],
+      "steps": [
+        {
+          "n": 1,
+          "action": "GET /api/agent/jobs",
+          "expected": "status 200; jobs 配列に 'good-job' が含まれ、'bad-job' は含まれない (スキップされた)"
+        }
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "scenario-3",
+      "linked_ac": ["AC-S2fe109-1-4"],
+      "description": "GET /api/agent/jobs/:name でジョブ詳細を確認する",
+      "preconditions": [
+        "vault に name: 'daily-summary' のジョブが agent-jobs.json に定義されている"
+      ],
+      "steps": [
+        {
+          "n": 1,
+          "action": "GET /api/agent/jobs/daily-summary",
+          "expected": "status 200; body { name: 'daily-summary', schedule, prompt, permission, enabled, lastRunAt, nextRunAt }"
+        },
+        {
+          "n": 2,
+          "action": "GET /api/agent/jobs/nonexistent",
+          "expected": "status 404"
+        }
+      ],
+      "cleanup": []
+    }
+  ]
+}

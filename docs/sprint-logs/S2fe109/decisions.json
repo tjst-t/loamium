@@ -1,0 +1,50 @@
+{
+  "sprint": "S2fe109",
+  "touched_adrs": ["ADR-0013", "ADR-0012", "ADR-0015", "ADR-0016"],
+  "elaboration": {
+    "source": "coarse → detailed",
+    "basis": ["sprint description", "ADR-0013", "current agent-service.ts / routes/agent.ts"],
+    "decisions": [
+      {
+        "id": "elab-001",
+        "title": "スケジューラライブラリ選定: node-cron vs 自前 setInterval",
+        "decision": "node-cron (cron 式パース + nextDate 計算が不要になる)",
+        "rationale": "cron 式を自前でパースするのは誤りが出やすい。node-cron は軽量で Node.js エコシステムで標準的。anacron 方式のキャッチアップロジックと組み合わせやすい。",
+        "reference": "DESIGN_PRINCIPLES priority_rule 5 (シンプルさ > 汎用性)",
+        "adr_ref": "ADR-0013"
+      },
+      {
+        "id": "elab-002",
+        "title": "ジョブ state ファイルのパス",
+        "decision": ".loamium/agent-job-state.json (使い捨て側、.gitignore 対象のまま)",
+        "rationale": "ADR-0013 決定事項: 最終実行時刻は使い捨て側に記録。ジョブ定義(agent-jobs.json)は Git 追跡、state は揮発性で分離する。",
+        "reference": "ADR-0013 decision + consequences",
+        "adr_ref": "ADR-0013"
+      },
+      {
+        "id": "elab-003",
+        "title": "ジョブ手動実行の実行モデル: 同期 vs 非同期",
+        "decision": "POST /api/agent/jobs/:name/run は sessionId を即時返却し、バックグラウンドで非同期実行する",
+        "rationale": "LLM 実行は秒〜分単位。同期で待つと HTTP タイムアウトになる。既存の POST /api/agent/sessions/:id/messages がSSEで非同期配信するのと同じモデル。結果は GET /api/agent/sessions/:id で確認できる。",
+        "reference": "DESIGN_PRINCIPLES priority_rule 3 (エージェント操作性)",
+        "adr_ref": "ADR-0013"
+      },
+      {
+        "id": "elab-004",
+        "title": "GUI ストーリー: 設定 UI の有無",
+        "decision": "今 Sprint は UI を作らない。REST/CLI 1:1 のみ。",
+        "rationale": "ADR-0013 notes に『ジョブ編集 UI の有無は sprint ローカル判断』とある。DESIGN_PRINCIPLES priority_rule 3 (エージェント操作性 > UI の豊かさ) に従い、CLI で操作できれば十分。",
+        "reference": "DESIGN_PRINCIPLES priority_rule 3, ADR-0013 notes",
+        "adr_ref": "none"
+      },
+      {
+        "id": "elab-005",
+        "title": "maxTurns と timeoutMs のデフォルト値",
+        "decision": "maxTurns: 10, timeoutMs: 300000 (5 分)",
+        "rationale": "ADR-0013: 無人実行のため上限を設ける。通常のジョブ(デイリーまとめ等)は 10 ターン以内に完了する。5 分は十分長く、かつコスト超過を防ぐ合理的な値。",
+        "reference": "ADR-0013 consequences",
+        "adr_ref": "ADR-0013"
+      }
+    ]
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "story": "S2fe109-2",
+  "story_type": "mixed",
+  "user_role": "管理者・外部 cron ユーザー (REST + CLI 経由でジョブを手動実行する)",
+  "entry_point": "http://localhost:{port}/api (API) + loamium バイナリ (CLI) — 実サーバーに接続",
+  "scenarios": [
+    {
+      "id": "scenario-1",
+      "linked_ac": ["AC-S2fe109-2-1"],
+      "description": "POST /api/agent/jobs/:name/run で enabled なジョブを即時実行し sessionId を取得する",
+      "preconditions": [
+        "agent-jobs.json に name: 'test-job', enabled: true のジョブが定義されている",
+        "エージェント設定 (agent.json) が到達不能な baseUrl を指す (LLM 呼び出しは失敗してよい)"
+      ],
+      "steps": [
+        {
+          "n": 1,
+          "action": "POST /api/agent/jobs/test-job/run (body なし)",
+          "expected": "status 200; body { sessionId: '<string>' }; セッション ID が空でない"
+        },
+        {
+          "n": 2,
+          "action": "GET /api/agent/sessions/{sessionId}",
+          "expected": "status 200; セッションが存在する"
+        }
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "scenario-2",
+      "linked_ac": ["AC-S2fe109-2-2", "AC-S2fe109-2-3"],
+      "description": "存在しないジョブ名と disabled なジョブのエラーレスポンスを確認する",
+      "preconditions": [
+        "agent-jobs.json に name: 'disabled-job', enabled: false のジョブが定義されている"
+      ],
+      "steps": [
+        {
+          "n": 1,
+          "action": "POST /api/agent/jobs/nonexistent/run",
+          "expected": "status 404; body に error フィールドがある"
+        },
+        {
+          "n": 2,
+          "action": "POST /api/agent/jobs/disabled-job/run",
+          "expected": "status 409; body { error: 'job disabled' }"
+        }
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "scenario-3",
+      "linked_ac": ["AC-S2fe109-2-4"],
+      "description": "loamium agent-run <name> コマンドでジョブを実行し sessionId を取得する",
+      "preconditions": [
+        "loamium バイナリがビルド済み",
+        "agent-jobs.json に name: 'test-job', enabled: true のジョブが定義されている"
+      ],
+      "steps": [
+        {
+          "n": 1,
+          "action": "シェルで `loamium agent-run test-job` を実行",
+          "expected": "exit code 0; stdout に sessionId 文字列が出力される"
+        }
+      ],
+      "cleanup": []
+    }
+  ]
+}
