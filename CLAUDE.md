@@ -26,6 +26,10 @@ Backend: Hono / Frontend: React + CodeMirror 6 (lezer-markdown) / 検索: Fuse.j
 - REST API と CLI コマンドは 1:1 対応。リクエスト/レスポンスは zod スキーマで検証し、型は `packages/shared` で共有
 - Markdown パース・リンク解決・ジャーナル日付処理には必ずユニットテストを書く
 - 書き込み系 API は監査ログ(`.loamium/audit.log`)に記録する
+- **エージェント操作ツール必須**: 新機能(REST エンドポイント・スマートフォルダ / コマンド / テンプレート等の主要機能)を追加するときは、エージェントがその機能を操作できるツールも必ず実装し、help 知識ベース(`packages/server/src/agent-help.ts`)に使い方(ツール名・入出力・使用例・制約)を追加する。エージェント統合を後付けにしない
+  - ツールは既存の監査済みサービス層を経由する(ADR-0016)。REST と重複する独自の実行・解決・直列化ロジックを新設しない(二重管理の排除)。エージェント専用の直接ファイル操作・独自フォーマットは禁止(「ピュア Markdown 絶対」と整合)
+  - 権限はケーパビリティで制御し(ADR-0015)、書き込み系ツールは書込モードでのみ広告する。機密領域は deny リストで一覧・書き込みから除外する(ADR-0018)
+  - 使い方の詳細は base システムプロンプトへ移さず help トピックに置く(ADR-0014。常時=base / 詳細=help)。help はどの権限セットでも利用可能を維持する
 
 ## Server
 
@@ -49,6 +53,7 @@ Backend: Hono / Frontend: React + CodeMirror 6 (lezer-markdown) / 検索: Fuse.j
 ## References
 
 - Architecture & system design: `docs/ARCHITECTURE.md`
+- Architecture Decision Records (ADR): `docs/DESIGN/adr/`(例: エージェント統合は ADR-0014 help / ADR-0015 ケーパビリティ / ADR-0016 監査済みサービス層経由 / ADR-0018 機密領域 deny)
 - Sprint roadmap & task tracking: `docs/ROADMAP.json`
 - Product vision: `docs/VISION.json`
 - Design principles (autonomous decision rules): `docs/DESIGN_PRINCIPLES.json`
