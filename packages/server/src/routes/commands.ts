@@ -43,6 +43,8 @@ import {
   SYSTEM_TEMPLATES_DIR,
   commandRunRequestSchema,
   commandSourceWriteRequestSchema,
+  agentJobSchema,
+  type AgentJob,
   type CommandRunResponse,
   type CommandSourceResponse,
   type CommandSourceWriteResponse,
@@ -51,11 +53,13 @@ import {
   type CommandsResponse,
 } from '@loamium/shared';
 import type { ServerConfig } from '../config.js';
+import type { VaultIndex } from '../noteIndex.js';
 import { readNote, writeNote, noteMtime } from '../vault.js';
 import { errorJson, parseBody, setAudit, type AppEnv } from '../http.js';
 import { writeAuditEntry } from '../audit.js';
 import { firstFreePath } from '../vault-paths.js';
 import { applyPropSet, applyNotePatch } from './notes.js';
+import { runAgentJob } from '../agent-job-runner.js';
 
 /** 旧パス (後方互換フォールバック) */
 const LEGACY_COMMANDS_DIR = 'commands';
@@ -154,7 +158,7 @@ function summaryFor(rel: string, content: string): CommandSummary {
 }
 
 
-export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
+export function commandsRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
   // -----------------------------------------------------------------------
@@ -409,23 +413,24 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
       );
     }
 
-    // 5. 権限チェック [AC-Sd22b1f-2-3] [AC-Sf2f114-4-3]
+    // 5. 権限チェック [AC-Sd22b1f-2-3] [AC-Sf2f114-4-3] [AC-S5a66e4-3-3]
     // read-only → permissionMiddleware が既に 403 を返すためここには到達しない。
     // append-only → v1 4 種 (journal-append / note-append / note-create / template-instantiate)
     //               は許可。prop-set / note-patch は既存コンテンツを変更する MUTATE 操作
     //               であり、純粋な追記ではないため append-only では拒否する (ADR-0021)。
-    //               コマンドに prop-set / note-patch ステップが 1 つでも含まれる場合は
-    //               コマンド全体を 403 で拒否する (安全側の選択)。
+    //               agent-run は Pi エージェントに任意の書き込みを委譲するため MUTATE 相当と
+    //               みなし、append-only では拒否する (ADR-0028、prop-set/note-patch と同じ扱い)。
+    //               これらのステップが 1 つでも含まれる場合はコマンド全体を 403 で拒否する。
     if (config.mode === 'append-only') {
       const hasMutatingStep = cmd.steps.some(
-        (s) => s.kind === 'prop-set' || s.kind === 'note-patch',
+        (s) => s.kind === 'prop-set' || s.kind === 'note-patch' || s.kind === 'agent-run',
       );
       if (hasMutatingStep) {
         return errorJson(
           c,
           403,
           'forbidden',
-          'prop-set and note-patch steps are not allowed in append-only mode (they modify existing content)',
+          'prop-set, note-patch and agent-run steps are not allowed in append-only mode (they modify existing content or delegate writes to the agent)',
         );
       }
     }
@@ -933,8 +938,74 @@ export function commandsRoutes(config: ServerConfig): Hono<AppEnv> {
 
           results.push({ kind, ok: true, path: rel });
 
+        } else if (kind === 'agent-run') {
+          // [AC-S5a66e4-3-1/2/4] 賢い処理を Pi エージェントへ委譲する (ADR-0028)。
+          // 新規ジョブ実行コードは書かず、S2fe109 の runAgentJob を再利用する。
+          // prompt を resolveTemplate で展開し、agentJobSchema 形の一時ジョブを組み立てる。
+          // 結果のファイル書き込みは agent-run 独自経路を持たず、エージェント自身が
+          // ADR-0016 の監査済みツール (journal_append / note_create / note_edit) を
+          // prompt 指示に従って使う (書き込み先は commands.ts では強制しない)。
+          const promptResolved = resolveTemplate(step.prompt, {
+            vars: resolvedParams,
+            date: now,
+            now,
+          }).text;
+
+          // 一時ジョブを組み立てる。maxTurns/timeoutSec 省略時は agentJobSchema の
+          // 既定 (20/120) を parse で補完する。permissions は enum 制約された値のため
+          // テンプレート展開せずそのまま渡す (agentJobSchema が再検証する)。
+          const jobInput: Record<string, unknown> = {
+            name: `command-${name.replace(/[^a-zA-Z0-9_-]/g, '_')}`,
+            // schedule は runAgentJob では未使用のダミー (スキーマ充足のため)
+            schedule: '0 0 1 1 *',
+            prompt: promptResolved,
+            enabled: true,
+          };
+          if (step.permissions !== undefined) jobInput['permissions'] = step.permissions;
+          if (step.maxTurns !== undefined) jobInput['maxTurns'] = step.maxTurns;
+          if (step.timeoutSec !== undefined) jobInput['timeoutSec'] = step.timeoutSec;
+
+          const jobParsed = agentJobSchema.safeParse(jobInput);
+          if (!jobParsed.success) {
+            // 到達しにくい (step は既に検証済み) が、握りつぶさず失敗として停止する
+            results.push({
+              kind,
+              ok: false,
+              error: `failed to build agent job: ${jobParsed.error.errors.map((e) => e.message).join('; ')}`,
+            });
+            break;
+          }
+          const job: AgentJob = jobParsed.data;
+
+          // 既存 runAgentJob へ委譲 (agent.json 未設定なら result:'error' が返り fail-stop する)
+          const { result: jobResult, error: jobError } = await runAgentJob(config, index, job);
+
+          // command.run に加え agent 側書き込みも監査に残る (ADR-0028)。
+          // ここでは agent-run ステップ自体の実行結果を監査へ記録する。
+          await writeAuditEntry(config, {
+            ts: new Date().toISOString(),
+            op: 'agent-run.step',
+            path: commandPath,
+            mode: config.mode,
+            result: jobResult === 'ok' ? 'ok' : 'error',
+            status: jobResult === 'ok' ? 200 : 500,
+          });
+
+          if (jobResult === 'ok') {
+            // 書き込み先はエージェント任せのため path は省略する [AC-S5a66e4-3-2]
+            results.push({ kind, ok: true });
+          } else {
+            // error | timeout | aborted → ok:false で fail-stop [AC-S5a66e4-3-2]
+            results.push({
+              kind,
+              ok: false,
+              error: `agent job ${jobResult}: ${jobError ?? 'unknown error'}`,
+            });
+            break;
+          }
+
         } else {
-          // 未知の kind (将来の拡張など — 現在は 6 種すべてを網羅しているためここには到達しない)
+          // 未知の kind (将来の拡張など — 現在は 7 種すべてを網羅しているためここには到達しない)
           const exhaustiveCheck: never = step;
           results.push({
             kind: (exhaustiveCheck as { kind: string }).kind,

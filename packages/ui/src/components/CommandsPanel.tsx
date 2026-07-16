@@ -62,7 +62,8 @@ type StepKind =
   | 'note-create'
   | 'template-instantiate'
   | 'prop-set'
-  | 'note-patch';
+  | 'note-patch'
+  | 'agent-run';
 
 const STEP_KINDS: StepKind[] = [
   'journal-append',
@@ -71,6 +72,7 @@ const STEP_KINDS: StepKind[] = [
   'template-instantiate',
   'prop-set',
   'note-patch',
+  'agent-run',
 ];
 
 // ---- YAML シリアライザ ----
@@ -333,6 +335,7 @@ function defaultStep(kind: StepKind): CommandStep {
     case 'template-instantiate': return { kind: 'template-instantiate', template: '' };
     case 'prop-set': return { kind: 'prop-set', target: '' };
     case 'note-patch': return { kind: 'note-patch', target: '', old: '', new: '' };
+    case 'agent-run': return { kind: 'agent-run', prompt: '' };
   }
 }
 
@@ -379,6 +382,7 @@ function StepEditModal({ initial, onSave, onCancel, readonly }: StepEditModalPro
       'template-instantiate': ['template'],
       'prop-set': ['target'],
       'note-patch': ['target', 'old', 'new'],
+      'agent-run': ['prompt'],
     };
     const missing = (requiredByKind[kind] ?? []).filter((k) => (fields[k] ?? '').trim() === '');
     if (missing.length > 0) {
@@ -445,6 +449,11 @@ function StepEditModal({ initial, onSave, onCancel, readonly }: StepEditModalPro
         { key: 'target', label: 'target (ノートパス)' },
         { key: 'old', label: 'old (置換前テキスト)', multiline: true },
         { key: 'new', label: 'new (置換後テキスト)', multiline: true },
+      ];
+      case 'agent-run': return [
+        { key: 'prompt', label: 'prompt (エージェントへの指示)', multiline: true, hint: '出力先も指示に含める (例: 当日ジャーナルの ## 議事録 へ追記)' },
+        { key: 'maxTurns', label: 'maxTurns', optional: true, hint: '1..50 (省略時 20)' },
+        { key: 'timeoutSec', label: 'timeoutSec', optional: true, hint: '10..600 (省略時 120)' },
       ];
     }
   })();
