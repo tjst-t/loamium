@@ -2,7 +2,7 @@
  * CodeMirror 6 補完ソース — スマートコマンド DSL v2 (ADR-0023)。
  *
  * 3 つのソースを提供する:
- *   1. kindCompletionSource   — "kind: " の直後に 6 種の kind 候補 + フィールド雛形
+ *   1. kindCompletionSource   — "kind: " の直後に 7 種の kind 候補 + フィールド雛形
  *   2. tokenCompletionSource  — "{{" の直後に param 名・date:/now: トークン・|fallback
  *   3. fieldValueCompletionSource — position:/section:/type:/(target:) の値補完
  *
@@ -31,7 +31,7 @@ import {
 // ---- DSL 語彙定数 (shared スキーマから派生させる) ---------------------------
 
 /**
- * DSL v2 の 6 種 step kind。
+ * DSL の 7 種 step kind (v3 で agent-run を追加, ADR-0028 / S5a66e4)。
  * commandStepSchema の discriminatedUnion から種別一覧を取得する (ハードコードしない)。
  */
 export const DSL_KINDS: readonly string[] = (() => {
@@ -78,6 +78,7 @@ export const STATIC_SECTION_HINTS: readonly string[] = [
  *   template-inst.:  template(必須), vars?, open?, when?, when-not?
  *   prop-set:        target(必須), set?, unset?, when?, when-not?
  *   note-patch:      target(必須), old(必須), new(必須), when?, when-not?
+ *   agent-run:       prompt(必須), permissions?/maxTurns?/timeoutSec?/open?/when?/when-not?
  *
  * インデントは 4 スペース (YAML frontmatter 内 steps[].* の標準)。
  * 省略可フィールドはコメントアウト形式で記述し、ユーザーが削除して使える。
@@ -121,6 +122,16 @@ const KIND_SCAFFOLDS: Record<string, string> = {
     '      old: ""',
     '      new: ""',
   ].join('\n'),
+
+  'agent-run': [
+    '      prompt: ""',
+    '      # open: true             # 実行後に結果ノートを開く (任意)',
+    '      # permissions: read-only # read-only | notes-rw | full (任意, 既定 read-only)',
+    '      # maxTurns: 8            # エージェントの最大ターン数 1..50 (任意, 既定 20)',
+    '      # timeoutSec: 120        # タイムアウト秒 10..600 (任意, 既定 120)',
+    '      # when: ""               # 値があるときだけ実行 (任意)',
+    '      # when-not: ""           # 値が空のときだけ実行 (任意)',
+  ].join('\n'),
 };
 
 // ---- 1. kind 補完ソース ------------------------------------------------------
@@ -131,8 +142,8 @@ const KIND_RE = /^\s*-?\s*kind:\s+(\w[\w-]*)?\s*$/;
 const KIND_TRIGGER_RE = /^\s*-?\s*kind:\s+([\w-]*)$/;
 
 /**
- * kind: 行の末尾でトリガーし、6 種の候補と scaffold を挿入する。
- * [AC-S9e64e7-3-1]
+ * kind: 行の末尾でトリガーし、7 種の候補と scaffold を挿入する。
+ * [AC-S9e64e7-3-1] [AC-S5a66e4-5-1]
  */
 export function kindCompletionSource(context: CompletionContext): CompletionResult | null {
   const line = context.state.doc.lineAt(context.pos);

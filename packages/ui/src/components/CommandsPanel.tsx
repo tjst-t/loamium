@@ -390,6 +390,21 @@ function StepEditModal({ initial, onSave, onCancel, readonly }: StepEditModalPro
       return;
     }
 
+    // base (defaultStep) に含まれない任意フィールドの定義 (kind ごと)。
+    // defaultStep は必須フィールドのみを返すため、フォームで入力できる任意フィールドを
+    // ここで補完する。numeric なフィールドは number 型でシリアライズする。
+    // agent-run の maxTurns/timeoutSec は shared スキーマで number 型 (int) のため、
+    // 文字列止まりにせず number に変換する (数値シリアライズギャップの解消)。
+    const optionalFields: Array<{ key: string; numeric: boolean }> =
+      kind === 'agent-run'
+        ? [
+            { key: 'permissions', numeric: false },
+            { key: 'maxTurns', numeric: true },
+            { key: 'timeoutSec', numeric: true },
+            { key: 'open', numeric: false },
+          ]
+        : [];
+
     // step オブジェクト構築
     const base = defaultStep(kind) as Record<string, unknown>;
     const built: Record<string, unknown> = { kind };
@@ -402,6 +417,24 @@ function StepEditModal({ initial, onSave, onCancel, readonly }: StepEditModalPro
         built[k] = '';
       }
     }
+
+    // base に含まれない任意フィールドを補完する (agent-run の maxTurns/timeoutSec 等)。
+    for (const { key: k, numeric } of optionalFields) {
+      if (k in built) continue;
+      const userVal = fields[k];
+      if (userVal === undefined || userVal.trim() === '') continue;
+      if (numeric) {
+        const n = Number(userVal.trim());
+        if (!Number.isInteger(n)) {
+          setError(`${k} は整数で入力してください`);
+          return;
+        }
+        built[k] = n;
+      } else {
+        built[k] = userVal;
+      }
+    }
+
     // when / when-not
     if ((fields['when'] ?? '').trim() !== '') built['when'] = fields['when'];
     if ((fields['when-not'] ?? '').trim() !== '') built['when-not'] = fields['when-not'];
