@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "S2fe109",
+    "current_sprint": null,
     "total": 55,
-    "done": 44,
-    "in_progress": 1,
+    "done": 45,
+    "in_progress": 0,
     "remaining": 10,
-    "percentage": 80
+    "percentage": 82
   },
   "execution_order": [
     "Sd63ad1",
@@ -3360,7 +3360,7 @@
     },
     "S2fe109": {
       "title": "エージェント定期実行 — スケジューラ / ジョブ定義 / キャッチアップ",
-      "status": "in_progress",
+      "status": "done",
       "description": "ADR-0013。サーバー内蔵スケジューラ、.loamium/agent-jobs.json(Git 追跡、.gitignore 再包含)のジョブ定義(name/schedule/prompt/permission/enabled)、anacron 方式キャッチアップ(最終実行時刻は使い捨て側)、POST /api/agent/jobs/{name}/run + loamium agent-run の REST/CLI 1:1、無人実行の上限(最大ターン数・タイムアウト)。",
       "milestone": true,
       "detail_level": "detailed",
@@ -3453,42 +3453,42 @@
         },
         "S2fe109-3": {
           "title": "サーバー運用者として、make serve 起動後に定義したスケジュールでジョブが自動実行され、anacron 方式でキャッチアップされてほしい。なぜなら、cron 設定なしで定期エージェント作業を自動化したいから。",
-          "status": "pending",
+          "status": "done",
           "story_type": "api",
           "acceptance_criteria": [
             {
               "id": "AC-S2fe109-3-1",
               "description": "schedule フィールドに cron 式を持つジョブが定義されている場合、サーバー起動後に GET /api/agent/jobs/:name の nextRunAt に次回実行時刻が含まれる",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S2fe109-3-2",
               "description": "agent-job-state.json で lastRunAt が現時刻より schedule 間隔以上前に記録されているジョブは、サーバー起動後 30 秒以内にキャッチアップ実行される (セッションが .loamium/agent-sessions/ に作られる)",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S2fe109-3-3",
               "description": "ジョブ実行完了後、.loamium/agent-job-state.json の当該ジョブの lastRunAt が現時刻で更新される",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S2fe109-3-4",
               "description": "ジョブ実行に maxTurns (デフォルト 10) と timeoutMs (デフォルト 300000) が適用され、超過した場合はセッションが中断される",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "T1": {
               "title": "packages/server/src/agent-scheduler.ts を実装 (node-cron ベース、anacron キャッチアップ、maxTurns/timeout 適用)",
-              "status": "pending"
+              "status": "done"
             },
             "T2": {
               "title": "packages/server/src/agent-job-state.ts を実装 (agent-job-state.json 読み書き・lastRunAt 更新)",
-              "status": "pending"
+              "status": "done"
             },
             "T3": {
               "title": "packages/server/src/app.ts でサーバー起動時にスケジューラを開始し、シャットダウン時に停止する",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
