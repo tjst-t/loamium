@@ -142,7 +142,20 @@ test.describe.serial('agent tools', () => {
     // [AC-Sa10026-6-2] 自己昇格防止 (ADR-0026 / Sa10026-6):
     //   設定書込ツール (settings_write / agent_config_write 等) がこの一覧に現れないことも
     //   実リクエストレベルで固定する。このアサートを削除・弱体化しないこと。
-    expect(advertisedTools).toEqual(['backlinks', 'help', 'query', 'read_note', 'search', 'tags']);
+    // Sc4b9d1-1 (ADR-0016): スマートフォルダ読み取り 2 種 (smartfolders_list /
+    //   smartfolder_notes) を read ケーパビリティに追加。read-only セッションでも広告される。
+    //   書き込み系 (smartfolder_write / smartfolder_delete) は smartfolder_write ケーパビリティ
+    //   (full のみ) のため、この read-only セッションには現れない = capability ゲートの実測。
+    expect(advertisedTools).toEqual([
+      'backlinks',
+      'help',
+      'query',
+      'read_note',
+      'search',
+      'smartfolder_notes',
+      'smartfolders_list',
+      'tags',
+    ]);
   });
 
   test('[AC-S53409d-3-3] 回答中の [[リンク]] クリックで当該ノートへ遷移する', async ({ page }) => {

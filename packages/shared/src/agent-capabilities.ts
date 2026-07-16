@@ -20,13 +20,16 @@ import type { PermissionMode } from './schemas.js';
 
 /**
  * エージェントが持ちうる全ケーパビリティ (ADR-0015)。
- *   - read           : 既存の読み取り系 (search/query/read_note/backlinks/tags) + help
- *   - journal_append : ジャーナルへの追記
- *   - note_create    : ノート新規作成
- *   - note_edit      : ノート編集
- *   - template_write : テンプレート適用による書き込み
- *   - dataview_write : dataview 経由の書き込み
- *   - web            : Web アクセス (ADR-0017 / S5e0206: web_fetch / web_search)
+ *   - read             : 既存の読み取り系 (search/query/read_note/backlinks/tags) + help
+ *                        + スマートフォルダ読み取り (smartfolders_list / smartfolder_notes)
+ *   - journal_append   : ジャーナルへの追記
+ *   - note_create      : ノート新規作成
+ *   - note_edit        : ノート編集
+ *   - template_write   : テンプレート適用による書き込み
+ *   - dataview_write   : dataview 経由の書き込み
+ *   - smartfolder_write: スマートフォルダ (ビュー定義) の書き込み・削除
+ *                        (ADR-0016 / Sc4b9d1: system/smart-folders/*.yaml サービス層経由)
+ *   - web              : Web アクセス (ADR-0017 / S5e0206: web_fetch / web_search)
  */
 export const AGENT_CAPABILITIES = [
   'read',
@@ -35,6 +38,7 @@ export const AGENT_CAPABILITIES = [
   'note_edit',
   'template_write',
   'dataview_write',
+  'smartfolder_write',
   'web',
 ] as const;
 export type Capability = (typeof AGENT_CAPABILITIES)[number];
@@ -55,7 +59,7 @@ export type AgentPresetName = (typeof AGENT_PRESET_NAMES)[number];
  * プリセット名 → ケーパビリティ集合 (ADR-0015)。
  *   - read-only : [read]
  *   - notes-rw  : [read, journal_append, note_create, note_edit]
- *   - full      : 全 7 ケーパビリティ
+ *   - full      : 全ケーパビリティ (AGENT_CAPABILITIES)
  */
 export const AGENT_PRESETS: Record<AgentPresetName, Capability[]> = {
   'read-only': ['read'],
@@ -118,12 +122,27 @@ function normalizeCapabilities(caps: readonly Capability[]): Capability[] {
  * これらのツールが広告される (clampByMode は web を read-only/append-only でも残す = 既存)。
  */
 const CAPABILITY_TOOL_NAMES: Record<Capability, readonly string[]> = {
-  read: ['backlinks', 'help', 'query', 'read_note', 'search', 'tags'],
+  // read はノート読み取り群 + help + スマートフォルダ読み取り (一覧・解決) を広告する。
+  // スマートフォルダ読み取りは GET /api/smart-folders と同じ readConfig / notes 解決経路を
+  // 通す純関数ツール (ADR-0016 / Sc4b9d1)。
+  read: [
+    'backlinks',
+    'help',
+    'query',
+    'read_note',
+    'search',
+    'smartfolder_notes',
+    'smartfolders_list',
+    'tags',
+  ],
   journal_append: ['journal_append'],
   note_create: ['note_create'],
   note_edit: ['note_edit'],
   template_write: ['template_write'],
   dataview_write: ['dataview_write'],
+  // smartfolder_write はスマートフォルダ (ビュー定義) の作成・更新・削除を広告する。
+  // 書き込み系のため full のみで許可される (clampByMode / MODE_ALLOWED)。
+  smartfolder_write: ['smartfolder_delete', 'smartfolder_write'],
   web: ['web_fetch', 'web_search'],
 };
 
@@ -155,6 +174,8 @@ export function deriveToolNames(caps: readonly Capability[]): string[] {
  *   - append-only : {read, web, journal_append} のみ残す
  *
  * full は null で表現 (フィルタ無し = 恒等)。
+ * smartfolder_write は書き込み系のため read-only/append-only では残さない = full のみ許可
+ * (両集合に含めないことで表と一貫させる)。
  */
 const MODE_ALLOWED: Record<PermissionMode, ReadonlySet<Capability> | null> = {
   full: null,
