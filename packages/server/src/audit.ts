@@ -26,7 +26,14 @@ const WRITE_METHODS = new Set(['PUT', 'POST', 'DELETE']);
 export async function writeAuditEntry(config: ServerConfig, entry: AuditEntry): Promise<void> {
   const auditDir = path.join(config.vaultRoot, '.loamium');
   try {
-    await mkdir(auditDir, { recursive: true });
+    try {
+      await mkdir(auditDir, { recursive: true });
+    } catch (mkdirErr) {
+      // bun on Windows throws EEXIST for mkdir -p when dir already exists
+      if (!((mkdirErr instanceof Error) && (mkdirErr as NodeJS.ErrnoException).code === 'EEXIST')) {
+        throw mkdirErr;
+      }
+    }
     await appendFile(path.join(auditDir, 'audit.log'), `${JSON.stringify(entry)}\n`, 'utf8');
   } catch (err) {
     console.error(`[loamium] failed to write audit log: ${String(err)}`);

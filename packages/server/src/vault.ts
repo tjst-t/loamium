@@ -66,7 +66,7 @@ export async function writeNote(
 ): Promise<{ created: boolean; mtime: number }> {
   const abs = resolveVaultFile(vaultRoot, relPath);
   const existed = await fileExists(abs);
-  await fs.mkdir(path.dirname(abs), { recursive: true });
+  await mkdirSafe(path.dirname(abs));
   await fs.writeFile(abs, toLf(content), 'utf8');
   const st = await fs.stat(abs);
   return { created: !existed, mtime: Math.trunc(st.mtimeMs) };
@@ -162,7 +162,7 @@ export async function writeVaultFile(
 ): Promise<{ created: boolean; size: number; mtime: number }> {
   const abs = resolveVaultFile(vaultRoot, relPath);
   const existed = await fileExists(abs);
-  await fs.mkdir(path.dirname(abs), { recursive: true });
+  await mkdirSafe(path.dirname(abs));
   await fs.writeFile(abs, data);
   const st = await fs.stat(abs);
   return { created: !existed, size: st.size, mtime: Math.trunc(st.mtimeMs) };
@@ -193,7 +193,7 @@ export async function moveVaultFile(
 ): Promise<void> {
   const oldAbs = resolveVaultFile(vaultRoot, oldRel);
   const newAbs = resolveVaultFile(vaultRoot, newRel);
-  await fs.mkdir(path.dirname(newAbs), { recursive: true });
+  await mkdirSafe(path.dirname(newAbs));
   await fs.rename(oldAbs, newAbs);
 }
 
@@ -293,6 +293,20 @@ export async function deleteNote(vaultRoot: string, relPath: string): Promise<bo
     if (isErrnoException(err) && err.code === 'ENOENT') {
       return false;
     }
+    throw err;
+  }
+}
+
+/**
+ * fs.mkdir({ recursive: true }) の薄いラッパー。
+ * bun on Windows では既存ディレクトリに対して EEXIST を投げる (Node.js は無視する) バグがある。
+ * EEXIST を無視することで bun/Node.js 両対応にする。
+ */
+async function mkdirSafe(dir: string): Promise<void> {
+  try {
+    await fs.mkdir(dir, { recursive: true });
+  } catch (err) {
+    if (isErrnoException(err) && err.code === 'EEXIST') return;
     throw err;
   }
 }

@@ -21,19 +21,37 @@
     "appId": "com.loamium.app",
     "productName": "Loamium",
     "electronVersion": "35.7.5",
+    "icon": "resources/icon.ico",
     "files": [
-      "dist/**/*",
-      "!dist/**/*.d.ts"
+      "dist/main.js",
+      "dist/preload.js"
     ],
     "extraResources": [
       {
         "from": "resources/loamium-server.exe",
-        "to": "loamium-server.exe",
-        "filter": ["**/*"]
+        "to": "loamium-server.exe"
+      },
+      {
+        "from": "resources/icon.ico",
+        "to": "icon.ico"
+      },
+      {
+        "from": "../ui/dist",
+        "to": "ui-dist"
       }
     ],
     "win": {
-      "target": [{ "target": "zip", "arch": ["x64"] }]
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "zip", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowElevation": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     },
     "linux": {
       "target": [{ "target": "AppImage", "arch": ["x64"] }]

@@ -1,0 +1,82 @@
+name: Build Electron Desktop App
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  # ── Step 1: Cross-compile the Hono server binary for Windows on Linux ────────
+  build-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared package
+        run: npm run build -w @loamium/shared
+
+      - name: Cross-compile server for Windows x64
+        run: |
+          bun build \
+            --compile \
+            --target=bun-windows-x64 \
+            --outfile=packages/app-electron/resources/loamium-server.exe \
+            packages/server/src/index.ts
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: loamium-server-exe
+          path: packages/app-electron/resources/loamium-server.exe
+
+  # ── Step 2: Build NSIS installer on Windows (no Wine needed) ────────────────
+  build-electron:
+    runs-on: windows-latest
+    needs: build-server
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download server binary
+        uses: actions/download-artifact@v4
+        with:
+          name: loamium-server-exe
+          path: packages/app-electron/resources/
+
+      - name: Build shared package
+        run: npm run build -w @loamium/shared
+
+      - name: Build UI
+        run: npm run build -w @loamium/ui
+
+      - name: Build Electron main + preload
+        run: npm run build -w loamium-app-electron
+
+      - name: Package with electron-builder (NSIS + zip)
+        run: npx electron-builder --win nsis zip --x64
+        working-directory: packages/app-electron
+
+      - name: Upload artifacts to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            packages/app-electron/dist/*.exe
+            packages/app-electron/dist/*.zip
