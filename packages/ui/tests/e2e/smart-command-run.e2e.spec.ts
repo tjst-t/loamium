@@ -8,7 +8,7 @@
  *   Ctrl-K → '>' 絞り込み → フォーム入力 → 実行 → ジャーナルの Todo セクションに追記反映
  */
 import { test, expect } from '@playwright/test';
-import { writeFile, mkdir, readFile } from 'node:fs/promises';
+import { writeFile, mkdir, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { readHarnessState } from '../harness/state.js';
 
@@ -39,6 +39,11 @@ const CREATE_TODO_COMMAND = [
 
 test.beforeAll(async () => {
   const { vault } = readHarnessState();
+  // 共有 vault 対策: command-editor.e2e が create-todo を保存すると system/commands/ へ
+  // 昇格し、コマンド解決が system/commands/ を優先して commands/ を shadowing する
+  // (params が seed 定義=summary に化ける)。この spec の fixture を authoritative にするため
+  // 昇格分を掃除してから commands/ に書く (実行順に依存しない)。
+  await rm(path.join(vault, 'system', 'commands', 'create-todo.yaml'), { force: true });
   const commandsDir = path.join(vault, 'commands');
   await mkdir(commandsDir, { recursive: true });
   await writeFile(path.join(commandsDir, 'create-todo.yaml'), CREATE_TODO_COMMAND, 'utf8');
