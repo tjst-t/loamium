@@ -285,4 +285,76 @@ describe('createVaultReadTools', () => {
       expect(text).toContain(name);
     }
   });
+
+  // ---- Sc4b9d1-4: 新トピック smartfolder / command / template 拡充 -------------
+
+  it('[AC-Sc4b9d1-4-3] helpTopicNames が smartfolder / command / template を含む', () => {
+    const names = helpTopicNames();
+    expect(names).toContain('smartfolder');
+    expect(names).toContain('command');
+    expect(names).toContain('template');
+  });
+
+  it('[AC-Sc4b9d1-4-3] help ツールの description に新トピックが自動反映される', () => {
+    const helpTool = tools.find((t) => t.name === 'help');
+    expect(helpTool).toBeDefined();
+    if (!helpTool) return;
+    // description は helpTopicNames() から生成される → 新トピックが載る。
+    expect(helpTool.description).toContain('smartfolder');
+    expect(helpTool.description).toContain('command');
+    expect(helpTool.description).toContain('template');
+  });
+
+  it('[AC-Sc4b9d1-4-1] smartfolder トピックがツール名・入出力・経由サービス・制約を記載する', async () => {
+    const helpTool = tools.find((t) => t.name === 'help');
+    if (!helpTool) return;
+    const result = await helpTool.execute('tc-sf', { topic: 'smartfolder' }, noSignal, noUpdate, fakeCtx);
+    const text = (result.content[0] as { type: 'text'; text: string }).text;
+    expect(text).toBe(AGENT_HELP_TOPICS['smartfolder']);
+    // 4 ツール名。
+    expect(text).toContain('smartfolders_list');
+    expect(text).toContain('smartfolder_notes');
+    expect(text).toContain('smartfolder_write');
+    expect(text).toContain('smartfolder_delete');
+    // 経由サービス・制約・使用例 (DQL クエリ定義)。
+    expect(text).toContain('smart-folders-service');
+    expect(text).toContain('LIST FROM #project');
+    expect(text).toContain('機密領域');
+  });
+
+  it('[AC-Sc4b9d1-4-2] command トピックが command_run の params 使用例を記載する', async () => {
+    const helpTool = tools.find((t) => t.name === 'help');
+    if (!helpTool) return;
+    const result = await helpTool.execute('tc-cmd', { topic: 'command' }, noSignal, noUpdate, fakeCtx);
+    const text = (result.content[0] as { type: 'text'; text: string }).text;
+    expect(text).toBe(AGENT_HELP_TOPICS['command']);
+    expect(text).toContain('commands_list');
+    expect(text).toContain('command_run');
+    expect(text).toContain('params');
+    expect(text).toContain('append-only');
+  });
+
+  it('[AC-Sc4b9d1-4-1] template トピックが template_instantiate の vars/date 使用例を含む', async () => {
+    const helpTool = tools.find((t) => t.name === 'help');
+    if (!helpTool) return;
+    const result = await helpTool.execute('tc-tpl', { topic: 'template' }, noSignal, noUpdate, fakeCtx);
+    const text = (result.content[0] as { type: 'text'; text: string }).text;
+    expect(text).toBe(AGENT_HELP_TOPICS['template']);
+    expect(text).toContain('templates_list');
+    expect(text).toContain('template_instantiate');
+    expect(text).toContain('vars');
+    expect(text).toContain('date');
+    // ピュア Markdown を勧める。
+    expect(text).toContain('ピュア Markdown');
+  });
+
+  it('[AC-Sc4b9d1-4-2] 新トピック本文はブロック ID・独自記法を勧めない', () => {
+    for (const topic of ['smartfolder', 'command', 'template']) {
+      const body = AGENT_HELP_TOPICS[topic];
+      expect(body).toBeDefined();
+      // 「ブロック ID を使え / 独自記法を使え」と勧める記述を含めない。
+      expect(body).not.toMatch(/ブロック ID を(使|付|振)/);
+      expect(body).not.toMatch(/独自記法を(使|導入|採用)/);
+    }
+  });
 });
