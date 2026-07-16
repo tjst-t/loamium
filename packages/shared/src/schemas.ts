@@ -1066,6 +1066,9 @@ export const agentJobDetailResponseSchema = z.object({
 });
 export type AgentJobDetailResponse = z.infer<typeof agentJobDetailResponseSchema>;
 
+export const agentJobRunResponseSchema = z.object({ sessionId: z.string() });
+export type AgentJobRunResponse = z.infer<typeof agentJobRunResponseSchema>;
+
 // ============================================================
 // 設定 API (Sa10026-5)
 // ============================================================

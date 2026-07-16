@@ -3367,46 +3367,46 @@
       "stories": {
         "S2fe109-1": {
           "title": "API ユーザーとして、.loamium/agent-jobs.json でジョブを定義し、REST で一覧・詳細を確認したい。なぜなら、定期エージェント実行の設定を vault と一緒に Git 管理したいから。",
-          "status": "pending",
+          "status": "done",
           "story_type": "api",
           "acceptance_criteria": [
             {
               "id": "AC-S2fe109-1-1",
               "description": "GET /api/agent/jobs が .loamium/agent-jobs.json から読んだジョブ一覧を返す。レスポンス形式: { jobs: [{ name, schedule, enabled, lastRunAt }] }",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S2fe109-1-2",
               "description": "agent-jobs.json の各ジョブが zod スキーマ (name/schedule/prompt/permission/enabled) で検証され、不正なエントリはサーバーログに警告してスキップされる",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S2fe109-1-3",
               "description": ".gitignore の .loamium/ 除外ルールから !.loamium/agent-jobs.json で agent-jobs.json が再包含される",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S2fe109-1-4",
               "description": "GET /api/agent/jobs/:name がジョブ詳細 { name, schedule, prompt, permission, enabled, lastRunAt, nextRunAt } を返す。存在しない名前は 404",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "T1": {
               "title": "packages/shared に AgentJobDefinition zod スキーマ + agentJobsListResponseSchema + agentJobDetailResponseSchema を追加",
-              "status": "pending"
+              "status": "done"
             },
             "T2": {
               "title": "packages/server/src/agent-jobs-service.ts を作成 (agent-jobs.json 読込・検証・state 管理・nextRunAt 計算)",
-              "status": "pending"
+              "status": "done"
             },
             "T3": {
               "title": "GET /api/agent/jobs と GET /api/agent/jobs/:name を routes/agent.ts に追加",
-              "status": "pending"
+              "status": "done"
             },
             "T4": {
               "title": ".gitignore に !.loamium/agent-jobs.json を追加 (ADR-0013 consequences)",
-              "status": "pending"
+              "status": "done"
             }
           }
         },

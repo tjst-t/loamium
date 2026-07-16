@@ -510,5 +510,53 @@ export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
     });
   });
 
+  // ---- POST /api/agent/jobs/:name/run -----------------------------------------------
+
+  app.post('/api/agent/jobs/:name/run', async (c) => {
+    const name = c.req.param('name');
+    const jobs = await loadAgentJobs(config.vaultRoot);
+    const job = jobs.find((j) => j.name === name);
+    if (!job) {
+      return errorJson(c, 404, 'job_not_found', `agent job not found: ${name}`);
+    }
+    if (!job.enabled) {
+      return errorJson(c, 409, 'job_disabled', 'job disabled');
+    }
+
+    const configResult = await loadAgentConfig(config.vaultRoot);
+    if (!configResult.ok) {
+      return errorJson(c, 400, configResult.reason, configResult.message);
+    }
+
+    // Map AgentJobPermission → AgentPermissions for resolvePermissions.
+    // 'read-only' / 'full' are preset names; 'append-only' maps to ['journal_append'].
+    const jobPermissions =
+      job.permission === 'append-only'
+        ? (['journal_append'] as const)
+        : job.permission;
+
+    const effectiveCaps = getEffectiveCapabilities(
+      configResult.config,
+      resolvePermissions(jobPermissions),
+      config.mode,
+    );
+
+    let session;
+    try {
+      session = await createPiSession(config, configResult.config, index, effectiveCaps);
+    } catch (err) {
+      return errorJson(c, 500, 'session_create_failed', String(err));
+    }
+
+    const { sessionId } = session;
+
+    // Fire-and-forget: start the agent with the job prompt in the background.
+    session.prompt(job.prompt).catch(console.error);
+
+    setAudit(c, 'agent.job.run', name);
+
+    return c.json({ sessionId });
+  });
+
   return app;
 }
