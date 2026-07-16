@@ -31,5 +31,5 @@
   "affects": ["packages/shared", "packages/server", "packages/cli", "packages/ui"],
   "supersedes": null,
   "superseded_by": null,
-  "notes": "run-command(再帰禁止・深さ1 で入れるかは別 ADR)と agent-run(Pi Agent 統合 + 非同期ジョブモデル、S5a66e4)はバックログ済み。実装はバックエンド(スキーマ/エンジン/CLI)を加算スライスで行い、その語彙を ADR-0023 のエディタが反映する。"
+  "notes": "run-command(再帰禁止・深さ1 で入れるかは別 ADR)と agent-run(Pi Agent 統合 + 非同期ジョブモデル、S5a66e4)はバックログ済み。実装はバックエンド(スキーマ/エンジン/CLI)を加算スライスで行い、その語彙を ADR-0023 のエディタが反映する。 [解消: ADR-0028] agent-run(本 ADR で『賢い処理は将来の agent-run に切り分ける』としてバックログ退避したもの)は ADR-0028(S5a66e4)で解消され、S2fe109 の runAgentJob を再利用してステップ・ユニオンに 7 種目として加算された。本 ADR は supersede されない(superseded_by は変更しない)。run-command は依然バックログのまま。"
 }

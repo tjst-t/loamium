@@ -218,7 +218,7 @@ describe('[AC-Sd22b1f-1-1] commandStepSchema', () => {
 
   it('未知の kind は拒否される', () => {
     const result = commandStepSchema.safeParse({
-      kind: 'agent-run',  // v1 では未実装 (予約のみ)
+      kind: 'shell-exec',  // ユニオンに存在しない kind (プラグイン禁止)
       script: 'echo hello',
     });
     expect(result.success).toBe(false);
@@ -627,6 +627,134 @@ describe('[ADR-0024] parseLoamiumCommandFileWithError', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// agent-run ステップ (ADR-0028 / S5a66e4-2) — 加算スライス
+// 既存 6 種の定義・パース・テストは不変。ここでは 7 種目のみを検証する。
+// ---------------------------------------------------------------------------
+describe('[AC-S5a66e4-2-1] commandStepSchema with agent-run', () => {
+  it('agent-run ステップが通る (prompt のみ = 最小)', () => {
+    const result = commandStepSchema.safeParse({
+      kind: 'agent-run',
+      prompt: '直近の議事録を要約して当日ジャーナルの ## 議事録 に追記して',
+    });
+    expect(result.success).toBe(true);
+    if (result.success && result.data.kind === 'agent-run') {
+      expect(result.data.prompt).toContain('議事録');
+      // 省略時は undefined (既定 20/120 は実行側 commands.ts で補完する)
+      expect(result.data.maxTurns).toBeUndefined();
+      expect(result.data.timeoutSec).toBeUndefined();
+      expect(result.data.permissions).toBeUndefined();
+    }
+  });
+
+  it('agent-run ステップが通る (全フィールド: permissions/maxTurns/timeoutSec/open/when)', () => {
+    const result = commandStepSchema.safeParse({
+      kind: 'agent-run',
+      prompt: '{{source}} を要約して',
+      permissions: ['read', 'journal_append'],
+      maxTurns: 30,
+      timeoutSec: 300,
+      open: true,
+      when: '{{do_summarize}}',
+    });
+    expect(result.success).toBe(true);
+    if (result.success && result.data.kind === 'agent-run') {
+      expect(result.data.permissions).toEqual(['read', 'journal_append']);
+      expect(result.data.maxTurns).toBe(30);
+      expect(result.data.timeoutSec).toBe(300);
+      expect(result.data.when).toBe('{{do_summarize}}');
+    }
+  });
+
+  it("permissions プリセット文字列 'full' も通る", () => {
+    const result = commandStepSchema.safeParse({
+      kind: 'agent-run',
+      prompt: 'x',
+      permissions: 'full',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('prompt 欠落は拒否される', () => {
+    const result = commandStepSchema.safeParse({ kind: 'agent-run' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      // discriminatedUnion は正しく agent-run 分岐へ入り prompt required を報告する
+      const promptIssue = result.error.errors.find((e) => e.path.includes('prompt'));
+      expect(promptIssue).toBeDefined();
+    }
+  });
+
+  it('prompt 空文字は拒否される (min(1))', () => {
+    const result = commandStepSchema.safeParse({ kind: 'agent-run', prompt: '' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const promptIssue = result.error.errors.find((e) => e.path.includes('prompt'));
+      expect(promptIssue).toBeDefined();
+    }
+  });
+
+  it('maxTurns が範囲外 (51) は拒否される', () => {
+    const result = commandStepSchema.safeParse({ kind: 'agent-run', prompt: 'x', maxTurns: 51 });
+    expect(result.success).toBe(false);
+  });
+
+  it('timeoutSec が範囲外 (5) は拒否される', () => {
+    const result = commandStepSchema.safeParse({ kind: 'agent-run', prompt: 'x', timeoutSec: 5 });
+    expect(result.success).toBe(false);
+  });
+
+  it('未知の permissions ケーパビリティは拒否される', () => {
+    const result = commandStepSchema.safeParse({
+      kind: 'agent-run',
+      prompt: 'x',
+      permissions: ['read', 'nope'],
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('[AC-S5a66e4-2-3] parseLoamiumCommandFileWithError with agent-run', () => {
+  it('agent-run を含む有効な YAML → ok:true', () => {
+    const yaml = [
+      'name: meeting-summary',
+      'steps:',
+      '  - kind: agent-run',
+      '    prompt: "{{source}} を読んで要約し当日ジャーナルの {{section}} へ追記して"',
+      '    maxTurns: 25',
+      '    timeoutSec: 300',
+    ].join('\n');
+    const result = parseLoamiumCommandFileWithError(yaml);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const step = result.command.steps[0];
+      expect(step?.kind).toBe('agent-run');
+      if (step?.kind === 'agent-run') {
+        expect(step.prompt).toContain('要約');
+        expect(step.maxTurns).toBe(25);
+      }
+    }
+  });
+
+  it('agent-run で prompt 欠落 → ok:false + 具体的エラー', () => {
+    const yaml = ['steps:', '  - kind: agent-run', '    maxTurns: 10'].join('\n');
+    const result = parseLoamiumCommandFileWithError(yaml);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain('prompt');
+    }
+  });
+
+  it('agent-run で prompt 空文字 → ok:false + 具体的エラー', () => {
+    const yaml = ['steps:', '  - kind: agent-run', '    prompt: ""'].join('\n');
+    const result = parseLoamiumCommandFileWithError(yaml);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain('prompt');
     }
   });
 });

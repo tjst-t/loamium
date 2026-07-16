@@ -1,0 +1,33 @@
+# 議事録まとめ サンプルスマートコマンド (ADR-0021 / ADR-0028)
+#
+# agent-run ステップは「賢い処理」を Pi エージェントへ委譲する (ADR-0028)。
+# 重要 (AC-S5a66e4-4-1): 結果のファイル書き込みは agent-run ステップ独自の I/O を
+# 一切作らない。エージェントが ADR-0016 の監査済み書き込みツール
+# (journal_append で当日ジャーナルへ / note_create で新規ノートへ / note_edit で既存へ)
+# を使い、下の prompt が指定する出力先へ書き込む。書き込み先は commands.ts では
+# 強制せず、prompt (下記 {{section}} 追記の指示) のみが決める。
+# これにより vault ルート内・パス正規化・監査ログといった既存サービス層の
+# 安全境界がそのまま効く (vault 外書き込みは既存サービス層が拒否する)。
+name: 議事録まとめ
+description: 指定ノートの内容を要約し、当日ジャーナルの指定セクションへ追記します (書き込みはエージェントの journal_append ツールが行います)。
+params:
+  - name: source
+    type: note
+    label: 議事録ノート
+    required: true
+  - name: section
+    type: text
+    label: 追記先セクション
+    default: 議事録
+steps:
+  - kind: agent-run
+    # prompt が唯一の出力先指定。エージェントは source ノートを読み、要約し、
+    # journal_append ツールで当日ジャーナルの {{section}} セクションへ追記する。
+    prompt: |
+      ノート「{{source}}」の内容を読み、日本語で簡潔な議事録サマリー
+      (決定事項・ToDo・論点) を作成してください。
+      作成したサマリーは journal_append ツールを使って、当日ジャーナルの
+      「{{section}}」セクションへ Markdown の箇条書きとして追記してください。
+      新しいファイルは作らず、必ず journal_append で当日ジャーナルへ書き込むこと。
+    maxTurns: 15
+    timeoutSec: 300

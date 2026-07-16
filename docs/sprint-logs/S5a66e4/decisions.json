@@ -45,8 +45,31 @@
       "reference": "ADR-0022(run-command と agent-run を分離)/ ROADMAP.backlog"
     }
   ],
-  "implementation_decisions": [],
+  "implementation_decisions": [
+    {
+      "id": "I1",
+      "category": "implementation",
+      "decision": "agent-run は新規ジョブ基盤を作らず既存 runAgentJob(S2fe109) を一時ジョブで委譲",
+      "rationale": "実行経路単一化・監査/権限/上限の二重化回避",
+      "reference": "ADR-0028 / ADR-0013"
+    },
+    {
+      "id": "I2",
+      "category": "implementation",
+      "decision": "permissions のテンプレート展開は no-op (固定列挙のため素通し)",
+      "rationale": "agentPermissionsSchema は preset/enum で値固定。展開はスキーマを壊すため prompt のみ展開",
+      "reference": "S5a66e4-3 実装コメント"
+    },
+    {
+      "id": "V1",
+      "category": "verify",
+      "decision": "CommandEditor/smart-command-run の実サーバー e2e 7 件失敗は S5a66e4 の回帰ではなく既存破損として backlog 化",
+      "rationale": "base main (a0b9d8b) で同一再現を確認 (証拠付き)。S5a66e4 の新規テストは全緑。false-status 回避のため憶測でなく実測で pre-existing を判定",
+      "reference": "test-discipline Rule 9 / MEMORY:test-label-vs-key-divergence"
+    }
+  ],
   "elaborated_at": "2026-07-16",
   "summary": "smart-command 実行エンジンに agent-run ステップ種を追加し、議事録まとめ等の AI 委譲ワークフローを実現する。既存の S2fe109 非同期ジョブ基盤(agent-job-runner / agent-jobs-store / Pi セッション + ADR-0016 の監査済み書き込みツール)と ADR-0013 の非同期ジョブモデルを再利用する設計を新規 ADR-0028 に記録し、閉じたステップ・ユニオン(現状 6 種)へ加算拡張する。結果ファイルへの書き込みはエージェント自身の書き込みツールにプロンプトで委譲し、失敗時挙動・上限(maxTurns/timeoutSec)・REST/CLI 1:1・エディタ補完・テストを網羅する。",
-  "adr_needed": "ADR-0028 agent-run step reuses S2fe109 async job runner (agent-job-runner) and ADR-0013 job model; results written via ADR-0016 audited write tools driven by the step prompt (no new I/O path)"
+  "adr_needed": "ADR-0028 agent-run step reuses S2fe109 async job runner (agent-job-runner) and ADR-0013 job model; results written via ADR-0016 audited write tools driven by the step prompt (no new I/O path)",
+  "verified_at": "2026-07-16"
 }

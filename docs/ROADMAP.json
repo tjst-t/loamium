@@ -4,10 +4,10 @@
   "progress": {
     "current_sprint": null,
     "total": 55,
-    "done": 45,
+    "done": 46,
     "in_progress": 0,
-    "remaining": 10,
-    "percentage": 82
+    "remaining": 9,
+    "percentage": 84
   },
   "execution_order": [
     "Sd63ad1",
@@ -4286,230 +4286,230 @@
       "title": "agent-run ステップ — Pi Agent 連携ワークフロー",
       "description": "議事録まとめ等、AI Agent を起動するステップ種を実行エンジンに追加する(ADR-0021 の予約に対応)。Pi Agent 統合のマージ後、非同期ジョブモデル(状態管理・失敗時挙動・結果のファイル書き込み)を design adr で決定してから詳細化する。",
       "milestone": false,
-      "status": "pending",
+      "status": "done",
       "depends_on": null,
       "detail_level": "detailed",
       "stories": {
         "S5a66e4-1": {
           "title": "設計者として、agent-run ステップの設計判断を ADR-0028 に起草したい。なぜなら ADR-0021 が『agent-run は予約のみ、Pi Agent 統合後に別 ADR で非同期ジョブモデル(状態・失敗時挙動・結果のファイル書き込み)を扱う』と明記しており、既存 S2fe109 ジョブランナー / ADR-0013 の再利用という load-bearing な判断を記録する必要があるから。",
           "story_type": "docs",
-          "status": "pending",
+          "status": "done",
           "acceptance_criteria": [
             {
               "id": "AC-S5a66e4-1-1",
               "description": "docs/DESIGN/adr/ADR-0028-agent-run-step-reuses-async-job-runner.json を新規作成する。status:accepted、date、affects:['packages/shared','packages/server','packages/cli','packages/ui']。ADR-0021 の agent-run 予約条項を解消する notes/参照を含める(ADR-0021.superseded_by は変更しない=加算拡張のため)。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S5a66e4-1-2",
               "description": "decision に次を明記する: (1) agent-run ステップは新規ジョブ実行基盤を作らず、S2fe109 の runAgentJob(agent-job-runner.ts)を再利用して Pi セッションを起動する。(2) 非同期ジョブモデル・上限(maxTurns/timeoutSec)・失敗時挙動は ADR-0013 のジョブ実行契約を踏襲する。(3) 結果のファイル書き込みはエージェント自身の書き込みツール(ADR-0016 の監査済みサービス層: journal_append/note_create/note_edit)にプロンプト経由で委譲し、agent-run ステップ独自の書き込み経路・新フォーマットは作らない。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S5a66e4-1-3",
               "description": "consequences に失敗モデルを明記する: agent-run ステップは ADR-0021 の fail-stop 契約(逐次実行・最初のエラーで停止・ロールバックなし)に従い、ジョブ結果 error/timeout/aborted は当該ステップの ok:false としてレスポンスに反映され後続ステップを止める。同期 run API 境界(POST /commands/{name}/run が結果まで待つ)は timeoutSec で上限が付くことを明記する。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S5a66e4-1-4",
               "description": "権限との整合を記録する: agent-run は Pi エージェントに委譲するため MUTATE 相当とみなし、append-only モードでは agent-run を含むコマンドを 403 で拒否する(prop-set/note-patch と同じ安全側の扱い)。エージェント実行時の実効ケーパビリティは step 指定 → agent.json 既定の順で解決し(ADR-0015)、監査ログに command.run と agent 側書き込みの双方が残ることを記す。",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "T1": {
               "title": "ADR-0028 JSON を design スキーマ準拠で起草(context/alternatives/decision/consequences/reversibility_cost/affects/notes)",
-              "status": "pending"
+              "status": "done"
             },
             "T2": {
               "title": "ADR-0021 と ADR-0022 の notes に ADR-0028 で解消済みである旨の相互参照を追記(加算・supersede なし)",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S5a66e4-2": {
           "title": "コマンド作者として、agent-run ステップを smart-command のステップ・ユニオンに追加したい。なぜなら議事録まとめ等『賢い』処理を宣言的コマンドから AI エージェントへ委譲するための型・スキーマ境界が必要だから。",
           "story_type": "api",
-          "status": "pending",
+          "status": "done",
           "acceptance_criteria": [
             {
               "id": "AC-S5a66e4-2-1",
               "description": "packages/shared/src/loamium-command.ts に agentRunStepSchema を追加する。kind:z.literal('agent-run')、prompt:z.string().min(1)(resolveTemplate 展開対象)、任意フィールド permissions?(agentPermissionsSchema)、maxTurns?(int 1..50)、timeoutSec?(int 10..600)、open? と共通の ...stepConditionFields(when/when-not)を持つ。省略時の maxTurns/timeoutSec は agentJobSchema の既定(20/120)と一致させる。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S5a66e4-2-2",
               "description": "commandStepSchema の discriminatedUnion('kind', [...]) に agentRunStepSchema を追加し 7 種にする。既存 6 種の定義・パース・テストは不変(加算のみ)。未知 kind は従来どおり検証エラー。AgentRunStep 型を export する。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S5a66e4-2-3",
               "description": "parseLoamiumCommandFileWithError / parseLoamiumCommand が agent-run を含む有効な YAML を成功パースし、prompt 欠落・空文字は valid:false + 具体的エラーメッセージを返す。loamium-command.ts のユニットテスト(shared)に agent-run の正常/異常ケースを追加する。",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "T1": {
               "title": "agentRunStepSchema と AgentRunStep 型を loamium-command.ts に追加(agentPermissionsSchema を import)",
-              "status": "pending"
+              "status": "done"
             },
             "T2": {
               "title": "commandStepSchema ユニオンへ追加し 7 種化、shared/index.ts の re-export を更新",
-              "status": "pending"
+              "status": "done"
             },
             "T3": {
               "title": "shared ユニットテスト: agent-run の parse 正常/prompt 欠落・空文字の異常ケース追加",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S5a66e4-3": {
           "title": "エージェント/CLI 利用者として、agent-run ステップを含むコマンドをサーバー側実行エンジンで実行したい。なぜなら POST /api/commands/{name}/run が既存の非同期ジョブランナーを起動してエージェント委譲を成立させ、結果をステップ結果として返す必要があるから。",
           "story_type": "api",
-          "status": "pending",
+          "status": "done",
           "acceptance_criteria": [
             {
               "id": "AC-S5a66e4-3-1",
               "description": "packages/server/src/routes/commands.ts の run ハンドラのステップループに else if (kind === 'agent-run') 分岐を追加する。step.prompt(および permissions が文字列を含む場合)を resolveTemplate({vars:resolvedParams,date:now,now})で展開し、既存 runAgentJob(config, index, job) を呼ぶ。ここで job は agentJobSchema 形の一時ジョブ(name=command:${commandName}、schedule はダミー、prompt=展開済み、permissions/maxTurns/timeoutSec=step 値 or 既定、enabled:true)として組み立てる。新規ジョブ実行コードは書かず runAgentJob を再利用する。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S5a66e4-3-2",
               "description": "runAgentJob の返り値 {result,error} を CommandStepResult にマップする: result==='ok' → {kind:'agent-run', ok:true}(書き込み先はエージェント任せのため path は省略)、result が 'error'|'timeout'|'aborted' → {kind:'agent-run', ok:false, error:`agent job <result>: <error>`}。ok:false は ADR-0021 の fail-stop により後続ステップを停止し results に途中経過を残す。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S5a66e4-3-3",
               "description": "append-only 権限チェック(commands.ts の hasMutatingStep 判定)に agent-run を追加する。cmd.steps に agent-run が 1 つでも含まれると config.mode==='append-only' で 403 forbidden を返す(prop-set/note-patch と同じ扱い)。read-only は permissionMiddleware が既に run 全体を 403。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S5a66e4-3-4",
               "description": "when/when-not スキップは既存経路で agent-run にも効く(スキップ時はエージェントを起動せず {kind:'agent-run', ok:true, skipped:true})。agent.json 未設定時は runAgentJob が result:'error' を返すため当該ステップが ok:false(agent 未設定メッセージ)となり fail-stop する。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S5a66e4-3-5",
               "description": "server 側テスト(commands run の integration/unit)に agent-run 分岐を追加する: runAgentJob をスタブして ok/error/timeout を注入し、(a) 正常時 ok:true、(b) error 時 ok:false かつ後続ステップ未実行、(c) append-only 403、(d) when:false スキップ を検証する。既存 6 種のテストは不変。",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "T1": {
               "title": "commands.ts run ループに agent-run 分岐を実装(prompt/permissions の resolveTemplate 展開 + 一時 job 組み立て + runAgentJob 呼び出し)",
-              "status": "pending"
+              "status": "done"
             },
             "T2": {
               "title": "runAgentJob 結果 → CommandStepResult マッピングと fail-stop 連携",
-              "status": "pending"
+              "status": "done"
             },
             "T3": {
               "title": "append-only の hasMutatingStep 判定に 'agent-run' を追加",
-              "status": "pending"
+              "status": "done"
             },
             "T4": {
               "title": "server テスト: runAgentJob スタブで ok/error/timeout/append-only/when スキップを検証",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S5a66e4-4": {
           "title": "ノート利用者として、議事録まとめ等の agent-run 実行結果が指定したノートやジャーナルに書き込まれることを保証したい。なぜなら目玉ユースケース(ADR-0021 の議事録まとめ)は成果物がピュア Markdown ファイルとして vault に残らなければ意味がないから。",
           "story_type": "mixed",
-          "status": "pending",
+          "status": "done",
           "acceptance_criteria": [
             {
               "id": "AC-S5a66e4-4-1",
               "description": "結果のファイル書き込みは agent-run ステップ独自の I/O を作らず、エージェントが ADR-0016 の監査済み書き込みツール(journal_append で当日ジャーナルへ、note_create で新規ノートへ、note_edit で既存へ)を用いてプロンプト指示に従い書き込む方式とする。commands.ts は書き込み先を強制せず、prompt が出力先(例: '結果を journal の ## 議事録 セクションへ追記' や 'meetings/{{title}}.md を新規作成')を指定する。この方針をコード/ADR コメントで明文化する。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S5a66e4-4-2",
               "description": "vault に同梱するサンプルコマンド commands(または system/commands)/meeting-summary.yaml を用意する: params に source(type:note, ノートピッカー)と section(既定 '議事録')を持ち、agent-run ステップの prompt が {{source}} を読んで要約し当日ジャーナルの {{section}} セクションへ追記するよう記述する。実際の書き込み先はエージェントの journal_append ツール(ジャーナル API 経由)であることを確認する。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S5a66e4-4-3",
               "description": "書き込みが vault ルート内に限定され監査ログ(.loamium/audit.log)へ command.run と agent 書き込みの双方が残ることを、agent-run を含むコマンド実行の integration テストで検証する(パストラバーサル・vault 外書き込みは既存サービス層が拒否)。",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "T1": {
               "title": "agent-run の結果書き込み方針(prompt 駆動・ADR-0016 ツール委譲)をコード/ADR に明文化",
-              "status": "pending"
+              "status": "done"
             },
             "T2": {
               "title": "サンプル meeting-summary.yaml コマンドを vault(system/commands)へ追加",
-              "status": "pending"
+              "status": "done"
             },
             "T3": {
               "title": "監査ログ二重記録(command.run + agent 書き込み)の integration テスト",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S5a66e4-5": {
           "title": "コマンド定義エディタ利用者として、YAML エディタで agent-run ステップを補完・雛形挿入したい。なぜなら 7 種目のステップも既存 6 種と同様に暗記せず発見・挿入できる導線(DESIGN_PRINCIPLES ui_ux)が必要だから。",
           "story_type": "gui",
-          "status": "pending",
+          "status": "done",
           "acceptance_criteria": [
             {
               "id": "AC-S5a66e4-5-1",
               "description": "packages/ui/src/commandDslCompletion.ts の DSL_KINDS に 'agent-run' を追加し 7 種にする。kind: 行の補完候補に agent-run が現れる。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S5a66e4-5-2",
               "description": "KIND_SCAFFOLDS['agent-run'] を追加する。雛形は prompt(必須)を含み、permissions?/maxTurns?/timeoutSec?/open?/when?/when-not? をコメント or 任意フィールドとして提示する。scaffold 挿入で有効な YAML になる。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S5a66e4-5-3",
               "description": "commandDslCompletion のユニットテストに agent-run の kind 補完と scaffold 挿入ケースを追加する。既存 6 種の補完テストは不変。CommandEditor 上で agent-run を選ぶと prototype CSS を崩さず正しく描画されること(視覚確認は verify 時)。",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "T1": {
               "title": "DSL_KINDS に 'agent-run' 追加、KIND_SCAFFOLDS に prompt 中心の雛形追加",
-              "status": "pending"
+              "status": "done"
             },
             "T2": {
               "title": "commandDslCompletion ユニットテストに agent-run 補完/scaffold ケース追加",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S5a66e4-6": {
           "title": "エージェント/CLI 利用者として、loamium command run で agent-run ステップの実行結果を CLI 出力で確認したい。なぜなら REST/CLI 1:1(DESIGN_PRINCIPLES priority 3)により、エージェントが 1 コマンドで議事録まとめを起動・結果確認できる必要があるから。",
           "story_type": "cli",
-          "status": "pending",
+          "status": "done",
           "acceptance_criteria": [
             {
               "id": "AC-S5a66e4-6-1",
               "description": "既存 loamium command run <name> --param k=v が agent-run ステップを含むコマンドを実行し、commandRunResponseSchema の results をそのまま出力する(agent-run 分岐で CLI 側の新規実装は不要=API 拡張が透過する)。ok 行は `ok\\tagent-run`、失敗は `fail\\tagent-run\\t<error>`、スキップは `skip\\tagent-run` と表示される。--json で生 JSON を出せる。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S5a66e4-6-2",
               "description": "agent-run ステップは同期 run 境界で timeoutSec まで待つため CLI が長時間ブロックしうる旨を command run のヘルプ/README(または docs)に注記する。長時間実行の定期版は既存 loamium agent-jobs で行える点も併記する。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S5a66e4-6-3",
               "description": "CLI(または real-server acceptance)テストで agent-run を含むコマンドの run 出力(ok/fail 行)を検証する。既存 command run のテストは不変。",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "T1": {
               "title": "command run が agent-run 結果を透過表示することを確認し、必要ならヘルプ文言に長時間ブロック注記を追加",
-              "status": "pending"
+              "status": "done"
             },
             "T2": {
               "title": "CLI/acceptance テストで agent-run を含む command run の出力検証",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
@@ -6565,6 +6565,13 @@
       "description": "高速ドラッグ連打で order PUT が並行し 409 が silent。debounce / pending-write ロックで解消。",
       "added_in": "Sa10026-4 review",
       "status": "pending"
+    },
+    {
+      "title": "CommandEditor / smart-command-run の実サーバー e2e が既存破損 (create-todo.yaml)",
+      "description": "command-editor.e2e.spec.ts の 4 ケース (create-todo.yaml を /n/ で開くと command-editor が表示されない 等) と smart-command-run.e2e.spec.ts の 2 ケース (create-todo のパラメータフォーム param-field[data-name=タスク概要] が出ない) が失敗。S5a66e4 実装前の base main (a0b9d8b) でも同一に再現し、S5a66e4 の回帰ではない (agent-run と無関係)。テストは param の name(=summary) と label(=タスク概要) の二重利用を data-name=label で探しており、メモリ test-label-vs-key-divergence に合致する疑い。UI CommandEditor ルートまたは e2e ハーネス側の既存不具合。REST/サービス層の command 実行 (server unit) は緑。",
+      "added_in": "S5a66e4-verify",
+      "kind": "bug",
+      "reason": "S5a66e4 検証中に発見した既存の実サーバー e2e 破損。マイルストーン Sc4b9d1 で triage"
     }
   ]
 }

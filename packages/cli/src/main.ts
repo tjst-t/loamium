@@ -600,7 +600,15 @@ function buildProgram(): Command {
 
   commandCmd
     .command('run')
-    .description('コマンドをステップ順に実行する (POST /api/commands/{name}/run)')
+    .description(
+      [
+        'コマンドをステップ順に実行する (POST /api/commands/{name}/run)',
+        '',
+        '出力は 1 ステップ 1 行 (TSV): ok<TAB>kind[<TAB>path] / fail<TAB>kind<TAB>error / skip<TAB>kind。',
+        'agent-run ステップは同期 run 境界で timeoutSec (既定 120s) までブロックしうるため、',
+        '長時間かかる場合がある。定期・非同期に走らせたいときは loamium agent-jobs を使う。',
+      ].join('\n'),
+    )
     .argument('<name>', 'コマンド名 (commands/ 配下のファイル名、拡張子なし)')
     .option(
       '--param <key=value>',

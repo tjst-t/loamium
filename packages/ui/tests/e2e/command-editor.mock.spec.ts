@@ -146,10 +146,12 @@ const INVALID_COMMAND_CONTENT_NO_STEPS = [
 ].join('\n');
 
 /** 無効なスマートコマンド定義 (未知の kind) */
+// 未知の kind (7 種の DSL に存在しない値) を持つ無効なコマンド定義。
+// 注: agent-run は S5a66e4-2 で 7 種目として有効化されたため sentinel には使えない。
 const INVALID_COMMAND_CONTENT_BAD_KIND = [
   'name: bad-kind',
   'steps:',
-  '  - kind: agent-run',
+  '  - kind: no-such-kind',
   '    prompt: "hello"',
 ].join('\n');
 

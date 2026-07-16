@@ -124,7 +124,7 @@ export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv>
   // スマートフォルダ定義 CRUD・解決 (S32940c-2)
   app.route('/', smartFoldersRoutes(config, index));
   // スマートコマンド定義一覧 (Sd22b1f-1)
-  app.route('/', commandsRoutes(config));
+  app.route('/', commandsRoutes(config, index));
   // エージェント (S53409d-3) — 権限・監査はルート内で管理
   app.route('/', agentRoutes(config, index));
   // エージェント定期実行ジョブ (S2fe109)

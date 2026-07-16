@@ -62,7 +62,8 @@ type StepKind =
   | 'note-create'
   | 'template-instantiate'
   | 'prop-set'
-  | 'note-patch';
+  | 'note-patch'
+  | 'agent-run';
 
 const STEP_KINDS: StepKind[] = [
   'journal-append',
@@ -71,6 +72,7 @@ const STEP_KINDS: StepKind[] = [
   'template-instantiate',
   'prop-set',
   'note-patch',
+  'agent-run',
 ];
 
 // ---- YAML シリアライザ ----
@@ -333,6 +335,7 @@ function defaultStep(kind: StepKind): CommandStep {
     case 'template-instantiate': return { kind: 'template-instantiate', template: '' };
     case 'prop-set': return { kind: 'prop-set', target: '' };
     case 'note-patch': return { kind: 'note-patch', target: '', old: '', new: '' };
+    case 'agent-run': return { kind: 'agent-run', prompt: '' };
   }
 }
 
@@ -379,12 +382,28 @@ function StepEditModal({ initial, onSave, onCancel, readonly }: StepEditModalPro
       'template-instantiate': ['template'],
       'prop-set': ['target'],
       'note-patch': ['target', 'old', 'new'],
+      'agent-run': ['prompt'],
     };
     const missing = (requiredByKind[kind] ?? []).filter((k) => (fields[k] ?? '').trim() === '');
     if (missing.length > 0) {
       setError(`必須フィールドが未入力: ${missing.join(', ')}`);
       return;
     }
+
+    // base (defaultStep) に含まれない任意フィールドの定義 (kind ごと)。
+    // defaultStep は必須フィールドのみを返すため、フォームで入力できる任意フィールドを
+    // ここで補完する。numeric なフィールドは number 型でシリアライズする。
+    // agent-run の maxTurns/timeoutSec は shared スキーマで number 型 (int) のため、
+    // 文字列止まりにせず number に変換する (数値シリアライズギャップの解消)。
+    const optionalFields: Array<{ key: string; numeric: boolean }> =
+      kind === 'agent-run'
+        ? [
+            { key: 'permissions', numeric: false },
+            { key: 'maxTurns', numeric: true },
+            { key: 'timeoutSec', numeric: true },
+            { key: 'open', numeric: false },
+          ]
+        : [];
 
     // step オブジェクト構築
     const base = defaultStep(kind) as Record<string, unknown>;
@@ -398,6 +417,24 @@ function StepEditModal({ initial, onSave, onCancel, readonly }: StepEditModalPro
         built[k] = '';
       }
     }
+
+    // base に含まれない任意フィールドを補完する (agent-run の maxTurns/timeoutSec 等)。
+    for (const { key: k, numeric } of optionalFields) {
+      if (k in built) continue;
+      const userVal = fields[k];
+      if (userVal === undefined || userVal.trim() === '') continue;
+      if (numeric) {
+        const n = Number(userVal.trim());
+        if (!Number.isInteger(n)) {
+          setError(`${k} は整数で入力してください`);
+          return;
+        }
+        built[k] = n;
+      } else {
+        built[k] = userVal;
+      }
+    }
+
     // when / when-not
     if ((fields['when'] ?? '').trim() !== '') built['when'] = fields['when'];
     if ((fields['when-not'] ?? '').trim() !== '') built['when-not'] = fields['when-not'];
@@ -445,6 +482,11 @@ function StepEditModal({ initial, onSave, onCancel, readonly }: StepEditModalPro
         { key: 'target', label: 'target (ノートパス)' },
         { key: 'old', label: 'old (置換前テキスト)', multiline: true },
         { key: 'new', label: 'new (置換後テキスト)', multiline: true },
+      ];
+      case 'agent-run': return [
+        { key: 'prompt', label: 'prompt (エージェントへの指示)', multiline: true, hint: '出力先も指示に含める (例: 当日ジャーナルの ## 議事録 へ追記)' },
+        { key: 'maxTurns', label: 'maxTurns', optional: true, hint: '1..50 (省略時 20)' },
+        { key: 'timeoutSec', label: 'timeoutSec', optional: true, hint: '10..600 (省略時 120)' },
       ];
     }
   })();
