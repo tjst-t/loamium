@@ -11,7 +11,9 @@
     "リスト行に対する Tab/Shift+Tab インデント・折りたたみが CodeMirror 上で動作し、見出し・段落には作用しない(C 方式)",
     "[[WikiLink]] のバックリンクがインメモリインデックスで解決され、ファイル変更時にインデックスが追従する",
     "デイリージャーナル(YYYY-MM-DD.md)が自動生成され、ジャーナル中心ワークフローが回る",
-    "vault は Git リポジトリとして履歴・バックアップ・競合解決が効く"
+    "vault は Git リポジトリとして履歴・バックアップ・競合解決が効く",
+    "エージェント統合が REST API / CLI / Skill に加え、Loamium 内蔵エージェント(pi SDK をサーバーに in-process 同梱)でも成立し、内蔵エージェントがノートを読み書き・整理できる",
+    "外部 API キーが無い / オフラインの環境でも、ユーザーが明示的にローカルモデル(内蔵オフライン LLM バックエンド)を選べば内蔵エージェントが動作する(自動フォールバックはせず、ユーザーがバックエンドを明示選択する)"
   ],
   "out_of_scope": [
     "プラグイン API(個人用なのでコア機能で完結)",
@@ -33,7 +35,9 @@
     "frontmatter(YAML)はデータモデルの第一級市民",
     "外部公開は Cloudflare Tunnel + Access(ローカルは無認証、認証は Access に委譲)",
     "拡張レンダリングは fence / inline / block の 3 レジストリ構造(最初に実証するのは Mermaid + KaTeX + Shiki)",
-    "デスクトップ化は当面 Tauri(Deno Desktop は安定版が出たら再評価)"
+    "デスクトップ化は当面 Tauri(Deno Desktop は安定版が出たら再評価)",
+    "内蔵エージェントは pi SDK をサーバーに in-process 同梱し、推論バックエンドは外部 OpenAI/Anthropic 互換エンドポイントか内蔵オフライン LLM をユーザーが明示選択する",
+    "内蔵オフライン LLM は node-llama-cpp を in-process 同梱(OpenAI 互換 shim 経由)。CPU 前提で 3-4B クラス Q4 GGUF を主対象とし、モデルは同梱せず .loamium/models/ に別途配置・DL する(local-first をノート推論レイヤまで拡張)"
   ],
   "design_references": [
     "Obsidian の Live Preview(ソース編集と装飾表示の行き来)",
