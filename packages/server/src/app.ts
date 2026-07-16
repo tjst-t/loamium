@@ -17,10 +17,12 @@ import { agentRoutes } from './routes/agent.js';
 import { agentJobRoutes } from './routes/agent-jobs.js';
 import { settingsRoutes } from './routes/settings.js';
 import { systemFilesRoutes } from './routes/system-files.js';
+import { llmRoutes } from './routes/llm.js';
 import { auditMiddleware } from './audit.js';
 import { permissionMiddleware } from './permissions.js';
 import { indexSyncMiddleware } from './indexSync.js';
 import { loadAgentConfig } from './agent-service.js';
+import { egressGuardStats } from './egress-guard.js';
 import type { VaultIndex } from './noteIndex.js';
 
 export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv> {
@@ -91,6 +93,19 @@ export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv>
   // GET /api/settings/system は settingsRoutes (Sa10026-5) が提供する。
   // (Sa10026-8 の暫定インラインハンドラは重複のため統合時に撤去)
 
+  // オフライン acceptance ハーネス専用の egress 観測エンドポイント (S8a3f2e-5)。
+  // LOAMIUM_BLOCK_EXTERNAL_FETCH=1 のときだけ登録する。本番では存在しない (404)。
+  // これはアプリ機能ではなく、外部発信ゼロをテストから観測するための計測窓。
+  if (process.env.LOAMIUM_BLOCK_EXTERNAL_FETCH === '1') {
+    app.get('/api/_test/egress-stats', (c) => {
+      const stats = egressGuardStats();
+      if (stats === null) {
+        return c.json({ installed: false, blockedCount: 0, allowedCount: 0 });
+      }
+      return c.json({ installed: true, ...stats });
+    });
+  }
+
   app.get('/api/health', async (c) => {
     // エージェント設定の有無を確認する (遅延読込 — 毎回ファイルを読む)
     const agentResult = await loadAgentConfig(config.vaultRoot);
@@ -133,6 +148,8 @@ export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv>
   app.route('/', settingsRoutes(config));
   // system/ 設定ファイル一覧 + source read/write (Sa10026-9 #1) — agent ツール非公開
   app.route('/', systemFilesRoutes(config));
+  // 内蔵オフライン LLM (ADR-0025): OpenAI 互換 shim + モデル管理 REST (S8a3f2e-2/-3)
+  app.route('/', llmRoutes(config));
 
   // 静的 UI 配信 — LOAMIUM_UI_DIST が設定されている本番モードのみ有効。
   // 開発モード(未設定)では Vite 開発サーバーが担当するため何もしない。

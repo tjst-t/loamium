@@ -35,6 +35,7 @@ import {
   type AppSettings,
   type AgentConfig,
   type AgentPermissions,
+  type AgentBackend,
 } from '@loamium/shared';
 import { resolveVaultFile } from './vault.js';
 
@@ -174,6 +175,13 @@ export async function saveAgentConnection(
     baseUrl: string;
     model: string;
     apiKey: string;
+    /** 推論バックエンド (S8a3f2e-4)。省略時は既存値を維持。 */
+    backend?: AgentBackend;
+    /**
+     * ローカルモデルのファイル名 (S8a3f2e-4)。
+     * string=選択, null=選択クリア, 省略=既存値を維持。
+     */
+    localModel?: string | null;
     webSearch?: { endpoint: string; apiKey?: string };
   },
 ): Promise<void> {
@@ -199,6 +207,16 @@ export async function saveAgentConnection(
     model: update.model,
     apiKey: update.apiKey,
   };
+  // backend 明示選択 (S8a3f2e-4)。省略時は既存値を維持 (spread 済み)。
+  if (update.backend !== undefined) {
+    merged.backend = update.backend;
+  }
+  // localModel: string=選択, null=クリア (フィールド削除), 省略=維持。
+  if (update.localModel === null) {
+    delete merged.localModel;
+  } else if (update.localModel !== undefined) {
+    merged.localModel = update.localModel;
+  }
   if (update.webSearch !== undefined) {
     merged.webSearch = update.webSearch;
   }
