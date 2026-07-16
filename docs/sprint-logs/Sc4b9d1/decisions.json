@@ -1,0 +1,51 @@
+{
+  "sprint": "Sc4b9d1",
+  "mode": "elaboration (autopilot batch)",
+  "planning_decisions": [
+    {
+      "id": "E1",
+      "category": "elaboration",
+      "decision": "書き込み系ツールは既存監査済みサービス層を経由し、エージェント専用の直接ファイル操作・独自フォーマットを新設しない",
+      "rationale": "ADR-0016 の核。ピュア Markdown 正本性・normalizeVaultPath によるパス安全・.loamium/audit.log 監査・[[リンク]] 追従を自動継承し、REST とツールの挙動一致とテスト容易性を確保する。スマートフォルダ (system-store)・コマンド (commands route の step engine)・テンプレート (templates route の instantiate) の各サービスをツール/REST 双方から呼べる純関数へ切り出す小リファクタを許容する。",
+      "reference": "ADR-0016 / DESIGN_PRINCIPLES priority 1,2"
+    },
+    {
+      "id": "E2",
+      "category": "elaboration",
+      "decision": "各機能ごとに独立ケーパビリティを設け、既存 clampByMode/deriveToolNames の導出機構を再利用する",
+      "rationale": "スマートフォルダ書き込み・コマンド実行はそれぞれ独立トグルで on/off し、読み取り (一覧・解決・テンプレート一覧) は既存 read に畳む。書き込み系は clampByMode で full のみ許可し、サーバー LOAMIUM_MODE との AND 不変条件を維持する。ケーパビリティ→ツール名の導出だけを足せば allowlist 機構をそのまま使える。",
+      "reference": "ADR-0015"
+    },
+    {
+      "id": "E3",
+      "category": "elaboration",
+      "decision": "テンプレートからのノート作成 (template_instantiate) のケーパビリティ帰属は既存 template_write 再利用を第一候補とし、実装時に確定する",
+      "rationale": "既存 template_write は『templates/ 配下にテンプレートノートを書く』行為、instantiate は『テンプレートを適用してノートを生成する』行為で意味が異なる。粒度は sprint 実装ローカル判断 (ADR-0015 notes) だが、ユーザーの権限設計をシンプルに保つため書き込み系ケーパビリティへ畳むことを優先し、選択を decisions.json に残す。",
+      "reference": "ADR-0015 / DESIGN_PRINCIPLES priority 5"
+    },
+    {
+      "id": "E4",
+      "category": "elaboration",
+      "decision": "機密領域 deny (ADR-0018) を全新ツールの読み書き・一覧結果に適用する",
+      "rationale": "smartfolder_notes の解決結果・command_run の書き込み先・template_instantiate の保存先いずれも privacy deny を通し、機密ノートを一覧に出さず・書き込ませない。強制点はエージェントに渡る直前の共通フィルタ/パス検証に集約し、各ツールに散らさない。",
+      "reference": "ADR-0018"
+    },
+    {
+      "id": "E5",
+      "category": "elaboration",
+      "decision": "各新ツールの仕様・使用例は base システムプロンプトでなく help 知識ベースへ足す",
+      "rationale": "常時必要な役割・制約は base、機能別の詳細はオンデマンドの help へ、という ADR-0014 の責務分界を守る。機能追加のたびに help トピックを足すだけでエージェントが自律的に学べ、コンテキスト圧迫と陳腐化を避ける。",
+      "reference": "ADR-0014"
+    },
+    {
+      "id": "E6",
+      "category": "elaboration",
+      "decision": "設定書込ツールを新設せず、SETTINGS_EXCLUDED_TOOL_NAMES と自己昇格防止の回帰テストを維持する",
+      "rationale": "新ケーパビリティ追加時も deriveToolNames が設定書込ツールを返さない構造的除外を崩さない。agent-tools.e2e の advertised-toolset pin を新ツール分だけ更新し、境界変更を検知可能に保つ。",
+      "reference": "ADR-0026 / ADR-0015"
+    }
+  ],
+  "implementation_decisions": [],
+  "elaborated_at": "2026-07-16",
+  "summary": "エージェントがスマートフォルダ(CRUD)・スマートコマンド(一覧/実行)・テンプレート(一覧/インスタンス化)を操作できるツール群を、既存の監査済みサービス層 (system-store / commands routes / templates routes) を経由して追加する (ADR-0016 準拠)。各機能は独立ケーパビリティで広告制御し (ADR-0015)、機密領域 deny (ADR-0018) とパス正規化を継承する。あわせて help 知識ベースに各機能の仕様・使用例を足し、CLAUDE.md に『新機能追加時は必ずエージェント操作ツールを実装する』規約を明文化する。"
+}

@@ -1,0 +1,44 @@
+{
+  "sprint": "S8a3f2e",
+  "mode": "elaboration (autopilot batch)",
+  "planning_decisions": [
+    {
+      "id": "E1",
+      "category": "elaboration",
+      "decision": "OpenAI 互換 shim を pi の baseUrl 差し替えポイントにする",
+      "rationale": "agent-service.buildModelRegistry は既に config.baseUrl/apiKey でプロバイダ登録する。shim URL を baseUrl に向けるだけで ADR-0011 のエージェント/ツール/監査/セッション配線を無改造で再利用でき、エンジンは shim の裏で差し替え可能。",
+      "reference": "ADR-0025 / agent-service.ts:buildModelRegistry"
+    },
+    {
+      "id": "E2",
+      "category": "elaboration",
+      "decision": "モデルは .loamium/models/ に置き gitignore の使い捨て資産とする",
+      "rationale": ".gitignore は .loamium/* を除外し必要物のみ再包含する。models/ は再包含しないことで『消しても vault 無傷』を満たし、インデックス/セッションと同格の使い捨てにできる。",
+      "reference": "ADR-0025 / ADR-0010 / .gitignore / DESIGN_PRINCIPLES:priority6"
+    },
+    {
+      "id": "E3",
+      "category": "elaboration",
+      "decision": "バックエンド切替・モデル選択は既存の型付き設定APIを拡張して載せる",
+      "rationale": "ADR-0026 の統一設定ハブと PUT/GET /api/settings/agent/connection が既にある。backend/localModel を shared zod スキーマと SettingsView 接続セクションに足すのが最小で、agent 自己昇格防止境界(設定は agent ツール非公開)を維持できる。",
+      "reference": "ADR-0026 / routes/settings.ts / SettingsView.tsx"
+    },
+    {
+      "id": "E4",
+      "category": "elaboration",
+      "decision": "ネイティブ addon 再導入のビルド注意を明文化する",
+      "rationale": "node-llama-cpp はネイティブ addon で、dev VM では GLIBC/gcc ビルド問題の実績がある。Node22 前提と CC=gcc-13 のビルド手順を残さないと CI/配布で詰まる。",
+      "reference": "ADR-0025:consequences / MEMORY:dev-vm-nodepty-gcc / dev-vm-node22-required"
+    },
+    {
+      "id": "E5",
+      "category": "elaboration",
+      "decision": "モデル DL/削除はパス封じ込めと監査ログを必須にする",
+      "rationale": "ダウンロード先の filename は攻撃者制御になりうる。vault 外脱出禁止ユーティリティ経由に限定し、書き込み系は監査ログへ記録する(データ安全性 > 開発速度)。",
+      "reference": "DESIGN_PRINCIPLES:priority2 / ADR-0026:consequences(監査ログ)"
+    }
+  ],
+  "implementation_decisions": [],
+  "elaborated_at": "2026-07-16",
+  "summary": "ADR-0025 に従い node-llama-cpp を packages/server に in-process 組込し、pi SDK の baseUrl を向けられる OpenAI 互換 shim (POST /api/llm/chat 系) をローカルで提供する。GGUF モデルを .loamium/models/ (gitignore・使い捨て) に置き、REST でダウンロード/一覧/削除できるようにする。統一設定UI (ADR-0026) にバックエンド切替 (外部 API キー ↔ ローカルモデル) とモデル選択を足し、ネット遮断下でエージェントが動くことを acceptance テストで確認する。"
+}

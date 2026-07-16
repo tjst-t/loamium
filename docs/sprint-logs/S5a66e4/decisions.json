@@ -1,0 +1,52 @@
+{
+  "sprint": "S5a66e4",
+  "mode": "elaboration (autopilot batch)",
+  "planning_decisions": [
+    {
+      "id": "E1",
+      "category": "elaboration",
+      "decision": "新規ジョブ実行基盤を作らず S2fe109 の runAgentJob を再利用する",
+      "rationale": "非同期ジョブ基盤(agent-job-runner.ts / agent-jobs-store.ts / agent-scheduler.ts)は S2fe109 で完成済み。実行経路を 2 本持つと監査・権限・上限管理が二重化するため、agent-run ステップは runAgentJob に一時ジョブを渡して委譲する。",
+      "reference": "ADR-0013 / ADR-0021(実行経路単一化)/ DESIGN_PRINCIPLES:priority5 シンプルさ>汎用性"
+    },
+    {
+      "id": "E2",
+      "category": "elaboration",
+      "decision": "結果のファイル書き込みはエージェントの監査済み書き込みツールにプロンプトで委譲する",
+      "rationale": "agent-run 独自の書き込み経路を作るとピュア Markdown 保証・パス検証・監査・リンク追従が二重管理になり原則違反の温床になる。出力先は prompt が指示し、実書き込みは journal_append/note_create/note_edit ツール(REST と同一サービス層)が行う。",
+      "reference": "ADR-0016 / DESIGN_PRINCIPLES:priority1 ピュア Markdown, priority2 vault 外書き込み禁止・監査"
+    },
+    {
+      "id": "E3",
+      "category": "elaboration",
+      "decision": "agent-run を含むコマンドは append-only モードで 403 拒否する",
+      "rationale": "エージェント委譲は任意の書き込み(既存改変含む)を行いうるため MUTATE 相当とみなす。prop-set/note-patch と同じく安全側に倒し、append-only では実行不可とする。",
+      "reference": "ADR-0021(権限モード整合)/ ADR-0015(ケーパビリティ)/ DESIGN_PRINCIPLES:priority2 データ安全性>開発速度"
+    },
+    {
+      "id": "E4",
+      "category": "elaboration",
+      "decision": "失敗時はステップ ok:false で fail-stop(ロールバックなし)",
+      "rationale": "ジョブの error/timeout/aborted を当該ステップ失敗として後続を止め、途中経過を results に残す。vault は Git 管理で復旧可能なためロールバックは持たない。",
+      "reference": "ADR-0021(逐次実行・最初のエラーで停止・ロールバックなし)/ DESIGN_PRINCIPLES:priority5"
+    },
+    {
+      "id": "E5",
+      "category": "elaboration",
+      "decision": "閉じたステップ・ユニオンへの加算拡張(7 種目)に留める",
+      "rationale": "制御フロー・自由スクリプトを持ち込まず、kind 判別ユニオンに agent-run を加算するのみ。既存定義・実行・CLI・テストを壊さない。",
+      "reference": "ADR-0021 / ADR-0022 / VISION:out_of_scope プラグイン API なし, forbidden:プラグイン API を作らない"
+    },
+    {
+      "id": "E6",
+      "category": "elaboration",
+      "decision": "run-command は本スプリント対象外(バックログ据え置き)",
+      "rationale": "backlog『run-command ステップ』は再帰リスク + when 併用で実質制御フロー言語化するため ADR-0022 が別 ADR 送りにした別テーマ。本スプリントの consumed は agent-run のみとする。",
+      "reference": "ADR-0022(run-command と agent-run を分離)/ ROADMAP.backlog"
+    }
+  ],
+  "implementation_decisions": [],
+  "elaborated_at": "2026-07-16",
+  "summary": "smart-command 実行エンジンに agent-run ステップ種を追加し、議事録まとめ等の AI 委譲ワークフローを実現する。既存の S2fe109 非同期ジョブ基盤(agent-job-runner / agent-jobs-store / Pi セッション + ADR-0016 の監査済み書き込みツール)と ADR-0013 の非同期ジョブモデルを再利用する設計を新規 ADR-0028 に記録し、閉じたステップ・ユニオン(現状 6 種)へ加算拡張する。結果ファイルへの書き込みはエージェント自身の書き込みツールにプロンプトで委譲し、失敗時挙動・上限(maxTurns/timeoutSec)・REST/CLI 1:1・エディタ補完・テストを網羅する。",
+  "adr_needed": "ADR-0028 agent-run step reuses S2fe109 async job runner (agent-job-runner) and ADR-0013 job model; results written via ADR-0016 audited write tools driven by the step prompt (no new I/O path)"
+}
