@@ -4,7 +4,6 @@ import { configFromEnv } from './config.js';
 import { VaultIndex } from './noteIndex.js';
 import { startWatcher } from './watcher.js';
 import { runMigration } from './migrate.js';
-import { startScheduler } from './agent-scheduler.js';
 
 const config = configFromEnv();
 
@@ -28,8 +27,6 @@ const app = createApp(config, index);
 // API 外の変更 (外部エディタ・Git) にも追従する
 const watcher = startWatcher(config.vaultRoot, index);
 
-const stopScheduler = startScheduler(config, index);
-
 const server = serve({ fetch: app.fetch, port, hostname }, (info) => {
   // テスト/CLI がポートを検出できるよう、必ずこの 1 行を出す
   console.log(
@@ -38,7 +35,6 @@ const server = serve({ fetch: app.fetch, port, hostname }, (info) => {
 });
 
 const shutdown = (): void => {
-  stopScheduler();
   void watcher.close().finally(() => {
     server.close(() => process.exit(0));
     // クローズ待ちで固まらないよう保険

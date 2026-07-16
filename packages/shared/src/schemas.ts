@@ -1029,46 +1029,6 @@ export const commandSourceWriteResponseSchema = z.object({
 });
 export type CommandSourceWriteResponse = z.infer<typeof commandSourceWriteResponseSchema>;
 
-// ---- エージェントジョブ定義 (.loamium/agent-jobs.json — ADR-0013) ----
-
-export const agentJobPermissionSchema = z.enum(['read-only', 'append-only', 'full']);
-export type AgentJobPermission = z.infer<typeof agentJobPermissionSchema>;
-
-export const agentJobDefinitionSchema = z.object({
-  name: z.string(),
-  schedule: z.string(),
-  prompt: z.string(),
-  permission: agentJobPermissionSchema,
-  enabled: z.boolean(),
-});
-export type AgentJobDefinition = z.infer<typeof agentJobDefinitionSchema>;
-
-export const agentJobsListResponseSchema = z.object({
-  jobs: z.array(
-    z.object({
-      name: z.string(),
-      schedule: z.string(),
-      enabled: z.boolean(),
-      lastRunAt: z.string().nullable(),
-    }),
-  ),
-});
-export type AgentJobsListResponse = z.infer<typeof agentJobsListResponseSchema>;
-
-export const agentJobDetailResponseSchema = z.object({
-  name: z.string(),
-  schedule: z.string(),
-  prompt: z.string(),
-  permission: agentJobPermissionSchema,
-  enabled: z.boolean(),
-  lastRunAt: z.string().nullable(),
-  nextRunAt: z.string().nullable(),
-});
-export type AgentJobDetailResponse = z.infer<typeof agentJobDetailResponseSchema>;
-
-export const agentJobRunResponseSchema = z.object({ sessionId: z.string() });
-export type AgentJobRunResponse = z.infer<typeof agentJobRunResponseSchema>;
-
 // ============================================================
 // 設定 API (Sa10026-5)
 // ============================================================

@@ -8,7 +8,6 @@ dev-vault/
 .loamium/*
 !/.loamium/smart-folders.json
 !/.loamium/agent-privacy.json
-!/.loamium/agent-jobs.json
 *.log
 .claude/worktrees/
 .claude/autopilot-*.lock
