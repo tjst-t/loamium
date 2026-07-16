@@ -44,6 +44,14 @@
         "rationale": "ADR-0013: 無人実行のため上限を設ける。通常のジョブ(デイリーまとめ等)は 10 ターン以内に完了する。5 分は十分長く、かつコスト超過を防ぐ合理的な値。",
         "reference": "ADR-0013 consequences",
         "adr_ref": "ADR-0013"
+      },
+      {
+        "id": "review-001",
+        "title": "lastRunAt をセッション作成直後 (prompt() 開始前) に記録する",
+        "decision": "runJobSession() は createPiSession() 後・session.prompt() 開始前に setJobLastRunAt() を呼ぶ",
+        "rationale": "LLM 呼び出しが失敗しても『試みた』事実を記録し、次の anacron チェックで再実行しない。これにより LLM 到達不能時の無限リトライを防ぐ。代替案(prompt 完了後に記録)は実行失敗を見えなくする危険がある。",
+        "reference": "code review (Sprint S2fe109) — reviewer指摘: 非自明な設計判断",
+        "adr_ref": "ADR-0013"
       }
     ]
   }
