@@ -533,7 +533,7 @@ export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
     // 'read-only' / 'full' are preset names; 'append-only' maps to ['journal_append'].
     const jobPermissions =
       job.permission === 'append-only'
-        ? (['journal_append'] as const)
+        ? (['journal_append'] as ['journal_append'])
         : job.permission;
 
     const effectiveCaps = getEffectiveCapabilities(

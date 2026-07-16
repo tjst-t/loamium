@@ -58,7 +58,7 @@ export async function runJobSession(
 
   const jobPermissions =
     job.permission === 'append-only'
-      ? (['journal_append'] as const)
+      ? (['journal_append'] as ['journal_append'])
       : job.permission;
 
   const effectiveCaps = getEffectiveCapabilities(
