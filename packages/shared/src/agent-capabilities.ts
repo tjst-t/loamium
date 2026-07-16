@@ -139,11 +139,16 @@ const CAPABILITY_TOOL_NAMES: Record<Capability, readonly string[]> = {
     'smartfolder_notes',
     'smartfolders_list',
     'tags',
+    'templates_list',
   ],
   journal_append: ['journal_append'],
   note_create: ['note_create'],
   note_edit: ['note_edit'],
-  template_write: ['template_write'],
+  // template_write はテンプレート適用によるノート生成を広告する (Sc4b9d1-3):
+  //   - template_write     : dataview 由来のテンプレート書き込み (既存)
+  //   - template_instantiate: POST /api/templates/{name}/instantiate と同一解決エンジン
+  //     (テンプレート適用 = ノート生成 = 書き込み系のため既存 template_write を再利用する)。
+  template_write: ['template_instantiate', 'template_write'],
   dataview_write: ['dataview_write'],
   // smartfolder_write はスマートフォルダ (ビュー定義) の作成・更新・削除を広告する。
   // 書き込み系のため full のみで許可される (clampByMode / MODE_ALLOWED)。

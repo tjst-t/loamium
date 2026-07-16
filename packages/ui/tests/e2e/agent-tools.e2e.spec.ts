@@ -146,9 +146,9 @@ test.describe.serial('agent tools', () => {
     //   smartfolder_notes) を read ケーパビリティに追加。read-only セッションでも広告される。
     //   書き込み系 (smartfolder_write / smartfolder_delete) は smartfolder_write ケーパビリティ
     //   (full のみ) のため、この read-only セッションには現れない = capability ゲートの実測。
-    // Sc4b9d1-2 (ADR-0016): commands_list を read ケーパビリティに追加。
-    //   read-only セッションでも広告される。書き込み系 (command_run: command_run cap, full のみ)
-    //   はここには現れない = capability ゲートの実測。
+    // Sc4b9d1-2/3 (ADR-0016): commands_list / templates_list を read ケーパビリティに追加。
+    //   read-only セッションでも広告される。書き込み系 (command_run: command_run cap,
+    //   template_instantiate: template_write cap — いずれも full のみ) はここには現れない。
     expect(advertisedTools).toEqual([
       'backlinks',
       'commands_list',
@@ -159,6 +159,7 @@ test.describe.serial('agent tools', () => {
       'smartfolder_notes',
       'smartfolders_list',
       'tags',
+      'templates_list',
     ]);
   });
 

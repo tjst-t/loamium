@@ -69,6 +69,7 @@ import { createVaultWriteTools } from './agent-write-tools.js';
 import { createVaultWebTools } from './agent-web-tools.js';
 import { createSmartFolderTools } from './agent-smartfolder-tools.js';
 import { createCommandTools } from './agent-command-tools.js';
+import { createTemplateTools } from './agent-template-tools.js';
 import { loadAgentPrivacy } from './agent-privacy.js';
 import { loadSessionPerms, saveSessionPerms } from './agent-session-perms.js';
 import { buildAgentSystemPrompt } from './agent-prompt.js';
@@ -448,6 +449,9 @@ export async function createPiSession(
     // ADR-0016 (Sc4b9d1-2): スマートコマンド commands_list (read) / command_run (command_run cap)。
     // command_run は REST と同一のステップ実行エンジン (commands-service.runCommand) を共有する。
     ...createCommandTools(serverConfig, index, effectiveCaps),
+    // ADR-0016 (Sc4b9d1-3): テンプレート templates_list (read) / template_instantiate
+    // (template_write cap 再利用)。REST と同一の解決エンジン (templates-service) を共有する。
+    ...createTemplateTools(serverConfig, effectiveCaps),
     // ADR-0017: web が有効ケーパビリティに含まれるときだけ web_fetch / web_search を追加。
     // allowPrivate は本番既定 false (SSRF 防止)。
     ...createVaultWebTools(serverConfig, config, effectiveCaps),
@@ -536,6 +540,8 @@ export async function openPiSession(
     ...createSmartFolderTools(serverConfig, index, isDenied, effectiveCaps),
     // ADR-0016 (Sc4b9d1-2): 復元した実効ケーパビリティに応じてスマートコマンドツールを追加。
     ...createCommandTools(serverConfig, index, effectiveCaps),
+    // ADR-0016 (Sc4b9d1-3): 復元した実効ケーパビリティに応じてテンプレートツールを追加。
+    ...createTemplateTools(serverConfig, effectiveCaps),
     // ADR-0017: 復元した実効ケーパビリティに web が含まれるときだけ web ツールを追加。
     ...createVaultWebTools(serverConfig, config, effectiveCaps),
   ];
