@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loamium — 設定: LLM バックエンド (local・モデルあり) (S8a3f2e-4)</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+/* ==== 統一設定画面 (settings.html 流用 / ADR-0026) ==== */
+.settings-view { display: flex; flex: 1; min-height: 0; background: var(--bg-editor); }
+.settings-nav { width: 210px; flex-shrink: 0; border-right: 1px solid var(--border); background: var(--bg-panel); padding: 14px 8px; display: flex; flex-direction: column; gap: 2px; }
+.settings-nav .nav-title { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-faint); padding: 6px 10px 8px; }
+.nav-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 10px; border: none; background: none; border-radius: 7px; font-size: 13px; color: var(--text); cursor: pointer; text-align: left; }
+.nav-item:hover { background: var(--bg-hover); }
+.nav-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.nav-item :where(svg) { width: 16px; height: 16px; flex-shrink: 0; }
+.settings-nav .nav-sep { height: 1px; background: var(--border); margin: 10px 6px; }
+.settings-link { display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 10px; border: none; background: none; border-radius: 7px; font-size: 12.5px; color: var(--text-muted); cursor: pointer; text-align: left; }
+.settings-link:hover { background: var(--bg-hover); color: var(--text); }
+.settings-link :where(svg) { width: 15px; height: 15px; flex-shrink: 0; }
+.settings-link .ext { margin-left: auto; color: var(--text-faint); }
+.settings-link .ext :where(svg) { width: 13px; height: 13px; }
+
+.settings-main { flex: 1; overflow-y: auto; padding: 26px 34px; }
+.settings-head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.settings-head h1 { font-size: 20px; margin: 0; }
+.settings-head .settings-status { margin-left: auto; font-size: 12px; color: var(--ok); display: inline-flex; align-items: center; gap: 5px; }
+.settings-head .settings-status[data-state="idle"] { color: var(--text-faint); }
+.settings-head .settings-status :where(svg) { width: 14px; height: 14px; }
+.settings-sub { color: var(--text-muted); font-size: 13px; margin: 0 0 22px; }
+.settings-sub code { font-family: var(--font-mono); font-size: 11.5px; }
+
+.mode-banner { display: none; align-items: center; gap: 9px; margin: 0 0 20px; background: var(--warn-soft); border: 1px solid #ecdcb3; color: #8a6d1f; border-radius: 9px; padding: 10px 13px; font-size: 12.5px; }
+.mode-banner :where(svg) { width: 15px; height: 15px; flex-shrink: 0; }
+
+.settings-panel { display: none; max-width: 660px; }
+.settings-panel.active { display: block; }
+.field-group { margin-bottom: 26px; }
+.field-group > h2 { font-size: 12px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--text-faint); margin: 0 0 12px; padding-bottom: 7px; border-bottom: 1px solid var(--border); }
+.settings-field { margin-bottom: 16px; }
+.settings-field > label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; }
+.settings-field .hint { font-size: 11.5px; color: var(--text-muted); margin: 4px 0 0; }
+.settings-field input[type="text"], .settings-field select { width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg-app); color: var(--text); }
+.settings-field input:focus, .settings-field select:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+
+.backend-seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 9px; overflow: hidden; width: 100%; box-sizing: border-box; }
+.backend-seg button { flex: 1; border: none; background: var(--bg-app); font: inherit; font-size: 13px; padding: 9px 12px; cursor: pointer; color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.backend-seg button:not(:last-child) { border-right: 1px solid var(--border-strong); }
+.backend-seg button.on { background: var(--accent); color: #fff; font-weight: 600; }
+.backend-seg button :where(svg) { width: 15px; height: 15px; }
+.backend-seg button .sub { font-size: 11px; font-weight: 400; opacity: .85; }
+.backend-body { display: none; }
+.backend-body.on { display: block; }
+
+/* --- モデル種別の枠(llm / asr) --- */
+.kind-group { margin-bottom: 18px; }
+.kind-head { display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px; }
+.kind-head .k-title { font-size: 12.5px; font-weight: 700; color: var(--text); }
+.kind-head .k-path { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; padding: 2px 7px; }
+.kind-head .k-badge { margin-left: auto; font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--text-faint); background: var(--bg-hover); border-radius: 5px; padding: 2px 7px; }
+.kind-asr { border: 1.5px dashed var(--border-strong); border-radius: 10px; padding: 12px 13px; background: var(--bg-panel); color: var(--text-muted); font-size: 12px; line-height: 1.6; display: flex; align-items: center; gap: 10px; }
+.kind-asr :where(svg) { width: 17px; height: 17px; flex-shrink: 0; color: var(--text-faint); }
+
+/* --- ローカルモデル 一覧(選択兼セレクタ) + カード --- */
+.model-list-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.model-list-head .ml-title { font-size: 13px; font-weight: 600; }
+.model-list-head .btn { margin-left: auto; flex-shrink: 0; }
+
+.model-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
+.model-card { display: flex; align-items: center; gap: 12px; padding: 11px 13px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-panel); }
+.model-card.sel { border-color: var(--accent); background: var(--accent-soft); }
+.model-card .radio { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--border-strong); flex-shrink: 0; position: relative; cursor: pointer; }
+.model-card.sel .radio { border-color: var(--accent); }
+.model-card.sel .radio::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--accent); }
+.model-card .m-body { flex: 1; min-width: 0; }
+.model-card .m-name { font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.model-card .m-meta { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+.model-card .m-badge { font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--ok); background: #e8f5ee; border-radius: 5px; padding: 2px 7px; flex-shrink: 0; }
+.model-card .m-badge.active { color: var(--accent); background: var(--accent-soft); }
+.model-card .m-del { border: none; background: none; color: var(--text-faint); cursor: pointer; display: inline-flex; padding: 6px; border-radius: 7px; flex-shrink: 0; }
+.model-card .m-del:hover { color: var(--danger); background: var(--danger-soft); }
+.model-card .m-del :where(svg) { width: 15px; height: 15px; }
+
+/* ダウンロード進捗中のカード */
+.model-card.downloading { border-color: var(--accent); }
+.model-card .m-progress { margin-top: 6px; height: 6px; background: var(--bg-hover); border-radius: 999px; overflow: hidden; }
+.model-card .m-progress .bar { height: 100%; background: var(--accent); border-radius: 999px; }
+.model-card .dl-cancel { border: none; background: none; color: var(--text-muted); cursor: pointer; font-size: 11.5px; text-decoration: underline; flex-shrink: 0; }
+
+/* DL セクション */
+.dl-box { border: 1px solid var(--border); border-radius: 10px; padding: 14px; background: var(--bg-app); }
+.dl-url-row { display: flex; gap: 8px; }
+.dl-url-row input { flex: 1; font-family: var(--font-mono); font-size: 12px; }
+.rec-title { font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--text-faint); margin: 14px 0 8px; }
+.rec-list { display: flex; flex-direction: column; gap: 6px; }
+.rec-item { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg-panel); }
+.rec-item .r-body { flex: 1; min-width: 0; }
+.rec-item .r-name { font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; }
+.rec-item .r-meta { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+.rec-item .r-get { flex-shrink: 0; }
+.rec-item .r-get :where(svg) { width: 14px; height: 14px; }
+
+.btn { font: inherit; font-size: 13px; font-weight: 600; padding: 8px 15px; border-radius: 8px; cursor: pointer; border: 1px solid var(--border-strong); background: var(--bg-app); color: var(--text); display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { background: var(--bg-hover); }
+.btn :where(svg) { width: 14px; height: 14px; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-sm { padding: 6px 11px; font-size: 12px; }
+.settings-actions { display: flex; gap: 10px; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border); }
+.readonly .backend-seg button, .readonly input, .readonly select, .readonly .btn-primary, .readonly .model-card .m-del, .readonly .rec-item .r-get, .readonly .dl-url-row .btn, .readonly .model-card .radio, .readonly .dl-cancel { opacity: .5; pointer-events: none; }
+.readonly .mode-banner { display: flex; }
+
+.proto-note { margin-top: 30px; padding: 12px 14px; background: var(--accent-soft); border-left: 3px solid var(--accent); border-radius: 6px; font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+.proto-note code { font-family: var(--font-mono); font-size: 11.5px; color: var(--text); }
+.state-pills { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+.state-pill { font-size: 12px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--bg-app); color: var(--text-muted); text-decoration: none; }
+.state-pill.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" data-testid="sidebar">
+    <div class="sidebar-header">
+      <div class="vault-badge">L</div>
+      <div class="vault-name">loamium-notes</div>
+      <button class="icon-btn" data-testid="sidebar-search" title="検索 (Ctrl+K)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M14 14l-3.5-3.5"/></svg></button>
+      <button class="icon-btn active" data-testid="sidebar-settings" title="設定" aria-current="page"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v1.6M8 12.9v1.6M2.7 4.7l1.4.8M11.9 10.5l1.4.8M2.7 11.3l1.4-.8M11.9 5.5l1.4-.8"/></svg></button>
+    </div>
+    <div class="tree-section-title">Notes</div>
+    <div class="tree" data-testid="file-tree">
+      <button class="tree-item" data-testid="tree-item" data-path="journals/2026/07/2026-07-16.md">2026-07-16.md</button>
+      <button class="tree-item" data-testid="tree-item" data-path="projects/Hydra 設計メモ.md">Hydra 設計メモ.md</button>
+    </div>
+  </aside>
+
+  <main class="workspace">
+    <div class="settings-view" data-testid="settings-view" role="region" aria-label="設定">
+      <nav class="settings-nav" data-testid="settings-nav" aria-label="設定カテゴリ">
+        <div class="nav-title">設定</div>
+        <button class="nav-item" data-testid="settings-nav-item" data-group="general"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><path d="M2.5 6.5h11"/></svg>全体</button>
+        <button class="nav-item active" data-testid="settings-nav-item" data-group="agent"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4.5" width="10" height="8" rx="2"/><path d="M8 4.5V2.5M6 8.5h.01M10 8.5h.01"/></svg>エージェント</button>
+        <button class="nav-item" data-testid="settings-nav-item" data-group="privacy"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2l5 2v4c0 3-2.2 5-5 6-2.8-1-5-3-5-6V4z"/></svg>プライバシー</button>
+        <div class="nav-sep"></div>
+        <div class="nav-title">個別管理へ</div>
+        <a class="settings-link" data-testid="settings-link" data-target="commands" href="command-editor.html"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5l2.5 3L4 11M8.5 11h3.5"/></svg>スマートコマンド<span class="ext"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3h7v7M13 3l-8 8"/></svg></span></a>
+      </nav>
+
+      <div class="settings-main" id="settingsMain">
+        <div class="settings-head">
+          <h1>エージェント</h1>
+          <span class="settings-status" data-testid="settings-status" data-state="idle">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>
+            保存済み
+          </span>
+        </div>
+        <p class="settings-sub">エージェント接続・権限 — <code>.loamium/agent.json</code>(型付き設定 API 経由・agent 編集不可)</p>
+
+        <div class="mode-banner" data-testid="mode-banner">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1.5l6 11H2z"/><path d="M8 6.5v3M8 11h.01"/></svg>
+          read-only モード: バックエンド切替・DL・削除は無効です(<code>LOAMIUM_MODE</code>)
+        </div>
+
+        <div class="state-pills">
+          <a class="state-pill" href="settings-llm-backend.html">external(外部 API)</a>
+          <a class="state-pill on" href="settings-llm-backend-local.html">local(モデルあり)</a>
+          <a class="state-pill" href="settings-llm-backend-empty.html">local(未取得)</a>
+        </div>
+
+        <section class="settings-panel active" data-testid="settings-panel" data-group="agent">
+          <div class="field-group">
+            <h2>接続</h2>
+
+            <div class="settings-field">
+              <label>バックエンド</label>
+              <div class="backend-seg" data-testid="settings-backend-toggle" role="radiogroup" aria-label="LLM バックエンド">
+                <button type="button" data-testid="settings-backend-option" data-backend="external" role="radio" aria-checked="false" onclick="location.href='settings-llm-backend.html'">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2a6 6 0 100 12A6 6 0 008 2z"/><path d="M2 8h12M8 2c1.8 1.6 2.8 3.7 2.8 6S9.8 12.4 8 14C6.2 12.4 5.2 10.3 5.2 8S6.2 3.6 8 2z"/></svg>
+                  外部 API キー<span class="sub">OpenAI / Anthropic</span>
+                </button>
+                <button type="button" class="on" data-testid="settings-backend-option" data-backend="local" role="radio" aria-checked="true" onclick="location.href='settings-llm-backend-local.html'">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="3" width="11" height="7" rx="1.5"/><path d="M5.5 13h5M8 10v3"/></svg>
+                  ローカルモデル<span class="sub">オフライン内蔵</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- local バックエンド本体 -->
+            <div class="backend-body on" data-testid="settings-backend-body" data-backend="local">
+
+              <!-- LLM モデル種別の枠 (.loamium/models/llm/) -->
+              <div class="kind-group" data-testid="settings-local-model-kind" data-model-kind="llm">
+                <div class="kind-head">
+                  <span class="k-title">LLM モデル</span>
+                  <span class="k-path">.loamium/models/llm/</span>
+                  <span class="k-badge">エージェント用</span>
+                </div>
+
+              <!-- モデル一覧(選択兼セレクタ・削除・DL 進捗 / GET /api/llm/models 相当) -->
+              <div class="settings-field">
+                <div class="model-list-head">
+                  <span class="ml-title" id="localmodel-list-label">取得済み(2 件)</span>
+                  <button class="btn btn-sm" data-testid="settings-local-model-refresh" title="ローカルモデル一覧をリロード(GET /api/llm/models)">リロード</button>
+                </div>
+                <div class="model-list" data-testid="settings-local-model-list" role="radiogroup" aria-labelledby="localmodel-list-label">
+
+                  <div class="model-card sel" data-testid="settings-local-model-item" data-model="qwen2.5-7b-instruct-q4_k_m.gguf">
+                    <span class="radio" role="radio" aria-checked="true" aria-label="このモデルを使用"></span>
+                    <div class="m-body">
+                      <div class="m-name">qwen2.5-7b-instruct-q4_k_m.gguf</div>
+                      <div class="m-meta">4.4 GB · Q4_K_M · 32K ctx · 2026-07-14 取得</div>
+                    </div>
+                    <span class="m-badge active">使用中</span>
+                    <button class="m-del" data-testid="settings-local-model-delete" data-model="qwen2.5-7b-instruct-q4_k_m.gguf" title="削除">
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4.5h10M6.5 4V3h3v1M5 4.5l.5 8h5l.5-8"/></svg>
+                    </button>
+                  </div>
+
+                  <div class="model-card" data-testid="settings-local-model-item" data-model="llama-3.2-3b-instruct-q4_k_m.gguf">
+                    <span class="radio" role="radio" aria-checked="false" aria-label="このモデルを使用"></span>
+                    <div class="m-body">
+                      <div class="m-name">llama-3.2-3b-instruct-q4_k_m.gguf</div>
+                      <div class="m-meta">2.0 GB · Q4_K_M · 128K ctx · 2026-07-10 取得</div>
+                    </div>
+                    <span class="m-badge">取得済み</span>
+                    <button class="m-del" data-testid="settings-local-model-delete" data-model="llama-3.2-3b-instruct-q4_k_m.gguf" title="削除">
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4.5h10M6.5 4V3h3v1M5 4.5l.5 8h5l.5-8"/></svg>
+                    </button>
+                  </div>
+
+                  <!-- ダウンロード進行中のカード -->
+                  <div class="model-card downloading" data-testid="settings-local-model-download-progress" data-model="phi-4-q4_k_m.gguf">
+                    <span class="radio" style="border-style:dashed;"></span>
+                    <div class="m-body">
+                      <div class="m-name">phi-4-q4_k_m.gguf</div>
+                      <div class="m-meta">ダウンロード中 — 5.6 GB 中 3.1 GB (55%) · 18.4 MB/s · 残り約 2 分</div>
+                      <div class="m-progress"><div class="bar" style="width:55%;"></div></div>
+                    </div>
+                    <button class="dl-cancel" data-testid="settings-local-model-download-cancel" data-model="phi-4-q4_k_m.gguf">中止</button>
+                  </div>
+
+                </div>
+                <p class="hint"><code>.loamium/models/llm/</code> にある取得済みモデル(<code>GET /api/llm/models</code>)から使うモデルを 1 つ選びます。フォルダに手で置いた <code>.gguf</code> も一覧に表示され選択できます。選択中のモデルには「使用中」バッジが付き、agent-service はそのモデルをローカルバックエンドで使用します。</p>
+              </div>
+
+              <!-- モデルの追加ダウンロード -->
+              <div class="settings-field">
+                <label>モデルを追加</label>
+                <div class="dl-box">
+                  <div class="dl-url-row">
+                    <input type="text" data-testid="settings-local-model-url-input" placeholder="Hugging Face などの .gguf URL を貼り付け" value="">
+                    <button class="btn btn-primary" data-testid="settings-local-model-download" onclick="startDownload()">
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M5 7l3 3 3-3M3 13h10"/></svg>
+                      ダウンロード
+                    </button>
+                  </div>
+                  <div class="rec-title">推奨モデル</div>
+                  <div class="rec-list" data-testid="settings-local-model-recommended">
+                    <div class="rec-item" data-testid="settings-local-model-rec-item" data-model="qwen2.5-14b-instruct-q4_k_m.gguf">
+                      <div class="r-body">
+                        <div class="r-name">qwen2.5-14b-instruct-q4_k_m.gguf</div>
+                        <div class="r-meta">8.4 GB · 高精度 · 32K ctx · メモリ 12 GB+ 推奨</div>
+                      </div>
+                      <button class="btn btn-sm r-get" data-testid="settings-local-model-rec-download" data-model="qwen2.5-14b-instruct-q4_k_m.gguf">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M5 7l3 3 3-3M3 13h10"/></svg>
+                        取得
+                      </button>
+                    </div>
+                    <div class="rec-item" data-testid="settings-local-model-rec-item" data-model="phi-4-q4_k_m.gguf">
+                      <div class="r-body">
+                        <div class="r-name">phi-4-q4_k_m.gguf</div>
+                        <div class="r-meta">5.6 GB · バランス型 · 16K ctx · メモリ 8 GB+ 推奨</div>
+                      </div>
+                      <button class="btn btn-sm r-get" data-testid="settings-local-model-rec-download" data-model="phi-4-q4_k_m.gguf" aria-disabled="true" style="opacity:.5;pointer-events:none;">DL 中</button>
+                    </div>
+                    <div class="rec-item" data-testid="settings-local-model-rec-item" data-model="gemma-2-2b-it-q4_k_m.gguf">
+                      <div class="r-body">
+                        <div class="r-name">gemma-2-2b-it-q4_k_m.gguf</div>
+                        <div class="r-meta">1.6 GB · 軽量・省メモリ · 8K ctx · メモリ 4 GB+ 推奨</div>
+                      </div>
+                      <button class="btn btn-sm r-get" data-testid="settings-local-model-rec-download" data-model="gemma-2-2b-it-q4_k_m.gguf">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M5 7l3 3 3-3M3 13h10"/></svg>
+                        取得
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              </div><!-- /kind-group llm -->
+
+              <!-- ASR モデル種別の枠 (.loamium/models/asr/) — 将来 Whisper 用 -->
+              <div class="kind-group" data-testid="settings-local-model-kind" data-model-kind="asr">
+                <div class="kind-head">
+                  <span class="k-title">音声認識(ASR)モデル</span>
+                  <span class="k-path">.loamium/models/asr/</span>
+                  <span class="k-badge">今後対応</span>
+                </div>
+                <div class="kind-asr" data-testid="settings-local-model-asr-placeholder">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="6" y="1.5" width="4" height="8" rx="2"/><path d="M3.5 7.5a4.5 4.5 0 009 0M8 12v2.5M5.5 14.5h5"/></svg>
+                  <span>Whisper など音声認識モデルは <code>.loamium/models/asr/</code> に置きます。LLM とは別枠で管理され、将来のバージョンで有効化されます。</span>
+                </div>
+              </div><!-- /kind-group asr -->
+
+            </div>
+          </div>
+
+          <div class="settings-actions">
+            <button class="btn btn-primary" data-testid="settings-save" data-group="agent">保存</button>
+            <button class="btn" data-testid="settings-reset" data-group="agent">元に戻す</button>
+          </div>
+        </section>
+
+        <div class="proto-note">
+          <strong>プロトタイプ注記(S8a3f2e-4 / ADR-0025・0026)</strong><br>
+          <strong>local</strong> バックエンド選択・モデル 1 件以上ありの状態です。モデル一覧(選択兼セレクタ)は <code>.loamium/models/llm/</code> 由来(<code>GET /api/llm/models</code>)のサンプルデータで、リスト内ラジオで使うモデルを 1 つ選びます。
+          モデルは種別サブフォルダで分かれます: <code>.loamium/models/llm/</code>(LLM GGUF)と <code>.loamium/models/asr/</code>(音声認識・将来の Whisper 用)。フォルダに手で置いたモデルも一覧に出て、UI からの DL は任意手段です。
+          選択・DL・削除がこのセクション内で完結します(AC-S8a3f2e-4-3)。バックエンドは自動フォールバックせずユーザーが明示選択し、<code>backend: "local"</code> と <code>localModel</code> は <code>PUT /api/settings/agent/connection</code> で <code>.loamium/agent.json</code> に保存。
+          DL 中カードは進捗(サイズ・%・速度・残り時間)を表示。<code>?mode=ro</code> で read-only 無効化を確認できます。
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  if (location.search.indexOf('mode=ro') >= 0) { document.getElementById('settingsMain').classList.add('readonly'); }
+  // モデルカードのラジオ選択(プロトタイプ: 実装は PUT /api/settings/agent/connection の localModel を更新)
+  document.querySelectorAll('.model-card:not(.downloading) .radio').forEach(function (r) {
+    r.addEventListener('click', function () {
+      document.querySelectorAll('.model-card').forEach(function (c) {
+        var rad = c.querySelector('.radio'); if (!rad || c.classList.contains('downloading')) return;
+        c.classList.remove('sel'); rad.setAttribute('aria-checked', 'false');
+        var b = c.querySelector('.m-badge'); if (b) { b.classList.remove('active'); b.textContent = '取得済み'; }
+      });
+      var card = r.closest('.model-card');
+      card.classList.add('sel'); r.setAttribute('aria-checked', 'true');
+      var b = card.querySelector('.m-badge'); if (b) { b.classList.add('active'); b.textContent = '使用中'; }
+      // 選択モデルは PUT /api/settings/agent/connection の localModel に保存(プロトタイプ)
+    });
+  });
+  function startDownload() {
+    var input = document.querySelector('[data-testid="settings-local-model-url-input"]');
+    if (!input.value.trim()) { input.focus(); input.style.borderColor = 'var(--danger)'; return; }
+    input.style.borderColor = '';
+  }
+</script>
+</body>
+</html>

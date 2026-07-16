@@ -5622,7 +5622,7 @@
             },
             {
               "id": "AC-S8a3f2e-1-4",
-              "description": ".loamium/models/ がモデル配置先であることをパスヘルパー(vault-paths 等)で一元化し、node-llama-cpp のネイティブ addon 追加による攻撃面増(ADR-0025 の consequences)を CI/ビルドの注意点として記録する。",
+              "description": ".loamium/models/ 配下をモデル種別のサブフォルダに分けることをパスヘルパー(vault-paths 等)で一元化する: .loamium/models/llm/ (LLM GGUF) と .loamium/models/asr/ (音声認識・将来の Whisper 用)。ディレクトリは初回アクセス時に作成する。node-llama-cpp のネイティブ addon 追加による攻撃面増(ADR-0025 の consequences)を CI/ビルドの注意点として記録する。",
               "status": "pending"
             }
           ],
@@ -5667,7 +5667,7 @@
             },
             {
               "id": "AC-S8a3f2e-2-4",
-              "description": "agent-service.ts の buildModelRegistry がローカルバックエンド選択時に baseUrl を shim の URL へ、apiKey をダミー(ローカルは認証不要)に向けて登録し、既存の createAgentSession 配線(tools/excludeTools/customTools/resourceLoader/監査)を一切変更しないこと。ユニット/統合テストで shim 経由の1ターンが成立する(エンジン層はスタブ可)。",
+              "description": "agent-service.ts の buildModelRegistry が、ユーザーが明示選択したバックエンドに従って登録する(自動フォールバックしない): backend=local 選択時のみ baseUrl を shim の URL へ・apiKey をダミーへ向け、backend=external 選択時は従来どおり外部 baseUrl/apiKey を使う。選択済みバックエンドが未準備(local だがモデル未選択/未存在、external だがキー無し)なら接続を無効として扱い、他方へ暗黙に切り替えない。既存の createAgentSession 配線(tools/excludeTools/customTools/resourceLoader/監査)は一切変更しない。ユニット/統合テストで local 選択時の shim 経由 1 ターン成立と、未準備時に自動フォールバックしないことを検証する(エンジン層はスタブ可)。",
               "status": "pending"
             }
           ],
@@ -5697,22 +5697,22 @@
           "acceptance_criteria": [
             {
               "id": "AC-S8a3f2e-3-1",
-              "description": "GET /api/llm/models が .loamium/models/ 配下の .gguf ファイルを走査し [{id, filename, sizeBytes, path(vault 相対)}] を返す。ファイル不在/ディレクトリ未作成でも空配列で 200 を返す。",
+              "description": "GET /api/llm/models が .loamium/models/llm/ 配下の .gguf ファイルを走査し [{id, filename, sizeBytes, path(vault 相対)}] を返す。ディレクトリ未作成/ファイル不在でも空配列で 200 を返す。将来の音声認識モデル(.loamium/models/asr/)と分離できるよう、モデル種別(kind=llm)をパスから導出する構造にする。",
               "status": "pending"
             },
             {
               "id": "AC-S8a3f2e-3-2",
-              "description": "POST /api/llm/models/download が {url, filename?} を受け、指定 URL(Hugging Face 等の GGUF)を .loamium/models/<filename> へダウンロードする。保存先は必ず .loamium/models/ 内に収める(パストラバーサル・vault 外脱出を検証ユーティリティで禁止 = DESIGN_PRINCIPLES priority 2)。進捗は取得可能な形(SSE か GET /api/llm/models/download/:id/status のポーリング)で返し、完了・失敗が判別できる。",
+              "description": "POST /api/llm/models/download が {url, filename?} を受け、指定 URL(Hugging Face 等の GGUF)を .loamium/models/llm/<filename> へダウンロードする。保存先は必ず .loamium/models/llm/ 内に収める(パストラバーサル・vault 外脱出・サブフォルダ脱出を検証ユーティリティで禁止 = DESIGN_PRINCIPLES priority 2)。進捗は取得可能な形(SSE か GET /api/llm/models/download/:id/status のポーリング)で返し、完了・失敗が判別できる。",
               "status": "pending"
             },
             {
               "id": "AC-S8a3f2e-3-3",
-              "description": "DELETE /api/llm/models/:filename が .loamium/models/<filename> を削除する。存在しなければ 404。現在ロード中モデルの削除時はアンロードしてから消す or 明示エラー。filename は英数・ハイフン・アンダースコア・ドットのみ許可し、不正名はファイルシステムに触れる前に 400。",
+              "description": "DELETE /api/llm/models/:filename が .loamium/models/llm/<filename> を削除する。存在しなければ 404。現在ロード中モデルの削除時はアンロードしてから消す or 明示エラー。filename は英数・ハイフン・アンダースコア・ドットのみ許可し(パス区切りは不可)、不正名はファイルシステムに触れる前に 400。",
               "status": "pending"
             },
             {
               "id": "AC-S8a3f2e-3-4",
-              "description": ".gitignore で .loamium/models/ が除外される(.loamium/* により既に除外、再包含しないこと)ことを確認し、モデルが『消しても vault 無傷』の使い捨て資産(ADR-0025/ADR-0010)であることをテスト or ドキュメントで担保する。書き込み系(download/delete)は監査ログ(.loamium/audit.log)に記録する。",
+              "description": ".gitignore で .loamium/models/ 配下(llm/ ・asr/ 含む)が除外される(.loamium/* により既に除外、再包含しないこと)ことを確認し、モデルが『消しても vault 無傷』の使い捨て資産(ADR-0025/ADR-0010)であることをテスト or ドキュメントで担保する。書き込み系(download/delete)は監査ログ(.loamium/audit.log)に記録する。",
               "status": "pending"
             }
           ],
@@ -5742,17 +5742,17 @@
           "acceptance_criteria": [
             {
               "id": "AC-S8a3f2e-4-1",
-              "description": "設定画面(SettingsView)のエージェント接続セクションに『バックエンド』選択(external = OpenAI/Anthropic API キー / local = ローカルモデル)を追加する。external 選択時は既存の baseUrl/model/apiKey フォームを表示、local 選択時はローカルモデルのドロップダウン(GET /api/llm/models の結果)を表示する。切替はブラウザ的ルーティング/1画面方針(DESIGN_PRINCIPLES ui_ux)を崩さない。",
+              "description": "設定画面(SettingsView)のエージェント接続セクションに『バックエンド』の明示選択(external = OpenAI/Anthropic API キー / local = ローカルモデル)を追加する。選択は自動フォールバックではなくユーザーが手で切り替える。external 選択時は既存の baseUrl/model/apiKey フォームを表示、local 選択時は .loamium/models/llm/ に置かれたモデル一覧のドロップダウン(GET /api/llm/models の結果)を表示する。切替はブラウザ的ルーティング/1画面方針(DESIGN_PRINCIPLES ui_ux)を崩さない。",
               "status": "pending"
             },
             {
               "id": "AC-S8a3f2e-4-2",
-              "description": "バックエンド選択とローカルモデル選択は型付き設定API(ADR-0026 の PUT /api/settings/agent/connection 拡張。backend フィールドと local model 参照を shared zod スキーマへ追加)で .loamium/agent.json に保存され、agent-service が保存値からバックエンド優先度『設定済み外部 > モデル存在の内蔵 > 無効(DL 促し)』を導出する。設定は agent ツール allowlist から到達不可(自己昇格防止 ADR-0026)を維持。",
+              "description": "ユーザーが選んだバックエンド(external|local)とローカルモデル参照は型付き設定API(ADR-0026 の PUT /api/settings/agent/connection 拡張。backend フィールドと local model 参照を shared zod スキーマへ追加)で .loamium/agent.json に保存され、agent-service は保存された明示選択にそのまま従う(優先度の自動導出・自動フォールバックは行わない)。設定は agent ツール allowlist から到達不可(自己昇格防止 ADR-0026)を維持。",
               "status": "pending"
             },
             {
               "id": "AC-S8a3f2e-4-3",
-              "description": "local バックエンド選択時にモデルが1つも無い場合、UI はモデル未取得を示し S8a3f2e-3 のダウンロードUI(URL 入力 + 推奨モデルの提示)への導線を出す(ADR-0025 consequences『DL 促し』『推奨モデルのキュレーションと任意 URL 指定 UI』)。ダウンロード/削除/選択が同セクションで完結する。",
+              "description": "local バックエンド選択時、.loamium/models/llm/ にモデルが1つも無い場合、UI はモデル未取得を示し S8a3f2e-3 のダウンロードUI(URL 入力 + 推奨モデルの提示)への導線を出す。フォルダに手で置いたモデルも一覧に現れ選択できる(UI からの DL は任意手段)。ダウンロード/削除/選択が同セクションで完結する。この状態でバックエンドが local のままモデル未選択なら接続は無効(自動で external に切り替えない)。",
               "status": "pending"
             },
             {
@@ -5787,7 +5787,7 @@
           "acceptance_criteria": [
             {
               "id": "AC-S8a3f2e-5-1",
-              "description": "acceptance/e2e テストで、外部ネットワークを遮断(fetch を localhost 以外拒否するガード、または実際の egress ブロック)した状態で、backend=local・.loamium/models/ にモデル1つがある構成のエージェントセッションを作り、1 プロンプト送信 → shim(/api/llm/chat)経由で応答が返ることを確認する。エンジン実体は小型 GGUF もしくは決定的スタブエンジンで代替してよいが、経路(pi → shim → engine)は本物を通す。",
+              "description": "acceptance/e2e テストで、外部ネットワークを遮断(fetch を localhost 以外拒否するガード、または実際の egress ブロック)した状態で、backend=local を明示選択し .loamium/models/llm/ にモデル1つがある構成のエージェントセッションを作り、1 プロンプト送信 → shim(/api/llm/chat)経由で応答が返ることを確認する。エンジン実体は小型 GGUF もしくは決定的スタブエンジンで代替してよいが、経路(pi → shim → engine)は本物を通す。",
               "status": "pending"
             },
             {
@@ -5797,7 +5797,7 @@
             },
             {
               "id": "AC-S8a3f2e-5-3",
-              "description": "バックエンド優先度が回帰テストで固定される: 外部接続が設定済みなら外部を使い、外部未設定かつローカルモデル在りなら内蔵、どちらも無ければ『DL 促し』の無効状態を返す(ADR-0025 の優先度)。",
+              "description": "明示選択の挙動が回帰テストで固定される: backend=external ならローカルモデルがあっても外部を使う、backend=local かつ .loamium/models/llm/ にモデル在りなら内蔵を使う、選択済みバックエンドが未準備(local だがモデル無し/external だがキー無し)ならエージェント接続は無効で、他方へ自動フォールバックしないこと。",
               "status": "pending"
             },
             {

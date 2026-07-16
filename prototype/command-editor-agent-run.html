@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loamium — コマンド DSL: agent-run ステップ補完・雛形挿入 (S5a66e4-5)</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* ============================================================
+     SVG アイコンサイズ基底ガード
+     (過去失敗事例: inline SVG がサイズ指定なしで巨大化する)
+     ============================================================ */
+  :where(svg) { width: 16px; height: 16px; }
+
+  /* ページレイアウト (command-editor.html 流用) */
+  .proto-page { max-width: 1000px; margin: 0 auto; padding: 40px 24px 100px; }
+
+  .variant-section {
+    border: 1.5px solid var(--border-strong);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 40px;
+    background: var(--bg-editor);
+  }
+  .variant-header {
+    display: flex; align-items: baseline; gap: 14px;
+    padding: 18px 24px 14px;
+    background: var(--bg-panel);
+    border-bottom: 1.5px solid var(--border);
+  }
+  .variant-num {
+    display: inline-flex; width: 28px; height: 28px;
+    align-items: center; justify-content: center;
+    background: var(--accent); color: #fff;
+    font-size: 13px; font-weight: 700; border-radius: 8px;
+    flex-shrink: 0; align-self: center;
+  }
+  .variant-title { font-size: 16px; font-weight: 700; margin: 0; flex: 1; }
+  .variant-tradeoff {
+    font-size: 12.5px; color: var(--text-muted);
+    padding: 4px 10px; background: var(--bg-hover);
+    border-radius: 8px; flex-shrink: 0; align-self: center;
+    border: 1px solid var(--border);
+  }
+  .variant-body { padding: 24px; }
+
+  .state-label {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+    text-transform: uppercase; padding: 3px 10px; border-radius: 14px;
+    margin-bottom: 10px;
+  }
+  .state-label.valid { background: #e8f5ee; color: #1f7a4d; }
+
+  .cmd-mode-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 700; color: var(--accent-hover);
+    background: var(--accent-soft); border-radius: 8px;
+    padding: 3px 10px; border: 1px solid rgba(110,86,207,0.25);
+  }
+
+  /* エディタシェル (command-editor.html の mini-workspace 流用) */
+  .mini-workspace {
+    border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden; background: var(--bg-editor);
+  }
+  .mini-editor-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 14px; border-bottom: 1px solid var(--border);
+    background: var(--bg-panel); font-size: 12.5px;
+  }
+  .mini-breadcrumb { flex: 1; color: var(--text-muted); font-size: 12.5px; }
+  .mini-breadcrumb .curr { color: var(--text); font-weight: 600; }
+
+  /* YAML エディタペイン (command-editor.html 流用) */
+  .yaml-pane {
+    background: #1e1e2e; overflow: visible; position: relative;
+    font-family: var(--font-mono); font-size: 12.5px; line-height: 1.7; color: #cdd6f4;
+  }
+  .yaml-pane-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 12px; background: #181825; border-bottom: 1px solid #313244;
+    font-size: 11px; color: #6c7086; font-family: var(--font-mono);
+  }
+  .yaml-pane-bar .lang { font-weight: 700; color: #89b4fa; font-size: 10.5px; }
+  .yaml-pane-code { padding: 14px 16px; white-space: pre; overflow-x: visible; min-height: 120px; outline: none; position: relative; }
+  .yk { color: #89dceb; }
+  .yv { color: #a6e3a1; }
+  .yn { color: #fab387; }
+  .ys { color: #6c7086; }
+  .yc { color: #585b70; font-style: italic; }
+  .caret-blk { display: inline-block; width: 2px; height: 1.1em; background: #cdd6f4; vertical-align: -2px; animation: cmd-blink 1s step-end infinite; }
+  @keyframes cmd-blink { 50% { opacity: 0; } }
+
+  /* 補完候補ポップアップ (kind: 補完) */
+  .cmpl-menu {
+    position: absolute; z-index: 30;
+    background: #232335; border: 1px solid #45475a; border-radius: 8px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.4);
+    padding: 4px; min-width: 340px; max-height: 300px; overflow-y: auto;
+    font-family: var(--font-sans);
+  }
+  .cmpl-item {
+    display: flex; align-items: center; gap: 9px;
+    padding: 6px 9px; border-radius: 6px; cursor: pointer;
+    font-size: 12.5px; color: #cdd6f4;
+  }
+  .cmpl-item:hover { background: #313244; }
+  .cmpl-item.sel { background: #45475a; }
+  .cmpl-item .kw {
+    font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: #89dceb;
+    flex-shrink: 0; min-width: 152px;
+  }
+  .cmpl-item.new .kw { color: #a6e3a1; }
+  .cmpl-item .desc { color: #9399b2; font-size: 11.5px; flex: 1; }
+  .cmpl-item .newbadge {
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    color: #1e1e2e; background: #a6e3a1; border-radius: 4px; padding: 1px 5px; flex-shrink: 0;
+  }
+  .cmpl-item .icodot { width: 7px; height: 7px; border-radius: 50%; background: #89dceb; flex-shrink: 0; }
+  .cmpl-item.new .icodot { background: #a6e3a1; }
+
+  /* scaffold 挿入後のハイライト行 */
+  .yaml-pane-code .scaffold-hl { background: rgba(166,227,161,0.13); display: inline-block; width: 100%; }
+
+  /* 補完対象キーの下線 */
+  .cmpl-anchor { border-bottom: 2px solid #f9e2af; padding-bottom: 1px; }
+
+  /* フォーム側の検証バッジ (command-editor.html 流用) */
+  .cmd-valid-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 10px;
+  }
+  .cmd-valid-badge.ok { background: #e8f5ee; color: #1f7a4d; }
+  .cmd-valid-badge.ok svg { width: 13px; height: 13px; }
+
+  /* step-kind ピル */
+  .step-kind {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+    background: var(--accent-soft); color: var(--accent-hover);
+    border-radius: 5px; padding: 1px 6px;
+  }
+  .step-kind.new { background: #e8f5ee; color: #1f7a4d; }
+
+  /* 補完候補一覧テーブル */
+  .kinds-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 6px; }
+  .kinds-table th {
+    text-align: left; padding: 6px 10px; font-size: 10.5px; font-weight: 600;
+    letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-faint);
+    border-bottom: 1px solid var(--border); background: var(--bg-panel);
+  }
+  .kinds-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .kinds-table tr:last-child td { border-bottom: none; }
+  .kinds-table tr.new-row { background: #f2fbf5; }
+  .kinds-table code { font-family: var(--font-mono); font-size: 11.5px; background: var(--code-bg); border-radius: 3px; padding: 1px 5px; }
+
+  .proto-note {
+    margin-top: 30px; padding: 12px 14px; background: var(--accent-soft);
+    border-left: 3px solid var(--accent); border-radius: 6px;
+    font-size: 12px; color: var(--text-muted); line-height: 1.65;
+  }
+  .proto-note code { font-family: var(--font-mono); font-size: 11.5px; color: var(--text); }
+  .proto-note .tag {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    background: var(--accent); color: #fff; border-radius: 4px; padding: 1px 6px; margin-right: 6px;
+  }
+
+  .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--link); margin-bottom: 20px; }
+  .back-link:hover { text-decoration: underline; }
+  .back-link svg { width: 14px; height: 14px; }
+</style>
+</head>
+<body>
+<div class="proto-page">
+
+  <a class="back-link" href="index.html">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+    プロトタイプ一覧へ戻る
+  </a>
+
+  <!-- ページヘッダ -->
+  <div class="index-hero" style="margin-bottom: 28px;">
+    <div class="logo-row">
+      <div class="vault-badge" style="font-size:19px;width:40px;height:40px;border-radius:11px;">⚡</div>
+      <h1 style="font-size:22px;margin:0;">コマンド DSL — agent-run ステップ</h1>
+    </div>
+    <p class="sub" style="margin:8px 0 0;">
+      <code style="font-size:12px;background:var(--code-bg);border-radius:4px;padding:1px 6px;">commands/summarize-note.md</code>
+      の YAML エディタで <code style="font-size:12px;background:var(--code-bg);border-radius:4px;padding:1px 6px;">kind:</code> を打つと、
+      既存 6 種に加えて <strong>agent-run</strong>(7 種目)が補完候補に現れ、選択で <strong>prompt 必須の雛形</strong>が挿入される様子を示します。
+      土台は <a href="command-editor.html" style="color:var(--link);">command-editor.html</a> の V4(タブ切替・YAML タブ)です。
+    </p>
+  </div>
+
+  <!-- ============================================================
+       ① kind: 補完候補が開いた状態(agent-run が 7 種目に出る)
+  ============================================================ -->
+  <section class="variant-section" data-testid="cmd-edit-variant" data-variant="agent-run-completion">
+    <div class="variant-header">
+      <span class="variant-num">1</span>
+      <h2 class="variant-title">① <code style="font-size:14px;">kind:</code> の補完候補に agent-run が現れる</h2>
+      <span class="variant-tradeoff">既存 6 種 + agent-run = 7 種</span>
+    </div>
+    <div class="variant-body">
+
+      <p class="proto-note" style="margin-top:0;margin-bottom:18px;"><span class="tag">PROTO NOTE</span>
+        <code>packages/ui/src/commandDslCompletion.ts</code> の <code>DSL_KINDS</code> に <code>agent-run</code> を追加(AC-S5a66e4-5-1)。
+        <code>kind:</code> 行にカーソルがある状態で候補が開き、7 番目に <strong>agent-run</strong> が「新規」バッジ付きで並びます。
+      </p>
+
+      <div class="state-label valid">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 8l3.5 3.5L13 4"/></svg>
+        YAML タブ — kind: 補完メニュー表示中
+      </div>
+
+      <div class="mini-workspace">
+        <div class="mini-editor-header">
+          <div class="mini-breadcrumb"><span>commands</span> <span style="color:var(--text-faint);">/</span> <span class="curr">summarize-note</span></div>
+          <span class="cmd-mode-badge">⚡ スマートコマンド定義</span>
+          <div class="save-status dirty" data-testid="save-status" data-state="dirty"><span class="dot"></span><span>未保存</span></div>
+        </div>
+        <div class="yaml-pane">
+          <div class="yaml-pane-bar"><span class="lang">YAML</span> frontmatter · commands/summarize-note.md</div>
+          <div class="yaml-pane-code" data-testid="cmd-edit-yaml"><span class="yk">loamium-command</span><span class="ys">:</span>
+  <span class="yk">name</span><span class="ys">:</span> <span class="yv">ノートを要約</span>
+  <span class="yk">description</span><span class="ys">:</span> <span class="yv">選択ノートをエージェントで要約し「まとめ」に追記</span>
+  <span class="yk">params</span><span class="ys">:</span>
+    <span class="ys">-</span> <span class="yk">name</span><span class="ys">:</span> <span class="yv">notePath</span>
+      <span class="yk">label</span><span class="ys">:</span> <span class="yv">対象ノート</span>
+      <span class="yk">required</span><span class="ys">:</span> <span class="yn">true</span>
+  <span class="yk">steps</span><span class="ys">:</span>
+    <span class="ys">-</span> <span class="yk cmpl-anchor">kind</span><span class="ys">:</span> <span class="caret-blk"></span><!--
+       補完メニュー(kind: 直後で開く)
+    --><span class="cmpl-menu" data-testid="cmd-kind-completion" role="listbox" style="left:70px;top:4px;"><div class="cmpl-item" role="option" data-kind="journal-append"><span class="icodot"></span><span class="kw">journal-append</span><span class="desc">今日のジャーナルに追記</span></div>
+<div class="cmpl-item" role="option" data-kind="note-append"><span class="icodot"></span><span class="kw">note-append</span><span class="desc">既存ノートに追記</span></div>
+<div class="cmpl-item" role="option" data-kind="note-create"><span class="icodot"></span><span class="kw">note-create</span><span class="desc">新規ノートを作成</span></div>
+<div class="cmpl-item" role="option" data-kind="template-instantiate"><span class="icodot"></span><span class="kw">template-instantiate</span><span class="desc">テンプレートから作成</span></div>
+<div class="cmpl-item" role="option" data-kind="prop-set"><span class="icodot"></span><span class="kw">prop-set</span><span class="desc">frontmatter プロパティを設定</span></div>
+<div class="cmpl-item" role="option" data-kind="open-note"><span class="icodot"></span><span class="kw">open-note</span><span class="desc">ノートをエディタで開く</span></div>
+<div class="cmpl-item new sel" role="option" aria-selected="true" data-kind="agent-run"><span class="icodot"></span><span class="kw">agent-run</span><span class="desc">エージェントにプロンプトを実行させる</span><span class="newbadge">新規</span></div></span></div>
+        </div>
+      </div>
+
+      <p style="font-size:12.5px;color:var(--text-muted);margin:16px 0 8px;">補完候補に並ぶ全 7 種(<code style="font-family:var(--font-mono);font-size:11.5px;background:var(--code-bg);border-radius:3px;padding:1px 5px;">DSL_KINDS</code>):</p>
+      <table class="kinds-table">
+        <thead><tr><th>kind</th><th>説明</th><th>必須フィールド</th></tr></thead>
+        <tbody>
+          <tr><td><code>journal-append</code></td><td>今日のジャーナルに追記</td><td><code>content</code></td></tr>
+          <tr><td><code>note-append</code></td><td>既存ノートに追記</td><td><code>path</code>, <code>content</code></td></tr>
+          <tr><td><code>note-create</code></td><td>新規ノートを作成</td><td><code>path</code>, <code>content</code></td></tr>
+          <tr><td><code>template-instantiate</code></td><td>テンプレートから作成</td><td><code>template</code></td></tr>
+          <tr><td><code>prop-set</code></td><td>frontmatter プロパティを設定</td><td><code>path</code>, <code>key</code>, <code>value</code></td></tr>
+          <tr><td><code>open-note</code></td><td>ノートをエディタで開く</td><td><code>path</code></td></tr>
+          <tr class="new-row"><td><code>agent-run</code> <span class="step-kind new" style="margin-left:4px;">新規</span></td><td>エージェントにプロンプトを実行させる</td><td><code>prompt</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       ② agent-run を選択 → 雛形(scaffold)が挿入された状態
+  ============================================================ -->
+  <section class="variant-section" data-testid="cmd-edit-variant" data-variant="agent-run-scaffold" style="border-color:var(--accent);">
+    <div class="variant-header" style="background:var(--accent-soft);border-color:rgba(110,86,207,0.2);">
+      <span class="variant-num" style="background:var(--accent-hover);">2</span>
+      <h2 class="variant-title">② agent-run を選択 → 雛形が挿入される</h2>
+      <span class="variant-tradeoff" style="color:var(--accent-hover);background:white;border-color:var(--accent);">prompt 必須 + 任意フィールドをコメント提示</span>
+    </div>
+    <div class="variant-body">
+
+      <p class="proto-note" style="margin-top:0;margin-bottom:18px;"><span class="tag">PROTO NOTE</span>
+        <code>KIND_SCAFFOLDS['agent-run']</code>(AC-S5a66e4-5-2)。雛形は <code>prompt</code>(必須)を含み、
+        <code>permissions?</code> / <code>maxTurns?</code> / <code>timeoutSec?</code> / <code>open?</code> / <code>when?</code> / <code>when-not?</code>
+        を <strong>任意フィールドのコメント行</strong>として提示します。挿入直後の YAML はそのまま<strong>有効</strong>(prompt 以外は任意)で、カーソルは <code>prompt:</code> の値に置かれます。
+      </p>
+
+      <div class="state-label valid">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 8l3.5 3.5L13 4"/></svg>
+        scaffold 挿入後 — 有効な YAML(prompt 入力待ち)
+      </div>
+
+      <div class="mini-workspace">
+        <div class="mini-editor-header">
+          <div class="mini-breadcrumb"><span>commands</span> <span style="color:var(--text-faint);">/</span> <span class="curr">summarize-note</span></div>
+          <span class="cmd-mode-badge">⚡ スマートコマンド定義</span>
+          <span class="cmd-valid-badge ok" style="margin-left:auto;" data-testid="cmd-edit-validation" data-valid="true">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 8l3.5 3.5L13 4"/></svg>
+            ✓ 有効
+          </span>
+        </div>
+        <div class="yaml-pane">
+          <div class="yaml-pane-bar"><span class="lang">YAML</span> frontmatter · agent-run 雛形を挿入</div>
+          <div class="yaml-pane-code" data-testid="cmd-edit-yaml"><span class="yk">loamium-command</span><span class="ys">:</span>
+  <span class="yk">name</span><span class="ys">:</span> <span class="yv">ノートを要約</span>
+  <span class="yk">description</span><span class="ys">:</span> <span class="yv">選択ノートをエージェントで要約し「まとめ」に追記</span>
+  <span class="yk">params</span><span class="ys">:</span>
+    <span class="ys">-</span> <span class="yk">name</span><span class="ys">:</span> <span class="yv">notePath</span>
+      <span class="yk">label</span><span class="ys">:</span> <span class="yv">対象ノート</span>
+      <span class="yk">required</span><span class="ys">:</span> <span class="yn">true</span>
+  <span class="yk">steps</span><span class="ys">:</span>
+<span class="scaffold-hl">    <span class="ys">-</span> <span class="yk">kind</span><span class="ys">:</span> <span class="yv">agent-run</span></span>
+<span class="scaffold-hl">      <span class="yk">prompt</span><span class="ys">:</span> <span class="yv">"{{notePath}} を 5 行以内で要約して"</span><span class="caret-blk"></span></span>
+<span class="scaffold-hl">      <span class="yc"># open: true            # 実行後に結果ノートを開く (任意)</span></span>
+<span class="scaffold-hl">      <span class="yc"># permissions: read-only # read-only | append-only | full (任意, 既定 read-only)</span></span>
+<span class="scaffold-hl">      <span class="yc"># maxTurns: 8            # エージェントの最大ターン数 (任意)</span></span>
+<span class="scaffold-hl">      <span class="yc"># timeoutSec: 120        # タイムアウト秒 (任意)</span></span>
+<span class="scaffold-hl">      <span class="yc"># when: "{{notePath}}"   # 値があるときだけ実行 (任意)</span></span>
+<span class="scaffold-hl">      <span class="yc"># when-not: ""           # 値が空のときだけ実行 (任意)</span></span></div>
+        </div>
+      </div>
+
+      <p style="font-size:12.5px;color:var(--text-muted);margin:16px 0 8px;">
+        フォームタブに切替えたときの agent-run ステップ表示(参考):
+      </p>
+      <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-muted);padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-panel);">
+        <span class="step-kind new">agent-run</span>
+        <span data-testid="cmd-step-row">prompt: <code style="font-family:var(--font-mono);font-size:11px;background:var(--code-bg);border-radius:3px;padding:0 4px;">"{{notePath}} を 5 行以内で要約して"</code></span>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- proto chip -->
+<div class="proto-chip">
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="width:13px;height:13px;"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+  PROTOTYPE — static mockup only
+</div>
+</body>
+</html>

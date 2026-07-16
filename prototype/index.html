@@ -214,6 +214,42 @@
     </a>
   </div>
 
+  <div class="index-section-title">
+    <span>Sprint S5a66e4 / S8a3f2e(agent-run ステップ + LLM バックエンド切替)</span>
+    <span class="badge">GUI Story プロトタイプ</span>
+    <span class="line"></span>
+  </div>
+
+  <div class="screen-grid">
+    <a class="screen-card" href="command-editor-agent-run.html">
+      <span class="num">21</span>
+      <h3>コマンド DSL — agent-run ステップの補完・雛形</h3>
+      <p>YAML エディタで <code>kind:</code> を打つと既存 6 種 + <code>agent-run</code> の計 7 種が補完候補に出る状態と、選択で <code>prompt</code>(必須)+ permissions?/maxTurns?/timeoutSec?/open?/when? の雛形が挿入され有効な YAML になる状態。土台は command-editor.html の V4。</p>
+      <span class="stories">S5a66e4-5</span>
+    </a>
+
+    <a class="screen-card" href="settings-llm-backend.html">
+      <span class="num">22</span>
+      <h3>設定: LLM バックエンド切替(external)</h3>
+      <p>エージェント接続に「バックエンド」選択(外部 API キー ↔ ローカルモデル)を追加。external 選択時は既存の baseUrl / API キー($ENV)/ 接続テスト / モデル一覧フォームを表示。<code>?mode=ro</code> で read-only 無効化。</p>
+      <span class="stories">S8a3f2e-4</span>
+    </a>
+
+    <a class="screen-card" href="settings-llm-backend-local.html">
+      <span class="num">23</span>
+      <h3>設定: LLM バックエンド(local・モデルあり)</h3>
+      <p>local 選択時のローカルモデル ドロップダウン(GET /api/llm/models)+ 取得済みカードの選択・削除、DL 進捗(サイズ・%・速度・残り時間)、URL 入力 + 推奨モデル提示。選択/DL/削除が同セクションで完結。</p>
+      <span class="stories">S8a3f2e-4</span>
+    </a>
+
+    <a class="screen-card" href="settings-llm-backend-empty.html">
+      <span class="num">24</span>
+      <h3>設定: LLM バックエンド(local・モデル未取得)</h3>
+      <p>local 選択でモデルが 1 つも無い empty state。「未取得 → DL 導線」を明示し、URL 入力 + 推奨モデルからダウンロードできる。取得完了で local(モデルあり)状態へ切替。</p>
+      <span class="stories">S8a3f2e-4</span>
+    </a>
+  </div>
+
 </div>
 </body>
 </html>

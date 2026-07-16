@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loamium — 設定: LLM バックエンド切替 (external) (S8a3f2e-4)</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+/* ==== 統一設定画面 (settings.html 流用 / ADR-0026) ==== */
+.settings-view { display: flex; flex: 1; min-height: 0; background: var(--bg-editor); }
+.settings-nav {
+  width: 210px; flex-shrink: 0; border-right: 1px solid var(--border);
+  background: var(--bg-panel); padding: 14px 8px; display: flex; flex-direction: column; gap: 2px;
+}
+.settings-nav .nav-title { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-faint); padding: 6px 10px 8px; }
+.nav-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 10px; border: none; background: none; border-radius: 7px; font-size: 13px; color: var(--text); cursor: pointer; text-align: left; }
+.nav-item:hover { background: var(--bg-hover); }
+.nav-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.nav-item :where(svg) { width: 16px; height: 16px; flex-shrink: 0; }
+.settings-nav .nav-sep { height: 1px; background: var(--border); margin: 10px 6px; }
+.settings-link { display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 10px; border: none; background: none; border-radius: 7px; font-size: 12.5px; color: var(--text-muted); cursor: pointer; text-align: left; }
+.settings-link:hover { background: var(--bg-hover); color: var(--text); }
+.settings-link :where(svg) { width: 15px; height: 15px; flex-shrink: 0; }
+.settings-link .ext { margin-left: auto; color: var(--text-faint); }
+.settings-link .ext :where(svg) { width: 13px; height: 13px; }
+
+.settings-main { flex: 1; overflow-y: auto; padding: 26px 34px; }
+.settings-head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.settings-head h1 { font-size: 20px; margin: 0; }
+.settings-head .settings-status { margin-left: auto; font-size: 12px; color: var(--ok); display: inline-flex; align-items: center; gap: 5px; }
+.settings-head .settings-status[data-state="idle"] { color: var(--text-faint); }
+.settings-head .settings-status :where(svg) { width: 14px; height: 14px; }
+.settings-sub { color: var(--text-muted); font-size: 13px; margin: 0 0 22px; }
+.settings-sub code { font-family: var(--font-mono); font-size: 11.5px; }
+
+.mode-banner { display: none; align-items: center; gap: 9px; margin: 0 0 20px; background: var(--warn-soft); border: 1px solid #ecdcb3; color: #8a6d1f; border-radius: 9px; padding: 10px 13px; font-size: 12.5px; }
+.mode-banner :where(svg) { width: 15px; height: 15px; flex-shrink: 0; }
+
+.settings-panel { display: none; max-width: 640px; }
+.settings-panel.active { display: block; }
+.field-group { margin-bottom: 26px; }
+.field-group > h2 { font-size: 12px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--text-faint); margin: 0 0 12px; padding-bottom: 7px; border-bottom: 1px solid var(--border); }
+.settings-field { margin-bottom: 16px; }
+.settings-field > label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; }
+.settings-field .hint { font-size: 11.5px; color: var(--text-muted); margin: 4px 0 0; }
+.settings-field input[type="text"], .settings-field select { width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg-app); color: var(--text); }
+.settings-field input:focus, .settings-field select:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+.env-field { display: flex; align-items: center; gap: 8px; }
+.env-field input { font-family: var(--font-mono); font-size: 12.5px; flex: 1; width: auto; min-width: 0; }
+.env-badge { flex-shrink: 0; font-size: 11px; font-weight: 600; color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 3px 8px; white-space: nowrap; }
+.conn-test { flex-shrink: 0; padding: 8px 13px; font-size: 12.5px; white-space: nowrap; }
+.conn-result { font-size: 12px; margin: 8px 0 0; display: none; align-items: center; gap: 6px; }
+.conn-result :where(svg) { width: 14px; height: 14px; flex-shrink: 0; }
+.conn-result[data-state="ok"] { display: inline-flex; color: var(--ok); }
+.model-row { display: flex; gap: 8px; }
+.model-row .btn { flex-shrink: 0; }
+.combobox { position: relative; flex: 1; min-width: 0; }
+.combobox input { width: 100%; box-sizing: border-box; padding-right: 34px; }
+.combo-toggle { position: absolute; top: 0; right: 0; height: 100%; width: 32px; display: flex; align-items: center; justify-content: center; border: none; background: none; color: var(--text-muted); cursor: pointer; border-radius: 0 8px 8px 0; }
+.combo-toggle:hover { color: var(--text); }
+.combo-toggle :where(svg) { width: 15px; height: 15px; transition: transform .12s; }
+.combobox.open .combo-toggle :where(svg) { transform: rotate(180deg); }
+.combo-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20; margin: 0; padding: 4px; list-style: none; background: var(--bg-app); border: 1px solid var(--border-strong); border-radius: 8px; box-shadow: var(--shadow-lg); display: none; max-height: 240px; overflow-y: auto; }
+.combobox.open .combo-menu { display: block; }
+.combo-menu li { padding: 7px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+.combo-menu li:hover { background: var(--bg-hover); }
+.combo-menu li.sel { color: var(--accent); font-weight: 600; }
+
+/* --- バックエンド切替セグメント (S8a3f2e-4) --- */
+.backend-seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 9px; overflow: hidden; width: 100%; box-sizing: border-box; }
+.backend-seg button { flex: 1; border: none; background: var(--bg-app); font: inherit; font-size: 13px; padding: 9px 12px; cursor: pointer; color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.backend-seg button:not(:last-child) { border-right: 1px solid var(--border-strong); }
+.backend-seg button.on { background: var(--accent); color: #fff; font-weight: 600; }
+.backend-seg button :where(svg) { width: 15px; height: 15px; }
+.backend-seg button .sub { font-size: 11px; font-weight: 400; opacity: .85; }
+.backend-body { display: none; }
+.backend-body.on { display: block; }
+
+.btn { font: inherit; font-size: 13px; font-weight: 600; padding: 8px 16px; border-radius: 8px; cursor: pointer; border: 1px solid var(--border-strong); background: var(--bg-app); color: var(--text); display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { background: var(--bg-hover); }
+.btn :where(svg) { width: 14px; height: 14px; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); }
+.settings-actions { display: flex; gap: 10px; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border); }
+.readonly .backend-seg button, .readonly .switch, .readonly input, .readonly select, .readonly .btn-primary, .readonly .conn-test, .readonly .combo-toggle { opacity: .5; pointer-events: none; }
+.readonly .mode-banner { display: flex; }
+
+.proto-note { margin-top: 30px; padding: 12px 14px; background: var(--accent-soft); border-left: 3px solid var(--accent); border-radius: 6px; font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+.proto-note code { font-family: var(--font-mono); font-size: 11.5px; color: var(--text); }
+.state-pills { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+.state-pill { font-size: 12px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--bg-app); color: var(--text-muted); text-decoration: none; }
+.state-pill.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" data-testid="sidebar">
+    <div class="sidebar-header">
+      <div class="vault-badge">L</div>
+      <div class="vault-name">loamium-notes</div>
+      <button class="icon-btn" data-testid="sidebar-search" title="検索 (Ctrl+K)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M14 14l-3.5-3.5"/></svg></button>
+      <button class="icon-btn active" data-testid="sidebar-settings" title="設定" aria-current="page"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v1.6M8 12.9v1.6M2.7 4.7l1.4.8M11.9 10.5l1.4.8M2.7 11.3l1.4-.8M11.9 5.5l1.4-.8"/></svg></button>
+    </div>
+    <div class="tree-section-title">Notes</div>
+    <div class="tree" data-testid="file-tree">
+      <button class="tree-item" data-testid="tree-item" data-path="journals/2026/07/2026-07-16.md">2026-07-16.md</button>
+      <button class="tree-item" data-testid="tree-item" data-path="projects/Hydra 設計メモ.md">Hydra 設計メモ.md</button>
+    </div>
+  </aside>
+
+  <main class="workspace">
+    <div class="settings-view" data-testid="settings-view" role="region" aria-label="設定">
+      <nav class="settings-nav" data-testid="settings-nav" aria-label="設定カテゴリ">
+        <div class="nav-title">設定</div>
+        <button class="nav-item" data-testid="settings-nav-item" data-group="general"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><path d="M2.5 6.5h11"/></svg>全体</button>
+        <button class="nav-item active" data-testid="settings-nav-item" data-group="agent"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4.5" width="10" height="8" rx="2"/><path d="M8 4.5V2.5M6 8.5h.01M10 8.5h.01"/></svg>エージェント</button>
+        <button class="nav-item" data-testid="settings-nav-item" data-group="privacy"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2l5 2v4c0 3-2.2 5-5 6-2.8-1-5-3-5-6V4z"/></svg>プライバシー</button>
+        <div class="nav-sep"></div>
+        <div class="nav-title">個別管理へ</div>
+        <a class="settings-link" data-testid="settings-link" data-target="commands" href="command-editor.html"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5l2.5 3L4 11M8.5 11h3.5"/></svg>スマートコマンド<span class="ext"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3h7v7M13 3l-8 8"/></svg></span></a>
+      </nav>
+
+      <div class="settings-main" id="settingsMain">
+        <div class="settings-head">
+          <h1>エージェント</h1>
+          <span class="settings-status" data-testid="settings-status" data-state="idle">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>
+            保存済み
+          </span>
+        </div>
+        <p class="settings-sub">エージェント接続・権限 — <code>.loamium/agent.json</code>(型付き設定 API 経由・agent 編集不可)</p>
+
+        <div class="mode-banner" data-testid="mode-banner">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1.5l6 11H2z"/><path d="M8 6.5v3M8 11h.01"/></svg>
+          read-only モード: バックエンド切替・DL・削除は無効です(<code>LOAMIUM_MODE</code>)
+        </div>
+
+        <!-- バックエンド状態の画面リンク -->
+        <div class="state-pills">
+          <a class="state-pill on" href="settings-llm-backend.html">external(外部 API)</a>
+          <a class="state-pill" href="settings-llm-backend-local.html">local(モデルあり)</a>
+          <a class="state-pill" href="settings-llm-backend-empty.html">local(未取得)</a>
+        </div>
+
+        <section class="settings-panel active" data-testid="settings-panel" data-group="agent">
+          <div class="field-group">
+            <h2>接続</h2>
+
+            <!-- バックエンド選択 (新規: S8a3f2e-4) -->
+            <div class="settings-field">
+              <label>バックエンド</label>
+              <div class="backend-seg" data-testid="settings-backend-toggle" role="radiogroup" aria-label="LLM バックエンド">
+                <button type="button" class="on" data-testid="settings-backend-option" data-backend="external" role="radio" aria-checked="true" onclick="location.href='settings-llm-backend.html'">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2a6 6 0 100 12A6 6 0 008 2z"/><path d="M2 8h12M8 2c1.8 1.6 2.8 3.7 2.8 6S9.8 12.4 8 14C6.2 12.4 5.2 10.3 5.2 8S6.2 3.6 8 2z"/></svg>
+                  外部 API キー<span class="sub">OpenAI / Anthropic</span>
+                </button>
+                <button type="button" data-testid="settings-backend-option" data-backend="local" role="radio" aria-checked="false" onclick="location.href='settings-llm-backend-local.html'">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="3" width="11" height="7" rx="1.5"/><path d="M5.5 13h5M8 10v3"/></svg>
+                  ローカルモデル<span class="sub">オフライン内蔵</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- external バックエンド本体 -->
+            <div class="backend-body on" data-testid="settings-backend-body" data-backend="external">
+              <div class="settings-field">
+                <label for="f-apitype">API 種別</label>
+                <select id="f-apitype" data-testid="settings-field" data-name="apiType"><option>anthropic</option><option>openai 互換</option></select>
+              </div>
+              <div class="settings-field">
+                <label for="f-baseurl">baseUrl</label>
+                <input type="text" id="f-baseurl" data-testid="settings-field" data-name="baseUrl" value="https://api.anthropic.com">
+              </div>
+              <div class="settings-field">
+                <label for="f-key">API キー</label>
+                <div class="env-field">
+                  <input type="text" id="f-key" data-testid="settings-field" data-name="apiKeyEnv" value="$ANTHROPIC_API_KEY">
+                  <span class="env-badge">$ENV 参照</span>
+                  <button class="btn conn-test" data-testid="settings-conn-test" onclick="testConn()">接続テスト</button>
+                </div>
+                <p class="conn-result" data-testid="settings-conn-result" data-state="idle"></p>
+                <p class="hint">キーの実値は保存しません。環境変数名(<code>$…</code>)のみを保存・表示します。</p>
+              </div>
+              <div class="settings-field">
+                <label for="f-model">モデル</label>
+                <div class="model-row">
+                  <div class="combobox" data-testid="settings-model-combobox">
+                    <input type="text" id="f-model" data-testid="settings-field" data-name="model" value="claude-sonnet-4-6" placeholder="モデル ID(直接入力可)" autocomplete="off">
+                    <button type="button" class="combo-toggle" data-testid="settings-model-toggle" aria-label="モデル候補を表示" aria-expanded="false" onclick="toggleModelMenu(event)">
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+                    </button>
+                    <ul class="combo-menu" data-testid="settings-model-options" role="listbox">
+                      <li role="option" tabindex="-1" onclick="pickModel('claude-opus-4-8')">claude-opus-4-8</li>
+                      <li role="option" tabindex="-1" class="sel" onclick="pickModel('claude-sonnet-4-6')">claude-sonnet-4-6</li>
+                      <li role="option" tabindex="-1" onclick="pickModel('claude-haiku-4-5')">claude-haiku-4-5</li>
+                    </ul>
+                  </div>
+                  <button class="btn" data-testid="settings-model-refresh" onclick="loadModels()" title="API からモデル一覧を取得">一覧取得</button>
+                </div>
+                <p class="hint">接続先 API から取得した候補をドロップダウン表示。一覧に無い ID の直接入力も可能。</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-actions">
+            <button class="btn btn-primary" data-testid="settings-save" data-group="agent">保存</button>
+            <button class="btn" data-testid="settings-reset" data-group="agent">元に戻す</button>
+          </div>
+        </section>
+
+        <div class="proto-note">
+          <strong>プロトタイプ注記(S8a3f2e-4 / ADR-0025・0026)</strong><br>
+          <strong>external</strong> バックエンド選択時の状態です。既存の baseUrl / API キー($ENV)/ 接続テスト / モデル一覧はそのまま。
+          <code>backend: "external"</code> と選択モデルは <code>PUT /api/settings/agent/connection</code>(shared zod 拡張)で <code>.loamium/agent.json</code> に保存されます。
+          バックエンドは自動フォールバックせず、ユーザーが明示選択します。選択中のバックエンドが未準備(external だがキー無し / local だがモデル未選択)ならエージェント接続は無効です。
+          <code>?mode=ro</code> を URL に付けると read-only 無効化状態を確認できます。<br>
+          ローカルモデル選択時は
+          <a href="settings-llm-backend-local.html" style="color:var(--link);">settings-llm-backend-local.html</a> /
+          未取得時は
+          <a href="settings-llm-backend-empty.html" style="color:var(--link);">settings-llm-backend-empty.html</a> を参照。
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  if (location.search.indexOf('mode=ro') >= 0) { document.getElementById('settingsMain').classList.add('readonly'); }
+  function testConn() {
+    var r = document.querySelector('[data-testid="settings-conn-result"]');
+    r.setAttribute('data-state', 'ok');
+    r.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg> 接続成功 — claude-sonnet-4-6 に到達(210ms)';
+  }
+  function toggleModelMenu(e) {
+    e.stopPropagation();
+    var cb = document.querySelector('.combobox');
+    var open = cb.classList.toggle('open');
+    cb.querySelector('.combo-toggle').setAttribute('aria-expanded', String(open));
+  }
+  function pickModel(v) {
+    document.getElementById('f-model').value = v;
+    var cb = document.querySelector('.combobox');
+    cb.querySelectorAll('.combo-menu li').forEach(function (li) { li.classList.toggle('sel', li.textContent === v); });
+    cb.classList.remove('open');
+  }
+  document.addEventListener('click', function (e) {
+    var cb = document.querySelector('.combobox');
+    if (cb && !cb.contains(e.target)) cb.classList.remove('open');
+  });
+  function loadModels() {
+    var r = document.querySelector('[data-testid="settings-conn-result"]');
+    r.setAttribute('data-state', 'ok');
+    r.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg> 3 件のモデルを取得しました(ドロップダウンに反映)';
+    document.querySelector('.combobox').classList.add('open');
+  }
+</script>
+</body>
+</html>
