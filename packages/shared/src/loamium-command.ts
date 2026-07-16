@@ -21,6 +21,7 @@
  */
 import { z } from 'zod';
 import { parse as parseYaml } from 'yaml';
+import { agentPermissionsSchema } from './agent-capabilities.js';
 
 // ---- ADR-0022: 条件付きステップ実行の truthiness 評価 ----
 
@@ -234,9 +235,44 @@ export const notePatchStepSchema = z.object({
 export type NotePatchStep = z.infer<typeof notePatchStepSchema>;
 
 /**
+ * agent-run: 賢い処理を Pi エージェントへ委譲するステップ (ADR-0028 / S5a66e4)。
+ *
+ * 新規ジョブ実行基盤は作らず、S2fe109 の runAgentJob (agent-job-runner.ts) を
+ * 再利用して Pi セッションを起動する。結果のファイル書き込みは agent-run 独自の
+ * 書き込み経路を持たず、エージェント自身が ADR-0016 の監査済み書き込みツール
+ * (journal_append / note_create / note_edit) をプロンプト指示に従って使う。
+ * prompt が出力先を指定する (commands.ts は書き込み先を強制しない)。
+ *
+ * - prompt: 必須・非空。resolveTemplate 展開対象。
+ * - permissions?: 実効ケーパビリティ (step 指定 → agent.json 既定 の順で解決, ADR-0015)。
+ * - maxTurns?: 1..50。省略時は agentJobSchema の既定 20 に合わせる (実行側で補完)。
+ * - timeoutSec?: 10..600。省略時は agentJobSchema の既定 120 に合わせる (実行側で補完)。
+ * - open?: 共通フラグ (agent-run は書き込み先が可変のため実行側では未使用だが型を揃える)。
+ * - when / when-not: 共通の条件付きスキップ (ADR-0022)。
+ *
+ * MUTATE 相当 → append-only モードでは agent-run を含むコマンドは 403 (ADR-0028)。
+ * [AC-S5a66e4-2-1]
+ */
+export const agentRunStepSchema = z.object({
+  kind: z.literal('agent-run'),
+  /** エージェントへのプロンプト。非空必須。resolveTemplate 展開対象。 */
+  prompt: z.string().min(1, 'agent-run prompt must not be empty'),
+  /** 実効ケーパビリティ (省略時は agent.json 既定, ADR-0015)。 */
+  permissions: agentPermissionsSchema.optional(),
+  /** ターン数上限。省略時は agentJobSchema 既定 (20)。 */
+  maxTurns: z.number().int().min(1).max(50).optional(),
+  /** 全体タイムアウト秒。省略時は agentJobSchema 既定 (120)。 */
+  timeoutSec: z.number().int().min(10).max(600).optional(),
+  open: z.boolean().optional(),
+  ...stepConditionFields,
+});
+export type AgentRunStep = z.infer<typeof agentRunStepSchema>;
+
+/**
  * CommandStep — kind による閉じた判別可能ユニオン。
- * v1 (ADR-0021) の 4 種 + v2 (ADR-0021/0010 Sf2f114-4) の 2 種 = 6 種。
- * [AC-Sf2f114-4-3]
+ * v1 (ADR-0021) の 4 種 + v2 (ADR-0021/0010 Sf2f114-4) の 2 種
+ *   + v3 (ADR-0028 / S5a66e4) の agent-run 1 種 = 7 種。
+ * [AC-Sf2f114-4-3] [AC-S5a66e4-2-2]
  */
 export const commandStepSchema = z.discriminatedUnion('kind', [
   journalAppendStepSchema,
@@ -245,6 +281,7 @@ export const commandStepSchema = z.discriminatedUnion('kind', [
   templateInstantiateStepSchema,
   propSetStepSchema,
   notePatchStepSchema,
+  agentRunStepSchema,
 ]);
 export type CommandStep = z.infer<typeof commandStepSchema>;
 
