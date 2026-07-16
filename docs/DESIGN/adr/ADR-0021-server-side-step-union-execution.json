@@ -37,5 +37,5 @@
   "affects": ["packages/server", "packages/cli", "packages/shared", "packages/ui"],
   "supersedes": null,
   "superseded_by": null,
-  "notes": "Pi Agent 統合(別ブランチ)がマージされたら agent-run ステップの ADR を起こすこと。その ADR では 非同期ジョブ管理(状態・失敗時挙動・結果のファイル書き込み)を扱う。GET /api/commands(一覧)はパレット(ADR-0019)の動的エントリ供給源を兼ねる。"
+  "notes": "Pi Agent 統合(別ブランチ)がマージされたら agent-run ステップの ADR を起こすこと。その ADR では 非同期ジョブ管理(状態・失敗時挙動・結果のファイル書き込み)を扱う。GET /api/commands(一覧)はパレット(ADR-0019)の動的エントリ供給源を兼ねる。 [解消: ADR-0028] agent-run ステップの予約条項(『agent-run は予約のみで v1 に含めない。Pi Agent 統合後に別 ADR で非同期ジョブモデル・進捗通知を判断する』)は ADR-0028(agent-run ステップは S2fe109 の runAgentJob を再利用)で解消された。ADR-0028 は本 ADR を supersede しない加算拡張であり、fail-stop・同期実行・権限モード(append-only では MUTATE 相当で 403)の契約はそのまま踏襲される(本 ADR の superseded_by は変更しない)。"
 }
