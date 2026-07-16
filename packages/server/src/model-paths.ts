@@ -20,6 +20,62 @@ import path from 'node:path';
 /** モデル種別。サブフォルダ名にそのまま使う。 */
 export type ModelKind = 'llm' | 'asr';
 
+/**
+ * モデルファイル名の許可リスト正規表現 (S8a3f2e-3 / AC-S8a3f2e-3-3)。
+ * 英数・ハイフン・アンダースコア・ドットのみ。パス区切り (/ \\)・`..`・
+ * 先頭ドット (隠しファイル) を含む名前は許可しない。ファイルシステムに触れる
+ * *前* にこの検証を通し、パストラバーサル / サブフォルダ脱出を封じる。
+ */
+const MODEL_FILENAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+/** モデルファイル名の検証エラー (呼び出し元が 400 を返す)。 */
+export class InvalidModelFilenameError extends Error {
+  constructor(fileName: string) {
+    super(`invalid model filename: ${JSON.stringify(fileName)}`);
+    this.name = 'InvalidModelFilenameError';
+  }
+}
+
+/**
+ * モデルファイル名が安全か検証する (I/O なし・純粋)。
+ * - 許可文字のみ (英数 . _ -)、先頭は英数、パス区切り不可。
+ * - `..` を含まない (念のため二重に禁止)。
+ * 不正なら false。呼び出し元は false で 400 を返し、FS に触れないこと。
+ */
+export function isValidModelFileName(fileName: string): boolean {
+  if (fileName.length === 0) return false;
+  if (fileName.includes('..')) return false;
+  return MODEL_FILENAME_RE.test(fileName);
+}
+
+/**
+ * 検証済みのモデルファイル名から絶対パスを返す。不正名は
+ * `InvalidModelFilenameError` を投げる (FS に触れる前のガード)。
+ * さらに defense-in-depth として、結合後のパスが種別サブフォルダ内に
+ * 収まることを確認する (サブフォルダ脱出の最終防波堤)。
+ */
+export function resolveModelFilePath(
+  vaultRoot: string,
+  kind: ModelKind,
+  fileName: string,
+): string {
+  if (!isValidModelFileName(fileName)) {
+    throw new InvalidModelFilenameError(fileName);
+  }
+  const dir = modelKindDir(vaultRoot, kind);
+  const abs = path.resolve(dir, fileName);
+  const resolvedDir = path.resolve(dir);
+  if (abs !== path.join(resolvedDir, fileName) || !abs.startsWith(resolvedDir + path.sep)) {
+    throw new InvalidModelFilenameError(fileName);
+  }
+  return abs;
+}
+
+/** vault 相対のモデルパス (.loamium/models/<kind>/<fileName>) を返す (表示用)。 */
+export function modelVaultRelPath(kind: ModelKind, fileName: string): string {
+  return path.posix.join('.loamium', 'models', kind, fileName);
+}
+
 /** `.loamium/models` のルート (種別サブフォルダの親)。 */
 export function modelsRoot(vaultRoot: string): string {
   return path.join(vaultRoot, '.loamium', 'models');

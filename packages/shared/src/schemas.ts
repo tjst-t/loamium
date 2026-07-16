@@ -515,11 +515,30 @@ export const agentWebSearchSchema = z.object({
 });
 export type AgentWebSearch = z.infer<typeof agentWebSearchSchema>;
 
+/**
+ * エージェントの推論バックエンド選択 (ADR-0025 amendment 2026-07-16)。
+ * ユーザーが設定 UI で明示的に選ぶ。自動フォールバックはしない。
+ *   - 'external' (既定): 従来どおり外部 API (baseUrl/apiKey/api)。
+ *   - 'local'          : 内蔵オフライン LLM (OpenAI 互換 shim 経由)。localModel を使う。
+ * 後方互換: 未指定は 'external' 扱い (既存 agent.json をそのまま解釈)。
+ */
+export const agentBackendSchema = z.enum(['external', 'local']);
+export type AgentBackend = z.infer<typeof agentBackendSchema>;
+
 export const agentConfigSchema = z.object({
   api: z.enum(['openai', 'anthropic']),
   baseUrl: z.string().min(1, 'baseUrl must not be empty'),
   model: z.string().min(1, 'model must not be empty'),
   apiKey: z.string().min(1, 'apiKey must not be empty'),
+  /**
+   * 推論バックエンド選択 (ADR-0025 amendment)。未指定は 'external' (後方互換)。
+   */
+  backend: agentBackendSchema.optional(),
+  /**
+   * backend='local' 選択時に使う内蔵モデルのファイル名 (.loamium/models/llm/ 配下)。
+   * 未選択 (undefined) なら local バックエンドは「未準備」= 接続無効 (暗黙フォールバックしない)。
+   */
+  localModel: z.string().min(1).optional(),
   /**
    * エージェント権限 (ADR-0015)。プリセット名 or ケーパビリティ配列。
    * 未指定は read-only プリセット (resolvePermissions が既定を補う)。マシンローカル。
@@ -1219,3 +1238,99 @@ export const agentModelsResponseSchema = z.object({
   error: z.string().optional(),
 });
 export type AgentModelsResponse = z.infer<typeof agentModelsResponseSchema>;
+
+// ---- 内蔵ローカル LLM: OpenAI 互換 shim (S8a3f2e-2 / ADR-0025) ----
+
+/**
+ * OpenAI /v1/chat/completions リクエストの最小サブセット (AC-S8a3f2e-2-1)。
+ * shim は pi SDK (openai-completions アダプタ) からのリクエストを受ける。
+ * 受け付けるのは {model, messages[], stream, max_tokens, temperature} のみ。
+ * 未知フィールドは passthrough で許容する (OpenAI クライアントは追加フィールドを送るため)。
+ */
+export const llmChatMessageSchema = z.object({
+  role: z.enum(['system', 'user', 'assistant']),
+  content: z.string(),
+});
+export type LlmChatMessage = z.infer<typeof llmChatMessageSchema>;
+
+export const llmChatRequestSchema = z
+  .object({
+    model: z.string().min(1, 'model must not be empty'),
+    messages: z.array(llmChatMessageSchema).min(1, 'messages must not be empty'),
+    stream: z.boolean().optional(),
+    max_tokens: z.number().int().positive().optional(),
+    temperature: z.number().min(0).optional(),
+  })
+  .passthrough();
+export type LlmChatRequest = z.infer<typeof llmChatRequestSchema>;
+
+// ---- 内蔵ローカル LLM: モデル管理 REST (S8a3f2e-3 / ADR-0025) ----
+
+/**
+ * GET /api/llm/models の 1 エントリ (AC-S8a3f2e-3-1)。
+ * path は vault 相対 (.loamium/models/llm/<filename>)。
+ */
+export const localModelInfoSchema = z.object({
+  id: z.string(),
+  filename: z.string(),
+  sizeBytes: z.number(),
+  path: z.string(),
+});
+export type LocalModelInfo = z.infer<typeof localModelInfoSchema>;
+
+export const localModelListResponseSchema = z.object({
+  models: z.array(localModelInfoSchema),
+});
+export type LocalModelListResponse = z.infer<typeof localModelListResponseSchema>;
+
+/**
+ * POST /api/llm/models/download のリクエスト (AC-S8a3f2e-3-2)。
+ * filename は省略可 (URL 末尾から導出)。保存先は必ず .loamium/models/llm/ 内に封じ込める。
+ */
+export const localModelDownloadRequestSchema = z.object({
+  url: z.string().url('url must be a valid URL'),
+  filename: z.string().min(1).optional(),
+});
+export type LocalModelDownloadRequest = z.infer<typeof localModelDownloadRequestSchema>;
+
+/** ダウンロードジョブの状態 (AC-S8a3f2e-3-2: 完了・失敗を判別できる)。 */
+export const localModelDownloadStatusSchema = z.enum([
+  'pending',
+  'downloading',
+  'completed',
+  'failed',
+]);
+export type LocalModelDownloadStatus = z.infer<typeof localModelDownloadStatusSchema>;
+
+/** POST /api/llm/models/download のレスポンス (ジョブ受理)。ポーリング用 id を返す。 */
+export const localModelDownloadAcceptedResponseSchema = z.object({
+  id: z.string(),
+  filename: z.string(),
+  status: localModelDownloadStatusSchema,
+});
+export type LocalModelDownloadAcceptedResponse = z.infer<
+  typeof localModelDownloadAcceptedResponseSchema
+>;
+
+/** GET /api/llm/models/download/:id/status のレスポンス (進捗ポーリング)。 */
+export const localModelDownloadStatusResponseSchema = z.object({
+  id: z.string(),
+  filename: z.string(),
+  status: localModelDownloadStatusSchema,
+  /** 受信済みバイト数。 */
+  receivedBytes: z.number(),
+  /** Content-Length から得た総バイト数 (不明なら null)。 */
+  totalBytes: z.number().nullable(),
+  /** 失敗時のエラーメッセージ (それ以外は undefined)。 */
+  error: z.string().optional(),
+});
+export type LocalModelDownloadStatusResponse = z.infer<
+  typeof localModelDownloadStatusResponseSchema
+>;
+
+/** DELETE /api/llm/models/:filename のレスポンス。 */
+export const localModelDeleteResponseSchema = z.object({
+  ok: z.literal(true),
+  filename: z.string(),
+});
+export type LocalModelDeleteResponse = z.infer<typeof localModelDeleteResponseSchema>;

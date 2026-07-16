@@ -17,6 +17,7 @@ import { agentRoutes } from './routes/agent.js';
 import { agentJobRoutes } from './routes/agent-jobs.js';
 import { settingsRoutes } from './routes/settings.js';
 import { systemFilesRoutes } from './routes/system-files.js';
+import { llmRoutes } from './routes/llm.js';
 import { auditMiddleware } from './audit.js';
 import { permissionMiddleware } from './permissions.js';
 import { indexSyncMiddleware } from './indexSync.js';
@@ -133,6 +134,8 @@ export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv>
   app.route('/', settingsRoutes(config));
   // system/ 設定ファイル一覧 + source read/write (Sa10026-9 #1) — agent ツール非公開
   app.route('/', systemFilesRoutes(config));
+  // 内蔵オフライン LLM (ADR-0025): OpenAI 互換 shim + モデル管理 REST (S8a3f2e-2/-3)
+  app.route('/', llmRoutes(config));
 
   // 静的 UI 配信 — LOAMIUM_UI_DIST が設定されている本番モードのみ有効。
   // 開発モード(未設定)では Vite 開発サーバーが担当するため何もしない。

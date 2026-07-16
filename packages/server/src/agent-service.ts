@@ -70,6 +70,9 @@ import { createVaultWebTools } from './agent-web-tools.js';
 import { loadAgentPrivacy } from './agent-privacy.js';
 import { loadSessionPerms, saveSessionPerms } from './agent-session-perms.js';
 import { buildAgentSystemPrompt } from './agent-prompt.js';
+import { existsSync } from 'node:fs';
+import { resolveModelFilePath, InvalidModelFilenameError } from './model-paths.js';
+import { localLlmBaseUrl } from './routes/llm.js';
 
 /**
  * pi-coding-agent 組み込みツール名 (ToolName = "read"|"bash"|"edit"|"write"|"grep"|"find"|"ls")。
@@ -204,27 +207,156 @@ function sessionDir(vaultRoot: string): string {
 const activeSessionsById = new Map<string, AgentSession>();
 
 /**
+ * バックエンド未準備を表す明示エラー (ADR-0025 amendment: 自動フォールバックしない)。
+ * - backend='local' だが localModel 未選択 / モデル未存在
+ * - backend='external' だが apiKey 空
+ * いずれも「選択済みバックエンドが未準備 = 接続無効」であり、他方へ暗黙に
+ * 切り替えない。呼び出し元 (routes) はこれを捕捉して接続無効を返す。
+ */
+export class AgentBackendNotReadyError extends Error {
+  readonly backend: 'external' | 'local';
+  constructor(backend: 'external' | 'local', message: string) {
+    super(message);
+    this.name = 'AgentBackendNotReadyError';
+    this.backend = backend;
+  }
+}
+
+/**
+ * backend='local' 時に解決したパラメータ (shim URL・ダミーキー・内蔵モデル名)。
+ * agent-service だけが shim URL を組み立てないよう、routes/llm.ts の
+ * localLlmBaseUrl() を唯一の baseUrl 導出点として使う。
+ */
+export interface LocalBackendResolution {
+  /** OpenAI 互換 shim の baseUrl (<origin>/api/llm/v1)。 */
+  baseUrl: string;
+  /** shim は無認証 (in-process 同一オリジン)。pi SDK が要求するダミーキー。 */
+  apiKey: string;
+  /** 使用する内蔵モデルのファイル名 (.loamium/models/llm/ 配下)。 */
+  model: string;
+}
+
+/**
+ * バックエンド選択の解決結果。プロバイダ登録に必要な api/baseUrl/apiKey/model を返す。
+ * ユーザーの明示選択に従い、未準備なら AgentBackendNotReadyError を投げる
+ * (自動フォールバックしない = ADR-0025 amendment)。
+ *
+ * - backend 未指定 / 'external': 従来どおり config の baseUrl/apiKey/api/model。
+ *   apiKey が空なら外部は未準備。
+ * - backend='local': shim URL・ダミーキー・localModel。resolveLocalBackend が
+ *   localModel 未選択 / モデル未存在なら AgentBackendNotReadyError を投げる。
+ *
+ * resolveLocalBackend は routes/agent-service の循環 import を避けるため注入する
+ * (呼び出し元が localLlmBaseUrl + モデル存在チェックを渡す)。
+ */
+export interface ResolvedBackend {
+  api: 'openai' | 'anthropic';
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}
+
+export function resolveBackend(
+  config: AgentConfig,
+  resolveLocalBackend?: (localModel: string) => LocalBackendResolution,
+): ResolvedBackend {
+  const backend = config.backend ?? 'external';
+
+  if (backend === 'local') {
+    if (config.localModel === undefined || config.localModel === '') {
+      throw new AgentBackendNotReadyError(
+        'local',
+        'local backend selected but no model chosen (config.localModel is unset)',
+      );
+    }
+    if (resolveLocalBackend === undefined) {
+      throw new AgentBackendNotReadyError(
+        'local',
+        'local backend selected but no resolver provided',
+      );
+    }
+    // resolver がモデル未存在なら AgentBackendNotReadyError を投げる契約。
+    const local = resolveLocalBackend(config.localModel);
+    return { api: 'openai', baseUrl: local.baseUrl, apiKey: local.apiKey, model: local.model };
+  }
+
+  // external: apiKey 空なら未準備 (暗黙で local へ切り替えない)。
+  if (config.apiKey === '') {
+    throw new AgentBackendNotReadyError(
+      'external',
+      'external backend selected but apiKey is empty',
+    );
+  }
+  return { api: config.api, baseUrl: config.baseUrl, apiKey: config.apiKey, model: config.model };
+}
+
+/**
+ * 既定の local バックエンド resolver を生成する。
+ * - baseUrl は routes/llm.ts の localLlmBaseUrl() から取る (唯一の導出点)。
+ * - モデル存在チェック: .loamium/models/llm/<localModel> が実在しなければ
+ *   AgentBackendNotReadyError を投げる (未存在なら local は未準備 = 接続無効)。
+ * - 不正なファイル名も未準備扱い (パス封じ込めは resolveModelFilePath が担う)。
+ */
+export function makeLocalBackendResolver(
+  vaultRoot: string,
+): (localModel: string) => LocalBackendResolution {
+  return (localModel: string): LocalBackendResolution => {
+    let abs: string;
+    try {
+      abs = resolveModelFilePath(vaultRoot, 'llm', localModel);
+    } catch (err) {
+      if (err instanceof InvalidModelFilenameError) {
+        throw new AgentBackendNotReadyError('local', `invalid local model name: ${localModel}`);
+      }
+      throw err;
+    }
+    if (!existsSync(abs)) {
+      throw new AgentBackendNotReadyError(
+        'local',
+        `local model file not found: ${localModel} (.loamium/models/llm/)`,
+      );
+    }
+    return {
+      baseUrl: localLlmBaseUrl(),
+      // shim は無認証 (in-process 同一オリジン)。pi SDK は非空キーを要求するためダミー。
+      apiKey: 'local',
+      model: localModel,
+    };
+  };
+}
+
+/**
  * プロバイダ登録済みの { authStorage, modelRegistry, model } を返す共通ヘルパー。
  * createPiSession / openPiSession の重複 ~25 行を統合する。
+ *
+ * ADR-0025 amendment (S8a3f2e-2 / AC-S8a3f2e-2-4): ユーザーが明示選択した
+ * backend に従って登録する。backend='local' 時のみ baseUrl を shim URL・apiKey を
+ * ダミーへ向け、'external' 時は従来どおり外部 baseUrl/apiKey を使う。未準備の
+ * バックエンドは AgentBackendNotReadyError で接続無効とし、他方へ暗黙切替しない。
+ * resolveLocalBackend は routes 側から注入する (循環 import を避ける)。
  */
-function buildModelRegistry(config: AgentConfig): {
+function buildModelRegistry(
+  config: AgentConfig,
+  resolveLocalBackend?: (localModel: string) => LocalBackendResolution,
+): {
   authStorage: ReturnType<typeof AuthStorage.inMemory>;
   modelRegistry: ReturnType<typeof ModelRegistry.inMemory>;
   model: ReturnType<ReturnType<typeof ModelRegistry.inMemory>['find']>;
 } {
+  const resolved = resolveBackend(config, resolveLocalBackend);
   const authStorage = AuthStorage.inMemory();
   const modelRegistry = ModelRegistry.inMemory(authStorage);
 
-  const providerName = `loamium-${config.api}-${Date.now()}`;
-  const apiAdapter = config.api === 'openai' ? 'openai-completions' : 'anthropic-messages';
+  const providerName = `loamium-${resolved.api}-${Date.now()}`;
+  const apiAdapter = resolved.api === 'openai' ? 'openai-completions' : 'anthropic-messages';
   modelRegistry.registerProvider(providerName, {
     api: apiAdapter,
-    baseUrl: config.baseUrl,
-    apiKey: config.apiKey,
+    baseUrl: resolved.baseUrl,
+    apiKey: resolved.apiKey,
     models: [
       {
-        id: config.model,
-        name: config.model,
+        id: resolved.model,
+        name: resolved.model,
         reasoning: false,
         input: ['text' as const],
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
@@ -235,9 +367,9 @@ function buildModelRegistry(config: AgentConfig): {
   });
 
   // API キーを runtime override でセットする (auth.json 不要)
-  authStorage.setRuntimeApiKey(providerName, config.apiKey);
+  authStorage.setRuntimeApiKey(providerName, resolved.apiKey);
 
-  const model = modelRegistry.find(providerName, config.model);
+  const model = modelRegistry.find(providerName, resolved.model);
   return { authStorage, modelRegistry, model };
 }
 
@@ -287,7 +419,11 @@ export async function createPiSession(
   const vaultRoot = serverConfig.vaultRoot;
   const effectiveCaps = caps ?? resolvePermissions(config.permissions);
 
-  const { authStorage, modelRegistry, model } = buildModelRegistry(config);
+  // ADR-0025 amendment: 明示選択された backend で登録する (未準備は投げる)。
+  const { authStorage, modelRegistry, model } = buildModelRegistry(
+    config,
+    makeLocalBackendResolver(vaultRoot),
+  );
   if (!model) {
     throw new Error(`model not found after registration: ${config.model}`);
   }
@@ -372,7 +508,11 @@ export async function openPiSession(
     : null;
   const effectiveCaps = getEffectiveCapabilities(config, sessionPerms, mode);
 
-  const { authStorage, modelRegistry, model } = buildModelRegistry(config);
+  // ADR-0025 amendment: 明示選択された backend で登録する (未準備は投げる)。
+  const { authStorage, modelRegistry, model } = buildModelRegistry(
+    config,
+    makeLocalBackendResolver(vaultRoot),
+  );
   if (!model) throw new Error(`model not found: ${config.model}`);
 
   const dir = sessionDir(vaultRoot);
