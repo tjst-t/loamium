@@ -394,6 +394,15 @@ a { color: var(--link); text-decoration: none; }
   text-overflow: ellipsis;
 }
 
+.dl-error {
+  font-size: 12px;
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-radius: 6px;
+  padding: 4px 10px;
+  margin-top: 6px;
+}
+
 .save-status {
   margin-left: auto;
   display: flex;

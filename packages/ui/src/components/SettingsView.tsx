@@ -443,6 +443,7 @@ function LocalModelSection({
   downloads,
   dlUrl,
   dlUrlInvalid,
+  dlError,
   readonly,
   onSelect,
   onDelete,
@@ -457,6 +458,7 @@ function LocalModelSection({
   downloads: Record<string, DownloadEntry>;
   dlUrl: string;
   dlUrlInvalid: boolean;
+  dlError: string | null;
   readonly: boolean;
   onSelect: (filename: string) => void;
   onDelete: (filename: string) => void;
@@ -621,6 +623,11 @@ function LocalModelSection({
                 ダウンロード
               </button>
             </div>
+            {dlError !== null && (
+              <div className="dl-error" data-testid="settings-local-model-dl-error" role="alert">
+                ダウンロードを開始できませんでした: {dlError}
+              </div>
+            )}
             <div className="rec-title">推奨モデル</div>
             <div className="rec-list" data-testid="settings-local-model-recommended">
               {RECOMMENDED_MODELS.map((rec) => {
@@ -743,6 +750,8 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
   // DL URL 入力 + バリデーション表示。
   const [dlUrl, setDlUrl] = useState('');
   const [dlUrlInvalid, setDlUrlInvalid] = useState(false);
+  // ダウンロード開始失敗 (API ダウン / 403 / 不正 URL 等) を UI に表示する。
+  const [dlError, setDlError] = useState<string | null>(null);
   // 進行中の DL ジョブ (id → filename/進捗)。ポーリングで更新。
   const [downloads, setDownloads] = useState<
     Record<string, { filename: string; receivedBytes: number; totalBytes: number | null; status: string }>
@@ -1049,15 +1058,17 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
 
   // ---- モデルダウンロード開始 (POST /api/llm/models/download) ----
   const startDownload = useCallback(async (url: string, filename?: string): Promise<void> => {
+    setDlError(null);
     try {
       const acc = await api.downloadLlmModel(filename !== undefined ? { url, filename } : { url });
       setDownloads((prev) => ({
         ...prev,
         [acc.id]: { filename: acc.filename, receivedBytes: 0, totalBytes: null, status: acc.status },
       }));
-    } catch {
-      // 失敗 (403 read-only 等) は UI 操作なので握りつぶさず、状態は変えない。
-      // read-only では下流のボタン自体が無効化されているため通常ここには来ない。
+    } catch (err) {
+      // 失敗 (API ダウン / 403 read-only / 不正 URL 等) はユーザーに見えるよう表示する。
+      // 握りつぶすとボタンが無反応に見える (API サーバー停止時など)。
+      setDlError(err instanceof Error ? err.message : String(err));
     }
   }, []);
 
@@ -1420,6 +1431,7 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
                 downloads={downloads}
                 dlUrl={dlUrl}
                 dlUrlInvalid={dlUrlInvalid}
+                dlError={dlError}
                 readonly={readonly}
                 onSelect={setLocalModel}
                 onDelete={(f) => void deleteLocalModel(f)}
