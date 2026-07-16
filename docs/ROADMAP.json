@@ -6571,7 +6571,12 @@
       "description": "command-editor.e2e.spec.ts の 4 ケース (create-todo.yaml を /n/ で開くと command-editor が表示されない 等) と smart-command-run.e2e.spec.ts の 2 ケース (create-todo のパラメータフォーム param-field[data-name=タスク概要] が出ない) が失敗。S5a66e4 実装前の base main (a0b9d8b) でも同一に再現し、S5a66e4 の回帰ではない (agent-run と無関係)。テストは param の name(=summary) と label(=タスク概要) の二重利用を data-name=label で探しており、メモリ test-label-vs-key-divergence に合致する疑い。UI CommandEditor ルートまたは e2e ハーネス側の既存不具合。REST/サービス層の command 実行 (server unit) は緑。",
       "added_in": "S5a66e4-verify",
       "kind": "bug",
-      "reason": "S5a66e4 検証中に発見した既存の実サーバー e2e 破損。マイルストーン Sc4b9d1 で triage"
+      "reason": "S5a66e4 検証中に発見した既存の実サーバー e2e 破損。マイルストーン Sc4b9d1 で triage",
+      "status": "fixed_in_review_pending_verification",
+      "fix_commits": [
+        "24be1b1"
+      ],
+      "fix_note": "isCommandFile を system/commands/ 対応(実バグ) + e2e shadowing 掃除。tsc 緑・ランタイム e2e は Node22 で未検証。"
     }
   ]
 }
