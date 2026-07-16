@@ -34,6 +34,18 @@ Backend: Hono / Frontend: React + CodeMirror 6 (lezer-markdown) / 検索: Fuse.j
 - UI 開発サーバー (`make serve-ui`) は `/api` を `portman lease --name loamium` のポートへプロキシする (`LOAMIUM_API_URL` で上書き可)
 - 開発用 vault: `dev-vault/` (git 管理外)
 
+### 内蔵オフライン LLM / ネイティブ addon (ADR-0025 / S8a3f2e)
+
+- `packages/server` は `node-llama-cpp` v3 (ESM, Node 22+) を依存に持つ。これは **ネイティブ addon** を含む。プレビルドバイナリを同梱するが、環境によってはソースビルド (llama.cpp を CMake でコンパイル) が走る。
+- **ビルド注意 (dev VM / CI)**: プレビルドの実行が GLIBC/バインディング検証で失敗する環境がある。その場合は gcc-13 でソースビルドし直す:
+  ```sh
+  CC=/usr/bin/gcc-13 CXX=/usr/bin/g++-13 npx node-llama-cpp source download
+  ```
+  ビルド成果物は `node_modules/node-llama-cpp/llama/localBuilds` (git 管理外)。`getLlama()` は最新のローカルビルドを自動採用する。GPU (Metal/CUDA/Vulkan) があれば使い、無ければ CPU にフォールバックする (必須にしない)。
+- **環境非依存の担保**: エンジン層 (`src/local-llm-engine.ts`) は `node-llama-cpp` を **動的 import (遅延ロード)** する。addon が無い / ロード不可でも server の起動・型チェック・他テストは壊れない。利用不可は握りつぶさず `LocalLlmUnavailableError` (明示エラー) で返す。ユニットテストはロード層 (`EngineLoader`) を決定的スタブに差し替えて検証する (小型 GGUF を用意しない)。
+- **攻撃面 (CI/セキュリティ注意点)**: node-llama-cpp の再導入で、ADR-0011 が node-pty 撤去で減らしたネイティブ依存・攻撃面が部分的に戻る (ADR-0025 consequences)。OS 別プレビルド配布・CI・Tauri 同梱の手当てが必要。CI ではネイティブビルド失敗が workspace 全体の lint/test を壊さないこと (遅延ロード設計で担保) を維持する。
+- **モデル置き場 (種別サブフォルダ)**: `src/model-paths.ts` に一元化。`.loamium/models/llm/` (LLM GGUF) と `.loamium/models/asr/` (音声認識・将来 Whisper 用) に分ける。`.loamium/*` は .gitignore 済み・models/ は再包含なし = 「消しても vault は無傷」の使い捨て資産。ディレクトリは初回アクセス時に作成する。
+
 ## References
 
 - Architecture & system design: `docs/ARCHITECTURE.md`
