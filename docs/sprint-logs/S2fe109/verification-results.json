@@ -1,0 +1,119 @@
+{
+  "sprint": "S2fe109",
+  "machine_verdict_source": "docs/sprint-logs/S2fe109/verify-run.json",
+  "machine_summary": {
+    "test": "pass (1243 tests after verifier fixes in commit 920d704)",
+    "lint": "pass",
+    "ui-tests": "fail (pre-existing: see compromises.json C-S2fe109-01)"
+  },
+  "overall_machine_status": "fail",
+  "pre_existing_failure_note": "make test-ui fails due to Playwright mock/e2e tests from prior sprints (Sa100c6 settings-hub, S763a98 slash-menu, Sd40b63 slash-table, S53409d agent-chat/tools). S2fe109 has zero UI stories and touched zero UI test files. git diff main..HEAD shows no changes to any failing test file. Pre-existing failures are documented in compromises.json.",
+  "diff_coverage": {
+    "enumerated_additions": [
+      {"type": "api", "identifier": "GET /api/agent/jobs", "tested_by": "tests/acceptance/agent-jobs-schema.spec.ts", "status": "pass"},
+      {"type": "api", "identifier": "GET /api/agent/jobs/:name", "tested_by": "tests/acceptance/agent-jobs-schema.spec.ts", "status": "pass"},
+      {"type": "api", "identifier": "POST /api/agent/jobs/:name/run", "tested_by": "tests/acceptance/agent-jobs-run.spec.ts", "status": "pass"},
+      {"type": "cli", "identifier": "loamium agent-run <name>", "tested_by": "tests/acceptance/agent-jobs-run.spec.ts (API path); CLI binary requires built artifact", "status": "pass (API path tested)"},
+      {"type": "module", "identifier": "agent-jobs-service.ts loadAgentJobs/getJobLastRunAt/computeNextRunAt", "tested_by": "tests/acceptance/agent-jobs-schema.spec.ts", "status": "pass"},
+      {"type": "module", "identifier": "agent-scheduler.ts startScheduler/SCHEDULER_MAX_TURNS/SCHEDULER_TIMEOUT_MS", "tested_by": "packages/server/src/agent-scheduler.test.ts + tests/acceptance/agent-jobs-scheduler.spec.ts", "status": "pass"},
+      {"type": "module", "identifier": "agent-job-state.ts getJobState/setJobLastRunAt", "tested_by": "tests/acceptance/agent-jobs-scheduler.spec.ts (via anacron test)", "status": "pass"},
+      {"type": "schema", "identifier": "AgentJobDefinition/agentJobsListResponseSchema/agentJobDetailResponseSchema/agentJobRunResponseSchema", "tested_by": "tests/acceptance/agent-jobs-schema.spec.ts + tests/acceptance/agent-jobs-run.spec.ts", "status": "pass"}
+    ],
+    "untested_additions": []
+  },
+  "stories": [
+    {
+      "story_id": "S2fe109-1",
+      "story_type": "api",
+      "tests": [
+        {
+          "file": "tests/acceptance/agent-jobs-schema.spec.ts",
+          "story": "S2fe109-1",
+          "acceptance_criteria": ["AC-S2fe109-1-1", "AC-S2fe109-1-2", "AC-S2fe109-1-3", "AC-S2fe109-1-4"],
+          "status": "pass",
+          "evidence": "4 tests passed: 'returns job list with correct fields (AC-S2fe109-1-1)', 'skips invalid entries and returns valid ones (AC-S2fe109-1-2)', 'returns job detail and 404 for unknown name (AC-S2fe109-1-4)', '.gitignore contains !.loamium/agent-jobs.json (AC-S2fe109-1-3)'"
+        }
+      ],
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "n/a (no devvm/acceptance-devvm smoke for API story)",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass (GET /api/agent/jobs and GET /api/agent/jobs/:name registered in routes/agent.ts)",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "pass (ADR-0013: !/.loamium/agent-jobs.json present in .gitignore; schema fields name/schedule/prompt/permission/enabled implemented)",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    },
+    {
+      "story_id": "S2fe109-2",
+      "story_type": "mixed",
+      "tests": [
+        {
+          "file": "tests/acceptance/agent-jobs-run.spec.ts",
+          "story": "S2fe109-2",
+          "acceptance_criteria": ["AC-S2fe109-2-1", "AC-S2fe109-2-2", "AC-S2fe109-2-3"],
+          "status": "pass",
+          "evidence": "3 tests passed: 'POST /api/agent/jobs/:name/run returns 200 with sessionId and session is queryable (AC-S2fe109-2-1)', 'POST /api/agent/jobs/nonexistent/run returns 404 with error field (AC-S2fe109-2-2)', 'POST /api/agent/jobs/:name/run with disabled job returns 409 with error containing disabled (AC-S2fe109-2-3)'"
+        },
+        {
+          "file": "tests/acceptance/agent-jobs-run.spec.ts",
+          "story": "S2fe109-2",
+          "acceptance_criteria": ["AC-S2fe109-2-4"],
+          "status": "pass",
+          "evidence": "CLI acceptance test added in commit 920d704: spawns `loamium agent-run cli-test-job` via runCli helper against real server, asserts exit code 0 and stdout contains sessionId (non-empty, single line). Test passes: 'loamium agent-run <name> exits 0 and prints sessionId to stdout (AC-S2fe109-2-4)'."
+        }
+      ],
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "n/a",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass (POST /api/agent/jobs/:name/run → createPiSession call verified in routes/agent.ts lines 540-570; CLI agent-run spawn test added in commit 920d704)",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "pass (ADR-0013 REST/CLI 1:1 satisfied: POST route + CLI agent-run command)",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    },
+    {
+      "story_id": "S2fe109-3",
+      "story_type": "api",
+      "tests": [
+        {
+          "file": "tests/acceptance/agent-jobs-scheduler.spec.ts",
+          "story": "S2fe109-3",
+          "acceptance_criteria": ["AC-S2fe109-3-1", "AC-S2fe109-3-2", "AC-S2fe109-3-3"],
+          "status": "pass",
+          "evidence": "2 acceptance tests passed: 'GET /api/agent/jobs/:name returns nextRunAt as ISO8601 future datetime (AC-S2fe109-3-1)', 'anacron catchup: job with lastRunAt 48h ago fires within 10s and state file is updated (AC-S2fe109-3-2 + AC-S2fe109-3-3)'"
+        },
+        {
+          "file": "packages/server/src/agent-scheduler.test.ts",
+          "story": "S2fe109-3",
+          "acceptance_criteria": ["AC-S2fe109-3-4"],
+          "status": "pass",
+          "evidence": "4 unit tests pass (commit 920d704): SCHEDULER_MAX_TURNS=10, SCHEDULER_TIMEOUT_MS=300000, timeout abort fires after SCHEDULER_TIMEOUT_MS, AND new behavioral test: abort fires after exactly maxTurns=3 turn_end events via session.subscribe() (verifier finding C-S2fe109-03 fixed — void maxTurns replaced with actual turn counting)."
+        }
+      ],
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "n/a",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass (startScheduler called in index.ts; runJobSession calls createPiSession; agent-job-state.ts updates lastRunAt; maxTurns now wired via session.subscribe() turn_end counting in commit 920d704)",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "pass (ADR-0013: anacron catchup implemented; agent-job-state.json for lastRunAt; maxTurns/timeout applied; scheduler embedded in Hono server)",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    }
+  ],
+  "summary": {
+    "pass": 12,
+    "fail": 0,
+    "skip": 0,
+    "s2fe109_tests_status": "ALL PASS (post-verifier fixes: commit 920d704 resolved C-S2fe109-03 maxTurns no-op and C-S2fe109-04 missing CLI test)",
+    "pre_existing_ui_failures": "make test-ui fails with 600+ pre-existing Playwright failures from Sa100c6/S763a98/Sd40b63/S53409d sprints. Zero S2fe109 files involved. Confirmed by independent verifier."
+  }
+}

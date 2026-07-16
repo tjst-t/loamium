@@ -1,0 +1,176 @@
+{
+  "sprint": "S2fe109",
+  "verified_at": "2026-07-16T08:17:46Z",
+  "verifier_model": "claude-opus-4-8 (read-only, separate session)",
+  "overall": "fail",
+  "findings": [
+    {
+      "category": "acceptance_criteria",
+      "story": "S2fe109-3",
+      "ac": "AC-S2fe109-3-4",
+      "verdict": "fail",
+      "detail": "AC-3-4 requires that maxTurns (default 10) AND timeoutMs (default 300000) are applied to the job session, and the session is aborted on excess. Only the timeout half is real. In packages/server/src/agent-scheduler.ts runJobSession(), maxTurns is accepted as a parameter (line 50) but then discarded with `void maxTurns;` (line 98). It is never passed to createPiSession/createAgentSession — createPiSession (agent-service.ts:281) has no maxTurns parameter and grep confirms maxTurns appears nowhere else in packages/server/src or packages/shared/src except the scheduler's own default/void. So a scheduled job has NO per-turn cap; it can loop indefinitely (up to the 300s timeout). The timeoutMs abort IS wired (setTimeout → session.abort at lines 85-88) and IS the only enforcement. The unit test agent-scheduler.test.ts only asserts (a) the exported constant SCHEDULER_MAX_TURNS === 10 and (b) that abort fires after the timeout — it never asserts turns are limited, and cannot, because the value is thrown away. verification-results.json marks AC-3-4 'pass'; the machine test is green only because the test asserts a constant, not the behavior. Note: ROADMAP.json itself still records AC-S2fe109-3-4 and all of story S2fe109-3 as status 'pending', not 'pass' — so the sprint's own roadmap has NOT actually marked this AC done.",
+      "overlooked_by_autopilot": true,
+      "recommended_action": "Either (a) plumb maxTurns through createPiSession into createAgentSession so the SDK enforces a turn cap and add a test that asserts turn-limiting behavior, or (b) if the Pi SDK cannot enforce maxTurns on the session object, revise AC-S2fe109-3-4 to drop the maxTurns clause and document that timeout is the only bound. Do not leave `void maxTurns;` masquerading as enforcement."
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "S2fe109-2",
+      "ac": "AC-S2fe109-2-4",
+      "verdict": "warn",
+      "detail": "AC-2-4 requires `loamium agent-run <name>` to POST /run, print sessionId to stdout, and exit 0. The CLI command IS implemented (packages/cli/src/main.ts:956-966: sub('agent-run', ...) calls apiFetch POST /api/agent/jobs/:name/run and println(res.sessionId)) and parses the response via agentJobRunResponseSchema. The command path is real and reachable. HOWEVER there is NO test that executes the CLI: agent-jobs-run.spec.ts header explicitly leaves a TODO ('CLI binary requires build... TODO: spawn loamium agent-run and check exit 0 + stdout sessionId') and only tests the HTTP API. verification-results.json marks AC-2-4 'pass' on the basis of 'API path tested + command registered'. The user-observable CLI seam (exit code, stdout format, --json handling) is unverified by any assertion. Given REST↔CLI 1:1 is a core project rule (CLAUDE.md) and other CLI commands in this repo do have spawn-based tests, this is a genuine coverage gap, not a build limitation.",
+      "overlooked_by_autopilot": true,
+      "recommended_action": "Add a CLI acceptance test that spawns the built `loamium agent-run <name>` against a live server and asserts exit code 0 and stdout === sessionId (matching the pattern used by existing CLI command tests)."
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "S2fe109-1",
+      "ac": "AC-S2fe109-1-1",
+      "verdict": "pass",
+      "detail": "GET /api/agent/jobs implemented in routes/agent.ts:479-490, returns { jobs: [{ name, schedule, enabled, lastRunAt }] } — lastRunAt sourced from getJobState (real state file). Test agent-jobs-schema.spec.ts hits real HTTP on a temp vault and asserts status 200, field presence, and lastRunAt=null. Re-ran independently: pass.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "S2fe109-1",
+      "ac": "AC-S2fe109-1-2",
+      "verdict": "pass",
+      "detail": "loadAgentJobs (agent-jobs-service.ts:9-43) safeParses each entry with agentJobDefinitionSchema; invalid entries console.warn'd with issue detail and skipped, valid ones returned. Test seeds one valid + one invalid (missing name, bad permission) and asserts only 'good-job' returned and length===1. Real behavior confirmed.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "S2fe109-1",
+      "ac": "AC-S2fe109-1-3",
+      "verdict": "pass",
+      "detail": ".gitignore adds `!/.loamium/agent-jobs.json` after `.loamium/*`. Independently verified in a fresh throwaway repo: `git add -n .loamium/agent-jobs.json` succeeds (file IS trackable) while `.loamium/agent-job-state.json` remains ignored (correct — state should not be tracked). The negation pattern genuinely works despite the `.loamium/*` blanket ignore. Test asserts the literal string is present. Note the AC only requires the file be trackable via the negation pattern; no sample file need be committed, and none is.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "S2fe109-1",
+      "ac": "AC-S2fe109-1-4",
+      "verdict": "pass",
+      "detail": "GET /api/agent/jobs/:name (routes/agent.ts:494-512) returns full fields { name, schedule, prompt, permission, enabled, lastRunAt, nextRunAt } and errorJson 404 (job_not_found) for unknown name. Test asserts 200 with all fields and 404 for 'nonexistent'. Confirmed.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "S2fe109-2",
+      "ac": "AC-S2fe109-2-1",
+      "verdict": "pass",
+      "detail": "POST /api/agent/jobs/:name/run (routes/agent.ts:516-560) loads job, clamps caps, calls createPiSession, fires session.prompt(job.prompt) fire-and-forget, returns { sessionId }. Test asserts 200, sessionId string non-empty, AND that the session is queryable via GET /api/agent/sessions/:id returning matching id. Real session-create path (unreachable baseUrl so LLM call fails but session is created) — a genuine user-observable seam. Confirmed.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "S2fe109-2",
+      "ac": "AC-S2fe109-2-2",
+      "verdict": "pass",
+      "detail": "Nonexistent job → errorJson 404 'job_not_found' (routes/agent.ts:520-522). Test asserts 404 and presence of error field. Confirmed.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "S2fe109-2",
+      "ac": "AC-S2fe109-2-3",
+      "verdict": "pass",
+      "detail": "Disabled job → errorJson 409 'job_disabled' with message 'job disabled' (routes/agent.ts:523-525). Minor literal deviation: AC text says `{ error: 'job disabled' }` but response error field is 'job_disabled' (underscore) with message 'job disabled'. Test asserts 409 + error is string + error.toLowerCase() contains 'disabled', which the response satisfies. AC intent (409 signalling disabled) is met; the underscore vs space is cosmetic. Confirmed pass.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "S2fe109-3",
+      "ac": "AC-S2fe109-3-1",
+      "verdict": "pass",
+      "detail": "computeNextRunAt (agent-jobs-service.ts:70-77) uses cron-parser CronExpressionParser to return the next ISO8601 time; surfaced via GET /:name nextRunAt. Test asserts nextRunAt is a string, non-null, parses to a valid Date, and is in the future. cron-parser is installed (node_modules present, parse verified). Confirmed.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "S2fe109-3",
+      "ac": "AC-S2fe109-3-2",
+      "verdict": "pass",
+      "detail": "Anacron catchup: startScheduler (agent-scheduler.ts:167) runs checkAndRunJobs on startup; a job whose lastRun < previous scheduled time (48h-ago state, daily schedule) triggers runJobSession. index.ts:31 wires startScheduler(config, index) into real server boot. Test seeds state 48h ago, boots a real server, polls GET /api/agent/sessions for up to 10s and asserts a session appears. Real end-to-end via HTTP. Confirmed (re-ran: pass, ~2.8s).",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "S2fe109-3",
+      "ac": "AC-S2fe109-3-3",
+      "verdict": "pass",
+      "detail": "setJobLastRunAt (agent-job-state.ts:50-60) writes .loamium/agent-job-state.json; runJobSession calls it (agent-scheduler.ts:79) after session creation. Test reads the state file after catchup and asserts jobs['catchup-job'].lastRunAt is a string >= test start. Real file write observed. Confirmed.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "forbidden_categories",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "Scanned git diff base..branch. Zero it.skip/xtest/expect(true).toBe(true) stubs. Zero @ts-ignore/# noqa. Zero `as any`/`: any` added. The `catch {}` blocks in agent-jobs-service.ts / agent-job-state.ts / agent-scheduler.ts are legitimate typed fallbacks (JSON.parse failure → return default/null; cron parse failure → return null), each with a defined return value — not silent swallowing of unexpected errors. The `as ['journal_append']` cast (C-S2fe109-02) is type-sound: resolvePermissions accepts Capability[] and 'journal_append' is a valid Capability; not an `as any` escape. No AC text removed or softened in ROADMAP.json (deletions are only progress counters and sprint scaffolding).",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "adr_conformance",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "ADR-0013 (anacron): scheduler embedded in Hono server (index.ts), job def fields name/schedule/prompt/permission/enabled match schema, agent-jobs.json Git-tracked via negation, catchup fires each missed job once (needsRun guard: lastRun < prevScheduled). Conforms. ADR-0012/0015 (capability permissions): job permission mapped through resolvePermissions + getEffectiveCapabilities + LOAMIUM_MODE clamp (routes/agent.ts:534-543, agent-scheduler.ts:59-68); 'append-only' → ['journal_append'] correctly resolves to {read, web, journal_append} after clamp. Effective = agent-perm ∩ server-mode preserved. ADR-0016 (audited service layer): job sessions create write tools via createVaultWriteTools (agent-service.ts:306), same audited note-service path as REST; POST /run also emits setAudit('agent.job.run'). Scheduler-triggered runs bypass HTTP audit middleware for the trigger event, but actual note writes still go through the audited tool layer, so no unaudited write path is introduced. No ADR Decision contradicted.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "compromises_completeness",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "C-S2fe109-01 (pre-existing Playwright failures) independently confirmed: git diff base..branch touches ZERO ui-web / UI-test / playwright files (verified by name-only filter = 0 matches for ui-web, settings-hub, slash-menu, slash-table, agent-chat, agent-tools). The make test-ui failure is genuinely not caused by S2fe109, which has no UI stories. C-S2fe109-02 (as const → as ['journal_append']) confirmed real and type-sound (fixed in commit e76976e). What the compromises file MISSED: it does not disclose the AC-3-4 maxTurns no-op (`void maxTurns;`, filed above as fail) nor the absent CLI test for AC-2-4 (filed above as warn). Those two gaps are the substantive omissions from the self-report.",
+      "overlooked_by_autopilot": true,
+      "recommended_action": "Add C-entries (or fix) for the maxTurns non-enforcement and the missing agent-run CLI test before marking the sprint done."
+    }
+  ],
+  "concerns": [
+    {
+      "raised_by": "implementer",
+      "story": "S2fe109-3",
+      "note": "maxTurns SDK limitation was flagged by the implementer as concern #4 and is confirmed as a real behavioral gap — the value is discarded, not just unenforced by the SDK. Elevated to an AC-3-4 fail above.",
+      "theme": "maxturns-not-enforced"
+    },
+    {
+      "raised_by": "verifier",
+      "story": "S2fe109-3",
+      "note": "ROADMAP.json still records story S2fe109-3 and all its ACs (3-1..3-4) as status 'pending' while verification-results.json reports them ALL PASS. The two documents disagree; the sprint is not internally marked done for story 3. A reviewer trusting ROADMAP would see story 3 as unfinished.",
+      "theme": "roadmap-status-divergence"
+    },
+    {
+      "raised_by": "implementer",
+      "story": "S2fe109-1",
+      "note": "worktree/npm-install risk for cron-parser: confirmed cron-parser@5.6.2 is in packages/server/package.json, package-lock.json, and node_modules; parse works at runtime. No missing-dependency issue found in any exercised code path.",
+      "theme": "dependency-install"
+    },
+    {
+      "raised_by": "verifier",
+      "story": "S2fe109-2",
+      "note": "The disabled-job 409 error field is 'job_disabled' (underscore) while the AC literal says 'job disabled'; the test only checks a substring so a future rename could pass while drifting from the AC's stated contract. Cosmetic but worth pinning if the exact string is a contract.",
+      "theme": "error-field-literal-drift"
+    }
+  ],
+  "summary": {
+    "ac_failures": 1,
+    "forbidden_warnings": 0,
+    "adr_conflicts": 0,
+    "overlooked_count": 4,
+    "concerns_count": 4
+  }
+}

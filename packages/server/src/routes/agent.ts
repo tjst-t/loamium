@@ -37,6 +37,8 @@ import {
   resolvePermissions,
 } from '@loamium/shared';
 import { loadSessionPerms, saveSessionPerms } from '../agent-session-perms.js';
+import { loadAgentJobs, computeNextRunAt } from '../agent-jobs-service.js';
+import { getJobState } from '../agent-job-state.js';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { VaultIndex } from '../noteIndex.js';
 
@@ -470,6 +472,91 @@ export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
       // セッションタイトルを初回ユーザーメッセージから設定する
       void updateSessionTitle(session, config.vaultRoot);
     });
+  });
+
+  // ---- GET /api/agent/jobs -----------------------------------------------
+
+  app.get('/api/agent/jobs', async (c) => {
+    const jobs = await loadAgentJobs(config.vaultRoot);
+    const jobList = await Promise.all(
+      jobs.map(async (job) => ({
+        name: job.name,
+        schedule: job.schedule,
+        enabled: job.enabled,
+        lastRunAt: (await getJobState(config.vaultRoot, job.name)).lastRunAt,
+      })),
+    );
+    return c.json({ jobs: jobList });
+  });
+
+  // ---- GET /api/agent/jobs/:name -----------------------------------------------
+
+  app.get('/api/agent/jobs/:name', async (c) => {
+    const name = c.req.param('name');
+    const jobs = await loadAgentJobs(config.vaultRoot);
+    const job = jobs.find((j) => j.name === name);
+    if (!job) {
+      return errorJson(c, 404, 'job_not_found', `agent job not found: ${name}`);
+    }
+    const { lastRunAt } = await getJobState(config.vaultRoot, name);
+    const nextRunAt = computeNextRunAt(job.schedule);
+    return c.json({
+      name: job.name,
+      schedule: job.schedule,
+      prompt: job.prompt,
+      permission: job.permission,
+      enabled: job.enabled,
+      lastRunAt,
+      nextRunAt,
+    });
+  });
+
+  // ---- POST /api/agent/jobs/:name/run -----------------------------------------------
+
+  app.post('/api/agent/jobs/:name/run', async (c) => {
+    const name = c.req.param('name');
+    const jobs = await loadAgentJobs(config.vaultRoot);
+    const job = jobs.find((j) => j.name === name);
+    if (!job) {
+      return errorJson(c, 404, 'job_not_found', `agent job not found: ${name}`);
+    }
+    if (!job.enabled) {
+      return errorJson(c, 409, 'job_disabled', 'job disabled');
+    }
+
+    const configResult = await loadAgentConfig(config.vaultRoot);
+    if (!configResult.ok) {
+      return errorJson(c, 400, configResult.reason, configResult.message);
+    }
+
+    // Map AgentJobPermission → AgentPermissions for resolvePermissions.
+    // 'read-only' / 'full' are preset names; 'append-only' maps to ['journal_append'].
+    const jobPermissions =
+      job.permission === 'append-only'
+        ? (['journal_append'] as ['journal_append'])
+        : job.permission;
+
+    const effectiveCaps = getEffectiveCapabilities(
+      configResult.config,
+      resolvePermissions(jobPermissions),
+      config.mode,
+    );
+
+    let session;
+    try {
+      session = await createPiSession(config, configResult.config, index, effectiveCaps);
+    } catch (err) {
+      return errorJson(c, 500, 'session_create_failed', String(err));
+    }
+
+    const { sessionId } = session;
+
+    // Fire-and-forget: start the agent with the job prompt in the background.
+    session.prompt(job.prompt).catch(console.error);
+
+    setAudit(c, 'agent.job.run', name);
+
+    return c.json({ sessionId });
   });
 
   return app;

@@ -63,6 +63,7 @@ import {
   agentPermissionsResponseSchema,
   agentPrivacySettingsResponseSchema,
   agentModelsResponseSchema,
+  agentJobRunResponseSchema,
 } from '@loamium/shared';
 import {
   apiFetch,
@@ -951,6 +952,19 @@ function buildProgram(): Command {
     });
 
   program.addCommand(systemFilesCmd);
+
+  // ---- エージェントジョブ即時実行 (ADR-0013 / S2fe109-2) ----
+
+  sub('agent-run', 'agent ジョブを即時実行する (POST /api/agent/jobs/:name/run)')
+    .argument('<name>', 'ジョブ名')
+    .action(async (name: string, opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, `/api/agent/jobs/${encodeURIComponent(name)}/run`, postJson({}));
+      output(opts, result, () => {
+        const res = parseAs(result, agentJobRunResponseSchema, 'agent-run');
+        println(res.sessionId);
+      });
+    });
 
   // ---- エクスポート (ADR-0006 / Sa8ee62-1) ----
 
