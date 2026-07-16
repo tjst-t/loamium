@@ -1597,6 +1597,8 @@ code {
 .param-input::placeholder { color: var(--text-faint); }
 .param-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 input[type="date"].param-input { font-family: var(--font-mono); min-width: 170px; width: auto; }
+input[type="time"].param-input { font-family: var(--font-mono); width: auto; }
+input[type="number"].param-input { width: auto; }
 textarea.param-input { resize: vertical; min-height: 72px; }
 
 /* invalid 状態 */

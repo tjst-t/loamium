@@ -86,6 +86,13 @@ import {
   type AgentConnectionTestResponse,
   type AgentModelsResponse,
   type AgentConnectionTestRequest,
+  agentJobListResponseSchema,
+  agentJobRunResponseSchema,
+  type AgentJob,
+  type AgentJobState,
+  type AgentJobWithState,
+  type AgentJobListResponse,
+  type AgentJobRunResponse,
 } from '@loamium/shared';
 
 export class ApiError extends Error {
@@ -608,5 +615,23 @@ export const api = {
    */
   getAgentModels(): Promise<AgentModelsResponse> {
     return request(agentModelsResponseSchema, '/api/settings/agent/models');
+  },
+
+  // ---- エージェントジョブ (S2fe109) ----------------------------------------
+
+  getAgentJobs(): Promise<AgentJobListResponse> {
+    return request(agentJobListResponseSchema, '/api/agent/jobs');
+  },
+
+  putAgentJobs(jobs: AgentJob[]): Promise<{ ok: boolean; count: number }> {
+    return request(
+      z.object({ ok: z.boolean(), count: z.number() }),
+      '/api/agent/jobs',
+      { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jobs }) },
+    );
+  },
+
+  runAgentJob(name: string): Promise<AgentJobRunResponse> {
+    return request(agentJobRunResponseSchema, `/api/agent/jobs/${encodeURIComponent(name)}/run`, { method: 'POST' });
   },
 };

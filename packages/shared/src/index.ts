@@ -198,3 +198,21 @@ export {
   type SystemCommandDef,
   type SystemTemplateDef,
 } from './system-definitions.js';
+export {
+  agentJobSchema,
+  agentJobsSchema,
+  agentJobStateSchema,
+  agentJobWithStateSchema,
+  agentJobListResponseSchema,
+  agentJobRunResponseSchema,
+  agentJobDetailResponseSchema,
+  jobRunResultSchema,
+  type AgentJob,
+  type AgentJobs,
+  type AgentJobState,
+  type AgentJobWithState,
+  type AgentJobListResponse,
+  type AgentJobRunResponse,
+  type AgentJobDetailResponse,
+  type JobRunResult,
+} from './agent-jobs.js';

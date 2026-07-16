@@ -14,6 +14,7 @@ import { templatesRoutes } from './routes/templates.js';
 import { smartFoldersRoutes } from './routes/smart-folders.js';
 import { commandsRoutes } from './routes/commands.js';
 import { agentRoutes } from './routes/agent.js';
+import { agentJobRoutes } from './routes/agent-jobs.js';
 import { settingsRoutes } from './routes/settings.js';
 import { systemFilesRoutes } from './routes/system-files.js';
 import { auditMiddleware } from './audit.js';
@@ -126,6 +127,8 @@ export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv>
   app.route('/', commandsRoutes(config));
   // エージェント (S53409d-3) — 権限・監査はルート内で管理
   app.route('/', agentRoutes(config, index));
+  // エージェント定期実行ジョブ (S2fe109)
+  app.route('/', agentJobRoutes(config, index));
   // 設定 API (Sa10026-5) — agent ツールには公開しない (Sa10026-6 で allowlist 除外)
   app.route('/', settingsRoutes(config));
   // system/ 設定ファイル一覧 + source read/write (Sa10026-9 #1) — agent ツール非公開

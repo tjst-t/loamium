@@ -24,6 +24,7 @@ import { api } from '../api.js';
 import { TemplatesPanel } from './TemplatesPanel.js';
 import { SmartFoldersPanel } from './SmartFoldersPanel.js';
 import { CommandsPanel } from './CommandsPanel.js';
+import { AgentJobsPanel } from './AgentJobsPanel.js';
 import type {
   AppSettings,
   AgentConnectionResponse,
@@ -35,7 +36,7 @@ import type {
 
 // ---- 型 ----
 
-type SettingsGroup = 'general' | 'agent' | 'privacy' | 'templates' | 'smart-folders' | 'commands';
+type SettingsGroup = 'general' | 'agent' | 'privacy' | 'templates' | 'smart-folders' | 'commands' | 'agent-jobs';
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 interface SettingsViewProps {
@@ -131,6 +132,15 @@ function IconCommand(): JSX.Element {
   return (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
       <path d="M4 5l2.5 3L4 11M8.5 11h3.5" />
+    </svg>
+  );
+}
+
+function IconClock(): JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="M8 5v3.5l2 1.5" />
     </svg>
   );
 }
@@ -639,7 +649,7 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
     : null;
 
   // コンテンツグループ (master-detail) かどうか
-  const isContentGroup = activeGroup === 'templates' || activeGroup === 'smart-folders' || activeGroup === 'commands';
+  const isContentGroup = activeGroup === 'templates' || activeGroup === 'smart-folders' || activeGroup === 'commands' || activeGroup === 'agent-jobs';
 
   const mainClass = `settings-main${readonly ? ' readonly' : ''}${isContentGroup ? ' settings-main-md' : ''}`;
 
@@ -714,6 +724,16 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
           <IconCommand />
           スマートコマンド
         </button>
+        <button
+          type="button"
+          className={`nav-item${activeGroup === 'agent-jobs' ? ' active' : ''}`}
+          data-testid="settings-nav-item"
+          data-group="agent-jobs"
+          onClick={() => switchGroup('agent-jobs')}
+        >
+          <IconClock />
+          エージェントジョブ
+        </button>
       </nav>
 
       {/* 右: パネル or master-detail */}
@@ -731,6 +751,10 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
           {/* スマートコマンド — Sa100c6-3 */}
           {activeGroup === 'commands' && (
             <CommandsPanel mode={mode} />
+          )}
+          {/* エージェントジョブ — S2fe109 */}
+          {activeGroup === 'agent-jobs' && (
+            <AgentJobsPanel mode={mode} />
           )}
         </div>
       ) : (

@@ -63,6 +63,8 @@ import {
   agentPermissionsResponseSchema,
   agentPrivacySettingsResponseSchema,
   agentModelsResponseSchema,
+  agentJobListResponseSchema,
+  agentJobRunResponseSchema,
 } from '@loamium/shared';
 import {
   apiFetch,
@@ -951,6 +953,56 @@ function buildProgram(): Command {
     });
 
   program.addCommand(systemFilesCmd);
+
+  // ---- エージェントジョブ (S2fe109) ----
+
+  const agentJobsCmd = new Command('agent-jobs')
+    .description('エージェント定期実行ジョブを管理する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} });
+
+  // loamium agent-jobs list (GET /api/agent/jobs)
+  agentJobsCmd
+    .command('list')
+    .description('ジョブ一覧と最終実行状態を表示する (GET /api/agent/jobs)')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, '/api/agent/jobs');
+      output(opts, result, () => {
+        const res = parseAs(result, agentJobListResponseSchema, 'agent-jobs list');
+        for (const job of res.jobs) {
+          const status = job.enabled ? 'enabled' : 'disabled';
+          const last = job.state.lastRunAt ?? 'never';
+          const lastResult = job.state.lastResult ?? '-';
+          println(`${job.name}\t${job.schedule}\t${status}\t${last}\t${lastResult}`);
+        }
+      });
+    });
+
+  // loamium agent-jobs run <name> (POST /api/agent/jobs/:name/run)
+  agentJobsCmd
+    .command('run')
+    .description('ジョブを即時実行する (POST /api/agent/jobs/:name/run)')
+    .argument('<name>', 'ジョブ名')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (name: string, opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, `/api/agent/jobs/${encodeURIComponent(name)}/run`, {
+        method: 'POST',
+      });
+      output(opts, result, () => {
+        const res = parseAs(result, agentJobRunResponseSchema, 'agent-jobs run');
+        println(`result: ${res.result}  duration: ${res.durationMs}ms`);
+        if (res.error) println(`error: ${res.error}`);
+      });
+    });
+
+  program.addCommand(agentJobsCmd);
 
   // ---- エクスポート (ADR-0006 / Sa8ee62-1) ----
 
