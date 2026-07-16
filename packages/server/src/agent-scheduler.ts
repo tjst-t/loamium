@@ -79,6 +79,17 @@ export async function runJobSession(
   await setJobLastRunAt(serverConfig.vaultRoot, job.name, runAt);
 
   let abortTimer: ReturnType<typeof setTimeout> | undefined;
+  let turnCount = 0;
+
+  const unsubscribe = session.subscribe((event) => {
+    if (event.type === 'turn_end') {
+      turnCount++;
+      if (turnCount >= maxTurns) {
+        console.warn(`[scheduler] job "${job.name}" reached maxTurns=${maxTurns}, aborting`);
+        session.abort().catch(console.error);
+      }
+    }
+  });
 
   const promptPromise = session.prompt(job.prompt);
 
@@ -93,9 +104,8 @@ export async function runJobSession(
     })
     .finally(() => {
       if (abortTimer !== undefined) clearTimeout(abortTimer);
+      unsubscribe();
     });
-
-  void maxTurns;
 }
 
 /**

@@ -4,11 +4,7 @@
  * [AC-S2fe109-2-1] POST /api/agent/jobs/:name/run で enabled なジョブを実行 → 200 + sessionId
  * [AC-S2fe109-2-2] 存在しないジョブ名 → 404 + error フィールド
  * [AC-S2fe109-2-3] enabled: false のジョブ → 409 + error に 'disabled' を含む
- *
- * AC-S2fe109-2-4 (loamium agent-run <name>):
- *   CLI バイナリのビルドが必要なため、ここでは HTTP API テストのみ実施する。
- *   TODO: `make build` でバイナリをビルドし、child_process.spawn で
- *   `loamium agent-run test-job` を実行して exit code 0 と stdout の sessionId を確認すること。
+ * [AC-S2fe109-2-4] loamium agent-run <name> → exit 0 + stdout に sessionId
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -19,6 +15,7 @@ import {
   startServer,
   type TestServer,
 } from './helpers/server.js';
+import { runCli } from './helpers/cli.js';
 
 async function seedAgentJobs(vault: string, content: unknown): Promise<void> {
   const dir = path.join(vault, '.loamium');
@@ -130,5 +127,30 @@ describe('agent-jobs-run', () => {
     expect(body).toHaveProperty('error');
     expect(typeof body.error).toBe('string');
     expect((body.error ?? '').toLowerCase()).toContain('disabled');
+  });
+
+  it('loamium agent-run <name> exits 0 and prints sessionId to stdout (AC-S2fe109-2-4)', async () => {
+    // [AC-S2fe109-2-4]
+    await seedAgentConfig(vault);
+    await seedAgentJobs(vault, [
+      {
+        name: 'cli-test-job',
+        schedule: '0 9 * * *',
+        prompt: 'Summarize notes',
+        permission: 'read-only',
+        enabled: true,
+      },
+    ]);
+
+    server = await startServer({ vault });
+
+    const result = await runCli(['agent-run', 'cli-test-job'], {
+      env: { LOAMIUM_URL: server.baseUrl },
+    });
+
+    expect(result.code).toBe(0);
+    expect(result.stdout.trim().length).toBeGreaterThan(0);
+    // stdout should be the sessionId (non-empty string with no whitespace beyond trim)
+    expect(result.stdout.trim()).not.toContain('\n');
   });
 });
