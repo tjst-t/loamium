@@ -93,6 +93,15 @@ import {
   type AgentJobWithState,
   type AgentJobListResponse,
   type AgentJobRunResponse,
+  localModelListResponseSchema,
+  localModelDownloadAcceptedResponseSchema,
+  localModelDownloadStatusResponseSchema,
+  localModelDeleteResponseSchema,
+  type AgentBackend,
+  type LocalModelListResponse,
+  type LocalModelDownloadAcceptedResponse,
+  type LocalModelDownloadStatusResponse,
+  type LocalModelDeleteResponse,
 } from '@loamium/shared';
 
 // ---- エージェントジョブ型を再エクスポート (S2fe109) ----
@@ -548,12 +557,59 @@ export const api = {
     baseUrl: string;
     model: string;
     apiKey?: string;
+    /** 推論バックエンド (S8a3f2e-4)。省略時はサーバーが既存値を維持。 */
+    backend?: AgentBackend;
+    /** ローカルモデル名 (S8a3f2e-4): string=選択, null=クリア, 省略=維持。 */
+    localModel?: string | null;
   }): Promise<{ ok: boolean }> {
     return request(agentConnectionWriteResponseSchema, '/api/settings/agent/connection', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(params),
     });
+  },
+
+  // ---- 内蔵ローカル LLM モデル管理 (S8a3f2e-4) ------------------------------
+
+  /**
+   * .loamium/models/llm/ の取得済みモデル一覧を取得する (GET /api/llm/models)。
+   */
+  getLlmModels(): Promise<LocalModelListResponse> {
+    return request(localModelListResponseSchema, '/api/llm/models');
+  },
+
+  /**
+   * GGUF モデルのダウンロードを開始する (POST /api/llm/models/download)。
+   * ポーリング用の id を返す。read-only/append-only では 403。
+   */
+  downloadLlmModel(params: { url: string; filename?: string }): Promise<LocalModelDownloadAcceptedResponse> {
+    return request(localModelDownloadAcceptedResponseSchema, '/api/llm/models/download', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+  },
+
+  /**
+   * ダウンロードジョブの進捗を取得する (GET /api/llm/models/download/:id/status)。
+   */
+  getLlmDownloadStatus(id: string): Promise<LocalModelDownloadStatusResponse> {
+    return request(
+      localModelDownloadStatusResponseSchema,
+      `/api/llm/models/download/${encodeURIComponent(id)}/status`,
+    );
+  },
+
+  /**
+   * ローカルモデルを削除する (DELETE /api/llm/models/:filename)。
+   * read-only/append-only では 403。
+   */
+  deleteLlmModel(filename: string): Promise<LocalModelDeleteResponse> {
+    return request(
+      localModelDeleteResponseSchema,
+      `/api/llm/models/${encodeURIComponent(filename)}`,
+      { method: 'DELETE' },
+    );
   },
 
   /**

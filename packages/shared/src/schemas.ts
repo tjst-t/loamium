@@ -1093,6 +1093,16 @@ export const agentConnectionResponseSchema = z.object({
        * apiKeyRef が "$ENV_VAR" のときも true。実値は含まない。
        */
       hasApiKey: z.boolean().optional(),
+      /**
+       * 推論バックエンド選択 (S8a3f2e-4 / ADR-0025 amendment)。未指定 (旧 agent.json) は 'external' 扱い。
+       * UI はこの値でバックエンドセグメントの初期選択を決める。
+       */
+      backend: agentBackendSchema.optional(),
+      /**
+       * backend='local' 選択時に使う内蔵モデルのファイル名 (.loamium/models/llm/ 配下)。
+       * 未選択 (undefined) なら local バックエンドは未準備 = 接続無効 (自動フォールバックしない)。
+       */
+      localModel: z.string().optional(),
       webSearch: z
         .object({
           endpoint: z.string(),
@@ -1121,6 +1131,18 @@ export const agentConnectionWriteRequestSchema = z.object({
    * 省略時はサーバーが既存の apiKey をそのまま維持する。
    */
   apiKey: z.string().min(1, 'apiKey must not be empty').optional(),
+  /**
+   * 推論バックエンド選択 (S8a3f2e-4)。省略時はサーバーが既存の backend を維持する。
+   * 'local' を保存してもモデル未選択 (localModel なし) なら接続は無効 (自動フォールバックしない)。
+   */
+  backend: agentBackendSchema.optional(),
+  /**
+   * backend='local' 時に使うローカルモデルのファイル名 (.loamium/models/llm/ 配下)。
+   *   - string : そのモデルを選択して保存。
+   *   - null   : 選択を明示的にクリア (local 未選択 = 接続無効)。
+   *   - 省略   : 既存の localModel をそのまま維持する。
+   */
+  localModel: z.string().min(1).nullable().optional(),
   webSearch: z
     .object({
       endpoint: z.string().min(1, 'webSearch.endpoint must not be empty'),

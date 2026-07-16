@@ -155,6 +155,15 @@ export async function installCatchAll(page: Page): Promise<string[]> {
       void route.fallback();
     }
   });
+  // GET /api/llm/models (S8a3f2e-4 ローカルモデル一覧)。
+  // 既定は空リスト。local バックエンドを検証するテストは後から自前の route で上書きする。
+  await page.route('**/api/llm/models', (route) => {
+    if (route.request().method() === 'GET') {
+      void route.fulfill(json({ models: [] }));
+    } else {
+      void route.fallback();
+    }
+  });
   // GET/PUT /api/settings/agent/privacy (Sa10026-7 プライバシー deny-list)。
   await page.route('**/api/settings/agent/privacy', (route) => {
     const method = route.request().method();

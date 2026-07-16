@@ -122,6 +122,9 @@ export function settingsRoutes(config: ServerConfig): Hono<AppEnv> {
         apiKeyRef: maskedKey,
         // hasApiKey: true = キー設定済み(実値は返さない)。UI が「保存済み」プレースホルダを出す。
         hasApiKey: cfg.apiKey.length > 0,
+        // backend 明示選択 (S8a3f2e-4)。未指定 (旧 agent.json) は 'external' を返す (後方互換)。
+        backend: cfg.backend ?? 'external',
+        ...(cfg.localModel !== undefined ? { localModel: cfg.localModel } : {}),
         ...(webSearch !== undefined ? { webSearch } : {}),
       },
     };
@@ -135,7 +138,7 @@ export function settingsRoutes(config: ServerConfig): Hono<AppEnv> {
     const bodyResult = await parseBody(c, agentConnectionWriteRequestSchema);
     if (!bodyResult.ok) return bodyResult.response;
 
-    const { api, baseUrl, model, apiKey, webSearch } = bodyResult.data;
+    const { api, baseUrl, model, apiKey, backend, localModel, webSearch } = bodyResult.data;
 
     // apiKey が省略された場合は既存の値を維持する (UI が保存済みキーを上書きしないため)
     let resolvedApiKey: string;
@@ -163,6 +166,9 @@ export function settingsRoutes(config: ServerConfig): Hono<AppEnv> {
         baseUrl,
         model,
         apiKey: resolvedApiKey,
+        // backend/localModel は明示選択 (S8a3f2e-4)。省略時は saveAgentConnection が既存値を維持する。
+        ...(backend !== undefined ? { backend } : {}),
+        ...(localModel !== undefined ? { localModel } : {}),
         ...(wsArg !== undefined ? { webSearch: wsArg } : {}),
       });
       return c.json({ ok: true });

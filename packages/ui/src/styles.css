@@ -5516,6 +5516,79 @@ button.callout-title { cursor: pointer; }
 .settings-main.readonly .deny-add-row { opacity: .5; pointer-events: none; }
 .settings-main.readonly .mode-banner { display: flex; }
 
+/* ==== S8a3f2e-4: LLM バックエンド切替 + ローカルモデル管理 ==== */
+/* --- バックエンド切替セグメント --- */
+.backend-seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 9px; overflow: hidden; width: 100%; box-sizing: border-box; }
+.backend-seg button { flex: 1; border: none; background: var(--bg-app); font: inherit; font-size: 13px; padding: 9px 12px; cursor: pointer; color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.backend-seg button:not(:last-child) { border-right: 1px solid var(--border-strong); }
+.backend-seg button.on { background: var(--accent); color: #fff; font-weight: 600; }
+.backend-seg button :where(svg) { width: 15px; height: 15px; }
+.backend-seg button .sub { font-size: 11px; font-weight: 400; opacity: .85; }
+.backend-body { display: none; }
+.backend-body.on { display: block; }
+
+/* --- モデル種別の枠 (llm / asr) --- */
+.kind-group { margin-bottom: 18px; }
+.kind-head { display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px; }
+.kind-head .k-title { font-size: 12.5px; font-weight: 700; color: var(--text); }
+.kind-head .k-path { font-family: var(--font-mono, monospace); font-size: 11px; color: var(--text-muted); background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; padding: 2px 7px; }
+.kind-head .k-badge { margin-left: auto; font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--text-faint); background: var(--bg-hover); border-radius: 5px; padding: 2px 7px; }
+.kind-asr { border: 1.5px dashed var(--border-strong); border-radius: 10px; padding: 12px 13px; background: var(--bg-panel); color: var(--text-muted); font-size: 12px; line-height: 1.6; display: flex; align-items: center; gap: 10px; }
+.kind-asr :where(svg) { width: 17px; height: 17px; flex-shrink: 0; color: var(--text-faint); }
+
+/* --- ローカルモデル 一覧 (選択兼セレクタ) + カード --- */
+.model-list-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.model-list-head .ml-title { font-size: 13px; font-weight: 600; }
+.model-list-head .btn { margin-left: auto; flex-shrink: 0; }
+.model-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
+.model-card { display: flex; align-items: center; gap: 12px; padding: 11px 13px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-panel); }
+.model-card.sel { border-color: var(--accent); background: var(--accent-soft); }
+.model-card .radio { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--border-strong); flex-shrink: 0; position: relative; cursor: pointer; padding: 0; background: none; }
+.model-card.sel .radio { border-color: var(--accent); }
+.model-card.sel .radio::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--accent); }
+.model-card .m-body { flex: 1; min-width: 0; }
+.model-card .m-name { font-family: var(--font-mono, monospace); font-size: 12.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.model-card .m-meta { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+.model-card .m-badge { font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--ok); background: #e8f5ee; border-radius: 5px; padding: 2px 7px; flex-shrink: 0; }
+.model-card .m-badge.active { color: var(--accent); background: var(--accent-soft); }
+.model-card .m-del { border: none; background: none; color: var(--text-faint); cursor: pointer; display: inline-flex; padding: 6px; border-radius: 7px; flex-shrink: 0; }
+.model-card .m-del:hover { color: var(--danger, #e05263); background: var(--danger-soft, #fde8ea); }
+.model-card .m-del :where(svg) { width: 15px; height: 15px; }
+.model-card.downloading { border-color: var(--accent); }
+.model-card .m-progress { margin-top: 6px; height: 6px; background: var(--bg-hover); border-radius: 999px; overflow: hidden; }
+.model-card .m-progress .bar { height: 100%; background: var(--accent); border-radius: 999px; transition: width .2s; }
+.model-card .dl-cancel { border: none; background: none; color: var(--text-muted); cursor: pointer; font-size: 11.5px; text-decoration: underline; flex-shrink: 0; }
+
+/* 空状態 (0 件) — 一覧レイアウトに寄せる */
+.model-empty { border: 1.5px dashed var(--border-strong); border-radius: 10px; padding: 18px 16px; background: var(--bg-panel); text-align: center; }
+.model-empty .ico { display: inline-flex; color: var(--text-faint); }
+.model-empty .ico :where(svg) { width: 26px; height: 26px; }
+.model-empty .m-title { font-size: 13px; font-weight: 600; margin-top: 6px; }
+.model-empty .m-desc { font-size: 11.5px; color: var(--text-muted); margin-top: 4px; line-height: 1.6; }
+.model-empty code { font-family: var(--font-mono, monospace); font-size: 11px; }
+
+/* DL セクション */
+.dl-box { border: 1px solid var(--border); border-radius: 10px; padding: 14px; background: var(--bg-app); }
+.dl-url-row { display: flex; gap: 8px; }
+.dl-url-row input { flex: 1; font-family: var(--font-mono, monospace); font-size: 12px; }
+.rec-title { font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--text-faint); margin: 14px 0 8px; }
+.rec-list { display: flex; flex-direction: column; gap: 6px; }
+.rec-item { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg-panel); }
+.rec-item .r-body { flex: 1; min-width: 0; }
+.rec-item .r-name { font-family: var(--font-mono, monospace); font-size: 12.5px; font-weight: 600; }
+.rec-item .r-meta { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+.rec-item .r-get { flex-shrink: 0; }
+.rec-item .r-get :where(svg) { width: 14px; height: 14px; }
+.btn-sm { padding: 6px 11px; font-size: 12px; }
+
+/* read-only 無効化 (書き込み系 UI) */
+.settings-main.readonly .backend-seg button,
+.settings-main.readonly .model-card .m-del,
+.settings-main.readonly .model-card .radio,
+.settings-main.readonly .model-card .dl-cancel,
+.settings-main.readonly .rec-item .r-get,
+.settings-main.readonly .dl-url-row .btn { opacity: .5; pointer-events: none; }
+
 /* ==== Sa100c6-1: master-detail 2 ペイン (テンプレート/SF/コマンド) ==== */
 .settings-main-md { flex: 1; min-width: 0; display: flex; overflow: hidden; padding: 0; }
 

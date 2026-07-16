@@ -32,6 +32,8 @@ import type {
   AgentPrivacySettingsResponse,
   AgentConnectionTestResponse,
   AgentModelsResponse,
+  AgentBackend,
+  LocalModelInfo,
 } from '@loamium/shared';
 
 // ---- 型 ----
@@ -109,6 +111,93 @@ function IconChevronDown(): JSX.Element {
       <path d="M4 6l4 4 4-4" />
     </svg>
   );
+}
+
+function IconExternal(): JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+      <path d="M8 2a6 6 0 100 12A6 6 0 008 2z" />
+      <path d="M2 8h12M8 2c1.8 1.6 2.8 3.7 2.8 6S9.8 12.4 8 14C6.2 12.4 5.2 10.3 5.2 8S6.2 3.6 8 2z" />
+    </svg>
+  );
+}
+
+function IconLocal(): JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+      <rect x="2.5" y="3" width="11" height="7" rx="1.5" />
+      <path d="M5.5 13h5M8 10v3" />
+    </svg>
+  );
+}
+
+function IconTrash(): JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round">
+      <path d="M3 4.5h10M6.5 4V3h3v1M5 4.5l.5 8h5l.5-8" />
+    </svg>
+  );
+}
+
+function IconDownload(): JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 2v8M5 7l3 3 3-3M3 13h10" />
+    </svg>
+  );
+}
+
+function IconModelEmpty(): JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2.5" y="3" width="11" height="7" rx="1.5" />
+      <path d="M5.5 13h5M8 10v3M6 6.5h4" />
+    </svg>
+  );
+}
+
+function IconMic(): JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round">
+      <rect x="6" y="1.5" width="4" height="8" rx="2" />
+      <path d="M3.5 7.5a4.5 4.5 0 009 0M8 12v2.5M5.5 14.5h5" />
+    </svg>
+  );
+}
+
+/** 推奨モデル (プロトタイプ settings-llm-backend-empty.html 準拠)。DL URL は下流の実装で解決する。 */
+interface RecommendedModel {
+  filename: string;
+  meta: string;
+  /** DL 元 URL (Hugging Face 等)。空なら URL 入力を促す。 */
+  url: string;
+}
+
+const RECOMMENDED_MODELS: readonly RecommendedModel[] = [
+  {
+    filename: 'qwen2.5-7b-instruct-q4_k_m.gguf',
+    meta: '4.4 GB · おすすめ・バランス型 · 32K ctx · メモリ 8 GB+ 推奨',
+    url: 'https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m.gguf',
+  },
+  {
+    filename: 'gemma-2-2b-it-q4_k_m.gguf',
+    meta: '1.6 GB · 軽量・省メモリ · 8K ctx · メモリ 4 GB+ 推奨',
+    url: 'https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf',
+  },
+  {
+    filename: 'phi-4-q4_k_m.gguf',
+    meta: '5.6 GB · 高精度 · 16K ctx · メモリ 8 GB+ 推奨',
+    url: 'https://huggingface.co/bartowski/phi-4-GGUF/resolve/main/phi-4-Q4_K_M.gguf',
+  },
+];
+
+/** バイト数を人間可読なサイズ文字列にする (一覧のメタ表示用)。 */
+function formatBytes(bytes: number): string {
+  if (bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  const value = bytes / Math.pow(1024, i);
+  return `${value.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
 function IconTemplate(): JSX.Element {
@@ -338,6 +427,260 @@ function SaveStatusBadge({ status, error }: { status: SaveStatus; error: string 
   );
 }
 
+// ---- LocalModelSection (S8a3f2e-4: backend=local のモデル管理 UI) ----
+
+interface DownloadEntry {
+  filename: string;
+  receivedBytes: number;
+  totalBytes: number | null;
+  status: string;
+}
+
+function LocalModelSection({
+  models,
+  loading,
+  selected,
+  downloads,
+  dlUrl,
+  dlUrlInvalid,
+  readonly,
+  onSelect,
+  onDelete,
+  onRefresh,
+  onDlUrlChange,
+  onUrlDownload,
+  onRecDownload,
+}: {
+  models: LocalModelInfo[];
+  loading: boolean;
+  selected: string | null;
+  downloads: Record<string, DownloadEntry>;
+  dlUrl: string;
+  dlUrlInvalid: boolean;
+  readonly: boolean;
+  onSelect: (filename: string) => void;
+  onDelete: (filename: string) => void;
+  onRefresh: () => void;
+  onDlUrlChange: (v: string) => void;
+  onUrlDownload: () => void;
+  onRecDownload: (rec: RecommendedModel) => void;
+}): JSX.Element {
+  // 進行中 (未完了) の DL のみカード表示する。完了は一覧側に取得済みとして現れる。
+  const activeDownloads = Object.entries(downloads).filter(
+    ([, d]) => d.status === 'pending' || d.status === 'downloading',
+  );
+  const isEmpty = models.length === 0 && activeDownloads.length === 0;
+  // 既に取得済み or DL 中のファイル名 (推奨ボタンの「DL 中/取得済み」判定用)。
+  const presentFilenames = new Set<string>([
+    ...models.map((m) => m.filename),
+    ...activeDownloads.map(([, d]) => d.filename),
+  ]);
+
+  return (
+    <div className="backend-body on" data-testid="settings-backend-body" data-backend="local">
+      {/* LLM モデル種別の枠 (.loamium/models/llm/) */}
+      <div className="kind-group" data-testid="settings-local-model-kind" data-model-kind="llm">
+        <div className="kind-head">
+          <span className="k-title">LLM モデル</span>
+          <span className="k-path">.loamium/models/llm/</span>
+          <span className="k-badge">エージェント用</span>
+        </div>
+
+        <div className="settings-field">
+          <div className="model-list-head">
+            <span className="ml-title" id="localmodel-list-label">
+              取得済み({String(models.length)} 件)
+            </span>
+            <button
+              type="button"
+              className="btn btn-sm"
+              data-testid="settings-local-model-refresh"
+              title="ローカルモデル一覧をリロード(GET /api/llm/models)"
+              disabled={loading}
+              onClick={onRefresh}
+            >
+              リロード
+            </button>
+          </div>
+          <div
+            className="model-list"
+            data-testid="settings-local-model-list"
+            role="radiogroup"
+            aria-labelledby="localmodel-list-label"
+          >
+            {isEmpty ? (
+              <div className="model-empty" data-testid="settings-local-model-empty">
+                <span className="ico">
+                  <IconModelEmpty />
+                </span>
+                <div className="m-title">モデルがありません</div>
+                <div className="m-desc">
+                  下の「モデルを追加」から取得するか、<code>.loamium/models/llm/</code> に{' '}
+                  <code>.gguf</code> ファイルを直接置いてください(置いたら上の「リロード」を押します)。
+                </div>
+              </div>
+            ) : (
+              <>
+                {models.map((m) => {
+                  const sel = m.filename === selected;
+                  return (
+                    <div
+                      key={m.filename}
+                      className={`model-card${sel ? ' sel' : ''}`}
+                      data-testid="settings-local-model-item"
+                      data-model={m.filename}
+                    >
+                      <button
+                        type="button"
+                        className="radio"
+                        role="radio"
+                        aria-checked={sel}
+                        aria-label="このモデルを使用"
+                        disabled={readonly}
+                        onClick={() => onSelect(m.filename)}
+                      />
+                      <div className="m-body">
+                        <div className="m-name">{m.filename}</div>
+                        <div className="m-meta">{formatBytes(m.sizeBytes)}</div>
+                      </div>
+                      <span className={`m-badge${sel ? ' active' : ''}`}>
+                        {sel ? '使用中' : '取得済み'}
+                      </span>
+                      <button
+                        type="button"
+                        className="m-del"
+                        data-testid="settings-local-model-delete"
+                        data-model={m.filename}
+                        title="削除"
+                        disabled={readonly}
+                        onClick={() => onDelete(m.filename)}
+                      >
+                        <IconTrash />
+                      </button>
+                    </div>
+                  );
+                })}
+                {activeDownloads.map(([id, d]) => {
+                  const pct =
+                    d.totalBytes !== null && d.totalBytes > 0
+                      ? Math.min(100, Math.round((d.receivedBytes / d.totalBytes) * 100))
+                      : 0;
+                  const sizeText =
+                    d.totalBytes !== null
+                      ? `${formatBytes(d.receivedBytes)} / ${formatBytes(d.totalBytes)} (${String(pct)}%)`
+                      : `${formatBytes(d.receivedBytes)} 受信`;
+                  return (
+                    <div
+                      key={id}
+                      className="model-card downloading"
+                      data-testid="settings-local-model-download-progress"
+                      data-model={d.filename}
+                    >
+                      <span className="radio" style={{ borderStyle: 'dashed' }} />
+                      <div className="m-body">
+                        <div className="m-name">{d.filename}</div>
+                        <div className="m-meta">ダウンロード中 — {sizeText}</div>
+                        <div className="m-progress">
+                          <div className="bar" style={{ width: `${String(pct)}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
+          <p className="hint">
+            <code>.loamium/models/llm/</code> の取得済みモデルから使うモデルを 1 つ選びます。
+            手で置いた <code>.gguf</code> も一覧に表示され選択できます。
+          </p>
+        </div>
+
+        {/* モデルの追加ダウンロード */}
+        <div className="settings-field">
+          <label>モデルを追加</label>
+          <div className="dl-box">
+            <div className="dl-url-row">
+              <input
+                type="text"
+                data-testid="settings-local-model-url-input"
+                placeholder="Hugging Face などの .gguf URL を貼り付け"
+                disabled={readonly}
+                value={dlUrl}
+                style={dlUrlInvalid ? { borderColor: 'var(--danger)' } : undefined}
+                onChange={(e) => onDlUrlChange(e.target.value)}
+              />
+              <button
+                type="button"
+                className="btn btn-primary"
+                data-testid="settings-local-model-download"
+                disabled={readonly}
+                onClick={onUrlDownload}
+              >
+                <IconDownload />
+                ダウンロード
+              </button>
+            </div>
+            <div className="rec-title">推奨モデル</div>
+            <div className="rec-list" data-testid="settings-local-model-recommended">
+              {RECOMMENDED_MODELS.map((rec) => {
+                const present = presentFilenames.has(rec.filename);
+                return (
+                  <div
+                    key={rec.filename}
+                    className="rec-item"
+                    data-testid="settings-local-model-rec-item"
+                    data-model={rec.filename}
+                  >
+                    <div className="r-body">
+                      <div className="r-name">{rec.filename}</div>
+                      <div className="r-meta">{rec.meta}</div>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-sm r-get"
+                      data-testid="settings-local-model-rec-download"
+                      data-model={rec.filename}
+                      disabled={readonly || present}
+                      aria-disabled={present ? true : undefined}
+                      onClick={() => onRecDownload(rec)}
+                    >
+                      {present ? (
+                        '取得済み'
+                      ) : (
+                        <>
+                          <IconDownload />
+                          取得
+                        </>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ASR モデル種別の枠 (.loamium/models/asr/) — 将来 Whisper 用の別枠プレースホルダ */}
+      <div className="kind-group" data-testid="settings-local-model-kind" data-model-kind="asr">
+        <div className="kind-head">
+          <span className="k-title">音声認識(ASR)モデル</span>
+          <span className="k-path">.loamium/models/asr/</span>
+          <span className="k-badge">今後対応</span>
+        </div>
+        <div className="kind-asr" data-testid="settings-local-model-asr-placeholder">
+          <IconMic />
+          <span>
+            Whisper など音声認識モデルは <code>.loamium/models/asr/</code> に置きます。LLM とは別枠で
+            管理され、将来のバージョンで有効化されます。
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---- SettingsView (main) ----
 
 export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX.Element {
@@ -388,6 +731,23 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelComboForceOpen, setModelComboForceOpen] = useState(false);
 
+  // ---- LLM バックエンド選択 + ローカルモデル (S8a3f2e-4) ----
+  // backend 明示選択 (自動フォールバックしない — AC-S8a3f2e-4-1/2)。
+  const [backend, setBackend] = useState<AgentBackend>('external');
+  // 選択中のローカルモデル (null = 未選択 → local だが接続無効, AC-S8a3f2e-4-3)。
+  const [localModel, setLocalModel] = useState<string | null>(null);
+  // .loamium/models/llm/ の取得済み一覧 (GET /api/llm/models)。
+  const [localModels, setLocalModels] = useState<LocalModelInfo[]>([]);
+  const [localModelsLoading, setLocalModelsLoading] = useState(false);
+  const localModelsLoadedRef = useRef(false);
+  // DL URL 入力 + バリデーション表示。
+  const [dlUrl, setDlUrl] = useState('');
+  const [dlUrlInvalid, setDlUrlInvalid] = useState(false);
+  // 進行中の DL ジョブ (id → filename/進捗)。ポーリングで更新。
+  const [downloads, setDownloads] = useState<
+    Record<string, { filename: string; receivedBytes: number; totalBytes: number | null; status: string }>
+  >({});
+
   // ---- プライバシー ----
   const [deny, setDeny] = useState<string[]>([]);
   const [denyInput, setDenyInput] = useState('');
@@ -429,6 +789,9 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
         });
         // 既存キーがある場合はフォームを「未変更」として初期化
         setApiKeyDirty(false);
+        // backend 明示選択を復元 (未指定は 'external')。localModel も復元。
+        setBackend(connRes.connection.backend ?? 'external');
+        setLocalModel(connRes.connection.localModel ?? null);
       }
       setPermissions(permRes.permissions);
       if (permRes.permissions !== null) {
@@ -509,6 +872,10 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
           // apiKeyDirty=false のときは apiKey を送らない (既存キーを維持)
           // apiKeyDirty=true のときはフォームの現在値を送る
           ...(apiKeyDirty ? { apiKey: connDraft.apiKeyRef } : {}),
+          // backend 明示選択 (S8a3f2e-4)。自動フォールバックはせず、選んだ値をそのまま保存。
+          backend,
+          // localModel: string=選択, null=クリア (local だが未選択 = 接続無効)。
+          localModel,
         }),
         // permissions は capability 配列で渡す (preset 名 or 配列 — agentPermissionsSchema 準拠)
         // capWrite = note_edit + note_create, capWeb = web (ADR-0017 opt-in)
@@ -533,7 +900,7 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
       setAgentStatus('error');
       setAgentError(err instanceof Error ? err.message : String(err));
     }
-  }, [connDraft, permDraft, apiKeyDirty]);
+  }, [connDraft, permDraft, apiKeyDirty, backend, localModel]);
 
   const resetAgent = useCallback((): void => {
     if (connection !== null) {
@@ -544,6 +911,9 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
         apiKeyRef: connection.apiKeyRef,
       });
       setApiKeyDirty(false); // リセット時もキーは未変更に戻す
+      // backend/localModel も保存済みの値へ戻す。
+      setBackend(connection.backend ?? 'external');
+      setLocalModel(connection.localModel ?? null);
     }
     if (permissions !== null) {
       const eff = permissions.effective;
@@ -613,6 +983,107 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
       setModelsLoading(false);
     }
   }, []);
+
+  // ---- ローカルモデル一覧取得 (GET /api/llm/models) — S8a3f2e-4 ----
+  const loadLocalModels = useCallback(async (): Promise<void> => {
+    setLocalModelsLoading(true);
+    try {
+      const res = await api.getLlmModels();
+      setLocalModels(res.models);
+    } catch {
+      // 一覧取得失敗は致命ではない (手動配置の再試行導線=リロードで再取得できる)
+      setLocalModels([]);
+    } finally {
+      setLocalModelsLoading(false);
+    }
+  }, []);
+
+  // backend=local に切り替わったら一度だけ一覧を取得する。
+  useEffect(() => {
+    if (activeGroup !== 'agent') return;
+    if (backend !== 'local') return;
+    if (localModelsLoadedRef.current) return;
+    localModelsLoadedRef.current = true;
+    void loadLocalModels();
+  }, [activeGroup, backend, loadLocalModels]);
+
+  // ---- DL 進捗ポーリング (GET /api/llm/models/download/:id/status) ----
+  const activeDownloadIds = Object.keys(downloads).filter(
+    (id) => downloads[id]?.status === 'pending' || downloads[id]?.status === 'downloading',
+  );
+  const hasActiveDownloads = activeDownloadIds.length > 0;
+  useEffect(() => {
+    if (!hasActiveDownloads) return;
+    let cancelled = false;
+    const timer = setInterval(() => {
+      for (const id of activeDownloadIds) {
+        void (async (): Promise<void> => {
+          try {
+            const st = await api.getLlmDownloadStatus(id);
+            if (cancelled) return;
+            setDownloads((prev) => ({
+              ...prev,
+              [id]: {
+                filename: st.filename,
+                receivedBytes: st.receivedBytes,
+                totalBytes: st.totalBytes,
+                status: st.status,
+              },
+            }));
+            // 完了 → 一覧をリロードして取得済みに反映。
+            if (st.status === 'completed') {
+              void loadLocalModels();
+            }
+          } catch {
+            // ポーリング失敗は無視 (次周期で再試行 / ジョブ消失時は 404)
+          }
+        })();
+      }
+    }, 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+    // activeDownloadIds は hasActiveDownloads と downloads から導出されるため依存に downloads を使う。
+  }, [hasActiveDownloads, downloads, loadLocalModels, activeDownloadIds]);
+
+  // ---- モデルダウンロード開始 (POST /api/llm/models/download) ----
+  const startDownload = useCallback(async (url: string, filename?: string): Promise<void> => {
+    try {
+      const acc = await api.downloadLlmModel(filename !== undefined ? { url, filename } : { url });
+      setDownloads((prev) => ({
+        ...prev,
+        [acc.id]: { filename: acc.filename, receivedBytes: 0, totalBytes: null, status: acc.status },
+      }));
+    } catch {
+      // 失敗 (403 read-only 等) は UI 操作なので握りつぶさず、状態は変えない。
+      // read-only では下流のボタン自体が無効化されているため通常ここには来ない。
+    }
+  }, []);
+
+  const submitUrlDownload = useCallback((): void => {
+    const url = dlUrl.trim();
+    if (url === '') {
+      setDlUrlInvalid(true);
+      return;
+    }
+    setDlUrlInvalid(false);
+    void startDownload(url);
+    setDlUrl('');
+  }, [dlUrl, startDownload]);
+
+  // ---- モデル削除 (DELETE /api/llm/models/:filename) ----
+  const deleteLocalModel = useCallback(async (filename: string): Promise<void> => {
+    try {
+      await api.deleteLlmModel(filename);
+      setLocalModels((prev) => prev.filter((m) => m.filename !== filename));
+      // 使用中モデルを消したら選択解除 (自動フォールバックしない = 接続無効のまま)。
+      setLocalModel((prev) => (prev === filename ? null : prev));
+    } catch {
+      // 失敗時は一覧を再取得して整合を取る。
+      void loadLocalModels();
+    }
+  }, [loadLocalModels]);
 
   // ---- プライバシー: 保存 ----
   const savePrivacy = useCallback(async (): Promise<void> => {
@@ -900,7 +1371,76 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
         >
           <div className="field-group">
             <h2>接続</h2>
+
+            {/* ---- バックエンド明示選択 (S8a3f2e-4 / AC-4-1) ---- */}
+            {/* 自動フォールバックはせず、ユーザーが手で external ↔ local を切り替える。 */}
+            <div className="settings-field">
+              <label>バックエンド</label>
+              <div
+                className="backend-seg"
+                data-testid="settings-backend-toggle"
+                role="radiogroup"
+                aria-label="LLM バックエンド"
+              >
+                <button
+                  type="button"
+                  className={backend === 'external' ? 'on' : ''}
+                  data-testid="settings-backend-option"
+                  data-backend="external"
+                  role="radio"
+                  aria-checked={backend === 'external'}
+                  disabled={readonly}
+                  onClick={() => setBackend('external')}
+                >
+                  <IconExternal />
+                  外部 API キー<span className="sub">OpenAI / Anthropic</span>
+                </button>
+                <button
+                  type="button"
+                  className={backend === 'local' ? 'on' : ''}
+                  data-testid="settings-backend-option"
+                  data-backend="local"
+                  role="radio"
+                  aria-checked={backend === 'local'}
+                  disabled={readonly}
+                  onClick={() => setBackend('local')}
+                >
+                  <IconLocal />
+                  ローカルモデル<span className="sub">オフライン内蔵</span>
+                </button>
+              </div>
+            </div>
+
+            {/* ---- local バックエンド本体 (取得済み一覧・DL・削除) ---- */}
+            {backend === 'local' && (
+              <LocalModelSection
+                models={localModels}
+                loading={localModelsLoading}
+                selected={localModel}
+                downloads={downloads}
+                dlUrl={dlUrl}
+                dlUrlInvalid={dlUrlInvalid}
+                readonly={readonly}
+                onSelect={setLocalModel}
+                onDelete={(f) => void deleteLocalModel(f)}
+                onRefresh={() => void loadLocalModels()}
+                onDlUrlChange={(v) => {
+                  setDlUrl(v);
+                  if (v.trim() !== '') setDlUrlInvalid(false);
+                }}
+                onUrlDownload={submitUrlDownload}
+                onRecDownload={(rec) => void startDownload(rec.url, rec.filename)}
+              />
+            )}
+
+            {/* ---- external バックエンド本体 (既存の baseUrl/model/apiKey フォーム) ---- */}
             {/* 並び順: API種別 → baseUrl → APIキー(右に接続テストボタン) → モデル */}
+            <div
+              className={`backend-body${backend === 'external' ? ' on' : ''}`}
+              data-testid="settings-backend-body"
+              data-backend="external"
+              hidden={backend !== 'external'}
+            >
             <div className="settings-field">
               <label htmlFor="f-apitype">API 種別</label>
               <select
@@ -1009,6 +1549,7 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
               </div>
               <p className="hint">接続先 API から取得した候補をドロップダウン表示。一覧に無い ID の直接入力も可能。</p>
             </div>
+            </div>{/* /backend-body external */}
           </div>
           <div className="field-group">
             <h2>

@@ -244,6 +244,86 @@ describe('[AC-Sa10026-5-1] agent connection settings (GET/PUT /api/settings/agen
     expect(json.apiKey).toBe('sk-existing-real-key'); // 既存キーが維持される
     expect(json.model).toBe('claude-opus-4-8'); // モデルは更新される
   });
+
+  // ---- backend / localModel 明示選択 (S8a3f2e-4) ----
+
+  it('[AC-S8a3f2e-4-2] PUT saves backend=local and localModel; GET reflects them', async () => {
+    const put = await fetch(`${server.baseUrl}/api/settings/agent/connection`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        api: 'anthropic',
+        baseUrl: 'https://api.anthropic.com/v1',
+        model: 'claude-3-5-haiku-20241022',
+        apiKey: '$ANTHROPIC_API_KEY',
+        backend: 'local',
+        localModel: 'qwen2.5-7b-instruct-q4_k_m.gguf',
+      }),
+    });
+    expect(put.status).toBe(200);
+
+    const get = await fetch(`${server.baseUrl}/api/settings/agent/connection`);
+    const body = (await get.json()) as {
+      connection: { backend?: string; localModel?: string };
+    };
+    expect(body.connection.backend).toBe('local');
+    expect(body.connection.localModel).toBe('qwen2.5-7b-instruct-q4_k_m.gguf');
+
+    // agent.json にも保存されている (agent-service が明示選択に従うため)。
+    const raw = await readFile(path.join(vault, '.loamium', 'agent.json'), 'utf8');
+    const json = JSON.parse(raw) as { backend: string; localModel: string };
+    expect(json.backend).toBe('local');
+    expect(json.localModel).toBe('qwen2.5-7b-instruct-q4_k_m.gguf');
+  });
+
+  it('[AC-S8a3f2e-4-1] GET returns backend=external for legacy agent.json (backend 未指定)', async () => {
+    await seedAgentJson(vault, {
+      api: 'anthropic',
+      baseUrl: 'https://api.anthropic.com/v1',
+      model: 'claude-3-5-haiku-20241022',
+      apiKey: '$ANTHROPIC_API_KEY',
+    });
+    const get = await fetch(`${server.baseUrl}/api/settings/agent/connection`);
+    const body = (await get.json()) as { connection: { backend?: string; localModel?: string } };
+    // 後方互換: 未指定は external を返す。localModel は無い。
+    expect(body.connection.backend).toBe('external');
+    expect(body.connection.localModel).toBeUndefined();
+  });
+
+  it('[AC-S8a3f2e-4-3] PUT with localModel:null clears the selection (local だが未選択)', async () => {
+    // まず local + model を保存
+    await fetch(`${server.baseUrl}/api/settings/agent/connection`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        api: 'anthropic',
+        baseUrl: 'https://api.anthropic.com/v1',
+        model: 'claude-3-5-haiku-20241022',
+        apiKey: '$ANTHROPIC_API_KEY',
+        backend: 'local',
+        localModel: 'to-be-removed.gguf',
+      }),
+    });
+
+    // localModel:null で選択クリア (自動 external フォールバックはしない → backend は local のまま)
+    const put = await fetch(`${server.baseUrl}/api/settings/agent/connection`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        api: 'anthropic',
+        baseUrl: 'https://api.anthropic.com/v1',
+        model: 'claude-3-5-haiku-20241022',
+        backend: 'local',
+        localModel: null,
+      }),
+    });
+    expect(put.status).toBe(200);
+
+    const raw = await readFile(path.join(vault, '.loamium', 'agent.json'), 'utf8');
+    const json = JSON.parse(raw) as { backend: string; localModel?: string };
+    expect(json.backend).toBe('local'); // local のまま (external に戻さない)
+    expect(json.localModel).toBeUndefined(); // 選択はクリア
+  });
 });
 
 // ==========================================================================
