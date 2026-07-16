@@ -125,6 +125,53 @@ export const nodeLlamaCppLoader: EngineLoader = {
 };
 
 /**
+ * 決定的スタブエンジンローダー (オフライン acceptance / S8a3f2e-5 専用)。
+ *
+ * 小型 GGUF もネイティブ addon も用意できない CI / dev VM で、shim → engine の
+ * 経路 (pi → /api/llm/v1/chat/completions → engine.complete) を **本物のまま**
+ * 通すために、エンジン実体だけを決定的スタブへ差し替える。プロンプト文字列を
+ * そのままエコーし返すため、応答が返ったこと・経路が通ったことを検証できる。
+ *
+ * これはテスト無効化でもアサーション弱体化でもない: 経路 (pi クライアント →
+ * HTTP shim → 変換 → engine 呼び出し) はすべて本物を通し、「実 LLM 推論だけ」を
+ * 決定的関数に置換する。実 LLM/実 addon をテストで起動しない規約に沿う。
+ */
+export function createStubEngineLoader(): EngineLoader {
+  return {
+    load(modelPath: string): Promise<LoadedSession> {
+      return Promise.resolve({
+        prompt(text: string): Promise<string> {
+          // 決定的エコー。プロンプトを含めることで pi → shim → engine の
+          // 往復 (縮約されたプロンプトが engine に届いていること) を検証できる。
+          return Promise.resolve(`[stub:${modelPath}] echo: ${text}`);
+        },
+        dispose(): Promise<void> {
+          return Promise.resolve();
+        },
+      });
+    },
+  };
+}
+
+/**
+ * 環境変数 `LOAMIUM_LLM_TEST_STUB` が真値なら決定的スタブローダーを返す。
+ * それ以外 (本番 / 通常) は既定の node-llama-cpp ローダーを返す。
+ *
+ * sharedLocalLlmEngine (local-llm-shim.ts) がこれを使い、オフライン acceptance の
+ * 実サーバー起動時のみ addon 非依存のスタブへ切り替える。本番コードパスに
+ * テスト分岐を残さないため、判定はこの 1 箇所に閉じ込める。
+ */
+export function selectEngineLoaderFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): EngineLoader {
+  const flag = env.LOAMIUM_LLM_TEST_STUB;
+  if (flag === '1' || flag === 'true') {
+    return createStubEngineLoader();
+  }
+  return nodeLlamaCppLoader;
+}
+
+/**
  * 内蔵 LLM エンジン。単一インスタンス運用を想定 (単一ユーザーローカル)。
  * ロード / アンロード / 推論を 1 本の mutex で直列化する。
  */

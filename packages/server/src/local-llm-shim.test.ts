@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   messagesToPrompt,
+  messageContentToText,
   completionOptionsFromRequest,
   buildChatCompletion,
   buildChatChunk,
@@ -23,6 +24,28 @@ describe('messagesToPrompt', () => {
       { role: 'user', content: 'more' },
     ]);
     expect(p).toBe('System: be brief\n\nUser: hello\n\nAssistant: hi\n\nUser: more');
+  });
+});
+
+describe('messageContentToText / content パート配列 (OpenAI 互換)', () => {
+  it('文字列 content はそのまま', () => {
+    expect(messageContentToText('hello')).toBe('hello');
+  });
+  it('content パート配列は text を連結 (非テキストは無視)', () => {
+    expect(
+      messageContentToText([
+        { type: 'text', text: 'a' },
+        { type: 'image_url', text: undefined },
+        { type: 'text', text: 'b' },
+      ]),
+    ).toBe('ab');
+  });
+  it('messagesToPrompt は配列 content も縮約する (pi の送信形)', () => {
+    const p = messagesToPrompt([
+      { role: 'system', content: [{ type: 'text', text: 'sys' }] },
+      { role: 'user', content: [{ type: 'text', text: 'ping' }] },
+    ]);
+    expect(p).toBe('System: sys\n\nUser: ping');
   });
 });
 

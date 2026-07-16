@@ -65,7 +65,13 @@ const GGUF_EXT = '.gguf';
  * origin は PORT / LOAMIUM_HOST から組み立てる (in-process 同一オリジン)。
  */
 export function localLlmBaseUrl(env: NodeJS.ProcessEnv = process.env): string {
-  const port = env.PORT ?? '3000';
+  // 実際に listen したポートを最優先で使う。PORT=0 (OS 自動割当) のとき PORT を
+  // そのまま使うと :0 になり pi が shim へ接続できない。index.ts が serve() の
+  // コールバックで確定ポートを LOAMIUM_ACTUAL_PORT へ書き戻す。
+  const port =
+    env.LOAMIUM_ACTUAL_PORT !== undefined && env.LOAMIUM_ACTUAL_PORT !== ''
+      ? env.LOAMIUM_ACTUAL_PORT
+      : (env.PORT ?? '3000');
   // バインド先が 0.0.0.0 でも、自プロセスへは 127.0.0.1 で到達できる。
   const host = env.LOAMIUM_HOST === undefined || env.LOAMIUM_HOST === '0.0.0.0'
     ? '127.0.0.1'
@@ -111,6 +117,16 @@ export function llmRoutes(
 
     const prompt = messagesToPrompt(req.messages);
     const opts = completionOptionsFromRequest(req);
+
+    // pi が要求した model (= .loamium/models/llm/ の gguf ファイル名) を必要に応じて
+    // ロードする (S8a3f2e-5: pi → shim → engine を本物で通すための遅延ロード)。
+    // 既に同じモデルがロード済みなら no-op。未存在 / addon 不在等は
+    // LocalLlmUnavailableError となり respondEngineError が 503 を返す。
+    try {
+      await ensureModelLoaded(engine, config.vaultRoot, req.model);
+    } catch (err) {
+      return respondEngineError(c, err);
+    }
 
     // 非ストリーム: 完了を待って OpenAI chat.completion を返す。
     if (req.stream !== true) {
@@ -262,6 +278,52 @@ export function llmRoutes(
   });
 
   return app;
+}
+
+/**
+ * shim が要求されたモデルを (必要なら) ロードする (S8a3f2e-5)。
+ *
+ * pi は resolveBackend が決めた model (= .loamium/models/llm/ の gguf ファイル名)
+ * を chat/completions の `model` に載せて叩く。shim はここでそのモデルを内蔵
+ * エンジンへロードしてから completion を実行することで、pi → shim → engine を
+ * ユーザー操作なしに成立させる (backend=local 選択時の実体経路)。
+ *
+ * - 既に何らかのモデルがロード済みなら no-op (現行のロード済みモデルを使う。
+ *   単一ユーザーローカルで内蔵エンジンは 1 本のため、明示ロード済みならそれに従う)。
+ * - 未ロードのときだけ req.model を .loamium/models/llm/ からロードする。
+ *   ファイル名は resolveModelFilePath で封じ込め検証する。不正名 / 未存在は
+ *   LocalLlmUnavailableError とし、呼び出し元が 503 (フォールバック不能) を返す。
+ * - addon 不在等の実ロード失敗も loadEngine が LocalLlmUnavailableError にする。
+ */
+export async function ensureModelLoaded(
+  engine: LocalLlmEngine,
+  vaultRoot: string,
+  modelFileName: string,
+): Promise<void> {
+  // 既にロード済みならそれを使う (再ロードしない)。DELETE がアンロードした後や
+  // 初回リクエストのときだけ下の遅延ロードに進む。
+  if (engine.isLoaded()) return;
+
+  let abs: string;
+  try {
+    abs = resolveModelFilePath(vaultRoot, 'llm', modelFileName);
+  } catch (err) {
+    if (err instanceof InvalidModelFilenameError) {
+      throw new LocalLlmUnavailableError(`invalid local model name: ${modelFileName}`, {
+        cause: err,
+      });
+    }
+    throw err;
+  }
+  try {
+    await fs.stat(abs);
+  } catch (cause) {
+    throw new LocalLlmUnavailableError(
+      `local model file not found: ${modelFileName} (.loamium/models/llm/)`,
+      { cause },
+    );
+  }
+  await engine.loadEngine(abs);
 }
 
 /**

@@ -104,6 +104,45 @@ describe('POST /api/llm/v1/chat/completions (非ストリーム)', () => {
     expect(typeof body.error.message).toBe('string');
   });
 
+  it('未ロードでも req.model が .loamium/models/llm/ に在れば遅延ロードして応答する (S8a3f2e-5)', async () => {
+    // 内蔵モデルを配置。エンジンは未ロード。shim が req.model を遅延ロードする経路。
+    const dir = modelKindDir(vaultRoot, 'llm');
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, 'ondemand.gguf'), 'x');
+
+    const engine = new LocalLlmEngine({ load: () => Promise.resolve(echoSession()) });
+    expect(engine.isLoaded()).toBe(false);
+    const app = mount(llmRoutes(makeConfig(), { engine }));
+
+    const res = await app.request('/api/llm/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'ondemand.gguf',
+        messages: [{ role: 'user', content: 'lazy' }],
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { choices: { message: { content: string } }[] };
+    expect(body.choices[0]?.message.content).toContain('echo:');
+    expect(body.choices[0]?.message.content).toContain('User: lazy');
+    // 遅延ロードで実際にモデルがロードされたこと。
+    expect(engine.isLoaded()).toBe(true);
+  });
+
+  it('未ロードで req.model が .loamium/models/llm/ に無ければ 503 (自動フォールバック無し)', async () => {
+    const engine = new LocalLlmEngine({ load: () => Promise.resolve(echoSession()) });
+    const app = mount(llmRoutes(makeConfig(), { engine }));
+    const res = await app.request('/api/llm/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model: 'nope.gguf', messages: [{ role: 'user', content: 'x' }] }),
+    });
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { error: { type: string } };
+    expect(body.error.type).toBe('local_llm_unavailable');
+  });
+
   it('不正ボディ (messages 空) は 400', async () => {
     const engine = await loadedEngine('/x.gguf');
     const app = mount(llmRoutes(makeConfig(), { engine }));

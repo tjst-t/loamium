@@ -110,6 +110,76 @@ describe('makeLocalBackendResolver (モデル存在で未準備を判定)', () =
   });
 });
 
+describe('[AC-S8a3f2e-5-3] 明示選択の 4 パターン回帰 (自動フォールバック無し)', () => {
+  it('パターン1: backend=external はローカルモデルが在っても外部を使う', async () => {
+    // ローカルモデルを実在させても、external 選択なら resolver は呼ばれず外部 baseUrl。
+    const dir = modelKindDir(vaultRoot, 'llm');
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, 'present.gguf'), 'x');
+
+    const cfg: AgentConfig = { ...baseConfig, backend: 'external', localModel: 'present.gguf' };
+    let localResolverCalled = false;
+    const r = resolveBackend(cfg, () => {
+      localResolverCalled = true;
+      return { baseUrl: makeLocalBackendResolver(vaultRoot)('present.gguf').baseUrl, apiKey: 'local', model: 'present.gguf' };
+    });
+    expect(localResolverCalled).toBe(false); // ローカルへ落ちない
+    expect(r.baseUrl).toBe('https://api.example.com/v1');
+    expect(r.apiKey).toBe('sk-real');
+    expect(r.model).toBe('gpt-x');
+  });
+
+  it('パターン2: backend=local かつモデル在りなら内蔵 (shim) を使う', async () => {
+    const dir = modelKindDir(vaultRoot, 'llm');
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, 'present.gguf'), 'x');
+
+    const cfg: AgentConfig = { ...baseConfig, backend: 'local', localModel: 'present.gguf' };
+    const r = resolveBackend(cfg, makeLocalBackendResolver(vaultRoot));
+    expect(r.baseUrl).toBe(localLlmBaseUrl());
+    expect(r.baseUrl.endsWith('/api/llm/v1')).toBe(true);
+    expect(r.model).toBe('present.gguf');
+    // 外部キーは使わない (shim は無認証、apiKey はダミー)。
+    expect(r.apiKey).not.toBe('sk-real');
+  });
+
+  it('パターン3: backend=local だがモデル無しは未準備 (external へ自動フォールバックしない)', () => {
+    const cfg: AgentConfig = { ...baseConfig, backend: 'local', localModel: 'missing.gguf' };
+    // resolver がモデル未存在で AgentBackendNotReadyError を投げ、external へ落ちない。
+    expect(() => resolveBackend(cfg, makeLocalBackendResolver(vaultRoot))).toThrow(
+      AgentBackendNotReadyError,
+    );
+    try {
+      resolveBackend(cfg, makeLocalBackendResolver(vaultRoot));
+    } catch (err) {
+      expect(err).toBeInstanceOf(AgentBackendNotReadyError);
+      expect((err as AgentBackendNotReadyError).backend).toBe('local');
+    }
+  });
+
+  it('パターン4: backend=external だがキー無しは未準備 (local へ自動フォールバックしない)', async () => {
+    // ローカルモデルが在っても、external 未準備は local へ落ちない。
+    const dir = modelKindDir(vaultRoot, 'llm');
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, 'present.gguf'), 'x');
+
+    const cfg: AgentConfig = {
+      ...baseConfig,
+      backend: 'external',
+      apiKey: '',
+      localModel: 'present.gguf',
+    };
+    let localResolverCalled = false;
+    expect(() =>
+      resolveBackend(cfg, () => {
+        localResolverCalled = true;
+        return { baseUrl: 'x', apiKey: 'y', model: 'z' };
+      }),
+    ).toThrow(AgentBackendNotReadyError);
+    expect(localResolverCalled).toBe(false); // local へ落ちない
+  });
+});
+
 describe('統合: local 選択の baseUrl 経由で shim 1 ターンが成立する', () => {
   function echoEngine(): LocalLlmEngine {
     const loader: EngineLoader = {

@@ -9,15 +9,23 @@
  * ルーティング (routes/llm.ts) はこのモジュールの純粋関数を呼ぶだけにして、
  * HTTP と変換ロジックを分離しテスト可能に保つ。
  */
-import { LocalLlmEngine, type CompletionOptions } from './local-llm-engine.js';
+import {
+  LocalLlmEngine,
+  selectEngineLoaderFromEnv,
+  type CompletionOptions,
+} from './local-llm-engine.js';
 import type { LlmChatMessage, LlmChatRequest } from '@loamium/shared';
 
 /**
  * プロセス内で共有する内蔵 LLM エンジン。単一ユーザーローカル前提のため 1 本
  * (local-llm-engine 側で load/unload/推論を直列化する)。shim ルートとモデル管理
  * (削除時のアンロード) が同じインスタンスを参照する。
+ *
+ * ローダーは selectEngineLoaderFromEnv で決める。通常は node-llama-cpp の実
+ * ローダーだが、オフライン acceptance (LOAMIUM_LLM_TEST_STUB=1) のときだけ addon
+ * 非依存の決定的スタブへ切り替わる。pi → shim → engine の経路自体は本物を通す。
  */
-export const sharedLocalLlmEngine = new LocalLlmEngine();
+export const sharedLocalLlmEngine = new LocalLlmEngine(selectEngineLoaderFromEnv());
 
 /** OpenAI chat.completion レスポンス (非ストリーム) の最小形。 */
 export interface OpenAiChatCompletion {
@@ -70,11 +78,25 @@ export function messagesToPrompt(messages: LlmChatMessage[]): string {
   // 末尾が user なら、その手前までを文脈として前置し、末尾 user を主プロンプトにする。
   const parts: string[] = [];
   for (const m of messages) {
-    if (m.role === 'system') parts.push(`System: ${m.content}`);
-    else if (m.role === 'assistant') parts.push(`Assistant: ${m.content}`);
-    else parts.push(`User: ${m.content}`);
+    const text = messageContentToText(m.content);
+    if (m.role === 'system') parts.push(`System: ${text}`);
+    else if (m.role === 'assistant') parts.push(`Assistant: ${text}`);
+    else parts.push(`User: ${text}`);
   }
   return parts.join('\n\n');
+}
+
+/**
+ * content (文字列 or content パート配列) をプレーンテキストへ縮約する。
+ * OpenAI 互換で pi は `[{type:'text', text}]` を送ることがあるため、text パートを
+ * 連結する (image_url 等の非テキストパートは無視 — ローカル LLM では扱わない)。
+ */
+export function messageContentToText(content: LlmChatMessage['content']): string {
+  if (typeof content === 'string') return content;
+  return content
+    .filter((p) => p.type === 'text' && typeof p.text === 'string')
+    .map((p) => p.text as string)
+    .join('');
 }
 
 /** リクエストから CompletionOptions を抽出する (未指定キーは渡さない)。 */

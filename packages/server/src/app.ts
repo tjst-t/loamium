@@ -22,6 +22,7 @@ import { auditMiddleware } from './audit.js';
 import { permissionMiddleware } from './permissions.js';
 import { indexSyncMiddleware } from './indexSync.js';
 import { loadAgentConfig } from './agent-service.js';
+import { egressGuardStats } from './egress-guard.js';
 import type { VaultIndex } from './noteIndex.js';
 
 export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv> {
@@ -91,6 +92,19 @@ export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv>
 
   // GET /api/settings/system は settingsRoutes (Sa10026-5) が提供する。
   // (Sa10026-8 の暫定インラインハンドラは重複のため統合時に撤去)
+
+  // オフライン acceptance ハーネス専用の egress 観測エンドポイント (S8a3f2e-5)。
+  // LOAMIUM_BLOCK_EXTERNAL_FETCH=1 のときだけ登録する。本番では存在しない (404)。
+  // これはアプリ機能ではなく、外部発信ゼロをテストから観測するための計測窓。
+  if (process.env.LOAMIUM_BLOCK_EXTERNAL_FETCH === '1') {
+    app.get('/api/_test/egress-stats', (c) => {
+      const stats = egressGuardStats();
+      if (stats === null) {
+        return c.json({ installed: false, blockedCount: 0, allowedCount: 0 });
+      }
+      return c.json({ installed: true, ...stats });
+    });
+  }
 
   app.get('/api/health', async (c) => {
     // エージェント設定の有無を確認する (遅延読込 — 毎回ファイルを読む)

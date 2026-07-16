@@ -1269,9 +1269,27 @@ export type AgentModelsResponse = z.infer<typeof agentModelsResponseSchema>;
  * 受け付けるのは {model, messages[], stream, max_tokens, temperature} のみ。
  * 未知フィールドは passthrough で許容する (OpenAI クライアントは追加フィールドを送るため)。
  */
+/**
+ * OpenAI content パート (text)。pi SDK (openai-completions) は content を文字列で
+ * なく `[{type:'text', text}]` の配列で送ることがある。text 以外のパート
+ * (image_url 等) はローカル LLM では扱わないため type/text 以外は passthrough で
+ * 受けつつ shim 側でテキストのみ拾う (messagesToPrompt)。
+ */
+export const llmChatContentPartSchema = z
+  .object({
+    type: z.string(),
+    text: z.string().optional(),
+  })
+  .passthrough();
+export type LlmChatContentPart = z.infer<typeof llmChatContentPartSchema>;
+
+/**
+ * content は文字列 or content パート配列のどちらも受ける (OpenAI 互換)。
+ * pi / OpenAI クライアントの両表現をそのまま受理し、縮約は shim が担う。
+ */
 export const llmChatMessageSchema = z.object({
   role: z.enum(['system', 'user', 'assistant']),
-  content: z.string(),
+  content: z.union([z.string(), z.array(llmChatContentPartSchema)]),
 });
 export type LlmChatMessage = z.infer<typeof llmChatMessageSchema>;
 
