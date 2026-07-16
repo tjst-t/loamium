@@ -146,10 +146,15 @@ export function settingsRoutes(config: ServerConfig): Hono<AppEnv> {
       resolvedApiKey = apiKey;
     } else {
       const existing = await loadAgentJson(config.vaultRoot);
-      if (!existing.ok) {
+      if (existing.ok) {
+        resolvedApiKey = existing.config.apiKey;
+      } else if (backend === 'local') {
+        // backend=local は内蔵オフライン LLM を使うため外部 API キーは不要。
+        // 既存 agent.json が無くても空キーで保存できる (S8a3f2e-4 の明示選択)。
+        resolvedApiKey = '';
+      } else {
         return errorJson(c, 400, 'agent_config_missing', 'apiKey is required when no existing agent configuration exists');
       }
-      resolvedApiKey = existing.config.apiKey;
     }
 
     // exactOptionalPropertyTypes: webSearch.apiKey を条件付きで渡す

@@ -276,6 +276,47 @@ describe('[AC-Sa10026-5-1] agent connection settings (GET/PUT /api/settings/agen
     expect(json.localModel).toBe('qwen2.5-7b-instruct-q4_k_m.gguf');
   });
 
+  it('[AC-S8a3f2e-4-2] PUT backend=local WITHOUT apiKey and no existing agent.json succeeds (外部キー不要)', async () => {
+    // レビュー修正: 新規に local を選ぶと apiKeyDirty=false で UI は apiKey を送らない。
+    // 既存 agent.json が無くても local は外部キー不要なので 400 にならず保存できること。
+    const put = await fetch(`${server.baseUrl}/api/settings/agent/connection`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        api: 'anthropic',
+        baseUrl: 'https://api.anthropic.com',
+        model: 'claude-sonnet-4-6',
+        // apiKey は送らない (UI の apiKeyDirty=false 相当)
+        backend: 'local',
+        localModel: 'qwen2.5-3b-instruct-q4_k_m.gguf',
+      }),
+    });
+    expect(put.status).toBe(200);
+
+    const get = await fetch(`${server.baseUrl}/api/settings/agent/connection`);
+    const body = (await get.json()) as {
+      connection: { backend?: string; localModel?: string; hasApiKey?: boolean };
+    };
+    expect(body.connection.backend).toBe('local');
+    expect(body.connection.localModel).toBe('qwen2.5-3b-instruct-q4_k_m.gguf');
+    expect(body.connection.hasApiKey).toBe(false); // 外部キーは空のまま
+  });
+
+  it('[AC-S8a3f2e-4-2] PUT backend=external WITHOUT apiKey and no existing config still 400', async () => {
+    // external は従来どおり外部キーが要る (回帰防止: local 例外が external に漏れないこと)
+    const put = await fetch(`${server.baseUrl}/api/settings/agent/connection`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        api: 'anthropic',
+        baseUrl: 'https://api.anthropic.com',
+        model: 'claude-sonnet-4-6',
+        backend: 'external',
+      }),
+    });
+    expect(put.status).toBe(400);
+  });
+
   it('[AC-S8a3f2e-4-1] GET returns backend=external for legacy agent.json (backend 未指定)', async () => {
     await seedAgentJson(vault, {
       api: 'anthropic',

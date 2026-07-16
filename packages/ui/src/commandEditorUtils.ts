@@ -19,11 +19,16 @@ const COMMAND_FILE_RE = /\.ya?ml$/i;
 
 /**
  * コマンド定義ファイルかどうかを判定する (ADR-0024)。
- * AC-ADR-0024: path が 'commands/' で始まり、かつ .yaml / .yml 拡張子を持つ場合に true。
- * frontmatter の有無は問わない。
+ * AC-ADR-0024: path が 'commands/' または 'system/commands/' で始まり、
+ * かつ .yaml / .yml 拡張子を持つ場合に true。frontmatter の有無は問わない。
+ *
+ * Sa10026-2-2 でコマンド正本が system/commands/ へ昇格するため、
+ * トップレベル 'commands/'(レガシー) に加えて 'system/commands/' も
+ * CommandEditor で扱う (保存=昇格後も CommandEditor で開けるようにする)。
  */
 export function isCommandFile(path: string): boolean {
-  if (!path.startsWith('commands/')) return false;
+  const inCommandsDir = path.startsWith('commands/') || path.startsWith('system/commands/');
+  if (!inCommandsDir) return false;
   return COMMAND_FILE_RE.test(path);
 }
 
