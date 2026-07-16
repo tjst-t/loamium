@@ -29,6 +29,9 @@ import type { PermissionMode } from './schemas.js';
  *   - dataview_write   : dataview 経由の書き込み
  *   - smartfolder_write: スマートフォルダ (ビュー定義) の書き込み・削除
  *                        (ADR-0016 / Sc4b9d1: system/smart-folders/*.yaml サービス層経由)
+ *   - command_run      : スマートコマンドのステップ実行 (ADR-0016/0021 / Sc4b9d1-2:
+ *                        POST /api/commands/{name}/run と同一エンジン)。書き込みを伴う
+ *                        独立ケーパビリティで full のみ許可 (commands 一覧は read で広告)。
  *   - web              : Web アクセス (ADR-0017 / S5e0206: web_fetch / web_search)
  */
 export const AGENT_CAPABILITIES = [
@@ -39,6 +42,7 @@ export const AGENT_CAPABILITIES = [
   'template_write',
   'dataview_write',
   'smartfolder_write',
+  'command_run',
   'web',
 ] as const;
 export type Capability = (typeof AGENT_CAPABILITIES)[number];
@@ -127,6 +131,7 @@ const CAPABILITY_TOOL_NAMES: Record<Capability, readonly string[]> = {
   // 通す純関数ツール (ADR-0016 / Sc4b9d1)。
   read: [
     'backlinks',
+    'commands_list',
     'help',
     'query',
     'read_note',
@@ -143,6 +148,9 @@ const CAPABILITY_TOOL_NAMES: Record<Capability, readonly string[]> = {
   // smartfolder_write はスマートフォルダ (ビュー定義) の作成・更新・削除を広告する。
   // 書き込み系のため full のみで許可される (clampByMode / MODE_ALLOWED)。
   smartfolder_write: ['smartfolder_delete', 'smartfolder_write'],
+  // command_run はスマートコマンドのステップ実行 (command_run ツール) を広告する。
+  // 書き込みを伴うため full のみで許可される (clampByMode / MODE_ALLOWED)。
+  command_run: ['command_run'],
   web: ['web_fetch', 'web_search'],
 };
 

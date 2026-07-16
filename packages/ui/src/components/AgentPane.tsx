@@ -64,6 +64,7 @@ const CAPABILITY_LABELS: Record<Capability, string> = {
   template_write: 'テンプレート書込',
   dataview_write: 'dataview 書込',
   smartfolder_write: 'スマートフォルダ書込',
+  command_run: 'コマンド実行',
   web: 'Web アクセス',
 };
 
