@@ -37,6 +37,7 @@ import {
   resolvePermissions,
 } from '@loamium/shared';
 import { loadSessionPerms, saveSessionPerms } from '../agent-session-perms.js';
+import { loadAgentJobs, getJobLastRunAt, computeNextRunAt } from '../agent-jobs-service.js';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { VaultIndex } from '../noteIndex.js';
 
@@ -469,6 +470,43 @@ export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
 
       // セッションタイトルを初回ユーザーメッセージから設定する
       void updateSessionTitle(session, config.vaultRoot);
+    });
+  });
+
+  // ---- GET /api/agent/jobs -----------------------------------------------
+
+  app.get('/api/agent/jobs', async (c) => {
+    const jobs = await loadAgentJobs(config.vaultRoot);
+    const jobList = await Promise.all(
+      jobs.map(async (job) => ({
+        name: job.name,
+        schedule: job.schedule,
+        enabled: job.enabled,
+        lastRunAt: await getJobLastRunAt(config.vaultRoot, job.name),
+      })),
+    );
+    return c.json({ jobs: jobList });
+  });
+
+  // ---- GET /api/agent/jobs/:name -----------------------------------------------
+
+  app.get('/api/agent/jobs/:name', async (c) => {
+    const name = c.req.param('name');
+    const jobs = await loadAgentJobs(config.vaultRoot);
+    const job = jobs.find((j) => j.name === name);
+    if (!job) {
+      return errorJson(c, 404, 'job_not_found', `agent job not found: ${name}`);
+    }
+    const lastRunAt = await getJobLastRunAt(config.vaultRoot, name);
+    const nextRunAt = computeNextRunAt(job.schedule);
+    return c.json({
+      name: job.name,
+      schedule: job.schedule,
+      prompt: job.prompt,
+      permission: job.permission,
+      enabled: job.enabled,
+      lastRunAt,
+      nextRunAt,
     });
   });
 
