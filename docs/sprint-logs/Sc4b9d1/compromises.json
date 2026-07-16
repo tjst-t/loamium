@@ -1,0 +1,58 @@
+{
+  "milestone_summary": {
+    "stopped_at": "milestone_Sc4b9d1",
+    "batch": ["S5a66e4", "S8a3f2e", "Sc4b9d1"],
+    "compromises": [],
+    "blockers_encountered": [
+      {
+        "sprint": "S5a66e4",
+        "issue": "当初 ADR-0021 により agent-run が『Pi Agent 統合待ちでブロック』と判断したが、Pi SDK(S53409d-2)と非同期ジョブ基盤(S2fe109)は既にマージ済みで前提が満たされていた。ユーザー指摘で誤判定を撤回し実装続行。",
+        "resolution": "resolved_at_planning",
+        "severity": "low"
+      },
+      {
+        "sprint": "S8a3f2e",
+        "issue": "オフライン acceptance(S8a3f2e-5)が実サーバー経路を通したことで、S8a3f2e-2 の shim に 3 欠陥(PORT=0、遅延ロード欠落=常時503、content 配列で400)が露見。ユニットのみでは検出できなかった。",
+        "resolution": "fixed_in_85a4c8b",
+        "severity": "medium"
+      },
+      {
+        "sprint": "Sc4b9d1",
+        "issue": "独立検証者が ADR-0018 privacy deny の欠落を発見: command_run の書込ステップ先と template_instantiate の保存先に機密 deny が効かず(両ツールが isDenied 未受領)、AC-2-3/3-3 違反。実装者は『妥協なし』と自己申告していた(不正確)。",
+        "resolution": "fixed_in_2123897",
+        "severity": "high",
+        "overlooked_by_autopilot": true,
+        "adr_ref": "ADR-0018"
+      }
+    ],
+    "scope_changes": [
+      {
+        "sprint": "S8a3f2e",
+        "change": "モデル管理(list/download/delete)を REST のみ実装し CLI 1:1(DESIGN_PRINCIPLES priority 3)を省略。priority 3 の核は journal-append/search でモデル管理はコア外のため限定的逸脱。後続で CLI 追加すれば回復可能。",
+        "severity": "low"
+      },
+      {
+        "sprint": "S8a3f2e",
+        "change": "実 GGUF 推論・実モデル DL は環境制約(GB級・sandbox・ネイティブビルド)で未実施。決定的スタブエンジン + スタブ fetch で経路・ロジックを検証(実 URL 発信なし)。実機推論は未実証 — 実 VM でのモデル DL→推論のスモークが要フォローアップ。",
+        "severity": "medium"
+      },
+      {
+        "sprint": "S8a3f2e",
+        "change": "ストリーミングは engine 面がトークンストリーム未公開のため完了文字列を単一 delta で送出([DONE]で締める)。真のトークン単位 delta ではない。usage は概算トークン、multi-turn は System/User/Assistant ラベル連結でプロンプト縮約。ADR-0025 の『無いよりまし』位置付けと整合。",
+        "severity": "low"
+      },
+      {
+        "sprint": "S5a66e4",
+        "change": "agent-run の議事録まとめ監査二重記録テストは runAgentJob スタブ内で agent 側監査を生成(AC 許容範囲)。実 Pi ツール経路での二重監査は未実証。",
+        "severity": "low"
+      }
+    ],
+    "preexisting_issues_surfaced": [
+      {
+        "issue": "UI 実サーバー e2e の create-todo 系 6 失敗(CommandEditor/param フォーム未表示)+ smart-folder drag&drop flake 1。base main(a0b9d8b)で同一再現を確認済みで本バッチの回帰ではない。backlog bug 化済み。",
+        "severity": "medium",
+        "action": "マイルストーン後の triage 対象(Review Mode ①候補)"
+      }
+    ]
+  }
+}
