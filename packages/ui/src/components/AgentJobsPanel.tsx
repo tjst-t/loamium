@@ -27,7 +27,7 @@ function normalizePerms(permissions: AgentJob['permissions']): Cap[] {
     if (permissions === 'notes-rw') return ['read', 'note_create', 'note_edit'] as Cap[];
     return ['read'];
   }
-  return permissions.filter((p): p is Cap => ALL_CAPS.some((c) => c.id === p));
+  return permissions.filter((p: string): p is Cap => ALL_CAPS.some((c) => c.id === p));
 }
 
 interface JobDraft {

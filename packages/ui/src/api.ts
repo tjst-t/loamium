@@ -95,6 +95,9 @@ import {
   type AgentJobRunResponse,
 } from '@loamium/shared';
 
+// ---- エージェントジョブ型を再エクスポート (S2fe109) ----
+export type { AgentJob, AgentJobState, AgentJobWithState, AgentJobListResponse, AgentJobRunResponse };
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
