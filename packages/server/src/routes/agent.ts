@@ -37,7 +37,8 @@ import {
   resolvePermissions,
 } from '@loamium/shared';
 import { loadSessionPerms, saveSessionPerms } from '../agent-session-perms.js';
-import { loadAgentJobs, getJobLastRunAt, computeNextRunAt } from '../agent-jobs-service.js';
+import { loadAgentJobs, computeNextRunAt } from '../agent-jobs-service.js';
+import { getJobState } from '../agent-job-state.js';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { VaultIndex } from '../noteIndex.js';
 
@@ -482,7 +483,7 @@ export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
         name: job.name,
         schedule: job.schedule,
         enabled: job.enabled,
-        lastRunAt: await getJobLastRunAt(config.vaultRoot, job.name),
+        lastRunAt: (await getJobState(config.vaultRoot, job.name)).lastRunAt,
       })),
     );
     return c.json({ jobs: jobList });
@@ -497,7 +498,7 @@ export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
     if (!job) {
       return errorJson(c, 404, 'job_not_found', `agent job not found: ${name}`);
     }
-    const lastRunAt = await getJobLastRunAt(config.vaultRoot, name);
+    const { lastRunAt } = await getJobState(config.vaultRoot, name);
     const nextRunAt = computeNextRunAt(job.schedule);
     return c.json({
       name: job.name,

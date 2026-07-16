@@ -3412,42 +3412,42 @@
         },
         "S2fe109-2": {
           "title": "管理者・外部 cron ユーザーとして、REST と CLI 経由でジョブを即時実行したい。なぜなら、スケジュールを待たずに手動トリガーしたいから。",
-          "status": "pending",
+          "status": "done",
           "story_type": "mixed",
           "acceptance_criteria": [
             {
               "id": "AC-S2fe109-2-1",
               "description": "POST /api/agent/jobs/:name/run が 200 { sessionId } を返し、ジョブがエージェントセッションとしてバックグラウンド実行される",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S2fe109-2-2",
               "description": "POST /api/agent/jobs/:name/run に存在しないジョブ名を指定すると 404 { error } が返る",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S2fe109-2-3",
               "description": "POST /api/agent/jobs/:name/run に enabled: false のジョブを指定すると 409 { error: 'job disabled' } が返る",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S2fe109-2-4",
               "description": "`loamium agent-run <name>` が POST /api/agent/jobs/:name/run を叩き、sessionId を stdout に出力して exit code 0 で終了する",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "T1": {
               "title": "packages/shared に agentJobRunResponseSchema を追加",
-              "status": "pending"
+              "status": "done"
             },
             "T2": {
               "title": "POST /api/agent/jobs/:name/run エンドポイントを routes/agent.ts に追加 (バックグラウンド実行・即時 sessionId 返却)",
-              "status": "pending"
+              "status": "done"
             },
             "T3": {
               "title": "packages/cli/src/main.ts に `agent-run <name>` コマンドを追加 (POST /api/agent/jobs/:name/run の 1:1 ラッパー)",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
