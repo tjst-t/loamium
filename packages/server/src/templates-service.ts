@@ -114,6 +114,8 @@ export async function resolveTemplatePath(
  * - not_found      : テンプレート未検出 (REST: 404 template_not_found)。
  * - missing_vars   : 必須変数 / target・本文の未解決変数あり (REST: 400 missing_vars + missing[])。
  * - invalid_target : 解決後 target が vault パスとして不正 (REST: 400 invalid_target)。
+ * - denied         : ADR-0018 機密領域 deny により保存先が拒否 (agent 経路のみ発生。
+ *                    REST は isDenied を渡さないため到達不能)。
  * - ok             : ノート生成成功 (path = firstFreePath 後の保存先)。
  */
 export type InstantiateTemplateResult =
@@ -121,6 +123,7 @@ export type InstantiateTemplateResult =
   | { status: 'not_found'; message: string }
   | { status: 'missing_vars'; missing: string[] }
   | { status: 'invalid_target'; message: string }
+  | { status: 'denied'; message: string }
   | { status: 'ok'; path: string };
 
 /**
@@ -135,12 +138,17 @@ export type InstantiateTemplateResult =
  *   - 結果ノートはピュア Markdown (buildBodyTemplate が loamium-template 記法を除去)。
  *
  * 監査 (op: template.instantiate / agent.template_instantiate) は呼び出し側が記録する。
+ *
+ * ADR-0018 (agent 経路のみ): isDenied を渡すと、pathMode 解決 + normalizeVaultPath 後の
+ * 実保存先を書き込み直前に deny 判定し、deny なら status:'denied' を返してノートを作らない。
+ * REST/CLI は isDenied を渡さず従来どおり deny 無し (ユーザー直接アクセス)。
  */
 export async function instantiateTemplate(
   config: ServerConfig,
   name: string,
   varsInput: Record<string, string>,
   date?: string,
+  isDenied?: (relPath: string) => boolean,
 ): Promise<InstantiateTemplateResult> {
   const vaultRoot = config.vaultRoot;
 
@@ -206,6 +214,14 @@ export async function instantiateTemplate(
       };
     }
     throw err;
+  }
+
+  // ADR-0018: agent 経路のみ、正規化後の実保存先を書き込み直前に deny 判定する。
+  if (isDenied !== undefined && isDenied(destRaw)) {
+    return {
+      status: 'denied',
+      message: `save target is denied by privacy rules (ADR-0018): ${destRaw}`,
+    };
   }
 
   const dest = await firstFreePath(vaultRoot, destRaw);

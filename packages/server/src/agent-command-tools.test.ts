@@ -23,6 +23,9 @@ const fakeCtx = {} as Parameters<
   ReturnType<typeof createCommandTools>[number]['execute']
 >[4];
 
+/** deny なし (テスト既定)。個別テストで deny 対象を差し替える。 */
+const denyNone = (): boolean => false;
+
 type ExecResult = Awaited<
   ReturnType<ReturnType<typeof createCommandTools>[number]['execute']>
 >;
@@ -90,8 +93,13 @@ describe('createCommandTools', () => {
     index = new VaultIndex(vaultRoot);
   });
 
-  function tool(name: string, caps: Capability[] = ALL_CAPS, mode: ServerConfig['mode'] = 'full') {
-    const tools = createCommandTools(makeConfig(vaultRoot, mode), index, caps);
+  function tool(
+    name: string,
+    caps: Capability[] = ALL_CAPS,
+    mode: ServerConfig['mode'] = 'full',
+    isDenied: (relPath: string) => boolean = denyNone,
+  ) {
+    const tools = createCommandTools(makeConfig(vaultRoot, mode), index, isDenied, caps);
     const t = tools.find((x) => x.name === name);
     if (!t) throw new Error(`tool not generated: ${name}`);
     return t;
@@ -100,17 +108,17 @@ describe('createCommandTools', () => {
   // ---- ケーパビリティゲート ------------------------------------------------
 
   it('read 無効時は commands_list を広告しない', () => {
-    const tools = createCommandTools(makeConfig(vaultRoot), index, ['command_run']);
+    const tools = createCommandTools(makeConfig(vaultRoot), index, denyNone, ['command_run']);
     expect(tools.map((t) => t.name).sort()).toEqual(['command_run']);
   });
 
   it('command_run 無効時は command_run を広告しない', () => {
-    const tools = createCommandTools(makeConfig(vaultRoot), index, ['read']);
+    const tools = createCommandTools(makeConfig(vaultRoot), index, denyNone, ['read']);
     expect(tools.map((t) => t.name).sort()).toEqual(['commands_list']);
   });
 
   it('caps 空なら 1 つも広告しない', () => {
-    expect(createCommandTools(makeConfig(vaultRoot), index, [])).toHaveLength(0);
+    expect(createCommandTools(makeConfig(vaultRoot), index, denyNone, [])).toHaveLength(0);
   });
 
   // ---- commands_list -------------------------------------------------------
@@ -239,5 +247,72 @@ describe('createCommandTools', () => {
     expect(textOf(result)).toContain('失敗');
     // 1 件目のノートは書かれている (ロールバックなし)
     expect(await readVaultNote(vaultRoot, 'made.md')).toContain('# made');
+  });
+
+  // ---- command_run: ADR-0018 deny 強制 (agent 経路のみ) ---------------------
+
+  it('command_run は deny 対象への note-create 書込を拒否しファイルを作らない (fail-stop)', async () => {
+    // secret/ 配下を機密領域とみなす deny 判定。
+    const isDenied = (rel: string): boolean => rel.startsWith('secret/');
+    await writeCommandFixture(
+      vaultRoot,
+      'mk-secret',
+      'steps:\n  - kind: note-create\n    target: "secret/leak.md"\n    content: "# leak\\n"\n',
+    );
+    const result = await tool('command_run', ALL_CAPS, 'full', isDenied).execute(
+      'c',
+      { id: 'mk-secret' },
+      undefined,
+      undefined,
+      fakeCtx,
+    );
+    // 書込ステップが deny で失敗 → fail-stop。
+    expect(detailsOf(result).error).toBe(true);
+    expect(textOf(result)).toContain('失敗');
+    expect(textOf(result)).toContain('denied');
+    // ファイルは作られない。
+    await expect(readVaultNote(vaultRoot, 'secret/leak.md')).rejects.toThrow();
+    // 書込監査 (note-create.write) は残らない。
+    const audit = await readAudit(vaultRoot);
+    expect(audit.some((e) => e.op === 'note-create.write')).toBe(false);
+  });
+
+  it('command_run は deny 対象への journal-append 書込を拒否する', async () => {
+    const isDenied = (rel: string): boolean => rel.startsWith('journals/');
+    await writeCommandFixture(
+      vaultRoot,
+      'jrnl',
+      'steps:\n  - kind: journal-append\n    date: "2026-07-16"\n    content: "secret entry\\n"\n',
+    );
+    const result = await tool('command_run', ALL_CAPS, 'full', isDenied).execute(
+      'c',
+      { id: 'jrnl' },
+      undefined,
+      undefined,
+      fakeCtx,
+    );
+    expect(detailsOf(result).error).toBe(true);
+    expect(textOf(result)).toContain('denied');
+    await expect(
+      readVaultNote(vaultRoot, 'journals/2026/07/2026-07-16.md'),
+    ).rejects.toThrow();
+  });
+
+  it('command_run は deny 判定なし (isDenied=false) なら従来どおり書き込む', async () => {
+    // agent 経路でも deny リストが空なら書ける (REST と挙動一致)。
+    await writeCommandFixture(
+      vaultRoot,
+      'ok',
+      'steps:\n  - kind: note-create\n    target: "notes/ok.md"\n    content: "# ok\\n"\n',
+    );
+    const result = await tool('command_run', ALL_CAPS, 'full', denyNone).execute(
+      'c',
+      { id: 'ok' },
+      undefined,
+      undefined,
+      fakeCtx,
+    );
+    expect(detailsOf(result).error).toBeUndefined();
+    expect(await readVaultNote(vaultRoot, 'notes/ok.md')).toContain('# ok');
   });
 });

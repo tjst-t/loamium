@@ -22,6 +22,9 @@ const fakeCtx = {} as Parameters<
   ReturnType<typeof createTemplateTools>[number]['execute']
 >[4];
 
+/** deny なし (テスト既定)。個別テストで deny 対象を差し替える。 */
+const denyNone = (): boolean => false;
+
 type ExecResult = Awaited<
   ReturnType<ReturnType<typeof createTemplateTools>[number]['execute']>
 >;
@@ -81,8 +84,12 @@ describe('createTemplateTools', () => {
     vaultRoot = await mkdtemp(path.join(tmpdir(), 'loamium-agent-tpl-test-'));
   });
 
-  function tool(name: string, caps: Capability[] = ALL_CAPS) {
-    const tools = createTemplateTools(makeConfig(vaultRoot), caps);
+  function tool(
+    name: string,
+    caps: Capability[] = ALL_CAPS,
+    isDenied: (relPath: string) => boolean = denyNone,
+  ) {
+    const tools = createTemplateTools(makeConfig(vaultRoot), isDenied, caps);
     const t = tools.find((x) => x.name === name);
     if (!t) throw new Error(`tool not generated: ${name}`);
     return t;
@@ -91,17 +98,17 @@ describe('createTemplateTools', () => {
   // ---- ケーパビリティゲート ------------------------------------------------
 
   it('read 無効時は templates_list を広告しない', () => {
-    const tools = createTemplateTools(makeConfig(vaultRoot), ['template_write']);
+    const tools = createTemplateTools(makeConfig(vaultRoot), denyNone, ['template_write']);
     expect(tools.map((t) => t.name).sort()).toEqual(['template_instantiate']);
   });
 
   it('template_write 無効時は template_instantiate を広告しない', () => {
-    const tools = createTemplateTools(makeConfig(vaultRoot), ['read']);
+    const tools = createTemplateTools(makeConfig(vaultRoot), denyNone, ['read']);
     expect(tools.map((t) => t.name).sort()).toEqual(['templates_list']);
   });
 
   it('caps 空なら 1 つも広告しない', () => {
-    expect(createTemplateTools(makeConfig(vaultRoot), [])).toHaveLength(0);
+    expect(createTemplateTools(makeConfig(vaultRoot), denyNone, [])).toHaveLength(0);
   });
 
   // ---- templates_list ------------------------------------------------------
@@ -218,5 +225,48 @@ describe('createTemplateTools', () => {
     // 2 回目は連番で別パス
     expect(detailsOf(second).path).not.toBe('n/fixed.md');
     expect(detailsOf(second).created).toBe(true);
+  });
+
+  // ---- template_instantiate: ADR-0018 deny 強制 (agent 経路のみ) ------------
+
+  it('template_instantiate は解決保存先が deny 対象なら拒否しファイルを作らない', async () => {
+    const isDenied = (rel: string): boolean => rel.startsWith('secret/');
+    await writeTemplateFixture(
+      vaultRoot,
+      'secret-note',
+      '---\nloamium-template:\n  target: "secret/{{title}}"\n  vars:\n    - name: title\n      required: true\n---\n# {{title}}\n',
+    );
+    const result = await tool('template_instantiate', ALL_CAPS, isDenied).execute(
+      'c',
+      { name: 'secret-note', vars: { title: 'leak' } },
+      undefined,
+      undefined,
+      fakeCtx,
+    );
+    expect(detailsOf(result).error).toBe(true);
+    expect(detailsOf(result).created).toBeUndefined();
+    expect(textOf(result)).toContain('機密領域');
+    // ファイルは作られない。
+    await expect(readVaultNote(vaultRoot, 'secret/leak.md')).rejects.toThrow();
+    // 監査も残らない。
+    const audit = await readAudit(vaultRoot);
+    expect(audit.some((e) => e.op === 'agent.template_instantiate')).toBe(false);
+  });
+
+  it('template_instantiate は deny なし (isDenied=false) なら従来どおり生成する', async () => {
+    await writeTemplateFixture(
+      vaultRoot,
+      'note',
+      '---\nloamium-template:\n  target: "notes/ok"\n---\n# body\n',
+    );
+    const result = await tool('template_instantiate', ALL_CAPS, denyNone).execute(
+      'c',
+      { name: 'note' },
+      undefined,
+      undefined,
+      fakeCtx,
+    );
+    expect(detailsOf(result).created).toBe(true);
+    expect(await readVaultNote(vaultRoot, 'notes/ok.md')).toContain('# body');
   });
 });

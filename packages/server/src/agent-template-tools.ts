@@ -41,11 +41,15 @@ function textResult(text: string, details: ToolDetails = {}): ToolResult {
  * テンプレート操作ツールを生成する (ADR-0016)。caps に含まれるケーパビリティに
  * 対応するツールだけを配列へ入れて返す (無効なら広告されない)。
  *
- * @param config ServerConfig (vaultRoot / mode)。サービス層・audit に渡す。
- * @param caps   実効ケーパビリティ (ADR-0015)。
+ * @param config   ServerConfig (vaultRoot / mode)。サービス層・audit に渡す。
+ * @param isDenied ADR-0018 機密領域 deny 判定。template_instantiate の解決保存先を
+ *                 書き込み直前に判定し、deny なら明示エラーで拒否する (agent 境界の
+ *                 関心事。REST は instantiateTemplate に渡さないため deny 無し)。
+ * @param caps     実効ケーパビリティ (ADR-0015)。
  */
 export function createTemplateTools(
   config: ServerConfig,
+  isDenied: (relPath: string) => boolean,
   caps: readonly Capability[],
 ): ReturnType<typeof defineTool>[] {
   const vaultRoot = config.vaultRoot;
@@ -113,7 +117,14 @@ export function createTemplateTools(
         async execute(_id, params): Promise<ToolResult> {
           const vars: Record<string, string> = params.vars ?? {};
           // REST と同一の解決エンジンへ委譲する (templates-service.instantiateTemplate)。
-          const outcome = await instantiateTemplate(config, params.name, vars, params.date);
+          // ADR-0018: agent 経路なので isDenied を渡し、解決保存先の deny を強制する。
+          const outcome = await instantiateTemplate(
+            config,
+            params.name,
+            vars,
+            params.date,
+            isDenied,
+          );
 
           switch (outcome.status) {
             case 'invalid_date':
@@ -127,6 +138,10 @@ export function createTemplateTools(
               );
             case 'invalid_target':
               return textResult(`保存先パスが不正です: ${outcome.message}`, { error: true });
+            case 'denied':
+              return textResult(`機密領域への保存は拒否されました: ${outcome.message}`, {
+                error: true,
+              });
             case 'ok': {
               // HTTP を通らないため op: agent.template_instantiate を直接監査へ記録する。
               await writeAuditEntry(config, {

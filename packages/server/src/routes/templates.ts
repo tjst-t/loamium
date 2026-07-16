@@ -109,6 +109,10 @@ export function templatesRoutes(config: ServerConfig): Hono<AppEnv> {
       }
       case 'invalid_target':
         return errorJson(c, 400, 'invalid_target', outcome.message);
+      case 'denied':
+        // ADR-0018 の deny は agent 経路のみ (isDenied を渡した場合) に発生する。
+        // REST は isDenied を渡さないため到達不能。exhaustiveness のための防御分岐。
+        return errorJson(c, 403, 'forbidden', outcome.message);
       case 'ok': {
         setAudit(c, 'template.instantiate', outcome.path);
         const res: TemplateInstantiateResponse = { path: outcome.path, created: true };

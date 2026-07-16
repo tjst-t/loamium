@@ -45,13 +45,17 @@ function textResult(text: string, details: ToolDetails = {}): ToolResult {
  * スマートコマンド操作ツールを生成する (ADR-0016)。caps に含まれるケーパビリティに
  * 対応するツールだけを配列へ入れて返す (無効なら広告されない)。
  *
- * @param config ServerConfig (vaultRoot / mode)。サービス層・audit に渡す。
- * @param index  VaultIndex。agent-run ステップ (runAgentJob) が使う。
- * @param caps   実効ケーパビリティ (ADR-0015)。
+ * @param config   ServerConfig (vaultRoot / mode)。サービス層・audit に渡す。
+ * @param index    VaultIndex。agent-run ステップ (runAgentJob) が使う。
+ * @param isDenied ADR-0018 機密領域 deny 判定。command_run の各書込ステップ (解決後の
+ *                 正規化パス) を書き込み直前に判定し、deny なら fail-stop で拒否する
+ *                 (agent 境界の関心事。REST は runCommand に渡さないため deny 無し)。
+ * @param caps     実効ケーパビリティ (ADR-0015)。
  */
 export function createCommandTools(
   config: ServerConfig,
   index: VaultIndex,
+  isDenied: (relPath: string) => boolean,
   caps: readonly Capability[],
 ): ReturnType<typeof defineTool>[] {
   const vaultRoot = config.vaultRoot;
@@ -122,7 +126,8 @@ export function createCommandTools(
         async execute(_id, params): Promise<ToolResult> {
           const runParams: Record<string, string> = params.params ?? {};
           // REST と同一のステップ実行エンジンへ委譲する (commands-service.runCommand)。
-          const outcome = await runCommand(config, index, params.id, runParams);
+          // ADR-0018: agent 経路なので isDenied を渡し、各書込ステップの deny を強制する。
+          const outcome = await runCommand(config, index, params.id, runParams, isDenied);
 
           switch (outcome.status) {
             case 'invalid_name':

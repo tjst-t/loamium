@@ -184,14 +184,24 @@ export type RunCommandResult =
  *   - target パスは resolveTemplate(pathMode) → normalizeVaultPath 検証。
  *   - 各書き込みステップ + agent-run は writeAuditEntry へ記録。
  *   - read-only 実行不可はサーバー mode の最終ガード (permissionMiddleware / clampByMode) が担う。
+ *
+ * ADR-0018 (agent 経路のみ): isDenied を渡すと、各書込ステップの解決・正規化後の
+ * 実書込先を書き込み直前に deny 判定し、deny なら当該ステップを ok:false として
+ * fail-stop する (ファイルは作らない)。REST/CLI は isDenied を渡さず従来どおり
+ * deny 無し (ユーザー直接アクセスは agent の deny リストで制限しない)。
  */
 export async function runCommand(
   config: ServerConfig,
   index: VaultIndex,
   name: string,
   params: Record<string, string>,
+  isDenied?: (relPath: string) => boolean,
 ): Promise<RunCommandResult> {
   const vaultRoot = config.vaultRoot;
+  // ADR-0018: agent 経路のみ (isDenied 指定時) 機密領域 deny を強制する。
+  // REST/CLI はユーザー直接アクセスなので isDenied を渡さず、従来どおり deny 無し。
+  // 各書込ステップの解決・正規化後の実書込先を書き込み直前に判定し、deny なら true。
+  const denied = (rel: string): boolean => isDenied !== undefined && isDenied(rel);
 
   // 1. コマンドファイルを探す (system/commands/ 優先, fallback: commands/)。
   let systemBase: string;
@@ -354,6 +364,14 @@ export async function runCommand(
         }
 
         const rel = journalPath(dateStr);
+        if (denied(rel)) {
+          results.push({
+            kind,
+            ok: false,
+            error: `write denied by privacy rules (ADR-0018): ${rel}`,
+          });
+          break;
+        }
         const existing = await readNote(vaultRoot, rel);
 
         let newContent: string;
@@ -412,6 +430,15 @@ export async function runCommand(
             };
           }
           throw err;
+        }
+
+        if (denied(rel)) {
+          results.push({
+            kind,
+            ok: false,
+            error: `write denied by privacy rules (ADR-0018): ${rel}`,
+          });
+          break;
         }
 
         let existing = await readNote(vaultRoot, rel);
@@ -476,6 +503,15 @@ export async function runCommand(
             };
           }
           throw err;
+        }
+
+        if (denied(destRaw)) {
+          results.push({
+            kind,
+            ok: false,
+            error: `write denied by privacy rules (ADR-0018): ${destRaw}`,
+          });
+          break;
         }
 
         const dest = await firstFreePath(vaultRoot, destRaw);
@@ -574,6 +610,15 @@ export async function runCommand(
           throw err;
         }
 
+        if (denied(destRaw)) {
+          results.push({
+            kind,
+            ok: false,
+            error: `write denied by privacy rules (ADR-0018): ${destRaw}`,
+          });
+          break;
+        }
+
         const bodyTemplate = buildBodyTemplate(templateContent);
         const bodyRes = resolveTemplate(bodyTemplate, { vars: mergedVars, date: now, now });
 
@@ -611,6 +656,15 @@ export async function runCommand(
             };
           }
           throw err;
+        }
+
+        if (denied(rel)) {
+          results.push({
+            kind,
+            ok: false,
+            error: `write denied by privacy rules (ADR-0018): ${rel}`,
+          });
+          break;
         }
 
         let resolvedSet: Record<string, string | number | boolean> | undefined;
@@ -689,6 +743,15 @@ export async function runCommand(
             };
           }
           throw err;
+        }
+
+        if (denied(rel)) {
+          results.push({
+            kind,
+            ok: false,
+            error: `write denied by privacy rules (ADR-0018): ${rel}`,
+          });
+          break;
         }
 
         const patchResult = await applyNotePatch(config, rel, oldResolved, newResolved);
