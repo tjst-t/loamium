@@ -15,6 +15,10 @@ import {
   modelFilePath,
   ensureModelKindDir,
   listModelFiles,
+  isValidModelFileName,
+  resolveModelFilePath,
+  modelVaultRelPath,
+  InvalidModelFilenameError,
 } from './model-paths.js';
 
 let vaultRoot: string;
@@ -83,5 +87,42 @@ describe('listModelFiles', () => {
     await fs.mkdir(path.join(dir, 'subdir'));
 
     expect(await listModelFiles(vaultRoot, 'llm')).toEqual(['a-model.gguf', 'b-model.gguf']);
+  });
+});
+
+describe('isValidModelFileName (封じ込め検証 / S8a3f2e-3)', () => {
+  it('英数・._- のみ許可し、先頭は英数', () => {
+    for (const ok of ['qwen.gguf', 'model-3_q4.gguf', 'a', 'A1.bin']) {
+      expect(isValidModelFileName(ok), ok).toBe(true);
+    }
+  });
+
+  it('パス区切り・.. ・先頭ドット・空は不許可', () => {
+    for (const bad of ['../a.gguf', 'sub/dir.gguf', 'a\\b.gguf', '..', '.hidden', '', '-lead.gguf', 'a b.gguf']) {
+      expect(isValidModelFileName(bad), bad).toBe(false);
+    }
+  });
+});
+
+describe('resolveModelFilePath (検証 + 封じ込め)', () => {
+  it('正当な名前は種別サブフォルダ配下の絶対パスを返す', () => {
+    expect(resolveModelFilePath(vaultRoot, 'llm', 'qwen.gguf')).toBe(
+      path.join(vaultRoot, '.loamium', 'models', 'llm', 'qwen.gguf'),
+    );
+  });
+
+  it('不正名は FS に触れる前に InvalidModelFilenameError を投げる', () => {
+    for (const bad of ['../evil.gguf', 'sub/x.gguf', '..']) {
+      expect(() => resolveModelFilePath(vaultRoot, 'llm', bad), bad).toThrow(
+        InvalidModelFilenameError,
+      );
+    }
+  });
+});
+
+describe('modelVaultRelPath', () => {
+  it('vault 相対の posix パスを返す', () => {
+    expect(modelVaultRelPath('llm', 'q.gguf')).toBe('.loamium/models/llm/q.gguf');
+    expect(modelVaultRelPath('asr', 'w.bin')).toBe('.loamium/models/asr/w.bin');
   });
 });

@@ -74,6 +74,10 @@ export function deriveOp(method: string, reqPath: string): string {
     }
     if (method === 'POST' && reqPath === '/api/settings/agent/connection/test') return 'settings.agent.connection.test';
   }
+  if (reqPath.startsWith('/api/llm/models')) {
+    if (method === 'POST' && reqPath === '/api/llm/models/download') return 'llm.model.download';
+    if (method === 'DELETE') return 'llm.model.delete';
+  }
   if (reqPath.startsWith('/api/agent/sessions')) {
     if (method === 'POST') {
       if (reqPath === '/api/agent/sessions') return 'agent.session.create';
