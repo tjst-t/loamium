@@ -1768,3 +1768,101 @@ describe('[AC-Sf2f114-4-3] append-only rejects prop-set / note-patch commands', 
     expect(status).toBe(200);
   });
 });
+
+// ---------------------------------------------------------------------------
+// [AC-S5a66e4-6-1/3] CLI command run が agent-run ステップ結果を透過表示する
+//
+// CLI 側に agent-run 専用コードは無く、results の step.kind をそのまま出す
+// (ok\tagent-run / fail\tagent-run\t<error> / skip\tagent-run)。
+// 実サーバー + 実 CLI サブプロセスで検証する。agent.json を置かないため
+// runAgentJob は result:'error' ('agent 未設定') を deterministic に返す。
+// これにより LLM を起動せず fail 行の透過表示を観測できる。
+// ---------------------------------------------------------------------------
+
+describe('[AC-S5a66e4-6-1/3] CLI command run — agent-run 透過表示', () => {
+  let server: TestServer;
+
+  /** agent-run 単独コマンド (agent 未設定なら fail 行が出る) */
+  const AGENT_RUN_COMMAND = [
+    'name: agent-summary',
+    'params:',
+    '  - name: topic',
+    '    required: true',
+    'steps:',
+    '  - kind: agent-run',
+    '    prompt: "{{topic}} を要約して journal へ追記して"',
+].join('\n');
+
+  /** when:false で agent-run をスキップさせるコマンド */
+  const AGENT_RUN_WHEN_COMMAND = [
+    'name: agent-summary-when',
+    'params:',
+    '  - name: go',
+    'steps:',
+    '  - kind: agent-run',
+    '    prompt: "要約して"',
+    '    when: "{{go}}"',
+].join('\n');
+
+  beforeAll(async () => {
+    const vault = await makeTempVault();
+    server = await startServer({ vault });
+    await seedNote(server.vault, 'commands/agent-summary.yaml', AGENT_RUN_COMMAND);
+    await seedNote(server.vault, 'commands/agent-summary-when.yaml', AGENT_RUN_WHEN_COMMAND);
+  });
+
+  afterAll(async () => {
+    await server.stop();
+    await cleanupVault(server.vault);
+  });
+
+  const cli = (args: string[]) => runCli(args, { env: { LOAMIUM_URL: server.baseUrl } });
+
+  it('[AC-S5a66e4-6-1] agent 未設定時 fail\\tagent-run\\t<error> を透過表示する', async () => {
+    const result = await cli(['command', 'run', 'agent-summary', '--param', 'topic=議事録']);
+    // ステップ失敗は HTTP 200 なので CLI は exit 0
+    expect(result.code).toBe(0);
+    expect(result.stderr).toBe('');
+    // fail 行に kind=agent-run と error が透過表示される
+    expect(result.stdout).toContain('fail\tagent-run');
+    // runAgentJob は agent.json 未設定で 'agent 未設定' を返す (error に含まれる)
+    expect(result.stdout).toMatch(/fail\tagent-run\t.*agent/);
+    // ok 行は出ない
+    expect(result.stdout).not.toContain('ok\tagent-run');
+  });
+
+  it('[AC-S5a66e4-6-1] --json は生 JSON (results[0].kind=agent-run, ok:false) をそのまま出す', async () => {
+    const result = await cli([
+      'command', 'run', 'agent-summary',
+      '--param', 'topic=x',
+      '--json',
+    ]);
+    expect(result.code).toBe(0);
+    const raw: unknown = JSON.parse(result.stdout);
+    const parsed = commandRunResponseSchema.safeParse(raw);
+    expect(parsed.success, `schema: ${JSON.stringify(parsed)}`).toBe(true);
+    if (!parsed.success) throw new Error('unreachable');
+    expect(parsed.data.results[0]?.kind).toBe('agent-run');
+    expect(parsed.data.results[0]?.ok).toBe(false);
+    expect(typeof parsed.data.results[0]?.error).toBe('string');
+  });
+
+  it('[AC-S5a66e4-6-3] when:false → skip\\tagent-run を透過表示する', async () => {
+    const result = await cli([
+      'command', 'run', 'agent-summary-when',
+      '--param', 'go=',
+    ]);
+    expect(result.code).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toContain('skip\tagent-run');
+    expect(result.stdout).not.toContain('ok\tagent-run');
+    expect(result.stdout).not.toContain('fail\tagent-run');
+  });
+
+  it('[AC-S5a66e4-6-2] command run --help に長時間ブロック / agent-jobs 注記がある', async () => {
+    const result = await cli(['command', 'run', '--help']);
+    // --help は commander が出力し exit 0
+    expect(result.stdout).toContain('timeoutSec');
+    expect(result.stdout).toContain('agent-jobs');
+  });
+});
