@@ -45,7 +45,37 @@
       "reference": "ADR-0026 / ADR-0015"
     }
   ],
-  "implementation_decisions": [],
+  "implementation_decisions": [
+    {
+      "id": "I1",
+      "category": "implementation",
+      "decision": "各ツールは既存サービス層を純関数へ切り出して REST と共有(smart-folders-service/commands-service/templates-service)",
+      "rationale": "ADR-0016。独自経路/フォーマットを新設せず REST 挙動不変(acceptance 未改変で緑)",
+      "reference": "ADR-0016"
+    },
+    {
+      "id": "I2",
+      "category": "implementation",
+      "decision": "template_instantiate は新ケーパビリティを増やさず既存 template_write を再利用",
+      "rationale": "『テンプレート適用でノート生成』=書き込み系。ユーザーの権限設計をシンプルに保つ",
+      "reference": "ADR-0015"
+    },
+    {
+      "id": "I3",
+      "category": "implementation",
+      "decision": "ADR-0018 deny は agent 経路のみに強制(REST/CLI はユーザー直接アクセスで deny 対象外)",
+      "rationale": "deny はエージェント境界の関心事。runCommand/instantiateTemplate にオプショナル isDenied を追加し、渡された場合のみ書込先を判定。REST は渡さず不変",
+      "reference": "ADR-0018 / ADR-0016"
+    },
+    {
+      "id": "V1",
+      "category": "verify",
+      "decision": "独立検証者が deny 未適用(高)を発見→即時 fix で解消。実装者の「妥協なし」自己申告は不正確だった",
+      "rationale": "検証者が信頼ソース。書込ツール追加時は deny 強制点の網羅を回帰テストで固定すべき(skill-retrospective)",
+      "reference": "ADR-0018 / verifier-agent"
+    }
+  ],
   "elaborated_at": "2026-07-16",
-  "summary": "エージェントがスマートフォルダ(CRUD)・スマートコマンド(一覧/実行)・テンプレート(一覧/インスタンス化)を操作できるツール群を、既存の監査済みサービス層 (system-store / commands routes / templates routes) を経由して追加する (ADR-0016 準拠)。各機能は独立ケーパビリティで広告制御し (ADR-0015)、機密領域 deny (ADR-0018) とパス正規化を継承する。あわせて help 知識ベースに各機能の仕様・使用例を足し、CLAUDE.md に『新機能追加時は必ずエージェント操作ツールを実装する』規約を明文化する。"
+  "summary": "エージェントがスマートフォルダ(CRUD)・スマートコマンド(一覧/実行)・テンプレート(一覧/インスタンス化)を操作できるツール群を、既存の監査済みサービス層 (system-store / commands routes / templates routes) を経由して追加する (ADR-0016 準拠)。各機能は独立ケーパビリティで広告制御し (ADR-0015)、機密領域 deny (ADR-0018) とパス正規化を継承する。あわせて help 知識ベースに各機能の仕様・使用例を足し、CLAUDE.md に『新機能追加時は必ずエージェント操作ツールを実装する』規約を明文化する。",
+  "verified_at": "2026-07-16"
 }

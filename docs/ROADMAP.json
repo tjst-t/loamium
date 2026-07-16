@@ -4,10 +4,10 @@
   "progress": {
     "current_sprint": null,
     "total": 55,
-    "done": 47,
+    "done": 48,
     "in_progress": 0,
-    "remaining": 8,
-    "percentage": 85
+    "remaining": 7,
+    "percentage": 87
   },
   "execution_order": [
     "Sd63ad1",
@@ -5831,262 +5831,262 @@
       "title": "エージェント完全統合 — スマートフォルダ・スマートコマンド・テンプレート操作ツール群 + CLAUDE.md エージェント互換規約",
       "description": "エージェントが Loamium の全主要機能を操作できるツール群を追加する。対象: スマートフォルダ（作成・取得・更新・削除）、スマートコマンド（一覧・実行）、テンプレート（一覧・テンプレートからのノート作成）。各ツールは既存の監査済みサービス層を経由し、ADR-0016 に準拠する。help ツールの知識ベースに各機能の仕様・使用例を追加する。あわせて CLAUDE.md に「新機能追加時は必ずエージェントがその機能を操作できるツールを実装すること」を規約化する。",
       "milestone": true,
-      "status": "pending",
+      "status": "done",
       "depends_on": "S8a3f2e",
       "detail_level": "detailed",
       "stories": {
         "Sc4b9d1-1": {
           "title": "エージェントとして、スマートフォルダを作成・取得・更新・削除したい。なぜなら vault のビュー定義を自律的に整備・保守したいから",
           "story_type": "mixed",
-          "status": "pending",
+          "status": "done",
           "acceptance_criteria": [
             {
               "id": "AC-Sc4b9d1-1-1",
               "description": "新ケーパビリティ smartfolder_write (書き込み系) を AGENT_CAPABILITIES に追加し、読み取り (一覧・解決) は既存 read ケーパビリティに紐付ける。deriveToolNames の CAPABILITY_TOOL_NAMES に、read→smartfolders_list/smartfolder_notes、smartfolder_write→smartfolder_write/smartfolder_delete を追加する。clampByMode で smartfolder_write は full のみ許可 (read-only/append-only では除外) とし、既存クランプ表と一貫させる。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sc4b9d1-1-2",
               "description": "ツール smartfolders_list (入力なし / 出力: query・pin 全アイテムの id・name・kind・dql|path 一覧) は GET /api/smart-folders と同じ readConfig 経路 (listSystemSmartFolders + pin JSON マージ) を経由し、直接ファイル走査を新設しない。read ケーパビリティで広告される。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sc4b9d1-1-3",
               "description": "ツール smartfolder_notes (入力: id / 出力: 解決されたノートパス一覧) は GET /api/smart-folders/{id}/notes と同じ query→executeQuery / pin→フォルダ解決ロジックを経由する。解決結果は ADR-0018 の privacy deny (isDenied) で除外されたビューを通し、機密ノートが一覧に現れないこと。id 不明時は not-found 相当のエラーテキストを返す (throw しない)。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sc4b9d1-1-4",
               "description": "ツール smartfolder_write (入力: id, name, dql, icon?; 作成・更新兼用) は既存の system/smart-folders/*.yaml 書き込みサービス (writeSystemSmartFolder、PUT /api/smart-folders と同一の YAML 直列化) を経由する。id は normalizeSystemPath でパス検証され、../隠しセグメント脱出を拒否する。成功時に監査ログへ op:agent.smartfolder_write を直接記録する。smartfolder_write ケーパビリティ無効時は広告されない。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sc4b9d1-1-5",
               "description": "ツール smartfolder_delete (入力: id) は deleteSystemSmartFolder を経由する。存在しない id は『削除対象なし』を返し (エラーにしない)、成功時に op:agent.smartfolder_delete を監査記録する。pin アイテム (JSON 側) の削除範囲は smartfolder_write ケーパビリティに含め、query 定義削除と同経路で扱う。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sc4b9d1-1-6",
               "description": "スマートフォルダのサービス層が Hono ハンドラ内に密結合している部分 (readConfig / PUT の YAML 直列化 / notes 解決) は、ツールと REST の双方から呼べる純関数へ切り出す (ADR-0016 の想定リファクタ)。切り出し後も REST の既存挙動・テストが不変であること。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sc4b9d1-1-7",
               "description": "agent-service.ts の createPiSession / openPiSession 双方で、新ツールを customTools に連結し、deriveToolNames と広告集合が一致すること。ADR-0026: SETTINGS_EXCLUDED_TOOL_NAMES と衝突せず、設定書込ツールを新設しないこと。agent-tools.e2e の advertised-toolset pin を更新する。",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "T1": {
               "title": "AGENT_CAPABILITIES に smartfolder_write 追加、CAPABILITY_TOOL_NAMES / MODE_ALLOWED / プリセット (full) を更新",
-              "status": "pending"
+              "status": "done"
             },
             "T2": {
               "title": "smart-folders サービス層を純関数へ切り出し (readConfig / writeQueryDef / resolveNotes)、routes を切り出し関数呼び出しに置換",
-              "status": "pending"
+              "status": "done"
             },
             "T3": {
               "title": "agent-smartfolder-tools.ts を新設し 4 ツール (list/notes/write/delete) を defineTool で実装、privacy view と audit を配線",
-              "status": "pending"
+              "status": "done"
             },
             "T4": {
               "title": "agent-service.ts の create/open 両経路に新ツールを連結",
-              "status": "pending"
+              "status": "done"
             },
             "T5": {
               "title": "ユニットテスト (list/notes/write/delete、deny 除外、パス脱出拒否、無効ケーパビリティ非広告) + advertised-toolset pin 更新",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sc4b9d1-2": {
           "title": "エージェントとして、スマートコマンドを一覧・実行したい。なぜなら定義済みの定型ワークフローを自律的に起動したいから",
           "story_type": "mixed",
-          "status": "pending",
+          "status": "done",
           "acceptance_criteria": [
             {
               "id": "AC-Sc4b9d1-2-1",
               "description": "ツール commands_list (入力なし / 出力: 各コマンドの id・name・description・params と valid フラグ) は GET /api/commands と同じ listAllCommandFiles + summaryFor 経路 (system/commands/ 優先 + commands/ フォールバック、寛容 read) を経由する。read ケーパビリティで広告される。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sc4b9d1-2-2",
               "description": "ツール command_run (入力: name, params?; 出力: ステップ毎の {kind, ok, path?, error?} と openPath?) は POST /api/commands/{name}/run と同一のステップ実行エンジン (ADR-0021) を経由する。エージェント専用の実行ロジックを新設しない。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sc4b9d1-2-3",
               "description": "command_run は既存 REST と同じ制約を継承する: 必須 param 不足は missing 一覧を返す、最初の失敗ステップで停止 (ロールバックなし)、read-only モードでは実行不可・append-only では prop-set/note-patch を含むコマンドを拒否、監査ログに command.run + 各書き込みステップを記録。ステップの target パスは normalizeVaultPath と ADR-0018 deny で検証され、機密領域への書き込みを拒否する。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sc4b9d1-2-4",
               "description": "command_run を独立ケーパビリティ command_run に紐付ける。無効時は広告されず、実効権限は clampByMode でサーバー LOAMIUM_MODE と AND される (コマンドは書き込みを含みうるため full 相当でのみ有効化)。command_run が有効でも、コマンド内ステップの実効可否はサーバー mode 側の最終ガードに従う。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sc4b9d1-2-5",
               "description": "コマンド実行エンジンが commands route ハンドラ内に密結合しているため、ツールと REST の双方から呼べるよう runCommand(config, name, params) 相当の純関数へ切り出す (ADR-0016)。切り出し後も REST の既存挙動・全テストが不変であること。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sc4b9d1-2-6",
               "description": "agent-service.ts の create/open 双方に新ツールを連結し、advertised-toolset pin を更新する。SETTINGS_EXCLUDED_TOOL_NAMES と衝突しないこと。",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "T1": {
               "title": "AGENT_CAPABILITIES に command_run 追加、CAPABILITY_TOOL_NAMES/MODE_ALLOWED/プリセット更新 (commands_list は read)",
-              "status": "pending"
+              "status": "done"
             },
             "T2": {
               "title": "commands route のコマンド解決 + ステップ実行を runCommand 純関数へ切り出し、route をラッパー化",
-              "status": "pending"
+              "status": "done"
             },
             "T3": {
               "title": "agent-command-tools.ts に commands_list / command_run を実装 (missing_params・失敗停止・mode/deny 継承)",
-              "status": "pending"
+              "status": "done"
             },
             "T4": {
               "title": "agent-service.ts の create/open へ連結",
-              "status": "pending"
+              "status": "done"
             },
             "T5": {
               "title": "ユニットテスト (一覧・正常実行・必須不足・mode 制約・deny 拒否・非広告) + advertised-toolset pin 更新",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sc4b9d1-3": {
           "title": "エージェントとして、テンプレートを一覧しテンプレートからノートを作成したい。なぜなら定型ノートを規約どおり素早く生成したいから",
           "story_type": "mixed",
-          "status": "pending",
+          "status": "done",
           "acceptance_criteria": [
             {
               "id": "AC-Sc4b9d1-3-1",
               "description": "ツール templates_list (入力なし / 出力: 各テンプレートの name・description・target・vars 定義) は GET /api/templates と同じ列挙経路 (system/templates/ 優先 + templates/ フォールバック、壊れたテンプレートはスキップ) を経由する。read ケーパビリティで広告される。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sc4b9d1-3-2",
               "description": "ツール template_instantiate (入力: name, vars?, date?; 出力: 作成されたノートパス) は POST /api/templates/{name}/instantiate と同一の解決エンジン (resolveTemplatePath → parseTemplateConfig → resolveTemplate → firstFreePath → writeNote) を経由する。結果ノートはピュア Markdown で、loamium-template 記法は一切残らないこと (DESIGN_PRINCIPLES priority 1)。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sc4b9d1-3-3",
               "description": "template_instantiate は既存 REST と同じ制約を継承する: 必須 vars 不足は missing 一覧を返す、target は pathMode 解決後 normalizeVaultPath で検証、衝突は firstFreePath で連番回避、監査ログに template.instantiate (op:agent.template_instantiate) を記録。解決された保存先が ADR-0018 deny にマッチする場合は書き込みを拒否する。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sc4b9d1-3-4",
               "description": "template_instantiate は既存 template_write とは別の書き込み動作 (テンプレートを『適用』してノート生成) のため、既存の template_write ケーパビリティに紐付けるか新ケーパビリティにするかを decisions に記録し、選んだケーパビリティ無効時は広告されないこと。clampByMode で書き込みモード整合を取る。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sc4b9d1-3-5",
               "description": "templates instantiate ロジックが route ハンドラに密結合している場合、ツールと REST から呼べる純関数へ切り出す (ADR-0016)。切り出し後も REST の既存挙動・テストが不変であること。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sc4b9d1-3-6",
               "description": "agent-service.ts の create/open 双方に連結し advertised-toolset pin を更新する。",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "T1": {
               "title": "templates route の instantiate ロジックを純関数へ切り出し、route をラッパー化",
-              "status": "pending"
+              "status": "done"
             },
             "T2": {
               "title": "ケーパビリティ設計 (template_write 再利用 or 新設) を決定し capabilities マップ更新",
-              "status": "pending"
+              "status": "done"
             },
             "T3": {
               "title": "agent-template-tools.ts に templates_list / template_instantiate を実装 (missing_vars・deny・audit 継承)",
-              "status": "pending"
+              "status": "done"
             },
             "T4": {
               "title": "agent-service.ts の create/open へ連結",
-              "status": "pending"
+              "status": "done"
             },
             "T5": {
               "title": "ユニットテスト (一覧・生成・必須不足・ピュア Markdown 検証・deny 拒否・非広告) + advertised-toolset pin 更新",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sc4b9d1-4": {
           "title": "エージェントとして、スマートフォルダ・スマートコマンド・テンプレートの使い方を help で調べたい。なぜなら新ツールの仕様と使用例をオンデマンドで学習したいから",
           "story_type": "docs",
-          "status": "pending",
+          "status": "done",
           "acceptance_criteria": [
             {
               "id": "AC-Sc4b9d1-4-1",
               "description": "agent-help.ts の AGENT_HELP_TOPICS に新トピック smartfolder / command を追加し、既存 template トピックを『テンプレート一覧・テンプレートからのノート作成 (template_instantiate)』の仕様と使用例を含むよう拡充する。各本文は該当ツール名・入力パラメータ・出力・経由サービス・注意点 (ピュア Markdown / 機密領域 / 権限) を記載する。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sc4b9d1-4-2",
               "description": "各トピック本文は具体的な使用例を含む (例: smartfolder_write で DQL クエリ定義を作る、command_run で params を渡す、template_instantiate で vars/date を渡す)。ブロック ID・独自記法を勧める記述を含めないこと。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sc4b9d1-4-3",
               "description": "helpTopicNames() が新トピックを含み、help ツールの description に自動反映されること (resolveHelpTopic の未知/未指定フォールバックも新トピックを一覧する)。ADR-0014 の責務分界 (常時=base / 詳細=help) を守り、これらの詳細を base システムプロンプトへ移さないこと。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sc4b9d1-4-4",
               "description": "help はどの権限セットでも利用可能である既存規約 (ADR-0014) を維持し、新トピック追加がツール広告集合を変えないこと。",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "T1": {
               "title": "AGENT_HELP_TOPICS に smartfolder / command トピック本文を追加、template トピックを拡充",
-              "status": "pending"
+              "status": "done"
             },
             "T2": {
               "title": "各本文にツール名・入出力・経由サービス・使用例・制約を記述",
-              "status": "pending"
+              "status": "done"
             },
             "T3": {
               "title": "helpTopicNames / resolveHelpTopic の一覧反映テストを追加・更新",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sc4b9d1-5": {
           "title": "メンテナとして、CLAUDE.md に『新機能追加時は必ずエージェント操作ツールを実装する』規約を明文化したい。なぜならエージェント統合が後付けで漏れるのを構造的に防ぎたいから",
           "story_type": "docs",
-          "status": "pending",
+          "status": "done",
           "acceptance_criteria": [
             {
               "id": "AC-Sc4b9d1-5-1",
               "description": "CLAUDE.md の Development Rules 節に規約を追記する: 新機能 (REST エンドポイント・スマートフォルダ/コマンド/テンプレート等の主要機能) を追加する際は、必ずエージェントがその機能を操作できるツールを、既存監査済みサービス層経由 (ADR-0016) で実装し、help 知識ベースに使い方を追加すること。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sc4b9d1-5-2",
               "description": "規約は ADR-0016 (監査済みサービス層経由)・ADR-0015 (ケーパビリティ)・ADR-0014 (help)・ADR-0018 (機密領域 deny) を参照し、エージェント専用の直接ファイル操作・独自フォーマットの新設を禁止する旨を明記する。",
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sc4b9d1-5-3",
               "description": "追記は既存 CLAUDE.md の文体・箇条書き形式に沿い、既存ルール (ピュア Markdown 絶対 / REST・CLI 1:1 等) と矛盾しないこと。References 節から関連 ADR へ辿れること。",
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "T1": {
               "title": "CLAUDE.md Development Rules に『エージェント操作ツール必須』規約を追記",
-              "status": "pending"
+              "status": "done"
             },
             "T2": {
               "title": "参照 ADR (0014/0015/0016/0018) を明記し既存ルールとの整合を確認",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
