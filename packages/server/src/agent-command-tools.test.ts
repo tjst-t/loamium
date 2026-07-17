@@ -41,15 +41,16 @@ function detailsOf(result: ExecResult): {
   count?: number;
   id?: string;
   ran?: number;
+  created?: boolean;
 } {
   const d = result.details;
   if (typeof d === 'object' && d !== null) {
-    return d as { error?: boolean; count?: number; id?: string; ran?: number };
+    return d as { error?: boolean; count?: number; id?: string; ran?: number; created?: boolean };
   }
   return {};
 }
 
-const ALL_CAPS: Capability[] = ['read', 'command_run'];
+const ALL_CAPS: Capability[] = ['read', 'command_run', 'command_write'];
 
 function makeConfig(vaultRoot: string, mode: ServerConfig['mode'] = 'full'): ServerConfig {
   return { vaultRoot, mode, maxUploadBytes: 1024 };
@@ -314,5 +315,189 @@ describe('createCommandTools', () => {
     );
     expect(detailsOf(result).error).toBeUndefined();
     expect(await readVaultNote(vaultRoot, 'notes/ok.md')).toContain('# ok');
+  });
+
+  // ---- ケーパビリティゲート: command_write ---------------------------------
+
+  it('command_write 無効時は command_write / command_delete を広告しない', () => {
+    const tools = createCommandTools(makeConfig(vaultRoot), index, denyNone, ['read', 'command_run']);
+    expect(tools.map((t) => t.name).sort()).toEqual(['command_run', 'commands_list']);
+  });
+
+  it('command_write 有効時は command_write / command_delete を広告する', () => {
+    const tools = createCommandTools(makeConfig(vaultRoot), index, denyNone, ['command_write']);
+    expect(tools.map((t) => t.name).sort()).toEqual(['command_delete', 'command_write']);
+  });
+
+  // ---- command_write: 正常保存 + 監査 --------------------------------------
+
+  it('command_write は system/commands に純 YAML を保存し agent.command_write を監査する', async () => {
+    const source =
+      'name: 会議メモ\ndescription: 会議ノートを作る\nparams:\n  - name: topic\n    required: true\nsteps:\n  - kind: note-create\n    target: "meetings/{{topic}}"\n    content: "# {{topic}}\\n"\n';
+    const result = await tool('command_write').execute(
+      'c',
+      { name: 'new-meeting', source },
+      undefined,
+      undefined,
+      fakeCtx,
+    );
+    expect(detailsOf(result).error).toBeUndefined();
+    expect(detailsOf(result).created).toBe(true);
+    expect(textOf(result)).toContain('作成');
+    // ファイルが書かれ、内容が保存した source と一致する (独自フォーマットを混ぜない)。
+    const saved = await readVaultNote(vaultRoot, 'system/commands/new-meeting.yaml');
+    expect(saved).toBe(source);
+
+    const audit = await readAudit(vaultRoot);
+    expect(
+      audit.some(
+        (e) => e.op === 'agent.command_write' && e.path === 'system/commands/new-meeting.yaml',
+      ),
+    ).toBe(true);
+  });
+
+  it('command_write は既存 name を更新扱い (created:false) にする', async () => {
+    await writeCommandFixture(
+      vaultRoot,
+      'exists',
+      'steps:\n  - kind: note-create\n    target: "a.md"\n    content: "x"\n',
+    );
+    const result = await tool('command_write').execute(
+      'c',
+      {
+        name: 'exists',
+        source: 'steps:\n  - kind: note-create\n    target: "b.md"\n    content: "y"\n',
+      },
+      undefined,
+      undefined,
+      fakeCtx,
+    );
+    expect(detailsOf(result).created).toBe(false);
+    expect(textOf(result)).toContain('更新');
+  });
+
+  // ---- command_write: 不正 YAML は保存前に拒否 -----------------------------
+
+  it('command_write は不正 YAML を保存前に拒否しファイルを作らない', async () => {
+    const result = await tool('command_write').execute(
+      'c',
+      { name: 'bad', source: 'steps: [not-a-valid-step\n' },
+      undefined,
+      undefined,
+      fakeCtx,
+    );
+    expect(detailsOf(result).error).toBe(true);
+    expect(textOf(result)).toContain('不正');
+    await expect(readVaultNote(vaultRoot, 'system/commands/bad.yaml')).rejects.toThrow();
+    const audit = await readAudit(vaultRoot);
+    expect(audit.some((e) => e.op === 'agent.command_write')).toBe(false);
+  });
+
+  it('command_write は steps 欠落 (未知 kind) 定義を拒否する', async () => {
+    const result = await tool('command_write').execute(
+      'c',
+      { name: 'nokind', source: 'name: x\nsteps:\n  - kind: bogus-step\n' },
+      undefined,
+      undefined,
+      fakeCtx,
+    );
+    expect(detailsOf(result).error).toBe(true);
+    await expect(readVaultNote(vaultRoot, 'system/commands/nokind.yaml')).rejects.toThrow();
+  });
+
+  // ---- command_write: パス脱出 / deny 拒否 ---------------------------------
+
+  it('command_write は name のパス脱出 (../隠しセグメント) を拒否する', async () => {
+    const result = await tool('command_write').execute(
+      'c',
+      {
+        name: '../escape',
+        source: 'steps:\n  - kind: note-create\n    target: "a.md"\n    content: "x"\n',
+      },
+      undefined,
+      undefined,
+      fakeCtx,
+    );
+    expect(detailsOf(result).error).toBe(true);
+    expect(textOf(result)).toContain('パスエラー');
+    const audit = await readAudit(vaultRoot);
+    expect(audit.some((e) => e.op === 'agent.command_write')).toBe(false);
+  });
+
+  it('command_write は deny 対象への書き込みを拒否しファイルを作らない (ADR-0018)', async () => {
+    const isDenied = (rel: string): boolean => rel === 'system/commands/secret.yaml';
+    const result = await tool('command_write', ALL_CAPS, 'full', isDenied).execute(
+      'c',
+      {
+        name: 'secret',
+        source: 'steps:\n  - kind: note-create\n    target: "a.md"\n    content: "x"\n',
+      },
+      undefined,
+      undefined,
+      fakeCtx,
+    );
+    expect(detailsOf(result).error).toBe(true);
+    expect(textOf(result)).toContain('拒否');
+    await expect(readVaultNote(vaultRoot, 'system/commands/secret.yaml')).rejects.toThrow();
+    const audit = await readAudit(vaultRoot);
+    expect(audit.some((e) => e.op === 'agent.command_write')).toBe(false);
+  });
+
+  // ---- command_delete ------------------------------------------------------
+
+  it('command_delete は既存定義を削除し agent.command_delete を監査する', async () => {
+    await writeCommandFixture(
+      vaultRoot,
+      'gone',
+      'steps:\n  - kind: note-create\n    target: "a.md"\n    content: "x"\n',
+    );
+    const result = await tool('command_delete').execute(
+      'c',
+      { name: 'gone' },
+      undefined,
+      undefined,
+      fakeCtx,
+    );
+    expect(detailsOf(result).error).toBeUndefined();
+    expect(textOf(result)).toContain('削除しました');
+    await expect(readVaultNote(vaultRoot, 'system/commands/gone.yaml')).rejects.toThrow();
+    const audit = await readAudit(vaultRoot);
+    expect(audit.some((e) => e.op === 'agent.command_delete')).toBe(true);
+  });
+
+  it('command_delete は存在しない name を『削除対象なし』・エラーにしない', async () => {
+    const result = await tool('command_delete').execute(
+      'c',
+      { name: 'ghost' },
+      undefined,
+      undefined,
+      fakeCtx,
+    );
+    expect(detailsOf(result).error).toBeUndefined();
+    expect(textOf(result)).toContain('削除対象なし');
+    const audit = await readAudit(vaultRoot);
+    expect(audit.some((e) => e.op === 'agent.command_delete')).toBe(false);
+  });
+
+  it('command_delete は deny 対象を拒否し削除しない (ADR-0018)', async () => {
+    await writeCommandFixture(
+      vaultRoot,
+      'keep',
+      'steps:\n  - kind: note-create\n    target: "a.md"\n    content: "x"\n',
+    );
+    const isDenied = (rel: string): boolean => rel === 'system/commands/keep.yaml';
+    const result = await tool('command_delete', ALL_CAPS, 'full', isDenied).execute(
+      'c',
+      { name: 'keep' },
+      undefined,
+      undefined,
+      fakeCtx,
+    );
+    expect(detailsOf(result).error).toBe(true);
+    expect(textOf(result)).toContain('拒否');
+    // ファイルは残る。
+    expect(await readVaultNote(vaultRoot, 'system/commands/keep.yaml')).toContain('note-create');
+    const audit = await readAudit(vaultRoot);
+    expect(audit.some((e) => e.op === 'agent.command_delete')).toBe(false);
   });
 });

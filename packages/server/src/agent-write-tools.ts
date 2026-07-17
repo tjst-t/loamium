@@ -34,14 +34,18 @@ import {
   appendToJournal,
   appendToNote,
   createNote,
+  deleteNoteFile,
   patchNote,
+  renameNote,
+  upsertNote,
   type WriteResult,
 } from './note-service.js';
+import { applyPropSet } from './routes/notes.js';
 
 // ---- 型エイリアス --------------------------------------------------------------
 
 /** 全ツールの details 型 (read ツールと同一の汎用形状)。 */
-type ToolDetails = { error?: boolean; created?: boolean; path?: string };
+type ToolDetails = { error?: boolean; created?: boolean; deleted?: boolean; path?: string };
 
 type ToolResult = { content: { type: 'text'; text: string }[]; details: ToolDetails };
 
@@ -120,13 +124,13 @@ function serializeFrontmatter(fm: Record<string, string | number | boolean>): st
  * 対応するツールだけを配列へ入れて返す (無効なら広告されない)。
  *
  * @param config    ServerConfig (vaultRoot / mode)。note-service と audit に渡す。
- * @param _index    VaultIndex (将来のインデックス即時追従用に予約。現状ツール本体では未使用)。
+ * @param index     VaultIndex。note_move のリネーム後インデックス即時追従に渡す。
  * @param isDenied  ADR-0018 機密領域 deny 判定。
  * @param caps      実効ケーパビリティ (ADR-0015)。
  */
 export function createVaultWriteTools(
   config: ServerConfig,
-  _index: VaultIndex,
+  index: VaultIndex,
   isDenied: (relPath: string) => boolean,
   caps: readonly Capability[],
 ) {
@@ -232,16 +236,158 @@ export function createVaultWriteTools(
     );
   }
 
+  // ---- note_property (note_edit) ----------------------------------------------
+
+  if (capSet.has('note_edit')) {
+    tools.push(
+      defineTool({
+        name: 'note_property',
+        label: 'ノートプロパティ編集',
+        description:
+          '既存ノートの YAML フロントマター (プロパティ) を set/unset で編集する ' +
+          '(POST /api/notes/{path}/properties と同一のコア: applyPropSet)。' +
+          'set はキー→スカラー値 (string/number/boolean/null) のマップで upsert。unset はキー名の配列で削除。' +
+          'tags もフロントマターのプロパティとして set/unset で編集する (例: set { tags: "project" })。' +
+          '値はスカラーのみ (配列・ネストは不可 — 安全な round-trip を保証できないため)。' +
+          'フロントマターが安全に解析できない / 直列化を再解析できない場合は書き込まずエラーを返す。',
+        parameters: Type.Object({
+          path: Type.String({ description: 'vault 相対パス (既存ノート)' }),
+          set: Type.Optional(
+            Type.Record(
+              Type.String(),
+              Type.Union([Type.String(), Type.Number(), Type.Boolean(), Type.Null()]),
+              { description: '追加・更新するキー→スカラー値マップ (upsert)' },
+            ),
+          ),
+          unset: Type.Optional(
+            Type.Array(Type.String(), { description: '削除するプロパティキー名の配列' }),
+          ),
+        }),
+        async execute(_id, params): Promise<ToolResult> {
+          const resolved = resolveWritablePath(params.path, isDenied);
+          if (!resolved.ok) return resolved.result;
+          // REST と同一のコア (applyPropSet)。round-trip 検証で不正な frontmatter は書かない。
+          const result = await applyPropSet(config, {
+            rel: resolved.rel,
+            set: params.set,
+            unset: params.unset,
+          });
+          if (!result.ok) {
+            if ('notFound' in result) {
+              return textResult(`ノートが見つかりません: ${resolved.rel}`, {
+                error: true,
+                path: resolved.rel,
+              });
+            }
+            return textResult(`プロパティを編集できません: ${result.unprocessable}`, {
+              error: true,
+              path: resolved.rel,
+            });
+          }
+          await audit(config, 'agent.note_property', resolved.rel);
+          return textResult(`ノートのプロパティを編集しました: ${resolved.rel}`, {
+            path: resolved.rel,
+          });
+        },
+      }),
+    );
+  }
+
+  // ---- note_move (note_edit) --------------------------------------------------
+
+  if (capSet.has('note_edit')) {
+    tools.push(
+      defineTool({
+        name: 'note_move',
+        label: 'ノートのリネーム/移動',
+        description:
+          '既存ノートをリネーム/移動する (POST /api/notes/{path}/rename と同一のコア: renameNote)。' +
+          'vault 全体の [[旧名]] リンクを新パスへ一括追従する (自己リンクも追従)。' +
+          '移動先が既に存在する場合はエラー (上書きしない)。from が存在しない場合もエラー。' +
+          'from/to どちらかが機密領域 (deny) なら拒否する。',
+        parameters: Type.Object({
+          from: Type.String({ description: '移動元の vault 相対パス (既存ノート)' }),
+          to: Type.String({ description: '移動先の vault 相対パス' }),
+        }),
+        async execute(_id, params): Promise<ToolResult> {
+          const src = resolveWritablePath(params.from, isDenied);
+          if (!src.ok) return src.result;
+          const dst = resolveWritablePath(params.to, isDenied);
+          if (!dst.ok) return dst.result;
+          // REST と同一のコア (renameNote)。2 フェーズ compute-then-apply でリンク追従。
+          const result = await renameNote(config, index, src.rel, dst.rel);
+          if (!result.ok) {
+            if (result.reason === 'not_found') {
+              return textResult(`ノートが見つかりません: ${src.rel}`, {
+                error: true,
+                path: src.rel,
+              });
+            }
+            if (result.reason === 'conflict') {
+              return textResult(`移動先が既に存在します (上書きしません): ${dst.rel}`, {
+                error: true,
+                path: dst.rel,
+              });
+            }
+            return textResult(`リネーム中に中断しました: ${result.message}`, {
+              error: true,
+              path: dst.rel,
+            });
+          }
+          await audit(config, 'agent.note_move', result.path);
+          return textResult(
+            `ノートを移動しました: ${result.oldPath} → ${result.path} ` +
+              `(追従リンク ${String(result.updatedLinks)} 箇所)`,
+            { path: result.path },
+          );
+        },
+      }),
+    );
+  }
+
+  // ---- note_delete (note_delete) ----------------------------------------------
+
+  if (capSet.has('note_delete')) {
+    tools.push(
+      defineTool({
+        name: 'note_delete',
+        label: 'ノート削除',
+        description:
+          'vault 内の既存ノートを削除する (DELETE /api/notes/{path} と同一のサービス層)。' +
+          '**この操作は不可逆です** (ファイルを削除します。vault は Git 管理前提で復旧は git に依存)。' +
+          '存在しない path はエラーにせず「削除対象なし」を返す。機密領域 (deny) は拒否する。',
+        parameters: Type.Object({
+          path: Type.String({ description: '削除する vault 相対パス' }),
+        }),
+        async execute(_id, params): Promise<ToolResult> {
+          const resolved = resolveWritablePath(params.path, isDenied);
+          if (!resolved.ok) return resolved.result;
+          const { deleted } = await deleteNoteFile(config, resolved.rel);
+          if (!deleted) {
+            // 存在しない path はエラーにしない (削除対象なし)。監査は残さない。
+            return textResult(`削除対象なし: ${resolved.rel}`, { path: resolved.rel });
+          }
+          await audit(config, 'agent.note_delete', resolved.rel);
+          return textResult(`ノートを削除しました: ${resolved.rel}`, {
+            path: resolved.rel,
+            deleted: true,
+          });
+        },
+      }),
+    );
+  }
+
   // ---- template_write ---------------------------------------------------------
 
   if (capSet.has('template_write')) {
     tools.push(
       defineTool({
         name: 'template_write',
-        label: 'テンプレート作成',
+        label: 'テンプレート作成/更新',
         description:
-          'templates/ 配下に新しいテンプレートノートを作成する。frontmatter は通常の Markdown ' +
-          'YAML フロントマター (独自記法なし)。body はピュア Markdown。既存テンプレートは上書きしない。',
+          'templates/ 配下にテンプレートノートを作成する。frontmatter は通常の Markdown ' +
+          'YAML フロントマター (独自記法なし)。body はピュア Markdown。既定では既存テンプレートを' +
+          '上書きしない (overwrite:true を指定したときのみ既存を上書きする)。',
         parameters: Type.Object({
           name: Type.String({ description: 'テンプレート名 (例: "meeting")。templates/<name>.md に作成' }),
           body: Type.String({ description: 'テンプレート本文 (ピュア Markdown)' }),
@@ -251,6 +397,11 @@ export function createVaultWriteTools(
               Type.Union([Type.String(), Type.Number(), Type.Boolean()]),
               { description: 'frontmatter キー→スカラー値マップ (任意)' },
             ),
+          ),
+          overwrite: Type.Optional(
+            Type.Boolean({
+              description: 'true なら既存テンプレートを上書きする (既定 false: 既存はエラー)',
+            }),
           ),
         }),
         async execute(_id, params): Promise<ToolResult> {
@@ -264,13 +415,24 @@ export function createVaultWriteTools(
             ...(params.frontmatter ?? {}),
           };
           const content = serializeFrontmatter(fm) + (params.body.length > 0 ? `\n${params.body}` : '');
+          // overwrite:true なら upsertNote (フル置換)、false なら createNote (非破壊)。
+          // どちらも note-service (REST と同一の書き込み層) を経由する (ADR-0016)。
+          if (params.overwrite === true) {
+            const result = await upsertNote(config, resolved.rel, content);
+            await audit(config, 'agent.template_write', resolved.rel);
+            const verb = result.created ? '作成' : '更新';
+            return textResult(`テンプレートを${verb}しました: ${resolved.rel}`, {
+              path: resolved.rel,
+              created: result.created,
+            });
+          }
           const result = await createNote(config, resolved.rel, content);
           if (!result.ok) {
             if (result.reason === 'exists') {
-              return textResult(`テンプレートは既に存在します (上書きしません): ${resolved.rel}`, {
-                error: true,
-                path: resolved.rel,
-              });
+              return textResult(
+                `テンプレートは既に存在します (上書きするには overwrite:true): ${resolved.rel}`,
+                { error: true, path: resolved.rel },
+              );
             }
             return failText(result);
           }
@@ -278,6 +440,35 @@ export function createVaultWriteTools(
           return textResult(`テンプレートを作成しました: ${resolved.rel}`, {
             path: resolved.rel,
             created: true,
+          });
+        },
+      }),
+    );
+
+    // ---- template_delete (template_write) -------------------------------------
+
+    tools.push(
+      defineTool({
+        name: 'template_delete',
+        label: 'テンプレート削除',
+        description:
+          'templates/ 配下のテンプレートノート (templates/<name>.md) を削除する ' +
+          '(DELETE /api/notes/{path} と同一のサービス層)。**この操作は不可逆です**。' +
+          '存在しない name はエラーにせず「削除対象なし」を返す。機密領域 (deny) は拒否する。',
+        parameters: Type.Object({
+          name: Type.String({ description: '削除するテンプレート名' }),
+        }),
+        async execute(_id, params): Promise<ToolResult> {
+          const resolved = resolveWritablePath(`templates/${params.name}`, isDenied);
+          if (!resolved.ok) return resolved.result;
+          const { deleted } = await deleteNoteFile(config, resolved.rel);
+          if (!deleted) {
+            return textResult(`削除対象なし: ${resolved.rel}`, { path: resolved.rel });
+          }
+          await audit(config, 'agent.template_delete', resolved.rel);
+          return textResult(`テンプレートを削除しました: ${resolved.rel}`, {
+            path: resolved.rel,
+            deleted: true,
           });
         },
       }),
@@ -320,6 +511,10 @@ export const VAULT_WRITE_TOOL_NAMES = [
   'dataview_write',
   'journal_append',
   'note_create',
+  'note_delete',
   'note_edit',
+  'note_move',
+  'note_property',
+  'template_delete',
   'template_write',
 ] as const;
