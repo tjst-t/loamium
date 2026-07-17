@@ -529,7 +529,10 @@ export const agentConfigSchema = z.object({
   api: z.enum(['openai', 'anthropic']),
   baseUrl: z.string().min(1, 'baseUrl must not be empty'),
   model: z.string().min(1, 'model must not be empty'),
-  apiKey: z.string().min(1, 'apiKey must not be empty'),
+  // apiKey は空文字を許容する: backend='local' (内蔵オフライン LLM) は外部 API キー不要のため
+  // apiKey='' で保存され、これを min(1) で弾くと読み戻し (loadAgentJson) が失敗し接続が null 化する。
+  // external でキー未設定 (='') の場合は resolveBackend が実行時に「未準備」と判定する (ADR-0025)。
+  apiKey: z.string(),
   /**
    * 推論バックエンド選択 (ADR-0025 amendment)。未指定は 'external' (後方互換)。
    */
