@@ -48,8 +48,12 @@ import {
   sharedLocalLlmEngine,
   messagesToPrompt,
   completionOptionsFromRequest,
+  chatOptionsFromRequest,
+  requestToToolChat,
   buildChatCompletion,
+  buildToolCallsCompletion,
   buildChatChunk,
+  buildToolCallsChunk,
   buildFinalChunk,
   buildErrorBody,
   newCompletionId,
@@ -126,6 +130,50 @@ export function llmRoutes(
       await ensureModelLoaded(engine, config.vaultRoot, req.model);
     } catch (err) {
       return respondEngineError(c, err);
+    }
+
+    // function calling (ADR-0025 amendment): tools 指定 or tool ロールを含む会話は
+    // engine.chat 経路 (フル履歴復元 + promptWithMeta) で処理する。tool_calls は
+    // OpenAI 形 (finish_reason:'tool_calls') へ整形する。stream 要求時は 1 チャンクに
+    // まとめて SSE で送る (engine はトークンストリームを公開しないため)。
+    const hasTools = req.tools !== undefined && req.tools.length > 0;
+    const hasToolMessages = req.messages.some((m) => m.role === 'tool');
+    if (hasTools || hasToolMessages) {
+      const chatOpts = chatOptionsFromRequest(req);
+      const toolChat = requestToToolChat(req);
+      let result;
+      try {
+        result = await engine.chat(toolChat, chatOpts);
+      } catch (err) {
+        return respondEngineError(c, err);
+      }
+
+      // 非ストリーム: chat.completion (tool_calls or text) をそのまま返す。
+      if (req.stream !== true) {
+        if (result.kind === 'tool_calls') {
+          return c.json(buildToolCallsCompletion(req.model, prompt, result.toolCalls));
+        }
+        return c.json(buildChatCompletion(req.model, prompt, result.content));
+      }
+
+      // ストリーム: tool_calls / text を 1 チャンクに畳んで SSE 送出し末尾に [DONE]。
+      const chatResult = result;
+      const streamId = newCompletionId();
+      return stream(c, async (s) => {
+        c.res.headers.set('Content-Type', 'text/event-stream');
+        c.res.headers.set('Cache-Control', 'no-cache');
+        c.res.headers.set('Connection', 'keep-alive');
+        if (chatResult.kind === 'tool_calls') {
+          await s.write(
+            `data: ${JSON.stringify(buildToolCallsChunk(streamId, req.model, chatResult.toolCalls))}\n\n`,
+          );
+          await s.write(`data: ${JSON.stringify(buildFinalChunk(streamId, req.model, 'tool_calls'))}\n\n`);
+        } else {
+          await s.write(`data: ${JSON.stringify(buildChatChunk(streamId, req.model, chatResult.content))}\n\n`);
+          await s.write(`data: ${JSON.stringify(buildFinalChunk(streamId, req.model))}\n\n`);
+        }
+        await s.write('data: [DONE]\n\n');
+      });
     }
 
     // 非ストリーム: 完了を待って OpenAI chat.completion を返す。

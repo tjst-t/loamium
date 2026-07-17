@@ -7,7 +7,9 @@ import {
   messagesToPrompt,
   messageContentToText,
   completionOptionsFromRequest,
+  chatOptionsFromRequest,
   buildChatCompletion,
+  buildToolCallsCompletion,
   buildChatChunk,
   buildFinalChunk,
   buildErrorBody,
@@ -56,6 +58,62 @@ describe('completionOptionsFromRequest', () => {
     expect(
       completionOptionsFromRequest({ ...base, max_tokens: 10, temperature: 0.5 }),
     ).toEqual({ maxTokens: 10, temperature: 0.5 });
+  });
+});
+
+describe('chatOptionsFromRequest (function calling)', () => {
+  const base: LlmChatRequest = { model: 'm', messages: [{ role: 'user', content: 'x' }] };
+
+  it('tools を中立ツール定義へ変換して載せる', () => {
+    const opts = chatOptionsFromRequest({
+      ...base,
+      max_tokens: 5,
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'web_search',
+            description: 'search',
+            parameters: { type: 'object', properties: { q: { type: 'string' } } },
+          },
+        },
+      ],
+    });
+    expect(opts.maxTokens).toBe(5);
+    expect(opts.tools).toEqual([
+      {
+        name: 'web_search',
+        description: 'search',
+        params: { type: 'object', properties: { q: { type: 'string' } } },
+      },
+    ]);
+  });
+
+  it('tool_choice=none なら tools を渡さない (テキスト専用)', () => {
+    const opts = chatOptionsFromRequest({
+      ...base,
+      tool_choice: 'none',
+      tools: [{ type: 'function', function: { name: 'f' } }],
+    });
+    expect(opts.tools).toBeUndefined();
+  });
+
+  it('tools 未指定なら tools を渡さない', () => {
+    expect(chatOptionsFromRequest(base).tools).toBeUndefined();
+  });
+});
+
+describe('buildToolCallsCompletion', () => {
+  it('tool_calls 応答 (content:null, finish_reason:tool_calls) を組み立てる', () => {
+    const r = buildToolCallsCompletion('m', 'a b', [
+      { id: 'call_0', name: 'web_search', argumentsJson: '{"q":"x"}' },
+    ]);
+    expect(r.object).toBe('chat.completion');
+    expect(r.choices[0]?.finish_reason).toBe('tool_calls');
+    expect(r.choices[0]?.message.content).toBeNull();
+    expect(r.choices[0]?.message.tool_calls).toEqual([
+      { id: 'call_0', type: 'function', function: { name: 'web_search', arguments: '{"q":"x"}' } },
+    ]);
   });
 });
 

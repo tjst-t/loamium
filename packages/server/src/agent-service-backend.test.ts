@@ -186,6 +186,7 @@ describe('統合: local 選択の baseUrl 経由で shim 1 ターンが成立す
       load: (): Promise<LoadedSession> =>
         Promise.resolve({
           prompt: (t: string) => Promise.resolve(`local-answer to: ${t}`),
+          chat: () => Promise.resolve({ kind: 'text' as const, content: 'local-answer' }),
           dispose: () => Promise.resolve(),
         }),
     };

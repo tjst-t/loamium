@@ -1287,14 +1287,83 @@ export const llmChatContentPartSchema = z
 export type LlmChatContentPart = z.infer<typeof llmChatContentPartSchema>;
 
 /**
+ * assistant メッセージに載る tool_call (OpenAI function calling / ADR-0025 amendment)。
+ * pi は「モデルが呼んだツール」を会話履歴に assistant.tool_calls として再送する。
+ * function.arguments は **JSON 文字列** (OpenAI 仕様)。id はツール結果 (role:'tool')
+ * との紐付けキー。未知フィールドは passthrough で許容する。
+ */
+export const llmChatToolCallSchema = z
+  .object({
+    id: z.string(),
+    type: z.literal('function'),
+    function: z
+      .object({
+        name: z.string(),
+        arguments: z.string(),
+      })
+      .passthrough(),
+  })
+  .passthrough();
+export type LlmChatToolCall = z.infer<typeof llmChatToolCallSchema>;
+
+/**
  * content は文字列 or content パート配列のどちらも受ける (OpenAI 互換)。
  * pi / OpenAI クライアントの両表現をそのまま受理し、縮約は shim が担う。
+ *
+ * function calling (ADR-0025 amendment):
+ *   - role:'tool' + tool_call_id + content(結果文字列) を受ける。tool_calls が
+ *     呼び出した結果を会話履歴として戻すためのロール。
+ *   - assistant は content:null (tool_calls のみのターン) も取り得るため content は
+ *     nullable / optional にする。assistant.tool_calls[] を任意で受ける。
  */
-export const llmChatMessageSchema = z.object({
-  role: z.enum(['system', 'user', 'assistant']),
-  content: z.union([z.string(), z.array(llmChatContentPartSchema)]),
-});
+export const llmChatMessageSchema = z
+  .object({
+    role: z.enum(['system', 'user', 'assistant', 'tool']),
+    content: z
+      .union([z.string(), z.array(llmChatContentPartSchema)])
+      .nullable()
+      .optional(),
+    tool_calls: z.array(llmChatToolCallSchema).optional(),
+    tool_call_id: z.string().optional(),
+  })
+  .passthrough();
 export type LlmChatMessage = z.infer<typeof llmChatMessageSchema>;
+
+/**
+ * OpenAI function 定義 (tools[].function)。parameters は JSON Schema。
+ * shim/engine で node-llama-cpp の GbnfJsonSchema へ変換する。未知フィールドは
+ * passthrough (strict / additionalProperties 等を落とさない)。
+ */
+export const llmChatToolSchema = z
+  .object({
+    type: z.literal('function'),
+    function: z
+      .object({
+        name: z.string().min(1),
+        description: z.string().optional(),
+        // JSON Schema オブジェクト。中身の詳細検証は変換層に委ね、ここでは形だけ受ける。
+        parameters: z.record(z.unknown()).optional(),
+      })
+      .passthrough(),
+  })
+  .passthrough();
+export type LlmChatTool = z.infer<typeof llmChatToolSchema>;
+
+/**
+ * tool_choice (OpenAI): 'auto' | 'none' | 'required' | {type:'function',function:{name}}。
+ * shim は最小対応 (指定関数の強制は node-llama-cpp 側の対応度に依存するため、まず
+ * 受理して passthrough)。詳細な強制は将来。
+ */
+export const llmChatToolChoiceSchema = z.union([
+  z.enum(['auto', 'none', 'required']),
+  z
+    .object({
+      type: z.literal('function'),
+      function: z.object({ name: z.string() }).passthrough(),
+    })
+    .passthrough(),
+]);
+export type LlmChatToolChoice = z.infer<typeof llmChatToolChoiceSchema>;
 
 export const llmChatRequestSchema = z
   .object({
@@ -1303,6 +1372,8 @@ export const llmChatRequestSchema = z
     stream: z.boolean().optional(),
     max_tokens: z.number().int().positive().optional(),
     temperature: z.number().min(0).optional(),
+    tools: z.array(llmChatToolSchema).optional(),
+    tool_choice: llmChatToolChoiceSchema.optional(),
   })
   .passthrough();
 export type LlmChatRequest = z.infer<typeof llmChatRequestSchema>;
