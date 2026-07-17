@@ -6593,6 +6593,14 @@
       "status": "done",
       "adr_ref": "ADR-0025",
       "done_note": "LlamaChat.generateResponse で実装。実 Qwen2.5-1.5B で往復確認。verifier pass_with_notes(tool_choice required 未強制/stream 1チャンク/実経路の CI カバレッジ欠如=いずれも軽微)。モデル依存(Qwen2.5 系推奨)。"
+    },
+    {
+      "title": "エージェント書き込み網羅の残件 (意図的除外 + 軽微)",
+      "description": "agent-write-coverage(af79e56)で vault コンテンツ操作9ツールを追加(command/note/template/file の write系, full=30)。ユーザー指定で意図的除外: 設定/権限/接続/モデル書込・agent-jobs 作成/編集/即時実行(ADR-0026 自己昇格防止)、LLM モデル DL/削除・property-types 書込・system-files 汎用ソース書込(自己昇格/環境資産)。軽微フォロー: (1) template_delete の専用 deny 回帰テスト追加(実装は共有ヘルパ経由で安全)、(2) template_write/delete の保存先を templates/ → system/templates/ に統一するか検討(既存 pin テスト更新を伴う)、(3) file_write のバイナリは base64 のみ(大容量は非現実的)。",
+      "added_in": "milestone-Sc4b9d1-review",
+      "kind": "chore",
+      "status": "open",
+      "adr_ref": "ADR-0026"
     }
   ]
 }
