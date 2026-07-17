@@ -176,17 +176,24 @@ interface RecommendedModel {
 const RECOMMENDED_MODELS: readonly RecommendedModel[] = [
   {
     filename: 'qwen2.5-7b-instruct-q4_k_m.gguf',
-    meta: '4.4 GB · おすすめ・バランス型 · 32K ctx · メモリ 8 GB+ 推奨',
-    url: 'https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m.gguf',
+    meta: '4.7 GB · おすすめ・バランス型・ツール対応 · 32K ctx · メモリ 8 GB+ 推奨',
+    // 公式 Qwen リポジトリは Q4_K_M が分割 (00001-of-00002) のため単一ファイル DL 不可。
+    // bartowski の単一ファイル GGUF を使う。
+    url: 'https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/resolve/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf',
+  },
+  {
+    filename: 'qwen2.5-3b-instruct-q4_k_m.gguf',
+    meta: '2.0 GB · 軽量・ツール対応 · 32K ctx · メモリ 4 GB+ 推奨',
+    url: 'https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_M.gguf',
   },
   {
     filename: 'gemma-2-2b-it-q4_k_m.gguf',
-    meta: '1.6 GB · 軽量・省メモリ · 8K ctx · メモリ 4 GB+ 推奨',
+    meta: '1.6 GB · 軽量・チャット向け（ツール非対応） · 8K ctx · メモリ 4 GB+',
     url: 'https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf',
   },
   {
     filename: 'phi-4-q4_k_m.gguf',
-    meta: '5.6 GB · 高精度 · 16K ctx · メモリ 8 GB+ 推奨',
+    meta: '9.1 GB · 高精度・ツール対応 · 16K ctx · メモリ 16 GB+ 推奨',
     url: 'https://huggingface.co/bartowski/phi-4-GGUF/resolve/main/phi-4-Q4_K_M.gguf',
   },
 ];
@@ -1030,6 +1037,17 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
           try {
             const st = await api.getLlmDownloadStatus(id);
             if (cancelled) return;
+            // 失敗 → 進捗カードは消えるため、エラーを明示表示してエントリを掃除する
+            // (これがないと『一瞬 DL 中→すぐ消える』で原因が分からない)。
+            if (st.status === 'failed') {
+              setDlError(`${st.filename}: ${st.error ?? 'ダウンロードに失敗しました'}`);
+              setDownloads((prev) => {
+                const next = { ...prev };
+                delete next[id];
+                return next;
+              });
+              return;
+            }
             setDownloads((prev) => ({
               ...prev,
               [id]: {
@@ -1039,9 +1057,14 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
                 status: st.status,
               },
             }));
-            // 完了 → 一覧をリロードして取得済みに反映。
+            // 完了 → 一覧をリロードして取得済みに反映し、進捗エントリを掃除。
             if (st.status === 'completed') {
               void loadLocalModels();
+              setDownloads((prev) => {
+                const next = { ...prev };
+                delete next[id];
+                return next;
+              });
             }
           } catch {
             // ポーリング失敗は無視 (次周期で再試行 / ジョブ消失時は 404)
