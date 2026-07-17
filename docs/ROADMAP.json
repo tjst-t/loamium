@@ -6572,11 +6572,18 @@
       "added_in": "S5a66e4-verify",
       "kind": "bug",
       "reason": "S5a66e4 検証中に発見した既存の実サーバー e2e 破損。マイルストーン Sc4b9d1 で triage",
-      "status": "fixed_in_review_pending_verification",
+      "status": "fixed_verified",
       "fix_commits": [
         "24be1b1"
       ],
-      "fix_note": "isCommandFile を system/commands/ 対応(実バグ) + e2e shadowing 掃除。tsc 緑・ランタイム e2e は Node22 で未検証。"
+      "fix_note": "isCommandFile を system/commands/ 対応(実バグ) + e2e shadowing 掃除。make test-ui で create-todo/CommandEditor 6件が緑を確認 (Node22)。"
+    },
+    {
+      "title": "スマートフォルダ ドラッグ&ドロップ並べ替え e2e が一貫失敗",
+      "description": "AC-S7b2f22-2-5 (smart-folder-editor.e2e:262) が dev VM の headless chromium で一貫失敗。base main で既存・本バッチと無関係。Playwright の DnD シミュレーションが reorder を発火しない典型か reorder 永続の実バグかの切り分けが必要。",
+      "added_in": "milestone-Sc4b9d1-review",
+      "kind": "bug",
+      "status": "open"
     }
   ]
 }
