@@ -57,6 +57,7 @@ import {
   buildFinalChunk,
   buildErrorBody,
   newCompletionId,
+  type OpenAiChatChunk,
 } from '../local-llm-shim.js';
 import { LocalLlmUnavailableError, type LocalLlmEngine } from '../local-llm-engine.js';
 
@@ -187,22 +188,36 @@ export function llmRoutes(
       return c.json(buildChatCompletion(req.model, prompt, content));
     }
 
-    // ストリーム: text/event-stream で delta を送出し末尾に [DONE]。
-    // エンジンは完了文字列を返す面 (トークンストリーム非公開) のため、完了を
-    // 1 delta として送出する。未ロード等は SSE 開始前に検知してエラー JSON を返す。
-    let content: string;
-    try {
-      content = await engine.complete(prompt, opts);
-    } catch (err) {
-      return respondEngineError(c, err);
-    }
-
+    // ストリーム (text 経路): engine.complete に onChunk を配線し、生成中の
+    // テキスト断片ごとに delta チャンクを SSE 書き込みする (トークンストリーミング)。
+    // 生成完了後に finish チャンク + [DONE]。未ロード等は SSE を開始せず 503 を返す
+    // ため、engine.complete の *開始前* に発生し得る同期エラーはここで捕捉できないが、
+    // 実際の利用不可判定 (ensureModelLoaded) は上で済んでおり、complete 中の失敗は
+    // stream コールバック内で握りつぶさず re-throw する (Hono がストリームを閉じる)。
     const id = newCompletionId();
     return stream(c, async (s) => {
       c.res.headers.set('Content-Type', 'text/event-stream');
       c.res.headers.set('Cache-Control', 'no-cache');
       c.res.headers.set('Connection', 'keep-alive');
-      await s.write(`data: ${JSON.stringify(buildChatChunk(id, req.model, content))}\n\n`);
+
+      // onChunk は engine.complete の内部で *同期的に* 発火し得る。s.write は async
+      // なので、書き込みを 1 本の Promise チェーンへ順に積んで **順序と全送出を保証**
+      // する。complete の解決を待つ間にチェーンへ積まれた全 write を最後に await する。
+      let writeChain: Promise<void> = Promise.resolve();
+      const enqueue = (payload: OpenAiChatChunk): void => {
+        writeChain = writeChain.then(async () => {
+          await s.write(`data: ${JSON.stringify(payload)}\n\n`);
+        });
+      };
+
+      const onChunk = (text: string): void => {
+        if (text === '') return;
+        enqueue(buildChatChunk(id, req.model, text));
+      };
+
+      await engine.complete(prompt, { ...opts, onChunk });
+      // 積まれた全 delta の書き込み完了を待ってから終端を送る (順序保証)。
+      await writeChain;
       await s.write(`data: ${JSON.stringify(buildFinalChunk(id, req.model))}\n\n`);
       await s.write('data: [DONE]\n\n');
     });
