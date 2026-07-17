@@ -24,7 +24,8 @@ import type { PermissionMode } from './schemas.js';
  *                        + スマートフォルダ読み取り (smartfolders_list / smartfolder_notes)
  *   - journal_append   : ジャーナルへの追記
  *   - note_create      : ノート新規作成
- *   - note_edit        : ノート編集
+ *   - note_edit        : ノート編集 (patch) + フロントマタープロパティ/タグ編集 (note_property)
+ *   - note_delete      : ノート削除 (破壊的・不可逆)。書き込み系の独立ケーパビリティで full のみ許可。
  *   - template_write   : テンプレート適用による書き込み
  *   - dataview_write   : dataview 経由の書き込み
  *   - smartfolder_write: スマートフォルダ (ビュー定義) の書き込み・削除
@@ -42,6 +43,7 @@ export const AGENT_CAPABILITIES = [
   'journal_append',
   'note_create',
   'note_edit',
+  'note_delete',
   'template_write',
   'dataview_write',
   'smartfolder_write',
@@ -147,12 +149,17 @@ const CAPABILITY_TOOL_NAMES: Record<Capability, readonly string[]> = {
   ],
   journal_append: ['journal_append'],
   note_create: ['note_create'],
-  note_edit: ['note_edit'],
+  // note_edit はノート patch 編集 (note_edit) + フロントマタープロパティ/タグ編集 (note_property)
+  // を広告する (編集系のため同一ケーパビリティに畳む)。
+  note_edit: ['note_edit', 'note_property'],
+  // note_delete は破壊的なノート削除。独立ケーパビリティで full のみ許可 (MODE_ALLOWED)。
+  note_delete: ['note_delete'],
   // template_write はテンプレート適用によるノート生成を広告する (Sc4b9d1-3):
-  //   - template_write     : dataview 由来のテンプレート書き込み (既存)
+  //   - template_write     : テンプレート authoring (作成/更新。overwrite で上書き)
+  //   - template_delete    : テンプレート削除 (破壊的。既存 template_write に畳む)
   //   - template_instantiate: POST /api/templates/{name}/instantiate と同一解決エンジン
   //     (テンプレート適用 = ノート生成 = 書き込み系のため既存 template_write を再利用する)。
-  template_write: ['template_instantiate', 'template_write'],
+  template_write: ['template_delete', 'template_instantiate', 'template_write'],
   dataview_write: ['dataview_write'],
   // smartfolder_write はスマートフォルダ (ビュー定義) の作成・更新・削除を広告する。
   // 書き込み系のため full のみで許可される (clampByMode / MODE_ALLOWED)。

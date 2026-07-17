@@ -23,7 +23,7 @@ import {
   JournalDateError,
 } from '@loamium/shared';
 import type { ServerConfig } from './config.js';
-import { noteMtime, readNote, writeNote } from './vault.js';
+import { deleteNote, noteMtime, readNote, writeNote } from './vault.js';
 
 // ---- 結果型 ------------------------------------------------------------------
 
@@ -118,6 +118,33 @@ export async function createNote(
   }
   const written = await writeNote(config.vaultRoot, rel, content);
   return { ok: true, mtime: written.mtime, created: written.created };
+}
+
+/**
+ * ノートを作成 or 上書きする (PUT /api/notes/{path} と同一のフル置換セマンティクス)。
+ * 既存でも書き込む (created は新規作成か否か)。content はピュア Markdown 文字列。
+ * 上書き対応が必要なテンプレート authoring (template_write overwrite) で使う。
+ */
+export async function upsertNote(
+  config: ServerConfig,
+  rel: string,
+  content: string,
+): Promise<WriteOk> {
+  const written = await writeNote(config.vaultRoot, rel, content);
+  return { ok: true, mtime: written.mtime, created: written.created };
+}
+
+/**
+ * ノートを削除する (REST: DELETE /api/notes/{path} と同一のサービス層)。
+ * 対象が存在すれば削除して { deleted: true }、存在しなければ { deleted: false } を返す
+ * (エラーにしない — 呼び出し側で「対象なし」として扱う)。
+ */
+export async function deleteNoteFile(
+  config: ServerConfig,
+  rel: string,
+): Promise<{ deleted: boolean }> {
+  const deleted = await deleteNote(config.vaultRoot, rel);
+  return { deleted };
 }
 
 /**

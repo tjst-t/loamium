@@ -61,6 +61,7 @@ const CAPABILITY_LABELS: Record<Capability, string> = {
   journal_append: 'ジャーナル追記',
   note_create: 'ノート作成',
   note_edit: 'ノート編集',
+  note_delete: 'ノート削除',
   template_write: 'テンプレート書込',
   dataview_write: 'dataview 書込',
   smartfolder_write: 'スマートフォルダ書込',

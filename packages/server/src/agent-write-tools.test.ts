@@ -35,11 +35,13 @@ function textOf(result: ExecResult): string {
   return '';
 }
 
-/** details を { error?, created?, path? } として narrow して読む。 */
-function detailsOf(result: ExecResult): { error?: boolean; created?: boolean; path?: string } {
+/** details を { error?, created?, deleted?, path? } として narrow して読む。 */
+function detailsOf(
+  result: ExecResult,
+): { error?: boolean; created?: boolean; deleted?: boolean; path?: string } {
   const d = result.details;
   if (typeof d === 'object' && d !== null) {
-    return d as { error?: boolean; created?: boolean; path?: string };
+    return d as { error?: boolean; created?: boolean; deleted?: boolean; path?: string };
   }
   return {};
 }
@@ -49,6 +51,7 @@ const ALL_WRITE_CAPS: Capability[] = [
   'journal_append',
   'note_create',
   'note_edit',
+  'note_delete',
   'template_write',
   'dataview_write',
 ];
@@ -93,7 +96,7 @@ describe('createVaultWriteTools', () => {
 
   // ---- AC-S5bd678-2-2: 広告制御 ------------------------------------------------
 
-  it('[AC-S5bd678-2-2] 全 write caps で 5 ツールが生成される (sorted 一致)', () => {
+  it('[AC-S5bd678-2-2] 全 write caps で 8 ツールが生成される (sorted 一致)', () => {
     const names = createVaultWriteTools(config, index, noDeny, ALL_WRITE_CAPS)
       .map((t) => t.name)
       .sort();
@@ -107,6 +110,30 @@ describe('createVaultWriteTools', () => {
     expect(names).not.toContain('journal_append');
     expect(names).not.toContain('template_write');
     expect(names).not.toContain('dataview_write');
+    // note_property は note_edit 側で広告される (note_create 単独では出ない)
+    expect(names).not.toContain('note_property');
+    // note_delete は独立ケーパビリティ
+    expect(names).not.toContain('note_delete');
+    expect(names).not.toContain('template_delete');
+  });
+
+  it('[agent-write-coverage] note_edit cap は note_edit + note_property を広告する', () => {
+    const names = createVaultWriteTools(config, index, noDeny, ['note_edit'])
+      .map((t) => t.name)
+      .sort();
+    expect(names).toEqual(['note_edit', 'note_property']);
+  });
+
+  it('[agent-write-coverage] note_delete cap は note_delete のみを広告する (独立)', () => {
+    const names = createVaultWriteTools(config, index, noDeny, ['note_delete']).map((t) => t.name);
+    expect(names).toEqual(['note_delete']);
+  });
+
+  it('[agent-write-coverage] template_write cap は template_write + template_delete を広告する', () => {
+    const names = createVaultWriteTools(config, index, noDeny, ['template_write'])
+      .map((t) => t.name)
+      .sort();
+    expect(names).toEqual(['template_delete', 'template_write']);
   });
 
   it('[AC-S5bd678-2-2] read-only 相当 (write caps 空) では書き込みツールが 0 個', () => {
@@ -240,6 +267,149 @@ describe('createVaultWriteTools', () => {
     expect(detailsOf(res).error).toBe(true);
   });
 
+  // ---- agent-write-coverage: note_property ------------------------------------
+
+  it('[agent-write-coverage] note_property が frontmatter を set/unset で編集する (round-trip)', async () => {
+    await writeFile(
+      path.join(vaultRoot, 'doc.md'),
+      '---\ntitle: "Old"\nstatus: "draft"\n---\n\n本文\n',
+      'utf8',
+    );
+    const pt = tool('note_property');
+    const res = await pt.execute(
+      't1',
+      { path: 'doc', set: { title: 'New', tags: 'project' }, unset: ['status'] },
+      noSignal,
+      noUpdate,
+      fakeCtx,
+    );
+    expect(detailsOf(res).error).toBeUndefined();
+    const written = await readFile(path.join(vaultRoot, 'doc.md'), 'utf8');
+    expect(written).toContain('title: New');
+    expect(written).toContain('tags: project');
+    expect(written).not.toContain('status:');
+    // 本文は保持される
+    expect(written).toContain('本文');
+  });
+
+  it('[agent-write-coverage] note_property は tags プロパティを追加・削除できる', async () => {
+    await writeFile(path.join(vaultRoot, 'n.md'), '# タイトル\n', 'utf8');
+    const pt = tool('note_property');
+    await pt.execute('t1', { path: 'n', set: { tags: 'idea' } }, noSignal, noUpdate, fakeCtx);
+    let written = await readFile(path.join(vaultRoot, 'n.md'), 'utf8');
+    expect(written.startsWith('---\n')).toBe(true);
+    expect(written).toContain('tags: idea');
+    // unset で削除
+    await pt.execute('t2', { path: 'n', unset: ['tags'] }, noSignal, noUpdate, fakeCtx);
+    written = await readFile(path.join(vaultRoot, 'n.md'), 'utf8');
+    expect(written).not.toContain('tags:');
+  });
+
+  it('[agent-write-coverage] note_property は対象ノート不在でエラーを返す', async () => {
+    const pt = tool('note_property');
+    const res = await pt.execute('t1', { path: 'ghost', set: { a: 'b' } }, noSignal, noUpdate, fakeCtx);
+    expect(detailsOf(res).error).toBe(true);
+    expect(textOf(res)).toMatch(/見つかりません|not found/i);
+  });
+
+  it('[agent-write-coverage] note_property は安全に解析できない frontmatter を書き換えずエラーを返す', async () => {
+    // 壊れた YAML frontmatter — parseNote が frontmatter を null にする (安全に解析不可)。
+    const original = '---\ntitle: "unterminated\nstatus: draft\n---\n\n本文\n';
+    await writeFile(path.join(vaultRoot, 'complex.md'), original, 'utf8');
+    const pt = tool('note_property');
+    const res = await pt.execute('t1', { path: 'complex', set: { z: '1' } }, noSignal, noUpdate, fakeCtx);
+    expect(detailsOf(res).error).toBe(true);
+    // ファイルは一切変更しない
+    const still = await readFile(path.join(vaultRoot, 'complex.md'), 'utf8');
+    expect(still).toBe(original);
+  });
+
+  it('[agent-write-coverage] privacy deny にマッチするパスへの note_property を拒否する', async () => {
+    await mkdir(path.join(vaultRoot, 'private'), { recursive: true });
+    await writeFile(path.join(vaultRoot, 'private', 'd.md'), '---\na: "1"\n---\n', 'utf8');
+    const denyPrivate = (rel: string): boolean => rel.startsWith('private/');
+    const pt = tool('note_property', ALL_WRITE_CAPS, denyPrivate);
+    const res = await pt.execute('t1', { path: 'private/d', set: { a: '2' } }, noSignal, noUpdate, fakeCtx);
+    expect(detailsOf(res).error).toBe(true);
+    const still = await readFile(path.join(vaultRoot, 'private', 'd.md'), 'utf8');
+    expect(still).toBe('---\na: "1"\n---\n'); // 非破壊
+  });
+
+  // ---- agent-write-coverage: note_delete --------------------------------------
+
+  it('[agent-write-coverage] note_delete が既存ノートを削除する', async () => {
+    await writeFile(path.join(vaultRoot, 'gone.md'), '# 消す\n', 'utf8');
+    const dt = tool('note_delete');
+    const res = await dt.execute('t1', { path: 'gone' }, noSignal, noUpdate, fakeCtx);
+    expect(detailsOf(res).deleted).toBe(true);
+    await expect(readFile(path.join(vaultRoot, 'gone.md'), 'utf8')).rejects.toThrow();
+  });
+
+  it('[agent-write-coverage] note_delete は存在しない path をエラーにせず「削除対象なし」を返す', async () => {
+    const dt = tool('note_delete');
+    const res = await dt.execute('t1', { path: 'nope' }, noSignal, noUpdate, fakeCtx);
+    expect(detailsOf(res).error).toBeUndefined();
+    expect(detailsOf(res).deleted).toBeUndefined();
+    expect(textOf(res)).toMatch(/削除対象なし/);
+  });
+
+  it('[agent-write-coverage] privacy deny にマッチするパスへの note_delete を拒否する', async () => {
+    await mkdir(path.join(vaultRoot, 'private'), { recursive: true });
+    await writeFile(path.join(vaultRoot, 'private', 'keep.md'), 'secret\n', 'utf8');
+    const denyPrivate = (rel: string): boolean => rel.startsWith('private/');
+    const dt = tool('note_delete', ALL_WRITE_CAPS, denyPrivate);
+    const res = await dt.execute('t1', { path: 'private/keep' }, noSignal, noUpdate, fakeCtx);
+    expect(detailsOf(res).error).toBe(true);
+    // ファイルは残る
+    const still = await readFile(path.join(vaultRoot, 'private', 'keep.md'), 'utf8');
+    expect(still).toBe('secret\n');
+  });
+
+  it('[agent-write-coverage] note_delete が vault 脱出パス (../x) を拒否する', async () => {
+    const dt = tool('note_delete');
+    const res = await dt.execute('t1', { path: '../escape' }, noSignal, noUpdate, fakeCtx);
+    expect(detailsOf(res).error).toBe(true);
+    expect(textOf(res)).toMatch(/パスエラー|traversal/i);
+  });
+
+  // ---- agent-write-coverage: template 上書き / template_delete -----------------
+
+  it('[agent-write-coverage] template_write は overwrite:true で既存テンプレートを上書きする', async () => {
+    await mkdir(path.join(vaultRoot, 'templates'), { recursive: true });
+    await writeFile(path.join(vaultRoot, 'templates', 'm.md'), 'OLD\n', 'utf8');
+    const tw = tool('template_write');
+    // overwrite なしは拒否 (既存)
+    const denied = await tw.execute('t1', { name: 'm', body: 'x' }, noSignal, noUpdate, fakeCtx);
+    expect(detailsOf(denied).error).toBe(true);
+    expect(await readFile(path.join(vaultRoot, 'templates', 'm.md'), 'utf8')).toBe('OLD\n');
+    // overwrite:true は上書き成功 (created:false)
+    const ok = await tw.execute(
+      't2',
+      { name: 'm', body: '# 新\n', overwrite: true },
+      noSignal,
+      noUpdate,
+      fakeCtx,
+    );
+    expect(detailsOf(ok).error).toBeUndefined();
+    expect(detailsOf(ok).created).toBe(false);
+    const written = await readFile(path.join(vaultRoot, 'templates', 'm.md'), 'utf8');
+    expect(written).toContain('type: "template"');
+    expect(written).toContain('# 新');
+  });
+
+  it('[agent-write-coverage] template_delete が既存テンプレートを削除する / 不在は削除対象なし', async () => {
+    await mkdir(path.join(vaultRoot, 'templates'), { recursive: true });
+    await writeFile(path.join(vaultRoot, 'templates', 'x.md'), '---\ntype: "template"\n---\n', 'utf8');
+    const td = tool('template_delete');
+    const res = await td.execute('t1', { name: 'x' }, noSignal, noUpdate, fakeCtx);
+    expect(detailsOf(res).deleted).toBe(true);
+    await expect(readFile(path.join(vaultRoot, 'templates', 'x.md'), 'utf8')).rejects.toThrow();
+    // 不在は削除対象なし
+    const none = await td.execute('t2', { name: 'x' }, noSignal, noUpdate, fakeCtx);
+    expect(detailsOf(none).error).toBeUndefined();
+    expect(textOf(none)).toMatch(/削除対象なし/);
+  });
+
   // ---- AC-S5bd678-2-3: パス安全 / privacy deny --------------------------------
 
   it('[AC-S5bd678-2-3] note_create が vault 脱出パス (../x) を拒否する', async () => {
@@ -287,6 +457,9 @@ describe('createVaultWriteTools', () => {
     await tool('note_edit').execute('c', { path: 'doc', old: 'hello', new: 'hi' }, noSignal, noUpdate, fakeCtx);
     await tool('template_write').execute('d', { name: 'tpl', body: 'b' }, noSignal, noUpdate, fakeCtx);
     await tool('dataview_write').execute('e', { path: 'idx', query: 'LIST' }, noSignal, noUpdate, fakeCtx);
+    await tool('note_property').execute('f', { path: 'doc', set: { done: true } }, noSignal, noUpdate, fakeCtx);
+    await tool('template_delete').execute('g', { name: 'tpl' }, noSignal, noUpdate, fakeCtx);
+    await tool('note_delete').execute('h', { path: 'idx' }, noSignal, noUpdate, fakeCtx);
 
     const entries = await readAudit(vaultRoot);
     const ops = entries.map((e) => e.op);
@@ -295,6 +468,9 @@ describe('createVaultWriteTools', () => {
     expect(ops).toContain('agent.note_edit');
     expect(ops).toContain('agent.template_write');
     expect(ops).toContain('agent.dataview_write');
+    expect(ops).toContain('agent.note_property');
+    expect(ops).toContain('agent.template_delete');
+    expect(ops).toContain('agent.note_delete');
 
     // パスも記録されている
     const createEntry = entries.find((e) => e.op === 'agent.note_create');
