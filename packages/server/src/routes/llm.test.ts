@@ -21,6 +21,7 @@ import {
   type LoadedSession,
   type ChatResult,
   type ChatOptions,
+  type CompletionOptions,
 } from '../local-llm-engine.js';
 import type { ToolChatMessage } from '../local-llm-tools.js';
 import { ModelDownloadManager, type FetchFn } from '../model-download.js';
@@ -46,8 +47,14 @@ function makeConfig(): ServerConfig {
  */
 function echoSession(): LoadedSession {
   return {
-    async prompt(text: string): Promise<string> {
-      return `echo: ${text}`;
+    async prompt(text: string, options?: CompletionOptions): Promise<string> {
+      const full = `echo: ${text}`;
+      // onChunk があれば語単位 (空白区切り) の複数チャンクを逐次流す
+      // (トークンストリーミングの決定的再現)。連結すると全文へ戻る。
+      if (options?.onChunk) {
+        for (const part of full.match(/\S+\s*|\s+/g) ?? []) options.onChunk(part);
+      }
+      return full;
     },
     async chat(messages: ToolChatMessage[], options?: ChatOptions): Promise<ChatResult> {
       const hasToolResult = messages.some((m) => m.role === 'tool');
@@ -269,6 +276,44 @@ describe('POST /api/llm/v1/chat/completions (stream:true)', () => {
     // delta チャンク + [DONE]
     expect(text).toContain('"delta"');
     expect(text).toContain('"content"');
+    expect(text.trimEnd().endsWith('data: [DONE]')).toBe(true);
+  });
+
+  it('text 応答が語ごと (複数) の delta で逐次届く (トークンストリーミング)', async () => {
+    const engine = await loadedEngine('/x.gguf');
+    const app = mount(llmRoutes(makeConfig(), { engine }));
+
+    const res = await app.request('/api/llm/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'm',
+        messages: [{ role: 'user', content: 'hello world foo' }],
+        stream: true,
+      }),
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/event-stream');
+    const text = await res.text();
+
+    // SSE ボディをパースして content delta を抽出する。
+    const contentDeltas: string[] = [];
+    for (const line of text.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('data: ') || trimmed === 'data: [DONE]') continue;
+      const payload = JSON.parse(trimmed.slice('data: '.length)) as {
+        choices: { delta: { content?: string }; finish_reason: string | null }[];
+      };
+      const delta = payload.choices[0]?.delta.content;
+      if (typeof delta === 'string') contentDeltas.push(delta);
+    }
+
+    // 現状の「全文 1 delta」ではなく、複数 delta で届くこと。
+    expect(contentDeltas.length).toBeGreaterThan(1);
+    // 全 delta を連結すると全文 (echo: hello world foo) に一致する。
+    expect(contentDeltas.join('')).toBe('echo: User: hello world foo');
+    // 終端は finish チャンク + [DONE]。
+    expect(text).toContain('"finish_reason":"stop"');
     expect(text.trimEnd().endsWith('data: [DONE]')).toBe(true);
   });
 

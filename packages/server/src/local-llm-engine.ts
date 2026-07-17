@@ -45,6 +45,15 @@ export interface CompletionOptions {
   maxTokens?: number;
   /** サンプリング温度。 */
   temperature?: number;
+  /**
+   * テキスト生成中のチャンクを逐次受け取る任意コールバック (トークンストリーミング)。
+   *
+   * node-llama-cpp の `onTextChunk` を配線する副作用フック。生成が進むたびに
+   * テキスト断片が渡される。返り値 (全文) は従来どおり Promise で返るため、
+   * ストリーム不要な呼び出しは onChunk を渡さなければ従来と同一挙動になる。
+   * onChunk は生成スレッド上で同期的に呼ばれ得る (呼び出し側でバッファすること)。
+   */
+  onChunk?: (text: string) => void;
 }
 
 /**
@@ -199,9 +208,15 @@ async function runNodeLlamaChat(
     maxTokens?: number;
     temperature?: number;
     functions?: import('node-llama-cpp').ChatModelFunctions;
+    onTextChunk?: (t: string) => void;
   } = {};
   if (options?.maxTokens !== undefined) genOptions.maxTokens = options.maxTokens;
   if (options?.temperature !== undefined) genOptions.temperature = options.temperature;
+  // onChunk があれば onTextChunk を配線する。onTextChunk は *テキストセグメント* に
+  // 対してのみ発火するため、モデルが functionCalls で停止する場合は流れない
+  // (tool_calls 経路のストリーミングは未対応・スコープ外)。最終テキストを生成する
+  // 場合のみ逐次配信される。
+  if (options?.onChunk !== undefined) genOptions.onTextChunk = options.onChunk;
 
   if (options?.tools && options.tools.length > 0) {
     // ChatModelFunctions は { [name]: {description?, params?} } (handler なし)。
@@ -273,9 +288,16 @@ export const nodeLlamaCppLoader: EngineLoader = {
         async prompt(text: string, options?: CompletionOptions): Promise<string> {
           // exactOptionalPropertyTypes 下では undefined を明示的に渡さない
           // (未指定キーは node-llama-cpp 側の既定に委ねる)。
-          const promptOptions: { maxTokens?: number; temperature?: number } = {};
+          // onChunk があれば onTextChunk を配線し、生成中のテキスト断片を逐次流す
+          // (副作用のみ。返り値は従来どおり全文)。
+          const promptOptions: {
+            maxTokens?: number;
+            temperature?: number;
+            onTextChunk?: (t: string) => void;
+          } = {};
           if (options?.maxTokens !== undefined) promptOptions.maxTokens = options.maxTokens;
           if (options?.temperature !== undefined) promptOptions.temperature = options.temperature;
+          if (options?.onChunk !== undefined) promptOptions.onTextChunk = options.onChunk;
           return chatSession.prompt(text, promptOptions);
         },
         chat(messages: ToolChatMessage[], options?: ChatOptions): Promise<ChatResult> {
@@ -310,16 +332,37 @@ export const nodeLlamaCppLoader: EngineLoader = {
  * HTTP shim → 変換 → engine 呼び出し) はすべて本物を通し、「実 LLM 推論だけ」を
  * 決定的関数に置換する。実 LLM/実 addon をテストで起動しない規約に沿う。
  */
+/**
+ * スタブ用: 全文を空白区切りの語単位で分割し、各断片を onChunk へ順に流す。
+ * 実エンジンの onTextChunk (逐次トークン) を決定的に再現する。onChunk 未指定なら
+ * no-op。語間の空白は各チャンクの末尾に付けて連結すると全文へ戻るようにする
+ * (route 側は各 delta をそのまま連結するため)。
+ */
+function emitChunks(full: string, onChunk?: (text: string) => void): void {
+  if (onChunk === undefined) return;
+  // 空白の直後で分割 (空白はチャンク末尾に含める) → 連結で全文へ復元できる。
+  const chunks = full.match(/\S+\s*|\s+/g);
+  if (chunks === null) {
+    if (full !== '') onChunk(full);
+    return;
+  }
+  for (const chunk of chunks) onChunk(chunk);
+}
+
 export function createStubEngineLoader(): EngineLoader {
   return {
     load(modelPath: string): Promise<LoadedSession> {
       return Promise.resolve({
-        prompt(text: string): Promise<string> {
+        prompt(text: string, options?: CompletionOptions): Promise<string> {
           // 決定的エコー。プロンプトを含めることで pi → shim → engine の
           // 往復 (縮約されたプロンプトが engine に届いていること) を検証できる。
-          return Promise.resolve(`[stub:${modelPath}] echo: ${text}`);
+          const full = `[stub:${modelPath}] echo: ${text}`;
+          // onChunk があれば全文を語単位 (空白区切り) の複数チャンクへ分割して
+          // 逐次流す (トークンストリーミングの決定的再現)。返り値は従来どおり全文。
+          emitChunks(full, options?.onChunk);
+          return Promise.resolve(full);
         },
-        chat(messages: ToolChatMessage[]): Promise<ChatResult> {
+        chat(messages: ToolChatMessage[], options?: ChatOptions): Promise<ChatResult> {
           // 決定的スタブ: 会話全体を role ラベル付きで縮約しエコーする (prompt と同形式)。
           // オフライン acceptance (pi → shim → engine) を tools 有無に関わらず本物で
           // 通し、応答が届いたことを検証できるようにする。tools を呼ぶ挙動は入れない
@@ -332,9 +375,13 @@ export function createStubEngineLoader(): EngineLoader {
               return `${label}: ${text}`;
             })
             .join('\n\n');
+          const content = `[stub:${modelPath}] echo: ${echoed}`;
+          // text 応答は onChunk へ語単位で逐次流す (tool_calls 経路は入れないため
+          // ここは常にテキスト = 逐次配信対象)。
+          emitChunks(content, options?.onChunk);
           return Promise.resolve({
             kind: 'text',
-            content: `[stub:${modelPath}] echo: ${echoed}`,
+            content,
           });
         },
         dispose(): Promise<void> {
