@@ -15,7 +15,14 @@ import { Readable } from 'node:stream';
 import { llmRoutes } from './llm.js';
 import type { AppEnv } from '../http.js';
 import type { ServerConfig } from '../config.js';
-import { LocalLlmEngine, type EngineLoader, type LoadedSession } from '../local-llm-engine.js';
+import {
+  LocalLlmEngine,
+  type EngineLoader,
+  type LoadedSession,
+  type ChatResult,
+  type ChatOptions,
+} from '../local-llm-engine.js';
+import type { ToolChatMessage } from '../local-llm-tools.js';
 import { ModelDownloadManager, type FetchFn } from '../model-download.js';
 import { modelKindDir } from '../model-paths.js';
 
@@ -32,11 +39,28 @@ function makeConfig(): ServerConfig {
   return { vaultRoot, mode: 'full', maxUploadBytes: 1024 };
 }
 
-/** prompt をエコーする決定的セッション。 */
+/**
+ * prompt をエコーする決定的セッション。
+ * chat は tools ありかつ tool 結果未受領なら先頭ツールを呼び (tool_calls)、
+ * tool 結果を受けた継続では最終テキストを返す (tools 往復の検証用)。
+ */
 function echoSession(): LoadedSession {
   return {
     async prompt(text: string): Promise<string> {
       return `echo: ${text}`;
+    },
+    async chat(messages: ToolChatMessage[], options?: ChatOptions): Promise<ChatResult> {
+      const hasToolResult = messages.some((m) => m.role === 'tool');
+      if (options?.tools && options.tools.length > 0 && !hasToolResult) {
+        const tool = options.tools[0]!;
+        return {
+          kind: 'tool_calls',
+          toolCalls: [{ id: 'call_0', name: tool.name, argumentsJson: '{"q":"loamium"}' }],
+        };
+      }
+      const last = messages[messages.length - 1];
+      const lastText = last && 'text' in last ? last.text : '';
+      return { kind: 'text', content: `chat-final: ${lastText}` };
     },
     async dispose(): Promise<void> {},
   };
@@ -152,6 +176,76 @@ describe('POST /api/llm/v1/chat/completions (非ストリーム)', () => {
       body: JSON.stringify({ model: 'm', messages: [] }),
     });
     expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /api/llm/v1/chat/completions (function calling / ADR-0025 amendment)', () => {
+  const tools = [
+    {
+      type: 'function' as const,
+      function: {
+        name: 'web_search',
+        description: 'search the web',
+        parameters: { type: 'object', properties: { q: { type: 'string' } } },
+      },
+    },
+  ];
+
+  it('tools 付きリクエストで engine が functionCall を返すと OpenAI tool_calls を返す', async () => {
+    const engine = await loadedEngine('/x.gguf');
+    const app = mount(llmRoutes(makeConfig(), { engine }));
+
+    const res = await app.request('/api/llm/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'qwen.gguf',
+        messages: [{ role: 'user', content: 'search loamium' }],
+        tools,
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      choices: {
+        message: { content: string | null; tool_calls?: { function: { name: string; arguments: string } }[] };
+        finish_reason: string;
+      }[];
+    };
+    expect(body.choices[0]?.finish_reason).toBe('tool_calls');
+    expect(body.choices[0]?.message.content).toBeNull();
+    expect(body.choices[0]?.message.tool_calls?.[0]?.function.name).toBe('web_search');
+    expect(body.choices[0]?.message.tool_calls?.[0]?.function.arguments).toBe('{"q":"loamium"}');
+  });
+
+  it('後続の tool 結果メッセージ (role:tool) を含むリクエストは最終テキストを返す', async () => {
+    const engine = await loadedEngine('/x.gguf');
+    const app = mount(llmRoutes(makeConfig(), { engine }));
+
+    const res = await app.request('/api/llm/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'qwen.gguf',
+        messages: [
+          { role: 'user', content: 'search loamium' },
+          {
+            role: 'assistant',
+            content: null,
+            tool_calls: [
+              { id: 'call_0', type: 'function', function: { name: 'web_search', arguments: '{"q":"loamium"}' } },
+            ],
+          },
+          { role: 'tool', tool_call_id: 'call_0', content: 'RESULT: 3 pages' },
+        ],
+        tools,
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      choices: { message: { content: string | null }; finish_reason: string }[];
+    };
+    expect(body.choices[0]?.finish_reason).toBe('stop');
+    expect(body.choices[0]?.message.content).toContain('chat-final');
   });
 });
 

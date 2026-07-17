@@ -11,9 +11,12 @@ import {
   LocalLlmEngine,
   LocalLlmUnavailableError,
   nodeLlamaCppLoader,
+  buildNodeLlamaChatHistory,
   type EngineLoader,
   type LoadedSession,
+  type ChatResult,
 } from './local-llm-engine.js';
+import type { ToolChatMessage } from './local-llm-tools.js';
 
 // ---- 決定的スタブローダー -------------------------------------------------
 
@@ -34,6 +37,10 @@ function makeStubSession(
     async prompt(text: string): Promise<string> {
       if (onPrompt) await onPrompt();
       return `[${modelPath}] echo: ${text}`;
+    },
+    async chat(): Promise<ChatResult> {
+      if (onPrompt) await onPrompt();
+      return { kind: 'text', content: `[${modelPath}] chat` };
     },
     async dispose(): Promise<void> {
       events.disposed = true;
@@ -144,6 +151,67 @@ describe('LocalLlmEngine (stub loader)', () => {
     // 直列化チェーンが例外で切れておらず、次のロードが成立する。
     await engine.loadEngine('/models/llm/ok.gguf');
     expect(engine.isLoaded()).toBe(true);
+  });
+});
+
+describe('buildNodeLlamaChatHistory (OpenAI 履歴 → node-llama-cpp 履歴)', () => {
+  it('system/user/assistant を node-llama-cpp 履歴に写す (末尾 user は user のまま)', () => {
+    const msgs: ToolChatMessage[] = [
+      { role: 'system', text: 'be brief' },
+      { role: 'user', text: 'hi' },
+      { role: 'assistant', text: 'hello' },
+      { role: 'user', text: 'what is 2+2' },
+    ];
+    expect(buildNodeLlamaChatHistory(msgs)).toEqual([
+      { type: 'system', text: 'be brief' },
+      { type: 'user', text: 'hi' },
+      { type: 'model', response: ['hello'] },
+      { type: 'user', text: 'what is 2+2' },
+    ]);
+  });
+
+  it('assistant.toolCalls + tool 結果を functionCall(params+result) に畳み込む', () => {
+    const msgs: ToolChatMessage[] = [
+      { role: 'user', text: 'search loamium' },
+      {
+        role: 'assistant',
+        text: '',
+        toolCalls: [{ id: 'call_1', name: 'web_search', argumentsJson: '{"q":"loamium"}' }],
+      },
+      { role: 'tool', toolCallId: 'call_1', text: 'found 3 pages' },
+    ];
+    expect(buildNodeLlamaChatHistory(msgs)).toEqual([
+      { type: 'user', text: 'search loamium' },
+      {
+        type: 'model',
+        response: [
+          {
+            type: 'functionCall',
+            name: 'web_search',
+            params: { q: 'loamium' },
+            result: 'found 3 pages',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('不正な arguments JSON は文字列のまま params に保持する (握りつぶさない)', () => {
+    const msgs: ToolChatMessage[] = [
+      {
+        role: 'assistant',
+        text: '',
+        toolCalls: [{ id: 'c', name: 'f', argumentsJson: 'not-json' }],
+      },
+      { role: 'tool', toolCallId: 'c', text: 'ok' },
+    ];
+    const history = buildNodeLlamaChatHistory(msgs);
+    const model = history[0];
+    expect(model?.type).toBe('model');
+    if (model?.type === 'model') {
+      const call = model.response[0];
+      expect(call).toMatchObject({ type: 'functionCall', name: 'f', params: 'not-json', result: 'ok' });
+    }
   });
 });
 
