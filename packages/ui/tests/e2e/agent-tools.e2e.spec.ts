@@ -149,6 +149,10 @@ test.describe.serial('agent tools', () => {
     // Sc4b9d1-2/3 (ADR-0016): commands_list / templates_list を read ケーパビリティに追加。
     //   read-only セッションでも広告される。書き込み系 (command_run: command_run cap,
     //   template_instantiate: template_write cap — いずれも full のみ) はここには現れない。
+    // agent-write-coverage (ADR-0016): コマンド authoring 系 (command_write / command_delete:
+    //   command_write cap — full のみ) も追加された。full 期待集合の pin は
+    //   packages/shared agent-capabilities.test.ts (23 種) 側で固定する。read-only の
+    //   このセッションには現れない = capability ゲートの実測。
     expect(advertisedTools).toEqual([
       'backlinks',
       'commands_list',

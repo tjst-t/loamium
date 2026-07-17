@@ -32,6 +32,9 @@ import type { PermissionMode } from './schemas.js';
  *   - command_run      : スマートコマンドのステップ実行 (ADR-0016/0021 / Sc4b9d1-2:
  *                        POST /api/commands/{name}/run と同一エンジン)。書き込みを伴う
  *                        独立ケーパビリティで full のみ許可 (commands 一覧は read で広告)。
+ *   - command_write    : スマートコマンド定義 (YAML) の作成・更新・削除 (ADR-0016:
+ *                        system/commands/*.yaml を writeSystemCommand/deleteSystemCommand 経由で
+ *                        authoring)。書き込み系の独立ケーパビリティで full のみ許可。
  *   - web              : Web アクセス (ADR-0017 / S5e0206: web_fetch / web_search)
  */
 export const AGENT_CAPABILITIES = [
@@ -43,6 +46,7 @@ export const AGENT_CAPABILITIES = [
   'dataview_write',
   'smartfolder_write',
   'command_run',
+  'command_write',
   'web',
 ] as const;
 export type Capability = (typeof AGENT_CAPABILITIES)[number];
@@ -156,6 +160,9 @@ const CAPABILITY_TOOL_NAMES: Record<Capability, readonly string[]> = {
   // command_run はスマートコマンドのステップ実行 (command_run ツール) を広告する。
   // 書き込みを伴うため full のみで許可される (clampByMode / MODE_ALLOWED)。
   command_run: ['command_run'],
+  // command_write はスマートコマンド定義の作成/更新/削除を広告する。
+  // 書き込み系のため full のみで許可される (clampByMode / MODE_ALLOWED)。
+  command_write: ['command_delete', 'command_write'],
   web: ['web_fetch', 'web_search'],
 };
 
