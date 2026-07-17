@@ -278,6 +278,57 @@ test('[AC-Sa10026-7-3] 直値キーが保存済みの場合は「保存済み」
   expect(unexpected).toEqual([]);
 });
 
+test('[MOCK] baseUrl はプリセット選択できる (OpenCode Go を選ぶと baseUrl と API 種別が入る)', async ({ page }) => {
+  const unexpected = await installCatchAll(page);
+  await page.route('**/api/notes', (route) => {
+    const url = route.request().url();
+    if (!url.includes('/api/notes/')) {
+      void route.fulfill(json({ notes: NOTES }));
+      return;
+    }
+    void route.fallback();
+  });
+  await page.route('**/api/journal**', (route) => {
+    void route.fulfill(json(journalResponse()));
+  });
+  await page.route('**/api/smart-folders', (route) => {
+    void route.fulfill(json({ folders: [] }));
+  });
+  await page.route('**/api/settings/agent/connection', (route) => {
+    if (route.request().method() === 'GET') {
+      void route.fulfill(json({
+        connection: { api: 'anthropic', baseUrl: 'https://api.anthropic.com', model: 'claude-sonnet-4-6', apiKeyRef: '$ANTHROPIC_API_KEY', hasApiKey: true },
+      }));
+    } else {
+      void route.fulfill(json({ ok: true }));
+    }
+  });
+
+  await page.goto(readHarnessState().uiUrl);
+  await expect(page.getByTestId('editor')).toBeVisible();
+  await page.getByTestId('sidebar-settings').click();
+  await page.locator('[data-testid="settings-nav-item"][data-group="agent"]').click();
+  await expect(page.locator('[data-testid="settings-panel"][data-group="agent"]')).toBeVisible();
+
+  const baseUrlInput = page.locator('[data-testid="settings-field"][data-name="baseUrl"]');
+  await expect(baseUrlInput).toHaveValue('https://api.anthropic.com');
+
+  // プリセットを開いて OpenCode Go を選択
+  await page.getByTestId('settings-baseurl-toggle').click();
+  await expect(page.getByTestId('settings-baseurl-options')).toBeVisible();
+  await page.locator('[data-testid="settings-baseurl-options"] li[data-preset="OpenCode Go"]').click();
+
+  // baseUrl と API 種別が OpenCode Go(=OpenAI 互換) に切り替わる
+  await expect(baseUrlInput).toHaveValue('https://opencode.ai/zen/go/v1/');
+  await expect(page.locator('[data-testid="settings-field"][data-name="apiType"]')).toHaveValue('openai');
+
+  // 自由入力もできる (直接編集)
+  await baseUrlInput.fill('https://my-proxy.example.com/v1');
+  await expect(baseUrlInput).toHaveValue('https://my-proxy.example.com/v1');
+
+  expect(unexpected).toEqual([]);
+});
+
 // ============================================================
 // [AC-Sa10026-7-1] 接続テスト成功
 // ============================================================

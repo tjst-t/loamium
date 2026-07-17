@@ -5494,6 +5494,10 @@ button.callout-title { cursor: pointer; }
 .combo-menu li { padding: 7px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; }
 .combo-menu li:hover { background: var(--bg-hover); }
 .combo-menu li.sel { color: var(--accent); font-weight: 600; }
+/* baseUrl プリセット: ラベル + URL の 2 段表示 */
+.combo-menu li .preset-name { display: block; font-weight: 600; }
+.combo-menu li .preset-url { display: block; font-size: 11px; color: var(--text-muted); font-family: var(--font-mono, monospace); }
+.combo-menu li.sel .preset-url { color: var(--accent); opacity: .8; }
 .toggle-row { display: flex; align-items: center; gap: 12px; }
 .toggle-row .toggle-label { flex: 1; }
 .switch {

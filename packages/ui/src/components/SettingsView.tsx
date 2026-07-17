@@ -362,6 +362,98 @@ function ModelCombobox({
   );
 }
 
+// ---- BaseUrlCombobox (エージェント接続の baseUrl: プリセット選択 + 自由入力) ----
+
+interface BaseUrlPreset {
+  label: string;
+  baseUrl: string;
+  /** リクエスト形式 (プリセット選択時に API 種別も合わせる)。 */
+  api: 'openai' | 'anthropic';
+}
+
+/** よく使う baseUrl プリセット。自由入力もできる (編集可能コンボボックス)。 */
+const BASE_URL_PRESETS: readonly BaseUrlPreset[] = [
+  { label: 'OpenAI', baseUrl: 'https://api.openai.com/v1', api: 'openai' },
+  { label: 'Anthropic', baseUrl: 'https://api.anthropic.com', api: 'anthropic' },
+  { label: 'OpenCode Go', baseUrl: 'https://opencode.ai/zen/go/v1/', api: 'openai' },
+  { label: 'OpenCode Zen', baseUrl: 'https://opencode.ai/zen/v1', api: 'openai' },
+];
+
+function BaseUrlCombobox({
+  value,
+  onChangeUrl,
+  onSelectPreset,
+  disabled,
+}: {
+  value: string;
+  /** 自由入力 (テキスト変更)。 */
+  onChangeUrl: (v: string) => void;
+  /** プリセット選択 (baseUrl + API 種別をまとめて設定)。 */
+  onSelectPreset: (preset: BaseUrlPreset) => void;
+  disabled: boolean;
+}): JSX.Element {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent): void => {
+      if (ref.current !== null && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, []);
+
+  return (
+    <div className={`combobox${open ? ' open' : ''}`} data-testid="settings-baseurl-combobox" ref={ref}>
+      <input
+        type="text"
+        id="f-baseurl"
+        data-testid="settings-field"
+        data-name="baseUrl"
+        value={value}
+        disabled={disabled}
+        placeholder="https://… (直接入力可)"
+        autoComplete="off"
+        onChange={(e) => onChangeUrl(e.target.value)}
+      />
+      <button
+        type="button"
+        className="combo-toggle"
+        data-testid="settings-baseurl-toggle"
+        aria-label="baseUrl プリセットを表示"
+        aria-expanded={open}
+        disabled={disabled}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+      >
+        <IconChevronDown />
+      </button>
+      <ul className="combo-menu" data-testid="settings-baseurl-options" role="listbox">
+        {BASE_URL_PRESETS.map((p) => (
+          <li
+            key={p.label}
+            role="option"
+            tabIndex={-1}
+            data-preset={p.label}
+            className={p.baseUrl === value ? 'sel' : ''}
+            onClick={() => {
+              onSelectPreset(p);
+              setOpen(false);
+            }}
+          >
+            <span className="preset-name">{p.label}</span>
+            <span className="preset-url">{p.baseUrl}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 // ---- ConnResult ----
 
 type ConnState = 'idle' | 'testing' | 'ok' | 'error';
@@ -1494,15 +1586,12 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
             </div>
             <div className="settings-field">
               <label htmlFor="f-baseurl">baseUrl</label>
-              <input
-                type="text"
-                id="f-baseurl"
-                data-testid="settings-field"
-                data-name="baseUrl"
-                disabled={readonly}
+              <BaseUrlCombobox
                 value={connDraft.baseUrl}
-                onChange={(e) =>
-                  setConnDraft((d) => ({ ...d, baseUrl: e.target.value }))
+                disabled={readonly}
+                onChangeUrl={(v) => setConnDraft((d) => ({ ...d, baseUrl: v }))}
+                onSelectPreset={(p) =>
+                  setConnDraft((d) => ({ ...d, baseUrl: p.baseUrl, api: p.api }))
                 }
               />
             </div>
