@@ -22,30 +22,16 @@ import {
   fileRenameRequestSchema,
   HiddenVaultPathError,
   normalizeVaultFilePath,
-  preferredFileLinkTarget,
-  resolveFileLinkTarget,
-  rewriteLinks,
   VaultPathError,
   type FileDeleteResponse,
   type FileListResponse,
   type FileRenameResponse,
   type FileWriteResponse,
-  type RenameUpdatedNote,
 } from '@loamium/shared';
 import type { ServerConfig } from '../config.js';
-import {
-  deleteVaultFile,
-  isVaultDirectory,
-  listNoteFiles,
-  listVaultFiles,
-  moveVaultFile,
-  readNote,
-  readVaultFile,
-  statVaultFile,
-  writeNote,
-  writeVaultFile,
-} from '../vault.js';
+import { readVaultFile, listVaultFiles } from '../vault.js';
 import type { VaultIndex } from '../noteIndex.js';
+import { deleteAttachment, moveAttachment, writeAttachment } from '../file-service.js';
 import { errorJson, parseBody, setAudit, type AppEnv } from '../http.js';
 
 const FILES_PREFIX = '/api/files/';
@@ -177,7 +163,7 @@ export function filesRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
     const rel = parsed.rel;
     setAudit(c, 'file.write', rel);
 
-    // サイズ上限 (AC-Sf53ad6-1-2): Content-Length で先に弾き、実バイト数でも検証する
+    // サイズ上限 (AC-Sf53ad6-1-2): Content-Length で先に弾き、実バイト数は service が検証する
     const limit = config.maxUploadBytes;
     const declared = Number(c.req.header('content-length') ?? '');
     if (Number.isFinite(declared) && declared > limit) {
@@ -189,47 +175,33 @@ export function filesRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
       );
     }
     const body = Buffer.from(await c.req.arrayBuffer());
-    if (body.byteLength > limit) {
-      return errorJson(
-        c,
-        413,
-        'too_large',
-        `upload exceeds the size limit: ${String(body.byteLength)} bytes > ${String(limit)} bytes (LOAMIUM_MAX_UPLOAD)`,
-      );
-    }
-
-    // 既存パス保護 (AC-Sf53ad6-1-1): overwrite フラグなしの上書きは 409
-    if (await isVaultDirectory(config.vaultRoot, rel)) {
-      return errorJson(c, 409, 'conflict', `path is a directory: ${rel}`);
-    }
-    const existing = await statVaultFile(config.vaultRoot, rel);
     const overwrite = c.req.query('overwrite') === 'true';
-    if (existing !== null && !overwrite) {
-      return errorJson(
-        c,
-        409,
-        'conflict',
-        `file already exists: ${rel} (pass ?overwrite=true to replace it)`,
-      );
-    }
 
-    let written: { created: boolean; size: number; mtime: number };
-    try {
-      written = await writeVaultFile(config.vaultRoot, rel, body);
-    } catch (err) {
-      // 親セグメントが既存ファイル (assets/a.png/b.png 等) は mkdir が
-      // EEXIST (親がファイル) / ENOTDIR (さらに深い階層) で落ちる
-      if (
-        err instanceof Error &&
-        'code' in err &&
-        (err.code === 'ENOTDIR' || err.code === 'EEXIST')
-      ) {
-        return errorJson(c, 409, 'conflict', `a parent segment is an existing file: ${rel}`);
+    // ADR-0016: 書き込みコアは file-service に集約 (REST/エージェント同一経路)。
+    const result = await writeAttachment(config, rel, body, overwrite);
+    if (!result.ok) {
+      if (result.reason === 'too_large') {
+        // service の too_large 文言 (data exceeds …) を REST 従来の upload 文言に写像する。
+        return errorJson(
+          c,
+          413,
+          'too_large',
+          `upload exceeds the size limit: ${String(body.byteLength)} bytes > ${String(limit)} bytes (LOAMIUM_MAX_UPLOAD)`,
+        );
       }
-      throw err;
+      // conflict: overwrite フラグなしの既存は REST 従来の ?overwrite=true 文言に写像する。
+      const msg = result.message.startsWith('file already exists')
+        ? `file already exists: ${rel} (pass ?overwrite=true to replace it)`
+        : result.message;
+      return errorJson(c, 409, 'conflict', msg);
     }
-    const res: FileWriteResponse = { path: rel, ...written };
-    return c.json(res, written.created ? 201 : 200);
+    const res: FileWriteResponse = {
+      path: rel,
+      created: result.created,
+      size: result.size,
+      mtime: result.mtime,
+    };
+    return c.json(res, result.created ? 201 : 200);
   }
 
   async function renameHandler(c: Context<AppEnv>): Promise<Response> {
@@ -256,81 +228,25 @@ export function filesRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
         `attachments cannot be renamed to .md — notes are managed by /api/notes (newPath: ${newRel})`,
       );
     }
-    const source = await statVaultFile(config.vaultRoot, rel);
-    if (source === null) {
-      return errorJson(c, 404, 'not_found', `file not found: ${rel}`);
-    }
-    if (newRel === rel) {
-      const res: FileRenameResponse = {
-        oldPath: rel,
-        path: rel,
-        mtime: source.mtime,
-        updatedNotes: [],
-        updatedLinks: 0,
-      };
-      return c.json(res); // 同名リネームは no-op (冪等)
-    }
-    if ((await statVaultFile(config.vaultRoot, newRel)) !== null) {
-      return errorJson(c, 409, 'conflict', `rename target already exists: ${newRel}`);
-    }
 
-    // ---- Phase 1: 読み取りと書き換え計算のみ (ディスク書き込みゼロ) ----
-    const fileSet = new Set((await listVaultFiles(config.vaultRoot)).map((f) => f.path));
-    fileSet.add(rel);
-    const before = [...fileSet];
-    const after = before.map((p) => (p === rel ? newRel : p));
-    const replacement = preferredFileLinkTarget(newRel, after);
-    // 解決先が旧パスのリンクだけ書き換える (曖昧リンクは触らない — priority 2)
-    const shouldRewrite = (target: string): string | null =>
-      resolveFileLinkTarget(target, before) === rel ? replacement : null;
-
-    const sourceUpdates: { path: string; content: string; links: number }[] = [];
-    for (const notePath of await listNoteFiles(config.vaultRoot)) {
-      const content = await readNote(config.vaultRoot, notePath);
-      if (content === null) continue; // 走査後に消えたノートは対象外
-      const rewritten = rewriteLinks(content, shouldRewrite);
-      if (rewritten.count > 0) {
-        sourceUpdates.push({ path: notePath, content: rewritten.content, links: rewritten.count });
+    // ADR-0016: リネーム/移動 (![[リンク]] 追従) のコアは file-service に集約。
+    // notes rename と同じ compute-then-apply。ルートは結果型を HTTP ステータスへ写像する。
+    const result = await moveAttachment(config, index, rel, newRel);
+    if (!result.ok) {
+      if (result.reason === 'not_found') {
+        return errorJson(c, 404, 'not_found', `file not found: ${rel}`);
       }
-    }
-
-    // ---- Phase 2: 適用 (ファイル移動 → 参照元書き換え) ----
-    const updatedNotes: RenameUpdatedNote[] = [];
-    try {
-      await moveVaultFile(config.vaultRoot, rel, newRel);
-      for (const u of sourceUpdates) {
-        await writeNote(config.vaultRoot, u.path, u.content);
-        updatedNotes.push({ path: u.path, links: u.links });
+      if (result.reason === 'conflict') {
+        return errorJson(c, 409, 'conflict', result.message);
       }
-    } catch (err) {
-      // 部分適用の隠蔽はしない (notes rename と同じ規約 — vault は Git 管理前提)
-      const appliedList = updatedNotes.map((u) => u.path).join(', ') || '(none)';
-      return errorJson(
-        c,
-        500,
-        'rename_partial_failure',
-        `file rename was interrupted mid-apply (rewritten so far: ${appliedList}); ` +
-          `the vault is git-managed — review \`git diff\` to recover. cause: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-      );
+      return errorJson(c, 500, 'rename_partial_failure', result.message);
     }
-
-    // ---- インデックス即時追従 (リンク書き換えを検索・バックリンクへ反映) ----
-    try {
-      for (const u of sourceUpdates) await index.refreshFile(u.path);
-    } catch (err) {
-      // ファイルは正しく書けている。インデックスは chokidar / 再起動で自己修復する
-      console.error(`[loamium] index refresh after file rename failed:`, err);
-    }
-
-    const moved = await statVaultFile(config.vaultRoot, newRel);
     const res: FileRenameResponse = {
-      oldPath: rel,
-      path: newRel,
-      mtime: moved?.mtime ?? source.mtime,
-      updatedNotes,
-      updatedLinks: updatedNotes.reduce((sum, u) => sum + u.links, 0),
+      oldPath: result.oldPath,
+      path: result.path,
+      mtime: result.mtime,
+      updatedNotes: result.updatedNotes,
+      updatedLinks: result.updatedLinks,
     };
     return c.json(res);
   }
@@ -341,7 +257,7 @@ export function filesRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
     if (!parsed.ok) return parsed.response;
     const rel = parsed.rel;
     setAudit(c, 'file.delete', rel);
-    const deleted = await deleteVaultFile(config.vaultRoot, rel);
+    const { deleted } = await deleteAttachment(config, rel);
     if (!deleted) {
       return errorJson(c, 404, 'not_found', `file not found: ${rel}`);
     }

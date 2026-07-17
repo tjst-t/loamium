@@ -36,6 +36,7 @@ import {
   createNote,
   deleteNoteFile,
   patchNote,
+  renameNote,
   upsertNote,
   type WriteResult,
 } from './note-service.js';
@@ -123,13 +124,13 @@ function serializeFrontmatter(fm: Record<string, string | number | boolean>): st
  * 対応するツールだけを配列へ入れて返す (無効なら広告されない)。
  *
  * @param config    ServerConfig (vaultRoot / mode)。note-service と audit に渡す。
- * @param _index    VaultIndex (将来のインデックス即時追従用に予約。現状ツール本体では未使用)。
+ * @param index     VaultIndex。note_move のリネーム後インデックス即時追従に渡す。
  * @param isDenied  ADR-0018 機密領域 deny 判定。
  * @param caps      実効ケーパビリティ (ADR-0015)。
  */
 export function createVaultWriteTools(
   config: ServerConfig,
-  _index: VaultIndex,
+  index: VaultIndex,
   isDenied: (relPath: string) => boolean,
   caps: readonly Capability[],
 ) {
@@ -287,6 +288,58 @@ export function createVaultWriteTools(
           return textResult(`ノートのプロパティを編集しました: ${resolved.rel}`, {
             path: resolved.rel,
           });
+        },
+      }),
+    );
+  }
+
+  // ---- note_move (note_edit) --------------------------------------------------
+
+  if (capSet.has('note_edit')) {
+    tools.push(
+      defineTool({
+        name: 'note_move',
+        label: 'ノートのリネーム/移動',
+        description:
+          '既存ノートをリネーム/移動する (POST /api/notes/{path}/rename と同一のコア: renameNote)。' +
+          'vault 全体の [[旧名]] リンクを新パスへ一括追従する (自己リンクも追従)。' +
+          '移動先が既に存在する場合はエラー (上書きしない)。from が存在しない場合もエラー。' +
+          'from/to どちらかが機密領域 (deny) なら拒否する。',
+        parameters: Type.Object({
+          from: Type.String({ description: '移動元の vault 相対パス (既存ノート)' }),
+          to: Type.String({ description: '移動先の vault 相対パス' }),
+        }),
+        async execute(_id, params): Promise<ToolResult> {
+          const src = resolveWritablePath(params.from, isDenied);
+          if (!src.ok) return src.result;
+          const dst = resolveWritablePath(params.to, isDenied);
+          if (!dst.ok) return dst.result;
+          // REST と同一のコア (renameNote)。2 フェーズ compute-then-apply でリンク追従。
+          const result = await renameNote(config, index, src.rel, dst.rel);
+          if (!result.ok) {
+            if (result.reason === 'not_found') {
+              return textResult(`ノートが見つかりません: ${src.rel}`, {
+                error: true,
+                path: src.rel,
+              });
+            }
+            if (result.reason === 'conflict') {
+              return textResult(`移動先が既に存在します (上書きしません): ${dst.rel}`, {
+                error: true,
+                path: dst.rel,
+              });
+            }
+            return textResult(`リネーム中に中断しました: ${result.message}`, {
+              error: true,
+              path: dst.rel,
+            });
+          }
+          await audit(config, 'agent.note_move', result.path);
+          return textResult(
+            `ノートを移動しました: ${result.oldPath} → ${result.path} ` +
+              `(追従リンク ${String(result.updatedLinks)} 箇所)`,
+            { path: result.path },
+          );
         },
       }),
     );
@@ -460,6 +513,7 @@ export const VAULT_WRITE_TOOL_NAMES = [
   'note_create',
   'note_delete',
   'note_edit',
+  'note_move',
   'note_property',
   'template_delete',
   'template_write',

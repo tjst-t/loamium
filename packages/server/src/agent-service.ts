@@ -66,6 +66,7 @@ import type { ServerConfig } from './config.js';
 import type { PermissionMode } from '@loamium/shared';
 import { createVaultReadTools } from './agent-tools.js';
 import { createVaultWriteTools } from './agent-write-tools.js';
+import { createFileTools } from './agent-file-tools.js';
 import { createVaultWebTools } from './agent-web-tools.js';
 import { createSmartFolderTools } from './agent-smartfolder-tools.js';
 import { createCommandTools } from './agent-command-tools.js';
@@ -443,6 +444,9 @@ export async function createPiSession(
   const customTools = [
     ...createVaultReadTools(index, vaultRoot, isDenied),
     ...createVaultWriteTools(serverConfig, index, isDenied, effectiveCaps),
+    // ADR-0016 (agent-write-coverage): 添付ファイル file_write/file_move/file_delete。
+    // file_write ケーパビリティが有効なときだけ広告 (REST と同一の file-service を経由)。
+    ...createFileTools(serverConfig, index, isDenied, effectiveCaps),
     // ADR-0016 (Sc4b9d1-1): スマートフォルダ list/notes/write/delete。read で read 系 2 種、
     // smartfolder_write で write/delete を広告 (deriveToolNames と同じ effectiveCaps から導出)。
     ...createSmartFolderTools(serverConfig, index, isDenied, effectiveCaps),
@@ -537,6 +541,8 @@ export async function openPiSession(
   const customTools = [
     ...createVaultReadTools(index, vaultRoot, isDenied),
     ...createVaultWriteTools(serverConfig, index, isDenied, effectiveCaps),
+    // ADR-0016 (agent-write-coverage): 復元した実効ケーパビリティに応じて添付ファイルツールを追加。
+    ...createFileTools(serverConfig, index, isDenied, effectiveCaps),
     // ADR-0016 (Sc4b9d1-1): 復元した実効ケーパビリティに応じてスマートフォルダツールを追加。
     ...createSmartFolderTools(serverConfig, index, isDenied, effectiveCaps),
     // ADR-0016 (Sc4b9d1-2): 復元した実効ケーパビリティに応じてスマートコマンドツールを追加。

@@ -21,9 +21,7 @@ import {
   parseNote,
   parsePropertiesModel,
   serializeFrontmatterBlock,
-  preferredLinkTarget,
   resolveLinkTarget,
-  rewriteLinks,
   extractHeadings,
   extractOutgoingLinks,
   extractNoteMetaTags,
@@ -37,12 +35,11 @@ import {
   type NoteResponse,
   type NoteWriteResponse,
   type PropEntry,
-  type RenameUpdatedNote,
 } from '@loamium/shared';
 import type { ServerConfig } from '../config.js';
-import { deleteNote, listNoteFiles, noteMtime, readNote, writeNote } from '../vault.js';
+import { deleteNote, noteMtime, readNote, writeNote } from '../vault.js';
 import type { VaultIndex } from '../noteIndex.js';
-import { appendToNote, patchNote } from '../note-service.js';
+import { appendToNote, patchNote, renameNote } from '../note-service.js';
 import { errorJson, parseBody, setAudit, type AppEnv } from '../http.js';
 import { markdownToHtml, htmlToPdf } from '../export.js';
 import { writeAuditEntry } from '../audit.js';
@@ -428,6 +425,8 @@ export function notesRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
       // リネーム + vault 全体のリンク追従 (SPEC §9 高-2 / AC-S6fbf45-3-1)。
       // データ安全性 (priority 2): 書き込みは全計算が終わってから。移動先が
       // 既存なら 409 で拒否し、解決先が旧パスであるリンクだけを書き換える。
+      // ADR-0016: コアは note-service.renameNote に抽出し REST とエージェント (note_move)
+      // で共有する (振る舞い不変)。ルートは結果型を HTTP ステータスへ写像するだけ。
       setAudit(c, 'note.rename', rel);
       const body = await parseBody(c, noteRenameRequestSchema);
       if (!body.ok) return body.response;
@@ -438,96 +437,22 @@ export function notesRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
         if (err instanceof VaultPathError) return errorJson(c, 400, 'invalid_path', err.message);
         throw err;
       }
-      const oldContent = await readNote(config.vaultRoot, rel);
-      if (oldContent === null) {
-        return errorJson(c, 404, 'not_found', `note not found: ${rel}`);
-      }
-      if (newRel === rel) {
-        // 同名リネームは no-op (冪等)
-        const mtime = await noteMtime(config.vaultRoot, rel);
-        const res: NoteRenameResponse = {
-          oldPath: rel,
-          path: rel,
-          mtime: mtime ?? 0,
-          updatedNotes: [],
-          updatedLinks: 0,
-        };
-        return c.json(res);
-      }
-      if ((await noteMtime(config.vaultRoot, newRel)) !== null) {
-        return errorJson(c, 409, 'conflict', `rename target already exists: ${newRel}`);
-      }
-
-      // ---- Phase 1: 読み取りと書き換え計算のみ (この間ディスクへの書き込みゼロ) ----
-      // インデックスではなくファイルシステムを走査する (priority 6: ファイルが正)。
-      const pathSet = new Set(await listNoteFiles(config.vaultRoot));
-      pathSet.add(rel);
-      const before = [...pathSet];
-      const after = before.map((p) => (p === rel ? newRel : p));
-      // 書き換え後リンクは新パスに必ず解決する最短表記 (basename 衝突時はフルパス)
-      const replacement = preferredLinkTarget(newRel, after);
-      // 解決先が旧パスのリンクだけ書き換える。同名 basename が別ノートに解決される
-      // 曖昧リンクは対象外 (勝手に付け替えない — priority 2)。
-      const shouldRewrite = (target: string): string | null =>
-        resolveLinkTarget(target, before) === rel ? replacement : null;
-
-      let movedContent = oldContent;
-      let selfLinks = 0;
-      const sourceUpdates: { path: string; content: string; links: number }[] = [];
-      for (const p of before) {
-        const content = p === rel ? oldContent : await readNote(config.vaultRoot, p);
-        if (content === null) continue; // 走査後に消えたファイルは対象外
-        const rewritten = rewriteLinks(content, shouldRewrite);
-        if (p === rel) {
-          movedContent = rewritten.content; // 自己リンクも追従
-          selfLinks = rewritten.count;
-        } else if (rewritten.count > 0) {
-          sourceUpdates.push({ path: p, content: rewritten.content, links: rewritten.count });
+      const result = await renameNote(config, index, rel, newRel);
+      if (!result.ok) {
+        if (result.reason === 'not_found') {
+          return errorJson(c, 404, 'not_found', result.message);
         }
-      }
-
-      // ---- Phase 2: 適用 (移動 → 参照元書き換え) ----
-      const updatedNotes: RenameUpdatedNote[] = [];
-      let written: { created: boolean; mtime: number };
-      try {
-        written = await writeNote(config.vaultRoot, newRel, movedContent);
-        await deleteNote(config.vaultRoot, rel);
-        if (selfLinks > 0) updatedNotes.push({ path: newRel, links: selfLinks });
-        for (const u of sourceUpdates) {
-          await writeNote(config.vaultRoot, u.path, u.content);
-          updatedNotes.push({ path: u.path, links: u.links });
+        if (result.reason === 'conflict') {
+          return errorJson(c, 409, 'conflict', result.message);
         }
-      } catch (err) {
-        // 部分適用の隠蔽はしない: どこまで適用されたかを明示して 500 を返す
-        // (vault は Git 管理前提 — VISION。ユーザーが差分を確認して復旧できる)
-        const appliedList = updatedNotes.map((u) => u.path).join(', ') || '(none)';
-        return errorJson(
-          c,
-          500,
-          'rename_partial_failure',
-          `rename was interrupted mid-apply (rewritten so far: ${appliedList}); ` +
-            `the vault is git-managed — review \`git diff\` to recover. cause: ${
-              err instanceof Error ? err.message : String(err)
-            }`,
-        );
+        return errorJson(c, 500, 'rename_partial_failure', result.message);
       }
-
-      // ---- インデックス即時追従 (audit ミドルウェアの単一パス更新では足りない) ----
-      index.removeFile(rel);
-      try {
-        await index.refreshFile(newRel);
-        for (const u of sourceUpdates) await index.refreshFile(u.path);
-      } catch (err) {
-        // ファイルは正しく書けている。インデックスは chokidar / 再起動で自己修復する
-        console.error(`[loamium] index refresh after rename failed:`, err);
-      }
-
       const res: NoteRenameResponse = {
-        oldPath: rel,
-        path: newRel,
-        mtime: written.mtime,
-        updatedNotes,
-        updatedLinks: updatedNotes.reduce((sum, u) => sum + u.links, 0),
+        oldPath: result.oldPath,
+        path: result.path,
+        mtime: result.mtime,
+        updatedNotes: result.updatedNotes,
+        updatedLinks: result.updatedLinks,
       };
       return c.json(res);
     }

@@ -20,10 +20,15 @@ import {
   isValidJournalDate,
   journalPath,
   todayJournalDate,
+  preferredLinkTarget,
+  resolveLinkTarget,
+  rewriteLinks,
   JournalDateError,
+  type RenameUpdatedNote,
 } from '@loamium/shared';
 import type { ServerConfig } from './config.js';
-import { deleteNote, noteMtime, readNote, writeNote } from './vault.js';
+import type { VaultIndex } from './noteIndex.js';
+import { deleteNote, listNoteFiles, noteMtime, readNote, writeNote } from './vault.js';
 
 // ---- 結果型 ------------------------------------------------------------------
 
@@ -167,4 +172,135 @@ export async function appendToJournal(
   const created = existing === null;
   const written = await writeNote(config.vaultRoot, rel, appendText(existing ?? '', text));
   return { date: d, rel, result: { ok: true, mtime: written.mtime, created } };
+}
+
+// ---- ノートのリネーム/移動 (リンク追従) --------------------------------------
+
+/**
+ * ノートのリネーム/移動 + vault 全体の [[旧名]] 追従書き換え (ADR-0016)。
+ *
+ * POST /api/notes/{path}/rename の 2 フェーズ compute-then-apply を純関数として抽出し、
+ * REST とエージェント (note_move) の両方から呼ぶ (二重管理の排除)。挙動は REST と同一:
+ *
+ *   - oldRel が存在しない        → { ok:false, reason:'not_found' }
+ *   - newRel === oldRel          → 同名リネームは no-op (冪等。updatedNotes=[])
+ *   - newRel が既存              → { ok:false, reason:'conflict' }
+ *   - Phase 2 の途中で失敗       → { ok:false, reason:'partial_failure' } (適用済みを明示)
+ *
+ * データ安全性 (priority 2): 書き込みは全計算 (Phase 1) が終わってから。移動先が既存なら
+ * 拒否し、解決先が旧パスであるリンクだけを書き換える (曖昧リンクは触らない)。
+ * インデックスはファイルシステム走査で計算する (ファイルが正 — priority 6)。
+ */
+export type RenameNoteResult =
+  | {
+      ok: true;
+      oldPath: string;
+      path: string;
+      mtime: number;
+      updatedNotes: RenameUpdatedNote[];
+      updatedLinks: number;
+    }
+  | { ok: false; reason: 'not_found'; message: string }
+  | { ok: false; reason: 'conflict'; message: string }
+  | { ok: false; reason: 'partial_failure'; message: string };
+
+export async function renameNote(
+  config: ServerConfig,
+  index: VaultIndex,
+  oldRel: string,
+  newRel: string,
+): Promise<RenameNoteResult> {
+  const vaultRoot = config.vaultRoot;
+  const oldContent = await readNote(vaultRoot, oldRel);
+  if (oldContent === null) {
+    return { ok: false, reason: 'not_found', message: `note not found: ${oldRel}` };
+  }
+  if (newRel === oldRel) {
+    // 同名リネームは no-op (冪等)
+    const mtime = await noteMtime(vaultRoot, oldRel);
+    return {
+      ok: true,
+      oldPath: oldRel,
+      path: oldRel,
+      mtime: mtime ?? 0,
+      updatedNotes: [],
+      updatedLinks: 0,
+    };
+  }
+  if ((await noteMtime(vaultRoot, newRel)) !== null) {
+    return { ok: false, reason: 'conflict', message: `rename target already exists: ${newRel}` };
+  }
+
+  // ---- Phase 1: 読み取りと書き換え計算のみ (この間ディスクへの書き込みゼロ) ----
+  // インデックスではなくファイルシステムを走査する (priority 6: ファイルが正)。
+  const pathSet = new Set(await listNoteFiles(vaultRoot));
+  pathSet.add(oldRel);
+  const before = [...pathSet];
+  const after = before.map((p) => (p === oldRel ? newRel : p));
+  // 書き換え後リンクは新パスに必ず解決する最短表記 (basename 衝突時はフルパス)
+  const replacement = preferredLinkTarget(newRel, after);
+  // 解決先が旧パスのリンクだけ書き換える。同名 basename が別ノートに解決される
+  // 曖昧リンクは対象外 (勝手に付け替えない — priority 2)。
+  const shouldRewrite = (target: string): string | null =>
+    resolveLinkTarget(target, before) === oldRel ? replacement : null;
+
+  let movedContent = oldContent;
+  let selfLinks = 0;
+  const sourceUpdates: { path: string; content: string; links: number }[] = [];
+  for (const p of before) {
+    const content = p === oldRel ? oldContent : await readNote(vaultRoot, p);
+    if (content === null) continue; // 走査後に消えたファイルは対象外
+    const rewritten = rewriteLinks(content, shouldRewrite);
+    if (p === oldRel) {
+      movedContent = rewritten.content; // 自己リンクも追従
+      selfLinks = rewritten.count;
+    } else if (rewritten.count > 0) {
+      sourceUpdates.push({ path: p, content: rewritten.content, links: rewritten.count });
+    }
+  }
+
+  // ---- Phase 2: 適用 (移動 → 参照元書き換え) ----
+  const updatedNotes: RenameUpdatedNote[] = [];
+  let written: { created: boolean; mtime: number };
+  try {
+    written = await writeNote(vaultRoot, newRel, movedContent);
+    await deleteNote(vaultRoot, oldRel);
+    if (selfLinks > 0) updatedNotes.push({ path: newRel, links: selfLinks });
+    for (const u of sourceUpdates) {
+      await writeNote(vaultRoot, u.path, u.content);
+      updatedNotes.push({ path: u.path, links: u.links });
+    }
+  } catch (err) {
+    // 部分適用の隠蔽はしない: どこまで適用されたかを明示して返す
+    // (vault は Git 管理前提 — VISION。ユーザーが差分を確認して復旧できる)
+    const appliedList = updatedNotes.map((u) => u.path).join(', ') || '(none)';
+    return {
+      ok: false,
+      reason: 'partial_failure',
+      message:
+        `rename was interrupted mid-apply (rewritten so far: ${appliedList}); ` +
+        `the vault is git-managed — review \`git diff\` to recover. cause: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+    };
+  }
+
+  // ---- インデックス即時追従 (audit ミドルウェアの単一パス更新では足りない) ----
+  index.removeFile(oldRel);
+  try {
+    await index.refreshFile(newRel);
+    for (const u of sourceUpdates) await index.refreshFile(u.path);
+  } catch (err) {
+    // ファイルは正しく書けている。インデックスは chokidar / 再起動で自己修復する
+    console.error(`[loamium] index refresh after rename failed:`, err);
+  }
+
+  return {
+    ok: true,
+    oldPath: oldRel,
+    path: newRel,
+    mtime: written.mtime,
+    updatedNotes,
+    updatedLinks: updatedNotes.reduce((sum, u) => sum + u.links, 0),
+  };
 }

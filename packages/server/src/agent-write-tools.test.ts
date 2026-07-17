@@ -96,7 +96,7 @@ describe('createVaultWriteTools', () => {
 
   // ---- AC-S5bd678-2-2: 広告制御 ------------------------------------------------
 
-  it('[AC-S5bd678-2-2] 全 write caps で 8 ツールが生成される (sorted 一致)', () => {
+  it('[AC-S5bd678-2-2] 全 write caps で 9 ツールが生成される (sorted 一致)', () => {
     const names = createVaultWriteTools(config, index, noDeny, ALL_WRITE_CAPS)
       .map((t) => t.name)
       .sort();
@@ -110,18 +110,19 @@ describe('createVaultWriteTools', () => {
     expect(names).not.toContain('journal_append');
     expect(names).not.toContain('template_write');
     expect(names).not.toContain('dataview_write');
-    // note_property は note_edit 側で広告される (note_create 単独では出ない)
+    // note_property / note_move は note_edit 側で広告される (note_create 単独では出ない)
     expect(names).not.toContain('note_property');
+    expect(names).not.toContain('note_move');
     // note_delete は独立ケーパビリティ
     expect(names).not.toContain('note_delete');
     expect(names).not.toContain('template_delete');
   });
 
-  it('[agent-write-coverage] note_edit cap は note_edit + note_property を広告する', () => {
+  it('[agent-write-coverage] note_edit cap は note_edit + note_move + note_property を広告する', () => {
     const names = createVaultWriteTools(config, index, noDeny, ['note_edit'])
       .map((t) => t.name)
       .sort();
-    expect(names).toEqual(['note_edit', 'note_property']);
+    expect(names).toEqual(['note_edit', 'note_move', 'note_property']);
   });
 
   it('[agent-write-coverage] note_delete cap は note_delete のみを広告する (独立)', () => {
@@ -370,6 +371,65 @@ describe('createVaultWriteTools', () => {
     const res = await dt.execute('t1', { path: '../escape' }, noSignal, noUpdate, fakeCtx);
     expect(detailsOf(res).error).toBe(true);
     expect(textOf(res)).toMatch(/パスエラー|traversal/i);
+  });
+
+  // ---- agent-write-coverage: note_move (リネーム/移動 + リンク追従) ------------
+
+  it('[agent-write-coverage] note_move が移動 + [[リンク]]一括追従する', async () => {
+    await writeFile(path.join(vaultRoot, 'old.md'), '# 旧\n', 'utf8');
+    await writeFile(path.join(vaultRoot, 'ref.md'), 'see [[old]]\n', 'utf8');
+    const mt = tool('note_move');
+    const res = await mt.execute('t1', { from: 'old', to: 'new' }, noSignal, noUpdate, fakeCtx);
+    expect(detailsOf(res).error).toBeUndefined();
+    expect(detailsOf(res).path).toBe('new.md');
+    // ファイルが移動している
+    await expect(readFile(path.join(vaultRoot, 'old.md'), 'utf8')).rejects.toThrow();
+    expect(await readFile(path.join(vaultRoot, 'new.md'), 'utf8')).toBe('# 旧\n');
+    // 参照元のリンクが追従している
+    expect(await readFile(path.join(vaultRoot, 'ref.md'), 'utf8')).toBe('see [[new]]\n');
+    expect(textOf(res)).toMatch(/追従リンク 1/);
+  });
+
+  it('[agent-write-coverage] note_move は移動先が既存なら拒否する (上書きしない)', async () => {
+    await writeFile(path.join(vaultRoot, 'a.md'), 'A\n', 'utf8');
+    await writeFile(path.join(vaultRoot, 'b.md'), 'B\n', 'utf8');
+    const mt = tool('note_move');
+    const res = await mt.execute('t1', { from: 'a', to: 'b' }, noSignal, noUpdate, fakeCtx);
+    expect(detailsOf(res).error).toBe(true);
+    // 両方とも無傷
+    expect(await readFile(path.join(vaultRoot, 'a.md'), 'utf8')).toBe('A\n');
+    expect(await readFile(path.join(vaultRoot, 'b.md'), 'utf8')).toBe('B\n');
+  });
+
+  it('[agent-write-coverage] note_move は from が存在しないとエラー', async () => {
+    const mt = tool('note_move');
+    const res = await mt.execute('t1', { from: 'nope', to: 'dst' }, noSignal, noUpdate, fakeCtx);
+    expect(detailsOf(res).error).toBe(true);
+    expect(textOf(res)).toMatch(/見つかりません/);
+  });
+
+  it('[agent-write-coverage] note_move は from/to の deny を両方拒否する', async () => {
+    await mkdir(path.join(vaultRoot, 'private'), { recursive: true });
+    await writeFile(path.join(vaultRoot, 'private', 's.md'), 'secret\n', 'utf8');
+    await writeFile(path.join(vaultRoot, 'pub.md'), 'pub\n', 'utf8');
+    const denyPrivate = (rel: string): boolean => rel.startsWith('private/');
+    const mt = tool('note_move', ALL_WRITE_CAPS, denyPrivate);
+    // from が deny
+    const r1 = await mt.execute('t1', { from: 'private/s', to: 'moved' }, noSignal, noUpdate, fakeCtx);
+    expect(detailsOf(r1).error).toBe(true);
+    // to が deny
+    const r2 = await mt.execute('t2', { from: 'pub', to: 'private/x' }, noSignal, noUpdate, fakeCtx);
+    expect(detailsOf(r2).error).toBe(true);
+    // どちらもファイルは無傷
+    expect(await readFile(path.join(vaultRoot, 'private', 's.md'), 'utf8')).toBe('secret\n');
+    expect(await readFile(path.join(vaultRoot, 'pub.md'), 'utf8')).toBe('pub\n');
+  });
+
+  it('[agent-write-coverage] note_move の成功は audit.log に agent.note_move を記録する', async () => {
+    await writeFile(path.join(vaultRoot, 'src.md'), '# s\n', 'utf8');
+    await tool('note_move').execute('h', { from: 'src', to: 'dst' }, noSignal, noUpdate, fakeCtx);
+    const ops = (await readAudit(vaultRoot)).map((e) => e.op);
+    expect(ops).toContain('agent.note_move');
   });
 
   // ---- agent-write-coverage: template 上書き / template_delete -----------------

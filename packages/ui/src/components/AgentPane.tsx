@@ -64,6 +64,7 @@ const CAPABILITY_LABELS: Record<Capability, string> = {
   note_delete: 'ノート削除',
   template_write: 'テンプレート書込',
   dataview_write: 'dataview 書込',
+  file_write: '添付ファイル書込',
   smartfolder_write: 'スマートフォルダ書込',
   command_run: 'コマンド実行',
   command_write: 'コマンド編集',

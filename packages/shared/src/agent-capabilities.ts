@@ -25,9 +25,13 @@ import type { PermissionMode } from './schemas.js';
  *   - journal_append   : ジャーナルへの追記
  *   - note_create      : ノート新規作成
  *   - note_edit        : ノート編集 (patch) + フロントマタープロパティ/タグ編集 (note_property)
+ *                        + ノートのリネーム/移動 (note_move。[[リンク]]一括追従)
  *   - note_delete      : ノート削除 (破壊的・不可逆)。書き込み系の独立ケーパビリティで full のみ許可。
  *   - template_write   : テンプレート適用による書き込み
  *   - dataview_write   : dataview 経由の書き込み
+ *   - file_write       : 添付ファイル (非 .md) の作成/上書き (file_write) ・リネーム/移動
+ *                        (file_move。![[リンク]]追従) ・削除 (file_delete)。全 file 系書き込みを
+ *                        畳む独立ケーパビリティで full のみ許可 (clampByMode)。
  *   - smartfolder_write: スマートフォルダ (ビュー定義) の書き込み・削除
  *                        (ADR-0016 / Sc4b9d1: system/smart-folders/*.yaml サービス層経由)
  *   - command_run      : スマートコマンドのステップ実行 (ADR-0016/0021 / Sc4b9d1-2:
@@ -46,6 +50,7 @@ export const AGENT_CAPABILITIES = [
   'note_delete',
   'template_write',
   'dataview_write',
+  'file_write',
   'smartfolder_write',
   'command_run',
   'command_write',
@@ -150,8 +155,8 @@ const CAPABILITY_TOOL_NAMES: Record<Capability, readonly string[]> = {
   journal_append: ['journal_append'],
   note_create: ['note_create'],
   // note_edit はノート patch 編集 (note_edit) + フロントマタープロパティ/タグ編集 (note_property)
-  // を広告する (編集系のため同一ケーパビリティに畳む)。
-  note_edit: ['note_edit', 'note_property'],
+  // + リネーム/移動 (note_move。[[リンク]]一括追従) を広告する (編集系のため同一ケーパビリティに畳む)。
+  note_edit: ['note_edit', 'note_move', 'note_property'],
   // note_delete は破壊的なノート削除。独立ケーパビリティで full のみ許可 (MODE_ALLOWED)。
   note_delete: ['note_delete'],
   // template_write はテンプレート適用によるノート生成を広告する (Sc4b9d1-3):
@@ -161,6 +166,9 @@ const CAPABILITY_TOOL_NAMES: Record<Capability, readonly string[]> = {
   //     (テンプレート適用 = ノート生成 = 書き込み系のため既存 template_write を再利用する)。
   template_write: ['template_delete', 'template_instantiate', 'template_write'],
   dataview_write: ['dataview_write'],
+  // file_write は添付ファイル (非 .md) の作成/上書き・リネーム/移動・削除を広告する。
+  // 書き込み系のため full のみで許可される (clampByMode / MODE_ALLOWED)。
+  file_write: ['file_delete', 'file_move', 'file_write'],
   // smartfolder_write はスマートフォルダ (ビュー定義) の作成・更新・削除を広告する。
   // 書き込み系のため full のみで許可される (clampByMode / MODE_ALLOWED)。
   smartfolder_write: ['smartfolder_delete', 'smartfolder_write'],
