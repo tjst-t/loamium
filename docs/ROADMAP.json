@@ -6584,6 +6584,14 @@
       "added_in": "milestone-Sc4b9d1-review",
       "kind": "bug",
       "status": "open"
+    },
+    {
+      "title": "内蔵オフライン LLM のツール(function calling)対応",
+      "description": "S8a3f2e の shim は text 補完のみで OpenAI tools(function 定義)を捨てており、ローカルバックエンドではエージェントがツール(web_search 等)を一切呼べない(モデルは『インターネットにアクセスできない』と回答)。system prompt は渡るが tools は未転送。要実装: (1) llmChatRequestSchema で tools を受理、(2) shim が OpenAI tools → node-llama-cpp 関数へマップし tool_calls を OpenAI 形式で返す(pi のツール実行ループを成立させる)、(3) engine.complete を function calling 対応に拡張、(4) オフライン acceptance に『ローカルモデルがツールを呼ぶ』を追加。注意: function calling 品質はモデル依存(Qwen2.5 等の対応モデルが必要)。skill-retrospective のテーマ(スタブ境界外未テスト)の実例。",
+      "added_in": "milestone-Sc4b9d1-review",
+      "kind": "feature",
+      "status": "open",
+      "adr_ref": "ADR-0025"
     }
   ]
 }
