@@ -51,6 +51,11 @@ export interface SearchPaletteProps {
   onOpenAdvanced: (query: string) => void;
   /** Sde7a63-1: 組み込みコマンド用ハンドラ。未指定時はコマンドセクションを省略しない (互換)。 */
   commandHandlers?: BuiltinCommandHandlers;
+  /**
+   * スマートコマンド実行後に呼ぶ (sidebar-refresh)。コマンドが vault にファイルを書いた可能性が
+   * あるため、成功/部分失敗の両方 (= 実行が走ったら) で呼び、左サイドバーを再取得させる。
+   */
+  onNotesChanged?: (() => void) | undefined;
 }
 
 /** スマートコマンドのパラメータフォームを開くときに渡す情報 */
@@ -112,6 +117,7 @@ export function SearchPalette({
   onOpenNoteAtLine,
   onOpenAdvanced,
   commandHandlers,
+  onNotesChanged,
 }: SearchPaletteProps): JSX.Element {
   const [query, setQuery] = useState('');
   const [notes, setNotes] = useState<NoteMeta[]>([]);
@@ -168,6 +174,8 @@ export function SearchPalette({
   onCloseRef.current = onClose;
   const setParamFormRef = useRef(setParamForm);
   setParamFormRef.current = setParamForm;
+  const onNotesChangedRef = useRef(onNotesChanged);
+  onNotesChangedRef.current = onNotesChanged;
 
   useEffect(() => {
     let cancelled = false;
@@ -216,6 +224,8 @@ export function SearchPalette({
                   // パラメータなし → 直接実行 (cmdId = stem を渡す)
                   void api.runCommand(cmdId, {}).then(
                     (result) => {
+                      // 実行が走ったのでファイルが書かれた可能性 → サイドバー再取得
+                      onNotesChangedRef.current?.();
                       const openPath = result.openPath;
                       onCloseRef.current();
                       if (openPath !== undefined) openNoteRef.current(openPath);
@@ -705,6 +715,7 @@ export function SearchPalette({
             onOpenNote(openPath);
           }
         }}
+        onRan={onNotesChanged}
       />
     )}
     </Fragment>

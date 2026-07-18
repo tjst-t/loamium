@@ -50,6 +50,12 @@ export interface ParamFormModalProps {
    * 実行成功 (openPath なし) → パレットのみ閉じる。
    */
   onSuccess: (openPath: string | undefined) => void;
+  /**
+   * runCommand が結果を返した後に呼ぶ (sidebar-refresh)。
+   * 全成功・部分失敗の両方 (= 実行が1回でも走った) で呼ぶ。コマンドがファイルを書いた
+   * 可能性があるため、左サイドバー (ファイルツリー) を再取得させる。ネットワーク例外時は呼ばない。
+   */
+  onRan?: (() => void) | undefined;
 }
 
 /** 今日の日付を YYYY-MM-DD 形式で返す */
@@ -75,6 +81,7 @@ export function ParamFormModal({
   params,
   onCancel,
   onSuccess,
+  onRan,
 }: ParamFormModalProps): JSX.Element {
   // 安定識別子: commandId が提供されていればそれを使い、なければ commandName を代用する
   const runId = commandId ?? commandName;
@@ -118,6 +125,8 @@ export function ParamFormModal({
       try {
         const result = await api.runCommand(runId, values);
         setBusy(false);
+        // 実行が走った (全成功/部分失敗どちらでも) → ファイルが書かれた可能性 → サイドバー再取得
+        onRan?.();
         const allOk = result.results.every((r) => r.ok);
         if (allOk) {
           onSuccess(result.openPath);
@@ -130,7 +139,7 @@ export function ParamFormModal({
         setRunError(err instanceof Error ? err.message : String(err));
       }
     })();
-  }, [busy, runId, onSuccess, requiredMissing.length, values]);
+  }, [busy, runId, onSuccess, onRan, requiredMissing.length, values]);
 
   const onKeyDown = useCallback(
     (e: KeyboardEvent): void => {
