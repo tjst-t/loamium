@@ -1,0 +1,13 @@
+{
+  "sprint": "S7e2d5c",
+  "mode": "auto (autopilot batch elaboration)",
+  "base_sha": "a9e7f7db5c8f40905fa4629d6f305837a3c386b4",
+  "touched_adrs": ["ADR-0010", "ADR-0015", "ADR-0016", "ADR-0024"],
+  "elaboration_decisions": [
+    {"id": "E1", "category": "elaboration", "decision": "coarse→detailed: 4 Stories 生成 (init-samples CLI+REST+agent tool / SF サンプル YAML化+ガイド / make samples 後方互換シム / CLAUDE.md ドキュメント化規約)。", "rationale": "sprint description の3要素(サンプル投入 / make samples 統合判断 / ドキュメント化規約)を独立 deliverable に分解。", "reference": "autopilot-start Batch elaboration"},
+    {"id": "E2", "category": "elaboration", "decision": "make samples は廃止せず SeedService に正本ロジックを集約した後方互換シムにする。ユーザー向け正式手順は loamium init-samples。", "rationale": "二重管理排除 + 既存手順の破壊回避。", "reference": "DESIGN_PRINCIPLES priority 5 (シンプルさ)"},
+    {"id": "E3", "category": "elaboration", "decision": "vault seed は POST /api/vault/seed + CLI init-samples + agent tool vault_seed(write 権限のみ) の3経路を SeedService に一本化。監査ログ op: vault.seed。", "rationale": "CLAUDE.md エージェント操作ツール必須 + REST/CLI 1:1 + 書込は監査済みサービス層経由。", "reference": "ADR-0015, ADR-0016"},
+    {"id": "E4", "category": "elaboration", "decision": "サンプルのスマートフォルダは smart-folders.json から system/smart-folders/*.yaml (per-file 純 YAML) へ移行。サンプル正本置き場は packages/server/src/samples/。", "rationale": "ADR-0010 の system/ フォルダ設定形式に整合。REST 経由 seed のため server パッケージ同梱が必要。", "reference": "ADR-0010"}
+  ],
+  "notes_for_po": "samples/ のルート→server パッケージ移動時、既存 tests/acceptance/samples.spec.ts のパス参照更新が必要 (テスト破損リスク)。実装順推奨: SF YAML化+ガイド → REST/CLI/tool → make samples シム → CLAUDE.md。"
+}

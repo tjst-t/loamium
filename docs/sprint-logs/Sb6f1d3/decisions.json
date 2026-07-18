@@ -1,0 +1,13 @@
+{
+  "sprint": "Sb6f1d3",
+  "mode": "auto (autopilot batch elaboration)",
+  "base_sha": "a9e7f7db5c8f40905fa4629d6f305837a3c386b4",
+  "touched_adrs": [],
+  "elaboration_decisions": [
+    {"id": "E1", "category": "elaboration", "decision": "coarse→detailed: 3 Stories (見出しセクション fold ガター+ショートカット / 右パネル TOC 階層インデント+クリックで unfold&scroll / セッションのみ fold 状態保持)。", "rationale": "sprint description の fold・TOC・状態保持を独立 deliverable に分解。", "reference": "autopilot-start Batch elaboration"},
+    {"id": "E2", "category": "elaboration", "decision": "fold は純粋な View state のみ。localStorage/IndexedDB/.md への fold 状態書き込みを禁止。EditorState.create による差し替えで自然にリセットされる仕組みを維持。", "rationale": "sprint description『セッション中保持・永続化不要』+ DESIGN_PRINCIPLES priority 1(ピュア Markdown 正本)。", "reference": "DESIGN_PRINCIPLES priority 1"},
+    {"id": "E3", "category": "elaboration", "decision": "見出し fold は既存 codeFolding()+foldState をリスト fold と共有。ガターは cm-heading-fold-gutter として別列で独立させ、判定を lezer ノード名(ATXHeadingN vs ListItem)で分ける。", "rationale": "既存 fold 基盤の再利用でシンプルに。見出し fold と list fold の競合をノード種別で回避。", "reference": "DESIGN_PRINCIPLES priority 5"},
+    {"id": "E4", "category": "elaboration", "decision": "TOC クリックの unfold は Editor→App へ onViewReady コールバックで EditorView 参照を公開し App 層で foldedRanges 走査+unfoldEffect dispatch。既存 seek 機構は維持。", "rationale": "既存コードベースの ref パターンに整合。seek を壊さず fold 展開を追加。", "reference": "DESIGN_PRINCIPLES priority 5"}
+  ],
+  "notes_for_po": "確認事項: fold は .md へ一切書き込まない(foldEffect/unfoldEffect は EditorState のみ変化)。見出し fold と list fold は lezer ノード名判定で非競合。fold 範囲の境界ケース(空行終端・frontmatter 直後見出し・Setext 2行)はユニットテストでカバー。"
+}

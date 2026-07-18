@@ -1,0 +1,13 @@
+{
+  "sprint": "Sa6c3b0",
+  "mode": "auto (autopilot batch elaboration)",
+  "base_sha": "a9e7f7db5c8f40905fa4629d6f305837a3c386b4",
+  "touched_adrs": ["ADR-0008"],
+  "elaboration_decisions": [
+    {"id": "E1", "category": "elaboration", "decision": "coarse→detailed: 5 Stories (レスポンシブ3ペイン / タッチターゲット44px / モバイル閲覧最適化 / PWA / CLAUDE.md規約)。", "rationale": "sprint description のレスポンシブ・タッチ・PWA・規約を独立 deliverable に分解。", "reference": "autopilot-start Batch elaboration"},
+    {"id": "E2", "category": "elaboration", "decision": "モバイルスコープを『閲覧中心』に限定。CodeMirror タッチ編集は動作維持するが、フル モバイルエディタ体験(ツールバー・スクロール同期・仮想キーボード対応)は対象外とする。", "rationale": "VISION out_of_scope『モバイルでの本格的な編集体験(外出先は閲覧中心と割り切る)』を優先。sprint description の『実用的に使える』は閲覧中心に解釈。", "reference": "VISION out_of_scope"},
+    {"id": "E3", "category": "elaboration", "decision": "PWA は self-host UI(既存 index.html)に manifest+SW を追加するのみ。Cloudflare Workers/Pages を本体ランタイムにしない。HTTPS 終端は前段 (Caddy/Tunnel) が担当。", "rationale": "ADR-0008 (デプロイは Tauri+コンテナ、Workers/Pages 非対象)。", "reference": "ADR-0008"},
+    {"id": "E4", "category": "elaboration", "decision": "ブレークポイントは既存の 960px/680px を踏襲、新規中間ブレークポイントは追加しない。右サイドバー(Claude)はモバイル非表示のまま。", "rationale": "DESIGN_PRINCIPLES priority 5 + VISION『Claude は右サイドバートグル』。", "reference": "DESIGN_PRINCIPLES priority 5"}
+  ],
+  "notes_for_po": "【VISION テンション】mobile 閲覧中心 vs sprint の『実用的』→ 閲覧中心で AC 化(Sa6c3b0-3 AC-4 に明記)。milestone レビューで PO 確認事項。【Lighthouse 90+】HTTPS+本番ビルド前提。Vite dev では未達の可能性、make build 後静的サーブで計測(AC-Sa6c3b0-4-4 に注記)。実機/CI 計測は自動テストで完全担保できない。【Agent パネルのモバイル導線】未対応(将来スプリント)。"
+}

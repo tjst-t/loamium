@@ -1,0 +1,13 @@
+{
+  "sprint": "Se3b7a2",
+  "mode": "auto (autopilot batch elaboration)",
+  "base_sha": "a9e7f7db5c8f40905fa4629d6f305837a3c386b4",
+  "touched_adrs": ["ADR-0001", "ADR-0014", "ADR-0016"],
+  "elaboration_decisions": [
+    {"id": "E1", "category": "elaboration", "decision": "coarse→detailed: 6 Stories (shared インラインフィールドパーサー / エディタ popover / DQL 拡張 / Dataview 子ノード展開+バッジ / Dataview 編集 popover+完了トグル / agent tool task_set_fields)。", "rationale": "sprint description の記法・エディタ・DQL・Dataview・エージェントの各面を独立 deliverable に分解。パーサーが全機能の基盤。", "reference": "autopilot-start Batch elaboration"},
+    {"id": "E2", "category": "elaboration", "decision": "インラインフィールド記法は Obsidian Dataview 互換の [due:: YYYY-MM-DD] / [priority:: high|medium|low] を行末に追記する形式を採用。ブロック ID・frontmatter 変更は行わない。", "rationale": "Dataview Inline Field 構文と完全同一で Obsidian Core/プレーンエディタで読めるプレーンテキスト。独自記法でなくブロック ID とも無関係。", "reference": "DESIGN_PRINCIPLES priority 1, priority 4"},
+    {"id": "E3", "category": "elaboration", "decision": "書き込みは既存 POST /api/notes/{path}/patch(old→new)を再利用。専用 PATCH エンドポイント/行番号 API は新設しない。Dataview からもファイル直接操作せず patch 経由。", "rationale": "ADR-0016 監査済みサービス層経由 + priority 3 API 安定。監査ログ自動記録+ピュア Markdown 維持。", "reference": "ADR-0016"},
+    {"id": "E4", "category": "elaboration", "decision": "子ノード展開は『子チェックボックス行(indent>0 のタスク)』を対象とする(現 extractTasks 実装で動作)。インデントされた非チェックボックスの子リスト行の表示は今回スコープ外。", "rationale": "現実装で確実に動く最小スコープ。DESIGN_PRINCIPLES priority 5。フル子リスト展開が必要なら extractTasks 拡張の別 Story。", "reference": "DESIGN_PRINCIPLES priority 5"}
+  ],
+  "notes_for_po": "【Obsidian 互換確認 済】[due:: ] [priority:: ] は Dataview Inline Field 構文と同一、.md はプレーンテキストとして無傷。【要 PO 判断(milestone)】子ノード展開スコープ ①子チェックボックス行のみ(採用) vs ②インデント通常リスト行も。②が必要なら別 Story。【GUI レビュー必須】Se3b7a2-2 エディタ popover のホバー発火 ms・位置決めはプロトタイプで確認推奨。【リスク】同一テキストのタスク行が複数箇所にあると patch が 409 ambiguous。"
+}

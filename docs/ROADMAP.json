@@ -6097,8 +6097,220 @@
       "milestone": false,
       "status": "pending",
       "depends_on": "Sc4b9d1",
-      "detail_level": "coarse",
-      "stories": {}
+      "detail_level": "detailed",
+      "stories": {
+        "S7e2d5c-1": {
+          "title": "loamium init-samples CLI コマンド + POST /api/vault/seed REST エンドポイント",
+          "status": "pending",
+          "story_type": "cli",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "新規 vault のセットアップ者として、`loamium init-samples` を1回実行するだけで実用的なサンプルコンテンツ（ジャーナルテンプレート・タスク管理スマートコマンド・スマートフォルダ定義・機能ガイド Markdown）を vault に投入したい。なぜなら、make を使わず CLI だけで初期セットアップを完結させたいし、エージェントからも同じ操作を呼べるようにしたいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S7e2d5c-1-1",
+              "description": "`loamium init-samples` を実行すると exit 0 で終了し、stdout に投入したファイル数と投入先 vault パスを出力する（例: `12 ファイルを <vault> に投入しました（既存 3 件はスキップ）`）",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S7e2d5c-1-2",
+              "description": "既存ファイルは上書きしない（--force フラグ指定時のみ上書き）。2回実行してもファイルの内容が変わらない",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S7e2d5c-1-3",
+              "description": "投入後の vault に以下がすべて存在する: `system/commands/todo-add.yaml`、`system/commands/log-memo.yaml`、`system/commands/meeting-summary.yaml`、`templates/journal.md`、`templates/議事録.md`、`templates/読書メモ.md`、`system/smart-folders/recent.yaml`、`system/smart-folders/journal.yaml`、`system/smart-folders/todos.yaml`、`samples/index.md`",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S7e2d5c-1-4",
+              "description": "投入されたすべての .md / .yaml ファイルはピュア Markdown または純 YAML であり、ブロック ID・Loamium 独自記法は含まない。`loamium read samples/index.md` で内容が取得できる",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S7e2d5c-1-5",
+              "description": "サーバー側に `POST /api/vault/seed` エンドポイントが存在し、CLI の `loamium init-samples` はこのエンドポイントを呼ぶ（REST と CLI が 1:1 対応）。レスポンスは `{ seeded: number, skipped: number }` の JSON",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S7e2d5c-1-6",
+              "description": "エージェントツール `vault_seed` が advertise され、`loamium help vault` で使い方（ツール名・入出力・`--force` の意味・スキップ条件）が確認できる。ツールは書込モード（write 権限）でのみ広告される",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S7e2d5c-1-7",
+              "description": "`POST /api/vault/seed` は `.loamium/audit.log` に `op: 'vault.seed'` で記録される",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S7e2d5c-1-8",
+              "description": "ユニットテスト: `SeedService.seed()` が空の一時ディレクトリへ正しいファイル数を投入すること、および既存ファイルをスキップすること（force=false 時）を検証するテストが `packages/server/src/seed-service.test.ts` に存在し `make test` で pass する",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S7e2d5c-1-1": {
+              "title": "SeedService 実装 (packages/server/src/seed-service.ts)",
+              "description": "サンプルファイル群を vault へコピーするサービス層。コピー元は packages/server/src/samples/。copyIfAbsent で既存はスキップ、force=true 時のみ上書き。投入先マッピング: commands/*.yaml → system/commands/、templates/*.md → templates/ と system/templates/、smart-folders/*.yaml → system/smart-folders/、samples/**/* → samples/。書き込みは vault.ts の writeNote/writeVaultFile 経由（containment 検証済み）。返り値 { seeded, skipped }。",
+              "status": "pending"
+            },
+            "S7e2d5c-1-2": {
+              "title": "samples/ をビルド成果物として server パッケージへ移動",
+              "description": "リポジトリルートの samples/ を packages/server/src/samples/ に移動し package.json files / tsconfig assets に含める。make samples 参照パスも更新。smart-folders.json を ADR-0010 準拠の smart-folders/*.yaml へ分割。",
+              "status": "pending"
+            },
+            "S7e2d5c-1-3": {
+              "title": "POST /api/vault/seed ルート追加 (packages/server/src/routes/vault.ts)",
+              "description": "新規ルートに POST /api/vault/seed。ボディ { force?: boolean }（zod）。SeedService を呼び { seeded, skipped } を返す。書込権限チェック（mode!=='write' なら 403）。監査ログ op: 'vault.seed'。app.ts にマウント。",
+              "status": "pending"
+            },
+            "S7e2d5c-1-4": {
+              "title": "CLI コマンド loamium init-samples 追加 (packages/cli/src/main.ts)",
+              "description": "program.command('init-samples')。--force / --json。POST /api/vault/seed を呼び結果を stdout。エラーは stderr に {error,message} JSON で exit 非0。loamium --help に表示。",
+              "status": "pending"
+            },
+            "S7e2d5c-1-5": {
+              "title": "エージェントツール vault_seed 追加 + help トピック (packages/server/src/agent-help.ts)",
+              "description": "vault_seed ツール。入力 { force?: boolean }、出力 { seeded, skipped, message }。ADR-0016 準拠で SeedService 経由。ADR-0015 準拠で write 権限セットでのみ advertise。agent-help.ts に vault トピック追加。",
+              "status": "pending"
+            },
+            "S7e2d5c-1-6": {
+              "title": "ユニットテスト (packages/server/src/seed-service.test.ts)",
+              "description": "Vitest。①空ディレクトリ初回投入でファイル数一致 ②2回目 seeded=0/skipped=期待値 ③force=true で上書き。mkdtemp で一時ディレクトリ、テスト後削除。",
+              "status": "pending"
+            }
+          }
+        },
+        "S7e2d5c-2": {
+          "title": "スマートフォルダサンプルの ADR-0010 準拠 YAML 化 + 機能ガイド Markdown 拡充",
+          "status": "pending",
+          "story_type": "library",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "新規 vault ユーザーとして、init-samples で投入されたスマートフォルダがサイドバーにすぐ表示され、機能ガイド Markdown を読むとスマートコマンドの使い方が分かる状態にしたい。なぜなら、投入されたサンプルが動作しない・ガイドが古いと初期体験が台無しになるから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S7e2d5c-2-1",
+              "description": "init-samples 実行後、GET /api/smart-folders が recent/journal/todos/bookmarks の4件を返す（system/smart-folders/*.yaml から読まれること）",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S7e2d5c-2-2",
+              "description": "samples/機能ガイド/ に「スマートコマンドの使い方.md」が存在し、loamium commands 一覧・loamium command run <name> の実行例・パラメータ指定方法を Markdown で説明している。ファイルはピュア Markdown（独自記法なし）",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S7e2d5c-2-3",
+              "description": "既存の samples/機能ガイド/ にある各ガイドノートが init-samples 後に loamium list --folder samples で列挙できる",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S7e2d5c-2-4",
+              "description": "スマートフォルダサンプルファイル（system/smart-folders/recent.yaml 等）が純 YAML（ADR-0010/ADR-0024 準拠）であり、ブロック ID・Markdown 本文を含まない",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S7e2d5c-2-1": {
+              "title": "smart-folders.json を per-file YAML へ分割 (samples/smart-folders/)",
+              "description": "既存 samples/smart-folders.json を廃止し recent.yaml/journal.yaml/todos.yaml/bookmarks.yaml へ分割。ADR-0010 準拠の純 YAML（id/name/icon/query/order）。SeedService が system/smart-folders/*.yaml へコピー。",
+              "status": "pending"
+            },
+            "S7e2d5c-2-2": {
+              "title": "スマートコマンド使い方ガイド Markdown 執筆",
+              "description": "packages/server/src/samples/機能ガイド/スマートコマンドの使い方.md を新規作成。概念・UI 呼び出し・CLI 例・同梱サンプルコマンド一覧の説明。ピュア Markdown、wikilink 可、独自記法なし。",
+              "status": "pending"
+            },
+            "S7e2d5c-2-3": {
+              "title": "samples/index.md をスマートコマンドガイドリンク込みで更新",
+              "description": "index.md 機能ガイドセクションに [[スマートコマンドの使い方]] リンク追加。既存スタイル踏襲。ファイル名変更禁止。",
+              "status": "pending"
+            }
+          }
+        },
+        "S7e2d5c-3": {
+          "title": "make samples の位置づけ整理（後方互換シム化）",
+          "status": "pending",
+          "story_type": "cli",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "既存の make samples ユーザーとして、従来どおり make samples を実行しても動作が壊れないようにしてほしい。なぜなら、既存の開発手順書や習慣を変えたくないから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S7e2d5c-3-1",
+              "description": "make samples を実行すると引き続き vault へのサンプル投入が完了し exit 0 で終了する。出力メッセージは変わっても構わない",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S7e2d5c-3-2",
+              "description": "make samples の実装が SeedService に統一されており（tsx 直呼びまたは loamium init-samples 呼び出し）、二重管理の重複コピーロジックがない",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S7e2d5c-3-3",
+              "description": "Makefile の samples ターゲットのコメントに loamium init-samples との関係が明記されている",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S7e2d5c-3-1": {
+              "title": "Makefile の samples ターゲットを SeedService スクリプト呼び出しへ切り替え",
+              "description": "samples ターゲットを tsx ワンライナー（サーバー不要で SeedService を直接呼ぶ）に切り替え。既存 cp を削除しサンプル正本を packages/server/src/samples/ に集約。コメントで loamium init-samples がユーザー向け正式手順と明記。",
+              "status": "pending"
+            }
+          }
+        },
+        "S7e2d5c-4": {
+          "title": "CLAUDE.md にドキュメント化規約を追加（新機能追加時の vault ガイド更新義務）",
+          "status": "pending",
+          "story_type": "library",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "開発者・エージェントとして、新機能や仕様変更を加えるたびに vault 内のガイドドキュメントを更新する規約を CLAUDE.md で明示してほしい。なぜなら、規約がないと機能ガイドが古くなり、ユーザーが init-samples で投入したドキュメントで迷うから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S7e2d5c-4-1",
+              "description": "CLAUDE.md の Development Rules セクションに「新機能・仕様変更時は packages/server/src/samples/機能ガイド/ 内の対応ガイド Markdown を追加・更新すること。ガイドはピュア Markdown で書き、ユーザーが init-samples で取得できる形で保持する」旨の規約が追加されている",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S7e2d5c-4-2",
+              "description": "追記された規約が既存の「エージェント操作ツール必須」規約と同じ箇条書きレベル・フォーマットで記述されている",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S7e2d5c-4-3",
+              "description": "規約の例示として具体例が1行以上含まれている",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S7e2d5c-4-1": {
+              "title": "CLAUDE.md Development Rules にドキュメント化規約を追記",
+              "description": "Development Rules（エージェント操作ツール必須の直後）に機能ガイド更新義務を追加。新機能追加・仕様変更時は packages/server/src/samples/機能ガイド/ 内の対応 Markdown を追加/更新。例示付き。CLAUDE.md 1箇所のみ変更。",
+              "status": "pending"
+            }
+          }
+        }
+      }
     },
     "Sa6c3b0": {
       "title": "スマホ対応 — レスポンシブ UI リファクタ + PWA 化",
@@ -6106,8 +6318,283 @@
       "milestone": false,
       "status": "pending",
       "depends_on": "S1b4e8f",
-      "detail_level": "coarse",
-      "stories": {}
+      "detail_level": "detailed",
+      "stories": {
+        "Sa6c3b0-1": {
+          "title": "レスポンシブ 3 ペインレイアウト — モバイルで左サイドバー折りたたみ・コンテンツ全画面表示",
+          "status": "pending",
+          "story_type": "gui",
+          "user_review_required": true,
+          "review_reason": "レイアウト変更がデスクトップ動作を壊していないか・モバイルでノート閲覧が快適かを目視確認が必要",
+          "user_story": "スマートフォンユーザーとして、ノートの内容を全画面で読みたい。なぜなら、現状の 3 ペイン固定レイアウトは小画面では左サイドバー・右パネルに画面幅の大半を奪われてコンテンツが読めないからだ。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sa6c3b0-1-1",
+              "description": "viewport 幅 ≤ 680px のとき .sidebar（左）と .panel（右）は既定で非表示（display:none または transform で画面外）になる。.workspace は画面幅 100% を占有する。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa6c3b0-1-2",
+              "description": "モバイル幅でサイドバートグルボタン（ハンバーガー/メニューアイコン）がヘッダに表示され、タップするとサイドバーがオーバーレイ（z-index 高）としてスライドイン表示される。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa6c3b0-1-3",
+              "description": "サイドバーオーバーレイ表示中にサイドバー外の領域をタップすると自動的に閉じる（スクリム実装）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa6c3b0-1-4",
+              "description": "viewport 幅 681px–960px では左サイドバーのみ表示し、右パネル（.panel）は引き続き非表示（既存の @media max-width:960px の挙動を維持）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa6c3b0-1-5",
+              "description": "デスクトップ（幅 ≥ 961px）では既存の 3 ペイン表示が崩れない。既存の Playwright e2e がすべてパスする。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa6c3b0-1-6",
+              "description": "モバイルでサイドバーからノートを選択するとサイドバーが自動的に閉じてノート本文が全画面表示される（選択後オーバーレイ自動クローズ）。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sa6c3b0-1-1": {
+              "title": "CSS メディアクエリ拡張：モバイルブレークポイント (≤680px) 追加",
+              "description": "styles.css の Responsive セクションを拡張。≤680px で .sidebar と .panel を画面外に退避し .workspace を 100vw に。既存 @media(max-width:960px)/.panel{display:none} は維持。",
+              "status": "pending"
+            },
+            "Sa6c3b0-1-2": {
+              "title": "App.tsx にサイドバーオープン状態 (sidebarOpen) を追加",
+              "description": "useState<boolean>(false) で sidebarOpen 管理。モバイルのみ有効。サイドバーに data-mobile-open 属性/クラスを付与し CSS transform で切替。スクリムクリックで閉じる。",
+              "status": "pending"
+            },
+            "Sa6c3b0-1-3": {
+              "title": "モバイルヘッダにサイドバートグルボタンを追加",
+              "description": "editor-header 内に MenuIcon ボタン（モバイルのみ visible）。クリックで sidebarOpen トグル。icons.tsx に MenuIcon SVG 追加。",
+              "status": "pending"
+            },
+            "Sa6c3b0-1-4": {
+              "title": "ノート選択後にサイドバーをモバイルで自動クローズ",
+              "description": "遷移ハンドラ内で isMobile かつ sidebarOpen のとき setSidebarOpen(false)。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sa6c3b0-2": {
+          "title": "タッチターゲット最適化 — 全インタラクティブ要素を最小 44×44px へ",
+          "status": "pending",
+          "story_type": "gui",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "スマートフォンユーザーとして、指で正確にボタンやツリー項目をタップしたい。なぜなら、現状の icon-btn (26px)・tree-item (padding 3px)・sidebar-bottom-btn 等は親指で押しにくくミスタップが頻発するからだ。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sa6c3b0-2-1",
+              "description": "viewport ≤ 680px のとき .icon-btn の computed height が 44px 以上。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa6c3b0-2-2",
+              "description": "viewport ≤ 680px のとき .tree-item の computed height が 44px 以上。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa6c3b0-2-3",
+              "description": "viewport ≤ 680px のとき .sidebar-bottom-btn の computed height が 44px 以上。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa6c3b0-2-4",
+              "description": "viewport ≤ 680px のとき .journal-date-btn / .journal-list-item の computed height が 44px 以上。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa6c3b0-2-5",
+              "description": "デスクトップ（≥ 961px）の既存サイズ（icon-btn 26px など）は変更されない。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sa6c3b0-2-1": {
+              "title": "styles.css の @media(max-width:680px) にタッチターゲット拡大 CSS を追加",
+              "description": ".icon-btn 44x44、.tree-item padding 10px/min-height 44、.sidebar-bottom-btn padding 14px、.journal-date-btn/.journal-list-item min-height 44 を追記。SVG は 20px 前後に。",
+              "status": "pending"
+            },
+            "Sa6c3b0-2-2": {
+              "title": "ダイアログ・メニュー項目のタッチターゲット確認と修正",
+              "description": ".nm-item / .dialog-actions .btn / .palette-item のモバイルサイズを 44px 以上に padding 補正。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sa6c3b0-3": {
+          "title": "モバイルビューファースト — ノート本文の読みやすさ最適化（閲覧中心スコープ）",
+          "status": "pending",
+          "story_type": "gui",
+          "user_review_required": true,
+          "review_reason": "実機でのフォントサイズ・行幅・スクロール感触を目視確認。VISION の閲覧中心スコープからはみ出していないかのユーザー確認が必要。",
+          "user_story": "スマートフォンユーザーとして、移動中にノートを快適に読みたい。なぜなら、現状の CodeMirror エディタ領域は max-width:760px・padding:32px が小画面に対して大きすぎ、横スクロールが発生したりテキストが詰まって見えるからだ。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sa6c3b0-3-1",
+              "description": "viewport ≤ 680px のとき .editor-host .cm-content の padding-left/right が 16px 以下（現状 32px→縮小）。横スクロールバーが発生しない。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa6c3b0-3-2",
+              "description": "viewport ≤ 680px のとき .editor-host .cm-editor の font-size が 16px 以上（iOS Safari 自動ズーム抑制）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa6c3b0-3-3",
+              "description": "<meta name='viewport'> の content が width=device-width, initial-scale=1.0 であり、user-scalable=no は入れない（ピンチズームを妨げない）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa6c3b0-3-4",
+              "description": "モバイルで CodeMirror の編集 UI（カーソル・選択・IME）は引き続き動作する。ただし本スプリントの目標は快適な閲覧であり、モバイルでの高度な編集体験の完全性は対象外（VISION out_of_scope）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa6c3b0-3-5",
+              "description": "editor-header のパンくず（.route-crumbs）がモバイルでオーバーフローせず、長いパスは text-overflow:ellipsis で省略表示される。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sa6c3b0-3-1": {
+              "title": "styles.css @media(≤680px) に editor 閲覧最適化を追加",
+              "description": ".cm-content padding 0 16px、.cm-editor font-size 16px。.route-crumbs に min-width:0/overflow:hidden/text-overflow:ellipsis。",
+              "status": "pending"
+            },
+            "Sa6c3b0-3-2": {
+              "title": "iOS Safari ズーム防止確認と touch-action 設定",
+              "description": "input/textarea/.cm-editor に font-size:16px。スクロール系に -webkit-overflow-scrolling:touch。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sa6c3b0-4": {
+          "title": "PWA 化 — manifest.json + Service Worker + オフラインキャッシュ + ホーム画面インストール",
+          "status": "pending",
+          "story_type": "gui",
+          "user_review_required": true,
+          "review_reason": "Lighthouse PWA スコアや実機でのインストールフローは自動テストで完全検証できないため、実機 or Chrome DevTools による目視確認が必要。",
+          "user_story": "スマートフォンユーザーとして、Loamium をホーム画面に追加してネイティブアプリのように起動・オフラインで UI を表示したい。なぜなら、ブラウザのアドレスバーやタブ UI は操作空間を狭め、オフライン時に白画面になるからだ。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sa6c3b0-4-1",
+              "description": "/manifest.json が配信され name/short_name/start_url/display:standalone/icons(192・512 PNG)/theme_color/background_color を含む。<link rel='manifest'> が index.html に記述されている。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa6c3b0-4-2",
+              "description": "Service Worker が登録され App Shell（index.html・main JS・styles.css・アイコン）をキャッシュに保存する。オフライン時 / を開くとキャッシュから App Shell が表示される（API はオフライン不可でエラー表示）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa6c3b0-4-3",
+              "description": "Chrome/Edge の Add to Home Screen インストール基準を満たす（manifest + HTTPS or localhost + SW 登録）。HTTPS 終端は Caddy/Cloudflare Tunnel 側、アプリ側は manifest と SW のみ提供（ADR-0008）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa6c3b0-4-4",
+              "description": "Chrome DevTools Lighthouse の PWA 監査（installable セクション）でエラーがない。スコア 90+ は make build 後の静的サーブで計測することをノートする。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa6c3b0-4-5",
+              "description": "make build で manifest.json と SW が packages/ui/dist/ に出力され、Hono の静的配信ルートで到達可能。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa6c3b0-4-6",
+              "description": "SW のキャッシュ戦略は App Shell のみ。API (/api/**) はネットワークファースト（キャッシュしない）とし vault データが意図せず保存されない。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sa6c3b0-4-1": {
+              "title": "packages/ui/public/manifest.json を作成",
+              "description": "name:'Loamium', short_name:'Loamium', start_url:'/', display:'standalone', theme_color:'#6e56cf', background_color:'#f4f4f6', icons 192/512 PNG。",
+              "status": "pending"
+            },
+            "Sa6c3b0-4-2": {
+              "title": "アイコン PNG を生成して packages/ui/public/icons/ に配置",
+              "description": "vault-badge グラデーションの L ロゴ 192/512 PNG。SVG→PNG（sharp/canvas）。SVG ソースも配置。",
+              "status": "pending"
+            },
+            "Sa6c3b0-4-3": {
+              "title": "index.html に manifest と theme-color を追加",
+              "description": "<link rel='manifest' href='/manifest.json'> と <meta name='theme-color' content='#6e56cf'> を head に追加。",
+              "status": "pending"
+            },
+            "Sa6c3b0-4-4": {
+              "title": "packages/ui/public/sw.js — App Shell キャッシュ Service Worker を実装",
+              "description": "install で App Shell を cache.addAll。fetch で /api/** はネットワークのみ、他はキャッシュファースト+ネットワークフォールバック。activate で古いキャッシュ削除。",
+              "status": "pending"
+            },
+            "Sa6c3b0-4-5": {
+              "title": "packages/ui/src/main.tsx に SW 登録コードを追加",
+              "description": "'serviceWorker' in navigator && register('/sw.js')。DEV は登録スキップ（HMR 競合回避）。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sa6c3b0-5": {
+          "title": "CLAUDE.md にモバイルレスポンシブ規約を追記",
+          "status": "pending",
+          "story_type": "library",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "開発者として、以降に追加するすべての UI 機能でモバイル対応を忘れないようにしたい。なぜなら、明示的なルールがないと次のスプリントから再び PC 専用レイアウトが増殖するからだ。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sa6c3b0-5-1",
+              "description": "CLAUDE.md の Development Rules に「以降の全機能 UI はモバイルを考慮したレスポンシブデザインとする。タップターゲットは 44px 以上。モバイルは閲覧中心（VISION out_of_scope）でフル編集体験は対象外。新規 CSS クラス追加時は @media(max-width:680px) での表示を確認」旨の規約が追記されている。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sa6c3b0-5-2",
+              "description": "追記内容が既存ルール（ピュア Markdown 絶対 / TypeScript strict 等）と矛盾しない。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sa6c3b0-5-1": {
+              "title": "CLAUDE.md の Development Rules にモバイル規約を追記",
+              "description": "モバイルレスポンシブ規約を1項目追加（タップターゲット 44px 以上、閲覧中心、@media(max-width:680px) 確認）。",
+              "status": "pending"
+            }
+          }
+        }
+      }
     },
     "Sd5c9f4": {
       "title": "スマートフォルダ高速化 — DQL キャッシュ + ファイル変更 SSE プッシュ",
@@ -6115,8 +6602,298 @@
       "milestone": false,
       "status": "pending",
       "depends_on": null,
-      "detail_level": "coarse",
-      "stories": {}
+      "detail_level": "detailed",
+      "stories": {
+        "Sd5c9f4-1": {
+          "title": "サーバー側 DQL 結果キャッシュ（依存ファイルパス集合付き）",
+          "status": "pending",
+          "story_type": "api",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノートアプリのユーザーとして、スマートフォルダを展開したときに即座に結果が返ってきてほしい。なぜなら、毎回 DQL を全件評価する遅延がストレスになるからだ。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sd5c9f4-1-1",
+              "description": "同一スマートフォルダ ID の GET /api/smart-folders/{id}/notes を連続 2 回呼んだとき、2 回目はキャッシュヒットし VaultIndex.queryNotes() が 2 回目は呼ばれない（ユニットテストで stub 検証）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd5c9f4-1-2",
+              "description": "キャッシュエントリは結果に含まれたファイルパスの Set を依存集合として保持する。ユニットテストで依存 Set が正しく取り出せることを確認。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd5c9f4-1-3",
+              "description": "キャッシュは常にファイルから再構築可能（priority 6）。DqlQueryCache を破棄・再生成した後、同クエリを実行すると正しい結果が返る。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd5c9f4-1-4",
+              "description": "キャッシュが存在しない状態（起動直後）でも GET /api/smart-folders/{id}/notes は正常に 200 を返し、以後キャッシュされる。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd5c9f4-1-5",
+              "description": "FROM #tag はタグを持つファイルが依存集合に含まれる。FROM \"folder\" はそのフォルダ配下のファイルが含まれる。各パターンをユニットテストで検証。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sd5c9f4-1-1": {
+              "title": "DqlQueryCache クラスを packages/server/src/dql-cache.ts に実装",
+              "description": "Map<id,{result,deps:Set<string>,queryHash}> をインメモリ保持。get はミス時 null。set(id,result,deps)。invalidate(changedPath) は deps に含む全エントリ削除。invalidateAll。queryHash は DQL の SHA-256 短縮。strict/any 禁止。",
+              "status": "pending"
+            },
+            "Sd5c9f4-1-2": {
+              "title": "resolveSmartFolderNotes でキャッシュを利用するよう拡張",
+              "description": "cache?: DqlQueryCache オプション引数追加。query kind はヒットなら即返す、ミスは executeQuery 後 deps を set。pin kind はキャッシュ不要。ADR-0016 契約維持。",
+              "status": "pending"
+            },
+            "Sd5c9f4-1-3": {
+              "title": "routes/smart-folders.ts で DqlQueryCache を注入",
+              "description": "cache 引数を追加し app.ts から渡す。GET notes で cache 使用。PUT smart-folders 時 cache.invalidateAll()。app.ts で 1 インスタンスを VaultIndex と同ライフタイムで管理。",
+              "status": "pending"
+            },
+            "Sd5c9f4-1-4": {
+              "title": "DqlQueryCache のユニットテスト（dql-cache.test.ts）",
+              "description": "(a) set→get ヒット (b) invalidate(path) で deps 該当のみ削除 (c) 非該当は残る (d) invalidateAll で全消え (e) queryHash 不一致で null。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sd5c9f4-2": {
+          "title": "chokidar 変更検知でキャッシュ無効化 + VaultIndex の変更通知フック",
+          "status": "pending",
+          "story_type": "api",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノートアプリのユーザーとして、外部エディタやエージェントがファイルを変更したときにスマートフォルダのキャッシュが自動で更新されてほしい。なぜなら、stale なリスト表示は判断ミスの原因になるからだ。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sd5c9f4-2-1",
+              "description": "chokidar の change/add/unlink で DqlQueryCache.invalidate(changedPath) が呼ばれ、その path を deps に含むエントリのみ削除される。watcher コールバックをスタブ化して検証。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd5c9f4-2-2",
+              "description": "VaultIndex.refreshFile()/removeFile() 完了時、登録された onChange コールバックが変更ファイルの vault 相対パスで呼ばれる。ユニットテストで確認。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd5c9f4-2-3",
+              "description": "indexSyncMiddleware（書き込み API 経由の更新）も refreshFile 後に onChange を呼ぶ。REST API からのノート保存でもキャッシュ無効化される。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd5c9f4-2-4",
+              "description": "onChange コールバックの例外はキャッチして stderr に記録し、インデックス更新やファイルを壊さない。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sd5c9f4-2-1": {
+              "title": "VaultIndex に onChange コールバック登録機構を追加",
+              "description": "setOnChange(cb:(changedPath:string,op:'upsert'|'delete')=>void)。refreshFile 末尾で cb(rel,'upsert')、removeFile 末尾で cb(rel,'delete')。例外は try/catch→console.error、再スローしない。",
+              "status": "pending"
+            },
+            "Sd5c9f4-2-2": {
+              "title": "index.ts で DqlQueryCache を onChange に接続",
+              "description": "index.setOnChange((path,op)=>{ const ids=cache.invalidate(path); emitInvalidationEvent(path,op,ids); })。DqlQueryCache と SSEBroadcaster のライフタイムを管理。",
+              "status": "pending"
+            },
+            "Sd5c9f4-2-3": {
+              "title": "onChange 経由のキャッシュ無効化ユニットテスト",
+              "description": "(a) refreshFile 後 cb 呼び出し (b) removeFile 後 cb (c) cb 例外でも refreshFile 完了扱い。invalidate 統合ケース追加。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sd5c9f4-3": {
+          "title": "GET /api/events SSE エンドポイント — キャッシュ無効化イベント配信",
+          "status": "pending",
+          "story_type": "api",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノートアプリのユーザーとして、ファイルが変更されたときにブラウザが自動で通知を受け取ってほしい。なぜなら、ポーリングによる無駄なリクエストなしにスマートフォルダをリアルタイム更新したいからだ。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sd5c9f4-3-1",
+              "description": "GET /api/events を EventSource で購読すると Content-Type: text/event-stream が返り、接続が維持される（30 秒以上切断されない）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd5c9f4-3-2",
+              "description": "ファイル変更時 { type:'sf_invalidated', affectedIds: string[] } イベントが全クライアントに配信される。affectedIds は変更ファイルを deps に持つ SF ID（空配列のときは送信しない）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd5c9f4-3-3",
+              "description": "{ type:'notes_changed', path, op:'upsert'|'delete' } イベントも同時送信され、クライアントは FileTree 差分更新に使う。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd5c9f4-3-4",
+              "description": "クライアント切断時、サーバーは送信キューを解放しメモリリークしない。接続→切断を 5 回繰り返す integration テストで確認。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd5c9f4-3-5",
+              "description": "GET /api/events は read-only/append-only モードでも利用可能（読み取り専用インフラのため権限不要）。permissionMiddleware で遮断されないことをテストで確認。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sd5c9f4-3-1": {
+              "title": "SSEBroadcaster クラスを packages/server/src/sse-broadcaster.ts に実装",
+              "description": "subscribe(writer):unsubscribe。Map<id,writer>。broadcast(eventData) は全 writer に data:JSON。書き込みエラー（切断）は catch→Map から除去+stderr。StreamWriter 互換 interface（テスト用モック可）。",
+              "status": "pending"
+            },
+            "Sd5c9f4-3-2": {
+              "title": "routes/events.ts に GET /api/events ルートを実装",
+              "description": "hono/streaming stream()。接続時 subscribe、切断で unsubscribe。text/event-stream / no-cache / keep-alive。25 秒ごとに : keepalive コメント。read-only 通過設計。app.ts に登録。",
+              "status": "pending"
+            },
+            "Sd5c9f4-3-3": {
+              "title": "index.ts でキャッシュ無効化イベントを broadcaster 経由で送信",
+              "description": "emitInvalidationEvent(path,op,affectedIds)。affectedIds が空でなければ broadcast({type:'sf_invalidated',affectedIds})。同時に broadcast({type:'notes_changed',path,op})。",
+              "status": "pending"
+            },
+            "Sd5c9f4-3-4": {
+              "title": "エージェントツール判断の記録と agent-help.ts への注記",
+              "description": "GET /api/events は UI 受動購読インフラでエージェント操作対象外。ツール追加せず、判断を agent-help.ts に 1 行コメントで記録（ADR-0014）。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sd5c9f4-4": {
+          "title": "クライアント SSE 購読 — スマートフォルダ差分再フェッチ＋物理ツリー差分更新",
+          "status": "pending",
+          "story_type": "gui",
+          "user_review_required": true,
+          "review_reason": "SSE 購読・再接続 UI の動作と物理ツリー差分更新の視覚的な自然さをユーザーが確認する必要がある。",
+          "user_story": "ノートアプリのユーザーとして、ノートを保存したあとスマートフォルダの内容と左サイドバーのファイルツリーが自動で最新化されてほしい。なぜなら、手動リロードなしに常に正確な情報を見ていたいからだ。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sd5c9f4-4-1",
+              "description": "UI が /api/events を EventSource で購読し、sf_invalidated 受信時に affectedIds のうち現在展開中（loaded）のスマートフォルダだけ再フェッチする。未展開は再フェッチしない。mock テストで SSE 注入して確認。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd5c9f4-4-2",
+              "description": "notes_changed（upsert,path）受信時、App.tsx の notes 状態が差分更新される（getNoteMeta で 1 件取得しマージ）。全件 listNotes を再呼びしない。mock テストで確認。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd5c9f4-4-3",
+              "description": "notes_changed（delete,path）受信時、notes 状態からそのパスが除去される。mock テストで確認。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd5c9f4-4-4",
+              "description": "EventSource が切断（onerror）したとき 3 秒後に自動再接続する。再接続後は同じ購読状態が復元される。mock テストで onerror 発火+setTimeout スタブで確認。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd5c9f4-4-5",
+              "description": "コンポーネントアンマウント時 EventSource.close() が呼ばれメモリリークしない（useEffect クリーンアップ）。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sd5c9f4-4-1": {
+              "title": "useVaultEvents カスタムフック（packages/ui/src/useVaultEvents.ts）を実装",
+              "description": "EventSource を /api/events で開き onSfInvalidated(ids)/onNotesChanged(path,op) を呼ぶ。cleanup で close。onerror で 3 秒後再接続（useRef タイマー）。JSON.parse 失敗は console.warn。eventSourceFactory 引数でモック可。",
+              "status": "pending"
+            },
+            "Sd5c9f4-4-2": {
+              "title": "SmartView / SmartFolder で sf_invalidated を受けて差分再フェッチ",
+              "description": "invalidatedIds prop 追加。SmartFolder は自分の id が含まれかつ loaded のときのみ resolveSmartFolder 再実行。loading 中は無視。App.tsx から useVaultEvents コールバックを渡す。",
+              "status": "pending"
+            },
+            "Sd5c9f4-4-3": {
+              "title": "App.tsx で notes_changed イベントを受け差分更新",
+              "description": "onNotesChanged で upsert は getNoteMeta→setNotes マージ+ソート、delete は filter 除去。既存 refreshNotes 呼び出しは維持（二重更新は安全収束）。",
+              "status": "pending"
+            },
+            "Sd5c9f4-4-4": {
+              "title": "api.ts に getVaultEventsUrl 追加と getNoteMeta 型確認",
+              "description": "getVaultEventsUrl():string を追加（テストでモック容易化）。既存 getNoteMeta を使用。NoteMetaResponse が notes 差分マージに使えるか型検証。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sd5c9f4-5": {
+          "title": "ノート保存後 1 秒以内反映の acceptance テスト（e2e）",
+          "status": "pending",
+          "story_type": "mixed",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノートアプリのユーザーとして、ノートを保存してから 1 秒以内にスマートフォルダとファイルツリーが更新されることを保証してほしい。なぜなら、遅延が 1 秒を超えると stale 表示に気づかず誤認するからだ。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sd5c9f4-5-1",
+              "description": "e2e: DQL クエリを持つ SF を展開した状態で外部から PUT /api/notes で新規ノート作成→そのフォルダのリストに新規ノートが現れる（waitForSelector timeout 内）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd5c9f4-5-2",
+              "description": "e2e: 既存ノートを PUT 更新（status を done に）したとき SF がそのノートを含むようになる。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd5c9f4-5-3",
+              "description": "e2e: DELETE でノート削除時、SF 一覧からそのノートが消える。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd5c9f4-5-4",
+              "description": "e2e: 物理ツリーで外部から PUT 新規作成時、サイドバーツリーにそのノートが現れる（キャッシュ→SSE→差分更新のフルパス検証）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sd5c9f4-5-5",
+              "description": "CI flakiness を避けるためテストは 2 秒タイムアウト（1 秒ガードに余裕）を使い、chokidar awaitWriteFinish 150ms を含めて余裕を持たせる旨をテスト内コメントで明記する。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sd5c9f4-5-1": {
+              "title": "smart-folder-latency.e2e.spec.ts を新規作成",
+              "description": "既存 smart-view.e2e パターンで作成。sf-latency フォルダに query SF 設定。展開状態で putNote→waitForSelector timeout:2000。AC-5-1〜5-3 を 3 ケース実装。",
+              "status": "pending"
+            },
+            "Sd5c9f4-5-2": {
+              "title": "notes-sse-latency.e2e.spec.ts — 物理ツリー差分更新の acceptance テスト",
+              "description": "物理ビューで新規ノートが 2 秒以内に tree-item として現れることを確認。putNote→waitForSelector timeout:2000。外部書き込み→SSE→差分更新のフルパス。",
+              "status": "pending"
+            }
+          }
+        }
+      }
     },
     "Se3b7a2": {
       "title": "TODO 機能向上 — 期限・重要度・DataView 統合・子ノード表示・状態変更",
@@ -6124,8 +6901,326 @@
       "milestone": false,
       "status": "pending",
       "depends_on": "Sd5c9f4",
-      "detail_level": "coarse",
-      "stories": {}
+      "detail_level": "detailed",
+      "stories": {
+        "Se3b7a2-1": {
+          "title": "shared: [due:: YYYY-MM-DD] / [priority:: high|medium|low] インラインフィールドパーサー + NoteTask 拡張",
+          "status": "pending",
+          "story_type": "library",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "開発者として、チェックボックス行末の [due:: YYYY-MM-DD] / [priority:: high|medium|low] をパース・抽出できるようにしたい。なぜなら、後続のエディタポップオーバー・DQL フィルタ・Dataview 表示がすべてこのパーサーに依存するから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Se3b7a2-1-1",
+              "description": "extractInlineFields(line): { due:string|null; priority:'high'|'medium'|'low'|null } を packages/shared/src/inline-fields.ts に実装。[due:: YYYY-MM-DD] と [priority:: high|medium|low] を行末走査し最初のマッチを返す。インラインコード内は無視。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Se3b7a2-1-2",
+              "description": "NoteTask 型に due:string|null と priority を追加。extractTasks() で各タスク行に extractInlineFields を適用。frontmatter・フェンス内はスキップ。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Se3b7a2-1-3",
+              "description": "TaskQueryRow スキーマに due nullable と priority enum nullable を追加。executeQuery の task 結果行に両フィールドを含めて返す。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Se3b7a2-1-4",
+              "description": "ユニットテスト inline-fields.test.ts: (a) 両フィールド付き行 (b) フィールド無し→null (c) インラインコード内は無視 (d) 日付形式不正→null (e) priority 大文字→小文字化。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Se3b7a2-1-5",
+              "description": "extractTasks のユニットテストに回帰: due/priority が既存の line/text/checked/indent と共に返る。無い場合は null で後方互換。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Se3b7a2-1-1": {
+              "title": "packages/shared/src/inline-fields.ts を新規作成",
+              "description": "extractInlineFields を実装。blankInlineCode でインラインコードを空白化してからマッチ。[due:: YYYY-MM-DD] と [priority:: ...] を独立正規表現で抽出。読み取り専用。index.ts から再 export。",
+              "status": "pending"
+            },
+            "Se3b7a2-1-2": {
+              "title": "NoteTask 型拡張 + extractTasks 更新",
+              "description": "NoteTask に due/priority 追加。extractTasks 内で extractInlineFields 適用。既存テストは null で後方互換。",
+              "status": "pending"
+            },
+            "Se3b7a2-1-3": {
+              "title": "TaskQueryRow スキーマ + executeQuery の task 行更新",
+              "description": "taskQueryRowSchema に due/priority(nullable) 追加。executeQuery の task 行に付与。taskField で due/priority を解決可能に拡張。",
+              "status": "pending"
+            },
+            "Se3b7a2-1-4": {
+              "title": "ユニットテスト作成 (inline-fields.test.ts + extract.test.ts 回帰)",
+              "description": "AC-1-4 のケースを網羅。extract.test.ts に due/priority 付き行の回帰追加。",
+              "status": "pending"
+            }
+          }
+        },
+        "Se3b7a2-2": {
+          "title": "エディタ: チェックボックス行ホバー/フォーカスポップオーバー (due カレンダー + priority ドロップダウン)",
+          "status": "pending",
+          "story_type": "gui",
+          "user_review_required": true,
+          "review_reason": "ポップオーバーの配置・UX（ホバー vs フォーカス、カレンダーピッカーの見た目）をユーザーがレビューする必要がある。",
+          "user_story": "ノート編集者として、チェックボックス行にカーソルを置く(またはホバーする)とポップオーバーが表示され、期限と重要度を直感的に設定したい。なぜなら、Markdown を手で書き換えずに due/priority を変更できると生産性が上がるから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Se3b7a2-2-1",
+              "description": "チェックボックス行にカーソルが入る（またはホバー）と行の右端付近にポップオーバーボタン（カレンダー+優先度アイコン）が表示される。行を離れ・閉じると消える。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Se3b7a2-2-2",
+              "description": "カレンダーアイコンをクリックすると <input type=date> が開く。日付確定で行末に [due:: YYYY-MM-DD] を追記（既存あれば置換）して保存する。保存後、表示が更新される。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Se3b7a2-2-3",
+              "description": "優先度ドロップダウンで high/medium/low を選択すると行末に [priority:: ...] を追記（既存あれば置換）して保存する。設定なしは表示なし。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Se3b7a2-2-4",
+              "description": "書き込み結果はピュア Markdown のまま: Obsidian で開くと [due:: ...] [priority:: ...] がテキストとして読める。ブロック ID や非 Markdown トークンは含まれない。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Se3b7a2-2-5",
+              "description": "書き込みは POST /api/notes/{path}/patch（old=元の行, new=更新後の行）を経由し監査ログ（note.patch）に記録される。行が 2 箇所以上マッチする場合は 409 ambiguous でエラー表示し書き込まない。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Se3b7a2-2-1": {
+              "title": "インラインフィールド書き込みヘルパー setInlineField() を shared に追加",
+              "description": "setInlineField(line,key,value): 既存あれば置換、なければ行末追記、value=null で削除。old/new テキスト生成元。",
+              "status": "pending"
+            },
+            "Se3b7a2-2-2": {
+              "title": "CodeMirror ViewPlugin: チェックボックス行のポップオーバー Widget",
+              "description": "checkbox-fields-popover.ts。ViewPlugin でビューポート内のチェックボックス行を走査、カーソル/ホバー行に Decoration.widget を付与。properties.ts の beginValueEdit パターン（input type=date 差し替え・commit-on-blur）踏襲。",
+              "status": "pending"
+            },
+            "Se3b7a2-2-3": {
+              "title": "ポップオーバーから old/new patch API 呼び出し",
+              "description": "確定ハンドラで old 取得→setInlineField で new 生成→api.patchNote(path,old,new)。409 はエラートースト。成功後 dispatch で更新。",
+              "status": "pending"
+            },
+            "Se3b7a2-2-4": {
+              "title": "live-preview.ts にポップオーバー Extension を登録",
+              "description": "checkboxFieldsPopoverExtension() を live-preview.ts の Extension 配列に追加。notePathFacet からパス取得。",
+              "status": "pending"
+            }
+          }
+        },
+        "Se3b7a2-3": {
+          "title": "DQL エンジン拡張: due / priority タスクフィールドのフィルタ・ソート対応",
+          "status": "pending",
+          "story_type": "library",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "DQL クエリ作者として、TASK WHERE due < \"2026-09-01\" AND priority = \"high\" SORT due ASC のようなクエリで期限・重要度でタスクを絞り込みたい。なぜなら、複数ノートにまたがる TODO を優先度別に一覧できると管理が楽になるから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Se3b7a2-3-1",
+              "description": "TASK WHERE due < \"2026-09-01\" は due が null でなく値が文字列比較で小さいタスクのみ返る（欠損=null は除外、既存 null-false ルール）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Se3b7a2-3-2",
+              "description": "TASK WHERE priority = \"high\" は priority が high のタスクのみ返る（NFC 正規化後 toLowerCase 比較）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Se3b7a2-3-3",
+              "description": "TASK WHERE due SORT due ASC は due 設定タスクのみを due 昇順で返す。due=null は末尾（既存 null-最後ルール）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Se3b7a2-3-4",
+              "description": "dql.test.ts に (a) due フィルタ (b) priority フィルタ (c) due SORT（null 末尾）(d) TABLE due,priority の frontmatter 経由回帰 を追加。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Se3b7a2-3-1": {
+              "title": "taskField() に due/priority を追加",
+              "description": "dql.ts の taskField で key==='due'→task.due、'priority'→task.priority。評価ロジックは変更不要。",
+              "status": "pending"
+            },
+            "Se3b7a2-3-2": {
+              "title": "executeQuery() の task 結果行に due/priority を含める",
+              "description": "拡張した TaskQueryRow に沿って task 行に due/priority を追加。",
+              "status": "pending"
+            },
+            "Se3b7a2-3-3": {
+              "title": "ユニットテスト追加 (dql.test.ts)",
+              "description": "AC-3-4 の 4 ケース。QueryableNote.tasks に due/priority 付きフィクスチャ。",
+              "status": "pending"
+            }
+          }
+        },
+        "Se3b7a2-4": {
+          "title": "Dataview TASK 一覧: 子リスト項目の展開表示 + due/priority バッジ描画",
+          "status": "pending",
+          "story_type": "gui",
+          "user_review_required": true,
+          "review_reason": "子ノードの折りたたみ/展開 UI の見た目（インデント表示か ▶ トグルか）をユーザーが確認する必要がある。",
+          "user_story": "Dataview TODO 一覧ユーザーとして、チェックボックスの直下にある子リスト行（インデントされた行）も一覧内で確認したい。なぜなら、サブタスクや補足メモが同じ画面で見えないと作業コンテキストが失われるから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Se3b7a2-4-1",
+              "description": "TASK クエリ結果で indent>0 の行は直上の親タスクの直下にインデント付き（.dv-task-child）で表示される。現在の平坦描画をツリー構造に変更。子行クリックで対応行へナビゲート。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Se3b7a2-4-2",
+              "description": "各タスク行に due があれば <span class=dv-due> 表示。期限切れ（today より前）は dv-due-overdue で赤。priority があれば dv-priority（high=赤/medium=橙/low=青）を表示。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Se3b7a2-4-3",
+              "description": "due/priority がすべて null のクエリ結果では余分な DOM 要素が追加されない（後方互換）。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Se3b7a2-4-1": {
+              "title": "renderTasks() をツリー構造に拡張（子リスト項目の展開）",
+              "description": "dataview.ts の renderTasks で path 別グループ化後、indent スタック管理でネスト DOM（.dv-task-child）を構築。子行にも wireNavigation 付与。設計は子チェックボックス行（indent>0 のタスク）を対象（現実装で動作）。",
+              "status": "pending"
+            },
+            "Se3b7a2-4-2": {
+              "title": "due/priority バッジ描画（renderTasks 内）",
+              "description": "各タスク button に dv-due span（日付・期限切れ判定）と dv-priority span を条件付き追加。today は new Date().toISOString().slice(0,10)。",
+              "status": "pending"
+            }
+          }
+        },
+        "Se3b7a2-5": {
+          "title": "Dataview TASK 一覧: due/priority インライン編集ポップオーバー + 完了トグル",
+          "status": "pending",
+          "story_type": "gui",
+          "user_review_required": true,
+          "review_reason": "Dataview パネルから直接 Markdown を書き換える新規インタラクションのため、破壊的操作 UX（完了トグルの確認有無・ポップオーバー位置）をユーザーが承認する必要がある。",
+          "user_story": "Dataview ユーザーとして、TODO 一覧から直接期限・重要度を変更したり、タスクを完了/未完了に切り替えたりしたい。なぜなら、元ノートへ戻らずに一覧画面でタスクを操作できると効率が上がるから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Se3b7a2-5-1",
+              "description": "各タスク行に編集ボタン（ペン）が表示され、クリックで <input type=date>+priority ドロップダウンのポップオーバーが開く。確定で POST /api/notes/{path}/patch で対象行を書き換え、Dataview を即時再描画する。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Se3b7a2-5-2",
+              "description": "各行のチェックボックスをクリックすると POST /patch で - [ ] ↔ - [x] を切替え、即時再描画する。read-only モードではチェックボックスクリックは無効化される。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Se3b7a2-5-3",
+              "description": "patch が 409 ambiguous を返した場合、付近にエラーを表示しファイルは変更されない。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Se3b7a2-5-4",
+              "description": "書き込みはすべて POST /api/notes/{path}/patch を経由し監査ログに記録される。Dataview コンポーネントはファイルを直接操作しない。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Se3b7a2-5-1": {
+              "title": "Dataview タスク行の完了トグル実装",
+              "description": "checkbox span へ専用クリックハンドラ。api.patchNote(path,old,new)（- [ ]↔- [x]）→runOnce 再描画。read-only は canWrite フラグ/403 で制御。",
+              "status": "pending"
+            },
+            "Se3b7a2-5-2": {
+              "title": "Dataview タスク行の due/priority ポップオーバー実装",
+              "description": "編集ボタン→.dv-task-popover を行下に展開（date input+select）。確定で setInlineField→api.patchNote。成功後強制再描画。stopPropagation 適切に設定。",
+              "status": "pending"
+            },
+            "Se3b7a2-5-3": {
+              "title": "api.ts に patchNote(path,old,new) クライアントメソッドを追加（未存在の場合）",
+              "description": "POST /api/notes/{path}/patch ラッパー。ApiError/409 ハンドリング。",
+              "status": "pending"
+            }
+          }
+        },
+        "Se3b7a2-6": {
+          "title": "エージェントツール: task_set_fields (due/priority 設定) + help トピック追加",
+          "status": "pending",
+          "story_type": "api",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "エージェント（AI）として、指定ノートの指定行のチェックボックスに due/priority を設定したい。なぜなら、CLAUDE.md「エージェント操作ツール必須」の方針により、新しい書き込み面にはエージェントからも操作できるツールが必要だから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Se3b7a2-6-1",
+              "description": "書き込みケーパビリティを持つセッションで task_set_fields ツールが広告される。パラメータ: path, line(1始まり), due(optional: YYYY-MM-DD or null=削除), priority(optional: high|medium|low or null=削除)。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Se3b7a2-6-2",
+              "description": "実行時、指定行を読み取り setInlineField で新テキストを生成し patchNote サービス（ADR-0016）で書き込む。監査ログ（agent.task_set_fields）に path/line を記録。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Se3b7a2-6-3",
+              "description": "agent-help.ts の task-fields トピックにツール名・パラメータ・使用例（TASK WHERE で期限切れ発見→task_set_fields で更新）・制約（409）を追記する。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Se3b7a2-6-4",
+              "description": "VAULT_WRITE_TOOL_NAMES に 'task_set_fields' を追加し、agent-tools.e2e の advertised-toolset テスト（toolset pin）が更新一覧を確認する。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Se3b7a2-6-1": {
+              "title": "task_set_fields ツールを agent-write-tools.ts に追加",
+              "description": "readNote で行取得→TASK_RE でチェックボックス行確認→setInlineField 適用→patchNote(config,rel,oldLine,newLine)。ADR-0016 で独自書き込み新設せず。",
+              "status": "pending"
+            },
+            "Se3b7a2-6-2": {
+              "title": "agent-help.ts に task-fields ヘルプトピックを追加",
+              "description": "helpTopics に task-fields。使い方・パラメータ・使用例・DQL 組み合わせ。help はどの権限でも利用可（ADR-0014）。",
+              "status": "pending"
+            },
+            "Se3b7a2-6-3": {
+              "title": "VAULT_WRITE_TOOL_NAMES と e2e テスト更新",
+              "description": "VAULT_WRITE_TOOL_NAMES に task_set_fields を sorted 順で追加。agent-tools.e2e の advertised-toolset pin を更新。",
+              "status": "pending"
+            }
+          }
+        }
+      }
     },
     "Sb6f1d3": {
       "title": "ノート見出し折りたたみ(アウトライン折り畳み) + 右パネル目次の階層連動",
@@ -6133,8 +7228,178 @@
       "milestone": false,
       "status": "pending",
       "depends_on": null,
-      "detail_level": "coarse",
-      "stories": {}
+      "detail_level": "detailed",
+      "stories": {
+        "Sb6f1d3-1": {
+          "title": "見出しセクション折りたたみ — ガタートグル + キーボードショートカット",
+          "status": "pending",
+          "story_type": "gui",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノートを読み書きするユーザーとして、## 等の見出し行の左ガターに表示されるトグルアイコン（または Ctrl-Shift-[ / Ctrl-Shift-]）で見出しセクションを折りたたみ・展開したい。なぜなら、長いノートで関心のないセクションを隠してスクロール量を減らしたいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sb6f1d3-1-1",
+              "description": "ATXHeading1〜6 が含まれる行の左ガターに fold-toggle ボタン（data-testid='heading-fold-toggle'）が表示される。見出し配下に 1 行以上のコンテンツがある場合のみ表示（空セクションは非表示）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sb6f1d3-1-2",
+              "description": "トグルをクリックすると見出し行の次行から次の同レベル以上の見出し（または文書末）の直前までが折りたたまれ、fold-pill（data-testid='fold-pill'）が見出し行末に表示される。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sb6f1d3-1-3",
+              "description": "折りたたまれた見出しのトグルを再クリックすると展開され fold-pill が消える。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sb6f1d3-1-4",
+              "description": "Ctrl-Shift-[（Mac: Cmd-Alt-[）でカーソル行の見出しセクションを折りたたみ、Ctrl-Shift-]（Cmd-Alt-]）で展開できる。見出し行以外ではキーを消費しない（既存のリスト fold キーと共存）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sb6f1d3-1-5",
+              "description": "折りたたみ後に .md ファイルを読み直した内容が変化していない（fold marker・独自記法がファイルに書き込まれていない）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sb6f1d3-1-6",
+              "description": "既存のリスト行の fold-toggle（data-testid='fold-toggle'）と競合しない。両方が同じエディタで共存して独立動作する。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sb6f1d3-1-1": {
+              "title": "heading 折りたたみ範囲計算関数の実装",
+              "description": "outline.ts に foldableHeadingRange(state,line)。syntaxTree の ATXHeading1〜6/SetextHeading から開始行を検出。範囲は見出し行末から次の同レベル以上の見出し直前/文書末。子ゼロ行なら null。foldableListRange と同命名規則の関数形式。",
+              "status": "pending"
+            },
+            "Sb6f1d3-1-2": {
+              "title": "見出し用 GutterMarker と fold-gutter 拡張を追加",
+              "description": "HeadingFoldToggleMarker と headingFoldGutter（gutter()）。クラス cm-heading-fold-gutter（別列）。lineMarker で foldableHeadingRange 参照。data-testid='heading-fold-toggle'。CHEVRON アイコン再利用。codeFolding()/foldedRanges() は既存共有インスタンス。",
+              "status": "pending"
+            },
+            "Sb6f1d3-1-3": {
+              "title": "見出し fold 用キーボードショートカット追加",
+              "description": "headingFoldKeymap。Prec.high。Ctrl-Shift-[/] (mac Cmd-Alt-[/])。run 内でカーソル行が見出しか判定、非見出しは false。foldEffect/unfoldEffect を dispatch。",
+              "status": "pending"
+            },
+            "Sb6f1d3-1-4": {
+              "title": "outlineExtension() に heading fold を組み込み + CSS",
+              "description": "outlineExtension 戻り値に headingFoldGutter と headingFoldKeymap を追加。styles.css に .cm-heading-fold-gutter スタイル追加（既存 .cm-outline-gutter と同構造）。",
+              "status": "pending"
+            },
+            "Sb6f1d3-1-5": {
+              "title": "Playwright mock テスト: 見出し fold-toggle 表示・折りたたみ・展開",
+              "description": "heading-fold.mock.spec.ts。(1) heading-fold-toggle 存在 (2) クリックで fold-pill 出現・本文非表示 (3) 再クリックで pill 消える (4) ドキュメント文字列不変。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sb6f1d3-2": {
+          "title": "右パネル目次 — 見出し階層インデント + クリック時スクロール & セクション展開",
+          "status": "pending",
+          "story_type": "gui",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノートを読み書きするユーザーとして、右インフォパネルの目次で見出し階層がインデントで視覚化され、エントリをクリックするとエディタがその見出しへスクロールし、折りたたまれていれば自動展開されるようにしたい。なぜなら、長文ノートの構造を把握しながら目的のセクションへすばやく移動したいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sb6f1d3-2-1",
+              "description": "InfoPanel の目次で h1 が depth 0、h2 が depth 1、h3 が depth 2… と階層に応じてインデントが付く。data-level による既存 CSS スタイル（font-weight 等）は維持する。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sb6f1d3-2-2",
+              "description": "outline-item をクリックするとエディタがその見出し行へスクロールする（既存 onJumpToLine/seek 使用）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sb6f1d3-2-3",
+              "description": "クリックした見出し行が fold 状態の場合、エディタが unfoldEffect を発行してセクションを展開してからスクロールする。展開後にファイルへの書き込みは発生しない。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sb6f1d3-2-4",
+              "description": "見出しがない場合は空状態テキストが表示される（既存挙動を維持）。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sb6f1d3-2-1": {
+              "title": "InfoPanel の depthOf とインデントの確認・調整",
+              "description": "depthOf(level)=max(0,level-2)。--depth CSS 変数と .outline-indent width。h1 フラット・h2 以下インデントを目視確認、ピッチ微調整。",
+              "status": "pending"
+            },
+            "Sb6f1d3-2-2": {
+              "title": "Editor に onViewReady コールバックを追加",
+              "description": "Editor.tsx に onViewReady?(view)/onViewDestroy? props。view 生成直後/destroy 時に呼ぶ。App.tsx で editorViewRef に保持。",
+              "status": "pending"
+            },
+            "Sb6f1d3-2-3": {
+              "title": "TOC クリック時に unfold + scroll を行う onJumpToLine 拡張",
+              "description": "onJumpToLine で editorViewRef があれば行位置を含む foldedRanges を探し unfoldEffect を dispatch（ネスト fold は再帰展開）。その後 seek。",
+              "status": "pending"
+            },
+            "Sb6f1d3-2-4": {
+              "title": "Playwright mock テスト: TOC 階層インデントとクリック動作",
+              "description": "level 1/2/3 の meta で outline-item の --depth が level 対応。クリックで cm-activeLine 変化。unfold 連携は e2e に委ね mock はエラーなしを確認。",
+              "status": "pending"
+            }
+          }
+        },
+        "Sb6f1d3-3": {
+          "title": "セッション中の折りたたみ状態保持（ノート切替で自動リセット）",
+          "status": "pending",
+          "story_type": "gui",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノートを編集するユーザーとして、折りたたんだセクションが同じノートを開いているセッション中は維持され、別ノートに切り替えたら新しいノートの fold 状態でスタートするようにしたい。なぜなら、fold が誤って解除されるのも、ノート間で fold 状態が干渉するのも混乱するから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Sb6f1d3-3-1",
+              "description": "同一ノート内でセクションを折りたたんでから編集（文字入力・保存）しても fold 状態が保持される（fold-pill が残る）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sb6f1d3-3-2",
+              "description": "別ノートを開いて戻ったとき、元ノートの fold 状態はリセットされ全セクション展開で開く（fold 状態は EditorState に紐付き setState で破棄される）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-Sb6f1d3-3-3",
+              "description": "ページリロード後も fold 状態は復元されない（localStorage/IndexedDB/.md への書き込みが行われていない）。DevTools で loamium 関連の fold データが存在しないことを確認できる。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "Sb6f1d3-3-1": {
+              "title": "ノート切替時に fold 状態がリセットされることの確認と保護",
+              "description": "EditorState.create が foldState を引き継がないことをコードで確認。永続化 API を呼んでいないことをチェック。問題なければコメントで「fold state はセッションのみ」と明記。",
+              "status": "pending"
+            },
+            "Sb6f1d3-3-2": {
+              "title": "Playwright mock テスト: fold リセット動作",
+              "description": "fold→別ノート切替→戻る後に fold-pill が存在しないこと。localStorage に fold キーが無いことを page.evaluate で確認。",
+              "status": "pending"
+            }
+          }
+        }
+      }
     },
     "S2e8a4c": {
       "title": "UI 細粒度修正まとめ — Journal カレンダー / 選択色 / ドラッグ移動 / フォルダコンテキスト / Bold / コンテキストメニュー",
@@ -6142,8 +7407,393 @@
       "milestone": true,
       "status": "pending",
       "depends_on": null,
-      "detail_level": "coarse",
-      "stories": {}
+      "detail_level": "detailed",
+      "stories": {
+        "S2e8a4c-1": {
+          "title": "Daily Journal ヘッダーのリスト一覧ボタンをカレンダーアイコン兼日付ピッカーに変更",
+          "status": "pending",
+          "story_type": "gui",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "Daily Journal のユーザーとして、ヘッダーのハンバーガー(一覧)ボタンをカレンダーアイコンに変えて任意日付を直接入力できるようにしたい。なぜなら、リスト一覧を開かなくても日付ピッカーで飛びたい日を素早く選べると操作性が大きく上がるからだ。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S2e8a4c-1-1",
+              "description": "JournalNav の右端ボタンが <ListIcon /> ではなく <CalendarIcon />（新規 SVG）を表示する。data-testid を journal-open-list から journal-open-calendar に変更する。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-1-2",
+              "description": "カレンダーボタンをクリックすると <input type=date> が展開し、値を選択すると onSelectDate(selectedDate) が呼ばれてその日付のジャーナルへ遷移する。日付は YYYY-MM-DD 形式。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-1-3",
+              "description": "カレンダーを開いたとき date input の初期値は baseDate（フォールバックで today）が入っており、既存の prev/next/today ボタンとの整合が保たれる。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-1-4",
+              "description": "既存の一覧ポップアップ（journal-list-pop）は削除し、ジャーナル日付一覧の表示手段はカレンダー input のみとする。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-1-5",
+              "description": "Vitest: JournalNav にカレンダーアイコンボタン（journal-open-calendar）が存在し、date 入力変更で onSelectDate が呼ばれることを確認する。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S2e8a4c-1-1": {
+              "title": "CalendarIcon SVG を icons.tsx に追加",
+              "description": "icons.tsx に CalendarIcon（viewBox 0 0 16 16、既存アイコン同スタイル、className? props）。",
+              "status": "pending"
+            },
+            "S2e8a4c-1-2": {
+              "title": "JournalNav をカレンダー入力に差し替え",
+              "description": "listOpen/onToggleList を廃止し calendar 開閉。ListIcon→CalendarIcon、testid journal-open-calendar。<input type=date value={baseDate??today}> の onChange で onSelectDate。journal-list-pop DOM 削除、不要なら entries prop 削除。",
+              "status": "pending"
+            },
+            "S2e8a4c-1-3": {
+              "title": "App.tsx の JournalNav 呼び出しを更新",
+              "description": "listOpen/onToggleList/entries 渡しを削除し新 props に合わせる。journalListOpen state 削除。",
+              "status": "pending"
+            },
+            "S2e8a4c-1-4": {
+              "title": "ユニットテスト追加",
+              "description": "JournalNav.test.tsx で CalendarIcon ボタン存在・date 変更で onSelectDate 呼び出しをテスト。",
+              "status": "pending"
+            }
+          }
+        },
+        "S2e8a4c-2": {
+          "title": "エディタのアクティブ行ハイライト色とテキスト選択色を CSS 変数で分離",
+          "status": "pending",
+          "story_type": "gui",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "エディタユーザーとして、アクティブ行ハイライトとテキスト選択範囲を視覚的に区別したい。なぜなら、現在どちらも --bg-active で同一色になっており、どこまで選択しているか判断できないからだ。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S2e8a4c-2-1",
+              "description": "styles.css に --editor-active-line と --editor-selection を追加。ライトテーマで active-line は現行系統を維持しつつ selection は accent 由来の別色（例 rgba(110,86,207,0.20)）とし、両者を目視で区別できる。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-2-2",
+              "description": "ダークテーマでも 2 変数が別色になる（[data-theme=dark] ブロックで定義）。現行の直接カラー指定を変数参照に移行する。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-2-3",
+              "description": ".editor-host .cm-activeLine は --editor-active-line を参照し、.cm-selectionBackground と ::selection は --editor-selection を参照する。CommandEditor 側 cmd-editor-cm-host は既存値を維持し変更しない。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-2-4",
+              "description": "文字を範囲選択したとき、選択範囲の背景色がアクティブ行ハイライトと視覚的に異なる色で表示される（目視確認）。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S2e8a4c-2-1": {
+              "title": "CSS 変数を styles.css に追加",
+              "description": ":root に --editor-active-line:#f7f6fb; --editor-selection:rgba(110,86,207,0.18);。[data-theme=dark] に --editor-active-line:#2c2d3a; --editor-selection:rgba(157,138,238,0.22);。",
+              "status": "pending"
+            },
+            "S2e8a4c-2-2": {
+              "title": "エディタ CSS を変数参照に書き換え",
+              "description": ".cm-activeLine を var(--editor-active-line)、.cm-selectionBackground/::selection を var(--editor-selection) に。ダークの直接指定を削除。",
+              "status": "pending"
+            }
+          }
+        },
+        "S2e8a4c-3": {
+          "title": "左ファイルツリーでファイル・フォルダを D&D 移動 (PATCH rename 活用)",
+          "status": "pending",
+          "story_type": "mixed",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノート整理を行うユーザーとして、左サイドバーのファイルツリー上でノートやフォルダをドラッグ&ドロップして別フォルダへ移動したい。なぜなら、コンテキストメニューを開かずに直感的に vault 構造を整理できるからだ。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S2e8a4c-3-1",
+              "description": "ノート（tree-item）をドラッグし別フォルダ（tree-folder）にドロップすると api.renameNote で新パスへ移動する。移動後は左サイドバーが自動更新（refreshNotes）される。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-3-2",
+              "description": "フォルダ（tree-folder）をドラッグし別フォルダにドロップすると、そのフォルダ直下の全ノートのパスを api.renameNote で一括移動する（フォルダは物理実体がないためノートを逐次 rename）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-3-3",
+              "description": "移動先フォルダにドラッグオーバー中は drag-over CSS クラス（または同等のインジケーター）が付きドロップ可能が視覚的に分かる。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-3-4",
+              "description": "ノート名が新パスで衝突する場合（409）はエラートーストを表示しファイルは一切変更しない。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-3-5",
+              "description": "移動は既存 renameNote サービス層（ADR-0016）経由のため、移動後に [[旧パス]] 形式のウィキリンクが [[新パス]] へ自動追従される（サーバーが updatedNotes/updatedLinks を返す）。vault 外パスへの D&D はサーバーが 400 invalid_path で拒否する。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-3-6",
+              "description": "Vitest: FileTree に draggable 属性が付与され、dragstart/dragover/drop ハンドラが prop から呼び出されることを確認する。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S2e8a4c-3-1": {
+              "title": "FileTree コンポーネントに D&D props を追加",
+              "description": "FileTreeProps に onDropNote/onDropFolder。tree-item/tree-folder に draggable、dragStart で dataTransfer.setData。folder に onDragOver preventDefault と onDrop、over 時 drag-over クラス。",
+              "status": "pending"
+            },
+            "S2e8a4c-3-2": {
+              "title": "App.tsx で D&D ハンドラを実装し renameNote を呼ぶ",
+              "description": "handleDropNote/handleDropFolder。renameNote(source, target+'/'+basename)。成功後 onNotesChanged、エラーはトースト。フォルダは配下ノートを逐次移動。",
+              "status": "pending"
+            },
+            "S2e8a4c-3-3": {
+              "title": "D&D ドラッグ over ビジュアル CSS を styles.css に追加",
+              "description": ".tree-item.drag-over, .tree-folder.drag-over に背景・outline スタイル。",
+              "status": "pending"
+            }
+          }
+        },
+        "S2e8a4c-4": {
+          "title": "フォルダ選択中の新規ノート・新規フォルダ作成でそのフォルダをデフォルトパスに prefill",
+          "status": "pending",
+          "story_type": "gui",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ノートをフォルダ別に整理するユーザーとして、フォルダを選択した状態でツリー上部の＋(新規ノート)・フォルダ作成ボタンを押したとき、そのフォルダが入力欄に自動入力された状態でダイアログを開きたい。なぜなら、毎回フォルダパスを手打ちする手間を省けるからだ。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S2e8a4c-4-1",
+              "description": "フォルダを右クリックした場合、既に onNewNote が {folder: menu.path} でダイアログを開き initialPath に ${folder}/ が prefill される（既存動作）。本ストーリーではサイドバーヘッダの新規ノート(＋)ボタン押下時にも selectedFolder を prefill する。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-4-2",
+              "description": "App.tsx に selectedFolder state（string, default ''）を追加し、FileTree でフォルダをクリック（開閉操作）したときそのフォルダパスを setSelectedFolder で保持する。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-4-3",
+              "description": "サイドバー新規ノートボタン（sidebar-new-note）を押すと {folder: selectedFolder} でダイアログが開く。selectedFolder が '' の場合は従来どおり defaultFolder を prefill する。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-4-4",
+              "description": "新規フォルダボタンを押すと {parent: selectedFolder} でダイアログが開き、新規フォルダの親が selectedFolder になる。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-4-5",
+              "description": "FileTree がフォルダクリックで onToggleFolder に加えて onSelectFolder を呼ぶよう props を拡張し、選択フォルダが別ファイルを開く等でリセットされない。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S2e8a4c-4-1": {
+              "title": "FileTree に onSelectFolder prop を追加",
+              "description": "FileTreeProps に onSelectFolder?(path)。フォルダ行クリックを onToggleFolder+onSelectFolder に。",
+              "status": "pending"
+            },
+            "S2e8a4c-4-2": {
+              "title": "App.tsx に selectedFolder state を追加しダイアログ呼び出しに反映",
+              "description": "selectedFolder state。FileTree に onSelectFolder={setSelectedFolder}。新規ノート/フォルダボタンの onClick を selectedFolder 反映に変更。initialPath ロジックは AC-4-1 と一致。",
+              "status": "pending"
+            }
+          }
+        },
+        "S2e8a4c-5": {
+          "title": "スマートビュー表示中は下部のスマートコマンドパネルを非表示にする",
+          "status": "pending",
+          "story_type": "gui",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "スマートビューを利用するユーザーとして、スマートビューを表示しているとき下部にスマートコマンドパネルが重複して見えないようにしたい。なぜなら、スマートビュー内の SmartCommandsSection が既にコマンド一覧を表示しており、下部パネルとの二重表示が混乱を招くからだ。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S2e8a4c-5-1",
+              "description": "sidebarView === 'smart' のとき、SmartView 内の SmartCommandsSection（sidebar-commands-section）は引き続き表示される。これとは別に表示されうる外部 CommandsPanel または重複した SmartCommandsSection が存在する場合は非表示にする。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-5-2",
+              "description": "コード調査の結果 SmartView 末尾に SmartCommandsSection が配置され physical ビューには存在しない。App.tsx の physical ビュー側に独立レンダリングされる SmartCommandsSection があれば smart のとき非表示にする。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-5-3",
+              "description": "sidebarView === 'physical' のときスマートコマンドパネルはサイドバーに表示されない。smart のときのみ SmartView 内の SmartCommandsSection が見える。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-5-4",
+              "description": "SmartView の SmartCommandsSection は loaded かつ items>0 のときのみ区切り線を表示する既存ロジックを維持する。SF が 0 件でも本体は表示される（現行どおり）。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S2e8a4c-5-1": {
+              "title": "App.tsx / SmartView.tsx でスマートコマンド表示の重複を調査・修正",
+              "description": "App.tsx の physical ビューに SmartCommandsSection/CommandsPanel が別レンダリングされているか確認し、あれば smart のとき非表示条件追加。重複が元々無い場合は loading 中の表示挙動を確認し設計として妥当か判断（不要なら S2e8a4c-5 を decisions 注記のうえクローズ可）。",
+              "status": "pending"
+            }
+          }
+        },
+        "S2e8a4c-6": {
+          "title": "Ctrl-B でエディタの Bold/UnBold をトグルする CodeMirror コマンド追加",
+          "status": "pending",
+          "story_type": "mixed",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "Markdown エディタユーザーとして、Ctrl-B（Mac は Cmd-B）で選択テキストを **太字** にトグルしたい。なぜなら、インラインの Bold 操作を他のエディタと同じキーバインドで素早く実行できるからだ。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S2e8a4c-6-1",
+              "description": "選択範囲がある状態で Ctrl-B（Mod-B）を押すと選択テキストが **<text>** に変換される。既に ** で囲まれている場合は ** を除去して UnBold する。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-6-2",
+              "description": "選択範囲なし（カーソルのみ）の場合は **** を挿入しカーソルを内側に移動する。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-6-3",
+              "description": "変換結果はピュア Markdown（**..**）のみ使用する。独自記法・ブロック ID・HTML タグは書き込まない（priority 1）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-6-4",
+              "description": "既存の Mod-S（保存）キーバインドを妨げない。Mod-B は defaultKeymap に存在しないため登録順の問題がないことを確認する。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-6-5",
+              "description": "Vitest: toggleBold(view) を純関数として切り出し、選択あり Bold 化・選択あり UnBold・選択なし挿入の 3 ケースをテストする。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S2e8a4c-6-1": {
+              "title": "toggleBold コマンド関数を実装",
+              "description": "bold-toggle.ts。Command 型。選択が ** で囲まれているか判定→UnBold（前後 ** 削除）／Bold 化（** で囲む・選択更新）／選択なしは **** 挿入+カーソル内側。dispatch で history に乗せる。",
+              "status": "pending"
+            },
+            "S2e8a4c-6-2": {
+              "title": "Editor.tsx の keymap に Mod-B を追加",
+              "description": "keymap.of に { key:'Mod-b', preventDefault:true, run: toggleBold }。",
+              "status": "pending"
+            },
+            "S2e8a4c-6-3": {
+              "title": "toggleBold のユニットテスト作成",
+              "description": "bold-toggle.test.ts。EditorView 構築で 3 ケース。",
+              "status": "pending"
+            }
+          }
+        },
+        "S2e8a4c-7": {
+          "title": "ファイルツリーの右クリックコンテキストメニューに「移動…」を追加しフォルダ選択ダイアログを表示",
+          "status": "pending",
+          "story_type": "mixed",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "vault 内のノートを整理するユーザーとして、ファイルツリーでファイル・フォルダを右クリックして「移動…」を選択し、移動先フォルダをダイアログで選んで実行したい。なぜなら、D&D が難しいネスト階層での移動を確認ダイアログ付きで安全に行えるからだ。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-S2e8a4c-7-1",
+              "description": "ノートおよびフォルダを右クリックしたとき、コンテキストメニュー（tree-context-menu）に「移動…」ボタン（context-move）が表示される。フォルダでも表示する。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-7-2",
+              "description": "「移動…」をクリックすると移動先フォルダ選択ダイアログ（move-dialog）が開く。vault 内のフォルダ一覧を <select> 等で表示し、ルート（''）も選択可能にする。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-7-3",
+              "description": "ノートの移動を確定すると api.renameNote(oldPath, targetFolder+'/'+basename) を呼び、成功後 refreshNotes で更新する。移動後の [[旧パス]] が [[新パス]] へ自動追従される（サーバーの renameNote が担保）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-7-4",
+              "description": "フォルダの移動を確定すると、そのフォルダ直下の全ノートを api.renameNote で逐次移動する（S2e8a4c-3 の handleDropFolder ロジック再利用）。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-7-5",
+              "description": "移動先パスが vault 外になるリクエストはサーバーが 400 invalid_path で拒否し、UI はエラートーストを表示しファイルは変更しない。",
+              "test": null,
+              "status": "pending"
+            },
+            {
+              "id": "AC-S2e8a4c-7-6",
+              "description": "移動先が自分自身と同フォルダの場合は no-op。衝突（409）の場合はエラートーストを表示する。",
+              "test": null,
+              "status": "pending"
+            }
+          ],
+          "tasks": {
+            "S2e8a4c-7-1": {
+              "title": "ContextMenu コンポーネントに「移動…」ボタンを追加",
+              "description": "ContextMenuProps に onMove?()。リネームの下に menu-sep と context-move ボタン。onMove undefined なら非表示。フォルダでも表示。",
+              "status": "pending"
+            },
+            "S2e8a4c-7-2": {
+              "title": "MoveDialog コンポーネントを新規作成",
+              "description": "MoveDialog.tsx。targetName/notes/onConfirm/onCancel。deriveFolderCandidates でフォルダ候補を <select> 表示、ルート（''=/ (ルート)）先頭。testid move-dialog/-select/-confirm/-cancel。",
+              "status": "pending"
+            },
+            "S2e8a4c-7-3": {
+              "title": "App.tsx にダイアログ state とハンドラを追加",
+              "description": "DialogState に {type:'move',path,isFolder}。onMove で setDialog。MoveDialog レンダリング。onConfirm でノートは renameNote（ルートは basename）、フォルダは配下逐次移動。成功後 onNotesChanged+トースト、エラーはトースト。",
+              "status": "pending"
+            }
+          }
+        }
+      }
     }
   },
   "dependencies": {
@@ -6462,12 +8112,6 @@
       "description": "SmartView の aria-expanded がラッパー div に付いており SR で開閉状態が読まれない。トグル button 側へ。verifier(S8086d9)指摘。",
       "added_in": "S8086d9",
       "reason": "a11y quality debt(非ブロッキング)"
-    },
-    {
-      "title": "query スマートフォルダの再取得(stale データ回避)",
-      "description": "query フォルダは初回展開で結果をキャッシュし再展開で再取得しない。vault 変更時に古い結果が出る。リフレッシュ導線 or 監視連動。",
-      "added_in": "S8086d9",
-      "reason": "UX quality debt"
     },
     {
       "title": "ブックマークスターの append-only テスト + AC-2-4 タグ",
