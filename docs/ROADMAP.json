@@ -3,11 +3,11 @@
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
     "current_sprint": null,
-    "total": 55,
+    "total": 54,
     "done": 48,
     "in_progress": 0,
-    "remaining": 7,
-    "percentage": 87
+    "remaining": 6,
+    "percentage": 89
   },
   "execution_order": [
     "Sd63ad1",
@@ -59,7 +59,6 @@
     "S8a3f2e",
     "Sc4b9d1",
     "S7e2d5c",
-    "S1b4e8f",
     "Sa6c3b0",
     "Sd5c9f4",
     "Se3b7a2",
@@ -6095,25 +6094,16 @@
     "S7e2d5c": {
       "title": "Vault 初期コンテンツ（サンプル投入）+ ドキュメント化規約 (CLAUDE.md 更新)",
       "description": "新規 vault 作成時（または loamium init-samples コマンド）に、実用的なサンプルコンテンツを自動投入する。Obsidian Starter Kit を参考に、ジャーナルテンプレート・タスク管理スマートコマンド・スマートフォルダ例・機能ガイド Markdown 等を設計・同梱する。既存 make samples を廃止・統合するか互換維持するか判断する。あわせて CLAUDE.md に「新機能・仕様変更時は vault 内ドキュメント（.loamium/docs/ または system/）に解説ページを追加・更新すること」を規約化する。",
-      "milestone": true,
+      "milestone": false,
       "status": "pending",
       "depends_on": "Sc4b9d1",
-      "detail_level": "coarse",
-      "stories": {}
-    },
-    "S1b4e8f": {
-      "title": "ランディングページ + 利用ドキュメント（スクリーンショット付き）",
-      "description": "ADR-0007 準拠。素の静的 HTML で Loamium のランディングページを作成し、Cloudflare Pages でホスティングする設定を整備する。利用方法ドキュメント（インストール・機能ガイド・FAQ）を Markdown で作成し静的サイトに含める。内蔵ブラウザ（palmux-browser / CDP）を使って各機能のスクリーンショットを撮影し、ドキュメントに埋め込む。撮影スクリプトは再実行可能な形で管理する。",
-      "milestone": true,
-      "status": "pending",
-      "depends_on": "S7e2d5c",
       "detail_level": "coarse",
       "stories": {}
     },
     "Sa6c3b0": {
       "title": "スマホ対応 — レスポンシブ UI リファクタ + PWA 化",
       "description": "既存 UI をモバイルデバイスで実用的に使えるようレスポンシブ対応する。タッチ操作・小画面レイアウト（サイドバー折りたたみ、ボトムナビゲーション等）・タップターゲット最適化（最小 44px）を含む。あわせて PWA 化（manifest.json + Service Worker + オフラインキャッシュ）を行い、スマートフォンのホーム画面からインストール・起動できるようにする。Lighthouse PWA スコア 90+ を目標とする。CLAUDE.md に「以降の全機能 UI はモバイルを考慮したレスポンシブデザインとし、タップターゲット 44px 以上を守ること」を規約化する。",
-      "milestone": true,
+      "milestone": false,
       "status": "pending",
       "depends_on": "S1b4e8f",
       "detail_level": "coarse",
@@ -6149,7 +6139,7 @@
     "S2e8a4c": {
       "title": "UI 細粒度修正まとめ — Journal カレンダー / 選択色 / ドラッグ移動 / フォルダコンテキスト / Bold / コンテキストメニュー",
       "description": "以下 7 点の細かい修正を一括で実施する。(1) Daily Journal ヘッダーのハンバーガーボタンをカレンダーアイコン（日付ピッカー兼用）に変更する。(2) エディタのアクティブ行ハイライト色とテキスト選択色が同一でどこまで選択か判別できない問題を修正する（CSS 変数で分離）。(3) 左ファイルツリーでファイル・フォルダをドラッグ & ドロップで移動できるようにする（PATCH /api/files/{path}/rename を活用）。(4) ファイルツリーでフォルダを選択した状態でファイル作成・フォルダ作成ボタンを押した場合、そのフォルダをデフォルトパスとして入力欄に反映する。(5) 左サイドバーがスマートビュー表示のとき、下部のスマートコマンドパネルを非表示にする。(6) Ctrl-B でエディタのインライン Bold / UnBold をトグルする（CodeMirror コマンド追加）。(7) ファイル・フォルダの右クリックコンテキストメニューに「移動…」を追加し、移動先フォルダを選択するダイアログを表示する。",
-      "milestone": false,
+      "milestone": true,
       "status": "pending",
       "depends_on": null,
       "detail_level": "coarse",
@@ -6608,6 +6598,14 @@
       "added_in": "milestone-Sc4b9d1-review",
       "kind": "feature",
       "status": "open"
+    },
+    {
+      "title": "ランディングページ + 利用ドキュメント（スクリーンショット付き）",
+      "description": "ADR-0007 準拠。素の静的 HTML で Loamium のランディングページを作成し、Cloudflare Pages でホスティングする設定を整備する。利用方法ドキュメント（インストール・機能ガイド・FAQ）を Markdown で作成し静的サイトに含める。内蔵ブラウザ（palmux-browser / CDP）を使って各機能のスクリーンショットを撮影し、ドキュメントに埋め込む。撮影スクリプトは再実行可能な形で管理する。",
+      "added_in": "milestone-Sc4b9d1-review (user-directed)",
+      "kind": "feature",
+      "status": "open",
+      "from_sprint": "S1b4e8f"
     }
   ]
 }
