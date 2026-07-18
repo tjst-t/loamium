@@ -6601,6 +6601,13 @@
       "kind": "chore",
       "status": "open",
       "adr_ref": "ADR-0026"
+    },
+    {
+      "title": "スマートコマンドのバックグラウンド実行 + agent-run 結果の可視化 (Sprint 化)",
+      "description": "ユーザー報告(problem 3): 時間のかかる agent-run コマンドが同期 await でモーダルをブロックし他作業不可。要バックグラウンドジョブ基盤(実行キュー・進捗・完了/失敗通知・キャンセル)。あわせて problem 1+2: agent-run ステップは runAgentJob 完了=ok を返すため、エージェントが実際に書き込まなくても偽成功になる(survey が保存されず失敗通知も出ない)。対策案: runAgentJob が書き込みツール呼び出し/保存パス/最終メッセージを追跡し結果に返す→UI で『何が起きたか(保存先/未書き込み警告/失敗理由)』を表示。既存 S2fe109 のジョブ基盤(agent-jobs)を土台に。別 Sprint として詳細化する(ユーザー指定)。",
+      "added_in": "milestone-Sc4b9d1-review",
+      "kind": "feature",
+      "status": "open"
     }
   ]
 }
