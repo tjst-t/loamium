@@ -1160,6 +1160,86 @@ test('[AC-Sde7a63-3-3][MOCK] POST run 失敗 → param-form-result + step-result
 });
 
 // =========================================================================
+// sidebar-refresh: コマンド実行後にノート一覧 (GET /api/notes) が再取得される
+// (エージェント/コマンドが作成したファイルをリロード無しでツリーへ反映する)
+// =========================================================================
+
+test('[sidebar-refresh][MOCK] コマンド実行成功後に GET /api/notes が再取得される', async ({ page }) => {
+  const { unexpected } = await openAppWithSmartCommands(page);
+
+  // GET /api/notes の呼び出し回数を数える (helper 登録より後 = 優先される)
+  let notesCount = 0;
+  await page.route('**/api/notes', (route) => {
+    notesCount += 1;
+    void route.fulfill(json(NOTES));
+  });
+  await page.route('**/api/commands/create-todo/run', (route) => {
+    void route.fulfill(json({
+      results: [{ kind: 'journal-append', ok: true, path: JOURNAL_PATH }],
+      openPath: JOURNAL_PATH,
+    }));
+  });
+  await page.route('**/api/journal*', (route) => {
+    void route.fulfill(json(journal('# ジャーナル\n\n本文。\n')));
+  });
+
+  // 初回ロード分の GET /api/notes を計上させてからカウンタを基準化する
+  await expect(page.getByTestId('editor')).toContainText('本文。');
+  const before = notesCount;
+
+  await page.keyboard.press('Control+k');
+  await page.locator('[data-testid="command-item"][data-command-id="smart:create-todo"]').click();
+  await expect(page.getByTestId('param-form-modal')).toBeVisible();
+  await page.locator('[data-testid="param-field-input"][data-name="タスク概要"]').fill('テストタスク');
+  await page.getByTestId('param-form-submit').click();
+
+  // 成功でモーダル/パレットが閉じる
+  await expect(page.getByTestId('param-form-modal')).toHaveCount(0);
+
+  // 実行後にノート一覧が再取得される (onNotesChanged 配線)
+  await expect.poll(() => notesCount).toBeGreaterThan(before);
+
+  expect(unexpected).toEqual([]);
+});
+
+test('[sidebar-refresh][MOCK] コマンドが部分失敗でも GET /api/notes が再取得される', async ({ page }) => {
+  const { unexpected } = await openAppWithSmartCommands(page);
+
+  let notesCount = 0;
+  await page.route('**/api/notes', (route) => {
+    notesCount += 1;
+    void route.fulfill(json(NOTES));
+  });
+  // 部分失敗を返す (書き込みが1回でも走った可能性 → 更新すべき)
+  await page.route('**/api/commands/create-todo/run', (route) => {
+    void route.fulfill(json({
+      results: [
+        { kind: 'create-note', ok: true, path: 'inbox/新規.md' },
+        { kind: 'journal-append', ok: false, error: 'journal not found' },
+      ],
+    }));
+  });
+
+  await expect(page.getByTestId('editor')).toContainText('本文。');
+  const before = notesCount;
+
+  await page.keyboard.press('Control+k');
+  await page.locator('[data-testid="command-item"][data-command-id="smart:create-todo"]').click();
+  await expect(page.getByTestId('param-form-modal')).toBeVisible();
+  await page.locator('[data-testid="param-field-input"][data-name="タスク概要"]').fill('テストタスク');
+  await page.getByTestId('param-form-submit').click();
+
+  // 部分失敗なのでモーダルは開いたまま + 結果表示
+  await expect(page.getByTestId('param-form-result')).toBeVisible();
+  await expect(page.getByTestId('param-form-modal')).toBeVisible();
+
+  // それでもノート一覧は再取得される (onRan は成功/部分失敗の両方で呼ばれる)
+  await expect.poll(() => notesCount).toBeGreaterThan(before);
+
+  expect(unexpected).toEqual([]);
+});
+
+// =========================================================================
 // 回帰テスト: 表示名 ≠ ファイル stem のコマンドが実行 URL に stem を使う
 // (SMART_COMMANDS_RESPONSE.commands[0].name="create todo" / id="create-todo")
 // =========================================================================

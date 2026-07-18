@@ -361,6 +361,15 @@ export function App(): JSX.Element {
     }
   }, []);
 
+  // エージェント/スマートコマンドがファイルを書き込んだ後に呼ぶ (S...sidebar-refresh)。
+  // SSE push 基盤が無いため、書き込みが起きうる箇所の後でノート/タグ/プロパティキーを再取得し、
+  // 左サイドバー (ファイルツリー) をリロード無しで最新化する。
+  const onNotesChanged = useCallback((): void => {
+    void refreshNotes();
+    void refreshTags();
+    void refreshPropertyKeys();
+  }, [refreshNotes, refreshTags, refreshPropertyKeys]);
+
   // 新規プロパティの型を .loamium/property-types.json へ永続化する (Sd13ab1-2)。
   // 永続化後、型スキーマとキー候補を最新化する (別ファイルでも同じ型に解決される)。
   const onPersistPropertyType = useCallback(
@@ -1899,6 +1908,7 @@ export function App(): JSX.Element {
         onSearchTag={handleTagClick}
         hidden={route.kind === 'search'}
         notes={notes}
+        onNotesChanged={onNotesChanged}
       />
 
       {/* ================= ポップアップ ================= */}
@@ -1912,6 +1922,7 @@ export function App(): JSX.Element {
             openSearch({ q: q.trim().normalize('NFC'), tag: '', folder: '', sort: 'updated' });
           }}
           commandHandlers={commandHandlers}
+          onNotesChanged={onNotesChanged}
         />
       )}
 

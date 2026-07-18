@@ -498,9 +498,15 @@ export interface AgentPaneProps {
   notes?: NoteMeta[] | null;
   /** ノートを開くナビゲーション (wikilink クリック時) */
   onOpenNote?: (path: string) => void;
+  /**
+   * エージェントのターンが完了したとき (SSE done 受信時) に呼ぶ (sidebar-refresh)。
+   * ツールで vault にファイルを書いた可能性があるため、左サイドバーを再取得させる。
+   * streaming 中の各 delta では呼ばず、done で1回だけ呼ぶ。
+   */
+  onNotesChanged?: (() => void) | undefined;
 }
 
-export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps): JSX.Element {
+export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged }: AgentPaneProps): JSX.Element {
   const agentEnabled = health?.agent?.enabled ?? false;
 
   const [status, setStatus] = useState<AgentStatus>(agentEnabled ? 'ready' : 'unconfigured');
@@ -542,6 +548,10 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
    * RD-2: 二重送信競合防止フラグ。handleSend の先頭で同期的に true にする。
    */
   const sendInFlightRef = useRef<boolean>(false);
+
+  // sidebar-refresh: send コールバックの deps を変えずに最新の onNotesChanged を参照する。
+  const onNotesChangedRef = useRef(onNotesChanged);
+  onNotesChangedRef.current = onNotesChanged;
 
   // ノートパスのセット (wikilink 解決用)
   const notePaths = useMemo<ReadonlySet<string>>(
@@ -1012,6 +1022,9 @@ export function AgentPane({ health, notes = null, onOpenNote }: AgentPaneProps):
               });
               return; // finally が setStatus('ready') / setAbortController(null) / ref クリアを行う
             } else if (event.type === 'done') {
+              // sidebar-refresh: ターン完了。ツールで vault にファイルを書いた可能性が
+              // あるため、左サイドバー (ファイルツリー) を再取得させる (done で1回だけ)。
+              onNotesChangedRef.current?.();
               break;
             }
           }

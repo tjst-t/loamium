@@ -64,6 +64,11 @@ export interface RightSidebarProps {
   hidden?: boolean;
   /** vault のノート一覧 (エージェントペインの [[wikilink]] 解決用) */
   notes?: NoteMeta[] | null;
+  /**
+   * エージェントがターンを完了しファイルを書いた可能性があるときに呼ぶ (sidebar-refresh)。
+   * AgentPane の done 受信時に転送し、左サイドバー (ファイルツリー) を再取得させる。
+   */
+  onNotesChanged?: (() => void) | undefined;
 }
 
 /** インフォアイコン (プロトタイプ準拠) */
@@ -93,6 +98,7 @@ export function RightSidebar({
   onSearchTag,
   hidden = false,
   notes = null,
+  onNotesChanged,
 }: RightSidebarProps): JSX.Element {
   const [tab, setTab] = useState<RightTab>('info');
   const [collapsed, setCollapsed] = useState(false);
@@ -280,7 +286,7 @@ export function RightSidebar({
       {/* エージェントペイン — 非選択/collapsed 時も display:none で DOM に残す
           (rs-pane-fill で .agent-body に高さを伝え、in-flight セッションを保持)。 */}
       <div className="rs-pane-fill" style={!collapsed && tab === 'agent' ? undefined : { display: 'none' }}>
-        <AgentPane health={health} notes={notes} onOpenNote={onOpenNote} />
+        <AgentPane health={health} notes={notes} onOpenNote={onOpenNote} onNotesChanged={onNotesChanged} />
       </div>
     </aside>
   );

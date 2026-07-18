@@ -210,3 +210,39 @@ test('[MOCK] 新規セッション (+) で履歴がクリアされる (lazy: サ
   expect(created.value).toBe(false);
   expect(unexpected).toEqual([]);
 });
+
+test('[sidebar-refresh][MOCK] エージェントのターン完了 (done) 後に GET /api/notes が再取得される', async ({
+  page,
+}) => {
+  const unexpected = await bootAgent(page);
+
+  // GET /api/notes の呼び出し回数を数える (bootAgent 登録より後 = 優先される)
+  let notesCount = 0;
+  await page.route('**/api/notes', (route) => {
+    notesCount += 1;
+    void route.fulfill(json({ notes: [] }));
+  });
+  // エージェントがツールでファイルを書き、done で完了する SSE
+  await page.route(`**/api/agent/sessions/${SESSION_ID}/messages`, (route) => {
+    void route.fulfill(
+      sse([
+        { type: 'tool_start', name: 'create_note', argsSummary: 'inbox/新規.md' },
+        { type: 'tool_end', name: 'create_note', ok: true },
+        { type: 'text_delta', text: 'ノートを作成しました。' },
+        { type: 'done' },
+      ]),
+    );
+  });
+
+  await openAgentPane(page);
+  const before = notesCount;
+
+  await page.getByTestId('agent-input').fill('ノートを作って');
+  await page.getByTestId('agent-send').click();
+  await expect(page.getByTestId('agent-msg-assistant')).toContainText('ノートを作成しました。');
+
+  // done 受信後にノート一覧が再取得される (onNotesChanged 配線)
+  await expect.poll(() => notesCount).toBeGreaterThan(before);
+
+  expect(unexpected).toEqual([]);
+});
