@@ -126,7 +126,9 @@ const KIND_SCAFFOLDS: Record<string, string> = {
   'agent-run': [
     '      prompt: ""',
     '      # open: true             # 実行後に結果ノートを開く (任意)',
-    '      # permissions: read-only # read-only | notes-rw | full (任意, 既定 read-only)',
+    '      # 既定 read-only = 書き込み不可。書き込みには notes-rw / full か',
+    '      # 個別ケーパビリティ配列 (例 [read, web, note_create]) を明示付与する:',
+    '      # permissions: notes-rw  # read-only | notes-rw | full | [read, web, ...] (任意, 既定 read-only)',
     '      # maxTurns: 8            # エージェントの最大ターン数 1..50 (任意, 既定 20)',
     '      # timeoutSec: 120        # タイムアウト秒 10..600 (任意, 既定 120)',
     '      # when: ""               # 値があるときだけ実行 (任意)',

@@ -797,7 +797,11 @@ export async function runCommand(
           prompt: promptResolved,
           enabled: true,
         };
-        if (step.permissions !== undefined) jobInput['permissions'] = step.permissions;
+        // agent-run は least-privilege: 既定 read-only。書き込み/web は step の
+        // permissions で明示付与する (未指定で agent.json の権限を継承しない)。
+        // scheduled agent-jobs (agent-scheduler / routes/agent-jobs) の継承挙動は
+        // runAgentJob 側で保つ (ここでは job.permissions を必ず埋める)。
+        jobInput['permissions'] = step.permissions !== undefined ? step.permissions : 'read-only';
         if (step.maxTurns !== undefined) jobInput['maxTurns'] = step.maxTurns;
         if (step.timeoutSec !== undefined) jobInput['timeoutSec'] = step.timeoutSec;
 

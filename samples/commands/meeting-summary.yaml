@@ -21,6 +21,9 @@ params:
     default: 議事録
 steps:
   - kind: agent-run
+    # agent-run は既定 read-only (書き込み不可)。journal_append が要るため
+    # 必要権限を明示付与する。notes-rw = [read, journal_append, note_create, note_edit]。
+    permissions: notes-rw
     # prompt が唯一の出力先指定。エージェントは source ノートを読み、要約し、
     # journal_append ツールで当日ジャーナルの {{section}} セクションへ追記する。
     prompt: |
