@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#6e56cf">
+<title>Loamium — モバイル閲覧画面</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+/* =====================================================================
+   モバイルプロトタイプ専用スタイル (prototype/mobile-responsive.html)
+   実際の実装では styles.css の @media(max-width:680px) ブロックに入る
+   ===================================================================== */
+
+/* ---- フォン枠ラッパー (プロトタイプ専用: レビュアーが desktop で見るため) ---- */
+body {
+  background: #d8d8e0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 16px 80px;
+  min-height: 100vh;
+}
+
+.phone-frame {
+  width: 390px;
+  max-width: 100%;
+  min-height: 844px;
+  background: var(--bg-editor);
+  border-radius: 44px;
+  box-shadow: 0 0 0 8px #23242b, 0 24px 64px rgba(0,0,0,0.45);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ノッチ表示 */
+.phone-notch {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 126px;
+  height: 34px;
+  background: #23242b;
+  border-radius: 0 0 20px 20px;
+  z-index: 200;
+}
+
+.phone-inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-top: 10px; /* ノッチ下スペース */
+}
+
+/* ---- モバイル: .app のオーバーライド ---- */
+.phone-inner .app {
+  height: 100%;
+  min-height: 844px;
+  overflow: hidden;
+  flex-direction: column;
+  position: relative;
+}
+
+/* ---- モバイル: サイドバーは画面外(デフォルト非表示) ---- */
+.phone-inner .sidebar {
+  display: none; /* ≤680px では非表示、オーバーレイで出す */
+}
+
+/* ---- モバイル: 右パネルも非表示 ---- */
+.phone-inner .panel {
+  display: none;
+}
+
+/* ---- モバイル: ワークスペースが100%幅 ---- */
+.phone-inner .workspace {
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 56px; /* ボトムバー分のスペース */
+}
+
+/* ---- モバイルヘッダ: ハンバーガー追加 ---- */
+.phone-inner .editor-header {
+  padding: 10px 14px;
+  gap: 8px;
+}
+
+/* ハンバーガー(モバイル専用) */
+.mobile-menu-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.mobile-menu-btn:hover { background: var(--bg-hover); color: var(--text); }
+.mobile-menu-btn svg { width: 20px; height: 20px; }
+
+/* ---- モバイル: パンくず ellipsis ---- */
+.phone-inner .route-crumbs {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: block; /* flex をやめて block にして ellipsis を効かせる */
+  line-height: 1.4;
+  padding: 2px 0;
+}
+.phone-inner .route-crumbs .route-token {
+  font-size: 11px;
+}
+.phone-inner .route-crumbs .current {
+  font-size: 13px;
+}
+
+/* ---- モバイル: エディタ本文の読みやすさ最適化 ---- */
+.phone-inner .cm-scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 20px 0 40px;
+}
+
+.phone-inner .cm-editor {
+  max-width: 100%;
+  padding: 0 16px; /* 32px→16px に縮小 (AC-Sa6c3b0-3-1) */
+  font-size: 16px; /* iOS Safari 自動ズーム抑制 (AC-Sa6c3b0-3-2) */
+  line-height: 1.8;
+}
+
+/* ---- モバイル: タッチターゲット 44px (AC-Sa6c3b0-2) ---- */
+.phone-inner .icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+}
+.phone-inner .icon-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ---- 保存ステータス: モバイルでは省略 ---- */
+.phone-inner .save-status span:last-child {
+  display: none; /* テキスト非表示、ドットのみ */
+}
+
+/* ---- PWA インストールプロンプトカード ---- */
+.pwa-install-prompt {
+  margin: 0 12px 12px;
+  background: var(--bg-editor);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  padding: 14px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.pwa-install-prompt .pwa-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #7c66db, #5b4bb8);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.pwa-install-prompt .pwa-text {
+  flex: 1;
+  min-width: 0;
+}
+.pwa-install-prompt .pwa-text strong {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.pwa-install-prompt .pwa-text span {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.pwa-install-prompt .pwa-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.pwa-install-btn {
+  font-size: 12.5px;
+  font-weight: 700;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 14px;
+  white-space: nowrap;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.pwa-install-btn:hover { background: var(--accent-hover); }
+.pwa-dismiss-btn {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  text-align: center;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+.pwa-dismiss-btn:hover { background: var(--bg-hover); color: var(--text-muted); }
+
+/* ---- proto-note モバイル調整 ---- */
+.phone-inner .proto-note {
+  margin: 8px 0;
+  font-size: 11.5px;
+}
+
+/* ---- 説明バナー (プロトタイプ専用) ---- */
+.proto-label-banner {
+  background: #23242b;
+  color: #ececf4;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: center;
+  padding: 7px 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  letter-spacing: 0.03em;
+}
+.proto-label-banner .dim { color: #61616e; font-weight: 400; }
+
+.desktop-note {
+  max-width: 390px;
+  margin: 0 auto 20px;
+  font-size: 12px;
+  color: #555;
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* =====================================================================
+   ボトムナビゲーションバー (Sa6c3b0-6)
+   ===================================================================== */
+.mobile-bottom-nav {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: var(--bg-editor);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: stretch;
+  z-index: 90;
+}
+
+.mobile-nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 44px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 0;
+  padding: 6px 4px 4px;
+}
+.mobile-nav-item:hover { background: var(--bg-hover); }
+.mobile-nav-item.active {
+  color: var(--accent);
+}
+.mobile-nav-item svg {
+  width: 22px;
+  height: 22px;
+}
+.mobile-nav-item .nav-label {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* エージェントアイコンのアクセント色 */
+.mobile-nav-item.agent-item {
+  color: var(--text-muted);
+}
+.mobile-nav-item.agent-item:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- プロトタイプ注釈 -->
+<div style="position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:999;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;">
+  <div class="proto-label-banner">
+    モバイル閲覧 — 390px フォン枠表示 <span class="dim">(Sa6c3b0-1/2/3/4/6)</span>
+  </div>
+  <p class="desktop-note">サイドバー: 非表示 / ワークスペース: 100%幅 / フォント: 16px / パンくず: ellipsis<br>PWA インストールプロンプト表示中 / ボトムバー: 📄ノート / 🔍検索 / 🤖Agent</p>
+</div>
+
+<!-- フォン枠 -->
+<div class="phone-frame">
+  <div class="phone-notch"></div>
+  <div class="phone-inner">
+    <div class="app">
+
+      <!-- サイドバーはモバイルで非表示 (AC-Sa6c3b0-1-1) -->
+      <!-- sidebar は CSS で display:none -->
+
+      <!-- ========================= 中央: ワークスペース ========================= -->
+      <main class="workspace">
+
+        <!-- モバイルヘッダ: ハンバーガー + パンくず + アクション -->
+        <div class="editor-header">
+
+          <!-- ハンバーガーボタン (AC-Sa6c3b0-1-2) -->
+          <button class="mobile-menu-btn" data-testid="sidebar-toggle" aria-label="サイドバーを開く" title="メニューを開く">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+              <path d="M3 5h14M3 10h14M3 15h14"/>
+            </svg>
+          </button>
+
+          <!-- パンくず: ellipsis (AC-Sa6c3b0-3-5) -->
+          <nav class="route-crumbs" data-testid="route-display" aria-label="現在のルート">
+            <span class="route-token">/n/</span><!-- --><span>議事録</span><span class="sep">/</span><span class="current">議事録 2026-07-10</span>
+          </nav>
+
+          <!-- 保存ステータス(ドットのみ) -->
+          <div class="save-status" data-testid="save-status" data-state="saved">
+            <span class="dot"></span>
+            <span>保存済み</span>
+          </div>
+
+          <!-- 縦点々メニュー -->
+          <button class="icon-btn" data-testid="editor-more-menu" aria-label="その他のオプション" title="その他">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+              <circle cx="8" cy="3.5" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="8" cy="12.5" r="1"/>
+            </svg>
+          </button>
+
+        </div>
+
+        <!-- エディタ本文: 閲覧最適化 16px / padding 16px (AC-Sa6c3b0-3-1/3-2) -->
+        <div class="cm-scroll">
+          <div class="cm-editor" data-testid="editor">
+
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h1">議事録 2026-07-10</span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content"><strong class="md-bold">日時:</strong> 2026年7月10日(木) 14:00〜15:30</span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content"><strong class="md-bold">場所:</strong> 第2会議室 / オンライン併用</span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content"><strong class="md-bold">参加者:</strong> 辻下、田中、佐藤、山田(オンライン)</span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h2">アジェンダ</span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">1.</span><span>前回アクションの確認</span></span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">2.</span><span><span class="wikilink" data-testid="wikilink" data-target="projects/プロジェクト計画.md">プロジェクト計画</span> 進捗共有</span></span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">3.</span><span>次期リリーススコープの合意</span></span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h2">決定事項</span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">•</span><span>モバイル対応は 7月末リリースに含める</span></span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">•</span><span>PWA インストール体験のデザインレビューを来週実施</span></span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">•</span><span>API レート制限の緩和は <span class="wikilink" data-testid="wikilink" data-target="projects/バックエンド設計.md">バックエンド設計</span> と合わせて検討</span></span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h2">アクションアイテム</span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><button class="task-checkbox checked" aria-label="完了"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg></button><span class="task-done">レスポンシブ CSS ブレークポイントの実装 (担当: 辻下 / 期日: 7/17)</span></span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><button class="task-checkbox" aria-label="未完了"></button><span>manifest.json と Service Worker の作成 (担当: 田中 / 期日: 7/18)</span></span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><button class="task-checkbox" aria-label="未完了"></button><span>Lighthouse PWA 監査の実施 (担当: 佐藤 / 期日: 7/22)</span></span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h2">次回</span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content">2026年7月17日(木) 14:00〜 / <span class="wikilink" data-testid="wikilink" data-target="journals/2026-07-17.md">2026-07-17</span> のジャーナルに続報を記録予定。</span></div>
+
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+
+            <div class="proto-note">
+              <span class="tag">PROTO</span>
+              <strong>AC-Sa6c3b0-3</strong>: cm-editor padding 16px、font-size 16px。iOS で自動ズームしない。<br>
+              <strong>AC-Sa6c3b0-1-1</strong>: .sidebar/.panel は display:none / .workspace は width:100%。<br>
+              <strong>AC-Sa6c3b0-2</strong>: icon-btn のタップ領域 44px 以上。<br>
+              <strong>Sa6c3b0-6</strong>: ボトムバー(ノート/検索/Agent) + Agent シートは mobile-agent.html へ。
+            </div>
+
+          </div>
+        </div>
+
+        <!-- PWA インストールプロンプト (AC-Sa6c3b0-4) -->
+        <div class="pwa-install-prompt" data-testid="pwa-install-prompt" role="dialog" aria-label="Loamium をホーム画面に追加">
+          <div class="pwa-icon" aria-hidden="true">L</div>
+          <div class="pwa-text">
+            <strong>ホーム画面に追加</strong>
+            <span>Loamium をアプリとして使えます。オフラインでも UI が表示されます。</span>
+          </div>
+          <div class="pwa-actions">
+            <button class="pwa-install-btn" data-testid="pwa-install-btn" aria-label="ホーム画面に追加する">
+              追加
+            </button>
+            <button class="pwa-dismiss-btn" data-testid="pwa-dismiss-btn" aria-label="後で">
+              後で
+            </button>
+          </div>
+        </div>
+
+        <!-- ========================= ボトムナビゲーションバー ========================= -->
+        <nav class="mobile-bottom-nav" data-testid="mobile-bottom-nav" aria-label="メインナビゲーション">
+
+          <!-- ノート (現在アクティブ) -->
+          <button class="mobile-nav-item active" data-testid="mobile-nav-notes" aria-label="ノート" aria-current="page">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+            <span class="nav-label">ノート</span>
+          </button>
+
+          <!-- 検索 -->
+          <button class="mobile-nav-item" data-testid="mobile-nav-search" aria-label="検索">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="7"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <span class="nav-label">検索</span>
+          </button>
+
+          <!-- Agent -->
+          <button class="mobile-nav-item agent-item" data-testid="mobile-nav-agent" aria-label="Agent を開く" onclick="location.href='mobile-agent.html'">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0110 0v4"/>
+              <circle cx="12" cy="16" r="1" fill="currentColor"/>
+            </svg>
+            <span class="nav-label">Agent</span>
+          </button>
+
+        </nav>
+
+      </main><!-- /workspace -->
+
+    </div><!-- /app -->
+  </div><!-- /phone-inner -->
+</div><!-- /phone-frame -->
+
+<!-- プロトタイプチップ -->
+<a class="proto-chip" href="index.html">← 一覧へ</a>
+
+</body>
+</html>

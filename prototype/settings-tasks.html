@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loamium — タスク語彙設定 (Se3b7a2-8)</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+/* ==== タスク語彙設定画面 (Se3b7a2-8 / ADR-0026) ==== */
+
+/* ---- 設定ビューシェル (settings.html から流用) ---- */
+.settings-view { display: flex; flex: 1; min-height: 0; background: var(--bg-editor); }
+.settings-nav {
+  width: 210px; flex-shrink: 0; border-right: 1px solid var(--border);
+  background: var(--bg-panel); padding: 14px 8px; display: flex; flex-direction: column; gap: 2px;
+}
+.settings-nav .nav-title {
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--text-faint); padding: 6px 10px 8px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 8px 10px; border: none; background: none; border-radius: 7px;
+  font-size: 13px; color: var(--text); cursor: pointer; text-align: left;
+}
+.nav-item:hover { background: var(--bg-hover); }
+.nav-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.nav-item :where(svg) { width: 16px; height: 16px; flex-shrink: 0; }
+.settings-nav .nav-sep { height: 1px; background: var(--border); margin: 10px 6px; }
+.settings-link {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 7px 10px; border: none; background: none; border-radius: 7px;
+  font-size: 12.5px; color: var(--text-muted); cursor: pointer; text-align: left;
+}
+.settings-link:hover { background: var(--bg-hover); color: var(--text); }
+.settings-link :where(svg) { width: 15px; height: 15px; flex-shrink: 0; }
+.settings-link .ext { margin-left: auto; color: var(--text-faint); }
+.settings-link .ext :where(svg) { width: 13px; height: 13px; }
+
+.settings-main { flex: 1; overflow-y: auto; padding: 24px 28px; min-width: 0; }
+.settings-head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.settings-head h1 { font-size: 20px; margin: 0; }
+.settings-head .settings-status {
+  margin-left: auto; font-size: 12px; color: var(--ok);
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.settings-head .settings-status[data-state="idle"] { color: var(--text-faint); }
+.settings-head .settings-status :where(svg) { width: 14px; height: 14px; }
+.settings-sub { color: var(--text-muted); font-size: 13px; margin: 0 0 22px; line-height: 1.7; }
+.settings-sub code {
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--accent);
+  background: var(--accent-soft); padding: 1px 5px; border-radius: 4px;
+}
+
+.btn {
+  font: inherit; font-size: 13px; font-weight: 600; padding: 7px 15px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border-strong); background: var(--bg-editor); color: var(--text);
+}
+.btn:hover { background: var(--bg-hover); }
+.btn.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.btn-primary:hover { background: var(--accent-hover); }
+.btn.btn-sm { font-size: 12px; padding: 4px 11px; }
+.btn.btn-ghost { border: none; background: none; color: var(--accent); padding: 5px 8px; }
+.btn.btn-ghost:hover { background: var(--accent-soft); }
+.btn.btn-danger-ghost { border: none; background: none; color: var(--danger); padding: 5px 8px; }
+.btn.btn-danger-ghost:hover { background: var(--danger-soft); }
+
+.settings-actions { display: flex; gap: 10px; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border); }
+
+/* ---- タスク語彙エディタ ---------------------------------------- */
+
+.vocab-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .vocab-layout { grid-template-columns: 1fr; }
+}
+
+/* ---- vocab section card ---- */
+.vocab-section {
+  margin-bottom: 28px;
+}
+.vocab-section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.vocab-section-head h2 {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 0;
+  flex: 1;
+}
+.vocab-section-head .section-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-faint);
+  background: var(--bg-hover);
+  border-radius: 9px;
+  padding: 1px 8px;
+}
+
+/* ---- vocab table ---- */
+.vocab-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.vocab-table th {
+  text-align: left;
+  padding: 7px 12px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border-strong);
+  white-space: nowrap;
+}
+.vocab-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.vocab-table tbody tr:last-child td { border-bottom: none; }
+.vocab-table tbody tr:hover td { background: var(--bg-panel); }
+
+/* drag handle */
+.drag-handle {
+  color: var(--text-faint);
+  cursor: grab;
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.5;
+}
+.drag-handle:hover { opacity: 1; }
+.drag-handle :where(svg) { width: 14px; height: 14px; }
+.vocab-table tbody tr:hover .drag-handle { opacity: 0.8; }
+
+/* key cell */
+.vocab-key-cell input {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg-app);
+  color: var(--text);
+  width: 90px;
+}
+.vocab-key-cell input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+
+/* label cell */
+.vocab-label-cell input {
+  font-size: 13px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg-app);
+  color: var(--text);
+  width: 100%;
+  box-sizing: border-box;
+}
+.vocab-label-cell input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+
+/* color swatch cell */
+.color-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.color-swatch {
+  width: 20px; height: 20px;
+  border-radius: 5px;
+  border: 1.5px solid rgba(0,0,0,0.08);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.color-picker-input {
+  width: 32px; height: 32px;
+  border: none; border-radius: 6px;
+  background: none; cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  position: absolute;
+}
+.color-cell-wrap { position: relative; width: 20px; height: 20px; }
+
+/* done toggle */
+.done-toggle-cell {
+  text-align: center;
+}
+.switch-sm {
+  position: relative; width: 34px; height: 20px; flex-shrink: 0;
+  background: var(--border-strong); border-radius: 10px; border: none; cursor: pointer; transition: background .15s;
+  display: inline-flex; align-items: center;
+}
+.switch-sm::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+.switch-sm[aria-checked="true"] { background: var(--ok); }
+.switch-sm[aria-checked="true"]::after { transform: translateX(14px); }
+
+/* row actions */
+.row-actions-cell {
+  white-space: nowrap;
+  text-align: right;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+.vocab-table tbody tr:hover .row-actions-cell { opacity: 1; }
+.row-del-btn {
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-faint);
+  background: none; border: none; cursor: pointer;
+}
+.row-del-btn:hover { background: var(--danger-soft); color: var(--danger); }
+.row-del-btn :where(svg) { width: 13px; height: 13px; }
+
+/* add row */
+.vocab-add-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.vocab-add-row .btn { flex-shrink: 0; }
+
+/* preview pill */
+.pill-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 12px;
+  padding: 2px 10px 2px 8px;
+  white-space: nowrap;
+}
+.pill-preview .dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+}
+
+/* ---- YAML preview panel ---- */
+.yaml-preview-panel {
+  position: sticky;
+  top: 20px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.yaml-preview-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-editor);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.yaml-preview-head .yaml-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.yaml-preview-head .yaml-path {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-faint);
+  margin-left: auto;
+}
+.yaml-body {
+  overflow-x: auto;
+  padding: 12px 14px;
+  max-height: 540px;
+  overflow-y: auto;
+}
+.yaml-body pre {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--text);
+  white-space: pre;
+}
+/* YAML syntax highlight tokens */
+.yk  { color: #8250df; }    /* key */
+.ys  { color: #0550ae; }    /* string value */
+.yb  { color: #d64545; }    /* bool true */
+.yc  { color: var(--text-faint); font-style: italic; }  /* comment */
+.yn  { color: #0550ae; }    /* null/number */
+
+.yaml-note {
+  padding: 8px 13px 10px;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  line-height: 1.65;
+  border-top: 1px solid var(--border);
+  background: var(--bg-editor);
+}
+.yaml-note code {
+  font-family: var(--font-mono); font-size: 10.5px;
+  background: var(--code-bg); border-radius: 3px; padding: 0 4px;
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ================= 左: サイドバー ================= -->
+  <aside class="sidebar" data-testid="sidebar">
+    <div class="sidebar-header">
+      <div class="vault-badge">L</div>
+      <div class="vault-name">loamium-notes</div>
+      <button class="icon-btn" data-testid="sidebar-search" title="検索 (Ctrl+K)">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M14 14l-3.5-3.5"/></svg>
+      </button>
+      <button class="icon-btn active" data-testid="sidebar-settings" title="設定" aria-current="page">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v1.6M8 12.9v1.6M2.7 4.7l1.4.8M11.9 10.5l1.4.8M2.7 11.3l1.4-.8M11.9 5.5l1.4-.8"/></svg>
+      </button>
+    </div>
+    <div class="tree-section-title">Notes</div>
+    <div class="tree" data-testid="file-tree">
+      <button class="tree-item" data-testid="tree-item">2026-07-19.md</button>
+      <button class="tree-item" data-testid="tree-item">Hydra 設計メモ.md</button>
+      <button class="tree-item" data-testid="tree-item">週次レビュー.md</button>
+    </div>
+  </aside>
+
+  <!-- ================= 設定ビュー ================= -->
+  <main class="workspace">
+    <div class="settings-view" data-testid="settings-tasks" role="region" aria-label="タスク語彙設定">
+
+      <!-- 左ナビ -->
+      <nav class="settings-nav" data-testid="settings-nav" aria-label="設定カテゴリ">
+        <div class="nav-title">設定</div>
+        <button class="nav-item" data-testid="settings-nav-item" data-group="general" onclick="location.href='settings.html'">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><path d="M2.5 6.5h11"/></svg>
+          全体
+        </button>
+        <button class="nav-item" data-testid="settings-nav-item" data-group="agent" onclick="location.href='settings.html'">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4.5" width="10" height="8" rx="2"/><path d="M8 4.5V2.5M6 8.5h.01M10 8.5h.01"/></svg>
+          エージェント
+        </button>
+        <button class="nav-item" data-testid="settings-nav-item" data-group="privacy" onclick="location.href='settings.html'">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2l5 2v4c0 3-2.2 5-5 6-2.8-1-5-3-5-6V4z"/></svg>
+          プライバシー
+        </button>
+
+        <div class="nav-sep"></div>
+        <div class="nav-title">コンテンツ管理</div>
+
+        <!-- アクティブ項目 -->
+        <button class="nav-item active" data-testid="settings-nav-item" data-group="tasks">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="11" height="11" rx="2.2"/><path d="M5 8l2.2 2.2L11 5.5"/></svg>
+          タスク語彙
+        </button>
+
+        <a class="settings-link" data-testid="settings-link" data-target="templates" href="settings-hub.html">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><path d="M5 6h6M5 8.5h6M5 11h3.5"/></svg>
+          テンプレート<span class="ext"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3h7v7M13 3l-8 8"/></svg></span>
+        </a>
+        <a class="settings-link" data-testid="settings-link" data-target="smart-folders" href="claude-sidebar.html">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 5.5l1-2h3l1 1.5h5v6a1.5 1.5 0 01-1.5 1.5h-8A1.5 1.5 0 011 11z"/></svg>
+          スマートフォルダ<span class="ext"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3h7v7M13 3l-8 8"/></svg></span>
+        </a>
+        <a class="settings-link" data-testid="settings-link" data-target="commands" href="command-editor.html">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5l2.5 3L4 11M8.5 11h3.5"/></svg>
+          スマートコマンド<span class="ext"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3h7v7M13 3l-8 8"/></svg></span>
+        </a>
+      </nav>
+
+      <!-- 右: 設定メイン -->
+      <div class="settings-main">
+        <div class="settings-head">
+          <h1>タスク語彙設定</h1>
+          <span class="settings-status" data-testid="settings-status" data-state="idle">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>
+            保存済み
+          </span>
+        </div>
+        <p class="settings-sub">
+          タスクの <strong>ステータス</strong> と <strong>優先度</strong> の語彙を定義します —
+          <code>system/settings.yaml</code> の <code>tasks:</code> ブロックに保存され、
+          スラッシュメニューの <em>タスク / TODO</em> ポップオーバーや Dataview の列ヘッダー・ピル表示で使われます。
+        </p>
+
+        <!-- ======= 2カラム: 左=エディタ / 右=YAMLプレビュー ======= -->
+        <div class="vocab-layout">
+
+          <!-- === 左: 語彙エディタ === -->
+          <div>
+
+            <!-- ---- ステータス ---- -->
+            <div class="vocab-section">
+              <div class="vocab-section-head">
+                <h2>ステータス</h2>
+                <span class="section-count" id="status-count">5 件</span>
+              </div>
+
+              <table class="vocab-table" id="status-table">
+                <thead>
+                  <tr>
+                    <th style="width:22px;"></th>
+                    <th style="width:100px;">key</th>
+                    <th>ラベル</th>
+                    <th style="width:60px;">カラー</th>
+                    <th style="width:64px;">完了扱い</th>
+                    <th style="width:36px;"></th>
+                  </tr>
+                </thead>
+                <tbody id="status-rows">
+                  <!-- todo -->
+                  <tr data-testid="task-status-row" data-key="todo">
+                    <td><span class="drag-handle" title="ドラッグで並び替え"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4h6M5 8h6M5 12h6"/></svg></span></td>
+                    <td class="vocab-key-cell"><input type="text" value="todo" aria-label="key" data-field="key"></td>
+                    <td class="vocab-label-cell"><input type="text" value="TODO" aria-label="ラベル" data-field="label"></td>
+                    <td>
+                      <div class="color-cell">
+                        <div class="color-cell-wrap">
+                          <div class="color-swatch" style="background:#a3a4ad;" data-color="#a3a4ad" title="カラーを変更"></div>
+                          <input type="color" class="color-picker-input" value="#a3a4ad" aria-label="カラー選択">
+                        </div>
+                        <span class="pill-preview" style="background:#f0f0f3; color:#45464f;">
+                          <span class="dot" style="background:#a3a4ad;"></span>TODO
+                        </span>
+                      </div>
+                    </td>
+                    <td class="done-toggle-cell">
+                      <button class="switch-sm" role="switch" aria-checked="false" data-testid="task-status-done-toggle" aria-label="完了扱い" title="done:true — このステータスは完了チェックボックス [x] として扱われます"></button>
+                    </td>
+                    <td class="row-actions-cell">
+                      <button class="row-del-btn" title="削除" aria-label="このステータスを削除">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+                      </button>
+                    </td>
+                  </tr>
+                  <!-- progress -->
+                  <tr data-testid="task-status-row" data-key="progress">
+                    <td><span class="drag-handle" title="ドラッグで並び替え"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4h6M5 8h6M5 12h6"/></svg></span></td>
+                    <td class="vocab-key-cell"><input type="text" value="progress" aria-label="key" data-field="key"></td>
+                    <td class="vocab-label-cell"><input type="text" value="進行中" aria-label="ラベル" data-field="label"></td>
+                    <td>
+                      <div class="color-cell">
+                        <div class="color-cell-wrap">
+                          <div class="color-swatch" style="background:#6e56cf;" data-color="#6e56cf" title="カラーを変更"></div>
+                          <input type="color" class="color-picker-input" value="#6e56cf" aria-label="カラー選択">
+                        </div>
+                        <span class="pill-preview" style="background:#f0edfb; color:#5f48be;">
+                          <span class="dot" style="background:#6e56cf;"></span>進行中
+                        </span>
+                      </div>
+                    </td>
+                    <td class="done-toggle-cell">
+                      <button class="switch-sm" role="switch" aria-checked="false" data-testid="task-status-done-toggle" aria-label="完了扱い" title="done:true — このステータスは完了チェックボックス [x] として扱われます"></button>
+                    </td>
+                    <td class="row-actions-cell">
+                      <button class="row-del-btn" title="削除" aria-label="このステータスを削除">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+                      </button>
+                    </td>
+                  </tr>
+                  <!-- blocked -->
+                  <tr data-testid="task-status-row" data-key="blocked">
+                    <td><span class="drag-handle" title="ドラッグで並び替え"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4h6M5 8h6M5 12h6"/></svg></span></td>
+                    <td class="vocab-key-cell"><input type="text" value="blocked" aria-label="key" data-field="key"></td>
+                    <td class="vocab-label-cell"><input type="text" value="ブロック" aria-label="ラベル" data-field="label"></td>
+                    <td>
+                      <div class="color-cell">
+                        <div class="color-cell-wrap">
+                          <div class="color-swatch" style="background:#d64545;" data-color="#d64545" title="カラーを変更"></div>
+                          <input type="color" class="color-picker-input" value="#d64545" aria-label="カラー選択">
+                        </div>
+                        <span class="pill-preview" style="background:#fdf0f0; color:#b03030;">
+                          <span class="dot" style="background:#d64545;"></span>ブロック
+                        </span>
+                      </div>
+                    </td>
+                    <td class="done-toggle-cell">
+                      <button class="switch-sm" role="switch" aria-checked="false" data-testid="task-status-done-toggle" aria-label="完了扱い"></button>
+                    </td>
+                    <td class="row-actions-cell">
+                      <button class="row-del-btn" title="削除" aria-label="このステータスを削除">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+                      </button>
+                    </td>
+                  </tr>
+                  <!-- done -->
+                  <tr data-testid="task-status-row" data-key="done">
+                    <td><span class="drag-handle" title="ドラッグで並び替え"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4h6M5 8h6M5 12h6"/></svg></span></td>
+                    <td class="vocab-key-cell"><input type="text" value="done" aria-label="key" data-field="key"></td>
+                    <td class="vocab-label-cell"><input type="text" value="完了" aria-label="ラベル" data-field="label"></td>
+                    <td>
+                      <div class="color-cell">
+                        <div class="color-cell-wrap">
+                          <div class="color-swatch" style="background:#2f9e63;" data-color="#2f9e63" title="カラーを変更"></div>
+                          <input type="color" class="color-picker-input" value="#2f9e63" aria-label="カラー選択">
+                        </div>
+                        <span class="pill-preview" style="background:#e8f5ee; color:#1f7a4d;">
+                          <span class="dot" style="background:#2f9e63;"></span>完了
+                        </span>
+                      </div>
+                    </td>
+                    <td class="done-toggle-cell">
+                      <!-- done:true — maps to [x] checkbox -->
+                      <button class="switch-sm" role="switch" aria-checked="true" data-testid="task-status-done-toggle" aria-label="完了扱い" title="done:true — [x] チェックボックスとして書き込まれます"></button>
+                    </td>
+                    <td class="row-actions-cell">
+                      <button class="row-del-btn" title="削除" aria-label="このステータスを削除">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+                      </button>
+                    </td>
+                  </tr>
+                  <!-- cancelled -->
+                  <tr data-testid="task-status-row" data-key="cancelled">
+                    <td><span class="drag-handle" title="ドラッグで並び替え"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4h6M5 8h6M5 12h6"/></svg></span></td>
+                    <td class="vocab-key-cell"><input type="text" value="cancelled" aria-label="key" data-field="key"></td>
+                    <td class="vocab-label-cell"><input type="text" value="キャンセル" aria-label="ラベル" data-field="label"></td>
+                    <td>
+                      <div class="color-cell">
+                        <div class="color-cell-wrap">
+                          <div class="color-swatch" style="background:#75767f;" data-color="#75767f" title="カラーを変更"></div>
+                          <input type="color" class="color-picker-input" value="#75767f" aria-label="カラー選択">
+                        </div>
+                        <span class="pill-preview" style="background:#f0f0f3; color:#55565f;">
+                          <span class="dot" style="background:#75767f;"></span>キャンセル
+                        </span>
+                      </div>
+                    </td>
+                    <td class="done-toggle-cell">
+                      <button class="switch-sm" role="switch" aria-checked="false" data-testid="task-status-done-toggle" aria-label="完了扱い"></button>
+                    </td>
+                    <td class="row-actions-cell">
+                      <button class="row-del-btn" title="削除" aria-label="このステータスを削除">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div class="vocab-add-row">
+                <button class="btn btn-sm" data-testid="task-status-add" id="status-add-btn">
+                  <svg style="width:13px;height:13px;vertical-align:-2px;" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+                  ステータスを追加
+                </button>
+                <span style="font-size:11.5px; color:var(--text-faint);">「完了扱い」ON のステータスは <code style="font-family:var(--font-mono);font-size:11px;">[x]</code> チェックボックスとして書き込まれます</span>
+              </div>
+            </div><!-- /vocab-section status -->
+
+            <!-- ---- 優先度 ---- -->
+            <div class="vocab-section">
+              <div class="vocab-section-head">
+                <h2>優先度</h2>
+                <span class="section-count" id="priority-count">4 件</span>
+              </div>
+
+              <table class="vocab-table" id="priority-table">
+                <thead>
+                  <tr>
+                    <th style="width:22px;"></th>
+                    <th style="width:100px;">key</th>
+                    <th>ラベル</th>
+                    <th style="width:60px;">カラー</th>
+                    <th style="width:36px;"></th>
+                  </tr>
+                </thead>
+                <tbody id="priority-rows">
+                  <!-- highest -->
+                  <tr data-testid="task-priority-row" data-key="highest">
+                    <td><span class="drag-handle" title="ドラッグで並び替え"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4h6M5 8h6M5 12h6"/></svg></span></td>
+                    <td class="vocab-key-cell"><input type="text" value="highest" aria-label="key" data-field="key"></td>
+                    <td class="vocab-label-cell"><input type="text" value="最高" aria-label="ラベル" data-field="label"></td>
+                    <td>
+                      <div class="color-cell">
+                        <div class="color-cell-wrap">
+                          <div class="color-swatch" style="background:#d64545;" data-color="#d64545"></div>
+                          <input type="color" class="color-picker-input" value="#d64545" aria-label="カラー選択">
+                        </div>
+                        <span class="pill-preview" style="background:#fdf0f0; color:#b03030;">
+                          <span class="dot" style="background:#d64545;"></span>最高
+                        </span>
+                      </div>
+                    </td>
+                    <td class="row-actions-cell">
+                      <button class="row-del-btn" title="削除" aria-label="この優先度を削除">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+                      </button>
+                    </td>
+                  </tr>
+                  <!-- high -->
+                  <tr data-testid="task-priority-row" data-key="high">
+                    <td><span class="drag-handle" title="ドラッグで並び替え"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4h6M5 8h6M5 12h6"/></svg></span></td>
+                    <td class="vocab-key-cell"><input type="text" value="high" aria-label="key" data-field="key"></td>
+                    <td class="vocab-label-cell"><input type="text" value="高" aria-label="ラベル" data-field="label"></td>
+                    <td>
+                      <div class="color-cell">
+                        <div class="color-cell-wrap">
+                          <div class="color-swatch" style="background:#e07c2e;" data-color="#e07c2e"></div>
+                          <input type="color" class="color-picker-input" value="#e07c2e" aria-label="カラー選択">
+                        </div>
+                        <span class="pill-preview" style="background:#fdf3e8; color:#b8631f;">
+                          <span class="dot" style="background:#e07c2e;"></span>高
+                        </span>
+                      </div>
+                    </td>
+                    <td class="row-actions-cell">
+                      <button class="row-del-btn" title="削除" aria-label="この優先度を削除">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+                      </button>
+                    </td>
+                  </tr>
+                  <!-- medium -->
+                  <tr data-testid="task-priority-row" data-key="medium">
+                    <td><span class="drag-handle" title="ドラッグで並び替え"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4h6M5 8h6M5 12h6"/></svg></span></td>
+                    <td class="vocab-key-cell"><input type="text" value="medium" aria-label="key" data-field="key"></td>
+                    <td class="vocab-label-cell"><input type="text" value="中" aria-label="ラベル" data-field="label"></td>
+                    <td>
+                      <div class="color-cell">
+                        <div class="color-cell-wrap">
+                          <div class="color-swatch" style="background:#b7791f;" data-color="#b7791f"></div>
+                          <input type="color" class="color-picker-input" value="#b7791f" aria-label="カラー選択">
+                        </div>
+                        <span class="pill-preview" style="background:#fdf6e9; color:#8a5a16;">
+                          <span class="dot" style="background:#b7791f;"></span>中
+                        </span>
+                      </div>
+                    </td>
+                    <td class="row-actions-cell">
+                      <button class="row-del-btn" title="削除" aria-label="この優先度を削除">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+                      </button>
+                    </td>
+                  </tr>
+                  <!-- low -->
+                  <tr data-testid="task-priority-row" data-key="low">
+                    <td><span class="drag-handle" title="ドラッグで並び替え"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4h6M5 8h6M5 12h6"/></svg></span></td>
+                    <td class="vocab-key-cell"><input type="text" value="low" aria-label="key" data-field="key"></td>
+                    <td class="vocab-label-cell"><input type="text" value="低" aria-label="ラベル" data-field="label"></td>
+                    <td>
+                      <div class="color-cell">
+                        <div class="color-cell-wrap">
+                          <div class="color-swatch" style="background:#2f9e63;" data-color="#2f9e63"></div>
+                          <input type="color" class="color-picker-input" value="#2f9e63" aria-label="カラー選択">
+                        </div>
+                        <span class="pill-preview" style="background:#e8f5ee; color:#1f7a4d;">
+                          <span class="dot" style="background:#2f9e63;"></span>低
+                        </span>
+                      </div>
+                    </td>
+                    <td class="row-actions-cell">
+                      <button class="row-del-btn" title="削除" aria-label="この優先度を削除">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div class="vocab-add-row">
+                <button class="btn btn-sm" data-testid="task-priority-add" id="priority-add-btn">
+                  <svg style="width:13px;height:13px;vertical-align:-2px;" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+                  優先度を追加
+                </button>
+              </div>
+            </div><!-- /vocab-section priority -->
+
+            <!-- アクションボタン -->
+            <div class="settings-actions">
+              <button class="btn btn-primary" data-testid="settings-save" data-group="tasks" onclick="saveVocab()">保存</button>
+              <button class="btn" data-testid="settings-reset" data-group="tasks" onclick="resetVocab()">元に戻す</button>
+            </div>
+
+            <div class="proto-note" style="margin-top:24px; --co:#6e56cf; --co-bg:#f0edfb;">
+              <strong>プロトタイプ注記 (Se3b7a2-8 / ADR-0026)</strong><br>
+              保存先: <code>system/settings.yaml</code> の <code>tasks:</code> ブロック(vault ファイル・agent 編集可)。
+              保存経路は型付き設定 API (zod + REST <code>PATCH /api/settings/tasks</code>)経由。
+              変更はスラッシュメニューポップオーバーと Dataview のピル表示にリアルタイム反映。
+              「完了扱い」ON のステータスのみ <code>[x]</code> チェックボックスとして書き込まれ、残りは <code>[ ]</code>。
+            </div>
+          </div><!-- /左カラム -->
+
+          <!-- === 右: YAML プレビューパネル === -->
+          <div>
+            <div class="yaml-preview-panel">
+              <div class="yaml-preview-head">
+                <span class="yaml-badge">YAML</span>
+                プレビュー(読み取り専用)
+                <span class="yaml-path">system/settings.yaml</span>
+              </div>
+              <div class="yaml-body">
+                <pre data-testid="tasks-yaml-preview" id="yaml-preview"><span class="yc"># system/settings.yaml — tasks section</span>
+<span class="yk">tasks:</span>
+
+  <span class="yk">statuses:</span>
+    - <span class="yk">key:</span>   <span class="ys">todo</span>
+      <span class="yk">label:</span> <span class="ys">TODO</span>
+      <span class="yk">color:</span> <span class="ys">'#a3a4ad'</span>
+    - <span class="yk">key:</span>   <span class="ys">progress</span>
+      <span class="yk">label:</span> <span class="ys">進行中</span>
+      <span class="yk">color:</span> <span class="ys">'#6e56cf'</span>
+    - <span class="yk">key:</span>   <span class="ys">blocked</span>
+      <span class="yk">label:</span> <span class="ys">ブロック</span>
+      <span class="yk">color:</span> <span class="ys">'#d64545'</span>
+    - <span class="yk">key:</span>   <span class="ys">done</span>
+      <span class="yk">label:</span> <span class="ys">完了</span>
+      <span class="yk">color:</span> <span class="ys">'#2f9e63'</span>
+      <span class="yk">done:</span>  <span class="yb">true</span>   <span class="yc"># → [x] checkbox</span>
+    - <span class="yk">key:</span>   <span class="ys">cancelled</span>
+      <span class="yk">label:</span> <span class="ys">キャンセル</span>
+      <span class="yk">color:</span> <span class="ys">'#75767f'</span>
+
+  <span class="yk">priorities:</span>
+    - <span class="yk">key:</span>   <span class="ys">highest</span>
+      <span class="yk">label:</span> <span class="ys">最高</span>
+      <span class="yk">color:</span> <span class="ys">'#d64545'</span>
+    - <span class="yk">key:</span>   <span class="ys">high</span>
+      <span class="yk">label:</span> <span class="ys">高</span>
+      <span class="yk">color:</span> <span class="ys">'#e07c2e'</span>
+    - <span class="yk">key:</span>   <span class="ys">medium</span>
+      <span class="yk">label:</span> <span class="ys">中</span>
+      <span class="yk">color:</span> <span class="ys">'#b7791f'</span>
+    - <span class="yk">key:</span>   <span class="ys">low</span>
+      <span class="yk">label:</span> <span class="ys">低</span>
+      <span class="yk">color:</span> <span class="ys">'#2f9e63'</span></pre>
+              </div>
+              <div class="yaml-note">
+                このプレビューは入力に連動してリアルタイム更新されます。
+                保存ボタンで <code>PATCH /api/settings/tasks</code> を呼び、このファイルに書き込まれます。
+              </div>
+            </div>
+          </div><!-- /右カラム -->
+
+        </div><!-- /vocab-layout -->
+      </div><!-- /settings-main -->
+    </div><!-- /settings-view -->
+  </main>
+</div>
+
+<a class="proto-chip" href="index.html">← プロトタイプ一覧</a>
+
+<script>
+  // ---- done-toggle switches ----
+  document.querySelectorAll('.switch-sm').forEach(function(s) {
+    s.addEventListener('click', function() {
+      var checked = s.getAttribute('aria-checked') === 'true';
+      s.setAttribute('aria-checked', checked ? 'false' : 'true');
+      updateYamlPreview();
+    });
+  });
+
+  // ---- color pickers ---- (simple native color input bound to swatch)
+  document.querySelectorAll('.color-cell-wrap').forEach(function(wrap) {
+    var swatch = wrap.querySelector('.color-swatch');
+    var picker = wrap.querySelector('.color-picker-input');
+    // click on swatch opens native color picker
+    swatch.addEventListener('click', function() { picker.click(); });
+    picker.addEventListener('input', function() {
+      swatch.style.background = picker.value;
+      // also update pill dot
+      var dot = wrap.closest('td').querySelector('.pill-preview .dot');
+      if (dot) dot.style.background = picker.value;
+      updateYamlPreview();
+    });
+  });
+
+  // ---- add row buttons (prototype: append a blank editable row) ----
+  document.getElementById('status-add-btn').addEventListener('click', function() {
+    var tbody = document.getElementById('status-rows');
+    var tr = document.createElement('tr');
+    tr.setAttribute('data-testid', 'task-status-row');
+    tr.setAttribute('data-key', '');
+    tr.innerHTML = '<td><span class="drag-handle" title="ドラッグで並び替え"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4h6M5 8h6M5 12h6"/></svg></span></td>' +
+      '<td class="vocab-key-cell"><input type="text" placeholder="new-status" aria-label="key" data-field="key"></td>' +
+      '<td class="vocab-label-cell"><input type="text" placeholder="新しいステータス" aria-label="ラベル" data-field="label"></td>' +
+      '<td><div class="color-cell">' +
+        '<div class="color-cell-wrap"><div class="color-swatch" style="background:#a3a4ad;"></div><input type="color" class="color-picker-input" value="#a3a4ad" aria-label="カラー選択"></div>' +
+        '<span class="pill-preview" style="background:#f0f0f3;color:#45464f;"><span class="dot" style="background:#a3a4ad;"></span>ラベル</span>' +
+      '</div></td>' +
+      '<td class="done-toggle-cell"><button class="switch-sm" role="switch" aria-checked="false" data-testid="task-status-done-toggle" aria-label="完了扱い"></button></td>' +
+      '<td class="row-actions-cell"><button class="row-del-btn" title="削除" aria-label="このステータスを削除"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></td>';
+    tbody.appendChild(tr);
+    // wire up the new row
+    wireRow(tr);
+    updateStatusCount();
+    updateYamlPreview();
+    tr.querySelector('input[data-field="key"]').focus();
+  });
+
+  document.getElementById('priority-add-btn').addEventListener('click', function() {
+    var tbody = document.getElementById('priority-rows');
+    var tr = document.createElement('tr');
+    tr.setAttribute('data-testid', 'task-priority-row');
+    tr.setAttribute('data-key', '');
+    tr.innerHTML = '<td><span class="drag-handle"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 4h6M5 8h6M5 12h6"/></svg></span></td>' +
+      '<td class="vocab-key-cell"><input type="text" placeholder="new-priority" aria-label="key" data-field="key"></td>' +
+      '<td class="vocab-label-cell"><input type="text" placeholder="新しい優先度" aria-label="ラベル" data-field="label"></td>' +
+      '<td><div class="color-cell">' +
+        '<div class="color-cell-wrap"><div class="color-swatch" style="background:#a3a4ad;"></div><input type="color" class="color-picker-input" value="#a3a4ad" aria-label="カラー選択"></div>' +
+        '<span class="pill-preview" style="background:#f0f0f3;color:#45464f;"><span class="dot" style="background:#a3a4ad;"></span>ラベル</span>' +
+      '</div></td>' +
+      '<td class="row-actions-cell"><button class="row-del-btn" title="削除" aria-label="この優先度を削除"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></td>';
+    tbody.appendChild(tr);
+    wireRow(tr);
+    updatePriorityCount();
+    updateYamlPreview();
+    tr.querySelector('input[data-field="key"]').focus();
+  });
+
+  // ---- wire delete + switch + color + input change for a row ----
+  function wireRow(tr) {
+    var delBtn = tr.querySelector('.row-del-btn');
+    if (delBtn) {
+      delBtn.addEventListener('click', function() {
+        tr.remove();
+        updateStatusCount();
+        updatePriorityCount();
+        updateYamlPreview();
+      });
+    }
+    var sw = tr.querySelector('.switch-sm');
+    if (sw) {
+      sw.addEventListener('click', function() {
+        sw.setAttribute('aria-checked', sw.getAttribute('aria-checked') === 'true' ? 'false' : 'true');
+        updateYamlPreview();
+      });
+    }
+    var colorWrap = tr.querySelector('.color-cell-wrap');
+    if (colorWrap) {
+      var swatch = colorWrap.querySelector('.color-swatch');
+      var picker = colorWrap.querySelector('.color-picker-input');
+      if (swatch && picker) {
+        swatch.addEventListener('click', function() { picker.click(); });
+        picker.addEventListener('input', function() {
+          swatch.style.background = picker.value;
+          var dot = colorWrap.closest('td').querySelector('.pill-preview .dot');
+          if (dot) dot.style.background = picker.value;
+          updateYamlPreview();
+        });
+      }
+    }
+    tr.querySelectorAll('input[data-field]').forEach(function(inp) {
+      inp.addEventListener('input', function() {
+        if (inp.dataset.field === 'key') {
+          tr.setAttribute('data-key', inp.value);
+          // update pill label
+          var labelInp = tr.querySelector('input[data-field="label"]');
+          if (labelInp) {
+            var pill = tr.querySelector('.pill-preview');
+            if (pill) pill.lastChild.textContent = labelInp.value || inp.value;
+          }
+        }
+        if (inp.dataset.field === 'label') {
+          var pill = tr.querySelector('.pill-preview');
+          if (pill) pill.lastChild.textContent = inp.value;
+        }
+        updateYamlPreview();
+      });
+    });
+  }
+
+  // Wire existing rows
+  document.querySelectorAll('#status-rows tr, #priority-rows tr').forEach(wireRow);
+
+  // ---- counts ----
+  function updateStatusCount() {
+    document.getElementById('status-count').textContent = document.querySelectorAll('#status-rows tr').length + ' 件';
+  }
+  function updatePriorityCount() {
+    document.getElementById('priority-count').textContent = document.querySelectorAll('#priority-rows tr').length + ' 件';
+  }
+
+  // ---- YAML preview rebuild ----
+  function updateYamlPreview() {
+    var lines = [];
+    lines.push('<span class="yc"># system/settings.yaml — tasks section</span>');
+    lines.push('<span class="yk">tasks:</span>');
+    lines.push('');
+    lines.push('  <span class="yk">statuses:</span>');
+    document.querySelectorAll('#status-rows tr').forEach(function(tr) {
+      var key   = (tr.querySelector('input[data-field="key"]') || {}).value || '';
+      var label = (tr.querySelector('input[data-field="label"]') || {}).value || '';
+      var color = (tr.querySelector('.color-swatch') || {}).style.background || '#a3a4ad';
+      var done  = (tr.querySelector('.switch-sm') || {}).getAttribute('aria-checked') === 'true';
+      lines.push('    - <span class="yk">key:</span>   <span class="ys">' + esc(key) + '</span>');
+      lines.push('      <span class="yk">label:</span> <span class="ys">' + esc(label) + '</span>');
+      lines.push('      <span class="yk">color:</span> <span class="ys">\'' + esc(color) + '\'</span>');
+      if (done) lines.push('      <span class="yk">done:</span>  <span class="yb">true</span>   <span class="yc"># → [x] checkbox</span>');
+    });
+    lines.push('');
+    lines.push('  <span class="yk">priorities:</span>');
+    document.querySelectorAll('#priority-rows tr').forEach(function(tr) {
+      var key   = (tr.querySelector('input[data-field="key"]') || {}).value || '';
+      var label = (tr.querySelector('input[data-field="label"]') || {}).value || '';
+      var color = (tr.querySelector('.color-swatch') || {}).style.background || '#a3a4ad';
+      lines.push('    - <span class="yk">key:</span>   <span class="ys">' + esc(key) + '</span>');
+      lines.push('      <span class="yk">label:</span> <span class="ys">' + esc(label) + '</span>');
+      lines.push('      <span class="yk">color:</span> <span class="ys">\'' + esc(color) + '\'</span>');
+    });
+    document.getElementById('yaml-preview').innerHTML = lines.join('\n');
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ---- save / reset (prototype stubs) ----
+  function saveVocab() {
+    var st = document.querySelector('[data-testid="settings-status"]');
+    if (st) {
+      st.setAttribute('data-state', 'ok');
+      st.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg> 保存済み';
+    }
+  }
+  function resetVocab() { location.reload(); }
+</script>
+</body>
+</html>

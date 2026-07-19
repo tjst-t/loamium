@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loamium — Dataview TASK 一覧: GFM チェックボックス + インラインフィールド</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+/* ================================================================
+   todo-dataview: Dataview TASK ツリー
+   - GFM チェックボックス (done-toggle のみ)
+   - status / priority / due は OPTIONAL インラインフィールド
+   - シンプルタスクはピルなし
+   - 展開トグルスロットで checkbox 列を常に揃える
+   ステータス/優先度の語彙は system/settings.yaml で定義(コード埋め込みなし)
+   ================================================================ */
+
+/* ---- 展開トグルスロット (固定幅。子なし行は空スペーサー) ---- */
+
+.dv-toggle-slot {
+  width: 20px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---- 展開トグルボタン ---- */
+
+.dv-task-expand {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  font-size: 9px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  user-select: none;
+}
+.dv-task-expand:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.dv-task-expand[data-expanded="true"] {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: var(--accent-soft);
+}
+
+/* ---- 丸チェックボックス (done toggle) ---- */
+
+.task-checkbox {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-editor);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+  user-select: none;
+}
+.task-checkbox:hover {
+  border-color: #16a34a;
+  background: #f0fdf4;
+}
+.task-checkbox[data-done="true"] {
+  border-color: #16a34a;
+  background: #16a34a;
+  color: #fff;
+}
+.task-checkbox[data-done="true"]:hover {
+  background: #15803d;
+  border-color: #15803d;
+}
+.task-checkbox svg {
+  width: 10px;
+  height: 10px;
+  display: none;
+  color: #fff;
+}
+.task-checkbox[data-done="true"] svg { display: block; }
+
+/* ---- ステータスピル (status inline field があるときのみ表示) ---- */
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  border-radius: 5px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+.status-pill[data-status="todo"]     { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+.status-pill[data-status="progress"] { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+.status-pill[data-status="blocked"]  { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+.status-pill[data-status="done"]     { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+
+/* ---- 優先度フラグ ---- */
+
+.dv-priority {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 5px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.dv-priority svg { width: 10px; height: 10px; }
+.dv-priority[data-priority="highest"] { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+.dv-priority[data-priority="high"]    { background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa; }
+.dv-priority[data-priority="medium"]  { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+.dv-priority[data-priority="low"]     { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
+
+/* ---- 期日チップ ---- */
+
+.dv-due {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 5px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+.dv-due svg { width: 10px; height: 10px; }
+.dv-due.dc-today   { background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa; }
+.dv-due.dc-tomorrow { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+.dv-due.dc-future  { background: var(--bg-panel); color: var(--text-muted); border: 1px solid var(--border); }
+.dv-due.dc-overdue { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; font-weight: 700; }
+
+/* ---- タスク行 (div[role="button"] — nested buttons を避けるため) ---- */
+
+.dv-task {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 5px 10px 5px 14px;
+  border-radius: 7px;
+  font-size: 13.5px;
+  cursor: pointer;
+  position: relative;
+}
+.dv-task:hover { background: var(--bg-hover); }
+
+/* ---- タスクテキスト ---- */
+
+.task-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.task-text.task-done {
+  color: var(--text-faint);
+  text-decoration: line-through;
+}
+
+/* ---- 子タスクコンテナ ---- */
+
+.dv-children {
+  overflow: hidden;
+}
+.dv-children[data-expanded="false"] { display: none; }
+.dv-children[data-expanded="true"]  { display: block; }
+
+/* ---- 子タスク行 ---- */
+
+.dv-task-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 4px 10px 4px 36px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  position: relative;
+  cursor: pointer;
+}
+/* 縦ガイドライン */
+.dv-task-child::before {
+  content: "";
+  position: absolute;
+  left: 22px;
+  top: 0; bottom: 0;
+  width: 1.5px;
+  background: var(--border);
+  border-radius: 1px;
+}
+.dv-task-child:hover { background: var(--bg-hover); color: var(--text); }
+.dv-task-child:hover .dv-task-src-note { opacity: 1; }
+
+/* 子行の丸チェックボックス (やや小さく) */
+.dv-task-child .task-checkbox {
+  width: 15px;
+  height: 15px;
+}
+.dv-task-child .task-checkbox svg { width: 8px; height: 8px; }
+
+/* ---- 編集ボタン (ホバーで出現) ---- */
+
+.dv-task-edit {
+  width: 22px; height: 22px;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.1s;
+  cursor: pointer;
+}
+.dv-task:hover .dv-task-edit,
+.dv-task-child:hover .dv-task-edit { opacity: 1; }
+.dv-task-edit:hover { background: var(--accent-soft); color: var(--accent); }
+.dv-task-edit svg { width: 12px; height: 12px; }
+
+/* ---- 子の件数バッジ (折りたたみ時) ---- */
+
+.dv-child-count {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-faint);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* ---- ソースノート名 (右端・ホバーで出現) ---- */
+
+.dv-task-src-note {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.dv-task-src-note svg { width: 10px; height: 10px; }
+.dv-task:hover .dv-task-src-note { opacity: 1; }
+
+/* ---- ポップオーバーラッパー ---- */
+
+.dv-task-popover-wrap { position: relative; }
+
+/* ---- クイック編集ポップオーバー ---- */
+
+.dv-task-popover {
+  position: absolute;
+  z-index: 50;
+  left: 14px;
+  top: calc(100% + 4px);
+  width: 296px;
+  background: var(--bg-editor);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.dvp-section {
+  padding: 12px 14px 10px;
+}
+.dvp-section + .dvp-section { border-top: 1px solid var(--border); }
+
+.dvp-section-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 8px;
+}
+
+/* ステータスオプションボタン群 */
+.dvp-status-opts {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.dvp-status-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 7px;
+  border: 1.5px solid;
+  transition: background 0.1s, border-color 0.1s;
+  cursor: pointer;
+}
+.dvp-status-opt[data-status="none"] {
+  background: var(--bg-panel); color: var(--text-muted); border-color: var(--border-strong);
+}
+.dvp-status-opt[data-status="none"]:hover,
+.dvp-status-opt[data-status="none"].active {
+  background: var(--bg-hover); border-color: var(--border-strong);
+}
+.dvp-status-opt[data-status="todo"] {
+  background: #f1f5f9; color: #64748b; border-color: #cbd5e1;
+}
+.dvp-status-opt[data-status="todo"]:hover,
+.dvp-status-opt[data-status="todo"].active {
+  background: #e2e8f0; border-color: #94a3b8;
+}
+.dvp-status-opt[data-status="progress"] {
+  background: #eff6ff; color: #2563eb; border-color: #93c5fd;
+}
+.dvp-status-opt[data-status="progress"]:hover,
+.dvp-status-opt[data-status="progress"].active {
+  background: #dbeafe; border-color: #3b82f6;
+}
+.dvp-status-opt[data-status="blocked"] {
+  background: #fef2f2; color: #dc2626; border-color: #fca5a5;
+}
+.dvp-status-opt[data-status="blocked"]:hover,
+.dvp-status-opt[data-status="blocked"].active {
+  background: #fee2e2; border-color: #ef4444;
+}
+.dvp-status-opt[data-status="done"] {
+  background: #f0fdf4; color: #16a34a; border-color: #86efac;
+}
+.dvp-status-opt[data-status="done"]:hover,
+.dvp-status-opt[data-status="done"].active {
+  background: #dcfce7; border-color: #22c55e;
+}
+.dvp-status-opt .so-glyph {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px; font-weight: 700;
+  flex-shrink: 0;
+}
+.dvp-status-opt[data-status="done"] .so-glyph { background: #16a34a; border-color: #16a34a; color: #fff; }
+.dvp-status-opt[data-status="none"] .so-glyph { border-color: var(--border-strong); background: transparent; color: transparent; }
+.dvp-so-check { display: none; }
+.dvp-status-opt.active .dvp-so-check { display: inline; margin-left: 2px; font-size: 10px; }
+
+/* 期日プリセット */
+.dvp-presets {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.dvp-preset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-panel);
+  color: var(--text-muted);
+  transition: background 0.1s, color 0.1s;
+  cursor: pointer;
+}
+.dvp-preset-btn:hover { background: var(--bg-hover); color: var(--text); }
+.dvp-preset-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.dvp-preset-btn svg { width: 12px; height: 12px; }
+
+/* 月グリッド */
+.dvp-calendar {
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  overflow: hidden;
+  background: var(--bg-panel);
+  margin-top: 2px;
+}
+.dvp-cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-editor);
+}
+.dvp-cal-header button {
+  width: 22px; height: 22px;
+  border-radius: 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.dvp-cal-header button:hover { background: var(--bg-hover); color: var(--text); }
+.dvp-cal-header svg { width: 12px; height: 12px; }
+.dvp-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  padding: 4px 6px 8px;
+}
+.dvp-cal-dow {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-faint);
+  padding: 3px 0;
+}
+.dvp-cal-day {
+  text-align: center;
+  font-size: 12px;
+  padding: 5px 3px;
+  border-radius: 5px;
+  cursor: pointer;
+  line-height: 1;
+  color: var(--text);
+}
+.dvp-cal-day:hover { background: var(--bg-hover); }
+.dvp-cal-day.today { font-weight: 700; color: var(--accent); }
+.dvp-cal-day.selected { background: var(--accent); color: #fff; }
+.dvp-cal-day.other-month { color: var(--text-faint); }
+
+/* 優先度オプション */
+.dvp-priority-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dvp-priority-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 5px 8px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.1s;
+  cursor: pointer;
+}
+.dvp-priority-opt:hover { background: var(--bg-hover); }
+.dvp-priority-opt.selected { background: var(--bg-active); }
+.dvp-priority-opt .pf-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  border: 2px solid;
+  flex-shrink: 0;
+}
+.dvp-priority-opt[data-val="highest"] .pf-dot { border-color: #dc2626; background: #dc2626; }
+.dvp-priority-opt[data-val="high"]    .pf-dot { border-color: #ea580c; background: #ea580c; }
+.dvp-priority-opt[data-val="medium"]  .pf-dot { border-color: #2563eb; background: #2563eb; }
+.dvp-priority-opt[data-val="low"]     .pf-dot { border-color: #94a3b8; background: #94a3b8; }
+.dvp-priority-opt[data-val="none"]    .pf-dot { border-color: var(--border-strong); background: transparent; }
+.dvp-priority-opt .check-mark { margin-left: auto; color: var(--accent); }
+.dvp-priority-opt .check-mark svg { width: 13px; height: 13px; }
+
+/* ポップオーバーフッター */
+.dvp-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 8px 14px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+/* ---- 409 エラーバナー ---- */
+.dv-patch-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 7px;
+  background: var(--danger-soft);
+  border: 1px solid #fecaca;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 600;
+  margin: 4px 10px;
+}
+.dv-patch-error svg { width: 14px; height: 14px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ================= 左: サイドバー ================= -->
+  <aside class="sidebar" data-testid="sidebar">
+    <div class="sidebar-header">
+      <div class="vault-badge">L</div>
+      <div class="vault-name">loamium-notes</div>
+      <button class="icon-btn" title="検索 (Ctrl+K)">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.4"/><path d="M10.4 10.4L14 14"/></svg>
+      </button>
+      <button class="icon-btn" title="設定">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4"/></svg>
+      </button>
+    </div>
+
+    <nav class="journal-nav" aria-label="ジャーナル">
+      <div class="journal-nav-label">Daily Journal</div>
+      <div class="journal-nav-row">
+        <button class="icon-btn" title="前日">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+        </button>
+        <button class="journal-date-btn">2026-07-19<span class="dow">日</span></button>
+        <button class="icon-btn" title="翌日">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>
+        </button>
+      </div>
+    </nav>
+
+    <div class="tree-section-title"><span>ノート</span></div>
+    <div class="tree">
+      <button class="tree-item active" data-path="プロジェクトハブ.md">
+        <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+        <span class="name">プロジェクトハブ</span>
+      </button>
+      <button class="tree-item" data-path="週次TODO.md">
+        <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+        <span class="name">週次TODO</span>
+      </button>
+      <button class="tree-item" data-path="projects/Loamium 開発ログ.md">
+        <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+        <span class="name">Loamium 開発ログ</span>
+      </button>
+      <button class="tree-item" data-path="projects/Hydra 移行手順.md">
+        <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+        <span class="name">Hydra 移行手順</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ================= 中央: エディタ ================= -->
+  <main class="workspace">
+    <div class="editor-header">
+      <div class="breadcrumb">
+        <span class="current">プロジェクトハブ</span>
+      </div>
+      <div class="save-status" data-testid="save-status" data-state="saved">
+        <span class="dot"></span><span>保存済み</span>
+      </div>
+    </div>
+
+    <div class="cm-scroll">
+      <div class="cm-editor" data-testid="editor">
+
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h1">プロジェクトハブ</span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h2">全タスク (TASK)</span></div>
+
+        <!-- ============================================================
+             dataview TASK フェンスウィジェット
+             TASK WHERE !completed SORT due ASC
+             ストレージ: - [ ] タスク [status:: progress] [priority:: high] [due:: 2026-07-25]
+             シンプルタスクは - [ ] 牛乳を買う (フィールドなし、ピルなし)
+             ステータス/優先度の語彙は system/settings.yaml で定義(コード埋め込みなし)
+             ============================================================ -->
+        <div class="fence-widget" data-testid="dataview-widget" data-query-type="task">
+          <div class="fence-bar">
+            <span class="lang">dataview</span>
+            <span class="dv-summary">TASK SORT due ASC · 13 件 · 5ms</span>
+          </div>
+
+          <!-- ────────────────────────────────────────
+               グループ 1: Hydra 移行手順
+               ──────────────────────────────────────── -->
+          <div class="dv-task-group">
+            <div class="dv-task-src">
+              <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+              Hydra 移行手順
+            </div>
+
+            <!-- 親タスク 1: 子あり → ▶ 折りたたみ。status=blocked / priority=highest / due=overdue -->
+            <div class="dv-task-popover-wrap">
+              <div class="dv-task"
+                   role="button" tabindex="0"
+                   data-testid="dv-task"
+                   data-path="projects/Hydra 移行手順.md"
+                   aria-label="DNS TTL を 300 秒へ短縮する">
+                <!-- 展開トグルスロット: 子あり → ▶ ボタン -->
+                <span class="dv-toggle-slot">
+                  <span class="dv-task-expand" data-testid="dv-task-expand" data-expanded="false" role="button" tabindex="0" aria-label="子タスクを展開">▶</span>
+                </span>
+                <!-- 丸チェックボックス (done toggle) -->
+                <span class="task-checkbox" data-testid="task-checkbox" data-done="false" role="checkbox" aria-checked="false" aria-label="完了にする">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+                </span>
+                <span class="task-text">DNS TTL を 300 秒へ短縮する</span>
+                <!-- status インラインフィールドあり → ピル表示 -->
+                <span class="status-pill" data-status="blocked" data-testid="status-pill">ブロック</span>
+                <span class="dv-due dc-overdue" data-testid="dv-due">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2.5" y="3" width="11" height="10.5" rx="2"/><path d="M2.5 7h11M5.5 1v3M10.5 1v3"/></svg>
+                  期限切れ 9日
+                </span>
+                <span class="dv-priority" data-priority="highest" data-testid="dv-priority">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10l-2 4 2 4H5v4H3z"/></svg>
+                  最高
+                </span>
+                <!-- 子の件数バッジ (折りたたみ時) -->
+                <span class="dv-child-count">子 2件</span>
+                <span class="dv-task-edit" data-testid="dv-task-edit" role="button" tabindex="0" title="ステータス・期限・優先度を編集" aria-label="タスクを編集">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5a1.414 1.414 0 012 2L5 13H3v-2L11.5 2.5z"/></svg>
+                </span>
+                <span class="dv-task-src-note">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+                  Hydra 移行手順
+                </span>
+              </div>
+
+              <!-- 子コンテナ: デフォルト折りたたみ -->
+              <div class="dv-children" data-expanded="false" data-testid="dv-task-children">
+                <!-- 子タスク 1: シンプル (フィールドなし → ピルなし) -->
+                <div class="dv-task-child"
+                     role="button" tabindex="0"
+                     data-testid="dv-task-child"
+                     data-path="projects/Hydra 移行手順.md"
+                     aria-label="各サービスの TTL 現在値を確認">
+                  <span class="task-checkbox" data-testid="task-checkbox" data-done="false" role="checkbox" aria-checked="false" aria-label="完了にする">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+                  </span>
+                  <span class="task-text">各サービスの TTL 現在値を確認</span>
+                  <!-- フィールドなし → ピル一切なし -->
+                  <span class="dv-task-edit" data-testid="dv-task-edit" role="button" tabindex="0" title="編集">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5a1.414 1.414 0 012 2L5 13H3v-2L11.5 2.5z"/></svg>
+                  </span>
+                </div>
+                <!-- 子タスク 2: シンプル -->
+                <div class="dv-task-child"
+                     role="button" tabindex="0"
+                     data-testid="dv-task-child"
+                     data-path="projects/Hydra 移行手順.md"
+                     aria-label="Route 53 の変更セットを作成">
+                  <span class="task-checkbox" data-testid="task-checkbox" data-done="false" role="checkbox" aria-checked="false" aria-label="完了にする">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+                  </span>
+                  <span class="task-text">Route 53 の変更セットを作成</span>
+                  <span class="dv-task-edit" data-testid="dv-task-edit" role="button" tabindex="0" title="編集">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5a1.414 1.414 0 012 2L5 13H3v-2L11.5 2.5z"/></svg>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 親タスク 2: 子なし。スペーサーでトグルスロットを確保 → チェックボックスが揃う。status=progress -->
+            <div class="dv-task"
+                 role="button" tabindex="0"
+                 data-testid="dv-task"
+                 data-path="projects/Hydra 移行手順.md"
+                 aria-label="NAS の NFS エクスポートを Hydra に許可">
+              <!-- 子なし → スペーサー (展開トグルなし、同幅のスロット) -->
+              <span class="dv-toggle-slot"></span>
+              <span class="task-checkbox" data-testid="task-checkbox" data-done="false" role="checkbox" aria-checked="false" aria-label="完了にする">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+              </span>
+              <span class="task-text">NAS の NFS エクスポートを Hydra に許可</span>
+              <span class="status-pill" data-status="progress" data-testid="status-pill">進行中</span>
+              <span class="dv-due dc-future" data-testid="dv-due">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2.5" y="3" width="11" height="10.5" rx="2"/><path d="M2.5 7h11M5.5 1v3M10.5 1v3"/></svg>
+                8/1
+              </span>
+              <span class="dv-priority" data-priority="medium" data-testid="dv-priority">
+                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10l-2 4 2 4H5v4H3z"/></svg>
+                中
+              </span>
+              <span class="dv-task-edit" data-testid="dv-task-edit" role="button" tabindex="0" title="ステータス・期限・優先度を編集">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5a1.414 1.414 0 012 2L5 13H3v-2L11.5 2.5z"/></svg>
+              </span>
+              <span class="dv-task-src-note">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+                Hydra 移行手順
+              </span>
+            </div>
+
+            <!-- シンプルタスク: フィールドなし → ピルなし (clean GFM) -->
+            <div class="dv-task"
+                 role="button" tabindex="0"
+                 data-testid="dv-task"
+                 data-path="projects/Hydra 移行手順.md"
+                 aria-label="移行後 24h の障害監視をする">
+              <span class="dv-toggle-slot"></span>
+              <span class="task-checkbox" data-testid="task-checkbox" data-done="false" role="checkbox" aria-checked="false" aria-label="完了にする">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+              </span>
+              <span class="task-text">移行後 24h の障害監視をする</span>
+              <!-- インラインフィールドなし → ピル一切なし -->
+              <span class="dv-task-edit" data-testid="dv-task-edit" role="button" tabindex="0" title="ステータス・期限・優先度を編集">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5a1.414 1.414 0 012 2L5 13H3v-2L11.5 2.5z"/></svg>
+              </span>
+            </div>
+          </div>
+
+          <!-- ────────────────────────────────────────
+               グループ 2: Loamium 開発ログ
+               展開済み親 + ポップオーバー表示
+               ──────────────────────────────────────── -->
+          <div class="dv-task-group">
+            <div class="dv-task-src">
+              <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+              Loamium 開発ログ
+            </div>
+
+            <!-- 親タスク: 子あり → 展開済み + ポップオーバー表示。status=progress / priority=high / due=7/25 -->
+            <div class="dv-task-popover-wrap">
+              <div class="dv-task"
+                   role="button" tabindex="0"
+                   data-testid="dv-task"
+                   data-path="projects/Loamium 開発ログ.md"
+                   aria-label="API 設計レビューの指摘事項を反映する"
+                   style="background:var(--bg-hover);">
+                <!-- 展開済み → ▼ -->
+                <span class="dv-toggle-slot">
+                  <span class="dv-task-expand" data-testid="dv-task-expand" data-expanded="true" role="button" tabindex="0" aria-label="子タスクを折りたたむ">▼</span>
+                </span>
+                <span class="task-checkbox" data-testid="task-checkbox" data-done="false" role="checkbox" aria-checked="false" aria-label="完了にする">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+                </span>
+                <span class="task-text">API 設計レビューの指摘事項を反映する</span>
+                <span class="status-pill" data-status="progress" data-testid="status-pill">進行中</span>
+                <span class="dv-due dc-future" data-testid="dv-due">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2.5" y="3" width="11" height="10.5" rx="2"/><path d="M2.5 7h11M5.5 1v3M10.5 1v3"/></svg>
+                  7/25
+                </span>
+                <span class="dv-priority" data-priority="high" data-testid="dv-priority">
+                  <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10l-2 4 2 4H5v4H3z"/></svg>
+                  高
+                </span>
+                <span class="dv-task-edit" data-testid="dv-task-edit" role="button" tabindex="0" title="ステータス・期限・優先度を編集"
+                      style="opacity:1; background:var(--accent-soft); color:var(--accent);">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5a1.414 1.414 0 012 2L5 13H3v-2L11.5 2.5z"/></svg>
+                </span>
+              </div>
+
+              <!-- ========== クイック編集ポップオーバー (開いた状態) ========== -->
+              <div class="dv-task-popover" data-testid="dv-task-popover">
+
+                <!-- ステータスセクション -->
+                <div class="dvp-section">
+                  <div class="dvp-section-label">ステータス</div>
+                  <div class="dvp-status-opts">
+                    <span class="dvp-status-opt" data-status="none" data-testid="status-opt-none" role="button" tabindex="0" aria-label="ステータスフィールドをクリア">
+                      <span class="so-glyph"></span>なし
+                    </span>
+                    <span class="dvp-status-opt" data-status="todo" data-testid="status-opt-todo" role="button" tabindex="0" aria-label="未着手に設定">
+                      <span class="so-glyph"></span>TODO
+                    </span>
+                    <span class="dvp-status-opt active" data-status="progress" data-testid="status-opt-progress" role="button" tabindex="0" aria-label="進行中に設定">
+                      <span class="so-glyph">/</span>進行中<span class="dvp-so-check" style="display:inline;margin-left:2px;font-size:10px;">✓</span>
+                    </span>
+                    <span class="dvp-status-opt" data-status="blocked" data-testid="status-opt-blocked" role="button" tabindex="0" aria-label="ブロックに設定">
+                      <span class="so-glyph">!</span>ブロック
+                    </span>
+                    <span class="dvp-status-opt" data-status="done" data-testid="status-opt-done" role="button" tabindex="0" aria-label="完了に設定">
+                      <span class="so-glyph">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="8" height="8"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+                      </span>完了
+                    </span>
+                  </div>
+                </div>
+
+                <!-- 期日セクション -->
+                <div class="dvp-section">
+                  <div class="dvp-section-label">期限</div>
+                  <div class="dvp-presets">
+                    <span class="dvp-preset-btn" data-testid="due-preset-today" role="button" tabindex="0" aria-label="今日に設定">
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2.5" y="3" width="11" height="10.5" rx="2"/><path d="M2.5 7h11M5.5 1v3M10.5 1v3"/></svg>
+                      今日
+                    </span>
+                    <span class="dvp-preset-btn" data-testid="due-preset-tomorrow" role="button" tabindex="0" aria-label="明日に設定">
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2.5" y="3" width="11" height="10.5" rx="2"/><path d="M2.5 7h11M5.5 1v3M10.5 1v3"/></svg>
+                      明日
+                    </span>
+                    <span class="dvp-preset-btn active" data-testid="due-preset-nextweek" role="button" tabindex="0" aria-label="来週に設定">
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3v5l3 3"/><circle cx="8" cy="8" r="6"/></svg>
+                      来週
+                    </span>
+                    <span class="dvp-preset-btn" data-testid="due-preset-pick" role="button" tabindex="0" aria-label="日付を選択">
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2.5" y="3" width="11" height="10.5" rx="2"/><path d="M2.5 7h11M5.5 1v3M10.5 1v3M6 10h4"/></svg>
+                      日付選択
+                    </span>
+                  </div>
+                  <!-- ミニ月グリッド (7月) -->
+                  <div class="dvp-calendar" data-testid="due-calendar">
+                    <div class="dvp-cal-header">
+                      <button aria-label="前月">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+                      </button>
+                      <span>2026年7月</span>
+                      <button aria-label="次月">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>
+                      </button>
+                    </div>
+                    <div class="dvp-cal-grid">
+                      <div class="dvp-cal-dow">日</div><div class="dvp-cal-dow">月</div><div class="dvp-cal-dow">火</div>
+                      <div class="dvp-cal-dow">水</div><div class="dvp-cal-dow">木</div><div class="dvp-cal-dow">金</div>
+                      <div class="dvp-cal-dow">土</div>
+                      <div class="dvp-cal-day other-month"></div><div class="dvp-cal-day other-month"></div><div class="dvp-cal-day other-month"></div>
+                      <div class="dvp-cal-day" data-testid="cal-day">1</div><div class="dvp-cal-day" data-testid="cal-day">2</div><div class="dvp-cal-day" data-testid="cal-day">3</div><div class="dvp-cal-day" data-testid="cal-day">4</div>
+                      <div class="dvp-cal-day" data-testid="cal-day">5</div><div class="dvp-cal-day" data-testid="cal-day">6</div><div class="dvp-cal-day" data-testid="cal-day">7</div><div class="dvp-cal-day" data-testid="cal-day">8</div><div class="dvp-cal-day" data-testid="cal-day">9</div><div class="dvp-cal-day" data-testid="cal-day">10</div><div class="dvp-cal-day" data-testid="cal-day">11</div>
+                      <div class="dvp-cal-day" data-testid="cal-day">12</div><div class="dvp-cal-day" data-testid="cal-day">13</div><div class="dvp-cal-day" data-testid="cal-day">14</div><div class="dvp-cal-day" data-testid="cal-day">15</div><div class="dvp-cal-day" data-testid="cal-day">16</div><div class="dvp-cal-day" data-testid="cal-day">17</div><div class="dvp-cal-day" data-testid="cal-day">18</div>
+                      <div class="dvp-cal-day today" data-testid="cal-day">19</div><div class="dvp-cal-day" data-testid="cal-day">20</div><div class="dvp-cal-day" data-testid="cal-day">21</div><div class="dvp-cal-day" data-testid="cal-day">22</div><div class="dvp-cal-day" data-testid="cal-day">23</div><div class="dvp-cal-day" data-testid="cal-day">24</div><div class="dvp-cal-day selected" data-testid="cal-day" aria-label="7月25日を選択">25</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 優先度セクション -->
+                <div class="dvp-section">
+                  <div class="dvp-section-label">優先度</div>
+                  <div class="dvp-priority-opts">
+                    <div class="dvp-priority-opt" data-testid="priority-opt-highest" data-val="highest" role="button" tabindex="0">
+                      <span class="pf-dot"></span><span>最高</span>
+                    </div>
+                    <div class="dvp-priority-opt selected" data-testid="priority-opt-high" data-val="high" role="button" tabindex="0">
+                      <span class="pf-dot"></span><span>高</span>
+                      <span class="check-mark">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+                      </span>
+                    </div>
+                    <div class="dvp-priority-opt" data-testid="priority-opt-medium" data-val="medium" role="button" tabindex="0">
+                      <span class="pf-dot"></span><span>中</span>
+                    </div>
+                    <div class="dvp-priority-opt" data-testid="priority-opt-low" data-val="low" role="button" tabindex="0">
+                      <span class="pf-dot"></span><span>低</span>
+                    </div>
+                    <div class="dvp-priority-opt" data-testid="priority-opt-none" data-val="none" role="button" tabindex="0">
+                      <span class="pf-dot"></span><span style="color:var(--text-muted);">なし</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- フッター -->
+                <div class="dvp-footer">
+                  <button class="btn" data-testid="dv-task-popover-cancel">キャンセル</button>
+                  <button class="btn primary" data-testid="dv-task-popover-apply">適用</button>
+                </div>
+              </div>
+              <!-- ========== /ポップオーバー ========== -->
+
+              <!-- 子コンテナ: 展開済み -->
+              <div class="dv-children" data-expanded="true" data-testid="dv-task-children">
+                <!-- 子タスク: status=progress + due=明日 -->
+                <div class="dv-task-child"
+                     role="button" tabindex="0"
+                     data-testid="dv-task-child"
+                     data-path="projects/Loamium 開発ログ.md"
+                     aria-label="zod スキーマのバリデーションを追加">
+                  <span class="task-checkbox" data-testid="task-checkbox" data-done="false" role="checkbox" aria-checked="false" aria-label="完了にする">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+                  </span>
+                  <span class="task-text">zod スキーマのバリデーションを追加</span>
+                  <span class="status-pill" data-status="progress" data-testid="status-pill">進行中</span>
+                  <span class="dv-due dc-tomorrow" data-testid="dv-due">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2.5" y="3" width="11" height="10.5" rx="2"/><path d="M2.5 7h11M5.5 1v3M10.5 1v3"/></svg>
+                    明日
+                  </span>
+                  <span class="dv-task-edit" data-testid="dv-task-edit" role="button" tabindex="0" title="編集">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5a1.414 1.414 0 012 2L5 13H3v-2L11.5 2.5z"/></svg>
+                  </span>
+                </div>
+                <!-- 子タスク: done (checkbox [x]) -->
+                <div class="dv-task-child"
+                     role="button" tabindex="0"
+                     data-testid="dv-task-child"
+                     data-path="projects/Loamium 開発ログ.md"
+                     aria-label="ルーターに OpenAPI スキーマを登録">
+                  <span class="task-checkbox" data-testid="task-checkbox" data-done="true" role="checkbox" aria-checked="true" aria-label="未完了に戻す">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+                  </span>
+                  <span class="task-text task-done">ルーターに OpenAPI スキーマを登録</span>
+                  <!-- done status field → done ピル表示 -->
+                  <span class="status-pill" data-status="done" data-testid="status-pill">完了</span>
+                  <span class="dv-task-edit" data-testid="dv-task-edit" role="button" tabindex="0" title="編集">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5a1.414 1.414 0 012 2L5 13H3v-2L11.5 2.5z"/></svg>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- シンプルタスク: フィールドなし → ピルなし (GFM - [ ] のみ) -->
+            <div class="dv-task"
+                 role="button" tabindex="0"
+                 data-testid="dv-task"
+                 data-path="projects/Loamium 開発ログ.md"
+                 aria-label="embed の循環検出ユニットテストを足す">
+              <span class="dv-toggle-slot"></span>
+              <span class="task-checkbox" data-testid="task-checkbox" data-done="false" role="checkbox" aria-checked="false" aria-label="完了にする">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+              </span>
+              <span class="task-text">embed の循環検出ユニットテストを足す</span>
+              <!-- インラインフィールドなし → ピル一切なし (clean GFM) -->
+              <span class="dv-task-edit" data-testid="dv-task-edit" role="button" tabindex="0" title="ステータス・期限・優先度を編集">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5a1.414 1.414 0 012 2L5 13H3v-2L11.5 2.5z"/></svg>
+              </span>
+            </div>
+
+            <!-- status=todo / priority=low / due=9/1 -->
+            <div class="dv-task"
+                 role="button" tabindex="0"
+                 data-testid="dv-task"
+                 data-path="projects/Loamium 開発ログ.md"
+                 aria-label="dataview の where 演算子を doc に追記">
+              <span class="dv-toggle-slot"></span>
+              <span class="task-checkbox" data-testid="task-checkbox" data-done="false" role="checkbox" aria-checked="false" aria-label="完了にする">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+              </span>
+              <span class="task-text">dataview の where 演算子を doc に追記</span>
+              <span class="status-pill" data-status="todo" data-testid="status-pill">TODO</span>
+              <span class="dv-due dc-future" data-testid="dv-due">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2.5" y="3" width="11" height="10.5" rx="2"/><path d="M2.5 7h11M5.5 1v3M10.5 1v3"/></svg>
+                9/1
+              </span>
+              <span class="dv-priority" data-priority="low" data-testid="dv-priority">
+                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10l-2 4 2 4H5v4H3z"/></svg>
+                低
+              </span>
+              <span class="dv-task-edit" data-testid="dv-task-edit" role="button" tabindex="0" title="ステータス・期限・優先度を編集">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5a1.414 1.414 0 012 2L5 13H3v-2L11.5 2.5z"/></svg>
+              </span>
+            </div>
+          </div>
+
+          <!-- ────────────────────────────────────────
+               グループ 3: 週次TODO
+               ──────────────────────────────────────── -->
+          <div class="dv-task-group">
+            <div class="dv-task-src">
+              <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+              週次TODO
+            </div>
+
+            <!-- status=todo / priority=medium / due=今日 -->
+            <div class="dv-task"
+                 role="button" tabindex="0"
+                 data-testid="dv-task"
+                 data-path="週次TODO.md"
+                 aria-label="スプリントレビューのスライドを仕上げる">
+              <span class="dv-toggle-slot"></span>
+              <span class="task-checkbox" data-testid="task-checkbox" data-done="false" role="checkbox" aria-checked="false" aria-label="完了にする">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+              </span>
+              <span class="task-text">スプリントレビューのスライドを仕上げる</span>
+              <span class="status-pill" data-status="todo" data-testid="status-pill">TODO</span>
+              <span class="dv-due dc-today" data-testid="dv-due">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2.5" y="3" width="11" height="10.5" rx="2"/><path d="M2.5 7h11M5.5 1v3M10.5 1v3"/></svg>
+                今日
+              </span>
+              <span class="dv-priority" data-priority="medium" data-testid="dv-priority">
+                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10l-2 4 2 4H5v4H3z"/></svg>
+                中
+              </span>
+              <span class="dv-task-edit" data-testid="dv-task-edit" role="button" tabindex="0" title="ステータス・期限・優先度を編集">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5a1.414 1.414 0 012 2L5 13H3v-2L11.5 2.5z"/></svg>
+              </span>
+              <span class="dv-task-src-note">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+                週次TODO
+              </span>
+            </div>
+
+            <!-- シンプルタスク: フィールドなし → ピルなし -->
+            <div class="dv-task"
+                 role="button" tabindex="0"
+                 data-testid="dv-task"
+                 data-path="週次TODO.md"
+                 aria-label="来週のミーティング日程を調整する">
+              <span class="dv-toggle-slot"></span>
+              <span class="task-checkbox" data-testid="task-checkbox" data-done="false" role="checkbox" aria-checked="false" aria-label="完了にする">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+              </span>
+              <span class="task-text">来週のミーティング日程を調整する</span>
+              <!-- インラインフィールドなし → ピルなし -->
+              <span class="dv-task-edit" data-testid="dv-task-edit" role="button" tabindex="0" title="ステータス・期限・優先度を編集">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5a1.414 1.414 0 012 2L5 13H3v-2L11.5 2.5z"/></svg>
+              </span>
+            </div>
+
+            <!-- done task (checkbox [x]): done status field あり -->
+            <div class="dv-task"
+                 role="button" tabindex="0"
+                 data-testid="dv-task"
+                 data-path="週次TODO.md"
+                 aria-label="スプリントレトロスペクティブの準備">
+              <span class="dv-toggle-slot"></span>
+              <span class="task-checkbox" data-testid="task-checkbox" data-done="true" role="checkbox" aria-checked="true" aria-label="未完了に戻す">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+              </span>
+              <span class="task-text task-done">スプリントレトロスペクティブの準備</span>
+              <span class="status-pill" data-status="done" data-testid="status-pill">完了</span>
+              <span class="dv-priority" data-priority="low" data-testid="dv-priority">
+                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10l-2 4 2 4H5v4H3z"/></svg>
+                低
+              </span>
+              <span class="dv-task-edit" data-testid="dv-task-edit" role="button" tabindex="0" title="ステータス・期限・優先度を編集">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5a1.414 1.414 0 012 2L5 13H3v-2L11.5 2.5z"/></svg>
+              </span>
+            </div>
+
+            <!-- 409 エラー例 -->
+            <div class="dv-patch-error" data-testid="dv-patch-error" role="alert">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5M8 11v.5"/></svg>
+              <span>409: 同一行テキストが複数箇所にマッチします。元ノートで行を一意にしてください。</span>
+            </div>
+          </div>
+
+        </div>
+        <!-- /fence-widget -->
+
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+        <div class="cm-line active-line">
+          <span class="gutter"></span>
+          <span class="cm-content">TASK SORT due ASC<span class="caret"></span></span>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= 右: バックリンクパネル ================= -->
+  <aside class="panel" data-testid="backlink-panel">
+    <div class="panel-header">
+      <span>バックリンク</span>
+      <span class="count">1</span>
+    </div>
+    <div class="panel-body">
+      <button class="backlink-item" data-source="週次TODO.md">
+        <span class="backlink-source">
+          <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+          週次TODO
+        </span>
+        <span class="backlink-context">毎週金曜は <mark>[[プロジェクトハブ]]</mark> を見て棚卸しする</span>
+      </button>
+    </div>
+  </aside>
+
+</div>
+
+<div class="proto-note" style="position: fixed; left: 18px; bottom: 14px; z-index: 130; margin: 0; max-width: 640px;">
+  <span class="tag">PROTO</span>
+  <strong>新データモデル</strong>: <code>- [ ]</code>/<code>- [x]</code> は done/not-done のみ (GFM)。ステータス/優先度/期限は <strong>OPTIONAL インラインフィールド</strong>: <code>- [ ] タスク [status:: progress] [priority:: high] [due:: 2026-07-25]</code>。<br>
+  <strong>フィールドなし → ピルなし</strong> (シンプルタスク例: 「embed の循環検出…」「移行後 24h の…」「来週のミーティング…」)。done status フィールドがある場合、checkbox の [x] と連動。<br>
+  <strong>アライメント修正</strong>: <code>.dv-toggle-slot</code> (固定幅 20px) を全行に挿入。子あり行は ▶/▼ トグル、子なし行は空スペーサー → checkbox 列が縦に揃う。<br>
+  <strong>行コンテナ</strong>: <code>div[role="button"]</code> (nested &lt;button&gt; 廃止)。書き込み: <code>POST /api/notes/{path}/patch</code>。ステータス/優先度の語彙は <code>system/settings.yaml</code> で定義(コード埋め込みなし)。
+</div>
+
+<a class="proto-chip" href="index.html">← プロトタイプ一覧</a>
+</body>
+</html>

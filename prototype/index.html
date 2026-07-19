@@ -32,6 +32,7 @@
       <span class="sprint-tag">S935867 — 詳細検索ページ</span>
       <span class="sprint-tag">Seac77a — ファイル一覧ページ</span>
       <span class="sprint-tag milestone">S763a98 — / スラッシュメニュー [MILESTONE]</span>
+      <span class="sprint-tag">Sa6c3b0 — スマホ対応 レスポンシブ + PWA</span>
     </div>
   </header>
 
@@ -179,9 +180,9 @@
 
     <a class="screen-card" href="slash-menu.html">
       <span class="num">18</span>
-      <h3>/ スラッシュコマンドメニュー</h3>
-      <p><code>/</code> 入力で開くコマンドメニュー(絞り込み・↑↓選択)。テーブル / callout / コードフェンス / mermaid / dataview / チェックボックス / 見出し / 日付。挿入結果はピュア Markdown 雛形で、カーソルが編集開始位置に入る状態も併記。</p>
-      <span class="stories">S763a98-1 [MILESTONE]</span>
+      <h3>/ スラッシュコマンドメニュー(+ /task フロー)</h3>
+      <p><code>/</code> 入力で開くコマンドメニュー(絞り込み・↑↓選択)。テーブル / callout / dataview / 見出し 等に加え、<strong>/task</strong> でステータス・優先度・期限をポップオーバーから一気に設定するタスク挿入フローと、<code>明日 !高</code> 等の自然言語トークン自動変換を追加。挿入結果はピュア Markdown。</p>
+      <span class="stories">S763a98-1 / Se3b7a2-7(新規)</span>
     </a>
   </div>
 
@@ -247,6 +248,86 @@
       <h3>設定: LLM バックエンド(local・モデル未取得)</h3>
       <p>local 選択でモデルが 1 つも無い empty state。「未取得 → DL 導線」を明示し、URL 入力 + 推奨モデルからダウンロードできる。取得完了で local(モデルあり)状態へ切替。</p>
       <span class="stories">S8a3f2e-4</span>
+    </a>
+  </div>
+
+  <div class="index-section-title">
+    <span>Sprint Se3b7a2(TODO 機能向上 — due/priority + Dataview TASK)</span>
+    <span class="badge">GUI Story プロトタイプ</span>
+    <span class="line"></span>
+  </div>
+
+  <div class="screen-grid">
+    <a class="screen-card" href="todo-popover.html">
+      <span class="num">25</span>
+      <h3>エディタ — チェックボックス行 + クイック編集</h3>
+      <p>チェックボックス <code>- [ ]/- [x]</code> は完了/未完了のみ(単純タスクはこれだけ)。<code>status</code>/<code>priority</code>/<code>due</code> は必要なときだけ付ける <strong>任意のインラインフィールド</strong>。アクティブ行はソース <code>[status:: progress] [priority:: high]</code> を表示、ホバーで開くポップオーバーから設定/クリア。語彙は settings.yaml 由来。</p>
+      <span class="stories">Se3b7a2-2</span>
+    </a>
+
+    <a class="screen-card" href="todo-dataview.html">
+      <span class="num">26</span>
+      <h3>Dataview TASK — 子折りたたみ + ステータス/優先度ピル</h3>
+      <p>親タスクはデフォルト折りたたみ(▶ で子・詳細を展開)。<strong>丸チェックボックスは全行で縦に整列</strong>(トグル有無に関わらず)。単純タスクはピルなし、<code>[status:: ]</code>等がある行だけステータス/期限/優先度ピルを右揃えで表示。編集ペンでポップオーバー。</p>
+      <span class="stories">Se3b7a2-4 / Se3b7a2-5</span>
+    </a>
+
+    <a class="screen-card" href="settings-tasks.html">
+      <span class="num">27</span>
+      <h3>設定 — タスク語彙(ステータス/優先度)[NEW]</h3>
+      <p><code>system/settings.yaml → tasks:</code> のステータス・優先度語彙を GUI で編集。{key, ラベル, カラー, 完了扱いトグル} の行追加/削除、右カラムに YAML プレビュー(連動)。スラッシュ /task ポップオーバーと Dataview ピルの選択肢はここから config-driven に読み込む。</p>
+      <span class="stories">Se3b7a2-8(新規・語彙設定)</span>
+    </a>
+  </div>
+
+  <div class="index-section-title">
+    <span>Sprint Sa6c3b0(スマホ対応 レスポンシブ + PWA)</span>
+    <span class="badge">モバイル閲覧 / オーバーレイサイドバー / PWA プロンプト</span>
+    <span class="line"></span>
+  </div>
+
+  <div class="screen-grid">
+    <a class="screen-card" href="mobile-responsive.html">
+      <span class="num">26</span>
+      <h3>モバイル閲覧 — ハンバーガー + ボトムバー</h3>
+      <p>390px フォン枠。サイドバー・右パネルは非表示でワークスペースが 100% 幅。ヘッダにハンバーガー、パンくず ellipsis、16px 本文。下部に固定ボトムバー[📄ノート / 🔍検索 / 🤖Agent]。PWA ホーム画面追加プロンプト付き。</p>
+      <span class="stories">Sa6c3b0-1 / Sa6c3b0-2 / Sa6c3b0-3 / Sa6c3b0-4 / Sa6c3b0-6</span>
+    </a>
+
+    <a class="screen-card" href="mobile-responsive-open.html">
+      <span class="num">27</span>
+      <h3>モバイル — サイドバー(ノート/スマート切替付き)</h3>
+      <p>ハンバーガータップ後、スクリム上に 280px サイドバーがスライドイン。上部に「ノート / スマート」セグメントトグル(物理ツリー↔スマートフォルダ一覧)。44px タップターゲット、ノート選択で自動クローズ。</p>
+      <span class="stories">Sa6c3b0-1 / Sa6c3b0-6</span>
+    </a>
+
+    <a class="screen-card" href="mobile-agent.html">
+      <span class="num">28</span>
+      <h3>モバイル Agent — フルスクリーンシート [NEW]</h3>
+      <p>ボトムバーの「🤖Agent」タップで下からせり上がるフルスクリーン Agent チャットシート。ノートは閉じず背面に残る。開いているノートのコンテキストバッジ、ツールチップ、応答中(中断)・空状態の 3 状態切替デモ。</p>
+      <span class="stories">Sa6c3b0-6(モバイル Agent 導線・新規)</span>
+    </a>
+  </div>
+
+  <div class="index-section-title">
+    <span>Sprint Sb6f1d3 / S2e8a4c(見出し折りたたみ + UI 細粒度修正)</span>
+    <span class="badge">GUI Story プロトタイプ</span>
+    <span class="line"></span>
+  </div>
+
+  <div class="screen-grid">
+    <a class="screen-card" href="heading-fold.html">
+      <span class="num">28</span>
+      <h3>見出し折りたたみ + TOC 階層インデント</h3>
+      <p>見出し行(#/##/###)の左ガターに <code>heading-fold-toggle</code> が表示され、クリックでセクション折りたたみ。折りたたまれた行には <code>fold-pill</code> 「… N 行」を表示。右インフォパネルの TOC は H1=depth 0 / H2=depth 1 / H3=depth 2 の階層インデント。クリックで対応見出しへスクロール + 自動展開。</p>
+      <span class="stories">Sb6f1d3-1 / Sb6f1d3-2</span>
+    </a>
+
+    <a class="screen-card" href="ui-fixes.html">
+      <span class="num">29</span>
+      <h3>UI 細粒度修正 7 点</h3>
+      <p>① Journal カレンダーアイコン + 日付ピッカー ② アクティブ行/選択色の分離 ③ ファイルツリー D&amp;D 移動(drag-over ハイライト) ④ フォルダ選択中の新規ノート prefill ⑤ SmartView 時コマンドパネル非表示 ⑥ Ctrl-B 太字トグル ⑦ コンテキストメニュー「移動…」+ フォルダ選択ダイアログ。</p>
+      <span class="stories">S2e8a4c-1 〜 S2e8a4c-7</span>
     </a>
   </div>
 

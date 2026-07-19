@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#6e56cf">
+<title>Loamium — モバイル: サイドバーオープン</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+/* =====================================================================
+   モバイル: サイドバーオーバーレイ表示状態
+   prototype/mobile-responsive-open.html
+   実装時は styles.css @media(max-width:680px) + JS でクラス切替
+   ===================================================================== */
+
+/* ---- フォン枠ラッパー (プロトタイプ専用) ---- */
+body {
+  background: #d8d8e0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 16px 80px;
+  min-height: 100vh;
+}
+
+.phone-frame {
+  width: 390px;
+  max-width: 100%;
+  min-height: 844px;
+  background: var(--bg-editor);
+  border-radius: 44px;
+  box-shadow: 0 0 0 8px #23242b, 0 24px 64px rgba(0,0,0,0.45);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.phone-notch {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 126px;
+  height: 34px;
+  background: #23242b;
+  border-radius: 0 0 20px 20px;
+  z-index: 200;
+}
+
+.phone-inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-top: 10px;
+}
+
+/* ---- アプリシェル ---- */
+.phone-inner .app {
+  height: 100%;
+  min-height: 844px;
+  overflow: hidden;
+  flex-direction: column;
+  position: relative;
+}
+
+/* ---- モバイル: ワークスペースが100%幅 ---- */
+.phone-inner .workspace {
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 56px; /* ボトムバー分のスペース */
+}
+
+/* ---- 右パネル非表示 ---- */
+.phone-inner .panel {
+  display: none;
+}
+
+/* ---- モバイルヘッダ ---- */
+.phone-inner .editor-header {
+  padding: 10px 14px;
+  gap: 8px;
+}
+
+/* ---- タッチターゲット 44px (AC-Sa6c3b0-2) ---- */
+.phone-inner .icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+}
+.phone-inner .icon-btn svg { width: 20px; height: 20px; }
+
+/* ---- ハンバーガーボタン ---- */
+.mobile-menu-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);       /* アクティブ中はアクセントカラー */
+  background: var(--accent-soft);
+  flex-shrink: 0;
+}
+.mobile-menu-btn svg { width: 20px; height: 20px; }
+
+/* ---- パンくず ellipsis ---- */
+.phone-inner .route-crumbs {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: block;
+  line-height: 1.4;
+  padding: 2px 0;
+  opacity: 0.4; /* サイドバーが開いているので薄く */
+}
+.phone-inner .route-crumbs .route-token { font-size: 11px; }
+.phone-inner .route-crumbs .current { font-size: 13px; }
+
+/* ---- エディタ本文 (背景が半透明スクリムで隠れる) ---- */
+.phone-inner .cm-scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 20px 0 40px;
+}
+.phone-inner .cm-editor {
+  max-width: 100%;
+  padding: 0 16px;
+  font-size: 16px;
+  line-height: 1.8;
+}
+
+/* =====================================================================
+   オーバーレイ サイドバー (AC-Sa6c3b0-1-2 / 1-3)
+   ===================================================================== */
+
+/* スクリム: サイドバー外をタップで閉じる (AC-Sa6c3b0-1-3) */
+.sidebar-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  background: rgba(25, 25, 40, 0.45);
+  cursor: pointer;
+}
+
+/* オーバーレイサイドバー本体 */
+.sidebar-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 300px;
+  z-index: 110;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: translateX(0);
+  box-shadow: 4px 0 24px rgba(20, 20, 35, 0.18);
+}
+
+/* ---- サイドバーヘッダ ---- */
+.sidebar-overlay .sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 14px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-overlay .sidebar-header .vault-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  font-size: 14px;
+}
+.sidebar-overlay .sidebar-header .vault-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+/* 閉じるボタン */
+.sidebar-close-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.sidebar-close-btn:hover { background: var(--bg-hover); color: var(--text); }
+.sidebar-close-btn svg { width: 18px; height: 18px; }
+
+/* =====================================================================
+   ノート / スマート セグメントトグル (Sa6c3b0-6 フィードバック対応)
+   デスクトップの .seg-toggle / .seg-btn を継承、モバイル向けサイズ補正
+   ===================================================================== */
+.sidebar-view-toggle-wrap {
+  padding: 10px 10px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* .seg-toggle/.seg-btn は styles.css に定義済み — padding のみ補正 */
+.sidebar-overlay .seg-toggle {
+  width: 100%;
+}
+.sidebar-overlay .seg-btn {
+  flex: 1;
+  justify-content: center;
+  padding: 6px 8px;
+  font-size: 12.5px;
+  min-height: 40px;
+}
+.sidebar-overlay .seg-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* スマートビューパネル (ノート表示時は非表示) */
+.smart-view-panel {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+}
+.smart-view-panel.active { display: flex; }
+.smart-folder-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  min-height: 48px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--text);
+}
+.smart-folder-item:hover { background: var(--bg-hover); }
+.smart-folder-item .sf-ico {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.smart-folder-item .sf-ico svg { width: 16px; height: 16px; }
+.smart-folder-item .sf-name { font-weight: 600; flex: 1; }
+.smart-folder-item .sf-count {
+  font-size: 11px;
+  color: var(--text-faint);
+  background: var(--bg-hover);
+  border-radius: 9px;
+  padding: 1px 8px;
+  font-weight: 600;
+}
+
+/* 物理ツリーパネル */
+.physical-tree-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+.physical-tree-panel.hidden { display: none; }
+
+/* ---- ジャーナルナビ (44px タップターゲット) ---- */
+.sidebar-overlay .journal-nav {
+  margin: 10px 10px 6px;
+  padding: 10px 10px;
+}
+.sidebar-overlay .journal-date-btn {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+.sidebar-overlay .icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+}
+.sidebar-overlay .icon-btn svg { width: 18px; height: 18px; }
+
+/* ---- ツリーセクションラベル ---- */
+.sidebar-overlay .tree-section-title {
+  padding: 8px 14px 4px;
+  font-size: 11px;
+}
+
+/* ---- ファイルツリー: tree-item 44px (AC-Sa6c3b0-2-2) ---- */
+.sidebar-overlay .tree {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 8px 16px;
+}
+.sidebar-overlay .tree-item {
+  min-height: 44px;
+  padding: 10px 10px;
+  font-size: 14px;
+  border-radius: 8px;
+  gap: 8px;
+}
+.sidebar-overlay .tree-item .file-ico {
+  width: 16px;
+  height: 16px;
+}
+.sidebar-overlay .tree-item .chev {
+  width: 16px;
+  height: 16px;
+}
+
+/* サイドバー下部ボタン (44px) */
+.sidebar-overlay .sidebar-bottom-btn {
+  min-height: 44px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  width: 100%;
+  text-align: left;
+}
+.sidebar-overlay .sidebar-bottom-btn:hover { background: var(--bg-hover); color: var(--text); }
+.sidebar-overlay .sidebar-bottom-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+/* ---- proto-note ---- */
+.phone-inner .proto-note {
+  margin: 8px 0;
+  font-size: 11.5px;
+}
+
+/* ---- バナー (プロトタイプ専用) ---- */
+.proto-label-banner {
+  background: #23242b;
+  color: #ececf4;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: center;
+  padding: 7px 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  letter-spacing: 0.03em;
+}
+.proto-label-banner .dim { color: #61616e; font-weight: 400; }
+
+.desktop-note {
+  max-width: 390px;
+  margin: 0 auto 20px;
+  font-size: 12px;
+  color: #555;
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* ノート選択後のオートクローズ注釈 */
+.auto-close-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 10px 8px;
+  padding: 8px 12px;
+  background: var(--accent-soft);
+  border-radius: 8px;
+  font-size: 11.5px;
+  color: var(--accent-hover);
+  line-height: 1.5;
+}
+.auto-close-hint svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+/* =====================================================================
+   ボトムナビゲーションバー (Sa6c3b0-6) — スクリムで薄く表示
+   ===================================================================== */
+.mobile-bottom-nav {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: var(--bg-editor);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: stretch;
+  z-index: 90; /* スクリム(100)の下 */
+  opacity: 0.4;
+  pointer-events: none;
+}
+.mobile-nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 44px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 6px 4px 4px;
+}
+.mobile-nav-item.active { color: var(--accent); }
+.mobile-nav-item svg { width: 22px; height: 22px; }
+.mobile-nav-item .nav-label { font-size: 10px; font-weight: 600; line-height: 1; }
+</style>
+</head>
+<body>
+
+<!-- プロトタイプ注釈 -->
+<div style="position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:999;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;">
+  <div class="proto-label-banner">
+    モバイル: サイドバーオーバーレイ (スライドイン表示中) <span class="dim">(Sa6c3b0-1/6)</span>
+  </div>
+  <p class="desktop-note">スクリム(半透明背景)タップ → サイドバー自動クローズ (AC-Sa6c3b0-1-3)<br>ノート/スマート切替トグル追加済み / ボトムバーはスクリムで薄く表示</p>
+</div>
+
+<!-- フォン枠 -->
+<div class="phone-frame">
+  <div class="phone-notch"></div>
+  <div class="phone-inner">
+    <div class="app">
+
+      <!-- ========================= 中央: ワークスペース (背景) ========================= -->
+      <main class="workspace">
+
+        <!-- ヘッダ (半透明スクリムの下に隠れる) -->
+        <div class="editor-header">
+          <button class="mobile-menu-btn" data-testid="sidebar-toggle" aria-label="サイドバーを閉じる" aria-expanded="true">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+              <path d="M3 5h14M3 10h14M3 15h14"/>
+            </svg>
+          </button>
+          <nav class="route-crumbs" data-testid="route-display" aria-label="現在のルート">
+            <span class="route-token">/n/</span><!-- --><span>議事録</span><span class="sep">/</span><span class="current">議事録 2026-07-10</span>
+          </nav>
+          <div class="save-status" data-testid="save-status" data-state="saved">
+            <span class="dot"></span><span>保存済み</span>
+          </div>
+          <button class="icon-btn" data-testid="editor-more-menu" aria-label="その他">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+              <circle cx="8" cy="3.5" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="8" cy="12.5" r="1"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- エディタ本文 (スクリムで暗くなる) -->
+        <div class="cm-scroll">
+          <div class="cm-editor" data-testid="editor" style="opacity:0.35;">
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h1">議事録 2026-07-10</span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content"><strong class="md-bold">日時:</strong> 2026年7月10日(木) 14:00〜15:30</span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content"><strong class="md-bold">参加者:</strong> 辻下、田中、佐藤、山田(オンライン)</span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h2">アジェンダ</span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">1.</span><span>前回アクションの確認</span></span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">2.</span><span>プロジェクト計画 進捗共有</span></span></div>
+          </div>
+        </div>
+
+        <!-- スクリム (AC-Sa6c3b0-1-3: スクリム外タップで閉じる) -->
+        <div class="sidebar-scrim" data-testid="sidebar-scrim" aria-label="サイドバーを閉じる" role="button" tabindex="0"></div>
+
+        <!-- ========================= オーバーレイサイドバー ========================= -->
+        <aside class="sidebar-overlay" data-testid="sidebar" data-mobile-open="true">
+
+          <!-- ヘッダ -->
+          <div class="sidebar-header">
+            <div class="vault-badge">L</div>
+            <div class="vault-name">loamium-notes</div>
+            <!-- 閉じるボタン (AC-Sa6c3b0-1-2) -->
+            <button class="sidebar-close-btn" data-testid="sidebar-close" aria-label="サイドバーを閉じる">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 3l10 10M13 3L3 13"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- =====================================================================
+               ノート / スマート セグメントトグル (Sa6c3b0-6 新規)
+               「ノート」= 物理ツリー / 「スマート」= スマートフォルダ一覧
+               ===================================================================== -->
+          <div class="sidebar-view-toggle-wrap">
+            <div class="seg-toggle" data-testid="sidebar-view-toggle" role="tablist" aria-label="サイドバー表示切替">
+              <button class="seg-btn"
+                data-testid="sidebar-view-physical"
+                aria-selected="true"
+                role="tab"
+                aria-controls="physical-tree-panel"
+                onclick="switchView('physical')">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                  <path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/>
+                </svg>
+                ノート
+              </button>
+              <button class="seg-btn"
+                data-testid="sidebar-view-smart"
+                aria-selected="false"
+                role="tab"
+                aria-controls="smart-view-panel"
+                onclick="switchView('smart')">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 4h12M2 8h8M2 12h5"/>
+                  <circle cx="13" cy="11" r="2.5"/>
+                  <path d="M15.5 13.5L14.5 12.5" stroke-width="1.6"/>
+                </svg>
+                スマート
+              </button>
+            </div>
+          </div>
+
+          <!-- =====================================================================
+               ビュー A: 物理ツリー (ノートタブ表示中)
+               ===================================================================== -->
+          <div class="physical-tree-panel" id="physical-tree-panel" role="tabpanel" aria-labelledby="sidebar-view-physical">
+
+            <!-- ノート選択で自動クローズする旨の注記 -->
+            <div class="auto-close-hint">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                <circle cx="8" cy="8" r="6.5"/><path d="M8 5v3.5L10 10"/>
+              </svg>
+              ノートを選ぶとサイドバーが自動で閉じます
+            </div>
+
+            <!-- ジャーナルナビ (44px タップターゲット: AC-Sa6c3b0-2-4) -->
+            <nav class="journal-nav" data-testid="journal-nav" aria-label="ジャーナル日付ナビゲーション">
+              <div class="journal-nav-label">Daily Journal</div>
+              <div class="journal-nav-row">
+                <button class="icon-btn" data-testid="journal-prev" title="前日">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+                </button>
+                <button class="journal-date-btn" data-testid="journal-today" title="今日のジャーナル">
+                  2026-07-18<span class="dow">土</span>
+                </button>
+                <button class="icon-btn" data-testid="journal-next" title="翌日">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>
+                </button>
+                <button class="icon-btn" data-testid="journal-open-list" title="一覧">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2.5 4h11M2.5 8h11M2.5 12h11"/></svg>
+                </button>
+              </div>
+            </nav>
+
+            <!-- ファイルツリー (44px tree-item: AC-Sa6c3b0-2-2) -->
+            <div class="tree-section-title">
+              <span>直近のファイル</span>
+              <button class="icon-btn" data-testid="sidebar-new-note" title="新規ノート">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 1.8h5.2L12.2 4.8v4.2M9.2 1.8v3h3M8 11v4M6 13h4"/></svg>
+              </button>
+            </div>
+
+            <div class="tree" data-testid="file-tree">
+              <button class="tree-item active" data-testid="tree-item" data-path="議事録/議事録 2026-07-10.md">
+                <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+                <span class="name">議事録 2026-07-10</span>
+              </button>
+              <button class="tree-item" data-testid="tree-item" data-path="projects/プロジェクト計画.md">
+                <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+                <span class="name">プロジェクト計画</span>
+              </button>
+              <button class="tree-item" data-testid="tree-item" data-path="journals/2026-07-18.md">
+                <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+                <span class="name">2026-07-18</span>
+              </button>
+              <button class="tree-item" data-testid="tree-item" data-path="projects/バックエンド設計.md">
+                <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+                <span class="name">バックエンド設計</span>
+              </button>
+              <button class="tree-item" data-testid="tree-item" data-path="週次レビュー.md">
+                <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+                <span class="name">週次レビュー</span>
+              </button>
+              <button class="tree-item" data-testid="tree-item" data-path="議事録/議事録 2026-07-03.md">
+                <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+                <span class="name">議事録 2026-07-03</span>
+              </button>
+              <button class="tree-item" data-testid="tree-item" data-path="reading/失敗の科学.md">
+                <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+                <span class="name">失敗の科学</span>
+              </button>
+              <button class="tree-item" data-testid="tree-item" data-path="CodeMirror 6 調査.md">
+                <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+                <span class="name">CodeMirror 6 調査</span>
+              </button>
+
+              <div class="proto-note" style="margin-top:8px;">
+                <span class="tag">PROTO</span>
+                <strong>AC-Sa6c3b0-2</strong>: tree-item の min-height 44px。<br>
+                <strong>AC-Sa6c3b0-1-6</strong>: ノート選択 → サイドバー自動クローズ。<br>
+                <strong>Sa6c3b0-6</strong>: トグルで「スマート」をタップするとスマートフォルダ一覧に切替。
+              </div>
+            </div>
+
+          </div><!-- /physical-tree-panel -->
+
+          <!-- =====================================================================
+               ビュー B: スマートフォルダ一覧 (スマートタブ表示時)
+               ===================================================================== -->
+          <div class="smart-view-panel" id="smart-view-panel" role="tabpanel" aria-labelledby="sidebar-view-smart">
+
+            <div style="padding: 10px 14px 6px; font-size: 11px; font-weight: 600; color: var(--text-faint); letter-spacing: 0.05em; text-transform: uppercase; display: flex; align-items: center; justify-content: space-between;">
+              スマートフォルダ
+              <button class="icon-btn" data-testid="sidebar-new-smart-folder" title="新規スマートフォルダ" style="width:36px;height:36px;">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 3.5v9M3.5 8h9"/></svg>
+              </button>
+            </div>
+
+            <button class="smart-folder-item" data-testid="smart-folder-item" data-query="tag:#todo status:open">
+              <span class="sf-ico">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+              </span>
+              <span class="sf-name">未完了タスク</span>
+              <span class="sf-count">12</span>
+            </button>
+
+            <button class="smart-folder-item" data-testid="smart-folder-item" data-query="tag:#project modified:>2026-07-01">
+              <span class="sf-ico">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 12V5l6-3 6 3v7"/><path d="M8 14v-3"/><rect x="5.5" y="9" width="5" height="5" rx="1"/></svg>
+              </span>
+              <span class="sf-name">今月のプロジェクト</span>
+              <span class="sf-count">5</span>
+            </button>
+
+            <button class="smart-folder-item" data-testid="smart-folder-item" data-query="type:journal modified:>7d">
+              <span class="sf-ico">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 6h6M5 9h4"/></svg>
+              </span>
+              <span class="sf-name">最近のジャーナル</span>
+              <span class="sf-count">7</span>
+            </button>
+
+            <button class="smart-folder-item" data-testid="smart-folder-item" data-query="has:broken-link">
+              <span class="sf-ico" style="background:var(--danger-soft);color:var(--danger);">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 9.5l3-3M5 7l-2 2a2.5 2.5 0 003.5 3.5l2-2M11 9l2-2A2.5 2.5 0 009.5 3.5l-2 2"/><path d="M11.5 11.5l2 2M2.5 2.5l2 2" stroke-dasharray="2 1.5"/></svg>
+              </span>
+              <span class="sf-name">壊れたリンク</span>
+              <span class="sf-count" style="background:var(--danger-soft);color:var(--danger);">3</span>
+            </button>
+
+            <button class="smart-folder-item" data-testid="smart-folder-item" data-query="tag:#reading">
+              <span class="sf-ico" style="background:#e6f4ec;color:#2f9e63;">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 3h5a2 2 0 012 2v9a1.5 1.5 0 00-1.5-1.5H2z"/><path d="M14 3H9a2 2 0 00-2 2v9a1.5 1.5 0 011.5-1.5H14z"/></svg>
+              </span>
+              <span class="sf-name">読書メモ</span>
+              <span class="sf-count">8</span>
+            </button>
+
+            <div class="proto-note" style="margin: 8px 10px;">
+              <span class="tag">PROTO</span>
+              <strong>Sa6c3b0-6</strong>: スマートビューはスマートフォルダ一覧。「ノート」タブを押すと物理ツリーへ戻る。
+            </div>
+
+          </div><!-- /smart-view-panel -->
+
+          <!-- サイドバー下部ボタン (44px: AC-Sa6c3b0-2-3) -->
+          <button class="sidebar-bottom-btn" data-testid="sidebar-settings" aria-label="設定を開く">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4"/></svg>
+            設定
+          </button>
+
+        </aside>
+
+        <!-- ========================= ボトムナビゲーションバー (薄く表示) ========================= -->
+        <nav class="mobile-bottom-nav" data-testid="mobile-bottom-nav" aria-label="メインナビゲーション" aria-hidden="true">
+          <button class="mobile-nav-item active" data-testid="mobile-nav-notes" aria-label="ノート">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+            <span class="nav-label">ノート</span>
+          </button>
+          <button class="mobile-nav-item" data-testid="mobile-nav-search" aria-label="検索">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="7"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <span class="nav-label">検索</span>
+          </button>
+          <button class="mobile-nav-item" data-testid="mobile-nav-agent" aria-label="Agent">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0110 0v4"/>
+              <circle cx="12" cy="16" r="1" fill="currentColor"/>
+            </svg>
+            <span class="nav-label">Agent</span>
+          </button>
+        </nav>
+
+      </main><!-- /workspace -->
+
+    </div><!-- /app -->
+  </div><!-- /phone-inner -->
+</div><!-- /phone-frame -->
+
+<!-- プロトタイプチップ -->
+<a class="proto-chip" href="index.html">← 一覧へ</a>
+
+<script>
+function switchView(view) {
+  const physicalPanel = document.getElementById('physical-tree-panel');
+  const smartPanel = document.getElementById('smart-view-panel');
+  const physicalBtn = document.querySelector('[data-testid="sidebar-view-physical"]');
+  const smartBtn = document.querySelector('[data-testid="sidebar-view-smart"]');
+
+  if (view === 'physical') {
+    physicalPanel.classList.remove('hidden');
+    smartPanel.classList.remove('active');
+    physicalBtn.setAttribute('aria-selected', 'true');
+    smartBtn.setAttribute('aria-selected', 'false');
+  } else {
+    physicalPanel.classList.add('hidden');
+    smartPanel.classList.add('active');
+    physicalBtn.setAttribute('aria-selected', 'false');
+    smartBtn.setAttribute('aria-selected', 'true');
+  }
+}
+</script>
+</body>
+</html>

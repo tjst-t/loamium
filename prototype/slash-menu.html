@@ -5,6 +5,436 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Loamium — / スラッシュコマンドメニュー</title>
 <link rel="stylesheet" href="styles.css">
+<style>
+/* ================================================================
+   slash-menu.html — screen-specific styles (task flow)
+   ================================================================ */
+
+/* ---- タスク クイック編集ポップオーバー --------------------------------- */
+
+.task-popover {
+  position: absolute;
+  z-index: 70;
+  width: 360px;
+  background: var(--bg-editor);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  /* positioned below the /todo item in the demo; JS overrides at runtime */
+}
+
+.task-popover-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px 7px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+.task-popover-head .tp-icon {
+  width: 22px; height: 22px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.task-popover-head .tp-icon svg { width: 13px; height: 13px; }
+.task-popover-head .tp-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+.task-popover-head .tp-result {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-faint);
+  background: var(--bg-hover);
+  border-radius: 5px;
+  padding: 1px 7px;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* config-driven hint */
+.tp-config-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 13px;
+  background: var(--accent-soft);
+  border-bottom: 1px solid #d9d2f5;
+  font-size: 11px;
+  color: var(--accent-hover);
+}
+.tp-config-note svg { width: 13px; height: 13px; flex-shrink: 0; }
+.tp-config-note a { color: var(--accent); font-weight: 600; text-decoration: underline; cursor: pointer; }
+
+/* field group */
+.tp-body { padding: 10px 12px 4px; display: flex; flex-direction: column; gap: 8px; }
+
+.tp-group { display: flex; flex-direction: column; gap: 3px; }
+.tp-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.tp-label .none-badge {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ok);
+  background: #e8f5ee;
+  border-radius: 8px;
+  padding: 0 6px;
+}
+.tp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.tp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 20px;
+  padding: 3px 10px;
+  color: var(--text-muted);
+  background: var(--bg-editor);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.1s, background 0.1s;
+}
+.tp-chip:hover { border-color: var(--accent); color: var(--text); }
+.tp-chip.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+/* なし chip */
+.tp-chip[data-none="true"] {
+  border-style: dashed;
+  color: var(--text-faint);
+}
+.tp-chip[data-none="true"].active {
+  border-color: var(--ok);
+  background: #e8f5ee;
+  color: #2f7a52;
+}
+.tp-chip .tp-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  flex-shrink: 0;
+}
+/* status colours — keys from settings.yaml vocab */
+.tp-chip[data-status="todo"] .tp-dot    { background: var(--text-faint); }
+.tp-chip[data-status="progress"] .tp-dot  { background: var(--accent); }
+.tp-chip[data-status="blocked"] .tp-dot   { background: var(--danger); }
+.tp-chip[data-status="done"] .tp-dot      { background: var(--ok); }
+/* priority colours — keys from settings.yaml vocab */
+.tp-chip[data-priority="highest"] .tp-dot { background: #d64545; }
+.tp-chip[data-priority="high"] .tp-dot    { background: #e07c2e; }
+.tp-chip[data-priority="medium"] .tp-dot  { background: #b7791f; }
+.tp-chip[data-priority="low"] .tp-dot     { background: var(--ok); }
+
+/* due date presets */
+.tp-due-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+}
+.tp-due-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 5px 4px;
+  color: var(--text-muted);
+  background: var(--bg-editor);
+  cursor: pointer;
+  transition: border-color 0.1s, background 0.1s;
+}
+.tp-due-btn:hover { border-color: var(--accent); color: var(--text); }
+.tp-due-btn.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+.tp-due-btn[data-none="true"] {
+  border-style: dashed;
+  color: var(--text-faint);
+}
+.tp-due-btn[data-none="true"].active {
+  border-color: var(--ok);
+  background: #e8f5ee;
+  color: #2f7a52;
+}
+.tp-due-btn .tp-due-label { font-size: 11.5px; font-weight: 700; }
+.tp-due-btn .tp-due-date  { font-size: 10px; color: var(--text-faint); font-family: var(--font-mono); }
+.tp-due-btn.active .tp-due-date { color: var(--accent); }
+.tp-due-btn[data-none="true"].active .tp-due-date { color: #2f7a52; }
+
+/* month mini-grid */
+.tp-cal {
+  margin-top: 4px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-editor);
+}
+.tp-cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+.tp-cal-nav {
+  width: 22px; height: 22px;
+  border-radius: 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-muted);
+}
+.tp-cal-nav:hover { background: var(--bg-hover); color: var(--text); }
+.tp-cal-nav svg { width: 12px; height: 12px; }
+.tp-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  padding: 4px;
+  gap: 2px;
+}
+.tp-cal-dow {
+  text-align: center;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--text-faint);
+  padding: 2px 0;
+  letter-spacing: 0.03em;
+}
+.tp-cal-day {
+  text-align: center;
+  font-size: 11.5px;
+  padding: 3px 0;
+  border-radius: 5px;
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 500;
+}
+.tp-cal-day:hover { background: var(--bg-hover); }
+.tp-cal-day.today { font-weight: 700; color: var(--accent); }
+.tp-cal-day.selected {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+.tp-cal-day.other-month { color: var(--text-faint); }
+.tp-cal-day.empty { cursor: default; }
+
+/* footer actions */
+.tp-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+.tp-cancel-btn {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 5px 13px;
+  border-radius: 7px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-editor);
+}
+.tp-cancel-btn:hover { background: var(--bg-hover); color: var(--text); }
+.tp-insert-btn {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #fff;
+  padding: 5px 13px;
+  border-radius: 7px;
+  border: none;
+  background: var(--accent);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.tp-insert-btn:hover { background: var(--accent-hover); }
+.tp-insert-btn kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: rgba(255,255,255,0.22);
+  border: none;
+  border-radius: 4px;
+  padding: 0 5px;
+  color: #fff;
+}
+
+/* ---- 自然言語ヒントボックス (task-nl-hint) -------------------------------- */
+
+.task-nl-hint {
+  margin: 12px 0 2px 20px;
+  max-width: 600px;
+  border: 1.5px solid #c1b8f0;
+  background: #f7f5fd;
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: #3d3469;
+}
+.task-nl-hint .nl-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-right: 6px;
+  vertical-align: 1px;
+}
+.task-nl-hint .nl-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 7px;
+}
+.task-nl-hint .nl-arrow {
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--accent);
+}
+.task-nl-hint .nl-before,
+.task-nl-hint .nl-after {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  background: var(--bg-editor);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 4px 9px;
+  line-height: 1.7;
+  flex: 1;
+  word-break: break-all;
+}
+.task-nl-hint .nl-after { border-color: var(--accent); color: #3d3469; }
+.task-nl-token {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  border-radius: 3px;
+  padding: 0 3px;
+  font-weight: 700;
+}
+.task-nl-hint .nl-tokens {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.nl-tok-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: var(--bg-editor);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  padding: 2px 9px;
+  color: var(--text-muted);
+}
+.nl-tok-chip .arrow { color: var(--accent); font-family: var(--font-mono); }
+
+/* ---- デモ レイアウト補助 -------------------------------------------------- */
+
+/* 並列2ステート表示用ラッパー */
+.demo-states {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 16px 0 0 20px;
+  max-width: 820px;
+}
+.demo-state-col { display: flex; flex-direction: column; }
+.demo-state-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+
+/* preview of inserted todo line */
+.todo-inserted-line {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 7px 12px;
+  color: var(--text);
+  line-height: 1.6;
+  word-break: break-all;
+}
+.todo-inserted-line .md-tok-bracket { color: #cf222e; }
+.todo-inserted-line .md-tok-key     { color: #8250df; }
+.todo-inserted-line .md-tok-val     { color: #0550ae; }
+
+/* output variants table */
+.output-variants {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 12px;
+}
+.output-variants table { width: 100%; border-collapse: collapse; }
+.output-variants th {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  background: var(--bg-panel);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.output-variants td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.output-variants tr:last-child td { border-bottom: none; }
+.output-variants .ov-case { font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+.output-variants .ov-out  { font-family: var(--font-mono); font-size: 11px; color: var(--text); word-break: break-all; }
+</style>
 </head>
 <body>
 <div class="app">
@@ -26,7 +456,7 @@
       <div class="journal-nav-label">Daily Journal</div>
       <div class="journal-nav-row">
         <button class="icon-btn" data-testid="journal-prev" title="前日のジャーナルへ"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg></button>
-        <button class="journal-date-btn" data-testid="journal-today" title="今日のジャーナルを開く">2026-07-04<span class="dow">土</span></button>
+        <button class="journal-date-btn" data-testid="journal-today" title="今日のジャーナルを開く">2026-07-19<span class="dow">日</span></button>
         <button class="icon-btn" data-testid="journal-next" title="翌日のジャーナルへ"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg></button>
         <button class="icon-btn" data-testid="journal-open-list" title="ジャーナル一覧"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2.5 4h11M2.5 8h11M2.5 12h11"/></svg></button>
       </div>
@@ -85,8 +515,6 @@
         <!-- ===== 状態B: テーブル挿入後(ピュア Markdown 雛形 + カーソルが先頭セル) ===== -->
         <div id="state-inserted" style="display:none;">
           <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
-
-          <!-- カーソル行: 挿入直後の生 Markdown。カーソルは最初のセル見出しに置かれる -->
           <div class="cm-line active-line"><span class="gutter"></span><span class="cm-content">| <span class="caret"></span>見出し1 | 見出し2 | 見出し3 |</span></div>
           <div class="cm-line"><span class="gutter"></span><span class="cm-content">| --- | --- | --- |</span></div>
           <div class="cm-line"><span class="gutter"></span><span class="cm-content">|  |  |  |</span></div>
@@ -97,7 +525,208 @@
             カーソルを別行へ移すとライブプレビューで表として描画される。
           </div>
         </div>
-      </div>
+
+        <!-- ===== 状態C: タスク挿入後 → ポップオーバーで属性設定 ===== -->
+        <div id="state-task" style="display:none;">
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+          <div class="cm-line active-line"><span class="gutter"></span><span class="cm-content"><span id="task-line-preview">- [ ] <span class="caret"></span></span></span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+
+          <div class="proto-note">
+            <span class="tag">PROTO</span>
+            <code>/task</code> 選択 → <code>- [ ] </code> が挿入されカーソルがタスクテキスト先頭に移動すると同時に、<strong>クイック編集ポップオーバー</strong> (task-quick-popover) が開く。
+            ステータス・優先度・期限はすべてオプション(<strong>デフォルト: なし</strong>)。設定しないと <code>- [ ] タスクテキスト</code> だけのプレーンなタスクが挿入される。
+            設定した項目のみ Dataview インラインフィールドとして書き込まれる (AC-Se3b7a2-7-1)。
+            選択肢の語彙は <code>system/settings.yaml</code> から読み込む (Se3b7a2-8)。
+          </div>
+
+          <!-- タスク挿入後の2ステートを横並び表示 -->
+          <div class="demo-states">
+            <!-- 左: ポップオーバー開状態 -->
+            <div class="demo-state-col">
+              <div class="demo-state-label">ステート①: ポップオーバー入力中</div>
+
+              <!-- クイック編集ポップオーバー -->
+              <div class="task-popover" id="task-quick-popover" data-testid="task-quick-popover" style="position:relative; top:auto; left:auto;">
+                <div class="task-popover-head">
+                  <span class="tp-icon">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="11" height="11" rx="2.2"/><path d="M5 8l2.2 2.2L11 5.5"/></svg>
+                  </span>
+                  <span class="tp-title">タスクの属性を設定（すべてオプション）</span>
+                  <span class="tp-result" id="tp-result-preview">- [ ] </span>
+                </div>
+
+                <!-- config-driven note -->
+                <div class="tp-config-note">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 7v4M8 5h.01"/></svg>
+                  選択肢は <a href="settings-tasks.html">タスク語彙設定</a> で追加・変更できます (<code>system/settings.yaml</code>)
+                </div>
+
+                <div class="tp-body">
+                  <!-- ステータス (optional) -->
+                  <div class="tp-group">
+                    <div class="tp-label">
+                      ステータス
+                      <span class="none-badge">デフォルト: なし(フィールド省略)</span>
+                    </div>
+                    <div class="tp-chips" role="group" aria-label="ステータス" data-testid="task-popover-status">
+                      <!-- "なし" is default/active — field will be omitted -->
+                      <button class="tp-chip active" data-testid="status-opt-none" data-status="none" data-none="true" aria-pressed="true">
+                        なし
+                      </button>
+                      <!-- vocab from system/settings.yaml tasks.statuses -->
+                      <button class="tp-chip" data-testid="status-opt-todo" data-status="todo" aria-pressed="false">
+                        <span class="tp-dot"></span>TODO
+                      </button>
+                      <button class="tp-chip" data-testid="status-opt-progress" data-status="progress" aria-pressed="false">
+                        <span class="tp-dot"></span>進行中
+                      </button>
+                      <button class="tp-chip" data-testid="status-opt-blocked" data-status="blocked" aria-pressed="false">
+                        <span class="tp-dot"></span>ブロック
+                      </button>
+                      <button class="tp-chip" data-testid="status-opt-done" data-status="done" aria-pressed="false">
+                        <span class="tp-dot"></span>完了
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- 優先度 (optional) -->
+                  <div class="tp-group">
+                    <div class="tp-label">
+                      優先度
+                      <span class="none-badge">デフォルト: なし</span>
+                    </div>
+                    <div class="tp-chips" role="group" aria-label="優先度" data-testid="task-popover-priority">
+                      <button class="tp-chip active" data-testid="priority-opt-none" data-priority="none" data-none="true" aria-pressed="true">
+                        なし
+                      </button>
+                      <!-- vocab from system/settings.yaml tasks.priorities -->
+                      <button class="tp-chip" data-testid="priority-opt-highest" data-priority="highest" aria-pressed="false">
+                        <span class="tp-dot"></span>最高
+                      </button>
+                      <button class="tp-chip" data-testid="priority-opt-high" data-priority="high" aria-pressed="false">
+                        <span class="tp-dot"></span>高
+                      </button>
+                      <button class="tp-chip" data-testid="priority-opt-medium" data-priority="medium" aria-pressed="false">
+                        <span class="tp-dot"></span>中
+                      </button>
+                      <button class="tp-chip" data-testid="priority-opt-low" data-priority="low" aria-pressed="false">
+                        <span class="tp-dot"></span>低
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- 期限 (optional) -->
+                  <div class="tp-group">
+                    <div class="tp-label">
+                      期限
+                      <span class="none-badge">デフォルト: なし</span>
+                    </div>
+                    <div class="tp-due-row">
+                      <button class="tp-due-btn active" data-testid="due-preset-none" data-due="" data-none="true" aria-pressed="true">
+                        <span class="tp-due-label">なし</span>
+                        <span class="tp-due-date">—</span>
+                      </button>
+                      <button class="tp-due-btn" data-testid="due-preset-today" data-due="2026-07-19" aria-pressed="false">
+                        <span class="tp-due-label">今日</span>
+                        <span class="tp-due-date">07/19</span>
+                      </button>
+                      <button class="tp-due-btn" data-testid="due-preset-tomorrow" data-due="2026-07-20" aria-pressed="false">
+                        <span class="tp-due-label">明日</span>
+                        <span class="tp-due-date">07/20</span>
+                      </button>
+                      <button class="tp-due-btn" data-testid="due-preset-nextweek" data-due="2026-07-26" aria-pressed="false">
+                        <span class="tp-due-label">来週</span>
+                        <span class="tp-due-date">07/26</span>
+                      </button>
+                    </div>
+
+                    <!-- 月グリッド -->
+                    <div class="tp-cal" id="tp-cal" data-testid="task-due-cal">
+                      <div class="tp-cal-head">
+                        <button class="tp-cal-nav" id="cal-prev" title="前月">
+                          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+                        </button>
+                        <span id="cal-month-label">2026年7月</span>
+                        <button class="tp-cal-nav" id="cal-next" title="翌月">
+                          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>
+                        </button>
+                      </div>
+                      <div class="tp-cal-grid" id="cal-grid">
+                        <!-- filled by JS -->
+                      </div>
+                    </div>
+                  </div><!-- /tp-group (due) -->
+                </div><!-- /tp-body -->
+
+                <div class="tp-footer">
+                  <button class="tp-cancel-btn" id="tp-cancel">キャンセル</button>
+                  <button class="tp-insert-btn" id="tp-insert">挿入 <kbd>Enter</kbd></button>
+                </div>
+              </div><!-- /task-popover -->
+            </div><!-- /demo-state-col (left) -->
+
+            <!-- 右: 確定後の出力パターン -->
+            <div class="demo-state-col">
+              <div class="demo-state-label">ステート②: 設定によって書き込まれる Markdown</div>
+
+              <!-- 出力パターン一覧 -->
+              <div class="output-variants">
+                <table>
+                  <thead><tr><th>設定</th><th>書き込まれる行</th></tr></thead>
+                  <tbody>
+                    <tr>
+                      <td class="ov-case">なし（全省略）</td>
+                      <td class="ov-out">- [ ] タスクテキスト</td>
+                    </tr>
+                    <tr>
+                      <td class="ov-case">期限のみ</td>
+                      <td class="ov-out">- [ ] タスクテキスト [due:: 2026-07-20]</td>
+                    </tr>
+                    <tr>
+                      <td class="ov-case">優先度のみ</td>
+                      <td class="ov-out">- [ ] タスクテキスト [priority:: high]</td>
+                    </tr>
+                    <tr>
+                      <td class="ov-case">ステータス+期限</td>
+                      <td class="ov-out">- [ ] タスクテキスト [status:: progress] [due:: 2026-07-25]</td>
+                    </tr>
+                    <tr>
+                      <td class="ov-case">全部設定</td>
+                      <td class="ov-out">- [ ] タスクテキスト [status:: progress] [priority:: high] [due:: 2026-07-25]</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div style="margin-top:10px; font-size:11.5px; color: var(--text-faint); line-height:1.7;">
+                <strong>ルール:</strong> 設定した項目のみフィールドとして追記。省略した項目はフィールドを書かない。<br>
+                ステータスキーは <code>[ ]</code>(未完了) / <code>[x]</code>(完了) のみ — done:true の語彙がチェックと対応。
+              </div>
+
+              <!-- 自然言語ヒント -->
+              <div class="task-nl-hint" data-testid="task-nl-hint" style="margin-left:0; margin-top:14px;">
+                <span class="nl-tag">NL</span>
+                <strong>自然言語入力</strong> — タスクテキストに日本語トークンや <code>!優先度</code> を含めると自動変換
+                <div class="nl-row">
+                  <div class="nl-before">- [ ] 請求書送付 <span class="task-nl-token">明日</span> <span class="task-nl-token">!高</span></div>
+                  <span class="nl-arrow">→</span>
+                  <div class="nl-after">- [ ] 請求書送付 [due:: 2026-07-20] [priority:: high]</div>
+                </div>
+                <div class="nl-tokens">
+                  <span class="nl-tok-chip"><span class="arrow">明日</span> → <span>[due:: 2026-07-20]</span></span>
+                  <span class="nl-tok-chip"><span class="arrow">今日</span> → <span>[due:: 2026-07-19]</span></span>
+                  <span class="nl-tok-chip"><span class="arrow">来週</span> → <span>[due:: 2026-07-26]</span></span>
+                  <span class="nl-tok-chip"><span class="arrow">7/25</span> → <span>[due:: 2026-07-25]</span></span>
+                  <span class="nl-tok-chip"><span class="arrow">!高</span> → <span>[priority:: high]</span></span>
+                  <span class="nl-tok-chip"><span class="arrow">!最高</span> → <span>[priority:: highest]</span></span>
+                  <span class="nl-tok-chip"><span class="arrow">!中</span> → <span>[priority:: medium]</span></span>
+                </div>
+              </div>
+            </div><!-- /demo-state-col (right) -->
+          </div><!-- /demo-states -->
+        </div><!-- /state-task -->
+      </div><!-- /cm-editor -->
 
       <!-- スラッシュメニュー(active-line の直下に絶対配置) -->
       <div class="slash-menu" id="slash-menu" data-testid="slash-menu" style="top: 214px; left: 62px;">
@@ -133,8 +762,23 @@
           </button>
           <button class="slash-item" data-testid="slash-item" data-command="checkbox">
             <span class="slash-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="11" height="11" rx="2.2"/><path d="M5 8l2.2 2.2L11 5.5"/></svg></span>
-            <span class="slash-main"><span class="slash-title" data-title="チェックボックス">チェックボックス</span><span class="slash-desc">todo · - [ ] タスク行</span></span>
+            <span class="slash-main"><span class="slash-title" data-title="チェックボックス">チェックボックス</span><span class="slash-desc">todo · - [ ] シンプルなタスク行</span></span>
             <span class="slash-kbd">/todo</span>
+          </button>
+          <!-- タスク / TODO — Se3b7a2-7 (updated: status optional, config-driven vocab) -->
+          <button class="slash-item" data-testid="slash-item-task" data-command="task">
+            <span class="slash-ico" style="background: #e8f5ee; color: #2f9e63;">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2.5" y="2.5" width="11" height="11" rx="2.2"/>
+                <path d="M5 8l2.2 2.2L11 5.5"/>
+                <circle cx="12" cy="4" r="2.5" fill="#e07c2e" stroke="none"/>
+              </svg>
+            </span>
+            <span class="slash-main">
+              <span class="slash-title" data-title="タスク / TODO">タスク / TODO</span>
+              <span class="slash-desc">task · ステータス/優先度/期限はオプション — 設定語彙は settings.yaml で管理</span>
+            </span>
+            <span class="slash-kbd">/task</span>
           </button>
           <button class="slash-item" data-testid="slash-item" data-command="heading">
             <span class="slash-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 3v10M12 3v10M4 8h8"/></svg></span>
@@ -143,7 +787,7 @@
           </button>
           <button class="slash-item" data-testid="slash-item" data-command="date">
             <span class="slash-ico"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><rect x="2" y="3" width="12" height="11" rx="1.5"/><path d="M2 6.5h12M5 2v2.5M11 2v2.5"/></svg></span>
-            <span class="slash-main"><span class="slash-title" data-title="日付">日付</span><span class="slash-desc">date · 今日の日付 (2026-07-04)</span></span>
+            <span class="slash-main"><span class="slash-title" data-title="日付">日付</span><span class="slash-desc">date · 今日の日付 (2026-07-19)</span></span>
             <span class="slash-kbd">/date</span>
           </button>
         </div>
@@ -159,27 +803,38 @@
 
 </div>
 
-<div class="proto-note" style="position: fixed; left: 18px; bottom: 14px; z-index: 130; margin: 0; max-width: 560px;">
+<div class="proto-note" style="position: fixed; left: 18px; bottom: 14px; z-index: 130; margin: 0; max-width: 640px;">
   <span class="tag">PROTO</span>
   デモ:
   <button class="btn" style="padding: 1px 8px; font-size: 11px;" onclick="setFilter('/')">メニュー全体</button>
   <button class="btn" style="padding: 1px 8px; font-size: 11px;" onclick="setFilter('/tab')">絞り込み (/tab)</button>
+  <button class="btn" style="padding: 1px 8px; font-size: 11px;" onclick="setFilter('/task')">絞り込み (/task)</button>
   <button class="btn" style="padding: 1px 8px; font-size: 11px;" onclick="showInserted()">テーブルを挿入</button>
+  <button class="btn" style="padding: 1px 8px; font-size: 11px;" onclick="showTask()">タスクを挿入</button>
   <button class="btn" style="padding: 1px 8px; font-size: 11px;" onclick="showMenu()">メニューに戻す</button>
 </div>
 
 <a class="proto-chip" href="index.html">← プロトタイプ一覧</a>
 
 <script>
+  // ---- Slash menu filter logic ----
   const menu = document.getElementById('slash-menu');
   const items = [...document.querySelectorAll('#slash-list .slash-item')];
   const emptyEl = document.querySelector('[data-testid="slash-menu-empty"]');
   const echo = document.getElementById('filter-echo');
   const typed = document.getElementById('slash-typed');
 
-  // マッチ用エイリアス(latin キーワード)
-  const alias = { table:'table テーブル', callout:'callout', code:'code コードフェンス', mermaid:'mermaid',
-                  dataview:'dataview', checkbox:'todo task checkbox チェックボックス', heading:'heading h1 h2 見出し', date:'date 日付' };
+  const alias = {
+    table:    'table テーブル',
+    callout:  'callout',
+    code:     'code コードフェンス',
+    mermaid:  'mermaid',
+    dataview: 'dataview',
+    checkbox: 'todo task checkbox チェックボックス',
+    task:     'task タスク todo 期限 優先度 ステータス',
+    heading:  'heading h1 h2 見出し',
+    date:     'date 日付'
+  };
 
   function setFilter(q) {
     echo.textContent = q;
@@ -188,11 +843,10 @@
     let firstVisible = null, shown = 0;
     items.forEach(it => {
       const cmd = it.dataset.command;
-      const hit = term === '' || alias[cmd].toLowerCase().includes(term) || cmd.includes(term);
+      const hit = term === '' || (alias[cmd] && alias[cmd].toLowerCase().includes(term)) || cmd.includes(term);
       it.style.display = hit ? 'flex' : 'none';
       it.classList.remove('selected');
       if (hit) { shown++; if (!firstVisible) firstVisible = it; }
-      // タイトル内マッチのハイライト
       const titleEl = it.querySelector('.slash-title');
       const t = titleEl.dataset.title;
       if (term && t.toLowerCase().includes(term)) {
@@ -206,19 +860,189 @@
     emptyEl.style.display = shown === 0 ? 'block' : 'none';
   }
 
-  function showInserted() {
+  // ---- State transitions ----
+  function hideAllStates() {
     document.getElementById('state-menu').style.display = 'none';
-    document.getElementById('state-inserted').style.display = 'block';
+    document.getElementById('state-inserted').style.display = 'none';
+    document.getElementById('state-task').style.display = 'none';
     menu.style.display = 'none';
   }
+  function showInserted() {
+    hideAllStates();
+    document.getElementById('state-inserted').style.display = 'block';
+  }
+  function showTask() {
+    hideAllStates();
+    document.getElementById('state-task').style.display = 'block';
+    updatePopoverPreview();
+    renderCal();
+  }
   function showMenu() {
+    hideAllStates();
     document.getElementById('state-menu').style.display = 'block';
-    document.getElementById('state-inserted').style.display = 'none';
     menu.style.display = 'block';
     setFilter('/');
   }
-  items.forEach(it => it.addEventListener('click', () => { if (it.dataset.command === 'table') showInserted(); }));
+
+  items.forEach(it => it.addEventListener('click', () => {
+    if (it.dataset.command === 'table') showInserted();
+    else if (it.dataset.command === 'task') showTask();
+  }));
   document.querySelector('[data-testid="nav-back"]').addEventListener('click', () => history.back());
+
+  // ---- Task popover interactions ----
+
+  // Status chips (group — only one active at a time)
+  document.querySelectorAll('[data-testid="task-popover-status"] .tp-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('[data-testid="task-popover-status"] .tp-chip').forEach(c => {
+        c.classList.remove('active');
+        c.setAttribute('aria-pressed', 'false');
+      });
+      chip.classList.add('active');
+      chip.setAttribute('aria-pressed', 'true');
+      updatePopoverPreview();
+    });
+  });
+
+  // Priority chips (group)
+  document.querySelectorAll('[data-testid="task-popover-priority"] .tp-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('[data-testid="task-popover-priority"] .tp-chip').forEach(c => {
+        c.classList.remove('active');
+        c.setAttribute('aria-pressed', 'false');
+      });
+      chip.classList.add('active');
+      chip.setAttribute('aria-pressed', 'true');
+      updatePopoverPreview();
+    });
+  });
+
+  // Due preset buttons
+  document.querySelectorAll('.tp-due-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tp-due-btn').forEach(b => {
+        b.classList.remove('active');
+        b.setAttribute('aria-pressed', 'false');
+      });
+      // clear calendar selection
+      document.querySelectorAll('.tp-cal-day.selected').forEach(d => d.classList.remove('selected'));
+      btn.classList.add('active');
+      btn.setAttribute('aria-pressed', 'true');
+      updatePopoverPreview();
+    });
+  });
+
+  // Cancel / Insert
+  document.getElementById('tp-cancel').addEventListener('click', showMenu);
+  document.getElementById('tp-insert').addEventListener('click', () => {
+    // In the prototype just switch to menu; real impl commits the Markdown line
+    showMenu();
+  });
+
+  // ---- Calendar rendering ----
+  let calYear = 2026, calMonth = 6; // 0-indexed: 6=July
+  const DOW_LABELS = ['日','月','火','水','木','金','土'];
+
+  function renderCal() {
+    const grid = document.getElementById('cal-grid');
+    const label = document.getElementById('cal-month-label');
+    label.textContent = `${calYear}年${calMonth+1}月`;
+
+    // determine selected date from preset or grid
+    let selectedDate = null;
+    const activePreset = document.querySelector('.tp-due-btn.active:not([data-none="true"])');
+    if (activePreset) selectedDate = activePreset.dataset.due;
+
+    const firstDay = new Date(calYear, calMonth, 1).getDay(); // 0=Sun
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    const today = new Date(2026, 6, 19); // prototype fixed date
+
+    let html = DOW_LABELS.map(d => `<div class="tp-cal-dow">${d}</div>`).join('');
+
+    // blank cells before first day
+    for (let i = 0; i < firstDay; i++) {
+      html += `<div class="tp-cal-day empty"></div>`;
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const isToday = d === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear();
+      const isSelected = dateStr === selectedDate;
+      const cls = ['tp-cal-day', isToday ? 'today' : '', isSelected ? 'selected' : ''].filter(Boolean).join(' ');
+      html += `<div class="${cls}" data-date="${dateStr}">${d}</div>`;
+    }
+
+    grid.innerHTML = html;
+
+    grid.querySelectorAll('.tp-cal-day:not(.empty)').forEach(cell => {
+      cell.addEventListener('click', () => {
+        // Clear preset active states; reset to "none" not active (calendar selection overrides)
+        document.querySelectorAll('.tp-due-btn').forEach(b => {
+          b.classList.remove('active');
+          b.setAttribute('aria-pressed', 'false');
+        });
+        grid.querySelectorAll('.tp-cal-day').forEach(c => c.classList.remove('selected'));
+        cell.classList.add('selected');
+        updatePopoverPreview();
+      });
+    });
+  }
+
+  document.getElementById('cal-prev').addEventListener('click', () => {
+    calMonth--;
+    if (calMonth < 0) { calMonth = 11; calYear--; }
+    renderCal();
+  });
+  document.getElementById('cal-next').addEventListener('click', () => {
+    calMonth++;
+    if (calMonth > 11) { calMonth = 0; calYear++; }
+    renderCal();
+  });
+
+  // ---- Preview line builder ----
+  // Status keys map to plain [ ] / [x] checkboxes — only done:true vocab maps to [x]
+  const DONE_STATUSES = new Set(['done']); // from settings.yaml tasks.statuses[].done:true
+
+  function getSelectedStatus() {
+    const chip = document.querySelector('[data-testid="task-popover-status"] .tp-chip.active');
+    if (!chip || chip.dataset.none === 'true') return null;
+    return chip.dataset.status;
+  }
+  function getSelectedPriority() {
+    const chip = document.querySelector('[data-testid="task-popover-priority"] .tp-chip.active');
+    if (!chip || chip.dataset.none === 'true') return null;
+    return chip.dataset.priority;
+  }
+  function getSelectedDue() {
+    const preset = document.querySelector('.tp-due-btn.active:not([data-none="true"])');
+    if (preset) return preset.dataset.due;
+    const calSel = document.querySelector('.tp-cal-day.selected');
+    if (calSel) return calSel.dataset.date;
+    return null;
+  }
+
+  function updatePopoverPreview() {
+    const status = getSelectedStatus();
+    const priority = getSelectedPriority();
+    const due = getSelectedDue();
+
+    // checkbox mark: done:true vocab → [x], otherwise [ ]
+    const checkMark = (status && DONE_STATUSES.has(status)) ? '[x]' : '[ ]';
+
+    let line = `- ${checkMark} `;
+    const fields = [];
+    if (status) fields.push(`[status:: ${status}]`);
+    if (due) fields.push(`[due:: ${due}]`);
+    if (priority) fields.push(`[priority:: ${priority}]`);
+    if (fields.length) line += fields.join(' ');
+    line = line.trim();
+
+    const previewEl = document.getElementById('tp-result-preview');
+    if (previewEl) previewEl.textContent = line || `- ${checkMark} `;
+
+    const lineEl = document.getElementById('task-line-preview');
+    if (lineEl) lineEl.innerHTML = `- ${checkMark} <span class="caret"></span>`;
+  }
 </script>
 </body>
 </html>

@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#6e56cf">
+<title>Loamium — モバイル Agent シート</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+/* =====================================================================
+   モバイル Agent フルスクリーンシート (prototype/mobile-agent.html)
+   Sa6c3b0-6: ボトムバーの「Agent」タップで下からスライドアップ
+   ===================================================================== */
+
+/* ---- フォン枠ラッパー (プロトタイプ専用) ---- */
+body {
+  background: #d8d8e0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 16px 80px;
+  min-height: 100vh;
+}
+
+.phone-frame {
+  width: 390px;
+  max-width: 100%;
+  min-height: 844px;
+  background: var(--bg-editor);
+  border-radius: 44px;
+  box-shadow: 0 0 0 8px #23242b, 0 24px 64px rgba(0,0,0,0.45);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.phone-notch {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 126px;
+  height: 34px;
+  background: #23242b;
+  border-radius: 0 0 20px 20px;
+  z-index: 200;
+}
+
+.phone-inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-top: 10px;
+}
+
+/* ---- アプリシェル ---- */
+.phone-inner .app {
+  height: 100%;
+  min-height: 844px;
+  overflow: hidden;
+  flex-direction: column;
+  position: relative;
+}
+.phone-inner .sidebar { display: none; }
+.phone-inner .panel { display: none; }
+.phone-inner .workspace {
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 56px;
+}
+.phone-inner .editor-header { padding: 10px 14px; gap: 8px; }
+.phone-inner .icon-btn { width: 44px; height: 44px; border-radius: 10px; }
+.phone-inner .icon-btn svg { width: 20px; height: 20px; }
+.phone-inner .route-crumbs {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: block;
+  line-height: 1.4;
+  padding: 2px 0;
+}
+.phone-inner .route-crumbs .route-token { font-size: 11px; }
+.phone-inner .route-crumbs .current { font-size: 13px; }
+.phone-inner .cm-scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 20px 0 40px;
+}
+.phone-inner .cm-editor {
+  max-width: 100%;
+  padding: 0 16px;
+  font-size: 16px;
+  line-height: 1.8;
+  opacity: 0.4; /* Agent シートが前面にあるので薄く */
+}
+.phone-inner .save-status span:last-child { display: none; }
+
+/* ---- ハンバーガーボタン ---- */
+.mobile-menu-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.mobile-menu-btn:hover { background: var(--bg-hover); color: var(--text); }
+.mobile-menu-btn svg { width: 20px; height: 20px; }
+
+/* =====================================================================
+   ボトムナビゲーションバー (Sa6c3b0-6)
+   ===================================================================== */
+.mobile-bottom-nav {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: var(--bg-editor);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: stretch;
+  z-index: 90;
+}
+.mobile-nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 44px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 6px 4px 4px;
+}
+.mobile-nav-item:hover { background: var(--bg-hover); }
+.mobile-nav-item.active { color: var(--accent); }
+.mobile-nav-item svg { width: 22px; height: 22px; }
+.mobile-nav-item .nav-label { font-size: 10px; font-weight: 600; line-height: 1; }
+
+/* =====================================================================
+   Agent フルスクリーンシート (Sa6c3b0-6)
+   ノートの上にスライドアップして被さる。ノートは閉じない。
+   ===================================================================== */
+
+/* シート本体 */
+.mobile-agent-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 56px; /* ボトムバーの上 */
+  top: 44px;    /* ノッチ + ステータスバー分確保 */
+  z-index: 150;
+  background: var(--bg-editor);
+  border-radius: 20px 20px 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 -4px 24px rgba(20, 20, 35, 0.18);
+  /* スライドアップ状態 */
+  transform: translateY(0);
+}
+
+/* ドラッグハンドル */
+.agent-sheet-handle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 0 6px;
+  flex-shrink: 0;
+  cursor: grab;
+}
+.agent-sheet-handle .handle-bar {
+  width: 36px;
+  height: 4px;
+  background: var(--border-strong);
+  border-radius: 2px;
+}
+
+/* シートヘッダ */
+.agent-sheet-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.agent-sheet-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.agent-sheet-title .agent-ico {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.agent-sheet-title .agent-ico svg { width: 15px; height: 15px; }
+.agent-sheet-title .live-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--ok);
+}
+.agent-sheet-title .live-dot.off { background: var(--text-faint); }
+
+/* 閉じるボタン */
+.agent-sheet-close-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.agent-sheet-close-btn:hover { background: var(--bg-hover); color: var(--text); }
+.agent-sheet-close-btn svg { width: 18px; height: 18px; }
+
+/* セッションバー */
+.agent-session-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  font-size: 12px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.agent-session-bar .session-title {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  color: var(--text);
+}
+.agent-session-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+.agent-session-btn:hover { background: var(--bg-hover); color: var(--text); }
+.agent-session-btn svg { width: 16px; height: 16px; }
+
+/* ====================================================================
+   チャット本体 (agent-chat.html の .agent-* スタイルを継承)
+   ==================================================================== */
+.agent-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: var(--bg-editor);
+}
+.agent-messages {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 14px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.agent-msg-user {
+  align-self: flex-end;
+  max-width: 88%;
+  background: var(--accent-soft);
+  border: 1px solid #e2dcf7;
+  border-radius: 16px 16px 4px 16px;
+  padding: 9px 13px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.agent-msg-assistant {
+  align-self: stretch;
+  font-size: 14px;
+  line-height: 1.75;
+}
+.agent-msg-assistant p { margin: 4px 0; }
+.agent-msg-assistant ul { margin: 4px 0; padding-left: 20px; }
+
+/* ツールチップ */
+.agent-tool-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 2px 0 10px;
+}
+.agent-tool-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  max-width: 100%;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 11px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  min-height: 34px;
+}
+.agent-tool-chip:hover { background: var(--bg-hover); }
+.agent-tool-chip .tool-name { font-weight: 600; color: var(--text); }
+.agent-tool-chip .tool-args {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+.agent-tool-chip .ok { color: var(--ok); }
+.agent-tool-chip.running { border-color: #d9d2f2; background: var(--accent-soft); }
+.agent-tool-chip .spinner {
+  width: 12px; height: 12px;
+  border: 1.8px solid #cfc6ee;
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: agent-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes agent-spin { to { transform: rotate(360deg); } }
+
+.agent-wikilink { color: var(--link); cursor: pointer; }
+.agent-wikilink:hover { text-decoration: underline; }
+.agent-wikilink-broken { color: var(--danger); border-bottom: 1px dashed var(--danger); cursor: pointer; }
+
+.agent-error {
+  align-self: stretch;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  background: var(--danger-soft);
+  border: 1px solid #f3d5d5;
+  border-radius: 9px;
+  padding: 9px 12px;
+  font-size: 13px;
+  color: #9c3535;
+  line-height: 1.6;
+}
+.agent-error svg { width: 15px; height: 15px; flex-shrink: 0; margin-top: 2px; }
+
+.agent-streaming-caret {
+  display: inline-block;
+  width: 7px; height: 15px;
+  background: var(--accent);
+  vertical-align: text-bottom;
+  margin-left: 2px;
+  animation: agent-blink 1s steps(2) infinite;
+}
+@keyframes agent-blink { 50% { opacity: 0; } }
+
+/* 入力バー */
+.agent-input-row {
+  border-top: 1px solid var(--border);
+  padding: 10px 14px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  background: var(--bg-panel);
+  flex-shrink: 0;
+}
+.agent-input {
+  flex: 1;
+  resize: none;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--bg-editor);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 9px 12px;
+  min-height: 40px;
+  max-height: 120px;
+  color: var(--text);
+}
+.agent-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.agent-input:disabled { background: var(--bg-panel); color: var(--text-faint); }
+.agent-send, .agent-abort {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-height: 44px;
+  min-width: 44px;
+}
+.agent-send { background: var(--accent); color: #fff; }
+.agent-send:hover { background: var(--accent-hover); }
+.agent-send:disabled { background: var(--bg-hover); color: var(--text-faint); cursor: default; }
+.agent-send svg, .agent-abort svg { width: 16px; height: 16px; }
+.agent-abort { background: var(--danger-soft); color: var(--danger); border: 1px solid #f0caca; }
+.agent-abort:hover { background: #fbe4e4; }
+.agent-hint {
+  font-size: 11px;
+  color: var(--text-faint);
+  padding: 0 14px 8px;
+  background: var(--bg-panel);
+  flex-shrink: 0;
+}
+
+/* 現在のノートコンテキストバッジ */
+.agent-context-badge {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 8px 14px 2px;
+  padding: 7px 11px;
+  background: var(--accent-soft);
+  border: 1px solid #e2dcf7;
+  border-radius: 9px;
+  font-size: 11.5px;
+  color: var(--accent-hover);
+  flex-shrink: 0;
+}
+.agent-context-badge svg { width: 13px; height: 13px; flex-shrink: 0; }
+.agent-context-badge .ctx-note {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* =====================================================================
+   プロトタイプ専用スタイル
+   ===================================================================== */
+.proto-label-banner {
+  background: #23242b;
+  color: #ececf4;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: center;
+  padding: 7px 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  letter-spacing: 0.03em;
+}
+.proto-label-banner .dim { color: #61616e; font-weight: 400; }
+.desktop-note {
+  max-width: 390px;
+  margin: 0 auto 20px;
+  font-size: 12px;
+  color: #555;
+  text-align: center;
+  line-height: 1.6;
+}
+.phone-inner .proto-note { margin: 8px 0; font-size: 11.5px; }
+</style>
+</head>
+<body>
+
+<!-- プロトタイプ注釈 -->
+<div style="position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:999;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;">
+  <div class="proto-label-banner">
+    モバイル Agent シート (フルスクリーン) <span class="dim">(Sa6c3b0-6)</span>
+  </div>
+  <p class="desktop-note">ボトムバー「🤖Agent」タップ → 下からスライドアップ / ノートは背面に残る<br>
+  状態切替:
+  <a href="#" onclick="setState('ready');return false;" style="color:#6e56cf;">Ready</a> /
+  <a href="#" onclick="setState('streaming');return false;" style="color:#6e56cf;">Streaming</a> /
+  <a href="#" onclick="setState('empty');return false;" style="color:#6e56cf;">新規</a></p>
+</div>
+
+<!-- フォン枠 -->
+<div class="phone-frame">
+  <div class="phone-notch"></div>
+  <div class="phone-inner">
+    <div class="app">
+
+      <!-- ========================= 背面: ワークスペース (薄く表示) ========================= -->
+      <main class="workspace">
+
+        <div class="editor-header">
+          <button class="mobile-menu-btn" data-testid="sidebar-toggle" aria-label="サイドバーを開く">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+              <path d="M3 5h14M3 10h14M3 15h14"/>
+            </svg>
+          </button>
+          <nav class="route-crumbs" data-testid="route-display" aria-label="現在のルート">
+            <span class="route-token">/n/</span><!-- --><span>議事録</span><span class="sep">/</span><span class="current">議事録 2026-07-10</span>
+          </nav>
+          <div class="save-status" data-testid="save-status" data-state="saved">
+            <span class="dot"></span><span>保存済み</span>
+          </div>
+          <button class="icon-btn" data-testid="editor-more-menu" aria-label="その他">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+              <circle cx="8" cy="3.5" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="8" cy="12.5" r="1"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- 背面のノート(薄く) -->
+        <div class="cm-scroll">
+          <div class="cm-editor" data-testid="editor">
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h1">議事録 2026-07-10</span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content"><strong class="md-bold">日時:</strong> 2026年7月10日(木) 14:00〜15:30</span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content"><strong class="md-bold">参加者:</strong> 辻下、田中、佐藤、山田(オンライン)</span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h2">アジェンダ</span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">1.</span><span>前回アクションの確認</span></span></div>
+            <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">2.</span><span>プロジェクト計画 進捗共有</span></span></div>
+          </div>
+        </div>
+
+        <!-- ========================= ボトムナビゲーションバー ========================= -->
+        <nav class="mobile-bottom-nav" data-testid="mobile-bottom-nav" aria-label="メインナビゲーション">
+          <button class="mobile-nav-item" data-testid="mobile-nav-notes" aria-label="ノート" onclick="location.href='mobile-responsive.html'">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+            <span class="nav-label">ノート</span>
+          </button>
+          <button class="mobile-nav-item" data-testid="mobile-nav-search" aria-label="検索">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="7"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <span class="nav-label">検索</span>
+          </button>
+          <button class="mobile-nav-item active" data-testid="mobile-nav-agent" aria-label="Agent" aria-current="page">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0110 0v4"/>
+              <circle cx="12" cy="16" r="1" fill="currentColor"/>
+            </svg>
+            <span class="nav-label">Agent</span>
+          </button>
+        </nav>
+
+      </main>
+
+      <!-- =====================================================================
+           Agent フルスクリーンシート (Sa6c3b0-6)
+           ===================================================================== -->
+      <div class="mobile-agent-sheet" data-testid="mobile-agent-sheet" role="dialog" aria-label="Agent チャット" aria-modal="true">
+
+        <!-- ドラッグハンドル (下スワイプで閉じる視覚的ヒント) -->
+        <div class="agent-sheet-handle">
+          <div class="handle-bar"></div>
+        </div>
+
+        <!-- シートヘッダ -->
+        <div class="agent-sheet-header">
+          <div class="agent-sheet-title">
+            <span class="agent-ico">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="7" width="12" height="8" rx="1.5"/>
+                <path d="M5 7V5a3 3 0 016 0v2"/>
+                <circle cx="8" cy="11" r="1" fill="currentColor" stroke="none"/>
+              </svg>
+            </span>
+            Agent
+            <span class="live-dot" id="agent-live-dot"></span>
+          </div>
+
+          <!-- 新規セッションボタン -->
+          <button class="agent-session-btn" data-testid="agent-new-session" title="新規セッション" aria-label="新規セッションを開始">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+              <path d="M8 3.5v9M3.5 8h9"/>
+            </svg>
+          </button>
+
+          <!-- 閉じるボタン -->
+          <button class="agent-sheet-close-btn" data-testid="mobile-agent-sheet-close" aria-label="Agent シートを閉じる" onclick="location.href='mobile-responsive.html'">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 3l10 10M13 3L3 13"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- 現在開いているノートのコンテキスト表示 -->
+        <div class="agent-context-badge">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/>
+          </svg>
+          <span>コンテキスト: </span>
+          <span class="ctx-note">議事録 2026-07-10</span>
+        </div>
+
+        <!-- ==================== 状態 1: Ready (履歴 + 回答) ==================== -->
+        <div class="agent-body" id="state-ready" data-testid="agent-pane" data-agent-status="ready">
+          <div class="agent-session-bar">
+            <span class="session-title">この議事録のアクションまとめ</span>
+          </div>
+          <div class="agent-messages" data-testid="agent-messages">
+            <div class="agent-msg-user" data-testid="agent-msg-user">
+              この議事録の未完了アクションをまとめて
+            </div>
+            <div class="agent-msg-assistant" data-testid="agent-msg-assistant">
+              <div class="agent-tool-chips">
+                <button class="agent-tool-chip" data-testid="agent-tool-chip" title="クリックで詳細">
+                  <span class="ok">●</span><span class="tool-name">read</span><span class="tool-args">議事録/議事録 2026-07-10.md</span>
+                </button>
+                <button class="agent-tool-chip" data-testid="agent-tool-chip" title="クリックで詳細">
+                  <span class="ok">●</span><span class="tool-name">search</span><span class="tool-args">status:open note:議事録 2026-07-10</span>
+                </button>
+              </div>
+              <p><strong>2 件の未完了アクションがあります:</strong></p>
+              <ul>
+                <li><strong>manifest.json と Service Worker の作成</strong> — 担当: 田中 / 期日: 7/18 (<span class="agent-wikilink" data-testid="agent-wikilink" data-target="議事録/議事録 2026-07-10.md">[[議事録 2026-07-10]]</span>)</li>
+                <li><strong>Lighthouse PWA 監査の実施</strong> — 担当: 佐藤 / 期日: 7/22 (<span class="agent-wikilink" data-testid="agent-wikilink" data-target="議事録/議事録 2026-07-10.md">[[議事録 2026-07-10]]</span>)</li>
+              </ul>
+              <p>「<span class="agent-wikilink-broken" data-testid="agent-wikilink-broken" data-target="projects/バックエンド設計.md">[[バックエンド設計]]</span>」への参照がありますが、API レート制限の詳細はそちらで別途管理されています。</p>
+            </div>
+          </div>
+          <div class="agent-input-row">
+            <textarea class="agent-input" data-testid="agent-input" rows="1" placeholder="vault について質問…"></textarea>
+            <button class="agent-send" data-testid="agent-send" disabled title="送信">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2L7.5 8.5M14 2L9.5 14l-2-5.5L2 6.5z"/>
+              </svg>
+            </button>
+          </div>
+          <div class="agent-hint">ツール: vault 読み取りのみ（書き込みなし）</div>
+        </div>
+
+        <!-- ==================== 状態 2: Streaming (実行中) ==================== -->
+        <div class="agent-body" id="state-streaming" data-testid="agent-pane" data-agent-status="streaming" style="display:none;">
+          <div class="agent-session-bar">
+            <span class="session-title">この議事録のアクションまとめ</span>
+          </div>
+          <div class="agent-messages" data-testid="agent-messages">
+            <div class="agent-msg-user" data-testid="agent-msg-user">この議事録の未完了アクションをまとめて</div>
+            <div class="agent-msg-assistant" data-testid="agent-msg-assistant">
+              <div class="agent-tool-chips">
+                <button class="agent-tool-chip" data-testid="agent-tool-chip">
+                  <span class="ok">●</span><span class="tool-name">read</span><span class="tool-args">議事録/議事録 2026-07-10.md</span>
+                </button>
+                <button class="agent-tool-chip running" data-testid="agent-tool-chip-running">
+                  <span class="spinner"></span><span class="tool-name">search</span><span class="tool-args">status:open note:議事録 2026-07-10</span>
+                </button>
+              </div>
+              <p>ノートを読み込みました。未完了のチェックボックスを確認して<span class="agent-streaming-caret"></span></p>
+            </div>
+          </div>
+          <div class="agent-input-row">
+            <textarea class="agent-input" data-testid="agent-input" rows="1" disabled placeholder="応答中…"></textarea>
+            <button class="agent-abort" data-testid="agent-abort" title="中断">
+              <svg viewBox="0 0 16 16" fill="currentColor"><rect x="4" y="4" width="8" height="8" rx="1.5"/></svg>
+            </button>
+          </div>
+          <div class="agent-hint">応答中 — 中断すると部分応答は残ります</div>
+        </div>
+
+        <!-- ==================== 状態 3: Empty (新規セッション) ==================== -->
+        <div class="agent-body" id="state-empty" data-testid="agent-pane" data-agent-status="ready" style="display:none;">
+          <div class="agent-messages" data-testid="agent-messages">
+            <div class="empty-state" style="padding: 28px 18px;">
+              <div class="glyph">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="7" width="12" height="8" rx="1.5"/>
+                  <path d="M5 7V5a3 3 0 016 0v2"/>
+                  <circle cx="8" cy="11" r="1" fill="currentColor" stroke="none"/>
+                </svg>
+              </div>
+              <h2 style="font-size:15px;">vault について聞いてみましょう</h2>
+              <p style="font-size:13px; line-height:1.8;">
+                「このノートの要点は?」「#project タグのノートを一覧で」など。<br>
+                エージェントは vault の検索・参照のみできます。
+              </p>
+            </div>
+          </div>
+          <div class="agent-input-row">
+            <textarea class="agent-input" data-testid="agent-input" rows="1" placeholder="vault について質問…"></textarea>
+            <button class="agent-send" data-testid="agent-send" disabled title="送信">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2L7.5 8.5M14 2L9.5 14l-2-5.5L2 6.5z"/>
+              </svg>
+            </button>
+          </div>
+          <div class="agent-hint">ツール: vault 読み取りのみ</div>
+        </div>
+
+        <!-- プロトタイプ注記 (シート内) -->
+        <div class="proto-note" style="margin: 0; border-radius: 0; font-size: 11px; border-left: none; border-right: none; border-bottom: none;">
+          <span class="tag">PROTO</span>
+          <strong>Sa6c3b0-6</strong>: Agent シートはノートを閉じず背面に残す。ハンドル下スワイプ / 閉じるボタンで mobile-responsive.html へ戻る。
+        </div>
+
+      </div><!-- /mobile-agent-sheet -->
+
+    </div><!-- /app -->
+  </div><!-- /phone-inner -->
+</div><!-- /phone-frame -->
+
+<!-- プロトタイプチップ -->
+<a class="proto-chip" href="index.html">← 一覧へ</a>
+
+<script>
+function setState(s) {
+  const states = ['ready', 'streaming', 'empty'];
+  for (const id of states) {
+    const el = document.getElementById('state-' + id);
+    if (el) el.style.display = (id === s) ? 'flex' : 'none';
+  }
+  const dot = document.getElementById('agent-live-dot');
+  if (dot) dot.className = 'live-dot' + (s === 'streaming' ? '' : '');
+}
+// 入力に文字が入ると送信ボタンが有効化されるデモ
+document.querySelectorAll('.agent-input').forEach((ta) => {
+  ta.addEventListener('input', () => {
+    const send = ta.closest('.agent-input-row').querySelector('.agent-send');
+    if (send) send.disabled = ta.value.trim() === '';
+  });
+});
+</script>
+</body>
+</html>

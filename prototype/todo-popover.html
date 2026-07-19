@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loamium — エディタ チェックボックス行 + クイック編集ポップオーバー</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+/* ================================================================
+   todo-popover: エディタ チェックボックス行 + クイック編集ポップオーバー
+   - plain GFM: - [ ] / - [x]  (done/not-done のみ)
+   - status / priority / due は OPTIONAL Dataview インラインフィールド
+   - アクティブ行はソース表示 (インラインフィールドが見える)
+   - ポップオーバー: ステータス/優先度/期限 (なし/クリアオプションあり)
+   ステータス/優先度の語彙は system/settings.yaml で定義(コード埋め込みなし)
+   ================================================================ */
+
+/* ---- 丸チェックボックス (done toggle) ---- */
+
+.task-checkbox {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  flex-shrink: 0;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-editor);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+  user-select: none;
+}
+.task-checkbox:hover {
+  border-color: #16a34a;
+  background: #f0fdf4;
+}
+.task-checkbox[data-done="true"] {
+  border-color: #16a34a;
+  background: #16a34a;
+  color: #fff;
+}
+.task-checkbox[data-done="true"]:hover {
+  background: #15803d;
+  border-color: #15803d;
+}
+.task-checkbox svg {
+  width: 10px;
+  height: 10px;
+  display: none;
+  color: #fff;
+}
+.task-checkbox[data-done="true"] svg { display: block; }
+
+/* ---- ステータスピル (status インラインフィールドがあるときのみ) ---- */
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  border-radius: 5px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+.status-pill[data-status="todo"]     { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+.status-pill[data-status="progress"] { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+.status-pill[data-status="blocked"]  { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+.status-pill[data-status="done"]     { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+
+/* ---- 優先度フラグ ---- */
+
+.priority-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 5px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.priority-flag svg { width: 10px; height: 10px; }
+.priority-flag[data-priority="highest"] { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+.priority-flag[data-priority="high"]    { background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa; }
+.priority-flag[data-priority="medium"]  { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+.priority-flag[data-priority="low"]     { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
+
+/* ---- 期日チップ ---- */
+
+.due-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 5px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+.due-chip svg { width: 10px; height: 10px; }
+.due-chip.dc-today   { background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa; }
+.due-chip.dc-tomorrow { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+.due-chip.dc-future  { background: var(--bg-panel); color: var(--text-muted); border: 1px solid var(--border); }
+.due-chip.dc-overdue { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; font-weight: 700; }
+
+/* ---- 行レイアウト ---- */
+
+.cm-line { position: relative; }
+.cm-line .cm-content {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.task-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.task-label.done {
+  color: var(--text-faint);
+  text-decoration: line-through;
+}
+
+/* ---- インラインフィールドのソース表示 (アクティブ行) ---- */
+
+.sf-key { color: var(--accent); font-family: var(--font-mono); font-size: 12.5px; }
+.sf-val { color: #2f9e63; font-family: var(--font-mono); font-size: 12.5px; }
+.sf-bracket { color: var(--text-muted); font-family: var(--font-mono); font-size: 12.5px; }
+.sf-sep { color: var(--text-muted); font-family: var(--font-mono); font-size: 12.5px; }
+
+.inline-fields-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
+  margin-left: 4px;
+}
+
+/* ---- 編集トリガーアフォーダンス (⚙ ボタン) ---- */
+
+.checkbox-fields-trigger {
+  width: 22px; height: 22px;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.1s;
+  cursor: pointer;
+}
+.cm-line:hover .checkbox-fields-trigger,
+.cm-line.active-line .checkbox-fields-trigger { opacity: 1; }
+.checkbox-fields-trigger:hover { background: var(--accent-soft); color: var(--accent); }
+.checkbox-fields-trigger svg { width: 13px; height: 13px; }
+
+/* ---- クイック編集ポップオーバー ---- */
+
+.checkbox-fields-popover {
+  position: absolute;
+  z-index: 50;
+  background: var(--bg-editor);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  width: 288px;
+  top: calc(1.75em + 10px);
+  right: 0;
+  overflow: hidden;
+}
+
+.tqe-section {
+  padding: 12px 14px 10px;
+}
+.tqe-section + .tqe-section { border-top: 1px solid var(--border); }
+
+.tqe-section-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 8px;
+}
+
+/* ステータスオプション */
+.tqe-status-opts {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.tqe-status-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 7px;
+  border: 1.5px solid;
+  transition: background 0.1s, border-color 0.1s;
+  cursor: pointer;
+}
+.tqe-status-opt[data-status="none"] {
+  background: var(--bg-panel); color: var(--text-muted); border-color: var(--border-strong);
+}
+.tqe-status-opt[data-status="none"]:hover,
+.tqe-status-opt[data-status="none"].active {
+  background: var(--bg-hover); border-color: var(--border-strong);
+}
+.tqe-status-opt[data-status="todo"] {
+  background: #f1f5f9; color: #64748b; border-color: #cbd5e1;
+}
+.tqe-status-opt[data-status="todo"]:hover,
+.tqe-status-opt[data-status="todo"].active {
+  background: #e2e8f0; border-color: #94a3b8;
+}
+.tqe-status-opt[data-status="progress"] {
+  background: #eff6ff; color: #2563eb; border-color: #93c5fd;
+}
+.tqe-status-opt[data-status="progress"]:hover,
+.tqe-status-opt[data-status="progress"].active {
+  background: #dbeafe; border-color: #3b82f6;
+}
+.tqe-status-opt[data-status="blocked"] {
+  background: #fef2f2; color: #dc2626; border-color: #fca5a5;
+}
+.tqe-status-opt[data-status="blocked"]:hover,
+.tqe-status-opt[data-status="blocked"].active {
+  background: #fee2e2; border-color: #ef4444;
+}
+.tqe-status-opt[data-status="done"] {
+  background: #f0fdf4; color: #16a34a; border-color: #86efac;
+}
+.tqe-status-opt[data-status="done"]:hover,
+.tqe-status-opt[data-status="done"].active {
+  background: #dcfce7; border-color: #22c55e;
+}
+.tqe-status-opt .so-glyph {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.tqe-status-opt[data-status="done"] .so-glyph { background: #16a34a; border-color: #16a34a; color: #fff; }
+.tqe-status-opt[data-status="none"] .so-glyph { border-color: var(--border-strong); background: transparent; color: transparent; }
+.so-check { display: none; }
+.tqe-status-opt.active .so-check { display: inline; margin-left: 2px; font-size: 10px; }
+
+/* 期日プリセット */
+.tqe-presets {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.tqe-preset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-panel);
+  color: var(--text-muted);
+  transition: background 0.1s, color 0.1s;
+  cursor: pointer;
+}
+.tqe-preset-btn:hover { background: var(--bg-hover); color: var(--text); }
+.tqe-preset-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.tqe-preset-btn svg { width: 12px; height: 12px; }
+/* クリアボタン */
+.tqe-preset-btn.clear { color: var(--danger); border-color: #fecaca; background: #fef2f2; }
+.tqe-preset-btn.clear:hover { background: #fee2e2; }
+
+/* 月グリッド */
+.tqe-calendar {
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  overflow: hidden;
+  background: var(--bg-panel);
+  margin-top: 2px;
+  display: block;
+}
+.tqe-cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-editor);
+}
+.tqe-cal-header button {
+  width: 22px; height: 22px;
+  border-radius: 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.tqe-cal-header button:hover { background: var(--bg-hover); color: var(--text); }
+.tqe-cal-header svg { width: 12px; height: 12px; }
+.tqe-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  padding: 4px 6px 8px;
+}
+.tqe-cal-dow {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-faint);
+  padding: 3px 0;
+}
+.tqe-cal-day {
+  text-align: center;
+  font-size: 12px;
+  padding: 5px 3px;
+  border-radius: 5px;
+  cursor: pointer;
+  line-height: 1;
+  color: var(--text);
+}
+.tqe-cal-day:hover { background: var(--bg-hover); }
+.tqe-cal-day.today { font-weight: 700; color: var(--accent); }
+.tqe-cal-day.selected { background: var(--accent); color: #fff; }
+.tqe-cal-day.other-month { color: var(--text-faint); pointer-events: none; }
+
+/* 優先度オプション */
+.tqe-priority-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.tqe-priority-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 5px 8px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.1s;
+  cursor: pointer;
+}
+.tqe-priority-opt:hover { background: var(--bg-hover); }
+.tqe-priority-opt.selected { background: var(--bg-active); }
+.tqe-priority-opt .pf-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  border: 2px solid;
+  flex-shrink: 0;
+}
+.tqe-priority-opt[data-val="highest"] .pf-dot { border-color: #dc2626; background: #dc2626; }
+.tqe-priority-opt[data-val="high"]    .pf-dot { border-color: #ea580c; background: #ea580c; }
+.tqe-priority-opt[data-val="medium"]  .pf-dot { border-color: #2563eb; background: #2563eb; }
+.tqe-priority-opt[data-val="low"]     .pf-dot { border-color: #94a3b8; background: #94a3b8; }
+.tqe-priority-opt[data-val="none"]    .pf-dot { border-color: var(--border-strong); background: transparent; }
+.tqe-priority-opt .check-mark { margin-left: auto; color: var(--accent); width: 14px; height: 14px; }
+.tqe-priority-opt .check-mark svg { width: 14px; height: 14px; }
+
+/* ポップオーバーフッター */
+.tqe-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 8px 14px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ================= 左: サイドバー ================= -->
+  <aside class="sidebar" data-testid="sidebar">
+    <div class="sidebar-header">
+      <div class="vault-badge">L</div>
+      <div class="vault-name">loamium-notes</div>
+      <button class="icon-btn" title="検索 (Ctrl+K)">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.4"/><path d="M10.4 10.4L14 14"/></svg>
+      </button>
+      <button class="icon-btn" title="設定">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4"/></svg>
+      </button>
+    </div>
+
+    <nav class="journal-nav" aria-label="ジャーナル">
+      <div class="journal-nav-label">Daily Journal</div>
+      <div class="journal-nav-row">
+        <button class="icon-btn" title="前日">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+        </button>
+        <button class="journal-date-btn">2026-07-19<span class="dow">日</span></button>
+        <button class="icon-btn" title="翌日">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>
+        </button>
+      </div>
+    </nav>
+
+    <div class="tree-section-title"><span>ノート</span></div>
+    <div class="tree">
+      <button class="tree-item active" data-path="週次TODO.md">
+        <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+        <span class="name">週次TODO</span>
+      </button>
+      <button class="tree-item" data-path="プロジェクトハブ.md">
+        <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+        <span class="name">プロジェクトハブ</span>
+      </button>
+      <button class="tree-item" data-path="projects/Hydra 移行手順.md">
+        <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+        <span class="name">Hydra 移行手順</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ================= 中央: エディタ ================= -->
+  <main class="workspace">
+    <div class="editor-header">
+      <div class="breadcrumb">
+        <span class="current">週次TODO</span>
+      </div>
+      <div class="save-status" data-testid="save-status" data-state="saved">
+        <span class="dot"></span><span>保存済み</span>
+      </div>
+    </div>
+
+    <div class="cm-scroll">
+      <div class="cm-editor" data-testid="editor" style="position:relative;">
+
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h1" style="display:block;">週次TODO — 2026-W30</span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content" style="display:block;"></span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h2" style="display:block;">今週のタスク</span></div>
+
+        <!-- ────────────────────────────────────────────
+             行 4: done (- [x]) — チームミーティング議事録
+             status=done インラインフィールドあり → done ピル表示
+             ──────────────────────────────────────────── -->
+        <div class="cm-line" data-testid="checkbox-line" data-line="4">
+          <span class="gutter"></span>
+          <span class="cm-content">
+            <span class="task-checkbox" data-testid="task-checkbox" data-done="true" role="checkbox" aria-checked="true" aria-label="未完了に戻す">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+            </span>
+            <span class="task-label done">チームミーティングの議事録を作成する</span>
+            <!-- status=done フィールドあり → ピル表示 -->
+            <span class="status-pill" data-status="done" data-testid="status-pill">完了</span>
+            <span class="due-chip dc-future" data-testid="due-chip">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2.5" y="3" width="11" height="10.5" rx="2"/><path d="M2.5 7h11M5.5 1v3M10.5 1v3"/></svg>
+              7/14
+            </span>
+          </span>
+          <span class="checkbox-fields-trigger" data-testid="checkbox-fields-trigger" role="button" tabindex="0" aria-label="ステータス・期限・優先度を編集">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4"/></svg>
+          </span>
+        </div>
+
+        <!-- ────────────────────────────────────────────
+             行 5: シンプルタスク (- [ ]) — フィールドなし → ピルなし
+             ──────────────────────────────────────────── -->
+        <div class="cm-line" data-testid="checkbox-line" data-line="5">
+          <span class="gutter"></span>
+          <span class="cm-content">
+            <span class="task-checkbox" data-testid="task-checkbox" data-done="false" role="checkbox" aria-checked="false" aria-label="完了にする">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+            </span>
+            <span class="task-label">牛乳を買う</span>
+            <!-- インラインフィールドなし → ピル一切なし (plain GFM) -->
+          </span>
+          <span class="checkbox-fields-trigger" data-testid="checkbox-fields-trigger" role="button" tabindex="0" aria-label="フィールドを追加">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4"/></svg>
+          </span>
+        </div>
+
+        <!-- ────────────────────────────────────────────
+             行 6: blocked / highest / overdue
+             ──────────────────────────────────────────── -->
+        <div class="cm-line" data-testid="checkbox-line" data-line="6">
+          <span class="gutter"></span>
+          <span class="cm-content">
+            <span class="task-checkbox" data-testid="task-checkbox" data-done="false" role="checkbox" aria-checked="false" aria-label="完了にする">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+            </span>
+            <span class="task-label">四半期報告書のドラフトを送付する</span>
+            <span class="status-pill" data-status="blocked" data-testid="status-pill">ブロック</span>
+            <span class="due-chip dc-overdue" data-testid="due-chip">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2.5" y="3" width="11" height="10.5" rx="2"/><path d="M2.5 7h11M5.5 1v3M10.5 1v3"/></svg>
+              期限切れ 9日
+            </span>
+            <span class="priority-flag" data-priority="highest" data-testid="priority-flag">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10l-2 4 2 4H5v4H3z"/></svg>
+              最高
+            </span>
+          </span>
+          <span class="checkbox-fields-trigger" data-testid="checkbox-fields-trigger" role="button" tabindex="0" aria-label="ステータス・期限・優先度を編集">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4"/></svg>
+          </span>
+        </div>
+
+        <!-- ────────────────────────────────────────────
+             行 7: todo / medium / 今日
+             ──────────────────────────────────────────── -->
+        <div class="cm-line" data-testid="checkbox-line" data-line="7">
+          <span class="gutter"></span>
+          <span class="cm-content">
+            <span class="task-checkbox" data-testid="task-checkbox" data-done="false" role="checkbox" aria-checked="false" aria-label="完了にする">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+            </span>
+            <span class="task-label">スプリントレビューのスライドを仕上げる</span>
+            <span class="status-pill" data-status="todo" data-testid="status-pill">TODO</span>
+            <span class="due-chip dc-today" data-testid="due-chip">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2.5" y="3" width="11" height="10.5" rx="2"/><path d="M2.5 7h11M5.5 1v3M10.5 1v3"/></svg>
+              今日
+            </span>
+            <span class="priority-flag" data-priority="medium" data-testid="priority-flag">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10l-2 4 2 4H5v4H3z"/></svg>
+              中
+            </span>
+          </span>
+          <span class="checkbox-fields-trigger" data-testid="checkbox-fields-trigger" role="button" tabindex="0" aria-label="ステータス・期限・優先度を編集">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4"/></svg>
+          </span>
+        </div>
+
+        <!-- ════════════════════════════════════════════
+             行 8: アクティブ行 — ソース表示 + クイック編集ポップオーバー (開いた状態)
+             - [ ] API 設計レビュー [status:: progress] [priority:: high] [due:: 2026-07-25]
+             ポップオーバー核心
+             ════════════════════════════════════════════ -->
+        <div class="cm-line active-line" data-testid="checkbox-line" data-line="8" style="position:relative;">
+          <span class="gutter"></span>
+          <!-- アクティブ行: モノスペース source 表示。インラインフィールドが見える -->
+          <span class="cm-content" style="flex-wrap:wrap; gap:0; align-items:baseline;">
+            <span style="font-family:var(--font-mono); font-size:13.5px; display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap; width:100%; padding: 1px 0;">
+              <!-- Markdown ソースとして - [ ] を表示 -->
+              <span style="color:var(--text-muted);">-</span>
+              <span style="color:var(--text-muted);">[</span><span style="color:var(--text-muted);"> </span><span style="color:var(--text-muted);">]</span>
+              <span style="color:var(--text);">API 設計レビューの指摘事項を反映する<span class="caret"></span></span>
+              <!-- インラインフィールド [status:: progress] [priority:: high] [due:: 2026-07-25] -->
+              <span class="inline-fields-source">
+                <span class="sf-bracket">[</span><span class="sf-key">status</span><span class="sf-sep">::</span>&nbsp;<span class="sf-val">progress</span><span class="sf-bracket">]</span>
+                &nbsp;
+                <span class="sf-bracket">[</span><span class="sf-key">priority</span><span class="sf-sep">::</span>&nbsp;<span class="sf-val">high</span><span class="sf-bracket">]</span>
+                &nbsp;
+                <span class="sf-bracket">[</span><span class="sf-key">due</span><span class="sf-sep">::</span>&nbsp;<span class="sf-val">2026-07-25</span><span class="sf-bracket">]</span>
+              </span>
+            </span>
+          </span>
+          <!-- 編集アフォーダンス (アクティブ行 → 常時表示 + 強調) -->
+          <span class="checkbox-fields-trigger" data-testid="checkbox-fields-trigger" role="button" tabindex="0"
+                aria-label="ステータス・期限・優先度を編集"
+                style="opacity:1; background:var(--accent-soft); color:var(--accent);">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4"/></svg>
+          </span>
+
+          <!-- ============ クイック編集ポップオーバー (開いた状態) ============ -->
+          <div class="checkbox-fields-popover" data-testid="checkbox-fields-popover">
+
+            <!-- ステータスセクション -->
+            <div class="tqe-section">
+              <div class="tqe-section-label">ステータス</div>
+              <div class="tqe-status-opts">
+                <!-- なし/クリア -->
+                <span class="tqe-status-opt" data-status="none" data-testid="status-opt-none" role="button" tabindex="0" aria-label="ステータスフィールドをクリア">
+                  <span class="so-glyph"></span>なし
+                </span>
+                <span class="tqe-status-opt" data-status="todo" data-testid="status-opt-todo" role="button" tabindex="0" aria-label="未着手に設定">
+                  <span class="so-glyph"></span>TODO
+                </span>
+                <span class="tqe-status-opt active" data-status="progress" data-testid="status-opt-progress" role="button" tabindex="0" aria-label="進行中に設定">
+                  <span class="so-glyph">/</span>進行中<span class="so-check" style="display:inline;margin-left:2px;font-size:10px;">✓</span>
+                </span>
+                <span class="tqe-status-opt" data-status="blocked" data-testid="status-opt-blocked" role="button" tabindex="0" aria-label="ブロックに設定">
+                  <span class="so-glyph">!</span>ブロック
+                </span>
+                <span class="tqe-status-opt" data-status="done" data-testid="status-opt-done" role="button" tabindex="0" aria-label="完了に設定 (checkbox [x] に同期)">
+                  <span class="so-glyph">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="8" height="8"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+                  </span>完了
+                </span>
+              </div>
+            </div>
+
+            <!-- 期日セクション -->
+            <div class="tqe-section">
+              <div class="tqe-section-label">期限</div>
+              <div class="tqe-presets">
+                <span class="tqe-preset-btn" data-testid="due-preset-today" role="button" tabindex="0" aria-label="今日に設定">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2.5" y="3" width="11" height="10.5" rx="2"/><path d="M2.5 7h11M5.5 1v3M10.5 1v3"/></svg>
+                  今日
+                </span>
+                <span class="tqe-preset-btn" data-testid="due-preset-tomorrow" role="button" tabindex="0" aria-label="明日に設定">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2.5" y="3" width="11" height="10.5" rx="2"/><path d="M2.5 7h11M5.5 1v3M10.5 1v3"/></svg>
+                  明日
+                </span>
+                <span class="tqe-preset-btn active" data-testid="due-preset-nextweek" role="button" tabindex="0" aria-label="来週に設定">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3v5l3 3"/><circle cx="8" cy="8" r="6"/></svg>
+                  来週
+                </span>
+                <span class="tqe-preset-btn" data-testid="due-preset-pick" role="button" tabindex="0" aria-label="日付を選択">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2.5" y="3" width="11" height="10.5" rx="2"/><path d="M2.5 7h11M5.5 1v3M10.5 1v3M6 10h4"/></svg>
+                  日付選択
+                </span>
+                <span class="tqe-preset-btn clear" role="button" tabindex="0" aria-label="期限フィールドをクリア">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+                  クリア
+                </span>
+              </div>
+              <!-- ミニ月グリッド (7月、25日を選択中) -->
+              <div class="tqe-calendar" data-testid="due-calendar">
+                <div class="tqe-cal-header">
+                  <button aria-label="前月">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+                  </button>
+                  <span>2026年7月</span>
+                  <button aria-label="次月">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>
+                  </button>
+                </div>
+                <div class="tqe-cal-grid">
+                  <div class="tqe-cal-dow">日</div><div class="tqe-cal-dow">月</div><div class="tqe-cal-dow">火</div>
+                  <div class="tqe-cal-dow">水</div><div class="tqe-cal-dow">木</div><div class="tqe-cal-dow">金</div>
+                  <div class="tqe-cal-dow">土</div>
+                  <!-- 7/1 = 水 -->
+                  <div class="tqe-cal-day other-month"></div><div class="tqe-cal-day other-month"></div><div class="tqe-cal-day other-month"></div>
+                  <div class="tqe-cal-day" data-testid="cal-day">1</div><div class="tqe-cal-day" data-testid="cal-day">2</div><div class="tqe-cal-day" data-testid="cal-day">3</div><div class="tqe-cal-day" data-testid="cal-day">4</div>
+                  <div class="tqe-cal-day" data-testid="cal-day">5</div><div class="tqe-cal-day" data-testid="cal-day">6</div><div class="tqe-cal-day" data-testid="cal-day">7</div><div class="tqe-cal-day" data-testid="cal-day">8</div><div class="tqe-cal-day" data-testid="cal-day">9</div><div class="tqe-cal-day" data-testid="cal-day">10</div><div class="tqe-cal-day" data-testid="cal-day">11</div>
+                  <div class="tqe-cal-day" data-testid="cal-day">12</div><div class="tqe-cal-day" data-testid="cal-day">13</div><div class="tqe-cal-day" data-testid="cal-day">14</div><div class="tqe-cal-day" data-testid="cal-day">15</div><div class="tqe-cal-day" data-testid="cal-day">16</div><div class="tqe-cal-day" data-testid="cal-day">17</div><div class="tqe-cal-day" data-testid="cal-day">18</div>
+                  <div class="tqe-cal-day today" data-testid="cal-day">19</div><div class="tqe-cal-day" data-testid="cal-day">20</div><div class="tqe-cal-day" data-testid="cal-day">21</div><div class="tqe-cal-day" data-testid="cal-day">22</div><div class="tqe-cal-day" data-testid="cal-day">23</div><div class="tqe-cal-day" data-testid="cal-day">24</div><div class="tqe-cal-day selected" data-testid="cal-day" aria-label="7月25日を選択">25</div>
+                  <div class="tqe-cal-day" data-testid="cal-day">26</div><div class="tqe-cal-day" data-testid="cal-day">27</div><div class="tqe-cal-day" data-testid="cal-day">28</div><div class="tqe-cal-day" data-testid="cal-day">29</div><div class="tqe-cal-day" data-testid="cal-day">30</div><div class="tqe-cal-day" data-testid="cal-day">31</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 優先度セクション -->
+            <div class="tqe-section">
+              <div class="tqe-section-label">優先度</div>
+              <div class="tqe-priority-opts">
+                <div class="tqe-priority-opt" data-testid="priority-opt-highest" data-val="highest" role="button" tabindex="0">
+                  <span class="pf-dot"></span><span>最高</span>
+                </div>
+                <div class="tqe-priority-opt selected" data-testid="priority-opt-high" data-val="high" role="button" tabindex="0">
+                  <span class="pf-dot"></span><span>高</span>
+                  <span class="check-mark">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+                  </span>
+                </div>
+                <div class="tqe-priority-opt" data-testid="priority-opt-medium" data-val="medium" role="button" tabindex="0">
+                  <span class="pf-dot"></span><span>中</span>
+                </div>
+                <div class="tqe-priority-opt" data-testid="priority-opt-low" data-val="low" role="button" tabindex="0">
+                  <span class="pf-dot"></span><span>低</span>
+                </div>
+                <div class="tqe-priority-opt" data-testid="priority-opt-none" data-val="none" role="button" tabindex="0">
+                  <span class="pf-dot"></span><span style="color:var(--text-muted);">なし</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- フッター -->
+            <div class="tqe-footer">
+              <button class="btn" data-testid="checkbox-fields-cancel">キャンセル</button>
+              <button class="btn primary" data-testid="checkbox-fields-apply">適用</button>
+            </div>
+          </div>
+          <!-- ============ /ポップオーバー ============ -->
+        </div>
+
+        <!-- ────────────────────────────────────────────
+             行 9: シンプルタスク (- [ ]) — フィールドなし → ピルなし
+             ──────────────────────────────────────────── -->
+        <div class="cm-line" data-testid="checkbox-line" data-line="9">
+          <span class="gutter"></span>
+          <span class="cm-content">
+            <span class="task-checkbox" data-testid="task-checkbox" data-done="false" role="checkbox" aria-checked="false" aria-label="完了にする">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+            </span>
+            <span class="task-label">スプリントレトロスペクティブの準備</span>
+            <!-- インラインフィールドなし → ピルなし -->
+          </span>
+          <span class="checkbox-fields-trigger" data-testid="checkbox-fields-trigger" role="button" tabindex="0" aria-label="フィールドを追加">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4"/></svg>
+          </span>
+        </div>
+
+        <!-- ────────────────────────────────────────────
+             行 10: todo / low / 明日
+             ──────────────────────────────────────────── -->
+        <div class="cm-line" data-testid="checkbox-line" data-line="10">
+          <span class="gutter"></span>
+          <span class="cm-content">
+            <span class="task-checkbox" data-testid="task-checkbox" data-done="false" role="checkbox" aria-checked="false" aria-label="完了にする">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+            </span>
+            <span class="task-label">バックログのトリアージをする</span>
+            <span class="status-pill" data-status="todo" data-testid="status-pill">TODO</span>
+            <span class="due-chip dc-tomorrow" data-testid="due-chip">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2.5" y="3" width="11" height="10.5" rx="2"/><path d="M2.5 7h11M5.5 1v3M10.5 1v3"/></svg>
+              明日
+            </span>
+            <span class="priority-flag" data-priority="low" data-testid="priority-flag">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10l-2 4 2 4H5v4H3z"/></svg>
+              低
+            </span>
+          </span>
+          <span class="checkbox-fields-trigger" data-testid="checkbox-fields-trigger" role="button" tabindex="0" aria-label="ステータス・期限・優先度を編集">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4"/></svg>
+          </span>
+        </div>
+
+        <!-- 通常テキスト行 -->
+        <div class="cm-line">
+          <span class="gutter"></span>
+          <span class="cm-content" style="display:block;">
+            <span class="md-list">
+              <span class="bullet">•</span>
+              <span>来週に持ち越す案件のリストアップ</span>
+            </span>
+          </span>
+        </div>
+
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h2" style="display:block;">メモ</span></div>
+        <div class="cm-line"><span class="gutter"></span><span class="cm-content" style="display:block;">今週は API 設計レビューが最優先。期限は 7/25 だが早めに完成させる。</span></div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= 右: バックリンクパネル ================= -->
+  <aside class="panel" data-testid="backlink-panel">
+    <div class="panel-header">
+      <span>バックリンク</span>
+      <span class="count">2</span>
+    </div>
+    <div class="panel-body">
+      <button class="backlink-item" data-source="プロジェクトハブ.md">
+        <span class="backlink-source">
+          <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+          プロジェクトハブ
+        </span>
+        <span class="backlink-context">毎週金曜は <mark>[[週次TODO]]</mark> を更新してバックログを整理する</span>
+      </button>
+    </div>
+  </aside>
+
+</div>
+
+<div class="proto-note" style="position: fixed; left: 18px; bottom: 14px; z-index: 130; margin: 0; max-width: 600px;">
+  <span class="tag">PROTO</span>
+  <strong>新データモデル</strong>: チェックボックス <code>- [ ]</code>/<code>- [x]</code> は done/not-done のみ (plain GFM)。status/priority/due は OPTIONAL インラインフィールド。<br>
+  <strong>シンプルタスク</strong>: 「牛乳を買う」「スプリントレトロスペクティブ…」はフィールドなし → ピル一切なし。<strong>リッチタスク</strong>: インラインフィールドあり → 対応ピル表示。<br>
+  <strong>アクティブ行 (行 8)</strong>: ソース表示 — <code>[status:: progress] [priority:: high] [due:: 2026-07-25]</code> が見える。<br>
+  <strong>ポップオーバー</strong>: ステータス (<strong>なし/クリア</strong> + 語彙から4オプション) + 期日 (今日/明日/来週/月グリッド/<strong>クリア</strong>) + 優先度 (語彙 + <strong>なし</strong>)。done 選択 → checkbox [x] に同期 (逆も同様)。<br>
+  ストレージ: <code>POST /api/notes/{path}/patch</code>。ステータス/優先度の語彙は <code>system/settings.yaml</code> で定義(コード埋め込みなし)。
+</div>
+
+<a class="proto-chip" href="index.html">← プロトタイプ一覧</a>
+</body>
+</html>

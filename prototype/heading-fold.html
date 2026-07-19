@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loamium — 見出し折りたたみ + TOC 階層 (Sb6f1d3)</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+/* ================================================================
+   heading-fold.html 専用スタイル
+   ================================================================ */
+
+/* 見出し折りたたみガター — リスト fold と独立した列 */
+.cm-line .gutter-h {
+  width: 20px;
+  flex-shrink: 0;
+  display: inline-flex;
+  justify-content: center;
+  align-self: stretch;
+  align-items: center;
+}
+
+/* 見出し用 fold トグル (heading-fold-toggle) */
+.heading-fold-toggle {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  color: var(--text-faint);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.1s, transform 0.12s;
+  background: none;
+  padding: 0;
+  flex-shrink: 0;
+}
+.cm-line:hover .heading-fold-toggle { opacity: 1; }
+.heading-fold-toggle:hover { background: var(--bg-hover); color: var(--text); opacity: 1; }
+.heading-fold-toggle svg { width: 11px; height: 11px; }
+/* 折りたたみ中: chevron を -90deg 回転し常に表示 */
+.heading-fold-toggle.folded {
+  color: var(--accent);
+  opacity: 1;
+  transform: rotate(-90deg);
+}
+
+/* 折りたたまれたセクションの fold-pill */
+.heading-fold-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 0 8px;
+  margin-left: 8px;
+  vertical-align: middle;
+  cursor: pointer;
+}
+.heading-fold-pill:hover { background: #e5dff8; }
+
+/* 折りたたみ中の見出し行スタイル */
+.cm-line.heading-folded .cm-content { color: var(--text); }
+
+/* 非表示になった折りたたみコンテンツ */
+.folded-content {
+  display: none;
+}
+
+/* 見出しレベルを示すインジケーター (h1 は左ガター色) */
+.cm-line .heading-level-marker {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-faint);
+  letter-spacing: 0.02em;
+  width: 20px;
+  text-align: right;
+  flex-shrink: 0;
+  user-select: none;
+  opacity: 0.6;
+}
+
+/* 2列ガター構造: [list-fold | heading-fold | content] */
+.cm-line {
+  display: flex;
+  align-items: baseline;
+  min-height: 1.75em;
+  border-radius: 4px;
+  padding: 0 6px;
+}
+
+/* TOC outline-item に折りたたみ状態を示すアイコン */
+.outline-item .outline-fold-state {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  color: var(--accent);
+  margin-left: auto;
+  opacity: 0.7;
+}
+
+/* TOC でカーソル行に対応する outline-item のアクティブ状態 */
+.outline-item.toc-active {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+
+/* クリック説明注記 */
+.toc-click-note {
+  font-size: 11px;
+  color: var(--text-faint);
+  padding: 4px 6px 8px;
+  font-style: italic;
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ================= 左: サイドバー ================= -->
+  <aside class="sidebar" data-testid="sidebar">
+    <div class="sidebar-header">
+      <div class="vault-badge">L</div>
+      <div class="vault-name">loamium-notes</div>
+      <button class="icon-btn" data-testid="sidebar-search" title="検索 (Ctrl+K)">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.4"/><path d="M10.4 10.4L14 14"/></svg>
+      </button>
+      <button class="icon-btn" data-testid="sidebar-settings" title="設定">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4"/></svg>
+      </button>
+    </div>
+
+    <nav class="journal-nav" data-testid="journal-nav">
+      <div class="journal-nav-label">Daily Journal</div>
+      <div class="journal-nav-row">
+        <button class="icon-btn" data-testid="journal-prev" title="前日">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+        </button>
+        <button class="journal-date-btn" data-testid="journal-today">2026-07-18<span class="dow">金</span></button>
+        <button class="icon-btn" data-testid="journal-next" title="翌日">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>
+        </button>
+        <button class="icon-btn" data-testid="journal-open-calendar" title="日付ピッカー">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="3" width="12" height="11" rx="1.5"/><path d="M5 1.5v3M11 1.5v3M2 7h12"/></svg>
+        </button>
+      </div>
+    </nav>
+
+    <div class="tree-section-title">
+      <span>ノート</span>
+      <span class="actions">
+        <button class="icon-btn" data-testid="sidebar-new-note" title="新規ノート">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 1.8h5.2L12.2 4.8v4.2M9.2 1.8v3h3M8 11v4M6 13h4"/></svg>
+        </button>
+      </span>
+    </div>
+    <div class="tree" data-testid="file-tree">
+      <button class="tree-item active" data-testid="tree-item" data-path="projects/Loamium 設計概要.md">
+        <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+        <span class="name">Loamium 設計概要</span>
+      </button>
+      <button class="tree-item" data-testid="tree-item" data-path="projects/Hydra 設計メモ.md">
+        <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+        <span class="name">Hydra 設計メモ</span>
+      </button>
+      <button class="tree-item" data-testid="tree-item" data-path="weekly/週次まとめ 2026-W29.md">
+        <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+        <span class="name">週次まとめ 2026-W29</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ================= 中央: エディタ (長いノート) ================= -->
+  <main class="workspace">
+    <div class="editor-header">
+      <div class="nav-group">
+        <button class="nav-btn" data-testid="nav-back" title="戻る">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+        </button>
+        <button class="nav-btn" data-testid="nav-forward" disabled title="進む">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>
+        </button>
+      </div>
+      <nav class="route-crumbs" data-testid="route-display">
+        <span class="route-token">/n/</span>
+        <span>projects</span><span class="sep">/</span><span class="current">Loamium 設計概要</span>
+      </nav>
+      <div class="save-status" data-testid="save-status" data-state="saved">
+        <span class="dot"></span><span>保存済み</span>
+      </div>
+    </div>
+
+    <div class="cm-scroll">
+      <div class="cm-editor" data-testid="editor">
+
+        <!-- H1 (level 1) — fold toggle 表示、content あり -->
+        <div class="cm-line" id="line-1">
+          <span class="gutter">
+            <button class="heading-fold-toggle" data-testid="heading-fold-toggle" data-line="1" data-level="1" title="セクションを折りたたむ (Ctrl-Shift-[)" aria-label="見出しセクションを折りたたむ">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+          </span>
+          <span class="cm-content md-h1">Loamium 設計概要</span>
+        </div>
+
+        <!-- H1 の下の本文 -->
+        <div class="cm-line" id="line-2">
+          <span class="gutter"></span>
+          <span class="cm-content">Loamium はローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集(C 方式)とエージェント統合を両立する。</span>
+        </div>
+
+        <!-- H2: アーキテクチャ — 展開状態 -->
+        <div class="cm-line" id="line-4">
+          <span class="gutter">
+            <button class="heading-fold-toggle" data-testid="heading-fold-toggle" data-line="4" data-level="2" title="セクションを折りたたむ" aria-label="見出しセクションを折りたたむ">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+          </span>
+          <span class="cm-content md-h2">アーキテクチャ</span>
+        </div>
+
+        <div class="cm-line" id="line-5">
+          <span class="gutter"></span>
+          <span class="cm-content">TypeScript strict / Node.js 22 / npm workspaces モノレポ構成。</span>
+        </div>
+
+        <!-- H3: フロントエンド — 展開状態 -->
+        <div class="cm-line" id="line-7">
+          <span class="gutter">
+            <button class="heading-fold-toggle" data-testid="heading-fold-toggle" data-line="7" data-level="3" title="セクションを折りたたむ" aria-label="見出しセクションを折りたたむ">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+          </span>
+          <span class="cm-content md-h3">フロントエンド</span>
+        </div>
+
+        <div class="cm-line" id="line-8">
+          <span class="gutter"></span>
+          <span class="cm-content md-list"><span class="bullet">•</span> React + CodeMirror 6 (lezer-markdown)</span>
+        </div>
+        <div class="cm-line" id="line-9">
+          <span class="gutter"></span>
+          <span class="cm-content md-list"><span class="bullet">•</span> ライブプレビュー: Decoration API でレンダー</span>
+        </div>
+        <div class="cm-line" id="line-10">
+          <span class="gutter">
+            <!-- リスト fold トグルとの共存デモ -->
+            <button class="fold-toggle" data-testid="fold-toggle" data-line="10" title="サブツリーを折りたたむ">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+          </span>
+          <span class="cm-content md-list"><span class="bullet">•</span> アウトライン操作 (C 方式)</span>
+        </div>
+        <div class="cm-line indent-1" id="line-11">
+          <span class="gutter"></span>
+          <span class="cm-content md-list"><span class="bullet">◦</span> Tab でインデント / Shift-Tab でアウトデント</span>
+        </div>
+        <div class="cm-line indent-1" id="line-12">
+          <span class="gutter"></span>
+          <span class="cm-content md-list"><span class="bullet">◦</span> 見出し行では Tab を消費しない</span>
+        </div>
+
+        <!-- H3: バックエンド — 折りたたみ状態 (key demo) -->
+        <div class="cm-line heading-folded" id="line-14">
+          <span class="gutter">
+            <button class="heading-fold-toggle folded" data-testid="heading-fold-toggle" data-line="14" data-level="3" data-folded="true" title="セクションを展開する (Ctrl-Shift-])" aria-label="折りたたまれた見出しセクション — クリックで展開">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+          </span>
+          <span class="cm-content md-h3">バックエンド
+            <!-- fold-pill: 折りたたまれた行数表示 -->
+            <button class="heading-fold-pill" data-testid="fold-pill" data-fold-lines="12" title="クリックで 12 行を展開" aria-label="12 行が折りたたまれています — クリックで展開">
+              <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8h10"/><path d="M3 4h10"/><path d="M3 12h10"/></svg>
+              … 12 行
+            </button>
+          </span>
+        </div>
+
+        <!-- 折りたたみ中のコンテンツ (非表示) -->
+        <div class="folded-content" aria-hidden="true">
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">•</span> Hono (REST API)</span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">•</span> ファイルシステム読み書き (Node.js fs/promises)</span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">•</span> Fuse.js (全文検索)</span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">•</span> zod (スキーマ検証)</span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content"></span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h4">API エンドポイント</span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">•</span> GET /api/notes — ノート一覧</span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">•</span> GET /api/notes/:path — ノート取得</span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">•</span> PUT /api/notes/:path — ノート保存</span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">•</span> PATCH /api/notes/:path — リネーム</span></div>
+          <div class="cm-line"><span class="gutter"></span><span class="cm-content md-list"><span class="bullet">•</span> DELETE /api/notes/:path — 削除</span></div>
+        </div>
+
+        <!-- H2: 開発フロー -->
+        <div class="cm-line" id="line-27">
+          <span class="gutter">
+            <button class="heading-fold-toggle" data-testid="heading-fold-toggle" data-line="27" data-level="2" title="セクションを折りたたむ" aria-label="見出しセクションを折りたたむ">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+          </span>
+          <span class="cm-content md-h2">開発フロー</span>
+        </div>
+
+        <div class="cm-line" id="line-28">
+          <span class="gutter"></span>
+          <span class="cm-content md-list"><span class="bullet">1.</span> <span class="md-code">make serve</span> でバックグラウンド起動</span>
+        </div>
+        <div class="cm-line" id="line-29">
+          <span class="gutter"></span>
+          <span class="cm-content md-list"><span class="bullet">2.</span> <span class="md-code">make test</span> で全ワークスペーステスト</span>
+        </div>
+        <div class="cm-line" id="line-30">
+          <span class="gutter"></span>
+          <span class="cm-content md-list"><span class="bullet">3.</span> <span class="md-code">make lint</span> で型チェック + lint</span>
+        </div>
+
+        <!-- H3: テスト戦略 -->
+        <div class="cm-line active-line" id="line-32">
+          <span class="gutter">
+            <button class="heading-fold-toggle" data-testid="heading-fold-toggle" data-line="32" data-level="3" title="セクションを折りたたむ" aria-label="見出しセクションを折りたたむ">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+          </span>
+          <span class="cm-content md-h3">テスト戦略<span class="caret"></span></span>
+        </div>
+
+        <div class="cm-line" id="line-33">
+          <span class="gutter"></span>
+          <span class="cm-content md-list"><span class="bullet">•</span> Vitest — ユニットテスト(パース・リンク解決・API)</span>
+        </div>
+        <div class="cm-line" id="line-34">
+          <span class="gutter"></span>
+          <span class="cm-content md-list"><span class="bullet">•</span> Playwright — E2E / モック UI テスト</span>
+        </div>
+        <div class="cm-line" id="line-35">
+          <span class="gutter"></span>
+          <span class="cm-content md-list"><span class="bullet">•</span> JUnit XML を <span class="md-code">reports/</span> に出力</span>
+        </div>
+
+        <!-- H2: 設計原則 -->
+        <div class="cm-line" id="line-37">
+          <span class="gutter">
+            <button class="heading-fold-toggle" data-testid="heading-fold-toggle" data-line="37" data-level="2" title="セクションを折りたたむ">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+          </span>
+          <span class="cm-content md-h2">設計原則</span>
+        </div>
+
+        <div class="cm-line" id="line-38">
+          <span class="gutter"></span>
+          <span class="cm-content"><span class="md-bold">ピュア Markdown 絶対</span> — ブロック ID・独自記法をファイルに書き込まない。</span>
+        </div>
+        <div class="cm-line" id="line-39">
+          <span class="gutter"></span>
+          <span class="cm-content">vault 内パスは必ず <span class="md-code">packages/shared</span> の正規化ユーティリティを経由する。</span>
+        </div>
+
+        <div class="proto-note">
+          <span class="tag">PROTO</span>
+          <strong>見出し折りたたみ (Sb6f1d3-1)</strong>:
+          <ul style="margin:6px 0 0 18px; padding:0;">
+            <li>各見出し行の左ガターに <code>heading-fold-toggle</code> が表示される (hover で表示、折りたたみ中は常時表示)</li>
+            <li><strong>「バックエンド」</strong> (H3) のセクションが折りたたみ中 — toggle が <code>folded</code> クラス + chevron が -90° 回転し、<code>fold-pill</code> 「… 12 行」が表示される</li>
+            <li>既存のリスト <code>fold-toggle</code> (「アウトライン操作」行のガター) と <strong>共存</strong> — ガター列は別 (<code>.gutter</code> で統合。実装は別 GutterMarker)</li>
+            <li>折りたたみ状態は <strong>ファイルに書き込まれない</strong> (セッションのみ / リロードでリセット)</li>
+            <li>キー: <kbd>Ctrl-Shift-[</kbd> で折りたたみ、<kbd>Ctrl-Shift-]</kbd> で展開</li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= 右: インフォパネル (TOC 階層インデント) ================= -->
+  <aside class="panel" data-testid="right-sidebar">
+    <div class="panel-header">
+      <div class="seg-toggle" role="tablist" aria-label="右サイドバー切替">
+        <button class="seg-btn" data-testid="right-tab-info" aria-selected="true" role="tab">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="5.5"/><path d="M8 7.5v4M8 5.5h.01"/></svg>
+          インフォ
+          <span class="count" data-testid="backlink-count">2</span>
+        </button>
+        <button class="seg-btn" data-testid="right-tab-claude" aria-selected="false" role="tab">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.8" y="2.5" width="12.4" height="11" rx="1.5"/><path d="M4.5 6l2.5 2-2.5 2M8.5 10.5h3"/></svg>
+          Claude
+        </button>
+      </div>
+      <button class="icon-btn" data-testid="right-sidebar-toggle" title="サイドバーを閉じる" style="margin-left:auto;">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 3l5 5-5 5"/></svg>
+      </button>
+    </div>
+
+    <div class="panel-body" data-testid="info-panel">
+
+      <!-- 目次 (TOC) — 見出し階層インデント -->
+      <details class="info-section" open>
+        <summary class="info-section-header" data-testid="info-section-toggle" data-section="outline">
+          <span class="info-section-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 4h10M3 8h7M3 12h5"/></svg>
+          </span>
+          <span class="info-section-title">目次</span>
+          <span class="info-section-count">7</span>
+          <svg class="info-section-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        </summary>
+        <div class="info-section-body" data-testid="info-section-body" data-section="outline">
+
+          <!-- 説明注記 -->
+          <div class="toc-click-note">クリックで対応見出しへスクロール。折りたたみ中のセクションは自動展開。</div>
+
+          <!-- H1 — depth 0 (フラット) -->
+          <button class="outline-item" data-testid="outline-item" data-line="1" data-level="1" title="クリックで line 1 へ移動・展開" onclick="jumpTo(1)">
+            <span class="outline-indent" style="--depth:0"></span>
+            <span class="outline-label">Loamium 設計概要</span>
+          </button>
+
+          <!-- H2 — depth 1 (1段インデント) -->
+          <button class="outline-item" data-testid="outline-item" data-line="4" data-level="2" title="クリックで line 4 へ移動・展開" onclick="jumpTo(4)">
+            <span class="outline-indent" style="--depth:1"></span>
+            <span class="outline-label">アーキテクチャ</span>
+          </button>
+
+          <!-- H3 — depth 2 (2段インデント) -->
+          <button class="outline-item" data-testid="outline-item" data-line="7" data-level="3" title="クリックで line 7 へ移動・展開" onclick="jumpTo(7)">
+            <span class="outline-indent" style="--depth:2"></span>
+            <span class="outline-label">フロントエンド</span>
+          </button>
+
+          <!-- H3 (折りたたみ中) — fold-state アイコン付き -->
+          <button class="outline-item" data-testid="outline-item" data-line="14" data-level="3" data-folded="true" title="クリックで line 14 へ移動 — セクションが折りたたまれています (自動展開)" onclick="jumpToAndUnfold(14)">
+            <span class="outline-indent" style="--depth:2"></span>
+            <span class="outline-label">バックエンド</span>
+            <!-- 折りたたみ中の見出しは closed chevron アイコンで示す -->
+            <svg class="outline-fold-state" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="折りたたまれています"><path d="M6 4l4 4-4 4"/></svg>
+          </button>
+
+          <!-- H2 — depth 1 -->
+          <button class="outline-item" data-testid="outline-item" data-line="27" data-level="2" title="クリックで line 27 へ移動" onclick="jumpTo(27)">
+            <span class="outline-indent" style="--depth:1"></span>
+            <span class="outline-label">開発フロー</span>
+          </button>
+
+          <!-- H3 — depth 2 (現在アクティブな見出し) -->
+          <button class="outline-item toc-active" data-testid="outline-item" data-line="32" data-level="3" title="クリックで line 32 へ移動" onclick="jumpTo(32)">
+            <span class="outline-indent" style="--depth:2"></span>
+            <span class="outline-label">テスト戦略</span>
+          </button>
+
+          <!-- H2 — depth 1 -->
+          <button class="outline-item" data-testid="outline-item" data-line="37" data-level="2" title="クリックで line 37 へ移動" onclick="jumpTo(37)">
+            <span class="outline-indent" style="--depth:1"></span>
+            <span class="outline-label">設計原則</span>
+          </button>
+
+        </div>
+      </details>
+
+      <!-- メタ情報 -->
+      <details class="info-section" open>
+        <summary class="info-section-header" data-testid="info-section-toggle" data-section="meta">
+          <span class="info-section-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3.5l2.5 1.5"/></svg>
+          </span>
+          <span class="info-section-title">メタ情報</span>
+          <svg class="info-section-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        </summary>
+        <div class="info-section-body" data-testid="info-section-body" data-section="meta">
+          <div class="meta-row"><span class="meta-label">単語数</span><span class="meta-value">287</span></div>
+          <div class="meta-row"><span class="meta-label">文字数</span><span class="meta-value">634</span></div>
+          <div class="meta-row"><span class="meta-label">更新日時</span><span class="meta-value">2026-07-18 11:04</span></div>
+        </div>
+      </details>
+
+      <!-- バックリンク -->
+      <details class="info-section" open>
+        <summary class="info-section-header" data-testid="info-section-toggle" data-section="backlinks">
+          <span class="info-section-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9.5 6.5l-3 3M11 9l2-2A2.5 2.5 0 009.5 3.5l-2 2M5 7l-2 2a2.5 2.5 0 003.5 3.5l2-2"/></svg>
+          </span>
+          <span class="info-section-title">バックリンク</span>
+          <span class="info-section-count">2</span>
+          <svg class="info-section-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        </summary>
+        <div class="info-section-body" data-testid="info-section-body" data-section="backlinks">
+          <button class="backlink-item" data-testid="backlink-item" data-source="weekly/週次まとめ 2026-W29.md">
+            <div class="backlink-source">
+              <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+              週次まとめ 2026-W29
+            </div>
+            <div class="backlink-context"><mark>[[Loamium 設計概要]]</mark> のフロントエンド構成を参照して実装スケジュールを策定。</div>
+          </button>
+          <button class="backlink-item" data-testid="backlink-item" data-source="projects/Hydra 設計メモ.md">
+            <div class="backlink-source">
+              <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+              Hydra 設計メモ
+            </div>
+            <div class="backlink-context">API 設計は <mark>[[Loamium 設計概要#API エンドポイント]]</mark> を踏襲する。</div>
+          </button>
+        </div>
+      </details>
+
+    </div>
+  </aside>
+
+</div>
+
+<a class="proto-chip" href="index.html">← プロトタイプ一覧</a>
+
+<div class="proto-note" style="position: fixed; left: 18px; bottom: 14px; z-index: 130; margin: 0; max-width: 500px;">
+  <span class="tag">PROTO</span>
+  <strong>Sb6f1d3 — 見出し折りたたみ + TOC 階層インデント</strong><br>
+  左ガター: <code>heading-fold-toggle</code> (hover で出現。折りたたみ中は常時表示・chevron 回転)。<br>
+  「バックエンド」H3 が <strong>折りたたみ中</strong>: <code>fold-pill</code> 「… 12 行」表示。右 TOC の同エントリは閉じ chevron アイコン。<br>
+  TOC の <code>outline-item</code> は H1=depth 0 / H2=depth 1 / H3=depth 2 でインデント。クリックで対応行へスクロール + 折りたたみ自動展開。
+</div>
+
+<script>
+// デモ: heading-fold-toggle クリックで折りたたみ状態をトグル
+document.querySelectorAll('[data-testid="heading-fold-toggle"]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const isFolded = btn.dataset.folded === 'true';
+    const line = btn.closest('.cm-line');
+    if (isFolded) {
+      // 展開
+      btn.dataset.folded = 'false';
+      btn.classList.remove('folded');
+      btn.title = 'セクションを折りたたむ (Ctrl-Shift-[)';
+      const pill = line.querySelector('[data-testid="fold-pill"]');
+      if (pill) pill.remove();
+      const fc = line.nextElementSibling;
+      if (fc && fc.classList.contains('folded-content')) fc.style.display = '';
+    } else {
+      // 折りたたむ (デモ: バックエンドセクション以外は簡易トグルのみ)
+      btn.dataset.folded = 'true';
+      btn.classList.add('folded');
+      btn.title = 'セクションを展開する (Ctrl-Shift-])';
+    }
+  });
+});
+
+// デモ: fold-pill クリックで展開
+document.querySelectorAll('[data-testid="fold-pill"]').forEach(pill => {
+  pill.addEventListener('click', () => {
+    const btn = pill.closest('.cm-line').querySelector('[data-testid="heading-fold-toggle"]');
+    if (btn) btn.click();
+  });
+});
+
+// デモ: TOC クリックで対応行をスクロール先としてハイライト
+function jumpTo(line) {
+  document.querySelectorAll('.cm-line').forEach(l => l.style.background = '');
+  const target = document.getElementById('line-' + line);
+  if (target) {
+    target.style.background = 'var(--accent-soft)';
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => target.style.background = '', 1800);
+  }
+}
+
+function jumpToAndUnfold(line) {
+  // まず折りたたみ解除
+  const foldedToggle = document.querySelector('[data-testid="heading-fold-toggle"][data-line="' + line + '"]');
+  if (foldedToggle && foldedToggle.dataset.folded === 'true') {
+    foldedToggle.dataset.folded = 'false';
+    foldedToggle.classList.remove('folded');
+    const pill = foldedToggle.closest('.cm-line').querySelector('[data-testid="fold-pill"]');
+    if (pill) pill.remove();
+    const fc = foldedToggle.closest('.cm-line').nextElementSibling;
+    if (fc && fc.classList.contains('folded-content')) fc.style.display = '';
+  }
+  jumpTo(line);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loamium — UI 細粒度修正 7 点 (S2e8a4c)</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+/* ================================================================
+   ui-fixes.html 専用スタイル
+   ================================================================ */
+
+/* ページ全体レイアウト: スクロール可能な一覧 */
+.fixes-page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 36px 24px 100px;
+}
+
+/* セクションヘッダー */
+.fix-section {
+  margin-bottom: 40px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--bg-editor);
+}
+
+.fix-section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.fix-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.fix-title {
+  font-size: 15px;
+  font-weight: 700;
+  flex: 1;
+}
+
+.fix-story-id {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+}
+
+.fix-body {
+  padding: 20px 22px;
+}
+
+/* Before/After 比較 */
+.ba-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.ba-block {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.ba-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.ba-label.before { color: var(--text-muted); }
+.ba-label.after { color: var(--ok); background: #e8f5ee; border-color: #bde5cf; }
+
+.ba-content {
+  padding: 12px 14px;
+  font-size: 13.5px;
+}
+
+/* (1) カレンダーアイコン — 月グリッドポップアップ */
+.calendar-demo .journal-nav {
+  max-width: 280px;
+}
+
+/* カレンダーポップアップ */
+.cal-popup {
+  position: relative;
+  margin-top: 6px;
+  background: var(--bg-editor);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  padding: 8px;
+  width: 100%;
+  max-width: 260px;
+  z-index: 20;
+}
+
+.cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  padding: 0 2px;
+}
+
+.cal-month-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.cal-nav-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+.cal-nav-btn:hover { background: var(--bg-hover); color: var(--text); }
+.cal-nav-btn svg { width: 13px; height: 13px; }
+
+.cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 2px;
+}
+
+.cal-wd {
+  text-align: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-faint);
+  padding: 2px 0 4px;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+}
+
+.cal-day {
+  text-align: center;
+  font-size: 12.5px;
+  padding: 4px 2px;
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  line-height: 1.4;
+}
+.cal-day:hover { background: var(--bg-hover); }
+.cal-day.other-month { color: var(--text-faint); }
+.cal-day.today {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+.cal-day.today:hover { background: var(--accent-hover); }
+.cal-day.selected {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-weight: 700;
+  outline: 1.5px solid var(--accent);
+  outline-offset: -1px;
+}
+.cal-day.empty { pointer-events: none; }
+
+/* (2) アクティブ行 / テキスト選択色サンプル */
+.color-sample-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.color-sample {
+  flex: 1;
+  min-width: 180px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.color-sample-bar {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.color-sample-block {
+  padding: 14px 16px;
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+/* --editor-active-line 新値 */
+.demo-active-line {
+  background: #f7f6fb;  /* --editor-active-line */
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+/* --editor-selection 新値 */
+.demo-selection {
+  background: rgba(110,86,207,0.20); /* --editor-selection */
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+/* before: 両方同じ --bg-active */
+.demo-before-active {
+  background: #e6e3f7;
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+.demo-before-selection {
+  background: #e6e3f7;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+/* (3) D&D ファイルツリー */
+.dnd-tree {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  max-width: 340px;
+}
+.dnd-tree-header {
+  padding: 7px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+.dnd-tree-body {
+  padding: 4px 6px;
+}
+
+/* ドラッグ中のアイテム */
+.tree-item.dragging {
+  opacity: 0.5;
+  background: var(--bg-hover);
+  cursor: grabbing;
+}
+
+/* ドロップ先フォルダ */
+.tree-folder {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 13.5px;
+  color: var(--text);
+  text-align: left;
+}
+.tree-folder:hover { background: var(--bg-hover); }
+.tree-folder .chev { width: 14px; height: 14px; color: var(--text-faint); transition: transform 0.1s; }
+.tree-folder .folder-ico { width: 14px; height: 14px; color: var(--text-muted); flex-shrink: 0; }
+
+/* drag-over: ドロップ先ハイライト */
+.tree-folder.drag-over,
+.tree-item.drag-over {
+  background: var(--accent-soft);
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  color: var(--accent-hover);
+}
+.tree-folder.drag-over .folder-ico { color: var(--accent); }
+
+/* (4) 新規ノートダイアログ パス prefill */
+.new-note-demo .dialog {
+  position: relative;
+  box-shadow: var(--shadow);
+}
+.path-prefill-hint {
+  font-size: 11px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  margin-top: 3px;
+  padding-left: 2px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.path-prefill-hint svg { width: 11px; height: 11px; }
+
+/* (5) スマートコマンドパネル サイドバー除去 before/after */
+.smartview-demo {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-panel);
+  font-size: 13px;
+}
+.smartview-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.smartview-body {
+  padding: 10px 12px;
+  min-height: 80px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
+/* sidebar-mini: sidebar 風のミニデモ */
+.sidebar-mini {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-panel);
+  font-size: 12.5px;
+  width: 200px;
+  flex-shrink: 0;
+}
+.sidebar-mini-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  background: var(--bg-editor);
+}
+.sidebar-mini-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-mini-item svg { width: 12px; height: 12px; color: var(--text-faint); flex-shrink: 0; }
+.sidebar-mini-item.active { color: var(--accent-hover); font-weight: 600; background: var(--bg-active); }
+.sidebar-mini-footer {
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+.sidebar-mini-footer .cp-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  margin-bottom: 4px;
+}
+.sidebar-mini-footer .cp-item {
+  padding: 3px 2px;
+  border-radius: 5px;
+  color: var(--link);
+  font-size: 12px;
+}
+
+.sidebar-mini-clean {
+  padding: 10px;
+  background: var(--accent-soft);
+  border-top: 1px solid var(--border);
+  font-size: 11.5px;
+  color: var(--accent-hover);
+  line-height: 1.55;
+}
+.sidebar-mini-clean .ctrl-k {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  background: var(--bg-editor);
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0 5px;
+  color: var(--accent);
+}
+
+/* (6) Ctrl-B Bold トグル デモ */
+.bold-demo {
+  font-size: 15px;
+  line-height: 1.8;
+}
+.step-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+.bold-step {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px dashed var(--border);
+  font-size: 13.5px;
+}
+.bold-step:last-child { border-bottom: none; }
+.bold-step .step-arrow {
+  color: var(--text-faint);
+  font-size: 14px;
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+.kbd-b {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0 6px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.text-selected {
+  background: rgba(110,86,207,0.20);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+/* (7) コンテキストメニュー 移動ダイアログ */
+.move-dialog-demo {
+  position: relative;
+}
+.context-menu-demo {
+  display: inline-block;
+  vertical-align: top;
+  margin-right: 24px;
+}
+.move-dialog-demo .dialog {
+  display: inline-block;
+  vertical-align: top;
+  position: relative;
+  box-shadow: var(--shadow);
+  max-width: 360px;
+}
+.move-dialog-select {
+  width: 100%;
+  font-family: inherit;
+  font-size: 13.5px;
+  padding: 8px 11px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-editor);
+  color: var(--text);
+  outline: none;
+  margin-top: 10px;
+}
+.move-dialog-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.move-target-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-hover);
+  background: var(--accent-soft);
+  border-radius: 6px;
+  padding: 2px 9px;
+  font-family: var(--font-mono);
+}
+.move-target-badge svg { width: 12px; height: 12px; }
+.fix-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 10px;
+  line-height: 1.65;
+}
+.fix-note code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--code-bg);
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
+/* レイアウトヘルパー */
+.flex-row { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+</style>
+</head>
+<body style="background: var(--bg-app);">
+
+<div class="fixes-page">
+
+  <header style="margin-bottom: 32px;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+      <div class="vault-badge" style="width:36px;height:36px;border-radius:10px;font-size:17px;">L</div>
+      <h1 style="margin:0;font-size:22px;letter-spacing:-0.01em;">UI 細粒度修正 7 点</h1>
+    </div>
+    <p style="margin:0;color:var(--text-muted);font-size:13.5px;max-width:660px;line-height:1.8;">
+      Sprint S2e8a4c の 7 ストーリーを 1 ページに分かりやすくセクション分け。
+      各セクションにミニデモ・before/after 比較・<code>data-testid</code> を明示。
+    </p>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+      <span class="sprint-tag">S2e8a4c-1 〜 S2e8a4c-7</span>
+    </div>
+  </header>
+
+  <!-- =====================================================
+       (1) Journal ヘッダ カレンダーアイコン → 月グリッドポップアップ
+       ===================================================== -->
+  <section class="fix-section">
+    <div class="fix-section-header">
+      <span class="fix-num">1</span>
+      <span class="fix-title">Journal ヘッダのボタンをカレンダーアイコン化 + 月グリッドポップアップ</span>
+      <span class="fix-story-id">S2e8a4c-1</span>
+    </div>
+    <div class="fix-body">
+      <div class="ba-compare calendar-demo">
+        <div class="ba-block">
+          <div class="ba-label before">BEFORE — ハンバーガー(一覧)ボタン</div>
+          <div class="ba-content">
+            <nav class="journal-nav" style="margin:0;" aria-label="Journal nav (before)">
+              <div class="journal-nav-label">Daily Journal</div>
+              <div class="journal-nav-row">
+                <button class="icon-btn" title="前日">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+                </button>
+                <button class="journal-date-btn">2026-07-18<span class="dow">土</span></button>
+                <button class="icon-btn" title="翌日">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>
+                </button>
+                <!-- 旧: journal-open-list / ハンバーガーアイコン -->
+                <button class="icon-btn" data-testid="journal-open-list" title="ジャーナル一覧" style="opacity:0.6;">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2.5 4h11M2.5 8h11M2.5 12h11"/></svg>
+                </button>
+              </div>
+            </nav>
+            <p class="fix-note">一覧ポップアップ (<code>journal-list-pop</code>) を別途開く必要があった。</p>
+          </div>
+        </div>
+        <div class="ba-block">
+          <div class="ba-label after">AFTER — カレンダーアイコン → 月グリッド直接表示</div>
+          <div class="ba-content">
+            <nav class="journal-nav" data-testid="journal-nav" style="margin:0;" aria-label="Journal nav (after)">
+              <div class="journal-nav-label">Daily Journal</div>
+              <div class="journal-nav-row">
+                <button class="icon-btn" data-testid="journal-prev" title="前日">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+                </button>
+                <button class="journal-date-btn" data-testid="journal-today">2026-07-18<span class="dow">土</span></button>
+                <button class="icon-btn" data-testid="journal-next" title="翌日">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>
+                </button>
+                <!-- 新: journal-open-calendar → 月グリッドを直接ポップアップ -->
+                <button class="icon-btn" data-testid="journal-open-calendar" title="カレンダーで日付を選ぶ"
+                        style="color:var(--accent);"
+                        onclick="toggleCalPopup(this)"
+                        aria-haspopup="true" aria-expanded="false">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                    <rect x="2" y="3" width="12" height="11" rx="1.5"/>
+                    <path d="M5 1.5v3M11 1.5v3M2 7h12"/>
+                  </svg>
+                </button>
+              </div>
+
+              <!-- 月グリッドカレンダーポップアップ (journal-calendar-popup) -->
+              <div class="cal-popup" id="cal-popup-demo" data-testid="journal-calendar-popup"
+                   role="dialog" aria-label="日付を選択" style="display:block;">
+                <div class="cal-header">
+                  <button class="cal-nav-btn" aria-label="前の月" onclick="calNav(-1)">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+                  </button>
+                  <span class="cal-month-label" id="cal-month-label">2026年 7月</span>
+                  <button class="cal-nav-btn" aria-label="次の月" onclick="calNav(1)">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>
+                  </button>
+                </div>
+                <div class="cal-weekdays">
+                  <span class="cal-wd">日</span>
+                  <span class="cal-wd">月</span>
+                  <span class="cal-wd">火</span>
+                  <span class="cal-wd">水</span>
+                  <span class="cal-wd">木</span>
+                  <span class="cal-wd">金</span>
+                  <span class="cal-wd" style="color:var(--danger);">土</span>
+                </div>
+                <div class="cal-grid" id="cal-grid-demo" role="grid" aria-label="日付グリッド">
+                  <!-- JS で描画 -->
+                </div>
+              </div>
+            </nav>
+            <p class="fix-note">カレンダーアイコン (<code>journal-open-calendar</code>) をクリックすると月グリッド (<code>journal-calendar-popup</code>) が即座に開く。中間ステップなし。日セル (<code>journal-cal-day</code> / <code>data-date="YYYY-MM-DD"</code>) をクリックするとそのジャーナルへ遷移。今日は accent 背景でハイライト。<code>journal-list-pop</code> は廃止。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =====================================================
+       (2) アクティブ行ハイライト色 / テキスト選択色 分離
+       ===================================================== -->
+  <section class="fix-section">
+    <div class="fix-section-header">
+      <span class="fix-num">2</span>
+      <span class="fix-title">アクティブ行ハイライト色とテキスト選択色を CSS 変数で分離</span>
+      <span class="fix-story-id">S2e8a4c-2</span>
+    </div>
+    <div class="fix-body">
+      <div class="ba-compare">
+        <div class="ba-block">
+          <div class="ba-label before">BEFORE — 両方とも同じ色</div>
+          <div class="ba-content">
+            <div class="bold-step">
+              <span class="step-indicator">1</span>
+              アクティブ行: <span class="demo-before-active">カーソルがある行</span>
+            </div>
+            <div class="bold-step">
+              <span class="step-indicator">2</span>
+              選択範囲: <span class="demo-before-selection">選択されたテキスト</span>
+            </div>
+            <p class="fix-note">どちらも <code>--bg-active: #e6e3f7</code> で同一色 → 選択範囲が判別できない。</p>
+          </div>
+        </div>
+        <div class="ba-block">
+          <div class="ba-label after">AFTER — 2 変数で別色</div>
+          <div class="ba-content">
+            <div class="bold-step">
+              <span class="step-indicator">1</span>
+              <code style="font-size:11px;">--editor-active-line</code>:
+              <span class="demo-active-line">カーソルがある行</span>
+            </div>
+            <div class="bold-step">
+              <span class="step-indicator">2</span>
+              <code style="font-size:11px;">--editor-selection</code>:
+              <span class="demo-selection">選択されたテキスト</span>
+            </div>
+            <p class="fix-note">
+              ライト: active-line <span style="display:inline-block;width:14px;height:14px;background:#f7f6fb;border:1px solid var(--border);border-radius:3px;vertical-align:middle;"></span> <code>#f7f6fb</code> /
+              selection <span style="display:inline-block;width:14px;height:14px;background:rgba(110,86,207,0.20);border-radius:3px;vertical-align:middle;"></span> <code>rgba(110,86,207,0.20)</code>。<br>
+              ダーク: active-line <code>#2c2d3a</code> / selection <code>rgba(157,138,238,0.22)</code>。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =====================================================
+       (3) ファイルツリー D&D 移動
+       ===================================================== -->
+  <section class="fix-section">
+    <div class="fix-section-header">
+      <span class="fix-num">3</span>
+      <span class="fix-title">左ファイルツリーでファイル・フォルダを D&amp;D 移動</span>
+      <span class="fix-story-id">S2e8a4c-3</span>
+    </div>
+    <div class="fix-body">
+      <div class="flex-row">
+        <div>
+          <p style="font-size:13px;color:var(--text-muted);margin:0 0 14px;">
+            ドラッグ中の行は半透明 (<code>dragging</code>)、ドロップ先フォルダは accent アウトライン (<code>drag-over</code>)。
+          </p>
+          <div class="dnd-tree">
+            <div class="dnd-tree-header">ファイルツリー — D&amp;D 中の状態</div>
+            <div class="dnd-tree-body">
+
+              <!-- ルートフォルダ -->
+              <button class="tree-folder" data-testid="tree-folder" data-path="projects">
+                <svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+                <svg class="folder-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 4.5h4l1.5 1.5H14v8H2z"/></svg>
+                <span class="name">projects</span>
+              </button>
+              <div class="tree-children">
+                <!-- ドラッグ中のアイテム -->
+                <button class="tree-item dragging" data-testid="tree-item" data-path="projects/old-spec.md" draggable="true" title="ドラッグ中">
+                  <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+                  <span class="name">old-spec</span>
+                </button>
+                <button class="tree-item" data-testid="tree-item" data-path="projects/Hydra 設計メモ.md">
+                  <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+                  <span class="name">Hydra 設計メモ</span>
+                </button>
+              </div>
+
+              <!-- アーカイブフォルダ — ドロップ先 (drag-over) -->
+              <button class="tree-folder drag-over" data-testid="tree-folder" data-path="archive" aria-label="ドロップ先フォルダ">
+                <svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+                <svg class="folder-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 4.5h4l1.5 1.5H14v8H2z"/></svg>
+                <span class="name">archive</span>
+                <span style="margin-left:auto;font-size:10.5px;color:var(--accent);font-weight:700;">ここにドロップ</span>
+              </button>
+              <div class="tree-children">
+                <button class="tree-item" data-testid="tree-item" data-path="archive/spec-v1.md">
+                  <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+                  <span class="name">spec-v1</span>
+                </button>
+              </div>
+
+              <button class="tree-folder" data-testid="tree-folder" data-path="weekly">
+                <svg class="chev closed" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+                <svg class="folder-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 4.5h4l1.5 1.5H14v8H2z"/></svg>
+                <span class="name">weekly</span>
+              </button>
+
+            </div>
+          </div>
+          <p class="fix-note" style="max-width:340px;">
+            ドロップ後: <code>api.renameNote("projects/old-spec.md", "archive/old-spec.md")</code> →
+            <code>refreshNotes()</code>。<br>
+            <code>[[旧パス]]</code> は自動で <code>[[新パス]]</code> に追従 (サーバー側 renameNote が担保)。<br>
+            フォルダ D&D は配下ノートを逐次 rename。衝突 (409) / vault 外 (400) はエラートースト。
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =====================================================
+       (4) フォルダ選択中 → 新規ノートにパス prefill
+       ===================================================== -->
+  <section class="fix-section">
+    <div class="fix-section-header">
+      <span class="fix-num">4</span>
+      <span class="fix-title">フォルダ選択中に新規ノートボタン → パス prefill された new-note ダイアログ</span>
+      <span class="fix-story-id">S2e8a4c-4</span>
+    </div>
+    <div class="fix-body">
+      <div class="flex-row new-note-demo">
+        <div>
+          <p style="font-size:13px;color:var(--text-muted);margin:0 0 12px;">
+            「projects」フォルダを選択した状態でサイドバーの <strong>＋ 新規ノート</strong> を押すと、
+            パスに <code>projects/</code> が prefill された状態でダイアログを開く。
+          </p>
+          <div class="dialog" style="position:relative;box-shadow:var(--shadow);max-width:400px;">
+            <h2>新規ノート</h2>
+            <p class="dialog-sub">ノート名を入力してください (フォルダパスを含めることもできます)</p>
+            <div>
+              <input type="text" value="projects/" data-testid="new-note-path-input" style="margin-bottom:4px;" placeholder="フォルダ/ノート名">
+              <div class="path-prefill-hint">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="5.5"/><path d="M8 7.5v4M8 5.5h.01"/></svg>
+                選択中のフォルダ <code>projects/</code> が自動入力されました
+              </div>
+            </div>
+            <div class="dialog-actions">
+              <button class="btn" data-testid="new-note-cancel">キャンセル</button>
+              <button class="btn primary" data-testid="new-note-confirm">作成</button>
+            </div>
+          </div>
+          <p class="fix-note" style="max-width:400px;margin-top:12px;">
+            <code>selectedFolder</code> state (App.tsx) を新規追加。FileTree でフォルダをクリック → <code>onSelectFolder</code> → <code>setSelectedFolder</code>。<br>
+            <code>sidebar-new-note</code> ボタン押下で <code>{folder: selectedFolder}</code> をダイアログへ渡す。<br>
+            <code>selectedFolder</code> が空の場合は従来通り <code>defaultFolder</code> を prefill。
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =====================================================
+       (5) スマートコマンドパネルをサイドバーから完全削除
+       ===================================================== -->
+  <section class="fix-section">
+    <div class="fix-section-header">
+      <span class="fix-num">5</span>
+      <span class="fix-title">サイドバー下部のスマートコマンドパネルを完全削除</span>
+      <span class="fix-story-id">S2e8a4c-5</span>
+    </div>
+    <div class="fix-body">
+      <p style="font-size:13px;color:var(--text-muted);margin:0 0 16px;line-height:1.7;">
+        スマートコマンドは<strong>設定メニューで管理</strong>し、<strong>Ctrl-K パレット</strong>から実行する。
+        サイドバー下部のパネルはその重複であるため完全に除去する。
+      </p>
+      <div class="ba-compare">
+        <div class="ba-block">
+          <div class="ba-label before">BEFORE — サイドバーにスマートコマンドパネルあり</div>
+          <div class="ba-content">
+            <div style="display:flex;justify-content:center;">
+              <div class="sidebar-mini">
+                <div class="sidebar-mini-header">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+                  ファイル
+                </div>
+                <div class="sidebar-mini-item active">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+                  Hydra 設計メモ
+                </div>
+                <div class="sidebar-mini-item">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+                  週次レビュー
+                </div>
+                <div class="sidebar-mini-item" style="border-bottom:none;">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+                  2026-07-18
+                </div>
+                <!-- スマートコマンドパネル (sidebar-commands-section) — 削除対象 -->
+                <div class="sidebar-mini-footer" data-testid="sidebar-commands-section"
+                     style="border-top:2px solid var(--danger);background:var(--danger-soft);">
+                  <div class="cp-label" style="color:var(--danger);">⚠ スマートコマンド (削除対象)</div>
+                  <div class="cp-item">📋 今日のタスク一覧</div>
+                  <div class="cp-item">📅 今週の会議まとめ</div>
+                </div>
+              </div>
+            </div>
+            <p class="fix-note" style="margin-top:10px;">
+              <code>sidebar-commands-section</code> が常時表示。設定メニュー・Ctrl-K パレットとの三重管理になっていた。
+            </p>
+          </div>
+        </div>
+        <div class="ba-block">
+          <div class="ba-label after">AFTER — サイドバーにスマートコマンドパネルなし</div>
+          <div class="ba-content">
+            <div style="display:flex;justify-content:center;">
+              <div class="sidebar-mini">
+                <div class="sidebar-mini-header">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+                  ファイル
+                </div>
+                <div class="sidebar-mini-item active">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+                  Hydra 設計メモ
+                </div>
+                <div class="sidebar-mini-item">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+                  週次レビュー
+                </div>
+                <div class="sidebar-mini-item" style="border-bottom:none;">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+                  2026-07-18
+                </div>
+                <!-- パネルなし → クリーンな底辺 -->
+                <div class="sidebar-mini-clean">
+                  スマートコマンドは<strong>設定</strong>で管理、<kbd class="ctrl-k">Ctrl-K</kbd> で実行
+                </div>
+              </div>
+            </div>
+            <p class="fix-note" style="margin-top:10px;">
+              <code>sidebar-commands-section</code> を <strong>DOM から完全削除</strong>。<br>
+              スマートコマンドは設定メニューで管理し、Ctrl-K パレットから実行。サイドバーはファイルツリーのみに集中。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =====================================================
+       (6) Ctrl-B で太字トグル
+       ===================================================== -->
+  <section class="fix-section">
+    <div class="fix-section-header">
+      <span class="fix-num">6</span>
+      <span class="fix-title">Ctrl-B でエディタの Bold/UnBold をトグル</span>
+      <span class="fix-story-id">S2e8a4c-6</span>
+    </div>
+    <div class="fix-body">
+      <p style="font-size:13px;color:var(--text-muted);margin:0 0 16px;">
+        CodeMirror コマンド <code>toggleBold</code> を <kbd>Mod-b</kbd> (Ctrl-B / Cmd-B) にバインド。ピュア Markdown (<code>**text**</code>) のみ使用。
+      </p>
+      <div class="bold-step">
+        <span class="step-indicator">1</span>
+        <span style="flex:1;">テキストを選択: &nbsp; <span class="text-selected">重要な設計方針</span></span>
+      </div>
+      <div class="bold-step">
+        <span class="step-indicator">2</span>
+        <kbd class="kbd-b">Ctrl</kbd>&nbsp;+&nbsp;<kbd class="kbd-b">B</kbd>
+        <span class="step-arrow">→</span>
+        <span>Bold 化: &nbsp; <strong class="md-bold">**重要な設計方針**</strong></span>
+      </div>
+      <div class="bold-step">
+        <span class="step-indicator">3</span>
+        <kbd class="kbd-b">Ctrl</kbd>&nbsp;+&nbsp;<kbd class="kbd-b">B</kbd> (再度)
+        <span class="step-arrow">→</span>
+        <span>UnBold: &nbsp; 重要な設計方針 &nbsp; (<code>**</code> を除去)</span>
+      </div>
+      <div class="bold-step">
+        <span class="step-indicator">4</span>
+        <span style="flex:1;">選択なし (カーソルのみ): &nbsp; <kbd class="kbd-b">Ctrl</kbd>&nbsp;+&nbsp;<kbd class="kbd-b">B</kbd></span>
+        <span class="step-arrow">→</span>
+        <code>****</code> を挿入してカーソルを内側に配置
+      </div>
+      <p class="fix-note" style="margin-top:12px;">
+        実装: <code>packages/ui/src/bold-toggle.ts</code> に <code>toggleBold: Command</code>。
+        選択が <code>**...**</code> で囲まれているか正規表現で判定。
+        <code>Editor.tsx</code> の <code>keymap.of</code> に <code>{'{ key: "Mod-b", run: toggleBold }'}</code> を追加。
+      </p>
+    </div>
+  </section>
+
+  <!-- =====================================================
+       (7) コンテキストメニュー「移動…」+ 移動先フォルダ選択ダイアログ
+       ===================================================== -->
+  <section class="fix-section">
+    <div class="fix-section-header">
+      <span class="fix-num">7</span>
+      <span class="fix-title">右クリックコンテキストメニューに「移動…」+ 移動先フォルダ選択ダイアログ</span>
+      <span class="fix-story-id">S2e8a4c-7</span>
+    </div>
+    <div class="fix-body">
+      <div class="flex-row move-dialog-demo">
+
+        <!-- コンテキストメニュー -->
+        <div class="context-menu-demo">
+          <p style="font-size:12px;color:var(--text-muted);margin:0 0 8px;">右クリックメニュー (projects/old-spec.md)</p>
+          <div class="context-menu" data-testid="tree-context-menu" style="position:relative;display:inline-block;">
+            <button class="menu-item" data-testid="context-open">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+              開く
+            </button>
+            <button class="menu-item" data-testid="context-new-note">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 1.8h5.2L12.2 4.8v4.2M9.2 1.8v3h3M8 11v4M6 13h4"/></svg>
+              同フォルダに新規ノート
+            </button>
+            <button class="menu-item" data-testid="context-rename">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M11 2.5l2.5 2.5-8 8H3v-2.5l8-8z"/></svg>
+              リネーム…
+            </button>
+            <div class="menu-sep"></div>
+            <!-- 新規追加: 移動 -->
+            <button class="menu-item" data-testid="context-move" style="color:var(--accent);" onclick="document.getElementById('move-dialog-wrap').style.display='flex'">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                <path d="M3 8h10M9 4l4 4-4 4"/>
+                <path d="M2 4.5h3l1 1.5h5v6H2z" stroke-width="1.2"/>
+              </svg>
+              移動…
+            </button>
+            <div class="menu-sep"></div>
+            <button class="menu-item danger" data-testid="context-delete">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 4h10M5 4V2.5h6V4M6 7v4.5M10 7v4.5"/><rect x="3" y="4" width="10" height="9.5" rx="1.5"/></svg>
+              削除…
+            </button>
+          </div>
+          <p class="fix-note" style="max-width:200px;">
+            リネームの下に「移動…」(<code>context-move</code>) を追加。ノート・フォルダどちらでも表示。
+          </p>
+        </div>
+
+        <!-- 移動先フォルダ選択ダイアログ -->
+        <div>
+          <p style="font-size:12px;color:var(--text-muted);margin:0 0 8px;">移動先フォルダ選択ダイアログ</p>
+          <div id="move-dialog-wrap" style="display:flex;">
+            <div class="dialog" data-testid="move-dialog" style="position:relative;box-shadow:var(--shadow);max-width:380px;width:380px;">
+              <h2>移動先フォルダを選択</h2>
+              <p class="dialog-sub">
+                移動するノート:
+                <span class="move-target-badge">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 1.8h5.2L12.2 4.8v9.4H4z"/><path d="M9.2 1.8v3h3"/></svg>
+                  old-spec.md
+                </span>
+              </p>
+              <select class="move-dialog-select" data-testid="move-dialog-select" aria-label="移動先フォルダを選択">
+                <option value="">/ (ルート)</option>
+                <option value="archive" selected>archive/</option>
+                <option value="projects">projects/</option>
+                <option value="reading">reading/</option>
+                <option value="weekly">weekly/</option>
+              </select>
+              <div class="link-update-note" style="margin-top:12px;">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6.5 9.5l3-3M5 7l-2 2a2.5 2.5 0 003.5 3.5l2-2M11 9l2-2A2.5 2.5 0 009.5 3.5l-2 2"/></svg>
+                <span>移動後、このノートへの <strong>[[リンク]]</strong> が自動追従されます (サーバーの renameNote が担保)。</span>
+              </div>
+              <div class="dialog-actions">
+                <button class="btn" data-testid="move-dialog-cancel" onclick="document.getElementById('move-dialog-wrap').style.display='none'">キャンセル</button>
+                <button class="btn primary" data-testid="move-dialog-confirm" onclick="alert('移動: projects/old-spec.md → archive/old-spec.md')">移動する</button>
+              </div>
+            </div>
+          </div>
+          <p class="fix-note" style="max-width:380px;margin-top:10px;">
+            新コンポーネント: <code>MoveDialog.tsx</code> (<code>move-dialog</code> / <code>move-dialog-select</code> / <code>move-dialog-confirm</code> / <code>move-dialog-cancel</code>)。<br>
+            フォルダ候補は vault 内フォルダ一覧 + ルート (<code>''</code>)。<br>
+            ノート移動: <code>api.renameNote(oldPath, target + "/" + basename)</code>。<br>
+            フォルダ移動: 配下ノートを逐次 rename (D&D ロジック再利用)。<br>
+            vault 外パスは 400 / 衝突は 409 でエラートースト。
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<a class="proto-chip" href="index.html">← プロトタイプ一覧</a>
+
+<script>
+/* =====================================================
+   Fix #1: 月グリッドカレンダーポップアップ
+   ===================================================== */
+
+// デモ用の状態 (今日 = 2026-07-18)
+var calState = { year: 2026, month: 6 }; // 0-indexed month: 6 = July
+
+var MONTH_NAMES = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+var TODAY_STR = '2026-07-18';
+
+function calNav(delta) {
+  calState.month += delta;
+  if (calState.month < 0) { calState.month = 11; calState.year--; }
+  if (calState.month > 11) { calState.month = 0; calState.year++; }
+  renderCal();
+}
+
+function renderCal() {
+  var label = document.getElementById('cal-month-label');
+  var grid = document.getElementById('cal-grid-demo');
+  if (!label || !grid) return;
+
+  label.textContent = calState.year + '年 ' + MONTH_NAMES[calState.month];
+
+  var firstDay = new Date(calState.year, calState.month, 1).getDay(); // 0=Sun
+  var daysInMonth = new Date(calState.year, calState.month + 1, 0).getDate();
+  var daysInPrev = new Date(calState.year, calState.month, 0).getDate();
+
+  var html = '';
+
+  // 前月の日
+  for (var i = firstDay - 1; i >= 0; i--) {
+    html += '<button class="cal-day other-month" role="gridcell" aria-disabled="true">' + (daysInPrev - i) + '</button>';
+  }
+
+  // 当月の日
+  for (var d = 1; d <= daysInMonth; d++) {
+    var mm = String(calState.month + 1).padStart(2, '0');
+    var dd = String(d).padStart(2, '0');
+    var dateStr = calState.year + '-' + mm + '-' + dd;
+    var cls = 'cal-day';
+    if (dateStr === TODAY_STR) cls += ' today';
+    html += '<button class="' + cls + '" data-testid="journal-cal-day" data-date="' + dateStr + '" role="gridcell" aria-label="' + dateStr + '" onclick="onCalDayClick(this)">' + d + '</button>';
+  }
+
+  // 次月の日 (6行揃え)
+  var total = firstDay + daysInMonth;
+  var remainder = total % 7 === 0 ? 0 : 7 - (total % 7);
+  for (var n = 1; n <= remainder; n++) {
+    html += '<button class="cal-day other-month" role="gridcell" aria-disabled="true">' + n + '</button>';
+  }
+
+  grid.innerHTML = html;
+}
+
+function onCalDayClick(btn) {
+  var dateStr = btn.getAttribute('data-date');
+  // 選択済みをリセット
+  var prev = document.querySelector('.cal-day.selected');
+  if (prev) prev.classList.remove('selected');
+  btn.classList.add('selected');
+  // 実際は: onSelectDate(dateStr) → ジャーナル遷移
+  alert('onSelectDate: ' + dateStr + '\n→ ジャーナル遷移');
+}
+
+function toggleCalPopup(btn) {
+  var popup = document.getElementById('cal-popup-demo');
+  if (!popup) return;
+  var open = popup.style.display !== 'none';
+  popup.style.display = open ? 'none' : 'block';
+  btn.setAttribute('aria-expanded', String(!open));
+}
+
+// 初期描画
+renderCal();
+</script>
+</body>
+</html>
