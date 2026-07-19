@@ -83,18 +83,16 @@ test-ui:
 
 verify: test
 
-# 機能サンプルノート集を vault へ投入する (Sa629e2-2)。
-# 送り先は LOAMIUM_VAULT (未設定なら dev-vault)。cp -n なので既存ファイルは上書きしない。
-# サンプルテンプレート (samples/templates/*) は、実際に使える vault 直下の
-# templates/ にも配置する (アプリが拾うのは vault 直下の templates/ のみ)。
+# 機能サンプルノート集を vault へ投入する (S7e2d5c-3: SeedService シム)。
+# 正本は packages/server/src/samples/ に移動済み (S7e2d5c-2)。
+# このターゲットは後方互換シムとして SeedService を直接 tsx で呼び出す
+# (サーバー起動不要)。ユーザー向けの正式手順は `loamium init-samples` を使うこと。
+# 送り先は LOAMIUM_VAULT (未設定なら dev-vault)。既存ファイルは上書きしない。
 samples:
 	@DEST="$${LOAMIUM_VAULT:-$(DEV_VAULT)}"; \
-	mkdir -p "$$DEST" "$$DEST/templates" "$$DEST/.loamium" "$$DEST/system/commands"; \
-	cp -R --update=none samples "$$DEST/" 2>/dev/null || cp -R -n samples "$$DEST/"; \
-	cp -R --update=none samples/templates/. "$$DEST/templates/" 2>/dev/null || cp -Rn samples/templates/. "$$DEST/templates/" 2>/dev/null || true; \
-	[ -f "$$DEST/.loamium/smart-folders.json" ] || cp samples/smart-folders.json "$$DEST/.loamium/smart-folders.json"; \
-	cp -R --update=none samples/commands/. "$$DEST/system/commands/" 2>/dev/null || cp -Rn samples/commands/. "$$DEST/system/commands/" 2>/dev/null || true; \
-	echo "サンプルを $$DEST/samples/ へ、テンプレートを $$DEST/templates/ へ、スマートフォルダのデフォルト設定を $$DEST/.loamium/smart-folders.json へ、サンプルのスマートコマンドを $$DEST/system/commands/ へ投入しました (既存は上書きしません)"
+	mkdir -p "$$DEST"; \
+	LOAMIUM_VAULT="$$DEST" node_modules/.bin/tsx scripts/seed-samples.mjs \
+	|| { echo "SeedService 呼び出し失敗 (tsx が見つかりません等)"; exit 1; }
 
 build:
 	npm run build --workspaces --if-present

@@ -1,0 +1,5 @@
+id: todos
+name: 未完了TODO
+icon: flame
+query: LIST WHERE file.open_tasks SORT file.mtime DESC
+order: 3

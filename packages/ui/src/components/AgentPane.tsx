@@ -68,6 +68,7 @@ const CAPABILITY_LABELS: Record<Capability, string> = {
   smartfolder_write: 'スマートフォルダ書込',
   command_run: 'コマンド実行',
   command_write: 'コマンド編集',
+  vault_seed: 'サンプル投入',
   web: 'Web アクセス',
 };
 

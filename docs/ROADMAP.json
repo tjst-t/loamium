@@ -4,10 +4,10 @@
   "progress": {
     "current_sprint": null,
     "total": 54,
-    "done": 48,
+    "done": 49,
     "in_progress": 0,
-    "remaining": 6,
-    "percentage": 89
+    "remaining": 5,
+    "percentage": 90
   },
   "execution_order": [
     "Sd63ad1",
@@ -6095,13 +6095,13 @@
       "title": "Vault 初期コンテンツ（サンプル投入）+ ドキュメント化規約 (CLAUDE.md 更新)",
       "description": "新規 vault 作成時（または loamium init-samples コマンド）に、実用的なサンプルコンテンツを自動投入する。Obsidian Starter Kit を参考に、ジャーナルテンプレート・タスク管理スマートコマンド・スマートフォルダ例・機能ガイド Markdown 等を設計・同梱する。既存 make samples を廃止・統合するか互換維持するか判断する。あわせて CLAUDE.md に「新機能・仕様変更時は vault 内ドキュメント（.loamium/docs/ または system/）に解説ページを追加・更新すること」を規約化する。",
       "milestone": false,
-      "status": "pending",
+      "status": "done",
       "depends_on": "Sc4b9d1",
       "detail_level": "detailed",
       "stories": {
         "S7e2d5c-1": {
           "title": "loamium init-samples CLI コマンド + POST /api/vault/seed REST エンドポイント",
-          "status": "pending",
+          "status": "done",
           "story_type": "cli",
           "user_review_required": false,
           "review_reason": null,
@@ -6111,87 +6111,87 @@
               "id": "AC-S7e2d5c-1-1",
               "description": "`loamium init-samples` を実行すると exit 0 で終了し、stdout に投入したファイル数と投入先 vault パスを出力する（例: `12 ファイルを <vault> に投入しました（既存 3 件はスキップ）`）",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S7e2d5c-1-2",
               "description": "既存ファイルは上書きしない（--force フラグ指定時のみ上書き）。2回実行してもファイルの内容が変わらない",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S7e2d5c-1-3",
               "description": "投入後の vault に以下がすべて存在する: `system/commands/todo-add.yaml`、`system/commands/log-memo.yaml`、`system/commands/meeting-summary.yaml`、`templates/journal.md`、`templates/議事録.md`、`templates/読書メモ.md`、`system/smart-folders/recent.yaml`、`system/smart-folders/journal.yaml`、`system/smart-folders/todos.yaml`、`samples/index.md`",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S7e2d5c-1-4",
               "description": "投入されたすべての .md / .yaml ファイルはピュア Markdown または純 YAML であり、ブロック ID・Loamium 独自記法は含まない。`loamium read samples/index.md` で内容が取得できる",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S7e2d5c-1-5",
               "description": "サーバー側に `POST /api/vault/seed` エンドポイントが存在し、CLI の `loamium init-samples` はこのエンドポイントを呼ぶ（REST と CLI が 1:1 対応）。レスポンスは `{ seeded: number, skipped: number }` の JSON",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S7e2d5c-1-6",
               "description": "エージェントツール `vault_seed` が advertise され、`loamium help vault` で使い方（ツール名・入出力・`--force` の意味・スキップ条件）が確認できる。ツールは書込モード（write 権限）でのみ広告される",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S7e2d5c-1-7",
               "description": "`POST /api/vault/seed` は `.loamium/audit.log` に `op: 'vault.seed'` で記録される",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S7e2d5c-1-8",
               "description": "ユニットテスト: `SeedService.seed()` が空の一時ディレクトリへ正しいファイル数を投入すること、および既存ファイルをスキップすること（force=false 時）を検証するテストが `packages/server/src/seed-service.test.ts` に存在し `make test` で pass する",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "S7e2d5c-1-1": {
               "title": "SeedService 実装 (packages/server/src/seed-service.ts)",
               "description": "サンプルファイル群を vault へコピーするサービス層。コピー元は packages/server/src/samples/。copyIfAbsent で既存はスキップ、force=true 時のみ上書き。投入先マッピング: commands/*.yaml → system/commands/、templates/*.md → templates/ と system/templates/、smart-folders/*.yaml → system/smart-folders/、samples/**/* → samples/。書き込みは vault.ts の writeNote/writeVaultFile 経由（containment 検証済み）。返り値 { seeded, skipped }。",
-              "status": "pending"
+              "status": "done"
             },
             "S7e2d5c-1-2": {
               "title": "samples/ をビルド成果物として server パッケージへ移動",
               "description": "リポジトリルートの samples/ を packages/server/src/samples/ に移動し package.json files / tsconfig assets に含める。make samples 参照パスも更新。smart-folders.json を ADR-0010 準拠の smart-folders/*.yaml へ分割。",
-              "status": "pending"
+              "status": "done"
             },
             "S7e2d5c-1-3": {
               "title": "POST /api/vault/seed ルート追加 (packages/server/src/routes/vault.ts)",
               "description": "新規ルートに POST /api/vault/seed。ボディ { force?: boolean }（zod）。SeedService を呼び { seeded, skipped } を返す。書込権限チェック（mode!=='write' なら 403）。監査ログ op: 'vault.seed'。app.ts にマウント。",
-              "status": "pending"
+              "status": "done"
             },
             "S7e2d5c-1-4": {
               "title": "CLI コマンド loamium init-samples 追加 (packages/cli/src/main.ts)",
               "description": "program.command('init-samples')。--force / --json。POST /api/vault/seed を呼び結果を stdout。エラーは stderr に {error,message} JSON で exit 非0。loamium --help に表示。",
-              "status": "pending"
+              "status": "done"
             },
             "S7e2d5c-1-5": {
               "title": "エージェントツール vault_seed 追加 + help トピック (packages/server/src/agent-help.ts)",
               "description": "vault_seed ツール。入力 { force?: boolean }、出力 { seeded, skipped, message }。ADR-0016 準拠で SeedService 経由。ADR-0015 準拠で write 権限セットでのみ advertise。agent-help.ts に vault トピック追加。",
-              "status": "pending"
+              "status": "done"
             },
             "S7e2d5c-1-6": {
               "title": "ユニットテスト (packages/server/src/seed-service.test.ts)",
               "description": "Vitest。①空ディレクトリ初回投入でファイル数一致 ②2回目 seeded=0/skipped=期待値 ③force=true で上書き。mkdtemp で一時ディレクトリ、テスト後削除。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S7e2d5c-2": {
           "title": "スマートフォルダサンプルの ADR-0010 準拠 YAML 化 + 機能ガイド Markdown 拡充",
-          "status": "pending",
+          "status": "done",
           "story_type": "library",
           "user_review_required": false,
           "review_reason": null,
@@ -6201,48 +6201,48 @@
               "id": "AC-S7e2d5c-2-1",
               "description": "init-samples 実行後、GET /api/smart-folders が recent/journal/todos/bookmarks の4件を返す（system/smart-folders/*.yaml から読まれること）",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S7e2d5c-2-2",
               "description": "samples/機能ガイド/ に「スマートコマンドの使い方.md」が存在し、loamium commands 一覧・loamium command run <name> の実行例・パラメータ指定方法を Markdown で説明している。ファイルはピュア Markdown（独自記法なし）",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S7e2d5c-2-3",
               "description": "既存の samples/機能ガイド/ にある各ガイドノートが init-samples 後に loamium list --folder samples で列挙できる",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S7e2d5c-2-4",
               "description": "スマートフォルダサンプルファイル（system/smart-folders/recent.yaml 等）が純 YAML（ADR-0010/ADR-0024 準拠）であり、ブロック ID・Markdown 本文を含まない",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "S7e2d5c-2-1": {
               "title": "smart-folders.json を per-file YAML へ分割 (samples/smart-folders/)",
               "description": "既存 samples/smart-folders.json を廃止し recent.yaml/journal.yaml/todos.yaml/bookmarks.yaml へ分割。ADR-0010 準拠の純 YAML（id/name/icon/query/order）。SeedService が system/smart-folders/*.yaml へコピー。",
-              "status": "pending"
+              "status": "done"
             },
             "S7e2d5c-2-2": {
               "title": "スマートコマンド使い方ガイド Markdown 執筆",
               "description": "packages/server/src/samples/機能ガイド/スマートコマンドの使い方.md を新規作成。概念・UI 呼び出し・CLI 例・同梱サンプルコマンド一覧の説明。ピュア Markdown、wikilink 可、独自記法なし。",
-              "status": "pending"
+              "status": "done"
             },
             "S7e2d5c-2-3": {
               "title": "samples/index.md をスマートコマンドガイドリンク込みで更新",
               "description": "index.md 機能ガイドセクションに [[スマートコマンドの使い方]] リンク追加。既存スタイル踏襲。ファイル名変更禁止。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S7e2d5c-3": {
           "title": "make samples の位置づけ整理（後方互換シム化）",
-          "status": "pending",
+          "status": "done",
           "story_type": "cli",
           "user_review_required": false,
           "review_reason": null,
@@ -6252,32 +6252,32 @@
               "id": "AC-S7e2d5c-3-1",
               "description": "make samples を実行すると引き続き vault へのサンプル投入が完了し exit 0 で終了する。出力メッセージは変わっても構わない",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S7e2d5c-3-2",
               "description": "make samples の実装が SeedService に統一されており（tsx 直呼びまたは loamium init-samples 呼び出し）、二重管理の重複コピーロジックがない",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S7e2d5c-3-3",
               "description": "Makefile の samples ターゲットのコメントに loamium init-samples との関係が明記されている",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "S7e2d5c-3-1": {
               "title": "Makefile の samples ターゲットを SeedService スクリプト呼び出しへ切り替え",
               "description": "samples ターゲットを tsx ワンライナー（サーバー不要で SeedService を直接呼ぶ）に切り替え。既存 cp を削除しサンプル正本を packages/server/src/samples/ に集約。コメントで loamium init-samples がユーザー向け正式手順と明記。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S7e2d5c-4": {
           "title": "CLAUDE.md にドキュメント化規約を追加（新機能追加時の vault ガイド更新義務）",
-          "status": "pending",
+          "status": "done",
           "story_type": "library",
           "user_review_required": false,
           "review_reason": null,
@@ -6287,26 +6287,26 @@
               "id": "AC-S7e2d5c-4-1",
               "description": "CLAUDE.md の Development Rules セクションに「新機能・仕様変更時は packages/server/src/samples/機能ガイド/ 内の対応ガイド Markdown を追加・更新すること。ガイドはピュア Markdown で書き、ユーザーが init-samples で取得できる形で保持する」旨の規約が追加されている",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S7e2d5c-4-2",
               "description": "追記された規約が既存の「エージェント操作ツール必須」規約と同じ箇条書きレベル・フォーマットで記述されている",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S7e2d5c-4-3",
               "description": "規約の例示として具体例が1行以上含まれている",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "S7e2d5c-4-1": {
               "title": "CLAUDE.md Development Rules にドキュメント化規約を追記",
               "description": "Development Rules（エージェント操作ツール必須の直後）に機能ガイド更新義務を追加。新機能追加・仕様変更時は packages/server/src/samples/機能ガイド/ 内の対応 Markdown を追加/更新。例示付き。CLAUDE.md 1箇所のみ変更。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
