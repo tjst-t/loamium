@@ -3,12 +3,48 @@
   "mode": "auto (autopilot batch elaboration)",
   "base_sha": "a9e7f7db5c8f40905fa4629d6f305837a3c386b4",
   "milestone": true,
-  "touched_adrs": ["ADR-0016"],
-  "elaboration_decisions": [
-    {"id": "E1", "category": "elaboration", "decision": "coarse→detailed: 7 Stories を description の7点に1:1対応(Journal カレンダー / 選択色分離 / ツリー D&D 移動 / フォルダ prefill / SmartView 下部コマンド非表示 / Ctrl-B Bold / コンテキストメニュー移動…)。", "rationale": "7点は独立・個別検証可能。1 fix = 1 Story。", "reference": "autopilot-start Batch elaboration"},
-    {"id": "E2", "category": "elaboration", "decision": "D&D 移動(S2e8a4c-3)とコンテキストメニュー移動(S2e8a4c-7)はともに既存 api.renameNote(POST /api/notes/{path}/rename)を再利用。専用 move エンドポイントは新設しない。フォルダ移動は配下ノートを逐次 rename する UI ロジック。", "rationale": "ADR-0016 監査済みサービス層経由 + priority 2。ウィキリンク追従はサーバー renameNote が担保。", "reference": "ADR-0016, priority 2"},
-    {"id": "E3", "category": "elaboration", "decision": "フォルダは vault に物理実体(.gitkeep 等)を作らず、配下ノートの rename でフォルダ移動を表現。Bold トグルは CodeMirror Transaction で undo 履歴に乗せ、execCommand 等は使わない。", "rationale": "DESIGN_PRINCIPLES priority 1(ピュア Markdown 正本)。", "reference": "DESIGN_PRINCIPLES priority 1"},
-    {"id": "E4", "category": "elaboration", "decision": "Journal カレンダー化で既存 journal-list-pop(一覧ポップアップ)と props(listOpen/onToggleList/entries)を廃止し HTML5 date input に一本化。", "rationale": "後方互換が必要な外部 IF はなく(UI 内部)、簡潔化のため廃止。priority 4/5。", "reference": "DESIGN_PRINCIPLES priority 5"}
+  "touched_adrs": [
+    "ADR-0016"
   ],
-  "notes_for_po": "S2e8a4c-3(D&D)と S2e8a4c-7(移動…)はフォルダ逐次 rename ロジックを共有できるため共通ユーティリティ先出しで重複回避。フォルダ D&D は子孫ノート多数時に複数 PATCH 連続→失敗時の部分移動リスク(トランザクションなし・トーストのみ)。S2e8a4c-5 は調査で physical ビューに独立 SmartCommandsSection が無ければ実 UI 変更小(場合により decisions 注記でクローズ)。"
+  "elaboration_decisions": [
+    {
+      "id": "E1",
+      "category": "elaboration",
+      "decision": "coarse→detailed: 7 Stories を description の7点に1:1対応(Journal カレンダー / 選択色分離 / ツリー D&D 移動 / フォルダ prefill / SmartView 下部コマンド非表示 / Ctrl-B Bold / コンテキストメニュー移動…)。",
+      "rationale": "7点は独立・個別検証可能。1 fix = 1 Story。",
+      "reference": "autopilot-start Batch elaboration"
+    },
+    {
+      "id": "E2",
+      "category": "elaboration",
+      "decision": "D&D 移動(S2e8a4c-3)とコンテキストメニュー移動(S2e8a4c-7)はともに既存 api.renameNote(POST /api/notes/{path}/rename)を再利用。専用 move エンドポイントは新設しない。フォルダ移動は配下ノートを逐次 rename する UI ロジック。",
+      "rationale": "ADR-0016 監査済みサービス層経由 + priority 2。ウィキリンク追従はサーバー renameNote が担保。",
+      "reference": "ADR-0016, priority 2"
+    },
+    {
+      "id": "E3",
+      "category": "elaboration",
+      "decision": "フォルダは vault に物理実体(.gitkeep 等)を作らず、配下ノートの rename でフォルダ移動を表現。Bold トグルは CodeMirror Transaction で undo 履歴に乗せ、execCommand 等は使わない。",
+      "rationale": "DESIGN_PRINCIPLES priority 1(ピュア Markdown 正本)。",
+      "reference": "DESIGN_PRINCIPLES priority 1"
+    },
+    {
+      "id": "E4",
+      "category": "elaboration",
+      "decision": "Journal カレンダー化で既存 journal-list-pop(一覧ポップアップ)と props(listOpen/onToggleList/entries)を廃止し HTML5 date input に一本化。",
+      "rationale": "後方互換が必要な外部 IF はなく(UI 内部)、簡潔化のため廃止。priority 4/5。",
+      "reference": "DESIGN_PRINCIPLES priority 5"
+    }
+  ],
+  "notes_for_po": "S2e8a4c-3(D&D)と S2e8a4c-7(移動…)はフォルダ逐次 rename ロジックを共有できるため共通ユーティリティ先出しで重複回避。フォルダ D&D は子孫ノート多数時に複数 PATCH 連続→失敗時の部分移動リスク(トランザクションなし・トーストのみ)。S2e8a4c-5 は調査で physical ビューに独立 SmartCommandsSection が無ければ実 UI 変更小(場合により decisions 注記でクローズ)。",
+  "compromises": [
+    {
+      "severity": "low",
+      "category": "dead-code",
+      "story": "S2e8a4c-5",
+      "description": "サイドバーからのスマートコマンドパネル描画は削除済み(DOM に sidebar-commands-section は出ない=AC 達成・テスト済み)が、SmartView.tsx に SmartCommandsSection 関数定義と空の .sidebar-commands-section CSS 規則が dead code として残存。",
+      "recommended_fix": "未使用の SmartCommandsSection 関数/Props と空 CSS 規則を削除する(refine 時)。",
+      "overlooked_by_autopilot": false
+    }
+  ]
 }

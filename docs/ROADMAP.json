@@ -4,10 +4,10 @@
   "progress": {
     "current_sprint": null,
     "total": 54,
-    "done": 53,
+    "done": 54,
     "in_progress": 0,
-    "remaining": 1,
-    "percentage": 98
+    "remaining": 0,
+    "percentage": 100
   },
   "execution_order": [
     "Sd63ad1",
@@ -7623,13 +7623,13 @@
       "title": "UI 細粒度修正まとめ — Journal カレンダー / 選択色 / ドラッグ移動 / フォルダコンテキスト / Bold / コンテキストメニュー",
       "description": "以下 7 点の細かい修正を一括で実施する。(1) Daily Journal ヘッダーのハンバーガーボタンをカレンダーアイコン（日付ピッカー兼用）に変更する。(2) エディタのアクティブ行ハイライト色とテキスト選択色が同一でどこまで選択か判別できない問題を修正する（CSS 変数で分離）。(3) 左ファイルツリーでファイル・フォルダをドラッグ & ドロップで移動できるようにする（PATCH /api/files/{path}/rename を活用）。(4) ファイルツリーでフォルダを選択した状態でファイル作成・フォルダ作成ボタンを押した場合、そのフォルダをデフォルトパスとして入力欄に反映する。(5) 左サイドバーがスマートビュー表示のとき、下部のスマートコマンドパネルを非表示にする。(6) Ctrl-B でエディタのインライン Bold / UnBold をトグルする（CodeMirror コマンド追加）。(7) ファイル・フォルダの右クリックコンテキストメニューに「移動…」を追加し、移動先フォルダを選択するダイアログを表示する。",
       "milestone": true,
-      "status": "pending",
+      "status": "done",
       "depends_on": null,
       "detail_level": "detailed",
       "stories": {
         "S2e8a4c-1": {
           "title": "Daily Journal ヘッダーのリスト一覧ボタンをカレンダーアイコンに変更し、月グリッドカレンダーポップアップを直接開く",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": false,
           "review_reason": null,
@@ -7639,65 +7639,65 @@
               "id": "AC-S2e8a4c-1-1",
               "description": "JournalNav の右端ボタンが <ListIcon /> ではなく <CalendarIcon />（新規 SVG）を表示する。data-testid を journal-open-list から journal-open-calendar に変更する。既存の一覧ポップアップ（journal-list-pop）は削除する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-1-2",
               "description": "カレンダーボタンをクリックすると月グリッドカレンダーポップアップ(data-testid=\"journal-calendar-popup\")が直接開く。<input type=date> の expand 経由ではない。中間ステップなし。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-1-3",
               "description": "ポップアップには前月/次月ナビゲーション(< / >)と月ラベルを持つカレンダーヘッダ、7×n の日グリッド(data-testid=\"journal-cal-day\" / data-date=\"YYYY-MM-DD\")を表示する。今日の日付は accent 背景でハイライト。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-1-4",
               "description": "日グリッドのセルをクリックすると onSelectDate(selectedDate) が呼ばれてその日付のジャーナルへ遷移しポップアップを閉じる。日付は YYYY-MM-DD 形式。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-1-5",
               "description": "ポップアップを開いたとき表示月は baseDate（フォールバックで today）の月。既存の prev/next/today ボタンとの整合が保たれる。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-1-6",
               "description": "Vitest: JournalNav にカレンダーアイコンボタン（journal-open-calendar）が存在し、journal-list-pop が存在せず、日セルクリックで onSelectDate が呼ばれることを確認する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "S2e8a4c-1-1": {
               "title": "CalendarIcon SVG を icons.tsx に追加",
               "description": "icons.tsx に CalendarIcon（viewBox 0 0 16 16、既存アイコン同スタイル、className? props）。ui-fixes.html の journal-open-calendar アイコン参照。",
-              "status": "pending"
+              "status": "done"
             },
             "S2e8a4c-1-2": {
               "title": "JournalNav を月グリッドカレンダーポップアップに差し替え",
               "description": "listOpen/onToggleList を廃止し calendarOpen 開閉に変更。ListIcon→CalendarIcon、testid journal-open-calendar。journal-list-pop DOM 削除。カレンダーポップアップ(journal-calendar-popup)コンポーネントを実装: 月ヘッダ(prev/next nav) + 7×n 日グリッド(journal-cal-day / data-date)。今日ハイライト(accent 背景)。日クリックで onSelectDate 呼出+ポップアップ閉じる。",
-              "status": "pending"
+              "status": "done"
             },
             "S2e8a4c-1-3": {
               "title": "App.tsx の JournalNav 呼び出しを更新",
               "description": "listOpen/onToggleList/entries 渡しを削除し新 props に合わせる。journalListOpen state 削除。",
-              "status": "pending"
+              "status": "done"
             },
             "S2e8a4c-1-4": {
               "title": "ユニットテスト追加",
               "description": "JournalNav.test.tsx で CalendarIcon ボタン存在・journal-list-pop 不存在・日セルクリックで onSelectDate 呼出をテスト。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S2e8a4c-2": {
           "title": "エディタのアクティブ行ハイライト色とテキスト選択色を CSS 変数で分離",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": false,
           "review_reason": null,
@@ -7707,43 +7707,43 @@
               "id": "AC-S2e8a4c-2-1",
               "description": "styles.css に --editor-active-line と --editor-selection を追加。ライトテーマで active-line は現行系統を維持しつつ selection は accent 由来の別色（例 rgba(110,86,207,0.20)）とし、両者を目視で区別できる。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-2-2",
               "description": "ダークテーマでも 2 変数が別色になる（[data-theme=dark] ブロックで定義）。現行の直接カラー指定を変数参照に移行する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-2-3",
               "description": ".editor-host .cm-activeLine は --editor-active-line を参照し、.cm-selectionBackground と ::selection は --editor-selection を参照する。CommandEditor 側 cmd-editor-cm-host は既存値を維持し変更しない。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-2-4",
               "description": "文字を範囲選択したとき、選択範囲の背景色がアクティブ行ハイライトと視覚的に異なる色で表示される（目視確認）。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "S2e8a4c-2-1": {
               "title": "CSS 変数を styles.css に追加",
               "description": ":root に --editor-active-line:#f7f6fb; --editor-selection:rgba(110,86,207,0.18);。[data-theme=dark] に --editor-active-line:#2c2d3a; --editor-selection:rgba(157,138,238,0.22);。",
-              "status": "pending"
+              "status": "done"
             },
             "S2e8a4c-2-2": {
               "title": "エディタ CSS を変数参照に書き換え",
               "description": ".cm-activeLine を var(--editor-active-line)、.cm-selectionBackground/::selection を var(--editor-selection) に。ダークの直接指定を削除。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S2e8a4c-3": {
           "title": "左ファイルツリーでファイル・フォルダを D&D 移動 (PATCH rename 活用)",
-          "status": "pending",
+          "status": "done",
           "story_type": "mixed",
           "user_review_required": false,
           "review_reason": null,
@@ -7753,60 +7753,60 @@
               "id": "AC-S2e8a4c-3-1",
               "description": "ノート（tree-item）をドラッグし別フォルダ（tree-folder）にドロップすると api.renameNote で新パスへ移動する。移動後は左サイドバーが自動更新（refreshNotes）される。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-3-2",
               "description": "フォルダ（tree-folder）をドラッグし別フォルダにドロップすると、そのフォルダ直下の全ノートのパスを api.renameNote で一括移動する（フォルダは物理実体がないためノートを逐次 rename）。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-3-3",
               "description": "移動先フォルダにドラッグオーバー中は drag-over CSS クラス（または同等のインジケーター）が付きドロップ可能が視覚的に分かる。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-3-4",
               "description": "ノート名が新パスで衝突する場合（409）はエラートーストを表示しファイルは一切変更しない。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-3-5",
               "description": "移動は既存 renameNote サービス層（ADR-0016）経由のため、移動後に [[旧パス]] 形式のウィキリンクが [[新パス]] へ自動追従される（サーバーが updatedNotes/updatedLinks を返す）。vault 外パスへの D&D はサーバーが 400 invalid_path で拒否する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-3-6",
               "description": "Vitest: FileTree に draggable 属性が付与され、dragstart/dragover/drop ハンドラが prop から呼び出されることを確認する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "S2e8a4c-3-1": {
               "title": "FileTree コンポーネントに D&D props を追加",
               "description": "FileTreeProps に onDropNote/onDropFolder。tree-item/tree-folder に draggable、dragStart で dataTransfer.setData。folder に onDragOver preventDefault と onDrop、over 時 drag-over クラス。",
-              "status": "pending"
+              "status": "done"
             },
             "S2e8a4c-3-2": {
               "title": "App.tsx で D&D ハンドラを実装し renameNote を呼ぶ",
               "description": "handleDropNote/handleDropFolder。renameNote(source, target+'/'+basename)。成功後 onNotesChanged、エラーはトースト。フォルダは配下ノートを逐次移動。",
-              "status": "pending"
+              "status": "done"
             },
             "S2e8a4c-3-3": {
               "title": "D&D ドラッグ over ビジュアル CSS を styles.css に追加",
               "description": ".tree-item.drag-over, .tree-folder.drag-over に背景・outline スタイル。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S2e8a4c-4": {
           "title": "フォルダ選択中の新規ノート・新規フォルダ作成でそのフォルダをデフォルトパスに prefill",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": false,
           "review_reason": null,
@@ -7816,49 +7816,49 @@
               "id": "AC-S2e8a4c-4-1",
               "description": "フォルダを右クリックした場合、既に onNewNote が {folder: menu.path} でダイアログを開き initialPath に ${folder}/ が prefill される（既存動作）。本ストーリーではサイドバーヘッダの新規ノート(＋)ボタン押下時にも selectedFolder を prefill する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-4-2",
               "description": "App.tsx に selectedFolder state（string, default ''）を追加し、FileTree でフォルダをクリック（開閉操作）したときそのフォルダパスを setSelectedFolder で保持する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-4-3",
               "description": "サイドバー新規ノートボタン（sidebar-new-note）を押すと {folder: selectedFolder} でダイアログが開く。selectedFolder が '' の場合は従来どおり defaultFolder を prefill する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-4-4",
               "description": "新規フォルダボタンを押すと {parent: selectedFolder} でダイアログが開き、新規フォルダの親が selectedFolder になる。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-4-5",
               "description": "FileTree がフォルダクリックで onToggleFolder に加えて onSelectFolder を呼ぶよう props を拡張し、選択フォルダが別ファイルを開く等でリセットされない。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "S2e8a4c-4-1": {
               "title": "FileTree に onSelectFolder prop を追加",
               "description": "FileTreeProps に onSelectFolder?(path)。フォルダ行クリックを onToggleFolder+onSelectFolder に。",
-              "status": "pending"
+              "status": "done"
             },
             "S2e8a4c-4-2": {
               "title": "App.tsx に selectedFolder state を追加しダイアログ呼び出しに反映",
               "description": "selectedFolder state。FileTree に onSelectFolder={setSelectedFolder}。新規ノート/フォルダボタンの onClick を selectedFolder 反映に変更。initialPath ロジックは AC-4-1 と一致。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S2e8a4c-5": {
           "title": "サイドバー下部のスマートコマンドパネルをサイドバーから完全削除",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": false,
           "review_reason": null,
@@ -7868,32 +7868,32 @@
               "id": "AC-S2e8a4c-5-1",
               "description": "サイドバー内の SmartCommandsSection(data-testid=\"sidebar-commands-section\")を DOM から完全削除する。スマートビュー(sidebarView==='smart')か物理ビュー(sidebarView==='physical')かに関わらず、sidebar-commands-section はサイドバーのどこにも表示されない。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-5-2",
               "description": "スマートコマンドは設定メニュー(SettingsView)で管理し、Ctrl-K パレットから実行する。この管理経路は本ストーリーの実装対象外だが、削除後の代替手段として設計書・CLAUDE.md に明記する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-5-3",
               "description": "削除後、サイドバーはファイルツリーのみとなり(物理ビュー) / スマートフォルダ一覧(スマートビュー)のみとなる。sidebar-commands-section の DOM 痕跡がないことを Vitest で確認する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "S2e8a4c-5-1": {
               "title": "SmartCommandsSection / CommandsPanel をサイドバー DOM から削除",
               "description": "App.tsx / SmartView.tsx を調査し sidebar-commands-section を含むすべての SmartCommandsSection レンダリングを削除。関連 props/state も整理。Vitest で非存在を確認。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S2e8a4c-6": {
           "title": "Ctrl-B でエディタの Bold/UnBold をトグルする CodeMirror コマンド追加",
-          "status": "pending",
+          "status": "done",
           "story_type": "mixed",
           "user_review_required": false,
           "review_reason": null,
@@ -7903,54 +7903,54 @@
               "id": "AC-S2e8a4c-6-1",
               "description": "選択範囲がある状態で Ctrl-B（Mod-B）を押すと選択テキストが **<text>** に変換される。既に ** で囲まれている場合は ** を除去して UnBold する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-6-2",
               "description": "選択範囲なし（カーソルのみ）の場合は **** を挿入しカーソルを内側に移動する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-6-3",
               "description": "変換結果はピュア Markdown（**..**）のみ使用する。独自記法・ブロック ID・HTML タグは書き込まない（priority 1）。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-6-4",
               "description": "既存の Mod-S（保存）キーバインドを妨げない。Mod-B は defaultKeymap に存在しないため登録順の問題がないことを確認する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-6-5",
               "description": "Vitest: toggleBold(view) を純関数として切り出し、選択あり Bold 化・選択あり UnBold・選択なし挿入の 3 ケースをテストする。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "S2e8a4c-6-1": {
               "title": "toggleBold コマンド関数を実装",
               "description": "bold-toggle.ts。Command 型。選択が ** で囲まれているか判定→UnBold（前後 ** 削除）／Bold 化（** で囲む・選択更新）／選択なしは **** 挿入+カーソル内側。dispatch で history に乗せる。",
-              "status": "pending"
+              "status": "done"
             },
             "S2e8a4c-6-2": {
               "title": "Editor.tsx の keymap に Mod-B を追加",
               "description": "keymap.of に { key:'Mod-b', preventDefault:true, run: toggleBold }。",
-              "status": "pending"
+              "status": "done"
             },
             "S2e8a4c-6-3": {
               "title": "toggleBold のユニットテスト作成",
               "description": "bold-toggle.test.ts。EditorView 構築で 3 ケース。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S2e8a4c-7": {
           "title": "ファイルツリーの右クリックコンテキストメニューに「移動…」を追加しフォルダ選択ダイアログを表示",
-          "status": "pending",
+          "status": "done",
           "story_type": "mixed",
           "user_review_required": false,
           "review_reason": null,
@@ -7960,54 +7960,54 @@
               "id": "AC-S2e8a4c-7-1",
               "description": "ノートおよびフォルダを右クリックしたとき、コンテキストメニュー（tree-context-menu）に「移動…」ボタン（context-move）が表示される。フォルダでも表示する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-7-2",
               "description": "「移動…」をクリックすると移動先フォルダ選択ダイアログ（move-dialog）が開く。vault 内のフォルダ一覧を <select> 等で表示し、ルート（''）も選択可能にする。testid: move-dialog / move-dialog-select / move-dialog-confirm / move-dialog-cancel。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-7-3",
               "description": "ノートの移動を確定すると api.renameNote(oldPath, targetFolder+'/'+basename) を呼び、成功後 refreshNotes で更新する。移動後の [[旧パス]] が [[新パス]] へ自動追従される（サーバーの renameNote が担保）。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-7-4",
               "description": "フォルダの移動を確定すると、そのフォルダ直下の全ノートを api.renameNote で逐次移動する（S2e8a4c-3 の handleDropFolder ロジック再利用）。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-7-5",
               "description": "移動先パスが vault 外になるリクエストはサーバーが 400 invalid_path で拒否し、UI はエラートーストを表示しファイルは変更しない。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-S2e8a4c-7-6",
               "description": "移動先が自分自身と同フォルダの場合は no-op。衝突（409）の場合はエラートーストを表示する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "S2e8a4c-7-1": {
               "title": "ContextMenu コンポーネントに「移動…」ボタンを追加",
               "description": "ContextMenuProps に onMove?()。リネームの下に menu-sep と context-move ボタン。onMove undefined なら非表示。フォルダでも表示。",
-              "status": "pending"
+              "status": "done"
             },
             "S2e8a4c-7-2": {
               "title": "MoveDialog コンポーネントを新規作成",
               "description": "MoveDialog.tsx。targetName/notes/onConfirm/onCancel。deriveFolderCandidates でフォルダ候補を <select> 表示、ルート（''=/ (ルート)）先頭。testid move-dialog/-select/-confirm/-cancel。",
-              "status": "pending"
+              "status": "done"
             },
             "S2e8a4c-7-3": {
               "title": "App.tsx にダイアログ state とハンドラを追加",
               "description": "DialogState に {type:'move',path,isFolder}。onMove で setDialog。MoveDialog レンダリング。onConfirm でノートは renameNote（ルートは basename）、フォルダは配下逐次移動。成功後 onNotesChanged+トースト、エラーはトースト。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
