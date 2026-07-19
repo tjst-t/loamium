@@ -470,16 +470,23 @@ a { color: var(--link); text-decoration: none; }
   background: var(--bg-editor);
 }
 .editor-host .cm-editor.cm-focused { outline: none; }
+/* Fix #3: ガターとコンテンツをまとめて中央寄せ — cm-content だけ centering すると
+   cm-gutters (sticky left) がエディタ左端に張り付いたままになり、折りたたみ
+   シェブロンとテキストの間に大きなギャップが生じる。
+   cm-scroller は gutters + content 両方を含むので、ここに max-width + margin:auto を
+   設定することで gutters・content が同じ幅の中に収まり、ガターがテキスト直左に来る。
+   cm-content の max-width/margin は外してスクローラー幅に追随させる。
+   (820px ≈ 760px読取幅 + ガター幅。cm-editor は全幅のまま維持して CM の
+   座標計算を壊さない — scroller は overflow:auto なので自己完結する。) */
 .editor-host .cm-scroller {
   font-family: var(--font-mono);
   line-height: 1.75;
   padding: 28px 0 120px;
+  max-width: 820px;
+  margin: 0 auto;
 }
 .editor-host .cm-content {
-  max-width: 760px;
-  margin: 0 auto;
-  /* 案B 詰めたガター: left padding を 4px に絞り、fold ガター (22px×2) の右端と
-     テキスト先頭の距離を ~4px に詰める。right は読みやすさのため 32px を維持する。 */
+  /* max-width/margin は cm-scroller 側に移動 — ここではパディングのみ */
   padding: 0 32px 0 4px;
   caret-color: var(--accent);
 }
@@ -6165,57 +6172,47 @@ button.callout-title { cursor: pointer; }
 .task-checkbox.checked { background: #16a34a !important; border-color: #16a34a !important; color: #fff; }
 .task-checkbox.checked svg { display: block; }
 
-/* ---- ステータスピル (Se3b7a2-2) ---- */
-.status-pill {
+/* ---- Fix #1: インラインチップ共通ベースモデル (Se3b7a2-2) ----
+   status-pill / priority-flag / due-chip を同一の box model に揃え、
+   チェックボックス行のテキストと同じベースラインに並ぶようにする。
+   vertical-align: middle で行テキストの中央に合わせる。
+   font-size / padding / height を統一し、3種が同じ視覚的な高さに見えるようにする。 */
+.status-pill,
+.priority-flag,
+.due-chip {
   display: inline-flex;
   align-items: center;
-  font-size: 10.5px;
-  font-weight: 700;
+  vertical-align: middle;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
   border-radius: 5px;
-  padding: 1px 6px;
+  padding: 2px 6px;
+  line-height: 1;
   flex-shrink: 0;
   white-space: nowrap;
-  letter-spacing: 0.02em;
   margin-left: 4px;
+}
+
+/* ---- ステータスピル固有スタイル (Se3b7a2-2) ---- */
+.status-pill {
+  letter-spacing: 0.02em;
+  font-weight: 700;
 }
 .status-pill[data-status="todo"]     { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
 .status-pill[data-status="progress"] { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
 .status-pill[data-status="blocked"]  { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
 .status-pill[data-status="done"]     { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
 
-/* ---- 優先度フラグ (Se3b7a2-2) ---- */
-.priority-flag {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 11px;
-  font-weight: 600;
-  border-radius: 5px;
-  padding: 1px 6px;
-  flex-shrink: 0;
-  white-space: nowrap;
-  margin-left: 4px;
-}
+/* ---- 優先度フラグ固有スタイル (Se3b7a2-2) ---- */
 .priority-flag svg { width: 10px; height: 10px; }
 .priority-flag[data-priority="highest"] { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
 .priority-flag[data-priority="high"]    { background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa; }
 .priority-flag[data-priority="medium"]  { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
 .priority-flag[data-priority="low"]     { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
 
-/* ---- 期日チップ (Se3b7a2-2) ---- */
-.due-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 11.5px;
-  font-weight: 600;
-  border-radius: 5px;
-  padding: 1px 6px;
-  flex-shrink: 0;
-  white-space: nowrap;
-  font-family: var(--font-mono);
-  margin-left: 4px;
-}
+/* ---- 期日チップ固有スタイル (Se3b7a2-2) ---- */
+.due-chip { font-family: var(--font-mono); }
 .due-chip svg { width: 10px; height: 10px; }
 .due-chip.dc-today    { background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa; }
 .due-chip.dc-tomorrow { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }

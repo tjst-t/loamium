@@ -685,17 +685,16 @@ async function openCheckboxFieldsPopover(
   pop.style.top = `${String(Math.max(8, Math.round(top)))}px`;
 
   // クリックアウトサイドで閉じる。
-  // mousedown を使う: click 時点では内部の replaceChildren で clicked node が
-  // DOM から外れていて pop.contains(e.target) が false になる不具合を防ぐ (Bug-2a)。
-  let _insidePop = false;
-  pop.addEventListener('mousedown', () => { _insidePop = true; }, { capture: true });
+  // mousedown (非キャプチャ) + contains() で判定: キャプチャフェーズでは
+  // document ハンドラが popover より先に呼ばれるため _insidePop フラグが常に
+  // false になり内側クリックでも閉じてしまうバグ (Bug-2) を修正した。
   const closeOnOutside = (e: MouseEvent): void => {
-    if (_insidePop) { _insidePop = false; return; }
+    if (pop.contains(e.target as Node)) return; // 内側クリック → 維持
     if (e.target === triggerEl) return;
     pop.remove();
-    document.removeEventListener('mousedown', closeOnOutside, true);
+    document.removeEventListener('mousedown', closeOnOutside);
   };
-  setTimeout(() => document.addEventListener('mousedown', closeOnOutside, true), 0);
+  setTimeout(() => document.addEventListener('mousedown', closeOnOutside), 0);
 }
 
 async function applyCheckboxFields(
@@ -1027,16 +1026,15 @@ export async function openTaskSlashPopover(
   pop.style.top = `${String(Math.max(8, Math.round(top)))}px`;
 
   // クリックアウトサイドで閉じる。
-  // mousedown を使う: 内部の replaceChildren で clicked node が DOM から外れて
-  // pop.contains(e.target) が false になる不具合を防ぐ (Bug-2a)。
-  let _insidePop = false;
-  pop.addEventListener('mousedown', () => { _insidePop = true; }, { capture: true });
-  const closeOnOutside = (_e: MouseEvent): void => {
-    if (_insidePop) { _insidePop = false; return; }
+  // mousedown (非キャプチャ) + contains() で判定: キャプチャフェーズでは
+  // document ハンドラが popover より先に呼ばれるため _insidePop フラグが常に
+  // false になり内側クリックでも閉じてしまうバグ (Bug-2) を修正した。
+  const closeOnOutside = (e: MouseEvent): void => {
+    if (pop.contains(e.target as Node)) return; // 内側クリック → 維持
     pop.remove();
-    document.removeEventListener('mousedown', closeOnOutside, true);
+    document.removeEventListener('mousedown', closeOnOutside);
   };
-  setTimeout(() => document.addEventListener('mousedown', closeOnOutside, true), 0);
+  setTimeout(() => document.addEventListener('mousedown', closeOnOutside), 0);
 }
 
 /** 箇条書きマーカー (- / * / +) を深さ別の装飾ドットへ置換するウィジェット。 */
