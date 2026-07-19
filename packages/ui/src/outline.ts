@@ -731,6 +731,294 @@ async function applyCheckboxFields(
   }
 }
 
+// ---- スラッシュメニュー /task 用 クイック設定ポップオーバー (Se3b7a2-7) --------
+
+/**
+ * スラッシュメニューで /task を選んだ直後に開くポップオーバー。
+ * ステータス・優先度・期限をディスクリートなフィールドピッカー (チップ/カレンダー) で
+ * 設定できる。すべてオプション (デフォルト: なし) → 何も選ばずキャンセルしても
+ * `- [ ] ` だけが挿入された状態で問題ない。
+ *
+ * 適用時は API を経由せず直接エディタのバッファに書き込む (新規挿入行のため)。
+ *
+ * @param view    EditorView
+ * @param lineNo  挿入された行の行番号
+ * @param anchorRect  ポップオーバーの基準矩形 (エディタ DOM の getBoundingClientRect 等)
+ */
+export async function openTaskSlashPopover(
+  view: EditorView,
+  lineNo: number,
+  anchorRect: DOMRect,
+): Promise<void> {
+  // 既存のポップオーバーがあれば閉じる
+  const existingQuick = document.querySelector('.task-quick-popover');
+  if (existingQuick !== null) { existingQuick.remove(); }
+
+  const vocab = await getVocab();
+
+  const st: PopoverEditorState = {
+    status: null,
+    priority: null,
+    due: null,
+    calYear: new Date().getFullYear(),
+    calMonth: new Date().getMonth(),
+  };
+
+  const pop = document.createElement('div');
+  pop.className = 'task-quick-popover';
+  pop.setAttribute('data-testid', 'task-quick-popover');
+
+  // --- ヘッダ ---
+  const hdr = document.createElement('div');
+  hdr.className = 'tqe-popover-header';
+  const hdrTitle = document.createElement('span');
+  hdrTitle.textContent = 'タスクの属性を設定（すべてオプション）';
+  hdrTitle.className = 'tqe-popover-title';
+  hdr.append(hdrTitle);
+  pop.append(hdr);
+
+  // --- Status section ---
+  const secSt = document.createElement('div');
+  secSt.className = 'tqe-section';
+  const lblSt = document.createElement('div');
+  lblSt.className = 'tqe-section-label';
+  lblSt.textContent = 'ステータス';
+  const stOpts = document.createElement('div');
+  stOpts.className = 'tqe-status-opts';
+  stOpts.setAttribute('data-testid', 'task-popover-status');
+
+  const renderStOpts = (): void => {
+    stOpts.replaceChildren();
+    const noneBtn = document.createElement('button');
+    noneBtn.type = 'button';
+    noneBtn.className = st.status === null ? 'tqe-status-opt active' : 'tqe-status-opt';
+    noneBtn.setAttribute('data-status', 'none');
+    noneBtn.setAttribute('data-testid', 'status-opt-none');
+    const noneG = document.createElement('span');
+    noneG.className = 'so-glyph';
+    const noneC = document.createElement('span');
+    noneC.className = 'so-check';
+    noneC.textContent = '✓';
+    noneBtn.append(noneG, document.createTextNode('なし'), noneC);
+    noneBtn.addEventListener('click', () => { st.status = null; renderStOpts(); });
+    stOpts.append(noneBtn);
+    for (const s of vocab.statuses) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = st.status === s.key ? 'tqe-status-opt active' : 'tqe-status-opt';
+      btn.setAttribute('data-status', s.key);
+      btn.setAttribute('data-testid', `status-opt-${s.key}`);
+      const g = document.createElement('span');
+      g.className = 'so-glyph';
+      const c = document.createElement('span');
+      c.className = 'so-check';
+      c.textContent = '✓';
+      btn.append(g, document.createTextNode(s.label), c);
+      const sKey = s.key;
+      btn.addEventListener('click', () => { st.status = sKey; renderStOpts(); });
+      stOpts.append(btn);
+    }
+  };
+  renderStOpts();
+  secSt.append(lblSt, stOpts);
+
+  // --- Due section ---
+  const secDue = document.createElement('div');
+  secDue.className = 'tqe-section';
+  const lblDue = document.createElement('div');
+  lblDue.className = 'tqe-section-label';
+  lblDue.textContent = '期限';
+  const presets = document.createElement('div');
+  presets.className = 'tqe-presets';
+
+  const renderPresets = (): void => {
+    presets.replaceChildren();
+    const nonePreset = document.createElement('button');
+    nonePreset.type = 'button';
+    nonePreset.className = st.due === null ? 'tqe-preset-btn active' : 'tqe-preset-btn';
+    nonePreset.setAttribute('data-testid', 'due-preset-none');
+    nonePreset.textContent = 'なし';
+    nonePreset.addEventListener('click', () => { st.due = null; renderPresets(); renderCal(); });
+    presets.append(nonePreset);
+    const items = [
+      { label: '今日', val: todayStr(), testid: 'due-preset-today' },
+      { label: '明日', val: tomorrowStr(), testid: 'due-preset-tomorrow' },
+      { label: '来週', val: nextWeekStr(), testid: 'due-preset-nextweek' },
+    ];
+    for (const item of items) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = st.due === item.val ? 'tqe-preset-btn active' : 'tqe-preset-btn';
+      btn.setAttribute('data-testid', item.testid);
+      btn.textContent = item.label;
+      btn.addEventListener('click', () => { st.due = item.val; renderPresets(); renderCal(); });
+      presets.append(btn);
+    }
+  };
+  renderPresets();
+
+  const cal = document.createElement('div');
+  cal.className = 'tqe-calendar';
+  cal.setAttribute('data-testid', 'task-due-cal');
+  const DOW = ['日', '月', '火', '水', '木', '金', '土'];
+  const renderCal = (): void => {
+    cal.replaceChildren();
+    const { calYear: y, calMonth: m } = st;
+    const cHdr = document.createElement('div');
+    cHdr.className = 'tqe-cal-header';
+    const prev = document.createElement('button');
+    prev.type = 'button';
+    prev.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>';
+    prev.addEventListener('click', () => {
+      if (st.calMonth === 0) { st.calMonth = 11; st.calYear--; } else { st.calMonth--; }
+      renderCal();
+    });
+    const mlbl = document.createElement('span');
+    mlbl.textContent = `${String(y)}年 ${String(m + 1)}月`;
+    const next = document.createElement('button');
+    next.type = 'button';
+    next.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>';
+    next.addEventListener('click', () => {
+      if (st.calMonth === 11) { st.calMonth = 0; st.calYear++; } else { st.calMonth++; }
+      renderCal();
+    });
+    cHdr.append(prev, mlbl, next);
+    const grid = document.createElement('div');
+    grid.className = 'tqe-cal-grid';
+    for (const d of DOW) {
+      const dw = document.createElement('div');
+      dw.className = 'tqe-cal-dow';
+      dw.textContent = d;
+      grid.append(dw);
+    }
+    const firstDay = new Date(y, m, 1).getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    for (let i = 0; i < firstDay; i++) {
+      const ph = document.createElement('div');
+      ph.className = 'tqe-cal-day other-month';
+      grid.append(ph);
+    }
+    const today = todayStr();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${String(y)}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const cell = document.createElement('div');
+      cell.className = 'tqe-cal-day';
+      if (dateStr === today) cell.classList.add('today');
+      if (dateStr === st.due) cell.classList.add('selected');
+      cell.textContent = String(d);
+      cell.setAttribute('data-testid', 'cal-day');
+      cell.setAttribute('data-date', dateStr);
+      cell.addEventListener('click', () => { st.due = dateStr; renderPresets(); renderCal(); });
+      grid.append(cell);
+    }
+    cal.append(cHdr, grid);
+  };
+  renderCal();
+  secDue.append(lblDue, presets, cal);
+
+  // --- Priority section ---
+  const secPri = document.createElement('div');
+  secPri.className = 'tqe-section';
+  const lblPri = document.createElement('div');
+  lblPri.className = 'tqe-section-label';
+  lblPri.textContent = '優先度';
+  const priOpts = document.createElement('div');
+  priOpts.className = 'tqe-priority-opts';
+  priOpts.setAttribute('data-testid', 'task-popover-priority');
+  const renderPriOpts = (): void => {
+    priOpts.replaceChildren();
+    const noneBtn = document.createElement('button');
+    noneBtn.type = 'button';
+    noneBtn.className = st.priority === null ? 'tqe-priority-opt selected' : 'tqe-priority-opt';
+    noneBtn.setAttribute('data-val', 'none');
+    noneBtn.setAttribute('data-testid', 'priority-opt-none');
+    const noneDot = document.createElement('span');
+    noneDot.className = 'pf-dot';
+    const noneChk = document.createElement('span');
+    noneChk.className = 'check-mark';
+    if (st.priority === null) noneChk.innerHTML = CHECK_MARK_SVG;
+    noneBtn.append(noneDot, document.createTextNode('なし'), noneChk);
+    noneBtn.addEventListener('click', () => { st.priority = null; renderPriOpts(); });
+    priOpts.append(noneBtn);
+    for (const p of vocab.priorities) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = st.priority === p.key ? 'tqe-priority-opt selected' : 'tqe-priority-opt';
+      btn.setAttribute('data-val', p.key);
+      btn.setAttribute('data-testid', `priority-opt-${p.key}`);
+      const dot = document.createElement('span');
+      dot.className = 'pf-dot';
+      const chk = document.createElement('span');
+      chk.className = 'check-mark';
+      if (st.priority === p.key) chk.innerHTML = CHECK_MARK_SVG;
+      btn.append(dot, document.createTextNode(p.label), chk);
+      const pKey = p.key;
+      btn.addEventListener('click', () => { st.priority = pKey; renderPriOpts(); });
+      priOpts.append(btn);
+    }
+  };
+  renderPriOpts();
+  secPri.append(lblPri, priOpts);
+
+  // --- Footer ---
+  const footer = document.createElement('div');
+  footer.className = 'tqe-footer';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'btn btn-sm';
+  cancelBtn.setAttribute('data-testid', 'task-quick-popover-cancel');
+  cancelBtn.textContent = 'スキップ';
+  cancelBtn.addEventListener('click', () => { pop.remove(); view.focus(); });
+  const applyBtn = document.createElement('button');
+  applyBtn.type = 'button';
+  applyBtn.className = 'btn btn-sm btn-primary';
+  applyBtn.setAttribute('data-testid', 'task-quick-popover-apply');
+  applyBtn.textContent = '挿入';
+  applyBtn.addEventListener('click', () => {
+    const state = view.state;
+    const line = state.doc.line(lineNo);
+    let newText = line.text;
+    if (st.status !== null) newText = setInlineField(newText, 'status', st.status);
+    if (st.priority !== null) newText = setInlineField(newText, 'priority', st.priority);
+    if (st.due !== null) newText = setInlineField(newText, 'due', st.due);
+    if (newText !== line.text) {
+      view.dispatch({
+        changes: { from: line.from, to: line.to, insert: newText },
+        userEvent: 'input.update-task-fields',
+      });
+    }
+    pop.remove();
+    view.focus();
+  });
+  footer.append(cancelBtn, applyBtn);
+
+  pop.append(secSt, secDue, secPri, footer);
+
+  // ポップオーバースタイル
+  pop.style.cssText =
+    'position:fixed;z-index:500;background:var(--bg-editor,#fff);' +
+    'border:1px solid var(--border-strong,#ccc);border-radius:12px;' +
+    'padding:0;box-shadow:0 4px 24px rgba(0,0,0,.18);min-width:280px;max-width:340px;overflow:hidden;';
+
+  document.body.append(pop);
+
+  // 位置決め: エディタの少し下から
+  const popW = pop.offsetWidth || 300;
+  const left = Math.min(anchorRect.left + 40, window.innerWidth - popW - 8);
+  const top = anchorRect.top + 60;
+  pop.style.left = `${String(Math.max(8, Math.round(left)))}px`;
+  pop.style.top = `${String(Math.round(top))}px`;
+
+  // クリックアウトサイドで閉じる
+  const closeOnOutside = (e: MouseEvent): void => {
+    if (!pop.contains(e.target as Node)) {
+      pop.remove();
+      document.removeEventListener('click', closeOnOutside);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', closeOnOutside), 0);
+}
+
 /** 箇条書きマーカー (- / * / +) を深さ別の装飾ドットへ置換するウィジェット。 */
 class BulletWidget extends WidgetType {
   constructor(readonly glyph: string) {

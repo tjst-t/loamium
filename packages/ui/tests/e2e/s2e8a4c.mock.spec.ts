@@ -322,14 +322,17 @@ test('[MOCK] S2e8a4c-7: 「移動…」→ MoveDialog が開き選択できる',
   await page.getByTestId('context-move').click();
 
   await expect(page.getByTestId('move-dialog')).toBeVisible();
-  await expect(page.getByTestId('move-dialog-select')).toBeVisible();
+  // input フィールドが表示される (テキスト入力 + オートコンプリート方式)
+  await expect(page.getByTestId('move-dialog-input')).toBeVisible();
   await expect(page.getByTestId('move-dialog-confirm')).toBeVisible();
   await expect(page.getByTestId('move-dialog-cancel')).toBeVisible();
 
-  // select にフォルダ候補 (notes, projects) が含まれる
-  const select = page.getByTestId('move-dialog-select');
-  const options = await select.locator('option').allTextContents();
-  expect(options).toContain('notes');
+  // フォーカスするとドロップダウンが開き、フォルダ候補 (notes) が含まれる
+  await page.getByTestId('move-dialog-input').click();
+  await expect(page.getByTestId('move-dialog-dropdown')).toBeVisible();
+  const options = page.getByTestId('move-dialog-option');
+  const optionTexts = await options.allTextContents();
+  expect(optionTexts.some((t) => t.includes('notes'))).toBe(true);
 });
 
 test('[MOCK] S2e8a4c-7: MoveDialog 確定で renameNote を呼ぶ', async ({ page }) => {
@@ -359,8 +362,11 @@ test('[MOCK] S2e8a4c-7: MoveDialog 確定で renameNote を呼ぶ', async ({ pag
   await page.locator('[data-testid="tree-item"][data-path="projects/hydra.md"]').click({ button: 'right' });
   await page.getByTestId('context-move').click();
 
-  // notes フォルダを選択して確定
-  await page.getByTestId('move-dialog-select').selectOption('notes');
+  // notes フォルダをテキスト入力で選択して確定
+  await page.getByTestId('move-dialog-input').click();
+  await expect(page.getByTestId('move-dialog-dropdown')).toBeVisible();
+  // notes の候補ボタンをクリック
+  await page.locator('[data-testid="move-dialog-option"][data-path="notes"]').click();
   await page.getByTestId('move-dialog-confirm').click();
 
   await expect.poll(() => renameCalls.length).toBeGreaterThan(0);

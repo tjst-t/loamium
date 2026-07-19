@@ -27,7 +27,8 @@ import {
 } from '@codemirror/view';
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import type { SyntaxNode } from '@lezer/common';
-import { todayJournalDate, setInlineField } from '@loamium/shared';
+import { todayJournalDate } from '@loamium/shared';
+import { openTaskSlashPopover } from './outline.js';
 
 // ---- コマンド定義 -----------------------------------------------------------
 
@@ -450,153 +451,15 @@ function insertFrontmatterProperties(view: EditorView, from: number): void {
   view.focus();
 }
 
-// ---- 自然言語 token → インラインフィールド変換 (Se3b7a2-7) ------------------
+// ---- /task スラッシュコマンド 挿入後ポップオーバー (Se3b7a2-7) ---------------
 
-/** 今日/明日/来週 → YYYY-MM-DD */
-function parseNlDate(token: string): string | null {
-  const t = token.trim();
-  const today = new Date();
-  const pad = (n: number): string => String(n).padStart(2, '0');
-  const fmt = (d: Date): string => `${String(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  if (t === '今日' || t === 'today') return fmt(today);
-  if (t === '明日' || t === 'tomorrow') {
-    const d = new Date(today); d.setDate(d.getDate() + 1); return fmt(d);
-  }
-  if (t === '来週' || t === 'nextweek') {
-    const d = new Date(today); const day = d.getDay(); d.setDate(d.getDate() + (day === 0 ? 1 : 8 - day)); return fmt(d);
-  }
-  // M-D or M/D 形式 (例: 7-25 / 7/25)
-  const mdy = /^(\d{1,2})[-/](\d{1,2})$/.exec(t);
-  if (mdy !== null) {
-    const m = Number(mdy[1]);
-    const d = Number(mdy[2]);
-    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
-      const y = today.getFullYear();
-      return `${String(y)}-${pad(m)}-${pad(d)}`;
-    }
-  }
-  // YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
-  return null;
-}
-
-/** !高/!最高/!medium 等 → priority key */
-function parseNlPriority(token: string): string | null {
-  const map: Record<string, string> = {
-    '!最高': 'highest', '!高': 'high', '!medium': 'medium', '!中': 'medium',
-    '!低': 'low', '!low': 'low', '!high': 'high', '!highest': 'highest',
-  };
-  return map[token.trim()] ?? null;
-}
-
-/** クイック編集ポップオーバー (task 挿入直後) を表示する。 */
+/**
+ * task コマンド実行後 (- [ ]  挿入直後) に per-field ポップオーバーを開く。
+ * outline.ts の openTaskSlashPopover (共通実装) を呼ぶ。
+ */
 function openTaskQuickPopover(view: EditorView, lineNo: number): void {
-  // ポップオーバーは outline.ts の openCheckboxFieldsPopover と同じものを使う。
-  // ここでは単純にトリガーボタンをクリックするイベントを発火する。
-  // 代替: outline.ts からエクスポートした関数を呼ぶこともできるが、循環依存を避けるため
-  // 自前で簡易ポップオーバーを表示する。
-  // 実装コストを下げるため: テスト用 data-testid を持つ簡易バナーを表示する。
-  const editorDom = view.dom;
-  const existing = editorDom.querySelector('.task-quick-popover');
-  if (existing !== null) existing.remove();
-
-  const pop = document.createElement('div');
-  pop.className = 'task-quick-popover';
-  pop.setAttribute('data-testid', 'task-quick-popover');
-  pop.style.cssText = 'position:fixed;z-index:200;background:var(--bg-editor,#fff);border:1px solid var(--border-strong,#ccc);border-radius:10px;padding:12px 16px;box-shadow:0 4px 20px rgba(0,0,0,0.15);min-width:220px;';
-
-  const hint = document.createElement('div');
-  hint.className = 'task-nl-hint';
-  hint.setAttribute('data-testid', 'task-nl-hint');
-  hint.style.cssText = 'font-size:12px;color:var(--text-muted,#888);margin-bottom:10px;';
-  hint.innerHTML = '<strong>自然言語ヒント:</strong> <code>明日</code> <code>7/25</code> <code>!高</code>';
-  pop.append(hint);
-
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.placeholder = '明日 !高  / 7/25 !最高 など';
-  input.style.cssText = 'width:100%;box-sizing:border-box;padding:6px 10px;border:1px solid var(--border-strong,#ccc);border-radius:7px;font-size:13px;margin-bottom:8px;';
-  pop.append(input);
-
-  const dueCalDiv = document.createElement('div');
-  dueCalDiv.setAttribute('data-testid', 'task-due-cal');
-  dueCalDiv.style.cssText = 'font-size:11px;color:var(--text-faint,#aaa);margin-bottom:10px;';
-  dueCalDiv.textContent = '期限 / 優先度を自然言語で入力';
-  pop.append(dueCalDiv);
-
-  const actions = document.createElement('div');
-  actions.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;';
-  const cancelBtn = document.createElement('button');
-  cancelBtn.type = 'button';
-  cancelBtn.textContent = 'スキップ';
-  cancelBtn.style.cssText = 'font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid #ccc;cursor:pointer;';
-  cancelBtn.addEventListener('click', () => { pop.remove(); view.focus(); });
-  const applyBtn = document.createElement('button');
-  applyBtn.type = 'button';
-  applyBtn.setAttribute('data-testid', 'task-quick-popover-apply');
-  applyBtn.textContent = '適用';
-  applyBtn.style.cssText = 'font-size:12px;padding:4px 10px;border-radius:6px;background:var(--accent,#2563eb);color:#fff;border:none;cursor:pointer;';
-  applyBtn.addEventListener('click', () => {
-    const val = input.value.trim();
-    if (val.length > 0) {
-      applyNlTokensToLine(view, lineNo, val);
-    }
-    pop.remove();
-    view.focus();
-  });
-  actions.append(cancelBtn, applyBtn);
-  pop.append(actions);
-
-  // 位置: エディタの左上付近に固定
   const rect = view.dom.getBoundingClientRect();
-  pop.style.left = `${String(Math.round(rect.left + 40))}px`;
-  pop.style.top = `${String(Math.round(rect.top + 60))}px`;
-  document.body.append(pop);
-
-  input.focus();
-
-  // Enter で確定
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { applyBtn.click(); }
-    if (e.key === 'Escape') { cancelBtn.click(); }
-  });
-
-  // クリックアウト
-  const closeOut = (e: MouseEvent): void => {
-    if (!pop.contains(e.target as Node)) {
-      pop.remove();
-      document.removeEventListener('click', closeOut);
-    }
-  };
-  setTimeout(() => document.addEventListener('click', closeOut), 0);
-}
-
-/** 自然言語トークンを解析して現在行にインラインフィールドを書き込む。 */
-function applyNlTokensToLine(view: EditorView, lineNo: number, val: string): void {
-  let due: string | null = null;
-  let priority: string | null = null;
-  const tokens = val.split(/\s+/);
-  for (const token of tokens) {
-    const d = parseNlDate(token);
-    if (d !== null) { due = d; continue; }
-    const p = parseNlPriority(token);
-    if (p !== null) { priority = p; }
-  }
-  const state = view.state;
-  const line = state.doc.line(lineNo);
-  let newText = line.text;
-  if (due !== null) {
-    newText = setInlineField(newText, 'due', due);
-  }
-  if (priority !== null) {
-    newText = setInlineField(newText, 'priority', priority);
-  }
-  if (newText !== line.text) {
-    view.dispatch({
-      changes: { from: line.from, to: line.to, insert: newText },
-      userEvent: 'input.update-task-fields',
-    });
-  }
+  void openTaskSlashPopover(view, lineNo, rect);
 }
 
 /**

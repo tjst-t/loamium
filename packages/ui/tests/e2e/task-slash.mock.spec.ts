@@ -72,15 +72,49 @@ test('[MOCK][Se3b7a2-7] task コマンド実行で - [ ]  が挿入される', a
   await expect(editor).toContainText('- [ ]', { timeout: 3000 });
 });
 
-test('[MOCK][Se3b7a2-7] task コマンド実行後 task-quick-popover が表示される', async ({ page }) => {
+test('[MOCK][Se3b7a2-7] task コマンド実行後 task-quick-popover が表示され per-field ピッカーが含まれる', async ({ page }) => {
+  // installCatchAll (openWithAnchor 内) が /api/settings/tasks を登録するので
+  // その後で上書きが必要 — openWithAnchor の戻り値後に追加登録する
   await openWithAnchor(page);
+  // task 語彙 API の応答を確保 (installCatchAll の既定がある場合もここで補強)
+  await page.route('**/api/settings/tasks', (route) => {
+    void route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        vocab: {
+          statuses: [
+            { key: 'todo', label: 'Todo', color: 'gray' },
+            { key: 'progress', label: 'Progress', color: 'blue' },
+            { key: 'done', label: 'Done', color: 'green', done: true },
+          ],
+          priorities: [
+            { key: 'high', label: '高', color: 'amber' },
+            { key: 'medium', label: '中', color: 'blue' },
+            { key: 'low', label: '低', color: 'gray' },
+          ],
+        },
+      }),
+    });
+  });
   await openSlashMenu(page, 'task');
   // task アイテムをクリックして確実に実行
   const taskItem = page.locator('[data-testid="slash-item"][data-command="task"]');
   await expect(taskItem).toBeVisible({ timeout: 3000 });
   await taskItem.click();
+  // per-field ピッカーポップオーバーが表示される
   await expect(page.getByTestId('task-quick-popover')).toBeVisible({ timeout: 3000 });
-  await expect(page.getByTestId('task-nl-hint')).toBeVisible();
+  // ステータスセクション (chips)
+  await expect(page.getByTestId('task-popover-status')).toBeVisible();
+  // 優先度セクション (chips)
+  await expect(page.getByTestId('task-popover-priority')).toBeVisible();
+  // 期限カレンダー
+  await expect(page.getByTestId('task-due-cal')).toBeVisible();
+  // 「なし」デフォルト選択
+  await expect(page.getByTestId('status-opt-none')).toBeVisible();
+  await expect(page.getByTestId('priority-opt-none')).toBeVisible();
+  // 自然言語テキスト入力ボックスは存在しない (廃止)
+  await expect(page.locator('.task-nl-hint')).toHaveCount(0);
 });
 
 test('[MOCK][Se3b7a2-7] /todo でも task コマンドが絞り込まれる', async ({ page }) => {
