@@ -43,7 +43,7 @@ import { makeTagClickHandler } from './tag-click.js';
 import { isCommandFile, isSystemSourceFile } from './commandEditorUtils.js';
 import { BookmarkStar } from './components/BookmarkStar.js';
 import { CommandEditor } from './components/CommandEditor.js';
-import { Editor } from './components/Editor.js';
+import { Editor, type EditorView } from './components/Editor.js';
 import { MobileAgentSheet } from './components/MobileAgentSheet.js';
 import { FilePreview } from './components/FilePreview.js';
 import { FilesPage } from './components/FilesPage.js';
@@ -79,6 +79,9 @@ import {
   UploadIcon,
   WarnTriangleIcon,
 } from './icons.js';
+
+// fold 状態の確認・展開に使う (Sb6f1d3-2 TOC クリック時の unfold)
+import { foldedRanges, unfoldEffect } from '@codemirror/language';
 
 const AUTOSAVE_DEBOUNCE_MS = 1500;
 const JOURNAL_FILE_RE = /^journals\/\d{4}\/\d{2}\/(\d{4}-\d{2}-\d{2})\.md$/;
@@ -305,6 +308,8 @@ export function App(): JSX.Element {
   /** SSE sf_invalidated で通知された SF ID 配列 — SmartView の差分再フェッチに使う (Sd5c9f4-4) */
   const [sseSfInvalidatedIds, setSseSfInvalidatedIds] = useState<string[]>([]);
 
+  /** EditorView ref (Sb6f1d3-2): TOC クリック時の unfoldEffect dispatch に使う */
+  const editorViewRef = useRef<EditorView | null>(null);
   const docRef = useRef<OpenDoc | null>(null);
   const previewRef = useRef<string | null>(null);
   const contentRef = useRef('');
@@ -1944,6 +1949,7 @@ export function App(): JSX.Element {
             onOpenTag={handleTagClick}
             onUploadFiles={uploadFiles}
             onDragActive={setDragActive}
+            onViewReady={(view) => { editorViewRef.current = view; }}
           />
         ) : (
           <div className="empty-state" data-testid="editor-empty-state">
@@ -2136,7 +2142,24 @@ export function App(): JSX.Element {
         onJumpToLine={(line) => {
           // 現在のノートの指定行へジャンプ (Outline クリック)。
           // 別ノートへは遷移しない — 常に開いているノート内スクロール。
+          // Sb6f1d3-2: 対象行が fold 状態なら unfoldEffect で展開してからスクロール。
           if (doc !== null) {
+            const view = editorViewRef.current;
+            if (view !== null) {
+              // 対象行の from 位置を含む foldedRanges を全て展開
+              const targetLine = Math.min(Math.max(1, line), view.state.doc.lines);
+              const pos = view.state.doc.line(targetLine).from;
+              const effects: ReturnType<typeof unfoldEffect.of>[] = [];
+              foldedRanges(view.state).between(0, view.state.doc.length, (from, to) => {
+                // fold 範囲が pos を含むか、pos が range の直後 (見出し行末 = from)
+                if (from <= pos && pos <= to) {
+                  effects.push(unfoldEffect.of({ from, to }));
+                }
+              });
+              if (effects.length > 0) {
+                view.dispatch({ effects });
+              }
+            }
             seekCounterRef.current += 1;
             setSeek({ line, token: seekCounterRef.current });
           }

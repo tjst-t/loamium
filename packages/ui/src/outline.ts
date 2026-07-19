@@ -893,6 +893,183 @@ function makeListDecoPlugin(vocab: TaskVocabRequired): Extension {
   );
 }
 
+// ---- 見出し折りたたみ (Sb6f1d3-1) ------------------------------------------
+// セッションのみ有効: fold 状態は EditorState に保持され、EditorState.create で
+// 消去される (ノート切替時にリセット)。localStorage/IndexedDB への永続化は一切行わない。
+
+/**
+ * ATX 見出し (# … ######) の見出しレベルを返す。
+ * 見出しでなければ 0 を返す。lezer-markdown の ATXHeading1〜6 ノードを使う。
+ */
+function headingLevelAt(state: EditorState, line: Line): number {
+  const tree = syntaxTree(state);
+  let found = 0;
+  tree.iterate({
+    from: line.from,
+    to: line.to,
+    enter(node) {
+      const m = /^ATXHeading([1-6])$/.exec(node.name);
+      if (m !== null) {
+        found = Number(m[1]);
+        return false;
+      }
+      // SetextHeading はレベルが ATXHeading と異なる命名になっていないが
+      // lezer-markdown は SetextHeading1 / SetextHeading2 という名前を使う
+      const sm = /^SetextHeading([12])$/.exec(node.name);
+      if (sm !== null) {
+        found = Number(sm[1]);
+        return false;
+      }
+      return undefined;
+    },
+  });
+  return found;
+}
+
+/**
+ * 見出し行の折りたたみ対象範囲。
+ * from = 見出し行末、to = 次の同レベル以上の見出し直前 (または文書末)。
+ * 配下にコンテンツ行がなければ null。
+ *
+ * Sb6f1d3-1: リストの foldableListRange と同一の命名規則。
+ */
+export function foldableHeadingRange(
+  state: EditorState,
+  line: Line,
+): { from: number; to: number } | null {
+  const level = headingLevelAt(state, line);
+  if (level === 0) return null;
+
+  // 次の同レベル以上の見出しを探す
+  let endPos = state.doc.length;
+  for (let n = line.number + 1; n <= state.doc.lines; n++) {
+    const l = state.doc.line(n);
+    const lv = headingLevelAt(state, l);
+    if (lv > 0 && lv <= level) {
+      // この見出し行の直前 (前の行末) まで
+      const prevLine = state.doc.line(n - 1);
+      endPos = prevLine.to;
+      break;
+    }
+  }
+
+  // 配下にコンテンツがなければ null
+  if (endPos <= line.to) return null;
+  // 見出し行末から次の同レベル以上見出し直前まで
+  return { from: line.to, to: endPos };
+}
+
+/** 行末から始まる見出し fold 済み範囲 (headingFoldGutter 用) */
+function headingFoldedAt(state: EditorState, line: Line): { from: number; to: number } | null {
+  let found: { from: number; to: number } | null = null;
+  foldedRanges(state).between(line.to, line.to, (from, to) => {
+    if (from === line.to) {
+      found = { from, to };
+      return false;
+    }
+    return undefined;
+  });
+  return found;
+}
+
+class HeadingFoldToggleMarker extends GutterMarker {
+  constructor(
+    readonly lineNo: number,
+    readonly level: number,
+    readonly folded: boolean,
+  ) {
+    super();
+  }
+
+  override eq(other: HeadingFoldToggleMarker): boolean {
+    return (
+      other.lineNo === this.lineNo &&
+      other.level === this.level &&
+      other.folded === this.folded
+    );
+  }
+
+  override toDOM(): Node {
+    const btn = document.createElement('button');
+    btn.className = this.folded
+      ? 'heading-fold-toggle folded'
+      : 'heading-fold-toggle';
+    btn.setAttribute('data-testid', 'heading-fold-toggle');
+    btn.setAttribute('data-line', String(this.lineNo));
+    btn.setAttribute('data-level', String(this.level));
+    if (this.folded) {
+      btn.setAttribute('data-folded', 'true');
+      btn.title = 'セクションを展開する (Ctrl-Shift-])';
+      btn.setAttribute('aria-label', '折りたたまれた見出しセクション — クリックで展開');
+    } else {
+      btn.title = 'セクションを折りたたむ (Ctrl-Shift-[)';
+      btn.setAttribute('aria-label', '見出しセクションを折りたたむ');
+    }
+    btn.innerHTML = CHEVRON_DOWN; // CSS transform で folded 時は回転させる
+    return btn;
+  }
+}
+
+const headingFoldGutter: Extension = gutter({
+  class: 'cm-heading-fold-gutter',
+  lineMarker(view, block) {
+    const line = view.state.doc.lineAt(block.from);
+    if (foldableHeadingRange(view.state, line) === null) return null;
+    const level = headingLevelAt(view.state, line);
+    if (level === 0) return null;
+    return new HeadingFoldToggleMarker(
+      line.number,
+      level,
+      headingFoldedAt(view.state, line) !== null,
+    );
+  },
+  lineMarkerChange: (update) =>
+    update.docChanged || update.viewportChanged || isFoldTransaction(update),
+  domEventHandlers: {
+    click(view, block) {
+      const line = view.state.doc.lineAt(block.from);
+      const folded = headingFoldedAt(view.state, line);
+      if (folded !== null) {
+        view.dispatch({ effects: unfoldEffect.of(folded) });
+        return true;
+      }
+      const range = foldableHeadingRange(view.state, line);
+      if (range === null) return false;
+      view.dispatch({ effects: foldEffect.of(range) });
+      return true;
+    },
+  },
+});
+
+/** 見出し fold キーボードショートカット (Ctrl-Shift-[ / Ctrl-Shift-]) */
+const headingFoldKeymap: Extension = Prec.high(
+  keymap.of([
+    {
+      key: 'Ctrl-Shift-[',
+      mac: 'Cmd-Alt-[',
+      run(view) {
+        const line = view.state.doc.lineAt(view.state.selection.main.head);
+        const range = foldableHeadingRange(view.state, line);
+        if (range === null) return false; // 見出し行でなければキーを消費しない
+        view.dispatch({ effects: foldEffect.of(range) });
+        return true;
+      },
+    },
+    {
+      key: 'Ctrl-Shift-]',
+      mac: 'Cmd-Alt-]',
+      run(view) {
+        const line = view.state.doc.lineAt(view.state.selection.main.head);
+        if (headingLevelAt(view.state, line) === 0) return false;
+        const folded = headingFoldedAt(view.state, line);
+        if (folded === null) return false;
+        view.dispatch({ effects: unfoldEffect.of(folded) });
+        return true;
+      },
+    },
+  ]),
+);
+
 /** アウトライン操作一式 (Editor に登録する)。
  * タスク語彙は起動時に一度 GET /api/settings/tasks で取得 (失敗時は DEFAULT_TASK_VOCAB)。
  */
@@ -903,5 +1080,7 @@ export function outlineExtension(): Extension {
   // バックグラウンドで語彙を取得してキャッシュに保存 (makeListDecoPlugin の再実行は不要 —
   // getVocab() のキャッシュ (_cachedVocab) を popover 側で共有するため)。
   void getVocab();
-  return [outlineFolding, outlineFoldGutter, outlineKeymap, plugin];
+  // headingFoldGutter / headingFoldKeymap を outlineFolding / outlineFoldGutter と共存させる。
+  // 共通の codeFolding() (outlineFolding) を 1 つだけ使い、fold state の二重管理を避ける。
+  return [outlineFolding, outlineFoldGutter, headingFoldGutter, headingFoldKeymap, outlineKeymap, plugin];
 }

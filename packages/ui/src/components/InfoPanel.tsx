@@ -44,9 +44,13 @@ function formatMtime(ms: number): string {
   );
 }
 
-/** outline-item のインデント depth (level-1 で h2=0, h3=1 …) */
+/**
+ * outline-item のインデント depth。
+ * Sb6f1d3-2: h1=depth 0, h2=depth 1, h3=depth 2 … (level - 1)。
+ * AC-Sb6f1d3-2-1: --depth CSS 変数で `outline-indent` 幅を制御する。
+ */
 function depthOf(level: number): number {
-  return Math.max(0, level - 2);
+  return Math.max(0, level - 1);
 }
 
 // ---- SVG アイコン (プロトタイプ準拠のインライン SVG) ----

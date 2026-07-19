@@ -4,10 +4,10 @@
   "progress": {
     "current_sprint": null,
     "total": 54,
-    "done": 52,
+    "done": 53,
     "in_progress": 0,
-    "remaining": 2,
-    "percentage": 96
+    "remaining": 1,
+    "percentage": 98
   },
   "execution_order": [
     "Sd63ad1",
@@ -7444,13 +7444,13 @@
       "title": "ノート見出し折りたたみ(アウトライン折り畳み) + 右パネル目次の階層連動",
       "description": "CodeMirror 6 のフォールド拡張を使い、# / ## 等の Markdown 見出し単位でセクションを折りたたみ / 展開できるようにする。見出し行の左ガターにトグルアイコンを表示し、クリックまたはキーボードショートカットで操作できる。右インフォパネルの目次（TOC）は現在フラット表示だが、見出し階層をインデントで表現し、各エントリをクリックするとその見出しへスクロール + 展開する。折りたたみ状態はセッション中保持する（永続化は不要）。",
       "milestone": false,
-      "status": "pending",
+      "status": "done",
       "depends_on": null,
       "detail_level": "detailed",
       "stories": {
         "Sb6f1d3-1": {
           "title": "見出しセクション折りたたみ — ガタートグル + キーボードショートカット",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": false,
           "review_reason": null,
@@ -7459,71 +7459,71 @@
             {
               "id": "AC-Sb6f1d3-1-1",
               "description": "ATXHeading1〜6 が含まれる行の左ガターに fold-toggle ボタン（data-testid='heading-fold-toggle'）が表示される。見出し配下に 1 行以上のコンテンツがある場合のみ表示（空セクションは非表示）。",
-              "test": null,
-              "status": "pending"
+              "test": "heading-fold.mock.spec.ts",
+              "status": "done"
             },
             {
               "id": "AC-Sb6f1d3-1-2",
               "description": "トグルをクリックすると見出し行の次行から次の同レベル以上の見出し（または文書末）の直前までが折りたたまれ、fold-pill（data-testid='fold-pill'）が見出し行末に表示される。",
-              "test": null,
-              "status": "pending"
+              "test": "heading-fold.mock.spec.ts",
+              "status": "done"
             },
             {
               "id": "AC-Sb6f1d3-1-3",
               "description": "折りたたまれた見出しのトグルを再クリックすると展開され fold-pill が消える。",
-              "test": null,
-              "status": "pending"
+              "test": "heading-fold.mock.spec.ts",
+              "status": "done"
             },
             {
               "id": "AC-Sb6f1d3-1-4",
               "description": "Ctrl-Shift-[（Mac: Cmd-Alt-[）でカーソル行の見出しセクションを折りたたみ、Ctrl-Shift-]（Cmd-Alt-]）で展開できる。見出し行以外ではキーを消費しない（既存のリスト fold キーと共存）。",
-              "test": null,
-              "status": "pending"
+              "test": "heading-fold.mock.spec.ts",
+              "status": "done"
             },
             {
               "id": "AC-Sb6f1d3-1-5",
               "description": "折りたたみ後に .md ファイルを読み直した内容が変化していない（fold marker・独自記法がファイルに書き込まれていない）。",
-              "test": null,
-              "status": "pending"
+              "test": "heading-fold.mock.spec.ts",
+              "status": "done"
             },
             {
               "id": "AC-Sb6f1d3-1-6",
               "description": "既存のリスト行の fold-toggle（data-testid='fold-toggle'）と競合しない。両方が同じエディタで共存して独立動作する。",
-              "test": null,
-              "status": "pending"
+              "test": "heading-fold.mock.spec.ts",
+              "status": "done"
             }
           ],
           "tasks": {
             "Sb6f1d3-1-1": {
               "title": "heading 折りたたみ範囲計算関数の実装",
               "description": "outline.ts に foldableHeadingRange(state,line)。syntaxTree の ATXHeading1〜6/SetextHeading から開始行を検出。範囲は見出し行末から次の同レベル以上の見出し直前/文書末。子ゼロ行なら null。foldableListRange と同命名規則の関数形式。",
-              "status": "pending"
+              "status": "done"
             },
             "Sb6f1d3-1-2": {
               "title": "見出し用 GutterMarker と fold-gutter 拡張を追加",
               "description": "HeadingFoldToggleMarker と headingFoldGutter（gutter()）。クラス cm-heading-fold-gutter（別列）。lineMarker で foldableHeadingRange 参照。data-testid='heading-fold-toggle'。CHEVRON アイコン再利用。codeFolding()/foldedRanges() は既存共有インスタンス。",
-              "status": "pending"
+              "status": "done"
             },
             "Sb6f1d3-1-3": {
               "title": "見出し fold 用キーボードショートカット追加",
               "description": "headingFoldKeymap。Prec.high。Ctrl-Shift-[/] (mac Cmd-Alt-[/])。run 内でカーソル行が見出しか判定、非見出しは false。foldEffect/unfoldEffect を dispatch。",
-              "status": "pending"
+              "status": "done"
             },
             "Sb6f1d3-1-4": {
               "title": "outlineExtension() に heading fold を組み込み + CSS",
               "description": "outlineExtension 戻り値に headingFoldGutter と headingFoldKeymap を追加。styles.css に .cm-heading-fold-gutter スタイル追加（既存 .cm-outline-gutter と同構造）。",
-              "status": "pending"
+              "status": "done"
             },
             "Sb6f1d3-1-5": {
               "title": "Playwright mock テスト: 見出し fold-toggle 表示・折りたたみ・展開",
               "description": "heading-fold.mock.spec.ts。(1) heading-fold-toggle 存在 (2) クリックで fold-pill 出現・本文非表示 (3) 再クリックで pill 消える (4) ドキュメント文字列不変。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sb6f1d3-2": {
           "title": "右パネル目次 — 見出し階層インデント + クリック時スクロール & セクション展開",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": false,
           "review_reason": null,
@@ -7532,54 +7532,54 @@
             {
               "id": "AC-Sb6f1d3-2-1",
               "description": "InfoPanel の目次で h1 が depth 0、h2 が depth 1、h3 が depth 2… と階層に応じてインデントが付く。data-level による既存 CSS スタイル（font-weight 等）は維持する。",
-              "test": null,
-              "status": "pending"
+              "test": "heading-fold.mock.spec.ts",
+              "status": "done"
             },
             {
               "id": "AC-Sb6f1d3-2-2",
               "description": "outline-item をクリックするとエディタがその見出し行へスクロールする（既存 onJumpToLine/seek 使用）。",
-              "test": null,
-              "status": "pending"
+              "test": "heading-fold.mock.spec.ts",
+              "status": "done"
             },
             {
               "id": "AC-Sb6f1d3-2-3",
               "description": "クリックした見出し行が fold 状態の場合、エディタが unfoldEffect を発行してセクションを展開してからスクロールする。展開後にファイルへの書き込みは発生しない。",
-              "test": null,
-              "status": "pending"
+              "test": "heading-fold.mock.spec.ts",
+              "status": "done"
             },
             {
               "id": "AC-Sb6f1d3-2-4",
               "description": "見出しがない場合は空状態テキストが表示される（既存挙動を維持）。",
-              "test": null,
-              "status": "pending"
+              "test": "heading-fold.mock.spec.ts",
+              "status": "done"
             }
           ],
           "tasks": {
             "Sb6f1d3-2-1": {
               "title": "InfoPanel の depthOf とインデントの確認・調整",
               "description": "depthOf(level)=max(0,level-2)。--depth CSS 変数と .outline-indent width。h1 フラット・h2 以下インデントを目視確認、ピッチ微調整。",
-              "status": "pending"
+              "status": "done"
             },
             "Sb6f1d3-2-2": {
               "title": "Editor に onViewReady コールバックを追加",
               "description": "Editor.tsx に onViewReady?(view)/onViewDestroy? props。view 生成直後/destroy 時に呼ぶ。App.tsx で editorViewRef に保持。",
-              "status": "pending"
+              "status": "done"
             },
             "Sb6f1d3-2-3": {
               "title": "TOC クリック時に unfold + scroll を行う onJumpToLine 拡張",
               "description": "onJumpToLine で editorViewRef があれば行位置を含む foldedRanges を探し unfoldEffect を dispatch（ネスト fold は再帰展開）。その後 seek。",
-              "status": "pending"
+              "status": "done"
             },
             "Sb6f1d3-2-4": {
               "title": "Playwright mock テスト: TOC 階層インデントとクリック動作",
               "description": "level 1/2/3 の meta で outline-item の --depth が level 対応。クリックで cm-activeLine 変化。unfold 連携は e2e に委ね mock はエラーなしを確認。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sb6f1d3-3": {
           "title": "セッション中の折りたたみ状態保持（ノート切替で自動リセット）",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": false,
           "review_reason": null,
@@ -7588,32 +7588,32 @@
             {
               "id": "AC-Sb6f1d3-3-1",
               "description": "同一ノート内でセクションを折りたたんでから編集（文字入力・保存）しても fold 状態が保持される（fold-pill が残る）。",
-              "test": null,
-              "status": "pending"
+              "test": "heading-fold.mock.spec.ts",
+              "status": "done"
             },
             {
               "id": "AC-Sb6f1d3-3-2",
               "description": "別ノートを開いて戻ったとき、元ノートの fold 状態はリセットされ全セクション展開で開く（fold 状態は EditorState に紐付き setState で破棄される）。",
-              "test": null,
-              "status": "pending"
+              "test": "heading-fold.mock.spec.ts",
+              "status": "done"
             },
             {
               "id": "AC-Sb6f1d3-3-3",
               "description": "ページリロード後も fold 状態は復元されない（localStorage/IndexedDB/.md への書き込みが行われていない）。DevTools で loamium 関連の fold データが存在しないことを確認できる。",
-              "test": null,
-              "status": "pending"
+              "test": "heading-fold.mock.spec.ts",
+              "status": "done"
             }
           ],
           "tasks": {
             "Sb6f1d3-3-1": {
               "title": "ノート切替時に fold 状態がリセットされることの確認と保護",
               "description": "EditorState.create が foldState を引き継がないことをコードで確認。永続化 API を呼んでいないことをチェック。問題なければコメントで「fold state はセッションのみ」と明記。",
-              "status": "pending"
+              "status": "done"
             },
             "Sb6f1d3-3-2": {
               "title": "Playwright mock テスト: fold リセット動作",
               "description": "fold→別ノート切替→戻る後に fold-pill が存在しないこと。localStorage に fold キーが無いことを page.evaluate で確認。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
