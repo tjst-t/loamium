@@ -478,7 +478,9 @@ a { color: var(--link); text-decoration: none; }
 .editor-host .cm-content {
   max-width: 760px;
   margin: 0 auto;
-  padding: 0 32px;
+  /* 案B 詰めたガター: left padding を 4px に絞り、fold ガター (22px×2) の右端と
+     テキスト先頭の距離を ~4px に詰める。right は読みやすさのため 32px を維持する。 */
+  padding: 0 32px 0 4px;
   caret-color: var(--accent);
 }
 .editor-host .cm-line { padding: 0 6px; border-radius: 4px; }
@@ -1030,8 +1032,9 @@ code {
   }
 
   /* ---- Sa6c3b0-3: モバイル閲覧最適化 (AC-3-1/3-2/3-5) ---- */
+  /* 案B: モバイルではガターが無い / 小さいため left padding を 8px に戻す */
   .editor-host .cm-content {
-    padding-left: 16px !important;
+    padding-left: 8px !important;
     padding-right: 16px !important;
   }
   .editor-host .cm-editor {
@@ -1162,11 +1165,9 @@ code {
 }
 .editor-host .cm-outline-gutter .cm-gutterElement {
   display: flex;
-  /* align-items: flex-start + padding-top でトグルをテキスト行の先頭に揃える。
-     align-items: center にするとブロック高の中央 (大文字見出しで下へずれる) になる。
-     padding-top: 0.875em - 8px は base line-height(1.75) / 2 × 1em - トグル半径。 */
-  align-items: flex-start;
-  padding-top: max(0px, calc(0.875em - 8px));
+  /* 案B 詰めたガター: align-items: center でトグルをブロック高の中央に揃える。
+     リスト行は 1.75em の等幅ブロックなので中央 = テキスト垂直中央と一致する。 */
+  align-items: center;
   justify-content: center;
 }
 
@@ -1212,10 +1213,10 @@ code {
 }
 .editor-host .cm-heading-fold-gutter .cm-gutterElement {
   display: flex;
-  /* 見出し行は font-size 拡大でブロック高が増えるが、テキストは上端から始まる。
-     align-items: flex-start + padding-top でトグルをテキスト先頭行の中央に揃える。 */
-  align-items: flex-start;
-  padding-top: max(0px, calc(0.875em - 8px));
+  /* 案B 詰めたガター: align-items: center でトグルをブロック高の中央に揃える。
+     H1/H2/H3 は font-size 拡大でブロック高が増えるが、center 揃えで
+     テキストの垂直中央にシェブロンが来る (prototype 案B .gutter-b に準拠)。 */
+  align-items: center;
   justify-content: center;
   background: transparent !important;
 }
