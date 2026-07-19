@@ -4,10 +4,10 @@
   "progress": {
     "current_sprint": null,
     "total": 54,
-    "done": 49,
+    "done": 50,
     "in_progress": 0,
-    "remaining": 5,
-    "percentage": 90
+    "remaining": 4,
+    "percentage": 92
   },
   "execution_order": [
     "Sd63ad1",
@@ -6316,13 +6316,13 @@
       "title": "スマホ対応 — レスポンシブ UI リファクタ + PWA 化",
       "description": "既存 UI をモバイルデバイスで実用的に使えるようレスポンシブ対応する。タッチ操作・小画面レイアウト（サイドバー折りたたみ、ボトムナビゲーション等）・タップターゲット最適化（最小 44px）を含む。あわせて PWA 化（manifest.json + Service Worker + オフラインキャッシュ）を行い、スマートフォンのホーム画面からインストール・起動できるようにする。Lighthouse PWA スコア 90+ を目標とする。CLAUDE.md に「以降の全機能 UI はモバイルを考慮したレスポンシブデザインとし、タップターゲット 44px 以上を守ること」を規約化する。",
       "milestone": false,
-      "status": "pending",
+      "status": "done",
       "depends_on": "S1b4e8f",
       "detail_level": "detailed",
       "stories": {
         "Sa6c3b0-1": {
           "title": "レスポンシブ 3 ペインレイアウト — モバイルで左サイドバー折りたたみ・コンテンツ全画面表示",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": true,
           "review_reason": "レイアウト変更がデスクトップ動作を壊していないか・モバイルでノート閲覧が快適かを目視確認が必要",
@@ -6332,76 +6332,76 @@
               "id": "AC-Sa6c3b0-1-1",
               "description": "viewport 幅 ≤ 680px のとき .sidebar（左）と .panel（右）は既定で非表示（display:none または transform で画面外）になる。.workspace は画面幅 100% を占有する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-1-2",
               "description": "モバイル幅でサイドバートグルボタン（ハンバーガー/メニューアイコン）がヘッダに表示され、タップするとサイドバーがオーバーレイ（z-index 高）としてスライドイン表示される。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-1-3",
               "description": "サイドバーオーバーレイ表示中にサイドバー外の領域をタップすると自動的に閉じる（スクリム実装）。testid: sidebar-scrim。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-1-4",
               "description": "viewport 幅 681px–960px では左サイドバーのみ表示し、右パネル（.panel）は引き続き非表示（既存の @media max-width:960px の挙動を維持）。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-1-5",
               "description": "デスクトップ（幅 ≥ 961px）では既存の 3 ペイン表示が崩れない。既存の Playwright e2e がすべてパスする。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-1-6",
               "description": "モバイルでサイドバーからノートを選択するとサイドバーが自動的に閉じてノート本文が全画面表示される（選択後オーバーレイ自動クローズ）。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-1-7",
               "description": "モバイルのサイドバーオーバーレイ内に「ノート / スマート」セグメントトグル(data-testid=\"sidebar-view-toggle\")を表示する。「ノート」タブ(data-testid=\"sidebar-view-physical\")で物理ファイルツリーを、「スマート」タブ(data-testid=\"sidebar-view-smart\")でスマートフォルダ一覧を表示する。タブ切替で対応パネルを表示・非表示する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "Sa6c3b0-1-1": {
               "title": "CSS メディアクエリ拡張：モバイルブレークポイント (≤680px) 追加",
               "description": "styles.css の Responsive セクションを拡張。≤680px で .sidebar と .panel を画面外に退避し .workspace を 100vw に。既存 @media(max-width:960px)/.panel{display:none} は維持。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa6c3b0-1-2": {
               "title": "App.tsx にサイドバーオープン状態 (sidebarOpen) を追加",
               "description": "useState<boolean>(false) で sidebarOpen 管理。モバイルのみ有効。サイドバーに data-mobile-open 属性/クラスを付与し CSS transform で切替。スクリムクリックで閉じる。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa6c3b0-1-3": {
               "title": "モバイルヘッダにサイドバートグルボタンを追加",
               "description": "editor-header 内に MenuIcon ボタン（モバイルのみ visible）。クリックで sidebarOpen トグル。icons.tsx に MenuIcon SVG 追加。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa6c3b0-1-4": {
               "title": "ノート選択後にサイドバーをモバイルで自動クローズ",
               "description": "遷移ハンドラ内で isMobile かつ sidebarOpen のとき setSidebarOpen(false)。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa6c3b0-1-5": {
               "title": "サイドバーオーバーレイに「ノート / スマート」セグメントトグルを追加",
               "description": "mobile-responsive-open.html の sidebar-view-toggle-wrap/.seg-toggle 実装を移植。sidebarView state('physical'|'smart')で physical-tree-panel / smart-view-panel を切替。testid: sidebar-view-toggle / sidebar-view-physical / sidebar-view-smart。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sa6c3b0-2": {
           "title": "タッチターゲット最適化 — 全インタラクティブ要素を最小 44×44px へ",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": false,
           "review_reason": null,
@@ -6411,49 +6411,49 @@
               "id": "AC-Sa6c3b0-2-1",
               "description": "viewport ≤ 680px のとき .icon-btn の computed height が 44px 以上。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-2-2",
               "description": "viewport ≤ 680px のとき .tree-item の computed height が 44px 以上。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-2-3",
               "description": "viewport ≤ 680px のとき .sidebar-bottom-btn の computed height が 44px 以上。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-2-4",
               "description": "viewport ≤ 680px のとき .journal-date-btn / .journal-list-item の computed height が 44px 以上。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-2-5",
               "description": "デスクトップ（≥ 961px）の既存サイズ（icon-btn 26px など）は変更されない。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "Sa6c3b0-2-1": {
               "title": "styles.css の @media(max-width:680px) にタッチターゲット拡大 CSS を追加",
               "description": ".icon-btn 44x44、.tree-item padding 10px/min-height 44、.sidebar-bottom-btn padding 14px、.journal-date-btn/.journal-list-item min-height 44 を追記。SVG は 20px 前後に。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa6c3b0-2-2": {
               "title": "ダイアログ・メニュー項目のタッチターゲット確認と修正",
               "description": ".nm-item / .dialog-actions .btn / .palette-item のモバイルサイズを 44px 以上に padding 補正。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sa6c3b0-3": {
           "title": "モバイルビューファースト — ノート本文の読みやすさ最適化（閲覧中心スコープ）",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": true,
           "review_reason": "実機でのフォントサイズ・行幅・スクロール感触を目視確認。VISION の閲覧中心スコープからはみ出していないかのユーザー確認が必要。",
@@ -6463,49 +6463,49 @@
               "id": "AC-Sa6c3b0-3-1",
               "description": "viewport ≤ 680px のとき .editor-host .cm-content の padding-left/right が 16px 以下（現状 32px→縮小）。横スクロールバーが発生しない。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-3-2",
               "description": "viewport ≤ 680px のとき .editor-host .cm-editor の font-size が 16px 以上（iOS Safari 自動ズーム抑制）。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-3-3",
               "description": "<meta name='viewport'> の content が width=device-width, initial-scale=1.0 であり、user-scalable=no は入れない（ピンチズームを妨げない）。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-3-4",
               "description": "モバイルで CodeMirror の編集 UI（カーソル・選択・IME）は引き続き動作する。ただし本スプリントの目標は快適な閲覧であり、モバイルでの高度な編集体験の完全性は対象外（VISION out_of_scope）。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-3-5",
               "description": "editor-header のパンくず（.route-crumbs）がモバイルでオーバーフローせず、長いパスは text-overflow:ellipsis で省略表示される。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "Sa6c3b0-3-1": {
               "title": "styles.css @media(≤680px) に editor 閲覧最適化を追加",
               "description": ".cm-content padding 0 16px、.cm-editor font-size 16px。.route-crumbs に min-width:0/overflow:hidden/text-overflow:ellipsis。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa6c3b0-3-2": {
               "title": "iOS Safari ズーム防止確認と touch-action 設定",
               "description": "input/textarea/.cm-editor に font-size:16px。スクロール系に -webkit-overflow-scrolling:touch。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sa6c3b0-4": {
           "title": "PWA 化 — manifest.json + Service Worker + オフラインキャッシュ + ホーム画面インストール",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": true,
           "review_reason": "Lighthouse PWA スコアや実機でのインストールフローは自動テストで完全検証できないため、実機 or Chrome DevTools による目視確認が必要。",
@@ -6515,70 +6515,70 @@
               "id": "AC-Sa6c3b0-4-1",
               "description": "/manifest.json が配信され name/short_name/start_url/display:standalone/icons(192・512 PNG)/theme_color/background_color を含む。<link rel='manifest'> が index.html に記述されている。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-4-2",
               "description": "Service Worker が登録され App Shell（index.html・main JS・styles.css・アイコン）をキャッシュに保存する。オフライン時 / を開くとキャッシュから App Shell が表示される（API はオフライン不可でエラー表示）。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-4-3",
               "description": "Chrome/Edge の Add to Home Screen インストール基準を満たす（manifest + HTTPS or localhost + SW 登録）。HTTPS 終端は Caddy/Cloudflare Tunnel 側、アプリ側は manifest と SW のみ提供（ADR-0008）。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-4-4",
               "description": "Chrome DevTools Lighthouse の PWA 監査（installable セクション）でエラーがない。スコア 90+ は make build 後の静的サーブで計測することをノートする。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-4-5",
               "description": "make build で manifest.json と SW が packages/ui/dist/ に出力され、Hono の静的配信ルートで到達可能。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-4-6",
               "description": "SW のキャッシュ戦略は App Shell のみ。API (/api/**) はネットワークファースト（キャッシュしない）とし vault データが意図せず保存されない。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "Sa6c3b0-4-1": {
               "title": "packages/ui/public/manifest.json を作成",
               "description": "name:'Loamium', short_name:'Loamium', start_url:'/', display:'standalone', theme_color:'#6e56cf', background_color:'#f4f4f6', icons 192/512 PNG。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa6c3b0-4-2": {
               "title": "アイコン PNG を生成して packages/ui/public/icons/ に配置",
               "description": "vault-badge グラデーションの L ロゴ 192/512 PNG。SVG→PNG（sharp/canvas）。SVG ソースも配置。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa6c3b0-4-3": {
               "title": "index.html に manifest と theme-color を追加",
               "description": "<link rel='manifest' href='/manifest.json'> と <meta name='theme-color' content='#6e56cf'> を head に追加。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa6c3b0-4-4": {
               "title": "packages/ui/public/sw.js — App Shell キャッシュ Service Worker を実装",
               "description": "install で App Shell を cache.addAll。fetch で /api/** はネットワークのみ、他はキャッシュファースト+ネットワークフォールバック。activate で古いキャッシュ削除。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa6c3b0-4-5": {
               "title": "packages/ui/src/main.tsx に SW 登録コードを追加",
               "description": "'serviceWorker' in navigator && register('/sw.js')。DEV は登録スキップ（HMR 競合回避）。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sa6c3b0-5": {
           "title": "CLAUDE.md にモバイルレスポンシブ規約を追記",
-          "status": "pending",
+          "status": "done",
           "story_type": "library",
           "user_review_required": false,
           "review_reason": null,
@@ -6588,26 +6588,26 @@
               "id": "AC-Sa6c3b0-5-1",
               "description": "CLAUDE.md の Development Rules に「以降の全機能 UI はモバイルを考慮したレスポンシブデザインとする。タップターゲットは 44px 以上。モバイルは閲覧中心（VISION out_of_scope）でフル編集体験は対象外。新規 CSS クラス追加時は @media(max-width:680px) での表示を確認」旨の規約が追記されている。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-5-2",
               "description": "追記内容が既存ルール（ピュア Markdown 絶対 / TypeScript strict 等）と矛盾しない。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "Sa6c3b0-5-1": {
               "title": "CLAUDE.md の Development Rules にモバイル規約を追記",
               "description": "モバイルレスポンシブ規約を1項目追加（タップターゲット 44px 以上、閲覧中心、@media(max-width:680px) 確認）。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sa6c3b0-6": {
           "title": "モバイル Agent 導線 — ボトムナビゲーションバー (ノート/検索/Agent) + Agent フルスクリーンシート",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": true,
           "review_reason": "ボトムバーの見た目・Agent シートの UX(スライドアップ・閉じるボタン・ノートが背面に残る挙動)をユーザーが確認する必要がある。",
@@ -6617,48 +6617,48 @@
               "id": "AC-Sa6c3b0-6-1",
               "description": "viewport ≤ 680px のとき画面下部に .mobile-bottom-nav(data-testid=\"mobile-bottom-nav\")を表示する。高さ ≥ 56px。ノート / 検索 / Agent の 3 アイテム(各 min-height 44px)を均等配置する。testid: mobile-nav-notes / mobile-nav-search / mobile-nav-agent。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-6-2",
               "description": "「Agent」タップで .mobile-agent-sheet(data-testid=\"mobile-agent-sheet\")が下からスライドアップして表示される。ノート(workspace)は閉じずに背面に残る。シートは既存の pi SDK AgentChat を再利用し、新しい実行経路を作らない。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-6-3",
               "description": "Agent シートの閉じるボタン(data-testid=\"mobile-agent-sheet-close\")をタップするとシートが閉じてノート画面に戻る。ハンドル下スワイプでも同様に閉じる。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-6-4",
               "description": "デスクトップ(≥ 961px)では .mobile-bottom-nav は非表示のまま。デスクトップでは従来の右サイドバー Agent を使用する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sa6c3b0-6-5",
               "description": "Agent シート内の UI は mobile-agent.html 準拠: ドラッグハンドル / シートヘッダ(agent-ico + タイトル + 新規セッションボタン + 閉じるボタン) / 現在のノートコンテキストバッジ / チャット本体(メッセージ一覧 + 入力バー + ヒント)。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "Sa6c3b0-6-1": {
               "title": "CSS に .mobile-bottom-nav スタイルを追加 (@media ≤680px で表示)",
               "description": "styles.css に .mobile-bottom-nav(height:56px, flex, border-top) + .mobile-nav-item(flex-col, min-height:44px, font-size:10px) + .active 色。≥961px で display:none。workspace の padding-bottom:56px を ≤680px で設定。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa6c3b0-6-2": {
               "title": "App.tsx に agentSheetOpen 状態と mobile-bottom-nav を追加",
               "description": "useState<boolean>(false) で agentSheetOpen 管理。mobile-bottom-nav レンダリング(ノート/検索/Agent)。Agent タップで setAgentSheetOpen(true)。",
-              "status": "pending"
+              "status": "done"
             },
             "Sa6c3b0-6-3": {
               "title": "MobileAgentSheet コンポーネントを実装",
               "description": ".mobile-agent-sheet(absolute, bottom:56px, top:44px, z-index:150, border-radius:20px 20px 0 0)。ドラッグハンドル・シートヘッダ・コンテキストバッジ。AgentChat(既存 pi SDK)を内部レンダリング。閉じるボタン(mobile-agent-sheet-close)と下スワイプで onClose。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }

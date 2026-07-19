@@ -42,6 +42,7 @@ import { isCommandFile, isSystemSourceFile } from './commandEditorUtils.js';
 import { BookmarkStar } from './components/BookmarkStar.js';
 import { CommandEditor } from './components/CommandEditor.js';
 import { Editor } from './components/Editor.js';
+import { MobileAgentSheet } from './components/MobileAgentSheet.js';
 import { FilePreview } from './components/FilePreview.js';
 import { FilesPage } from './components/FilesPage.js';
 import { FileTree } from './components/FileTree.js';
@@ -58,6 +59,7 @@ import { TemplatePicker } from './components/TemplatePicker.js';
 import { TemplateModal } from './components/TemplateModal.js';
 import { SettingsView } from './components/SettingsView.js';
 import {
+  AgentNavIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   CheckCircleIcon,
@@ -66,8 +68,10 @@ import {
   FolderIcon,
   GearIcon,
   LinkIcon,
+  MenuIcon,
   NewNoteIcon,
   NewFolderIcon,
+  NoteNavIcon,
   PlusIcon,
   SearchIcon,
   UploadIcon,
@@ -276,6 +280,15 @@ export function App(): JSX.Element {
   const [dialog, setDialog] = useState<DialogState>(null);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // ---- モバイル (Sa6c3b0) ----
+  /** モバイルサイドバーオーバーレイの開閉 (AC-Sa6c3b0-1-2) */
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  /** モバイル Agent シートの開閉 (AC-Sa6c3b0-6-2) */
+  const [mobileAgentSheetOpen, setMobileAgentSheetOpen] = useState(false);
+  /** PWA インストールプロンプトの表示 (AC-Sa6c3b0-4) */
+  const [pwaPromptVisible, setPwaPromptVisible] = useState(false);
+  const pwaInstallEventRef = useRef<Event | null>(null);
   // ---- テンプレート (S89a350-3) ----
   const [newNoteMenuOpen, setNewNoteMenuOpen] = useState(false);
   const [templates, setTemplates] = useState<TemplateSummary[] | null>(null);
@@ -633,6 +646,8 @@ export function App(): JSX.Element {
   /** [[リンク]]/バックリンク/検索/embed/ツリーからノートを開く (履歴に積む)。 */
   const openNotePath = useCallback(
     async (path: string): Promise<void> => {
+      // モバイルでノートを開いたらサイドバーを自動クローズ (AC-Sa6c3b0-1-6)
+      setMobileSidebarOpen(false);
       await applyNote(path, 'push');
     },
     [applyNote],
@@ -850,6 +865,18 @@ export function App(): JSX.Element {
     };
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, []);
+
+  // ---- PWA インストールプロンプト (Sa6c3b0-4) ----
+  // beforeinstallprompt をキャプチャしてカスタムプロンプトを表示する。
+  useEffect(() => {
+    const onBeforeInstall = (e: Event): void => {
+      e.preventDefault();
+      pwaInstallEventRef.current = e;
+      setPwaPromptVisible(true);
+    };
+    window.addEventListener('beforeinstallprompt', onBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', onBeforeInstall);
   }, []);
 
   // ---- グローバルキー: Cmd/Ctrl+S (保存) / Cmd/Ctrl+K (検索) / F2 (リネーム) ----
@@ -1388,7 +1415,23 @@ export function App(): JSX.Element {
   return (
     <div className="app">
       {/* ================= 左: サイドバー (直近ファイル) ================= */}
-      <aside className="sidebar" data-testid="sidebar">
+      {/* モバイルスクリム: サイドバー外タップで閉じる (AC-Sa6c3b0-1-3) */}
+      {mobileSidebarOpen && (
+        <div
+          className="sidebar-scrim"
+          data-testid="sidebar-scrim"
+          role="button"
+          tabIndex={0}
+          aria-label="サイドバーを閉じる"
+          onClick={() => setMobileSidebarOpen(false)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setMobileSidebarOpen(false); }}
+        />
+      )}
+      <aside
+        className="sidebar"
+        data-testid="sidebar"
+        data-mobile-open={mobileSidebarOpen ? 'true' : 'false'}
+      >
         <div className="sidebar-header">
           <div className="vault-badge">L</div>
           <div className="vault-name">Loamium</div>
@@ -1400,6 +1443,32 @@ export function App(): JSX.Element {
           >
             <SearchIcon />
           </button>
+        </div>
+
+        {/* モバイル: ノート/スマートセグメントトグル (AC-Sa6c3b0-1-7) */}
+        <div className="sidebar-mobile-view-toggle">
+          <div className="seg-toggle" data-testid="sidebar-view-toggle" role="tablist" aria-label="サイドバー表示切替">
+            <button
+              className={`seg-btn${sidebarView === 'physical' ? ' active' : ''}`}
+              data-testid="sidebar-view-physical"
+              aria-selected={sidebarView === 'physical'}
+              role="tab"
+              onClick={() => switchSidebarView('physical')}
+            >
+              <DocumentIcon />
+              ノート
+            </button>
+            <button
+              className={`seg-btn${sidebarView === 'smart' ? ' active' : ''}`}
+              data-testid="sidebar-view-smart"
+              aria-selected={sidebarView === 'smart'}
+              role="tab"
+              onClick={() => switchSidebarView('smart')}
+            >
+              <SearchIcon />
+              スマート
+            </button>
+          </div>
         </div>
 
         <JournalNav
@@ -1637,6 +1706,16 @@ export function App(): JSX.Element {
           className="editor-header"
           style={route.kind === 'settings' ? { display: 'none' } : undefined}
         >
+          {/* モバイルハンバーガーボタン (AC-Sa6c3b0-1-2) */}
+          <button
+            className={`sidebar-toggle-btn${mobileSidebarOpen ? ' open' : ''}`}
+            data-testid="sidebar-toggle"
+            aria-label={mobileSidebarOpen ? 'サイドバーを閉じる' : 'サイドバーを開く'}
+            aria-expanded={mobileSidebarOpen}
+            onClick={() => setMobileSidebarOpen((v) => !v)}
+          >
+            <MenuIcon />
+          </button>
           <div className="nav-group">
             <button
               className="nav-btn"
@@ -1889,7 +1968,94 @@ export function App(): JSX.Element {
             </div>
           </div>
         )}
+
+        {/* PWA インストールプロンプト (AC-Sa6c3b0-4) */}
+        {pwaPromptVisible && (
+          <div
+            className="pwa-install-prompt"
+            data-testid="pwa-install-prompt"
+            role="dialog"
+            aria-label="Loamium をホーム画面に追加"
+          >
+            <div className="pwa-icon" aria-hidden="true">L</div>
+            <div className="pwa-text">
+              <strong>ホーム画面に追加</strong>
+              <span>Loamium をアプリとして使えます。オフラインでも UI が表示されます。</span>
+            </div>
+            <div className="pwa-actions">
+              <button
+                className="pwa-install-btn"
+                data-testid="pwa-install-btn"
+                aria-label="ホーム画面に追加する"
+                onClick={() => {
+                  const evt = pwaInstallEventRef.current;
+                  if (evt !== null && 'prompt' in evt && typeof (evt as { prompt: () => void }).prompt === 'function') {
+                    (evt as { prompt: () => void }).prompt();
+                  }
+                  setPwaPromptVisible(false);
+                }}
+              >
+                追加
+              </button>
+              <button
+                className="pwa-dismiss-btn"
+                data-testid="pwa-dismiss-btn"
+                aria-label="後で"
+                onClick={() => setPwaPromptVisible(false)}
+              >
+                後で
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ボトムナビゲーションバー (AC-Sa6c3b0-6-1) */}
+        <nav className="mobile-bottom-nav" data-testid="mobile-bottom-nav" aria-label="メインナビゲーション">
+          <button
+            className={`mobile-nav-item${!mobileAgentSheetOpen ? ' active' : ''}`}
+            data-testid="mobile-nav-notes"
+            aria-label="ノート"
+            onClick={() => setMobileAgentSheetOpen(false)}
+          >
+            <NoteNavIcon />
+            <span className="nav-label">ノート</span>
+          </button>
+          <button
+            className="mobile-nav-item"
+            data-testid="mobile-nav-search"
+            aria-label="検索"
+            onClick={() => {
+              setMobileAgentSheetOpen(false);
+              setPaletteOpen(true);
+            }}
+          >
+            <SearchIcon />
+            <span className="nav-label">検索</span>
+          </button>
+          <button
+            className={`mobile-nav-item${mobileAgentSheetOpen ? ' active' : ''}`}
+            data-testid="mobile-nav-agent"
+            aria-label="Agent を開く"
+            onClick={() => setMobileAgentSheetOpen(true)}
+          >
+            <AgentNavIcon />
+            <span className="nav-label">Agent</span>
+          </button>
+        </nav>
       </main>
+
+      {/* ================= モバイル Agent フルスクリーンシート (AC-Sa6c3b0-6-2) ================= */}
+      <MobileAgentSheet
+        open={mobileAgentSheetOpen}
+        currentNotePath={doc?.path ?? null}
+        notes={notes}
+        onOpenNote={(path) => {
+          setMobileAgentSheetOpen(false);
+          void openNotePath(path);
+        }}
+        onNotesChanged={onNotesChanged}
+        onClose={() => setMobileAgentSheetOpen(false)}
+      />
 
       {/* ================= 右: サイドバー (インフォ | Agent) ================= */}
       {/* /search では非表示 (AC-Sa629e2-3-3)。unmount しない — セッション/スクロール維持 */}

@@ -7,6 +7,14 @@ import './styles.css';
 // レンダラー登録はエディタ生成より先に (fence/inline/block の 3 レジストリ)
 registerBuiltinRenderers();
 
+// ---- Service Worker 登録 (Sa6c3b0-4 / AC-4-2) ----
+// DEV では HMR との競合を避けるためスキップ (AC-4-5 補足)。
+if (!import.meta.env.DEV && 'serviceWorker' in navigator) {
+  void navigator.serviceWorker.register('/sw.js').catch((err) => {
+    console.warn('[loamium] SW registration failed:', err);
+  });
+}
+
 const rootEl = document.getElementById('root');
 if (rootEl === null) {
   throw new Error('#root element not found');
