@@ -501,12 +501,178 @@ describe('appSettingsSchema boundary [AC-Sa10026-3-2]', () => {
     }
   });
 
-  it('スキーマのフィールドは移植可能な設定のみ (4 フィールド)', () => {
+  it('スキーマのフィールドは移植可能な設定のみ (5 フィールド: Se3b7a2-8 で tasks を追加)', () => {
     const schemaKeys = Object.keys(appSettingsSchema.shape);
     expect(schemaKeys).toContain('theme');
     expect(schemaKeys).toContain('defaultFolder');
     expect(schemaKeys).toContain('journalTemplate');
     expect(schemaKeys).toContain('showSystemFolder');
-    expect(schemaKeys.length).toBe(4);
+    expect(schemaKeys).toContain('tasks'); // Se3b7a2-8: タスク語彙 (ADR-0029)
+    expect(schemaKeys.length).toBe(5);
+  });
+});
+
+// ---- [Se3b7a2-8] TaskVocab スキーマ + parseTaskVocab / serializeTaskVocab ----
+
+import {
+  taskVocabSchema,
+  taskStatusEntrySchema,
+  taskPriorityEntrySchema,
+  DEFAULT_TASK_VOCAB,
+  parseTaskVocab,
+  serializeTaskVocab,
+} from './system-definitions.js';
+
+describe('[Se3b7a2-8] taskStatusEntrySchema', () => {
+  it('最低限の必須フィールド (key, label) が valid', () => {
+    const result = taskStatusEntrySchema.safeParse({ key: 'todo', label: 'Todo' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.key).toBe('todo');
+      expect(result.data.label).toBe('Todo');
+      expect(result.data.color).toBeUndefined();
+      expect(result.data.done).toBeUndefined();
+    }
+  });
+
+  it('key が空文字列のとき invalid', () => {
+    const result = taskStatusEntrySchema.safeParse({ key: '', label: 'Todo' });
+    expect(result.success).toBe(false);
+  });
+
+  it('done: true を持つエントリが valid', () => {
+    const result = taskStatusEntrySchema.safeParse({ key: 'done', label: 'Done', color: 'green', done: true });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.done).toBe(true);
+  });
+});
+
+describe('[Se3b7a2-8] taskPriorityEntrySchema', () => {
+  it('最低限の必須フィールド (key, label) が valid', () => {
+    const result = taskPriorityEntrySchema.safeParse({ key: 'high', label: 'High' });
+    expect(result.success).toBe(true);
+  });
+
+  it('key が空文字列のとき invalid', () => {
+    const result = taskPriorityEntrySchema.safeParse({ key: '', label: 'High' });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('[Se3b7a2-8] taskVocabSchema', () => {
+  it('statuses と priorities の両方が省略可能 (全 optional)', () => {
+    const result = taskVocabSchema.safeParse({});
+    expect(result.success).toBe(true);
+  });
+
+  it('statuses / priorities が配列のとき valid', () => {
+    const result = taskVocabSchema.safeParse({
+      statuses: [{ key: 'todo', label: 'Todo' }],
+      priorities: [{ key: 'high', label: 'High' }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('statuses 要素に key なし → invalid', () => {
+    const result = taskVocabSchema.safeParse({
+      statuses: [{ label: 'Todo' }],
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('[Se3b7a2-8] DEFAULT_TASK_VOCAB', () => {
+  it('DEFAULT_TASK_VOCAB は statuses と priorities を持つ', () => {
+    expect(DEFAULT_TASK_VOCAB.statuses).toBeInstanceOf(Array);
+    expect(DEFAULT_TASK_VOCAB.priorities).toBeInstanceOf(Array);
+    expect(DEFAULT_TASK_VOCAB.statuses.length).toBeGreaterThan(0);
+    expect(DEFAULT_TASK_VOCAB.priorities.length).toBeGreaterThan(0);
+  });
+
+  it('done: true のステータスが 1 つ以上ある', () => {
+    const doneStatuses = DEFAULT_TASK_VOCAB.statuses.filter((s) => s.done === true);
+    expect(doneStatuses.length).toBeGreaterThan(0);
+  });
+
+  it('全てのキーはスキーマ検証を通る', () => {
+    const result = taskVocabSchema.safeParse(DEFAULT_TASK_VOCAB);
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('[Se3b7a2-8] parseTaskVocab', () => {
+  it('null → DEFAULT_TASK_VOCAB を返す (フォールバック保証)', () => {
+    const vocab = parseTaskVocab(null);
+    expect(vocab.statuses).toEqual(DEFAULT_TASK_VOCAB.statuses);
+    expect(vocab.priorities).toEqual(DEFAULT_TASK_VOCAB.priorities);
+  });
+
+  it('空文字列 → DEFAULT_TASK_VOCAB を返す', () => {
+    const vocab = parseTaskVocab('');
+    expect(vocab).toEqual(DEFAULT_TASK_VOCAB);
+  });
+
+  it('tasks: セクションが無い YAML → DEFAULT_TASK_VOCAB を返す', () => {
+    const yaml = 'theme: light\ndefaultFolder: notes\n';
+    const vocab = parseTaskVocab(yaml);
+    expect(vocab).toEqual(DEFAULT_TASK_VOCAB);
+  });
+
+  it('tasks: セクション付きの YAML を正しくパースする', () => {
+    const yaml = [
+      'theme: light',
+      'tasks:',
+      '  statuses:',
+      '    - key: open',
+      '      label: Open',
+      '      color: gray',
+      '    - key: closed',
+      '      label: Closed',
+      '      color: green',
+      '      done: true',
+      '  priorities:',
+      '    - key: urgent',
+      '      label: Urgent',
+      '      color: red',
+    ].join('\n');
+    const vocab = parseTaskVocab(yaml);
+    expect(vocab.statuses).toHaveLength(2);
+    expect(vocab.statuses[0]).toMatchObject({ key: 'open', label: 'Open', color: 'gray' });
+    expect(vocab.statuses[1]).toMatchObject({ key: 'closed', done: true });
+    expect(vocab.priorities).toHaveLength(1);
+    expect(vocab.priorities[0]).toMatchObject({ key: 'urgent', label: 'Urgent' });
+  });
+
+  it('tasks: セクションが不正なとき DEFAULT_TASK_VOCAB を返す (寛容 read)', () => {
+    const yaml = 'tasks:\n  statuses:\n    - {}\n'; // key が無い → スキーマ不合格
+    const vocab = parseTaskVocab(yaml);
+    expect(vocab).toEqual(DEFAULT_TASK_VOCAB);
+  });
+
+  it('壊れた YAML → DEFAULT_TASK_VOCAB を返す', () => {
+    const vocab = parseTaskVocab('tasks:\n  statuses: [[[]]');
+    expect(vocab).toEqual(DEFAULT_TASK_VOCAB);
+  });
+});
+
+describe('[Se3b7a2-8] serializeTaskVocab', () => {
+  it('正常なタスク語彙を YAML 文字列に直列化する', () => {
+    const vocab = {
+      statuses: [{ key: 'todo', label: 'Todo', color: 'gray' }],
+      priorities: [{ key: 'high', label: 'High', color: 'amber' }],
+    };
+    const yaml = serializeTaskVocab(vocab);
+    expect(typeof yaml).toBe('string');
+    expect(yaml).toContain('statuses:');
+    expect(yaml).toContain('priorities:');
+    expect(yaml).toContain('todo');
+    expect(yaml).toContain('high');
+  });
+
+  it('serializeTaskVocab → parseTaskVocab でラウンドトリップする', () => {
+    const yaml = serializeTaskVocab(DEFAULT_TASK_VOCAB);
+    const parsed = parseTaskVocab(yaml);
+    expect(parsed.statuses).toEqual(DEFAULT_TASK_VOCAB.statuses);
+    expect(parsed.priorities).toEqual(DEFAULT_TASK_VOCAB.priorities);
   });
 });

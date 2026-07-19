@@ -96,7 +96,7 @@ describe('createVaultWriteTools', () => {
 
   // ---- AC-S5bd678-2-2: 広告制御 ------------------------------------------------
 
-  it('[AC-S5bd678-2-2] 全 write caps で 9 ツールが生成される (sorted 一致)', () => {
+  it('[AC-S5bd678-2-2] 全 write caps で 10 ツールが生成される (sorted 一致 / Se3b7a2-6)', () => {
     const names = createVaultWriteTools(config, index, noDeny, ALL_WRITE_CAPS)
       .map((t) => t.name)
       .sort();
@@ -113,16 +113,17 @@ describe('createVaultWriteTools', () => {
     // note_property / note_move は note_edit 側で広告される (note_create 単独では出ない)
     expect(names).not.toContain('note_property');
     expect(names).not.toContain('note_move');
+    expect(names).not.toContain('task_set_fields');
     // note_delete は独立ケーパビリティ
     expect(names).not.toContain('note_delete');
     expect(names).not.toContain('template_delete');
   });
 
-  it('[agent-write-coverage] note_edit cap は note_edit + note_move + note_property を広告する', () => {
+  it('[agent-write-coverage] note_edit cap は note_edit + note_move + note_property + task_set_fields を広告する (Se3b7a2-6)', () => {
     const names = createVaultWriteTools(config, index, noDeny, ['note_edit'])
       .map((t) => t.name)
       .sort();
-    expect(names).toEqual(['note_edit', 'note_move', 'note_property']);
+    expect(names).toEqual(['note_edit', 'note_move', 'note_property', 'task_set_fields']);
   });
 
   it('[agent-write-coverage] note_delete cap は note_delete のみを広告する (独立)', () => {
@@ -552,5 +553,120 @@ describe('createVaultWriteTools', () => {
     );
     const entries = await readAudit(vaultRoot);
     expect(entries).toHaveLength(0);
+  });
+
+  // ---- [Se3b7a2-6] task_set_fields -------------------------------------------
+
+  it('[AC-Se3b7a2-6] task_set_fields がタスク行の status フィールドを設定する', async () => {
+    await writeFile(
+      path.join(vaultRoot, 'todos.md'),
+      '- [ ] タスク A\n- [ ] タスク B\n',
+      'utf8',
+    );
+    const t = tool('task_set_fields');
+    const res = await t.execute(
+      't1',
+      { path: 'todos', line: 0, status: 'progress' },
+      noSignal, noUpdate, fakeCtx,
+    );
+    expect(detailsOf(res).error).toBeUndefined();
+    const written = await readFile(path.join(vaultRoot, 'todos.md'), 'utf8');
+    expect(written).toContain('[status:: progress]');
+    expect(written).toContain('- [ ] タスク B'); // 他行は変更なし
+  });
+
+  it('[AC-Se3b7a2-6] task_set_fields が priority / due フィールドも設定できる', async () => {
+    await writeFile(
+      path.join(vaultRoot, 'todos.md'),
+      '- [ ] 優先タスク\n',
+      'utf8',
+    );
+    const t = tool('task_set_fields');
+    const res = await t.execute(
+      't1',
+      { path: 'todos', line: 0, priority: 'high', due: '2026-08-01' },
+      noSignal, noUpdate, fakeCtx,
+    );
+    expect(detailsOf(res).error).toBeUndefined();
+    const written = await readFile(path.join(vaultRoot, 'todos.md'), 'utf8');
+    expect(written).toContain('[priority:: high]');
+    expect(written).toContain('[due:: 2026-08-01]');
+  });
+
+  it('[AC-Se3b7a2-6] task_set_fields が null を渡すとフィールドを削除する', async () => {
+    await writeFile(
+      path.join(vaultRoot, 'todos.md'),
+      '- [ ] タスク [status:: progress] [due:: 2026-08-01]\n',
+      'utf8',
+    );
+    const t = tool('task_set_fields');
+    const res = await t.execute(
+      't1',
+      { path: 'todos', line: 0, status: null, due: null },
+      noSignal, noUpdate, fakeCtx,
+    );
+    expect(detailsOf(res).error).toBeUndefined();
+    const written = await readFile(path.join(vaultRoot, 'todos.md'), 'utf8');
+    expect(written).not.toContain('[status::');
+    expect(written).not.toContain('[due::');
+  });
+
+  it('[AC-Se3b7a2-6] task_set_fields がタスク行でない行にはエラーを返す', async () => {
+    await writeFile(
+      path.join(vaultRoot, 'todos.md'),
+      '# 見出し\n- [ ] タスク\n',
+      'utf8',
+    );
+    const t = tool('task_set_fields');
+    const res = await t.execute(
+      't1',
+      { path: 'todos', line: 0, status: 'done' },
+      noSignal, noUpdate, fakeCtx,
+    );
+    expect(detailsOf(res).error).toBe(true);
+    expect(textOf(res)).toMatch(/タスク行|not a task/i);
+  });
+
+  it('[AC-Se3b7a2-6] task_set_fields が範囲外の行番号にはエラーを返す', async () => {
+    await writeFile(
+      path.join(vaultRoot, 'todos.md'),
+      '- [ ] タスク\n',
+      'utf8',
+    );
+    const t = tool('task_set_fields');
+    const res = await t.execute(
+      't1',
+      { path: 'todos', line: 99, status: 'done' },
+      noSignal, noUpdate, fakeCtx,
+    );
+    expect(detailsOf(res).error).toBe(true);
+    expect(textOf(res)).toMatch(/範囲外|out of range/i);
+  });
+
+  it('[AC-Se3b7a2-6] task_set_fields が存在しないノートにはエラーを返す', async () => {
+    const t = tool('task_set_fields');
+    const res = await t.execute(
+      't1',
+      { path: 'nonexistent', line: 0, status: 'done' },
+      noSignal, noUpdate, fakeCtx,
+    );
+    expect(detailsOf(res).error).toBe(true);
+    expect(textOf(res)).toMatch(/見つかりません|not found/i);
+  });
+
+  it('[AC-Se3b7a2-6] task_set_fields の成功は audit.log に op:agent.task_set_fields を記録する', async () => {
+    await writeFile(
+      path.join(vaultRoot, 'todos.md'),
+      '- [ ] タスク\n',
+      'utf8',
+    );
+    const t = tool('task_set_fields');
+    await t.execute(
+      't1',
+      { path: 'todos', line: 0, status: 'progress' },
+      noSignal, noUpdate, fakeCtx,
+    );
+    const entries = await readAudit(vaultRoot);
+    expect(entries.some((e) => e.op === 'agent.task_set_fields')).toBe(true);
   });
 });

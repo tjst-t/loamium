@@ -7,6 +7,7 @@
  * - コードフェンス (``` / ~~~) 内とインラインコード (`...`) 内はタグ・リンクとも抽出しない
  */
 import { parseNote } from './markdown.js';
+import { extractInlineFields } from './inline-fields.js';
 
 export interface WikiLink {
   /** 元テキスト全体 (例: "[[note#見出し|別名]]") */
@@ -201,17 +202,32 @@ export function extractLinks(content: string): WikiLink[] {
   return out;
 }
 
-// ---- タスク抽出 (Sb1593c-1) ------------------------------------------------------
+// ---- タスク抽出 (Sb1593c-1 / Se3b7a2-1) -----------------------------------------
 
 export interface NoteTask {
   /** content 全体における 1 始まりの行番号 */
   line: number;
   /** チェックボックス以降のテキスト (trim 済み、無加工の表示用) */
   text: string;
-  /** - [x] / - [X] なら true */
+  /** - [x] / - [X] なら true (ADR-0029: チェックボックスは完了/未完了のみ) */
   checked: boolean;
   /** 行頭インデントの文字数 (ネスト判定用 — 4 スペース = 1 段が既定) */
   indent: number;
+  /**
+   * Dataview インラインフィールド `[status:: value]` の値 (ADR-0029)。
+   * NFC 正規化後 toLowerCase。フィールドなしは null。
+   */
+  status: string | null;
+  /**
+   * Dataview インラインフィールド `[priority:: value]` の値 (ADR-0029)。
+   * NFC 正規化後 toLowerCase。フィールドなしは null。
+   */
+  priority: string | null;
+  /**
+   * Dataview インラインフィールド `[due:: YYYY-MM-DD]` の値 (ADR-0029)。
+   * 形式不正 / フィールドなしは null。
+   */
+  due: string | null;
 }
 
 // Obsidian 互換タスク: リストマーカー (- * + / 1. / 1)) + [ ] / [x]。
@@ -222,6 +238,9 @@ const TASK_RE = /^(\s*)(?:[-*+]|\d+[.)])\s+\[( |x|X)\]\s?(.*)$/;
  * ノートからタスク行 (- [ ] / - [x]) を抽出する。
  * frontmatter・コードフェンス内は対象外 (タグ・リンク抽出と同じ走査規則)。
  * 正本は変更しない読み取り専用ビュー — インデックス (TASK クエリ) の入力を作る。
+ *
+ * Se3b7a2-1: 各タスク行に extractInlineFields を適用し status/priority/due を付与する。
+ * チェックボックス文字 ([ ] / [x]) は done/not-done のみを示す (ADR-0029)。
  */
 export function extractTasks(content: string): NoteTask[] {
   const lines = content.split('\n');
@@ -230,13 +249,19 @@ export function extractTasks(content: string): NoteTask[] {
   for (let i = 0; i < scannable.length; i++) {
     if (scannable[i] === null || scannable[i] === undefined) continue; // frontmatter / フェンス内
     // マッチはフェンス判定済みの原文行に対して行う (インラインコード空白化の影響を受けない)
-    const m = TASK_RE.exec(lines[i] ?? '');
+    const rawLine = lines[i] ?? '';
+    const m = TASK_RE.exec(rawLine);
     if (m === null) continue;
+    // Dataview インラインフィールドを抽出 (ADR-0029)
+    const fields = extractInlineFields(rawLine);
     out.push({
       line: i + 1,
       text: (m[3] ?? '').trim(),
       checked: (m[2] ?? ' ').toLowerCase() === 'x',
       indent: (m[1] ?? '').length,
+      status: fields.status,
+      priority: fields.priority,
+      due: fields.due,
     });
   }
   return out;

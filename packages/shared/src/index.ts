@@ -63,6 +63,11 @@ export {
   type WikiLink,
 } from './extract.js';
 export {
+  extractInlineFields,
+  setInlineField,
+  type InlineFields,
+} from './inline-fields.js';
+export {
   filterTagSuggestions,
   isValidTagName,
   normalizeTagQuery,
@@ -192,6 +197,13 @@ export {
   buildSystemSmartFolderDef,
   buildSystemCommandDef,
   buildSystemTemplateDef,
+  // Se3b7a2-8: タスク語彙
+  taskStatusEntrySchema,
+  taskPriorityEntrySchema,
+  taskVocabSchema,
+  DEFAULT_TASK_VOCAB,
+  parseTaskVocab,
+  serializeTaskVocab,
   type SystemSmartFolderYaml,
   type SystemCommandYaml,
   type SystemTemplateFrontmatter,
@@ -199,6 +211,10 @@ export {
   type SystemSmartFolderDef,
   type SystemCommandDef,
   type SystemTemplateDef,
+  type TaskStatusEntry,
+  type TaskPriorityEntry,
+  type TaskVocab,
+  type TaskVocabRequired,
 } from './system-definitions.js';
 export {
   agentJobSchema,

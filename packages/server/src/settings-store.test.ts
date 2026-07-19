@@ -182,15 +182,114 @@ describe('appSettingsSchema boundary [AC-Sa10026-3-2]', () => {
     }
   });
 
-  it('スキーマが持つフィールドは移植可能・git 追跡可能な設定のみ', () => {
+  it('スキーマが持つフィールドは移植可能・git 追跡可能な設定のみ (Se3b7a2-8 で tasks を追加し 5 フィールド)', () => {
     const schemaShape = appSettingsSchema.shape;
     const schemaKeys = Object.keys(schemaShape);
-    // 現在定義されているフィールドのみ (theme / defaultFolder / journalTemplate / showSystemFolder)
+    // 現在定義されているフィールド (theme / defaultFolder / journalTemplate / showSystemFolder / tasks)
     expect(schemaKeys).toContain('theme');
     expect(schemaKeys).toContain('defaultFolder');
     expect(schemaKeys).toContain('journalTemplate');
     expect(schemaKeys).toContain('showSystemFolder');
+    expect(schemaKeys).toContain('tasks'); // Se3b7a2-8: タスク語彙 (ADR-0029)
     // 境界確認: 端末依存フィールドは存在しない (スキーマに追加した場合はここで検出される)
-    expect(schemaKeys.length).toBe(4);
+    expect(schemaKeys.length).toBe(5);
+  });
+});
+
+// ---- loadTaskVocab / saveTaskVocab (Se3b7a2-8 / ADR-0029) ----
+
+import { loadTaskVocab, saveTaskVocab } from './settings-store.js';
+import { DEFAULT_TASK_VOCAB, type TaskVocabRequired } from '@loamium/shared';
+
+describe('[Se3b7a2-8] loadTaskVocab', () => {
+  it('system/settings.yaml が不在 → DEFAULT_TASK_VOCAB を返す', async () => {
+    const vocab = await loadTaskVocab(vaultRoot);
+    expect(vocab).toEqual(DEFAULT_TASK_VOCAB);
+  });
+
+  it('tasks: セクションが無い settings.yaml → DEFAULT_TASK_VOCAB を返す', async () => {
+    await writeVault('system/settings.yaml', 'theme: light\n');
+    const vocab = await loadTaskVocab(vaultRoot);
+    expect(vocab).toEqual(DEFAULT_TASK_VOCAB);
+  });
+
+  it('tasks: セクション付きの settings.yaml を正しく読む', async () => {
+    await writeVault(
+      'system/settings.yaml',
+      [
+        'theme: dark',
+        'tasks:',
+        '  statuses:',
+        '    - key: open',
+        '      label: Open',
+        '    - key: closed',
+        '      label: Closed',
+        '      done: true',
+        '  priorities:',
+        '    - key: p1',
+        '      label: P1',
+      ].join('\n') + '\n',
+    );
+    const vocab = await loadTaskVocab(vaultRoot);
+    expect(vocab.statuses).toHaveLength(2);
+    expect(vocab.statuses[0]).toMatchObject({ key: 'open', label: 'Open' });
+    expect(vocab.priorities).toHaveLength(1);
+    expect(vocab.priorities[0]).toMatchObject({ key: 'p1' });
+  });
+
+  it('壊れた YAML → DEFAULT_TASK_VOCAB を返す (例外を投げない)', async () => {
+    await writeVault('system/settings.yaml', 'tasks:\n  statuses: [[[]\n');
+    const vocab = await loadTaskVocab(vaultRoot);
+    expect(vocab).toEqual(DEFAULT_TASK_VOCAB);
+  });
+});
+
+describe('[Se3b7a2-8] saveTaskVocab', () => {
+  it('TaskVocab を system/settings.yaml に保存し loadTaskVocab でラウンドトリップする', async () => {
+    const custom: TaskVocabRequired = {
+      statuses: [
+        { key: 'todo', label: 'Todo', color: 'gray' },
+        { key: 'done', label: 'Done', color: 'green', done: true },
+      ],
+      priorities: [
+        { key: 'high', label: 'High', color: 'red' },
+      ],
+    };
+    const result = await saveTaskVocab(vaultRoot, custom);
+    expect(typeof result.mtime).toBe('number');
+    expect(result.mtime).toBeGreaterThan(0);
+
+    const loaded = await loadTaskVocab(vaultRoot);
+    expect(loaded.statuses).toEqual(custom.statuses);
+    expect(loaded.priorities).toEqual(custom.priorities);
+  });
+
+  it('既存の AppSettings フィールドを壊さずに tasks のみ更新する', async () => {
+    // まず settings を書く
+    await writeVault('system/settings.yaml', 'theme: dark\ndefaultFolder: notes\n');
+
+    const custom: TaskVocabRequired = {
+      statuses: [{ key: 'open', label: 'Open' }],
+      priorities: [{ key: 'urgent', label: 'Urgent' }],
+    };
+    await saveTaskVocab(vaultRoot, custom);
+
+    // theme / defaultFolder が保持されているか確認
+    const appSettings = await loadSettings(vaultRoot);
+    expect(appSettings.theme).toBe('dark');
+    expect(appSettings.defaultFolder).toBe('notes');
+
+    // tasks が正しく書かれているか確認
+    const vocab = await loadTaskVocab(vaultRoot);
+    expect(vocab.statuses[0]?.key).toBe('open');
+  });
+
+  it('mtime を返す (数値)', async () => {
+    const custom: TaskVocabRequired = {
+      statuses: DEFAULT_TASK_VOCAB.statuses,
+      priorities: DEFAULT_TASK_VOCAB.priorities,
+    };
+    const result = await saveTaskVocab(vaultRoot, custom);
+    expect(typeof result.mtime).toBe('number');
   });
 });

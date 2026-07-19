@@ -128,8 +128,8 @@ describe('executeQuery — 評価', () => {
       tags: ['project', 'infra'],
       frontmatter: { status: 'in-progress', updated: '2026-07-03', priority: 2 },
       tasks: [
-        { line: 5, text: 'DNS TTL を短縮', checked: false, indent: 0 },
-        { line: 6, text: 'NFS エクスポート許可', checked: true, indent: 4 },
+        { line: 5, text: 'DNS TTL を短縮', checked: false, indent: 0, status: null, priority: null, due: null },
+        { line: 6, text: 'NFS エクスポート許可', checked: true, indent: 4, status: null, priority: null, due: null },
       ],
     }),
     note({
@@ -143,7 +143,7 @@ describe('executeQuery — 評価', () => {
       mtime: Date.parse('2026-05-01'),
       tags: ['reading'],
       frontmatter: { status: 'done' },
-      tasks: [{ line: 3, text: '第 2 章を読む', checked: false, indent: 0 }],
+      tasks: [{ line: 3, text: '第 2 章を読む', checked: false, indent: 0, status: null, priority: null, due: null }],
     }),
     note({ path: 'inbox.md', mtime: Date.parse('2026-07-01') }),
   ];
@@ -227,9 +227,9 @@ describe('executeQuery — 評価', () => {
     const res = runQuery('TASK', notes);
     if (res.type !== 'task') expect.unreachable();
     expect(res.results).toEqual([
-      { path: 'projects/hydra.md', title: 'hydra', line: 5, text: 'DNS TTL を短縮', checked: false, indent: 0 },
-      { path: 'projects/hydra.md', title: 'hydra', line: 6, text: 'NFS エクスポート許可', checked: true, indent: 4 },
-      { path: 'reading/book.md', title: 'book', line: 3, text: '第 2 章を読む', checked: false, indent: 0 },
+      { path: 'projects/hydra.md', title: 'hydra', line: 5, text: 'DNS TTL を短縮', checked: false, indent: 0, status: null, priority: null, due: null },
+      { path: 'projects/hydra.md', title: 'hydra', line: 6, text: 'NFS エクスポート許可', checked: true, indent: 4, status: null, priority: null, due: null },
+      { path: 'reading/book.md', title: 'book', line: 3, text: '第 2 章を読む', checked: false, indent: 0, status: null, priority: null, due: null },
     ]);
   });
 
@@ -240,7 +240,7 @@ describe('executeQuery — 評価', () => {
     const done = runQuery('TASK where completed', notes);
     if (done.type !== 'task') expect.unreachable();
     expect(done.results).toEqual([
-      { path: 'projects/hydra.md', title: 'hydra', line: 6, text: 'NFS エクスポート許可', checked: true, indent: 4 },
+      { path: 'projects/hydra.md', title: 'hydra', line: 6, text: 'NFS エクスポート許可', checked: true, indent: 4, status: null, priority: null, due: null },
     ]);
   });
 
@@ -391,8 +391,8 @@ describe('[AC-S32940c-1-1][AC-S32940c-1-3] executeQuery — LIMIT 適用', () =>
 
   it('[AC-S32940c-1-1] TASK LIMIT が機能する', () => {
     const taskNotes: QueryableNote[] = [
-      note({ path: 'p.md', tasks: [{ line: 1, text: 'T1', checked: false, indent: 0 }, { line: 2, text: 'T2', checked: false, indent: 0 }] }),
-      note({ path: 'q.md', tasks: [{ line: 1, text: 'T3', checked: false, indent: 0 }] }),
+      note({ path: 'p.md', tasks: [{ line: 1, text: 'T1', checked: false, indent: 0, status: null, priority: null, due: null }, { line: 2, text: 'T2', checked: false, indent: 0, status: null, priority: null, due: null }] }),
+      note({ path: 'q.md', tasks: [{ line: 1, text: 'T3', checked: false, indent: 0, status: null, priority: null, due: null }] }),
     ];
     const res = runQuery('TASK LIMIT 2', taskNotes);
     if (res.type !== 'task') expect.unreachable();
@@ -410,14 +410,14 @@ describe('[AC-S32940c-1-2] noteField — file.tasks / file.open_tasks', () => {
     note({
       path: 'noteA.md',
       tasks: [
-        { line: 1, text: 'open task', checked: false, indent: 0 },
-        { line: 2, text: 'closed task', checked: true, indent: 0 },
+        { line: 1, text: 'open task', checked: false, indent: 0, status: null, priority: null, due: null },
+        { line: 2, text: 'closed task', checked: true, indent: 0, status: null, priority: null, due: null },
       ],
     }),
     // ノート B: 完了のみ
     note({
       path: 'noteB.md',
-      tasks: [{ line: 1, text: 'done', checked: true, indent: 0 }],
+      tasks: [{ line: 1, text: 'done', checked: true, indent: 0, status: null, priority: null, due: null }],
     }),
     // ノート C: タスク無し
     note({ path: 'noteC.md' }),
@@ -446,7 +446,7 @@ describe('[AC-S32940c-1-2] noteField — file.tasks / file.open_tasks', () => {
 
   it('[AC-S32940c-1-5] 完了タスクのみのノートは file.open_tasks で除外される', () => {
     const allDoneNotes: QueryableNote[] = [
-      note({ path: 'alldone.md', tasks: [{ line: 1, text: 'done', checked: true, indent: 0 }] }),
+      note({ path: 'alldone.md', tasks: [{ line: 1, text: 'done', checked: true, indent: 0, status: null, priority: null, due: null }] }),
     ];
     const res = runQuery('LIST WHERE file.open_tasks', allDoneNotes);
     if (res.type !== 'list') expect.unreachable();
@@ -464,5 +464,168 @@ describe('[AC-S32940c-1-2] noteField — file.tasks / file.open_tasks', () => {
     if (res.type !== 'list') expect.unreachable();
     // タグなしノートなので全て除外されるべき (後方互換確認)
     expect(res.results).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Se3b7a2-3: TASK WHERE status / priority / due フィルタ + SORT
+// [AC-Se3b7a2-3-1][AC-Se3b7a2-3-2][AC-Se3b7a2-3-3][AC-Se3b7a2-3-4][AC-Se3b7a2-3-5]
+// ---------------------------------------------------------------------------
+
+describe('[Se3b7a2-3] TASK status/priority/due フィルタ + SORT', () => {
+  const taskNotes: QueryableNote[] = [
+    note({
+      path: 'todo.md',
+      tasks: [
+        {
+          line: 1,
+          text: 'タスク A (progress, high, 2026-07-10)',
+          checked: false,
+          indent: 0,
+          status: 'progress',
+          priority: 'high',
+          due: '2026-07-10',
+        },
+        {
+          line: 2,
+          text: 'タスク B (todo, low, 2026-08-01)',
+          checked: false,
+          indent: 0,
+          status: 'todo',
+          priority: 'low',
+          due: '2026-08-01',
+        },
+        {
+          line: 3,
+          text: 'タスク C (blocked, high, null)',
+          checked: false,
+          indent: 0,
+          status: 'blocked',
+          priority: 'high',
+          due: null,
+        },
+        {
+          line: 4,
+          text: 'タスク D (null, null, 2026-06-01)',
+          checked: false,
+          indent: 0,
+          status: null,
+          priority: null,
+          due: '2026-06-01',
+        },
+      ],
+    }),
+  ];
+
+  // ---- AC-Se3b7a2-3-1: status フィルタ ----
+
+  it('[AC-Se3b7a2-3-1] TASK WHERE status = "progress" は status=progress のタスクのみ返す', () => {
+    const res = runQuery('TASK WHERE status = "progress"', taskNotes);
+    if (res.type !== 'task') expect.unreachable();
+    expect(res.results).toHaveLength(1);
+    expect(res.results[0]?.line).toBe(1);
+    expect(res.results[0]?.status).toBe('progress');
+  });
+
+  it('[AC-Se3b7a2-3-1] TASK WHERE status = "blocked" は status=blocked のタスクのみ返す', () => {
+    const res = runQuery('TASK WHERE status = "blocked"', taskNotes);
+    if (res.type !== 'task') expect.unreachable();
+    expect(res.results).toHaveLength(1);
+    expect(res.results[0]?.line).toBe(3);
+  });
+
+  it('[AC-Se3b7a2-3-1] status が null のタスクは status フィルタから除外される (null-false ルール)', () => {
+    const res = runQuery('TASK WHERE status = "todo"', taskNotes);
+    if (res.type !== 'task') expect.unreachable();
+    // タスク B のみ
+    expect(res.results).toHaveLength(1);
+    expect(res.results[0]?.line).toBe(2);
+  });
+
+  // ---- AC-Se3b7a2-3-2: due フィルタ ----
+
+  it('[AC-Se3b7a2-3-2] TASK WHERE due < "2026-08-01" は due が文字列比較で小さいタスクのみ返す', () => {
+    const res = runQuery('TASK WHERE due < "2026-08-01"', taskNotes);
+    if (res.type !== 'task') expect.unreachable();
+    // タスク A (2026-07-10) と タスク D (2026-06-01) がマッチ (タスク C は due=null で除外)
+    expect(res.results.map((r) => r.line).sort((a, b) => a - b)).toEqual([1, 4]);
+  });
+
+  it('[AC-Se3b7a2-3-2] due が null のタスクは due フィルタから除外される', () => {
+    const res = runQuery('TASK WHERE due >= "2026-01-01"', taskNotes);
+    if (res.type !== 'task') expect.unreachable();
+    // タスク C は due=null なので除外
+    const lines = res.results.map((r) => r.line).sort((a, b) => a - b);
+    expect(lines).not.toContain(3);
+  });
+
+  // ---- AC-Se3b7a2-3-3: priority フィルタ ----
+
+  it('[AC-Se3b7a2-3-3] TASK WHERE priority = "high" は priority=high のタスクのみ返す', () => {
+    const res = runQuery('TASK WHERE priority = "high"', taskNotes);
+    if (res.type !== 'task') expect.unreachable();
+    // タスク A とタスク C がマッチ
+    expect(res.results.map((r) => r.line).sort((a, b) => a - b)).toEqual([1, 3]);
+  });
+
+  it('[AC-Se3b7a2-3-3] priority が null のタスクは priority フィルタから除外される', () => {
+    const res = runQuery('TASK WHERE priority = "low"', taskNotes);
+    if (res.type !== 'task') expect.unreachable();
+    // タスク B のみ (タスク D は priority=null で除外)
+    expect(res.results).toHaveLength(1);
+    expect(res.results[0]?.line).toBe(2);
+  });
+
+  // ---- AC-Se3b7a2-3-4: SORT due (null 末尾) ----
+
+  it('[AC-Se3b7a2-3-4] TASK SORT due ASC は due 昇順で返し null は末尾', () => {
+    const res = runQuery('TASK SORT due ASC', taskNotes);
+    if (res.type !== 'task') expect.unreachable();
+    const lines = res.results.map((r) => r.line);
+    // due: 2026-06-01(4) → 2026-07-10(1) → 2026-08-01(2) → null(3)
+    expect(lines).toEqual([4, 1, 2, 3]);
+  });
+
+  it('[AC-Se3b7a2-3-4] TASK SORT due DESC は due 降順で返し null は末尾', () => {
+    const res = runQuery('TASK SORT due DESC', taskNotes);
+    if (res.type !== 'task') expect.unreachable();
+    const lines = res.results.map((r) => r.line);
+    // due: 2026-08-01(2) → 2026-07-10(1) → 2026-06-01(4) → null(3)
+    expect(lines).toEqual([2, 1, 4, 3]);
+  });
+
+  // ---- AC-Se3b7a2-3-5: TABLE status/priority/due の task 行回帰 ----
+
+  it('[AC-Se3b7a2-3-5] TASK 結果行に status/priority/due が含まれる (後方互換回帰)', () => {
+    const res = runQuery('TASK', taskNotes);
+    if (res.type !== 'task') expect.unreachable();
+    expect(res.results[0]).toMatchObject({
+      line: 1,
+      status: 'progress',
+      priority: 'high',
+      due: '2026-07-10',
+    });
+    expect(res.results[1]).toMatchObject({
+      line: 2,
+      status: 'todo',
+      priority: 'low',
+      due: '2026-08-01',
+    });
+    // フィールドなしのタスク (タスク D) は null
+    expect(res.results[3]).toMatchObject({
+      line: 4,
+      status: null,
+      priority: null,
+      due: '2026-06-01',
+    });
+  });
+
+  // ---- AND 複合フィルタ ----
+
+  it('[AC-Se3b7a2-3-1] TASK WHERE status = "progress" AND priority = "high" の複合フィルタ', () => {
+    const res = runQuery('TASK WHERE status = "progress" AND priority = "high"', taskNotes);
+    if (res.type !== 'task') expect.unreachable();
+    expect(res.results).toHaveLength(1);
+    expect(res.results[0]?.line).toBe(1);
   });
 });

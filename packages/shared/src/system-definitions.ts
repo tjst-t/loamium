@@ -346,6 +346,52 @@ export { VaultPathError };
  */
 export const SYSTEM_SETTINGS_PATH = `${SYSTEM_DIR}/settings.yaml`;
 
+// ---- タスク語彙スキーマ (Se3b7a2-8 / ADR-0029) — appSettingsSchema より前に定義 ----
+// (appSettingsSchema が tasks フィールドで参照するため先に宣言する)
+
+/**
+ * status の 1 エントリ (ADR-0029)。
+ * key: DQL フィルタ・インラインフィールドの値として使われる識別子 (小文字英数字/ハイフン)。
+ * label: UI 表示名。
+ * color: オプションのカラーヒント (UI が色つきピルを描画するために使う)。
+ * done: true の場合、この status はタスク完了を意味し、チェックボックスを [x] に同期する。
+ */
+export const taskStatusEntrySchema = z.object({
+  key: z.string().min(1, 'status key must not be empty'),
+  label: z.string().min(1, 'status label must not be empty'),
+  color: z.string().optional(),
+  done: z.boolean().optional(),
+});
+export type TaskStatusEntry = z.infer<typeof taskStatusEntrySchema>;
+
+/**
+ * priority の 1 エントリ (ADR-0029)。
+ * key: DQL フィルタ・インラインフィールドの値として使われる識別子 (小文字英数字/ハイフン)。
+ * label: UI 表示名。
+ * color: オプションのカラーヒント。
+ */
+export const taskPriorityEntrySchema = z.object({
+  key: z.string().min(1, 'priority key must not be empty'),
+  label: z.string().min(1, 'priority label must not be empty'),
+  color: z.string().optional(),
+});
+export type TaskPriorityEntry = z.infer<typeof taskPriorityEntrySchema>;
+
+/**
+ * タスク語彙のスキーマ (system/settings.yaml `tasks:` セクション — ADR-0029 / Se3b7a2-8)。
+ *
+ * statuses: ワークフロー status の語彙一覧。done:true フラグを持つものが「完了」を意味する。
+ * priorities: 重要度 priority の語彙一覧。
+ *
+ * UI はこの語彙からピル/選択肢を描画する (コードに enum をハードコードしない)。
+ * 語彙未設定 (null / undefined) 時は DEFAULT_TASK_VOCAB がフォールバックとして使われる。
+ */
+export const taskVocabSchema = z.object({
+  statuses: z.array(taskStatusEntrySchema).optional(),
+  priorities: z.array(taskPriorityEntrySchema).optional(),
+});
+export type TaskVocab = z.infer<typeof taskVocabSchema>;
+
 /**
  * アプリ全体設定の zod スキーマ (ADR-0010: system/settings.yaml)。
  *
@@ -382,6 +428,12 @@ export const appSettingsSchema = z.object({
    * 別 Story Sa10026-4 が消費する。
    */
   showSystemFolder: z.boolean().default(false),
+  /**
+   * タスク語彙 (Se3b7a2-8 / ADR-0029)。
+   * status/priority の選択肢と色。コードに enum をハードコードしない。
+   * 未設定 (undefined) は DEFAULT_TASK_VOCAB がフォールバックとして使われる。
+   */
+  tasks: taskVocabSchema.optional(),
 }).passthrough();
 
 export type AppSettings = z.infer<typeof appSettingsSchema>;
@@ -447,4 +499,85 @@ export function parseAppSettings(yamlText: string | null | undefined): AppSettin
  */
 export function serializeAppSettings(settings: AppSettings): string {
   return stringifyYaml(settings);
+}
+
+// ---- タスク語彙 フォールバック + パース/シリアライズ (Se3b7a2-8 / ADR-0029) ----
+
+/**
+ * フォールバック既定語彙 (ADR-0029 decision 3 / Se3b7a2-8)。
+ * statuses:   todo / progress / blocked / done (done:true)
+ * priorities: highest / high / medium / low
+ *
+ * system/settings.yaml の `tasks:` が未設定のときに使う。
+ * UI は語彙未取得中もこの既定値でピル/選択肢を描画できる。
+ */
+/** DEFAULT_TASK_VOCAB の具体型 (statuses/priorities が必須)。 */
+export type TaskVocabRequired = {
+  statuses: TaskStatusEntry[];
+  priorities: TaskPriorityEntry[];
+};
+
+export const DEFAULT_TASK_VOCAB: TaskVocabRequired = {
+  statuses: [
+    { key: 'todo',     label: 'Todo',     color: 'gray' },
+    { key: 'progress', label: 'Progress', color: 'blue' },
+    { key: 'blocked',  label: 'Blocked',  color: 'red' },
+    { key: 'done',     label: 'Done',     color: 'green', done: true },
+  ],
+  priorities: [
+    { key: 'highest', label: 'Highest', color: 'red' },
+    { key: 'high',    label: 'High',    color: 'amber' },
+    { key: 'medium',  label: 'Medium',  color: 'blue' },
+    { key: 'low',     label: 'Low',     color: 'gray' },
+  ],
+};
+
+/**
+ * `system/settings.yaml` の生テキストから `tasks:` セクションをパースして TaskVocab を返す。
+ *
+ * - 空テキスト / YAML 無し → DEFAULT_TASK_VOCAB を返す (語彙未設定)。
+ * - tasks: セクションなし / 不正 → DEFAULT_TASK_VOCAB を返す (寛容 read)。
+ * - tasks: セクションあり → パースして返す。statuses/priorities が欠落フィールドは既定で補う。
+ *
+ * この関数は決して例外を投げない (priority 6: アプリを止めない)。
+ * [AC-Se3b7a2-8]
+ */
+export function parseTaskVocab(yamlText: string | null | undefined): TaskVocabRequired {
+  const fallback = (): TaskVocabRequired => ({
+    statuses: [...DEFAULT_TASK_VOCAB.statuses],
+    priorities: [...DEFAULT_TASK_VOCAB.priorities],
+  });
+  if (yamlText === null || yamlText === undefined || yamlText.trim() === '') {
+    return fallback();
+  }
+  let raw: unknown;
+  try {
+    raw = parseYaml(yamlText);
+  } catch {
+    return fallback();
+  }
+  if (raw === null || raw === undefined || typeof raw !== 'object' || Array.isArray(raw)) {
+    return fallback();
+  }
+  const tasks = (raw as Record<string, unknown>).tasks;
+  if (tasks === undefined || tasks === null) {
+    return fallback();
+  }
+  const result = taskVocabSchema.safeParse(tasks);
+  if (!result.success) {
+    console.error(`[loamium] tasks vocab validation error, using defaults: ${result.error.message}`);
+    return fallback();
+  }
+  return {
+    statuses: result.data.statuses ?? DEFAULT_TASK_VOCAB.statuses,
+    priorities: result.data.priorities ?? DEFAULT_TASK_VOCAB.priorities,
+  };
+}
+
+/**
+ * TaskVocab オブジェクトを YAML テキストに変換する (テスト用・シリアライズ確認用)。
+ * `tasks:` キーを含む YAML テキストを返す。
+ */
+export function serializeTaskVocab(vocab: TaskVocab): string {
+  return stringifyYaml({ tasks: vocab });
 }

@@ -34,12 +34,15 @@ import {
   agentPermissionsSchema,
   resolvePermissions,
   clampByMode,
+  taskVocabWriteRequestSchema,
   type AppSettingsResponse,
   type AgentConnectionResponse,
   type AgentPermissionsResponse,
   type AgentPrivacySettingsResponse,
   type AgentConnectionTestResponse,
   type AgentModelsResponse,
+  type TaskVocabResponse,
+  type TaskVocabWriteResponse,
 } from '@loamium/shared';
 import type { ServerConfig } from '../config.js';
 import { parseBody, setAudit, errorJson, type AppEnv } from '../http.js';
@@ -51,6 +54,8 @@ import {
   saveAgentPermissions,
   loadAgentPrivacyDeny,
   saveAgentPrivacyDeny,
+  loadTaskVocab,
+  saveTaskVocab,
   resolveEnvRef,
   maskApiKey,
 } from '../settings-store.js';
@@ -369,6 +374,40 @@ export function settingsRoutes(config: ServerConfig): Hono<AppEnv> {
       return c.json(res);
     } catch (err) {
       return errorJson(c, 500, 'privacy_write_error', String(err));
+    }
+  });
+
+  // ==========================================================================
+  // Group 5: タスク語彙 (system/settings.yaml tasks: — Se3b7a2-8 / ADR-0029)
+  // ==========================================================================
+
+  // GET /api/settings/tasks
+  // tasks: セクション不在 → DEFAULT_TASK_VOCAB を返す (寛容 read)
+  // [AC-Se3b7a2-8]
+  app.get('/api/settings/tasks', async (c) => {
+    try {
+      const vocab = await loadTaskVocab(config.vaultRoot);
+      const res: TaskVocabResponse = { vocab };
+      return c.json(res);
+    } catch (err) {
+      return errorJson(c, 500, 'task_vocab_read_error', String(err));
+    }
+  });
+
+  // PUT /api/settings/tasks
+  // 書き込み系 → 監査ログ + mode クランプ (permissionMiddleware が mutate として止める)
+  // [AC-Se3b7a2-8]
+  app.put('/api/settings/tasks', async (c) => {
+    setAudit(c, 'settings.tasks.write', 'system/settings.yaml');
+    const bodyResult = await parseBody(c, taskVocabWriteRequestSchema);
+    if (!bodyResult.ok) return bodyResult.response;
+
+    try {
+      await saveTaskVocab(config.vaultRoot, bodyResult.data.vocab);
+      const res: TaskVocabWriteResponse = { ok: true };
+      return c.json(res);
+    } catch (err) {
+      return errorJson(c, 500, 'task_vocab_write_error', String(err));
     }
   });
 
