@@ -4,10 +4,10 @@
   "progress": {
     "current_sprint": null,
     "total": 54,
-    "done": 51,
+    "done": 52,
     "in_progress": 0,
-    "remaining": 3,
-    "percentage": 94
+    "remaining": 2,
+    "percentage": 96
   },
   "execution_order": [
     "Sd63ad1",
@@ -6967,13 +6967,13 @@
       "title": "TODO 機能向上 — 期限・重要度・DataView 統合・子ノード表示・状態変更",
       "description": "チェックボックス行に期限（due:: YYYY-MM-DD）と重要度（priority:: high/medium/low）をインライン属性として付与できるようにする（GFM 互換、Markdown 正本を汚さない記法）。UI 面では、エディタのチェックボックス行をホバーまたはフォーカスしたときにポップオーバーを表示し、期限はカレンダーピッカー（日付選択）、重要度は high/medium/low のドロップダウンで直感的に設定・変更できるようにする。設定値は [due:: YYYY-MM-DD] [priority:: high] 形式でMarkdown 行末に書き込まれる。DQL エンジンを拡張してこれらのプロパティをフィルタ・ソートの対象にする。Dataview の TODO 一覧では、チェックボックスの直下の子リスト項目（インデントされた行）も展開して表示する。Dataview の TODO 行でも同様のポップオーバー（カレンダー・ドロップダウン）を提供し、一覧から直接期限・重要度を変更できるようにする。Dataview コンポーネントから直接 TODO の完了・未完了を PATCH で切り替えられる UI も追加する。",
       "milestone": false,
-      "status": "pending",
+      "status": "done",
       "depends_on": "Sd5c9f4",
       "detail_level": "detailed",
       "stories": {
         "Se3b7a2-1": {
           "title": "shared: [status:: ] / [priority:: ] / [due:: ] インラインフィールドパーサー + NoteTask / TaskQueryRow 拡張",
-          "status": "pending",
+          "status": "done",
           "story_type": "library",
           "user_review_required": false,
           "review_reason": null,
@@ -6983,59 +6983,59 @@
               "id": "AC-Se3b7a2-1-1",
               "description": "extractInlineFields(line): { status:string|null; priority:string|null; due:string|null } を packages/shared/src/inline-fields.ts に実装。[status:: ...] / [priority:: ...] / [due:: YYYY-MM-DD] を行末走査し最初のマッチを返す。インラインコード内は無視。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-1-2",
               "description": "NoteTask 型に status:string|null / priority:string|null / due:string|null を追加。チェックボックス文字( [ ] / [x] )は done/not-done のみを示す(ワークフローステータスではない)。extractTasks() で各タスク行に extractInlineFields を適用。frontmatter・フェンス内はスキップ。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-1-3",
               "description": "TaskQueryRow スキーマに status / priority / due (すべて nullable) を追加。executeQuery の task 結果行に三フィールドを含めて返す。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-1-4",
               "description": "ユニットテスト inline-fields.test.ts: (a) status+priority+due 付き行で全フィールド取得 (b) フィールドなし → すべて null (c) インラインコード内は無視 (d) due 日付形式不正 → null (e) status/priority 値の大文字 → 小文字化して返す。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-1-5",
               "description": "extractTasks のユニットテストに回帰: status/priority/due が既存の line/text/checked/indent と共に返る。フィールドなしは null で後方互換。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "Se3b7a2-1-1": {
               "title": "packages/shared/src/inline-fields.ts を新規作成",
               "description": "extractInlineFields を実装。blankInlineCode でインラインコードを空白化してからマッチ。[status:: ...] / [priority:: ...] / [due:: YYYY-MM-DD] を独立正規表現で抽出。index.ts から再 export。",
-              "status": "pending"
+              "status": "done"
             },
             "Se3b7a2-1-2": {
               "title": "NoteTask 型拡張 + extractTasks 更新",
               "description": "NoteTask に status/priority/due 追加。チェックボックス文字は done/not-done のみ。extractTasks 内で extractInlineFields 適用。既存テストは null で後方互換。",
-              "status": "pending"
+              "status": "done"
             },
             "Se3b7a2-1-3": {
               "title": "TaskQueryRow スキーマ + executeQuery の task 行更新",
               "description": "taskQueryRowSchema に status/priority/due(nullable) 追加。executeQuery の task 行に付与。taskField で status/priority/due を解決可能に拡張。",
-              "status": "pending"
+              "status": "done"
             },
             "Se3b7a2-1-4": {
               "title": "ユニットテスト作成 (inline-fields.test.ts + extract.test.ts 回帰)",
               "description": "AC-1-4 のケースを網羅。extract.test.ts に status/priority/due 付き行の回帰追加。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Se3b7a2-2": {
           "title": "エディタ: チェックボックス行 done トグル(丸) + オプションピル + ホバー/アクティブ クイック編集ポップオーバー (ステータス/優先度/期限)",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": true,
           "review_reason": "ポップオーバーの配置・UX（ホバー vs アクティブ行、月グリッドカレンダーの見た目、ステータス/優先度のピル表示）をユーザーがレビューする必要がある。",
@@ -7045,65 +7045,65 @@
               "id": "AC-Se3b7a2-2-1",
               "description": "チェックボックス行の done トグルは丸い span[role=checkbox](.task-checkbox)として描画される。クリックで - [ ] ↔ - [x] を patch 経由でトグルし即時再描画する。status=done フィールドがある行では checkbox [x] と status の done:true が同期する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-2-2",
               "description": "行に [status:: ...] フィールドが存在する場合のみ status-pill(.status-pill[data-status])を行内に表示する。フィールドがなければピルなし(シンプルタスクは - [ ] テキストのみ)。priority/due も同様: フィールドがある場合のみ priority-flag / due-chip を表示。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-2-3",
               "description": "チェックボックス行にカーソルが入る(またはホバー)すると編集トリガーボタン(.checkbox-fields-trigger)が出現する。アクティブ行ではソース表示として [status:: ...] [priority:: ...] [due:: ...] のインラインフィールドがシンタックスハイライト付きで見える。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-2-4",
               "description": "編集トリガーボタンをクリックすると .checkbox-fields-popover が開く。ステータスセクション(なし/クリア + config-driven 語彙ボタン)・期限セクション(今日/明日/来週プリセット + 月グリッドカレンダー + クリア)・優先度セクション(config-driven 語彙 + なし)の 3 セクション構成(todo-popover.html の tqe-* スタイル準拠)。キャンセル/適用ボタン付き。testid: checkbox-fields-popover / status-opt-{none|todo|progress|blocked|done} / due-preset-{today|tomorrow|nextweek|pick} / due-calendar / cal-day / priority-opt-{highest|high|medium|low|none} / checkbox-fields-cancel / checkbox-fields-apply。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-2-5",
               "description": "適用確定で setInlineField(old, key, value) → POST /api/notes/{path}/patch(ADR-0016)経由で書き込む。409 ambiguous はエラートーストを表示しファイルは変更しない。書き込み後は純粋な Markdown (インラインフィールドテキスト) のみで、ブロック ID・非 Markdown トークンは含まない。監査ログ(note.patch)に記録される。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-2-6",
               "description": "ステータス/優先度の選択肢と色は system/settings.yaml の tasks: 語彙から読み込む(ADR-0026 型付き設定 API)。設定未取得時はフォールバック既定語彙(statuses: todo/progress/blocked/done[done:true]; priorities: highest/high/medium/low)を使う。コードに enum をハードコードしない。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "Se3b7a2-2-1": {
               "title": "インラインフィールド書き込みヘルパー setInlineField() を shared に追加",
               "description": "setInlineField(line,key,value): 既存あれば置換、なければ行末追記、value=null で削除。old/new テキスト生成元。",
-              "status": "pending"
+              "status": "done"
             },
             "Se3b7a2-2-2": {
               "title": "CodeMirror ViewPlugin: チェックボックス行の done トグル Widget + ピル描画",
               "description": "checkbox-fields-popover.ts。ViewPlugin でビューポート内のチェックボックス行を走査。丸チェックボックス(.task-checkbox)で done toggle。status/priority/due フィールドが存在する行にのみ対応ピルを追加(フィールドなし=ピルなし)。アクティブ行はソース表示(インラインフィールドのシンタックスハイライト)。",
-              "status": "pending"
+              "status": "done"
             },
             "Se3b7a2-2-3": {
               "title": "クイック編集ポップオーバー実装",
               "description": "tqe-* スタイル準拠の 3 セクションポップオーバー(ステータス/期限/優先度)。config-driven 語彙(settings API)から選択肢を描画。なし/クリアオプション必須。適用で setInlineField→api.patchNote。409 はエラートースト。testid: todo-popover.html 参照。",
-              "status": "pending"
+              "status": "done"
             },
             "Se3b7a2-2-4": {
               "title": "live-preview.ts にポップオーバー Extension を登録",
               "description": "checkboxFieldsPopoverExtension() を live-preview.ts の Extension 配列に追加。notePathFacet からパス取得。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Se3b7a2-3": {
           "title": "DQL エンジン拡張: status / priority / due タスクフィールドのフィルタ・ソート対応",
-          "status": "pending",
+          "status": "done",
           "story_type": "library",
           "user_review_required": false,
           "review_reason": null,
@@ -7113,54 +7113,54 @@
               "id": "AC-Se3b7a2-3-1",
               "description": "TASK WHERE status = \"progress\" は status フィールドが 'progress' のタスクのみ返る(NFC 正規化後 toLowerCase 比較)。status が null のタスクは除外(既存 null-false ルール)。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-3-2",
               "description": "TASK WHERE due < \"2026-09-01\" は due が null でなく文字列比較で小さいタスクのみ返る(欠損=null は除外)。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-3-3",
               "description": "TASK WHERE priority = \"high\" は priority が 'high' のタスクのみ返る(NFC 正規化後 toLowerCase 比較)。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-3-4",
               "description": "TASK SORT due ASC は due 設定タスクを due 昇順で返す。due=null は末尾(既存 null-最後ルール)。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-3-5",
               "description": "dql.test.ts に (a) status フィルタ (b) due フィルタ (c) priority フィルタ (d) due SORT(null 末尾) (e) TABLE status,priority,due の task 行回帰 を追加。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "Se3b7a2-3-1": {
               "title": "taskField() に status/priority/due を追加",
               "description": "dql.ts の taskField で key==='status'→task.status、'priority'→task.priority、'due'→task.due。評価ロジックは変更不要。",
-              "status": "pending"
+              "status": "done"
             },
             "Se3b7a2-3-2": {
               "title": "executeQuery() の task 結果行に status/priority/due を含める",
               "description": "拡張した TaskQueryRow に沿って task 行に status/priority/due を追加。",
-              "status": "pending"
+              "status": "done"
             },
             "Se3b7a2-3-3": {
               "title": "ユニットテスト追加 (dql.test.ts)",
               "description": "AC-3-5 の 5 ケース。QueryableNote.tasks に status/priority/due 付きフィクスチャ。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Se3b7a2-4": {
           "title": "Dataview TASK 一覧: 子行デフォルト折りたたみ(▶/▼ トグル) + 展開トグルスロットで checkbox 列を縦揃え + status/priority/due ピル描画 (フィールドありのみ)",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": true,
           "review_reason": "子ノードの折りたたみ/展開 UI(▶/▼ トグルスロット・checkbox 縦揃え・シンプルタスクのピルなし)をユーザーが確認する必要がある。",
@@ -7170,55 +7170,55 @@
               "id": "AC-Se3b7a2-4-1",
               "description": "全タスク行(子ありも子なしも)に固定幅 .dv-toggle-slot(20px)を先頭に持つ。子ありの行は ▶/▼ 展開トグル(.dv-task-expand[data-expanded])、子なしの行は空スペーサーを配置し、チェックボックス列が縦に揃う。testid: dv-task-expand。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-4-2",
               "description": "子コンテナ(.dv-children)はデフォルト data-expanded=\"false\"(折りたたみ)。▶ クリックで data-expanded=\"true\"(展開)に切替え、▼ クリックで戻る。testid: dv-task-children。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-4-3",
               "description": "タスク行コンテナは div[role=\"button\"](.dv-task)。ネストした button を含まない(nested buttons 回避)。checkbox も span[role=checkbox]。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-4-4",
               "description": "[status:: ...] フィールドがある行のみ .status-pill[data-status] を表示する。config-driven 語彙(settings.yaml tasks.statuses)からラベル・色を決定し、フォールバック既定語彙を使用。priority/due も同様: フィールドがある行のみ .dv-priority[data-priority] / .dv-due を表示。シンプルタスク(フィールドなし)はピル一切なし。testid: status-pill / dv-priority / dv-due。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-4-5",
               "description": ".dv-due には期日の相対区分(dc-overdue / dc-today / dc-tomorrow / dc-future)を付与し色分けする。期限切れは赤で強調。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-4-6",
               "description": "status/priority/due がすべて null のクエリ結果では余分な DOM 要素が追加されない(後方互換)。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "Se3b7a2-4-1": {
               "title": "renderTasks() を dv-toggle-slot + ▶/▼ 折りたたみツリー構造に拡張",
               "description": "dataview.ts の renderTasks で全行に .dv-toggle-slot を挿入。子ありは .dv-task-expand ボタン、子なしは空スペーサー。.dv-children を data-expanded=\"false\" でデフォルト生成。トグルクリックで expanded 切替。",
-              "status": "pending"
+              "status": "done"
             },
             "Se3b7a2-4-2": {
               "title": "status/priority/due ピル描画(フィールドありのみ)",
               "description": "各タスク行に status-pill(フィールドあり時のみ)・dv-priority・dv-due を条件付き追加。due の相対区分(dc-*)は today との比較で決定。config-driven 語彙から色・ラベル取得、フォールバック使用。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Se3b7a2-5": {
           "title": "Dataview TASK 一覧: 完了 done トグル(丸チェックボックス) + クイック編集ポップオーバー(status/priority/due, config-driven) + 409 ハンドリング",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": true,
           "review_reason": "Dataview パネルから直接 Markdown を書き換える新規インタラクション(完了トグル・ポップオーバー)のため、UX をユーザーが承認する必要がある。",
@@ -7228,54 +7228,54 @@
               "id": "AC-Se3b7a2-5-1",
               "description": "各タスク行のチェックボックス(span[role=checkbox].task-checkbox)をクリックすると POST /api/notes/{path}/patch で - [ ] ↔ - [x] を切替え、Dataview を即時再描画する。done:true status を持つ行はチェックボックスと status フィールドを同期して更新する。read-only モードではチェックボックスクリックは無効化される。testid: task-checkbox。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-5-2",
               "description": "各タスク行のホバーで編集ボタン(.dv-task-edit)が表示され、クリックで .dv-task-popover が開く。ポップオーバーはステータス(config-driven 語彙 + なし/クリア) / 期日(プリセット + 月グリッド) / 優先度(config-driven 語彙 + なし)の 3 セクション(todo-dataview.html の dvp-* スタイル準拠)。適用で POST /api/notes/{path}/patch、Dataview 即時再描画。testid: dv-task-edit / dv-task-popover / status-opt-{none|todo|progress|blocked|done} / due-preset-{today|tomorrow|nextweek|pick} / due-calendar / cal-day / priority-opt-{highest|high|medium|low|none} / dv-task-popover-cancel / dv-task-popover-apply。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-5-3",
               "description": "patch が 409 ambiguous を返した場合、.dv-patch-error バナーをタスク行付近に表示しファイルは変更しない。testid: dv-patch-error。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-5-4",
               "description": "書き込みはすべて POST /api/notes/{path}/patch を経由し監査ログに記録される。Dataview コンポーネントはファイルを直接操作しない(ADR-0016)。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-5-5",
               "description": "ステータス/優先度の選択肢は system/settings.yaml tasks: 語彙から読み込む(ADR-0026)。フォールバック既定語彙(todo/progress/blocked/done[done:true]; highest/high/medium/low)を使用。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "Se3b7a2-5-1": {
               "title": "Dataview タスク行の完了トグル実装",
               "description": "span[role=checkbox] へ専用クリックハンドラ。api.patchNote(path,old,new)(- [ ]↔- [x]、done:true status 同期)→runOnce 再描画。read-only は canWrite フラグ/403 で制御。",
-              "status": "pending"
+              "status": "done"
             },
             "Se3b7a2-5-2": {
               "title": "Dataview タスク行のクイック編集ポップオーバー実装",
               "description": "dv-task-edit ボタン→.dv-task-popover を展開(dvp-* スタイル、3 セクション、config-driven 語彙)。適用で setInlineField→api.patchNote。409 は dv-patch-error バナー。成功後強制再描画。stopPropagation 適切に設定。",
-              "status": "pending"
+              "status": "done"
             },
             "Se3b7a2-5-3": {
               "title": "api.ts に patchNote(path,old,new) クライアントメソッドを追加(未存在の場合)",
               "description": "POST /api/notes/{path}/patch ラッパー。ApiError/409 ハンドリング。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Se3b7a2-6": {
           "title": "エージェントツール: task_set_fields (status/priority/due 設定) + help トピック + toolset e2e pin",
-          "status": "pending",
+          "status": "done",
           "story_type": "api",
           "user_review_required": false,
           "review_reason": null,
@@ -7285,48 +7285,48 @@
               "id": "AC-Se3b7a2-6-1",
               "description": "書き込みケーパビリティを持つセッションで task_set_fields ツールが広告される。パラメータ: path, line(1始まり), status(optional: string or null=削除), priority(optional: string or null=削除), due(optional: YYYY-MM-DD or null=削除)。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-6-2",
               "description": "実行時、指定行を読み取り setInlineField で新テキストを生成し patchNote サービス(ADR-0016)で書き込む。監査ログ(agent.task_set_fields)に path/line を記録。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-6-3",
               "description": "agent-help.ts の task-fields トピックにツール名・パラメータ・使用例(TASK WHERE で期限切れ発見→task_set_fields で更新)・制約(409)を追記する。help はどの権限セットでも利用可(ADR-0014)。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-6-4",
               "description": "VAULT_WRITE_TOOL_NAMES に 'task_set_fields' を追加し、agent-tools.e2e の advertised-toolset テスト(toolset pin)が更新一覧を確認する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "Se3b7a2-6-1": {
               "title": "task_set_fields ツールを agent-write-tools.ts に追加",
               "description": "readNote で行取得→TASK_RE でチェックボックス行確認→setInlineField 適用→patchNote(config,rel,oldLine,newLine)。ADR-0016 で独自書き込み新設せず。status/priority は string|null、due は YYYY-MM-DD|null。",
-              "status": "pending"
+              "status": "done"
             },
             "Se3b7a2-6-2": {
               "title": "agent-help.ts に task-fields ヘルプトピックを追加",
               "description": "helpTopics に task-fields。使い方・パラメータ・使用例・DQL 組み合わせ。help はどの権限でも利用可(ADR-0014)。",
-              "status": "pending"
+              "status": "done"
             },
             "Se3b7a2-6-3": {
               "title": "VAULT_WRITE_TOOL_NAMES と e2e テスト更新",
               "description": "VAULT_WRITE_TOOL_NAMES に task_set_fields を sorted 順で追加。agent-tools.e2e の advertised-toolset pin を更新。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Se3b7a2-7": {
           "title": "スラッシュ /task — `- [ ] ` 挿入 + クイック編集ポップオーバー(全フィールドデフォルト「なし」) + 自然言語トークンパース",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": true,
           "review_reason": "/task スラッシュコマンドの UX(ポップオーバーのデフォルト「なし」・自然言語変換・挿入後の Markdown プレビュー)をユーザーが確認する必要がある。",
@@ -7336,54 +7336,54 @@
               "id": "AC-Se3b7a2-7-1",
               "description": "スラッシュメニュー(S763a98)に /task エントリ(data-testid=\"slash-item-task\" data-command=\"task\")が追加される。選択すると「- [ ] 」を挿入しカーソルをテキスト先頭に移動すると同時に task-quick-popover(data-testid=\"task-quick-popover\")が開く。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-7-2",
               "description": "ポップオーバーにはステータス(なし=デフォルト active / config-driven 語彙) / 優先度(なし=デフォルト active / config-driven 語彙) / 期限(なし=デフォルト active / 今日・明日・来週・月グリッド)の 3 セクションを持つ。すべてデフォルト「なし」で、設定しないとプレーンな - [ ] テキスト のみが挿入される。testid: task-popover-status / task-popover-priority / task-due-cal / status-opt-none / priority-opt-none / due-preset-none / tp-cancel / tp-insert。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-7-3",
               "description": "設定した項目のみ Dataview インラインフィールドとして行末に追記する。例: status=none・priority=high・due=2026-07-20 → 「- [ ] テキスト [priority:: high] [due:: 2026-07-20]」。none=フィールド省略。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-7-4",
               "description": "タスクテキスト入力中に自然言語トークンを検出して自動変換する: 「明日」→[due:: 翌日の YYYY-MM-DD] / 「今日」→[due:: 今日の YYYY-MM-DD] / 「来週」→[due:: 翌週月曜の YYYY-MM-DD] / 「M/D」(例: 7/25)→[due:: YYYY-MM-DD] / 「!高」→[priority:: high] / 「!最高」→[priority:: highest] / 「!中」→[priority:: medium]。変換後はトークン文字列をテキストから除去する。testid: task-nl-hint。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-7-5",
               "description": "ステータス/優先度の選択肢は system/settings.yaml tasks: 語彙から読み込む(ADR-0026)。フォールバック既定語彙を使用。done:true status を選択すると「- [x] 」で挿入する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "Se3b7a2-7-1": {
               "title": "スラッシュメニューに /task エントリを追加",
               "description": "slash-menu.ts に task コマンドを追加(slash-item-task / slash-item data-command=\"task\")。選択で「- [ ] 」挿入＋カーソル移動。既存スラッシュメニュー(S763a98)を拡張。",
-              "status": "pending"
+              "status": "done"
             },
             "Se3b7a2-7-2": {
               "title": "task-quick-popover コンポーネント実装",
               "description": "TaskQuickPopover.tsx。3 セクション(ステータス/優先度/期限)・全デフォルト「なし」・config-driven 語彙(settings API + フォールバック)。挿入ボタンで選択フィールドを行末に追記(none=省略)。slash-menu.html の task-popover スタイル準拠。",
-              "status": "pending"
+              "status": "done"
             },
             "Se3b7a2-7-3": {
               "title": "自然言語トークンパーサー実装",
               "description": "parsNlTokens(text, today): { text, due, priority } を返す純関数。「明日/今日/来週/M-D/!高/!最高/!中」を検出・除去。ユニットテスト必須(slash-menu.html の nl-row サンプルをケースとして使用)。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Se3b7a2-8": {
           "title": "タスク語彙設定 — system/settings.yaml tasks: セクション(key/label/color/done:true) + 設定 UI(Se3b7a2-8) + 型付き設定 API(ADR-0026)",
-          "status": "pending",
+          "status": "done",
           "story_type": "mixed",
           "user_review_required": true,
           "review_reason": "タスク語彙設定 UI(settings-tasks.html: 行ごとのキー/ラベル/カラー編集テーブル + ライブ YAML プレビュー)をユーザーが確認する必要がある。",
@@ -7393,48 +7393,48 @@
               "id": "AC-Se3b7a2-8-1",
               "description": "system/settings.yaml の tasks: セクションに statuses(配列: {key, label, color, done?:true}) と priorities(配列: {key, label, color}) を保存する形式とする。型付き設定 API(ADR-0026)経由で読み書き。エディタ/Dataview/スラッシュ /task は必ずこの API を通して語彙を取得する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-8-2",
               "description": "設定 UI(settings-tasks.html 準拠)にステータス語彙テーブルと優先度語彙テーブルを実装する。各行は key(input/mono) / label(input) / color(カラーピッカー) / done フラグ(チェックボックス、statuses のみ) / ドラッグ並替え / 行削除。テーブル下に「追加」ボタン。testid: vocab-table / vocab-row / vocab-key-input / vocab-label-input / vocab-color-input / vocab-done-toggle / vocab-row-delete / vocab-add-btn。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-8-3",
               "description": "設定 UI の右ペインにライブ YAML プレビューを表示する。行を追加・編集・並替えするたびにプレビューが即時更新される。testid: vocab-yaml-preview。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-8-4",
               "description": "語彙が未設定(設定ファイルなし・空)の場合、フォールバック既定語彙(statuses: todo/progress/blocked/done[done:true]; priorities: highest/high/medium/low)を使い、UI が壊れない。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Se3b7a2-8-5",
               "description": "設定保存後、エディタ・Dataview・スラッシュ /task が新しい語彙を反映する(リロード不要またはリロードで反映)。ピル/選択肢はコード内に enum をハードコードせず、常に語彙 API から描画する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "Se3b7a2-8-1": {
               "title": "typed settings API に tasks: 語彙スキーマを追加(ADR-0026)",
               "description": "packages/shared に TaskVocabSchema(statuses: {key,label,color,done?}/priorities: {key,label,color})を zod で定義。typed settings API(ADR-0026)に getTaskVocab/setTaskVocab を追加。system/settings.yaml の tasks: セクションを読み書き。",
-              "status": "pending"
+              "status": "done"
             },
             "Se3b7a2-8-2": {
               "title": "設定 UI: タスク語彙テーブル(ステータス/優先度) + ライブ YAML プレビュー",
               "description": "SettingsTasksView.tsx。ステータスと優先度の 2 テーブル(drag-handle/key-input/label-input/color-picker/done-toggle/delete)。行追加ボタン。右ペインにライブ YAML プレビュー。保存で setTaskVocab API 呼出。testid: settings-tasks.html 参照。",
-              "status": "pending"
+              "status": "done"
             },
             "Se3b7a2-8-3": {
               "title": "フォールバック既定語彙の定義と語彙取得フック",
               "description": "DEFAULT_TASK_VOCAB 定数(statuses: todo/progress/blocked/done[done:true]; priorities: highest/high/medium/low)を shared に定義。useTaskVocab() フックが API 未設定時に DEFAULT_TASK_VOCAB を返す。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
