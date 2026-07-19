@@ -6,7 +6,7 @@
  * 補正する (ノート数が増えるとツリー下部の項目で操作不能になるバグの修正)。
  */
 import { useLayoutEffect, useRef, type JSX } from 'react';
-import { FileIcon, NewFolderIcon, PencilIcon, PlusIcon, TrashIcon } from '../icons.js';
+import { FileIcon, FolderIcon, NewFolderIcon, PencilIcon, PlusIcon, TrashIcon } from '../icons.js';
 
 export interface ContextMenuProps {
   x: number;
@@ -19,6 +19,8 @@ export interface ContextMenuProps {
   onNewFolder?: () => void;
   onRename: () => void;
   onDelete: () => void;
+  /** 移動ダイアログを開く (S2e8a4c-7) */
+  onMove?: () => void;
   onClose: () => void;
 }
 
@@ -79,6 +81,15 @@ export function ContextMenu(props: ContextMenuProps): JSX.Element {
             <button className="menu-item danger" data-testid="context-delete" onClick={props.onDelete}>
               <TrashIcon />
               削除…
+            </button>
+          </>
+        )}
+        {props.onMove !== undefined && (
+          <>
+            <div className="menu-sep" />
+            <button className="menu-item" data-testid="context-move" onClick={props.onMove}>
+              <FolderIcon />
+              移動…
             </button>
           </>
         )}

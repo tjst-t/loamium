@@ -41,6 +41,7 @@ import {
 } from './router.js';
 import { makeTagClickHandler } from './tag-click.js';
 import { isCommandFile, isSystemSourceFile } from './commandEditorUtils.js';
+import { moveNote, moveFolder } from './folder-move.js';
 import { BookmarkStar } from './components/BookmarkStar.js';
 import { CommandEditor } from './components/CommandEditor.js';
 import { Editor, type EditorView } from './components/Editor.js';
@@ -54,6 +55,7 @@ import { JournalNav } from './components/JournalNav.js';
 import { RightSidebar } from './components/RightSidebar.js';
 import { ContextMenu } from './components/ContextMenu.js';
 import { ConflictDialog, DeleteDialog, NameDialog } from './components/dialogs.js';
+import { MoveDialog } from './components/MoveDialog.js';
 import { NewNoteDialog } from './components/NewNoteDialog.js';
 import { SearchPalette } from './components/SearchPalette.js';
 import { SearchPage } from './components/SearchPage.js';
@@ -114,6 +116,7 @@ type DialogState =
   | { type: 'rename-file'; path: string }
   | { type: 'delete-file'; path: string }
   | { type: 'smart-newfile' }
+  | { type: 'move'; path: string; isFolder: boolean }
   | null;
 
 interface MenuState {
@@ -257,6 +260,8 @@ export function App(): JSX.Element {
   // UI 状態としてのみ存在する空フォルダ (フォルダ内フォルダの新規作成)。
   // vault にファイルは書かず、最初のノート作成で実体化する (priority 1)。
   const [extraFolders, setExtraFolders] = useState<string[]>([]);
+  // 選択中フォルダ (S2e8a4c-4): 新規ノート/フォルダ作成ダイアログの prefill に使う。
+  const [selectedFolder, setSelectedFolder] = useState('');
 
   // ---- エディタ / 保存 ----
   const [doc, setDoc] = useState<OpenDoc | null>(null);
@@ -275,7 +280,6 @@ export function App(): JSX.Element {
 
   // ---- ジャーナル ----
   const [today, setToday] = useState<string | null>(null);
-  const [journalListOpen, setJournalListOpen] = useState(false);
 
   // ---- 設定画面 (Sa10026-7 → Sa10026-9 #2: ルート化) ----
   /** GET /api/health から取得したサーバーモード (設定画面の read-only 制御に使う) */
@@ -1407,17 +1411,54 @@ export function App(): JSX.Element {
     [preview, refreshFiles],
   );
 
-  // ---- ジャーナルナビゲーション ----
-  const journalEntries = useMemo(
-    () =>
-      (notes ?? [])
-        .map((n) => JOURNAL_FILE_RE.exec(n.path)?.[1])
-        .filter((d): d is string => d !== undefined && isValidJournalDate(d))
-        .sort((a, b) => (a < b ? 1 : -1))
-        .map((date) => ({ date })),
-    [notes],
+  // ---- D&D 移動ハンドラ (S2e8a4c-3 / S2e8a4c-7 共用) ----
+
+  /** ノート 1 件を targetFolder へ移動する */
+  const handleDropNote = useCallback(
+    async (sourcePath: string, targetFolder: string): Promise<void> => {
+      try {
+        await moveNote(sourcePath, targetFolder);
+        onNotesChanged();
+        // 開いているノートが移動された場合、新パスで再読み込み
+        const basename = sourcePath.split('/').at(-1) ?? sourcePath;
+        const newPath = targetFolder === '' ? basename : `${targetFolder}/${basename}`;
+        if (docRef.current?.path === sourcePath) {
+          const note = await api.getNote(newPath);
+          setOpenDoc(note.path, note.content, note.mtime, note.frontmatter);
+          applyHistory({ kind: 'note', path: note.path }, 'replace');
+        }
+        setAppError(null);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 409) {
+          pushToast({ kind: 'error', title: '移動できませんでした', sub: '移動先に同名のノートが既に存在します' });
+        } else {
+          pushToast({ kind: 'error', title: '移動できませんでした', sub: errMessage(err) });
+        }
+      }
+    },
+    [applyHistory, onNotesChanged, pushToast, setOpenDoc],
   );
 
+  /** フォルダを targetParent の下へ移動する (配下ノートを逐次 rename) */
+  const handleDropFolder = useCallback(
+    async (sourceFolder: string, targetParent: string): Promise<void> => {
+      const currentNotes = notes ?? [];
+      try {
+        await moveFolder(currentNotes, sourceFolder, targetParent);
+        onNotesChanged();
+        setAppError(null);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 409) {
+          pushToast({ kind: 'error', title: 'フォルダ移動できませんでした', sub: '移動先に同名のノートが既に存在します' });
+        } else {
+          pushToast({ kind: 'error', title: 'フォルダ移動できませんでした', sub: errMessage(err) });
+        }
+      }
+    },
+    [notes, onNotesChanged, pushToast],
+  );
+
+  // ---- ジャーナルナビゲーション ----
   const journalBaseDate = doc?.journalDate ?? today;
 
   // ---- 競合ダイアログ ----
@@ -1548,23 +1589,14 @@ export function App(): JSX.Element {
         <JournalNav
           today={today}
           baseDate={journalBaseDate}
-          entries={journalEntries}
-          listOpen={journalListOpen}
           onPrev={() => {
             if (journalBaseDate !== null) void openJournalNav(shiftJournalDate(journalBaseDate, -1));
           }}
           onNext={() => {
             if (journalBaseDate !== null) void openJournalNav(shiftJournalDate(journalBaseDate, 1));
           }}
-          onToday={() => {
-            setJournalListOpen(false);
-            void openJournalNav();
-          }}
-          onToggleList={() => setJournalListOpen((v) => !v)}
-          onSelectDate={(date) => {
-            setJournalListOpen(false);
-            void openJournalNav(date);
-          }}
+          onToday={() => void openJournalNav()}
+          onSelectDate={(date) => void openJournalNav(date)}
         />
 
         <div className="tree-section-title" data-testid="smart-view-header">
@@ -1669,7 +1701,7 @@ export function App(): JSX.Element {
                 className="icon-btn"
                 data-testid="sidebar-new-folder"
                 title="新規フォルダ"
-                onClick={() => setDialog({ type: 'new-folder', parent: '' })}
+                onClick={() => setDialog({ type: 'new-folder', parent: selectedFolder })}
               >
                 <NewFolderIcon />
               </button>
@@ -1688,7 +1720,7 @@ export function App(): JSX.Element {
                       role="menuitem"
                       onClick={() => {
                         setNewNoteMenuOpen(false);
-                        setDialog({ type: 'new-note', folder: '' });
+                        setDialog({ type: 'new-note', folder: selectedFolder });
                       }}
                     >
                       <DocumentIcon />
@@ -1735,9 +1767,12 @@ export function App(): JSX.Element {
               collapsed={collapsedFolders}
               error={notesError}
               onToggleFolder={toggleFolder}
+              onSelectFolder={setSelectedFolder}
               onOpenNote={(path) => void openNotePath(path)}
               onContextMenuNote={onContextMenuNote}
               onContextMenuFolder={onContextMenuFolder}
+              onDropNote={(src, tgt) => void handleDropNote(src, tgt)}
+              onDropFolder={(src, tgt) => void handleDropFolder(src, tgt)}
             />
             {/* system/ ネストフォルダツリー (showSystemFolder=true のときのみ表示) */}
             {showSystemFolder && (
@@ -2245,6 +2280,12 @@ export function App(): JSX.Element {
               path: menu.path,
             });
           }}
+          {...(menu.kind !== 'attachment' ? {
+            onMove: () => {
+              setMenu(null);
+              setDialog({ type: 'move', path: menu.path, isFolder: menu.kind === 'folder' });
+            }
+          } : {})}
           onClose={() => setMenu(null)}
         />
       )}
@@ -2463,6 +2504,27 @@ export function App(): JSX.Element {
           path={dialog.path}
           kind="file"
           onConfirm={() => void deleteAttachment(dialog.path)}
+          onCancel={() => setDialog(null)}
+        />
+      )}
+
+      {dialog?.type === 'move' && (
+        <MoveDialog
+          targetName={dialog.path.split('/').at(-1) ?? dialog.path}
+          notes={notes}
+          onConfirm={(targetFolder) => {
+            const { path, isFolder } = dialog;
+            setDialog(null);
+            if (isFolder) {
+              // フォルダ移動: sourceFolder の basename が同じなら no-op
+              const folderBasename = path.split('/').at(-1) ?? path;
+              const newParent = targetFolder === '' ? folderBasename : `${targetFolder}/${folderBasename}`;
+              if (newParent === path) return; // 同じ場所
+              void handleDropFolder(path, targetFolder);
+            } else {
+              void handleDropNote(path, targetFolder);
+            }
+          }}
           onCancel={() => setDialog(null)}
         />
       )}

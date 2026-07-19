@@ -23,6 +23,7 @@ import {
   type PropertyTypeDef,
   type TagCount,
 } from '@loamium/shared';
+import { toggleBold } from '../bold-toggle.js';
 import { outlineExtension } from '../outline.js';
 import { uploadEnvFacet, uploadExtension, type UploadEnv } from '../upload.js';
 import {
@@ -221,6 +222,11 @@ export function Editor({
           onSaveRef.current();
           return true;
         },
+      },
+      {
+        key: 'Mod-b',
+        preventDefault: true,
+        run: toggleBold,
       },
       ...defaultKeymap,
       ...historyKeymap,

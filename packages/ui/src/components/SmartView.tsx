@@ -620,7 +620,7 @@ type FormMode =
   | { type: 'create' }
   | { type: 'edit'; item: SmartViewItem };
 
-export function SmartView({ onOpenNote, onSwitchToPhysical, triggerAdd, onModeChange, commandSaveToken, invalidatedIds }: SmartViewProps): JSX.Element {
+export function SmartView({ onOpenNote, onSwitchToPhysical, triggerAdd, onModeChange, commandSaveToken: _commandSaveToken, invalidatedIds }: SmartViewProps): JSX.Element {
   const [viewState, setViewState] = useState<ViewLoadState>({ kind: 'loading' });
   const [mode, setMode] = useState<PermissionMode | null>(null);
   const [formMode, setFormMode] = useState<FormMode>(null);
@@ -971,14 +971,8 @@ export function SmartView({ onOpenNote, onSwitchToPhysical, triggerAdd, onModeCh
             );
           })}
 
-        {/* スマートコマンド一覧 — スマートフォルダとの区切り線 */}
-        {viewState.kind === 'loaded' && viewState.items.length > 0 && (
-          <div className="sidebar-commands-sep" aria-hidden="true" />
-        )}
-        <SmartCommandsSection
-          onOpenNote={onOpenNote}
-          saveToken={commandSaveToken}
-        />
+        {/* S2e8a4c-5: SmartCommandsSection はサイドバーから削除。
+            スマートコマンドは設定メニューで管理・Ctrl-K パレットから実行する。 */}
       </div>
     </>
   );
