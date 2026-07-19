@@ -660,22 +660,29 @@ async function openCheckboxFieldsPopover(
   });
   footer.append(cancelBtn, applyBtn);
 
-  pop.append(secSt, secDue, secPri, footer);
+  // セクションをスクロール可能なボディに包み、フッタを常時表示する
+  const cbBody = document.createElement('div');
+  cbBody.className = 'tqe-popover-body';
+  cbBody.append(secSt, secDue, secPri);
+  pop.append(cbBody, footer);
 
   // ポップオーバーを document.body に固定位置で付加 (コードミラーの DOM 再描画に影響されない)
   pop.style.cssText =
     'position:fixed;z-index:500;background:var(--bg-editor,#fff);' +
     'border:1px solid var(--border-strong,#ccc);border-radius:12px;' +
-    'padding:16px;box-shadow:0 4px 24px rgba(0,0,0,.18);min-width:280px;max-width:340px;';
+    'padding:0;display:flex;flex-direction:column;max-height:min(80vh,520px);' +
+    'box-shadow:0 4px 24px rgba(0,0,0,.18);min-width:280px;max-width:340px;overflow:hidden;';
 
   document.body.append(pop);
 
-  // 位置決め: 取得後に設定 (append 後でないと offsetWidth などが出ない)
+  // 位置決め: 取得後に設定。top をビューポート内にクランプする
   const popW = pop.offsetWidth || 300;
+  const popH = pop.offsetHeight || 380;
   const left = Math.min(triggerRect.left, window.innerWidth - popW - 8);
-  const top = triggerRect.bottom + 4;
+  const rawTop = triggerRect.bottom + 4;
+  const top = Math.min(rawTop, window.innerHeight - popH - 8);
   pop.style.left = `${String(Math.max(8, Math.round(left)))}px`;
-  pop.style.top = `${String(Math.round(top))}px`;
+  pop.style.top = `${String(Math.max(8, Math.round(top)))}px`;
 
   // クリックアウトサイドで閉じる
   const closeOnOutside = (e: MouseEvent): void => {
@@ -775,7 +782,7 @@ export async function openTaskSlashPopover(
   hdrTitle.textContent = 'タスクの属性を設定（すべてオプション）';
   hdrTitle.className = 'tqe-popover-title';
   hdr.append(hdrTitle);
-  pop.append(hdr);
+  // hdr は後で body・footer と一緒に pop.append する (順序を保証するため)
 
   // --- Status section ---
   const secSt = document.createElement('div');
@@ -992,22 +999,28 @@ export async function openTaskSlashPopover(
   });
   footer.append(cancelBtn, applyBtn);
 
-  pop.append(secSt, secDue, secPri, footer);
+  // ボディ: セクションをスクロール可能なラッパーに包む (フッタを常時表示するため)
+  const body = document.createElement('div');
+  body.className = 'tqe-popover-body';
+  body.append(secSt, secDue, secPri);
+  pop.append(hdr, body, footer);
 
-  // ポップオーバースタイル
+  // ポップオーバースタイル (overflow は .task-quick-popover CSS クラスで管理)
   pop.style.cssText =
     'position:fixed;z-index:500;background:var(--bg-editor,#fff);' +
     'border:1px solid var(--border-strong,#ccc);border-radius:12px;' +
-    'padding:0;box-shadow:0 4px 24px rgba(0,0,0,.18);min-width:280px;max-width:340px;overflow:hidden;';
+    'padding:0;box-shadow:0 4px 24px rgba(0,0,0,.18);min-width:280px;max-width:340px;';
 
   document.body.append(pop);
 
-  // 位置決め: エディタの少し下から
+  // 位置決め: ビューポート内に収まるよう top を上方向にクランプする
   const popW = pop.offsetWidth || 300;
+  const popH = pop.offsetHeight || 400;
   const left = Math.min(anchorRect.left + 40, window.innerWidth - popW - 8);
-  const top = anchorRect.top + 60;
+  const rawTop = anchorRect.top + 60;
+  const top = Math.min(rawTop, window.innerHeight - popH - 8);
   pop.style.left = `${String(Math.max(8, Math.round(left)))}px`;
-  pop.style.top = `${String(Math.round(top))}px`;
+  pop.style.top = `${String(Math.max(8, Math.round(top)))}px`;
 
   // クリックアウトサイドで閉じる
   const closeOnOutside = (e: MouseEvent): void => {

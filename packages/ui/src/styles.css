@@ -1159,7 +1159,11 @@ code {
 }
 .editor-host .cm-outline-gutter .cm-gutterElement {
   display: flex;
-  align-items: center;
+  /* align-items: flex-start + padding-top でトグルをテキスト行の先頭に揃える。
+     align-items: center にするとブロック高の中央 (大文字見出しで下へずれる) になる。
+     padding-top: 0.875em - 8px は base line-height(1.75) / 2 × 1em - トグル半径。 */
+  align-items: flex-start;
+  padding-top: max(0px, calc(0.875em - 8px));
   justify-content: center;
 }
 
@@ -1205,7 +1209,10 @@ code {
 }
 .editor-host .cm-heading-fold-gutter .cm-gutterElement {
   display: flex;
-  align-items: center;
+  /* 見出し行は font-size 拡大でブロック高が増えるが、テキストは上端から始まる。
+     align-items: flex-start + padding-top でトグルをテキスト先頭行の中央に揃える。 */
+  align-items: flex-start;
+  padding-top: max(0px, calc(0.875em - 8px));
   justify-content: center;
   background: transparent !important;
 }
@@ -6244,6 +6251,9 @@ button.callout-title { cursor: pointer; }
   right: 0;
   top: calc(1.75em + 6px);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: min(80vh, 520px);
 }
 .tqe-section { padding: 12px 14px 10px; }
 .tqe-section + .tqe-section { border-top: 1px solid var(--border); }
@@ -6295,7 +6305,40 @@ button.callout-title { cursor: pointer; }
 .tqe-priority-opt[data-val="none"]    .pf-dot { border-color: var(--border-strong); background: transparent; }
 .tqe-priority-opt .check-mark { margin-left: auto; color: var(--accent); }
 .tqe-priority-opt .check-mark svg { width: 14px; height: 14px; }
-.tqe-footer { display: flex; justify-content: flex-end; gap: 6px; padding: 8px 14px 10px; border-top: 1px solid var(--border); background: var(--bg-panel); }
+.tqe-footer { display: flex; justify-content: flex-end; gap: 6px; padding: 8px 14px 10px; border-top: 1px solid var(--border); background: var(--bg-panel); flex-shrink: 0; }
+
+/* ---- ポップオーバーヘッダ (task-quick-popover / checkbox-fields-popover 共通) ---- */
+.tqe-popover-header {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px 9px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-editor);
+  border-radius: 12px 12px 0 0;
+  flex-shrink: 0;
+}
+.tqe-popover-title {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-faint);
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+  user-select: none;
+}
+
+/* task-quick-popover: flex-column でヘッダ固定 + ボディスクロール + フッタ固定 */
+.task-quick-popover {
+  display: flex;
+  flex-direction: column;
+  max-height: min(80vh, 560px);
+  overflow: hidden;
+}
+/* tqe-popover-body: 両ポップオーバー共通 — セクションをスクロール可能な領域に包む */
+.tqe-popover-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
 
 /* ---- Dataview TASK: 展開スロット / expand ボタン / 子コンテナ (Se3b7a2-4) ---- */
 .dv-toggle-slot { width: 20px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
