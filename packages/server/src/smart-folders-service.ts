@@ -39,6 +39,7 @@ import {
   writeSystemSmartFolder,
 } from './system-store.js';
 import type { VaultIndex } from './noteIndex.js';
+import { DqlQueryCache, computeQueryHash } from './dql-cache.js';
 
 // ---- pin-only JSON (.loamium/smart-folders.json) --------------------------------
 
@@ -192,7 +193,8 @@ export type ResolveNotesResult =
  *
  * - query: parseQuery → executeQuery で結果パスを得て、重複排除・順序保持して NoteMeta 化。
  *   保存済み DQL が不正なら { ok:false, reason:'dql_error' }。
- * - pin  : ノート単体 → 1 件、フォルダ → 配下ノート (パス昇順)。
+ *   cache が指定されていれば queryHash 一致時にキャッシュヒットを返す。
+ * - pin  : ノート単体 → 1 件、フォルダ → 配下ノート (パス昇順)。キャッシュ不使用。
  * - id 不明 → { ok:false, reason:'not_found' }。
  *
  * index は PrivacyFilteredIndex でも VaultIndex でも受けられるよう
@@ -203,6 +205,7 @@ export async function resolveSmartFolderNotes(
   vaultRoot: string,
   index: Pick<VaultIndex, 'listNotes' | 'queryNotes'>,
   id: string,
+  cache?: DqlQueryCache,
 ): Promise<ResolveNotesResult> {
   const cfg = await readSmartFoldersConfig(vaultRoot);
   const item = cfg.items.find((i) => i.id === id);
@@ -217,6 +220,16 @@ export async function resolveSmartFolderNotes(
   }
 
   if (item.kind === 'query') {
+    const queryHash = computeQueryHash(item.dql);
+
+    // キャッシュヒット確認 (query kind のみ。pin kind はキャッシュ不使用)
+    if (cache !== undefined) {
+      const cached = cache.get(id, queryHash);
+      if (cached !== null) {
+        return { ok: true, notes: cached };
+      }
+    }
+
     let queryResult;
     try {
       queryResult = executeQuery(parseQuery(item.dql), index.queryNotes());
@@ -238,6 +251,13 @@ export async function resolveSmartFolderNotes(
       const meta = noteMetaMap.get(p);
       return meta !== undefined ? [meta] : [];
     });
+
+    // キャッシュに書き込む (deps は結果ノートのパス集合)
+    if (cache !== undefined) {
+      const deps = new Set(ordered);
+      cache.set(id, notes, deps, queryHash);
+    }
+
     return { ok: true, notes };
   }
 

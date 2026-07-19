@@ -6,6 +6,8 @@ import { startWatcher } from './watcher.js';
 import { runMigration } from './migrate.js';
 import { startScheduler } from './agent-scheduler.js';
 import { installEgressGuard } from './egress-guard.js';
+import { DqlQueryCache } from './dql-cache.js';
+import { SSEBroadcaster } from './sse-broadcaster.js';
 
 // オフライン acceptance ハーネス (S8a3f2e-5): 明示フラグ時のみ外部 egress を遮断する。
 // pi の fetch 差し替えより前に install するため、他の import より先に実行する。
@@ -31,7 +33,34 @@ await runMigration(config);
 const index = new VaultIndex(config.vaultRoot);
 await index.build();
 
-const app = createApp(config, index);
+// DQL キャッシュ + SSE ブロードキャスター (Sd5c9f4)
+const dqlCache = new DqlQueryCache();
+const sseBroadcaster = new SSEBroadcaster();
+
+// ファイル変更 → キャッシュ無効化 → SSE 配信
+index.setOnChange((path, op) => {
+  let affectedIds = dqlCache.invalidate(path);
+  // 新規ファイル (upsert) がどの SF の deps にも含まれていない場合:
+  // そのファイルが既存クエリにマッチするかどうか分からないため全エントリを破棄し、
+  // 全 SF を再フェッチ候補とする (priority-6: キャッシュは使い捨て・ファイルが正)。
+  if (affectedIds.length === 0 && dqlCache.size > 0) {
+    const allIds = dqlCache.allIds();
+    dqlCache.invalidateAll();
+    affectedIds = allIds;
+  }
+  // sf_invalidated: 影響のある SF ID がある場合のみ送信 (AC-Sd5c9f4-3-2)
+  if (affectedIds.length > 0) {
+    sseBroadcaster.broadcast({ type: 'sf_invalidated', affectedIds }).catch((err: unknown) => {
+      console.error('[loamium] SSE sf_invalidated broadcast error:', err);
+    });
+  }
+  // notes_changed: 常に送信 (AC-Sd5c9f4-3-3)
+  sseBroadcaster.broadcast({ type: 'notes_changed', path, op }).catch((err: unknown) => {
+    console.error('[loamium] SSE notes_changed broadcast error:', err);
+  });
+});
+
+const app = createApp(config, index, dqlCache, sseBroadcaster);
 
 // API 外の変更 (外部エディタ・Git) にも追従する
 const watcher = startWatcher(config.vaultRoot, index);

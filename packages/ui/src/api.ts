@@ -173,6 +173,14 @@ async function request<S extends z.ZodTypeAny>(
   return schema.parse(data) as z.infer<S>;
 }
 
+/**
+ * GET /api/events の URL を返す (useVaultEvents フック用)。
+ * テストではこの関数をモックして別 URL を差し込める。
+ */
+export function getVaultEventsUrl(): string {
+  return '/api/events';
+}
+
 export const api = {
   /** GET /api/health — サーバーモード等を取得。 */
   getHealth(): Promise<HealthResponse> {

@@ -6668,13 +6668,13 @@
       "title": "スマートフォルダ高速化 — DQL キャッシュ + ファイル変更 SSE プッシュ",
       "description": "スマートビューの表示遅延と stale 問題を同時解決する。サーバー側に DQL 結果キャッシュ（ファイルパスの依存集合付き）を実装し、chokidar ファイル監視（S31ba00 既存）と連携して変更があったスマートフォルダだけ無効化する。クライアントは GET /api/events（SSE）を購読し、キャッシュ無効化イベントを受け取ったら対象スマートフォルダのみ再フェッチする。物理フォルダのツリー描画も変更ファイルのパスで差分更新し、ノート保存後 1 秒以内に反映されることを acceptance テストで確認する。バックログ「query スマートフォルダの再取得」を同時解消する。",
       "milestone": false,
-      "status": "pending",
+      "status": "done",
       "depends_on": null,
       "detail_level": "detailed",
       "stories": {
         "Sd5c9f4-1": {
           "title": "サーバー側 DQL 結果キャッシュ（依存ファイルパス集合付き）",
-          "status": "pending",
+          "status": "done",
           "story_type": "api",
           "user_review_required": false,
           "review_reason": null,
@@ -6736,7 +6736,7 @@
         },
         "Sd5c9f4-2": {
           "title": "chokidar 変更検知でキャッシュ無効化 + VaultIndex の変更通知フック",
-          "status": "pending",
+          "status": "done",
           "story_type": "api",
           "user_review_required": false,
           "review_reason": null,
@@ -6787,7 +6787,7 @@
         },
         "Sd5c9f4-3": {
           "title": "GET /api/events SSE エンドポイント — キャッシュ無効化イベント配信",
-          "status": "pending",
+          "status": "done",
           "story_type": "api",
           "user_review_required": false,
           "review_reason": null,
@@ -6849,7 +6849,7 @@
         },
         "Sd5c9f4-4": {
           "title": "クライアント SSE 購読 — スマートフォルダ差分再フェッチ＋物理ツリー差分更新",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": true,
           "review_reason": "SSE 購読・再接続 UI の動作と物理ツリー差分更新の視覚的な自然さをユーザーが確認する必要がある。",
@@ -6911,7 +6911,7 @@
         },
         "Sd5c9f4-5": {
           "title": "ノート保存後 1 秒以内反映の acceptance テスト（e2e）",
-          "status": "pending",
+          "status": "done",
           "story_type": "mixed",
           "user_review_required": false,
           "review_reason": null,

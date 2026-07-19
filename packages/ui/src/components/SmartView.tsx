@@ -239,9 +239,11 @@ interface SmartFolderProps {
   onOpenNote: (path: string) => void;
   onContextMenu?: (e: ReactMouseEvent<HTMLElement>, item: SmartViewItem) => void;
   dragProps?: DragItemProps;
+  /** SSE invalidated ID 一覧 — 自分の id が含まれかつ loaded なら再フェッチ (Sd5c9f4-4) */
+  invalidatedIds?: string[];
 }
 
-function SmartFolder({ item, onOpenNote, onContextMenu, dragProps }: SmartFolderProps): JSX.Element {
+function SmartFolder({ item, onOpenNote, onContextMenu, dragProps, invalidatedIds }: SmartFolderProps): JSX.Element {
   const [expanded, setExpanded] = useState(false);
   const [loadState, setLoadState] = useState<FolderLoadState>({ kind: 'idle' });
 
@@ -264,6 +266,22 @@ function SmartFolder({ item, onOpenNote, onContextMenu, dragProps }: SmartFolder
       return next;
     });
   }, [item.id, loadState.kind]);
+
+  // SSE sf_invalidated: 自分の id が含まれかつ loaded のときのみ再フェッチ (Sd5c9f4-4)
+  useEffect(() => {
+    if (invalidatedIds === undefined || !invalidatedIds.includes(item.id)) return;
+    if (loadState.kind !== 'loaded') return;
+    // loading 中は無視 (二重リクエスト防止は setLoadState の loading チェックで担保)
+    setLoadState({ kind: 'loading' });
+    api.resolveSmartFolder(item.id).then(
+      (res) => setLoadState({ kind: 'loaded', notes: res.notes }),
+      (err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        setLoadState({ kind: 'error', message: msg });
+      },
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invalidatedIds]);
 
   const dropIndicator = dragProps?.dropIndicator ?? null;
 
@@ -585,6 +603,11 @@ export interface SmartViewProps {
   onModeChange?: (mode: PermissionMode | null) => void;
   /** インクリメントでコマンド一覧を再取得する (コマンド保存後のリフレッシュ用) */
   commandSaveToken?: number;
+  /**
+   * SSE sf_invalidated イベントで通知された SF ID の配列 (Sd5c9f4-4)。
+   * 展開済み (loaded) のフォルダのみ再フェッチする。
+   */
+  invalidatedIds?: string[];
 }
 
 type ViewLoadState =
@@ -597,7 +620,7 @@ type FormMode =
   | { type: 'create' }
   | { type: 'edit'; item: SmartViewItem };
 
-export function SmartView({ onOpenNote, onSwitchToPhysical, triggerAdd, onModeChange, commandSaveToken }: SmartViewProps): JSX.Element {
+export function SmartView({ onOpenNote, onSwitchToPhysical, triggerAdd, onModeChange, commandSaveToken, invalidatedIds }: SmartViewProps): JSX.Element {
   const [viewState, setViewState] = useState<ViewLoadState>({ kind: 'loading' });
   const [mode, setMode] = useState<PermissionMode | null>(null);
   const [formMode, setFormMode] = useState<FormMode>(null);
@@ -920,6 +943,7 @@ export function SmartView({ onOpenNote, onSwitchToPhysical, triggerAdd, onModeCh
                   onOpenNote={onOpenNote}
                   {...(isFull ? { onContextMenu: handleContextMenu } : {})}
                   {...(dragProps !== undefined ? { dragProps } : {})}
+                  {...(invalidatedIds !== undefined ? { invalidatedIds } : {})}
                 />
               );
             }

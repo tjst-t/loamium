@@ -65,8 +65,18 @@ export class VaultIndex {
   private readonly notes = new Map<string, IndexedNote>();
   private fuse: Fuse<IndexedNote> | null = null;
   private fuseDirty = true;
+  private onChangeCb: ((path: string, op: 'upsert' | 'delete') => void) | null = null;
 
   constructor(private readonly vaultRoot: string) {}
+
+  /**
+   * ファイル変更通知コールバックを登録する (Sd5c9f4-2)。
+   * refreshFile / removeFile 完了時に呼ばれる。
+   * コールバックの例外はキャッチして stderr に記録し、インデックス更新を壊さない。
+   */
+  setOnChange(cb: (path: string, op: 'upsert' | 'delete') => void): void {
+    this.onChangeCb = cb;
+  }
 
   /** vault を全走査してインデックスを構築する (起動時 / 再構築)。 */
   async build(): Promise<void> {
@@ -142,11 +152,28 @@ export class VaultIndex {
       size,
     });
     this.fuseDirty = true;
+    // onChange 通知 (例外はインデックス更新を壊さない)
+    if (this.onChangeCb !== null) {
+      try {
+        this.onChangeCb(rel, 'upsert');
+      } catch (err) {
+        console.error('[loamium] VaultIndex.onChange (upsert) error:', err);
+      }
+    }
   }
 
   removeFile(relPath: string): void {
-    if (this.notes.delete(relPath.normalize('NFC'))) {
+    const rel = relPath.normalize('NFC');
+    if (this.notes.delete(rel)) {
       this.fuseDirty = true;
+      // onChange 通知 (例外はインデックス更新を壊さない)
+      if (this.onChangeCb !== null) {
+        try {
+          this.onChangeCb(rel, 'delete');
+        } catch (err) {
+          console.error('[loamium] VaultIndex.onChange (delete) error:', err);
+        }
+      }
     }
   }
 
