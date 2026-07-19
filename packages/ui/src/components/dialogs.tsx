@@ -121,6 +121,46 @@ export function DeleteDialog(props: DeleteDialogProps): JSX.Element {
   );
 }
 
+export interface DeleteFolderDialogProps {
+  folderPath: string;
+  /** 配下の削除対象ノート数 (0 = 空フォルダ) */
+  noteCount: number;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+export function DeleteFolderDialog(props: DeleteFolderDialogProps): JSX.Element {
+  return (
+    <div className="dialog-backdrop" onClick={props.onCancel}>
+      <div
+        className="dialog"
+        data-testid="delete-folder-dialog"
+        role="dialog"
+        aria-label="フォルダを削除"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2>フォルダを削除</h2>
+        <p className="dialog-sub">{props.folderPath}</p>
+        <div className="dialog-warn">
+          <span>
+            {props.noteCount === 0
+              ? 'このフォルダは空です。リストから除去します。'
+              : `このフォルダ配下の ${String(props.noteCount)} 件のノートをディスクから削除します。vault が Git 管理されていれば履歴から復元できます。`}
+          </span>
+        </div>
+        <div className="dialog-actions">
+          <button className="btn" data-testid="delete-folder-cancel" onClick={props.onCancel}>
+            キャンセル
+          </button>
+          <button className="btn danger" data-testid="delete-folder-confirm" onClick={props.onConfirm}>
+            削除する
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export interface ConflictDialogProps {
   path: string;
   onOverwrite: () => void;

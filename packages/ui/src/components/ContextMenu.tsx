@@ -19,6 +19,8 @@ export interface ContextMenuProps {
   onNewFolder?: () => void;
   onRename: () => void;
   onDelete: () => void;
+  /** フォルダ対象時のみ: このフォルダ (配下ノートごと) を削除する */
+  onDeleteFolder?: () => void;
   /** 移動ダイアログを開く (S2e8a4c-7) */
   onMove?: () => void;
   onClose: () => void;
@@ -79,6 +81,15 @@ export function ContextMenu(props: ContextMenuProps): JSX.Element {
             </button>
             <div className="menu-sep" />
             <button className="menu-item danger" data-testid="context-delete" onClick={props.onDelete}>
+              <TrashIcon />
+              削除…
+            </button>
+          </>
+        )}
+        {props.isFolder && props.onDeleteFolder !== undefined && (
+          <>
+            <div className="menu-sep" />
+            <button className="menu-item danger" data-testid="context-delete-folder" onClick={props.onDeleteFolder}>
               <TrashIcon />
               削除…
             </button>

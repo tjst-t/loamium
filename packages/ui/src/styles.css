@@ -846,11 +846,14 @@ code {
   flex-direction: column;
   overflow: hidden;
   box-shadow: 0 -4px 24px rgba(20, 20, 35, 0.18);
-  transform: translateY(100%);
+  /* 閉じているとき: シート高さ(100%) + 56px(ボトムナビ) ぶん下へ押し出して完全非表示 */
+  transform: translateY(calc(100% + 64px));
   transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
 }
 .mobile-agent-sheet[data-open="false"] {
   pointer-events: none;
+  /* 閉じているとき: シート高さ + ボトムナビ高さ分だけ下へオフスクリーン化 */
+  transform: translateY(calc(100% + 64px));
 }
 .mobile-agent-sheet[data-open="true"] {
   transform: translateY(0);

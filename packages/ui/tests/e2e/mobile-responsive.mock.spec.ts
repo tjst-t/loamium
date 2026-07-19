@@ -258,3 +258,62 @@ test('[MOCK][mobile] Agent シートを閉じてもノート(editor)が背面に
   // エディタが消えていないことを確認
   await expect(page.getByTestId('editor')).toBeVisible();
 });
+
+test('[MOCK][mobile] 閉じた Agent シートがビューポート外に完全に隠れてボトムナビを覆わない (bug fix)', async ({ page }) => {
+  await openMobileApp(page);
+  await page.route('**/api/health', (route) => {
+    void route.fulfill(
+      json({ status: 'ok', mode: 'full', agent: { enabled: false, reason: 'not_configured' } }),
+    );
+  });
+
+  // シートが閉じている状態でのチェック (デフォルト)
+  const sheet = page.getByTestId('mobile-agent-sheet');
+  await expect(sheet).toHaveAttribute('data-open', 'false');
+
+  // シートのバウンディングボックスがビューポート下端より下にあること
+  // (完全にオフスクリーン = ビューポート高さより大きい y 座標)
+  const viewport = page.viewportSize();
+  expect(viewport).not.toBeNull();
+  if (viewport !== null) {
+    const sheetBox = await sheet.boundingBox();
+    // シートが存在する場合、その top が viewport 高さ以上 (完全にオフスクリーン)
+    if (sheetBox !== null) {
+      expect(sheetBox.y).toBeGreaterThanOrEqual(viewport.height);
+    }
+  }
+
+  // ボトムナビとその 3 アイテムがすべて完全に表示されること
+  const nav = page.getByTestId('mobile-bottom-nav');
+  await expect(nav).toBeVisible();
+
+  const navBox = await nav.boundingBox();
+  expect(navBox).not.toBeNull();
+
+  for (const testid of ['mobile-nav-notes', 'mobile-nav-search', 'mobile-nav-agent']) {
+    await expect(page.getByTestId(testid)).toBeVisible();
+  }
+});
+
+test('[MOCK][mobile] Agent シートを開いてから閉じるとボトムナビが再び完全表示される', async ({ page }) => {
+  await openMobileApp(page);
+  await page.route('**/api/health', (route) => {
+    void route.fulfill(
+      json({ status: 'ok', mode: 'full', agent: { enabled: false, reason: 'not_configured' } }),
+    );
+  });
+
+  // 開く
+  await page.getByTestId('mobile-nav-agent').click();
+  await expect(page.getByTestId('mobile-agent-sheet')).toHaveAttribute('data-open', 'true');
+
+  // 閉じる
+  await page.getByTestId('mobile-agent-sheet-close').click();
+  await expect(page.getByTestId('mobile-agent-sheet')).toHaveAttribute('data-open', 'false');
+
+  // ボトムナビが表示されていること
+  await expect(page.getByTestId('mobile-bottom-nav')).toBeVisible();
+  await expect(page.getByTestId('mobile-nav-notes')).toBeVisible();
+  await expect(page.getByTestId('mobile-nav-search')).toBeVisible();
+  await expect(page.getByTestId('mobile-nav-agent')).toBeVisible();
+});

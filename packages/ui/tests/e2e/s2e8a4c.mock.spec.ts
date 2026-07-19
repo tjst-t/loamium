@@ -389,3 +389,82 @@ test('[MOCK] S2e8a4c-7: MoveDialog キャンセルでダイアログが閉じる
   await page.getByTestId('move-dialog-cancel').click();
   await expect(page.getByTestId('move-dialog')).toHaveCount(0);
 });
+
+// ---- フォルダ削除 (context-delete-folder) ----
+
+test('[MOCK] フォルダの右クリックメニューに「削除…」ボタン (context-delete-folder) が表示される', async ({ page }) => {
+  await openApp(page);
+
+  await page.locator('[data-testid="tree-folder"][data-path="projects"]').click({ button: 'right' });
+  await expect(page.getByTestId('tree-context-menu')).toBeVisible();
+  await expect(page.getByTestId('context-delete-folder')).toBeVisible();
+});
+
+test('[MOCK] ノートの右クリックメニューには context-delete-folder は表示されない', async ({ page }) => {
+  await openApp(page);
+
+  await page.locator('[data-testid="tree-item"][data-path="projects/hydra.md"]').click({ button: 'right' });
+  await expect(page.getByTestId('tree-context-menu')).toBeVisible();
+  // ノートには削除フォルダボタンはない
+  await expect(page.getByTestId('context-delete-folder')).toHaveCount(0);
+});
+
+test('[MOCK] フォルダ削除 → 確認ダイアログが開く', async ({ page }) => {
+  await openApp(page);
+
+  await page.locator('[data-testid="tree-folder"][data-path="projects"]').click({ button: 'right' });
+  await page.getByTestId('context-delete-folder').click();
+
+  // 確認ダイアログが開く
+  await expect(page.getByTestId('delete-folder-dialog')).toBeVisible();
+  // キャンセルと確認ボタンが表示される
+  await expect(page.getByTestId('delete-folder-cancel')).toBeVisible();
+  await expect(page.getByTestId('delete-folder-confirm')).toBeVisible();
+});
+
+test('[MOCK] フォルダ削除確認ダイアログ → キャンセルでダイアログが閉じる', async ({ page }) => {
+  await openApp(page);
+
+  await page.locator('[data-testid="tree-folder"][data-path="projects"]').click({ button: 'right' });
+  await page.getByTestId('context-delete-folder').click();
+  await expect(page.getByTestId('delete-folder-dialog')).toBeVisible();
+
+  await page.getByTestId('delete-folder-cancel').click();
+  await expect(page.getByTestId('delete-folder-dialog')).toHaveCount(0);
+});
+
+test('[MOCK] フォルダ削除確認 → 配下ノートを deleteNote API で削除する', async ({ page }) => {
+  const unexpected = await installCatchAll(page);
+  const deletedPaths: string[] = [];
+
+  await page.route('**/api/notes', (route) => void route.fulfill(json({ notes: NOTES })));
+  await page.route('**/api/journal*', (route) => void route.fulfill(json(journal())));
+  await page.route('**/api/notes/**', (route) => {
+    if (route.request().method() === 'DELETE') {
+      const urlParts = new URL(route.request().url()).pathname.split('/');
+      const notePath = urlParts.slice(3).map(decodeURIComponent).join('/');
+      deletedPaths.push(notePath);
+      void route.fulfill(json({ path: notePath, deletedBacklinks: [] }));
+    } else if (route.request().method() === 'GET') {
+      void route.fulfill(json({ path: 'root.md', content: '', frontmatter: null, body: '', mtime: 1000, created: false }));
+    } else {
+      void route.fallback();
+    }
+  });
+
+  await page.goto(readHarnessState().uiUrl);
+  await expect(page.getByTestId('editor')).toBeVisible();
+
+  // projects フォルダを右クリックして削除
+  await page.locator('[data-testid="tree-folder"][data-path="projects"]').click({ button: 'right' });
+  await page.getByTestId('context-delete-folder').click();
+  await expect(page.getByTestId('delete-folder-dialog')).toBeVisible();
+  await page.getByTestId('delete-folder-confirm').click();
+
+  // deleteNote API が projects/hydra.md に対して呼ばれた
+  await expect.poll(() => deletedPaths).toContain('projects/hydra.md');
+  // ダイアログが閉じた
+  await expect(page.getByTestId('delete-folder-dialog')).toHaveCount(0);
+
+  expect(unexpected).toEqual([]);
+});

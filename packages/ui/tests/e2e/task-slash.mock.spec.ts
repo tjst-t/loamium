@@ -123,3 +123,76 @@ test('[MOCK][Se3b7a2-7] /todo でも task コマンドが絞り込まれる', as
   const item = page.locator('[data-testid="slash-item"][data-command="task"]');
   await expect(item).toBeVisible();
 });
+
+// ---- Bug fix テスト ----
+
+async function openPopoverWithVocab(page: Parameters<typeof installCatchAll>[0]) {
+  await page.route('**/api/settings/tasks', (route) => {
+    void route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        vocab: {
+          statuses: [
+            { key: 'todo', label: 'Todo', color: 'gray' },
+            { key: 'progress', label: 'Progress', color: 'blue' },
+          ],
+          priorities: [
+            { key: 'high', label: '高', color: 'amber' },
+          ],
+        },
+      }),
+    });
+  });
+  await openSlashMenu(page, 'task');
+  const taskItem = page.locator('[data-testid="slash-item"][data-command="task"]');
+  await expect(taskItem).toBeVisible({ timeout: 3000 });
+  await taskItem.click();
+  await expect(page.getByTestId('task-quick-popover')).toBeVisible({ timeout: 3000 });
+}
+
+test('[MOCK][Se3b7a2-7][Bug2a] カレンダー日付クリックでポップオーバーが閉じない', async ({ page }) => {
+  await openWithAnchor(page);
+  await openPopoverWithVocab(page);
+
+  const pop = page.getByTestId('task-quick-popover');
+
+  // カレンダーの日付をクリックしてもポップオーバーが閉じないこと
+  const calDays = page.getByTestId('cal-day');
+  await calDays.first().waitFor({ timeout: 3000 });
+  await calDays.first().dispatchEvent('click');
+  // ポップオーバーはまだ表示されていること
+  await expect(pop).toBeVisible({ timeout: 1000 });
+
+  // 別の日をもう一度クリックしても閉じない
+  const allDays = await calDays.all();
+  if (allDays.length > 1) {
+    await allDays[1]?.dispatchEvent('click');
+    await expect(pop).toBeVisible({ timeout: 1000 });
+  }
+});
+
+test('[MOCK][Se3b7a2-7][Bug2b] 挿入ボタンでエディタにステータスと期限が書き込まれる', async ({ page }) => {
+  await openWithAnchor(page);
+  await openPopoverWithVocab(page);
+
+  const pop = page.getByTestId('task-quick-popover');
+  await expect(pop).toBeVisible({ timeout: 3000 });
+
+  // ステータス「Todo」を選択
+  await page.getByTestId('status-opt-todo').dispatchEvent('click');
+
+  // 期限プリセット「今日」を選択
+  await page.getByTestId('due-preset-today').dispatchEvent('click');
+
+  // 「挿入」ボタンをクリック
+  await page.getByTestId('task-quick-popover-apply').dispatchEvent('click');
+
+  // ポップオーバーが閉じること
+  await expect(pop).not.toBeVisible({ timeout: 2000 });
+
+  // エディタに [status:: todo] と [due:: YYYY-MM-DD] が書き込まれていること
+  const editor = page.getByTestId('editor');
+  await expect(editor).toContainText('status', { timeout: 3000 });
+  await expect(editor).toContainText('due', { timeout: 3000 });
+});

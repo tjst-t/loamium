@@ -54,7 +54,7 @@ import { SystemFolderSection } from './components/SystemFolderSection.js';
 import { JournalNav } from './components/JournalNav.js';
 import { RightSidebar } from './components/RightSidebar.js';
 import { ContextMenu } from './components/ContextMenu.js';
-import { ConflictDialog, DeleteDialog, NameDialog } from './components/dialogs.js';
+import { ConflictDialog, DeleteDialog, DeleteFolderDialog, NameDialog } from './components/dialogs.js';
 import { MoveDialog } from './components/MoveDialog.js';
 import { NewNoteDialog } from './components/NewNoteDialog.js';
 import { SearchPalette } from './components/SearchPalette.js';
@@ -115,6 +115,7 @@ type DialogState =
   | { type: 'delete'; path: string }
   | { type: 'rename-file'; path: string }
   | { type: 'delete-file'; path: string }
+  | { type: 'delete-folder'; folderPath: string; noteCount: number }
   | { type: 'smart-newfile' }
   | { type: 'move'; path: string; isFolder: boolean }
   | null;
@@ -1294,6 +1295,43 @@ export function App(): JSX.Element {
     [refreshNotes],
   );
 
+  /**
+   * フォルダ削除: 配下のノートをすべて逐次削除してから extraFolders からも除去する。
+   * 既存の audited deleteNote API を再利用する (新エンドポイントは作らない)。
+   */
+  const deleteFolder = useCallback(
+    async (folderPath: string): Promise<void> => {
+      setDialog(null);
+      const targets = (notes ?? []).filter(
+        (n) => n.folder === folderPath || n.folder.startsWith(`${folderPath}/`),
+      );
+      try {
+        for (const note of targets) {
+          await api.deleteNote(note.path);
+          // 削除したノートがエディタで開かれていれば閉じる
+          if (docRef.current?.path === note.path) {
+            docRef.current = null;
+            contentRef.current = '';
+            dirtyRef.current = false;
+            setDoc(null);
+            setDirty(false);
+          }
+        }
+        // UI 合成の空フォルダも除去する
+        setExtraFolders((prev) =>
+          prev.filter((f) => f !== folderPath && !f.startsWith(`${folderPath}/`)),
+        );
+        await refreshNotes();
+        setAppError(null);
+      } catch (err) {
+        setAppError(`フォルダを削除できませんでした — ${errMessage(err)}`);
+        // 途中まで削除された場合でもノート一覧を最新化する
+        await refreshNotes();
+      }
+    },
+    [notes, refreshNotes],
+  );
+
   // ---- 添付ファイル: アップロード / リネーム / 削除 (Sf53ad6-2) ----
   const sanitizeUploadName = useCallback((raw: string, mime: string): string => {
     let name = (raw.split(/[\\/]/).pop() ?? '').trim().normalize('NFC').replace(/^\.+/, '');
@@ -2263,6 +2301,17 @@ export function App(): JSX.Element {
               path: menu.path,
             });
           }}
+          {...(menu.kind === 'folder' ? {
+            onDeleteFolder: () => {
+              const folderPath = menu.path;
+              // 配下ノート数を計算して確認ダイアログへ
+              const noteCount = (notes ?? []).filter(
+                (n) => n.folder === folderPath || n.folder.startsWith(`${folderPath}/`),
+              ).length;
+              setMenu(null);
+              setDialog({ type: 'delete-folder', folderPath, noteCount });
+            },
+          } : {})}
           {...(menu.kind !== 'attachment' ? {
             onMove: () => {
               setMenu(null);
@@ -2487,6 +2536,15 @@ export function App(): JSX.Element {
           path={dialog.path}
           kind="file"
           onConfirm={() => void deleteAttachment(dialog.path)}
+          onCancel={() => setDialog(null)}
+        />
+      )}
+
+      {dialog?.type === 'delete-folder' && (
+        <DeleteFolderDialog
+          folderPath={dialog.folderPath}
+          noteCount={dialog.noteCount}
+          onConfirm={() => void deleteFolder(dialog.folderPath)}
           onCancel={() => setDialog(null)}
         />
       )}

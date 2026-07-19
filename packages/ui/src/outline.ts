@@ -684,14 +684,18 @@ async function openCheckboxFieldsPopover(
   pop.style.left = `${String(Math.max(8, Math.round(left)))}px`;
   pop.style.top = `${String(Math.max(8, Math.round(top)))}px`;
 
-  // クリックアウトサイドで閉じる
+  // クリックアウトサイドで閉じる。
+  // mousedown を使う: click 時点では内部の replaceChildren で clicked node が
+  // DOM から外れていて pop.contains(e.target) が false になる不具合を防ぐ (Bug-2a)。
+  let _insidePop = false;
+  pop.addEventListener('mousedown', () => { _insidePop = true; }, { capture: true });
   const closeOnOutside = (e: MouseEvent): void => {
-    if (!pop.contains(e.target as Node) && e.target !== triggerEl) {
-      pop.remove();
-      document.removeEventListener('click', closeOnOutside);
-    }
+    if (_insidePop) { _insidePop = false; return; }
+    if (e.target === triggerEl) return;
+    pop.remove();
+    document.removeEventListener('mousedown', closeOnOutside, true);
   };
-  setTimeout(() => document.addEventListener('click', closeOnOutside), 0);
+  setTimeout(() => document.addEventListener('mousedown', closeOnOutside, true), 0);
 }
 
 async function applyCheckboxFields(
@@ -1022,14 +1026,17 @@ export async function openTaskSlashPopover(
   pop.style.left = `${String(Math.max(8, Math.round(left)))}px`;
   pop.style.top = `${String(Math.max(8, Math.round(top)))}px`;
 
-  // クリックアウトサイドで閉じる
-  const closeOnOutside = (e: MouseEvent): void => {
-    if (!pop.contains(e.target as Node)) {
-      pop.remove();
-      document.removeEventListener('click', closeOnOutside);
-    }
+  // クリックアウトサイドで閉じる。
+  // mousedown を使う: 内部の replaceChildren で clicked node が DOM から外れて
+  // pop.contains(e.target) が false になる不具合を防ぐ (Bug-2a)。
+  let _insidePop = false;
+  pop.addEventListener('mousedown', () => { _insidePop = true; }, { capture: true });
+  const closeOnOutside = (_e: MouseEvent): void => {
+    if (_insidePop) { _insidePop = false; return; }
+    pop.remove();
+    document.removeEventListener('mousedown', closeOnOutside, true);
   };
-  setTimeout(() => document.addEventListener('click', closeOnOutside), 0);
+  setTimeout(() => document.addEventListener('mousedown', closeOnOutside, true), 0);
 }
 
 /** 箇条書きマーカー (- / * / +) を深さ別の装飾ドットへ置換するウィジェット。 */
@@ -1120,33 +1127,42 @@ function buildListDecorations(view: EditorView, vocab: TaskVocabRequired): Decor
               widget: new TaskCheckboxWidget(checked, line.number),
             }).range(bracketFrom, bracketFrom + 3),
           );
-          // Se3b7a2-2: インラインフィールドのピルウィジェット + trigger (行末に追加)
+          // Se3b7a2-2: インラインフィールドのピルウィジェット + trigger。
+          // Bug fix: フィールドテキスト ([due:: ...] 等) を REPLACE decoration で
+          // ピルウィジェットに置き換え、ソーステキストとピルが二重表示されないようにする。
+          // カーソル行はこのブロックに入らない (active.has チェック済み)。
           const lineText = line.text;
           const fields = extractInlineFields(lineText);
-          // ピル/trigger を行末ウィジェットとして追加
-          if (fields.status !== null) {
-            widgets.push(
-              Decoration.widget({
-                widget: new StatusPillWidget(fields.status, vocab),
-                side: 1,
-              }).range(line.to),
-            );
-          }
-          if (fields.due !== null) {
-            widgets.push(
-              Decoration.widget({
-                widget: new DueChipWidget(fields.due),
-                side: 1,
-              }).range(line.to),
-            );
-          }
-          if (fields.priority !== null) {
-            widgets.push(
-              Decoration.widget({
-                widget: new PriorityFlagWidget(fields.priority, vocab),
-                side: 1,
-              }).range(line.to),
-            );
+
+          // インラインフィールドの正規表現 (共有パッケージの INLINE_FIELD_RE と同一)
+          const fieldRe = /\[([a-zA-Z][a-zA-Z0-9_-]*)::[ \t]*([^\]]*)\]/g;
+          fieldRe.lastIndex = 0;
+          let fm: RegExpExecArray | null;
+          while ((fm = fieldRe.exec(lineText)) !== null) {
+            const key = (fm[1] ?? '').toLowerCase();
+            const rawVal = (fm[2] ?? '').trim();
+            if (key !== 'status' && key !== 'priority' && key !== 'due') continue;
+            const matchFrom = line.from + fm.index;
+            const matchTo = matchFrom + fm[0].length;
+            if (key === 'status' && fields.status !== null) {
+              widgets.push(
+                Decoration.replace({
+                  widget: new StatusPillWidget(fields.status, vocab),
+                }).range(matchFrom, matchTo),
+              );
+            } else if (key === 'due' && fields.due !== null) {
+              widgets.push(
+                Decoration.replace({
+                  widget: new DueChipWidget(fields.due),
+                }).range(matchFrom, matchTo),
+              );
+            } else if (key === 'priority' && fields.priority !== null) {
+              widgets.push(
+                Decoration.replace({
+                  widget: new PriorityFlagWidget(rawVal.normalize('NFC').toLowerCase(), vocab),
+                }).range(matchFrom, matchTo),
+              );
+            }
           }
           // trigger ボタン (常に行末に追加)
           widgets.push(

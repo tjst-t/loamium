@@ -144,3 +144,82 @@ test('[MOCK][Se3b7a2-2] ポップオーバーキャンセルで閉じる', async
   await page.getByTestId('checkbox-fields-cancel').dispatchEvent('click');
   await expect(pop).not.toBeVisible({ timeout: 2000 });
 });
+
+// ---- Bug fix: due chip に関する二重表示バグの回帰テスト ----
+
+test('[MOCK][Se3b7a2-2][Bug1] 非アクティブ行では due-chip のみ表示され [due:: が見えない', async ({ page }) => {
+  const taskLine = '- [ ] 予定タスク [due:: 2026-07-20]';
+  await openWithTaskLine(page, taskLine);
+  await clickAnchorLine(page); // カーソルをタスク行から外す
+
+  // due-chip が表示されること
+  const chip = page.getByTestId('due-chip');
+  await expect(chip).toBeVisible({ timeout: 3000 });
+  await expect(chip).toHaveAttribute('data-testid', 'due-chip');
+
+  // ライン全体のテキストに "[due::" が含まれていないこと (REPLACE で隠されている)
+  // CodeMirror のレンダリング: ウィジェットで置換されたテキストはDOMに現れない
+  const editorContent = await page.getByTestId('editor').textContent();
+  expect(editorContent ?? '').not.toContain('[due::');
+});
+
+test('[MOCK][Se3b7a2-2][Bug1] 非アクティブ行では status-pill のみ表示され [status:: が見えない', async ({ page }) => {
+  const taskLine = '- [ ] ステータスタスク [status:: progress]';
+  await openWithTaskLine(page, taskLine);
+  await clickAnchorLine(page);
+
+  const pill = page.locator('[data-testid="status-pill"]');
+  await expect(pill).toBeVisible({ timeout: 3000 });
+
+  // [status:: のソーステキストが隠されていること
+  const editorContent = await page.getByTestId('editor').textContent();
+  expect(editorContent ?? '').not.toContain('[status::');
+});
+
+test('[MOCK][Se3b7a2-2][Bug1] カーソル行ではソースが見えチップが非表示になる', async ({ page }) => {
+  const taskLine = '- [ ] 予定タスク [due:: 2026-07-20]';
+  await openWithTaskLine(page, taskLine);
+
+  // タスク行にカーソルをおく (最初はタスク行が1行目なのでそこをクリック)
+  const taskLineEl = page.locator('[data-testid="editor"] .cm-line').first();
+  await taskLineEl.click();
+
+  // カーソル行なので due-chip は非表示 (ソース表示モード)
+  await expect(page.getByTestId('due-chip')).toHaveCount(0);
+
+  // ソーステキスト [due:: が見えること
+  const editorContent = await page.getByTestId('editor').textContent();
+  expect(editorContent ?? '').toContain('[due::');
+});
+
+// ---- Bug fix 2a: ポップオーバー内クリックでポップオーバーが閉じないこと ----
+
+test('[MOCK][Se3b7a2-2][Bug2a] ポップオーバー内の日付プリセットクリックでポップオーバーが閉じない', async ({ page }) => {
+  await openWithTaskLine(page, '- [ ] タスクG');
+  await page.route('**/api/settings/tasks', (route) => {
+    if (route.request().method() === 'GET') {
+      void route.fulfill(json({
+        vocab: {
+          statuses: [{ key: 'todo', label: 'TODO', color: '#64748b' }],
+          priorities: [{ key: 'high', label: '高', color: '#ea580c' }],
+        },
+      }));
+    } else {
+      void route.fallback();
+    }
+  });
+  await clickAnchorLine(page);
+  const trigger = page.getByTestId('checkbox-fields-trigger').first();
+  await trigger.waitFor({ timeout: 3000 });
+  await trigger.click({ force: true });
+  const pop = page.getByTestId('checkbox-fields-popover');
+  await expect(pop).toBeVisible({ timeout: 3000 });
+
+  // ポップオーバー内の期限プリセット「今日」をクリック — ポップオーバーが閉じないこと
+  await page.getByTestId('due-preset-today').dispatchEvent('click');
+  await expect(pop).toBeVisible({ timeout: 1000 });
+
+  // さらに「明日」をクリックしても閉じない
+  await page.getByTestId('due-preset-tomorrow').dispatchEvent('click');
+  await expect(pop).toBeVisible({ timeout: 1000 });
+});
