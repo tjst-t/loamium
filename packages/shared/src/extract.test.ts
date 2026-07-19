@@ -234,17 +234,17 @@ describe('extractTasks (Sb1593c-1)', () => {
   it('extracts unchecked and checked tasks with 1-based line numbers', () => {
     const content = '# タイトル\n\n- [ ] 未完了タスク\n- [x] 完了タスク\n- ただのリスト行\n';
     expect(extractTasks(content)).toEqual([
-      { line: 3, text: '未完了タスク', checked: false, indent: 0 },
-      { line: 4, text: '完了タスク', checked: true, indent: 0 },
+      { line: 3, text: '未完了タスク', checked: false, indent: 0, status: null, priority: null, due: null },
+      { line: 4, text: '完了タスク', checked: true, indent: 0, status: null, priority: null, due: null },
     ]);
   });
 
   it('records indent for nested tasks and accepts [X] as checked', () => {
     const content = '- [ ] 親タスク\n    - [X] 子タスク\n\t- [ ] タブ子\n';
     expect(extractTasks(content)).toEqual([
-      { line: 1, text: '親タスク', checked: false, indent: 0 },
-      { line: 2, text: '子タスク', checked: true, indent: 4 },
-      { line: 3, text: 'タブ子', checked: false, indent: 1 },
+      { line: 1, text: '親タスク', checked: false, indent: 0, status: null, priority: null, due: null },
+      { line: 2, text: '子タスク', checked: true, indent: 4, status: null, priority: null, due: null },
+      { line: 3, text: 'タブ子', checked: false, indent: 1, status: null, priority: null, due: null },
     ]);
   });
 
@@ -257,7 +257,7 @@ describe('extractTasks (Sb1593c-1)', () => {
     const content = '---\ntitle: x\n---\n- [ ] 本物\n```\n- [ ] フェンス内は無視\n```\n';
     const tasks = extractTasks(content);
     expect(tasks).toHaveLength(1);
-    expect(tasks[0]).toEqual({ line: 4, text: '本物', checked: false, indent: 0 });
+    expect(tasks[0]).toEqual({ line: 4, text: '本物', checked: false, indent: 0, status: null, priority: null, due: null });
   });
 
   it('does not match non-task syntax ([y] や checkbox なしのリンク行)', () => {
@@ -268,6 +268,45 @@ describe('extractTasks (Sb1593c-1)', () => {
   it('keeps inline code and tags in the task text verbatim', () => {
     const content = '- [ ] `code` を含む #tag タスク\n';
     expect(extractTasks(content)[0]?.text).toBe('`code` を含む #tag タスク');
+  });
+
+  // ---- Se3b7a2-1 回帰: status/priority/due フィールドが extractTasks に含まれる ----
+
+  it('[AC-Se3b7a2-1-5] status/priority/due フィールドを持つタスク行を正しく抽出する', () => {
+    const content = '- [ ] タスク A [status:: progress] [priority:: high] [due:: 2026-07-25]\n- [x] タスク B\n';
+    const tasks = extractTasks(content);
+    expect(tasks).toHaveLength(2);
+    expect(tasks[0]).toMatchObject({
+      line: 1,
+      text: 'タスク A [status:: progress] [priority:: high] [due:: 2026-07-25]',
+      checked: false,
+      indent: 0,
+      status: 'progress',
+      priority: 'high',
+      due: '2026-07-25',
+    });
+    // フィールドなしのタスクは null
+    expect(tasks[1]).toMatchObject({
+      line: 2,
+      checked: true,
+      status: null,
+      priority: null,
+      due: null,
+    });
+  });
+
+  it('[AC-Se3b7a2-1-5] チェックボックス文字は done/not-done のみを示す (ADR-0029)', () => {
+    // [ ] は unchecked、[x] は checked — status フィールドとは独立
+    const content = '- [ ] タスク [status:: done]\n- [x] タスク [status:: todo]\n';
+    const tasks = extractTasks(content);
+    expect(tasks[0]).toMatchObject({ checked: false, status: 'done' });
+    expect(tasks[1]).toMatchObject({ checked: true, status: 'todo' });
+  });
+
+  it('[AC-Se3b7a2-1-5] インラインコード内のフィールドは無視される', () => {
+    const content = '- [ ] タスク `[status:: done]` テキスト\n';
+    const tasks = extractTasks(content);
+    expect(tasks[0]).toMatchObject({ status: null });
   });
 });
 

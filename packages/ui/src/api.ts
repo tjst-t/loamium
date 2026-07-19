@@ -47,6 +47,8 @@ import {
   agentModelsResponseSchema,
   agentConnectionWriteResponseSchema,
   agentPermissionsWriteResponseSchema,
+  taskVocabResponseSchema,
+  taskVocabWriteResponseSchema,
   type TemplateInstantiateResponse,
   type TemplateSummary,
   type PropertyKeyCount,
@@ -102,6 +104,7 @@ import {
   type LocalModelDownloadAcceptedResponse,
   type LocalModelDownloadStatusResponse,
   type LocalModelDeleteResponse,
+  type TaskVocabRequired,
 } from '@loamium/shared';
 
 // ---- エージェントジョブ型を再エクスポート (S2fe109) ----
@@ -682,6 +685,53 @@ export const api = {
    */
   getAgentModels(): Promise<AgentModelsResponse> {
     return request(agentModelsResponseSchema, '/api/settings/agent/models');
+  },
+
+  // ---- タスク行パッチ (Se3b7a2) ----------------------------------------
+
+  /**
+   * ノートの 1 行テキストを置換する (POST /api/notes/{path}/patch)。
+   * old が見つからない / 複数ある → 409。呼び出し元が ApiError.status===409 を検査する。
+   * [AC-Se3b7a2-2-1]
+   */
+  patchNote(
+    path: string,
+    oldLine: string,
+    newLine: string,
+  ): Promise<{ ok: boolean; path: string; mtime: number }> {
+    return request(
+      z.object({ ok: z.boolean(), path: z.string(), mtime: z.number() }),
+      `/api/notes/${encodeNotePath(path)}/patch`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ old: oldLine, new: newLine }),
+      },
+    );
+  },
+
+  // ---- タスク語彙設定 (Se3b7a2-8) ----------------------------------------
+
+  /**
+   * タスク語彙 (statuses / priorities) を取得する (GET /api/settings/tasks)。
+   * 設定がなければ DEFAULT_TASK_VOCAB を返す。
+   * [AC-Se3b7a2-8-1]
+   */
+  async getTaskVocab(): Promise<TaskVocabRequired> {
+    const res = await request(taskVocabResponseSchema, '/api/settings/tasks');
+    return res.vocab;
+  },
+
+  /**
+   * タスク語彙を保存する (PUT /api/settings/tasks)。
+   * [AC-Se3b7a2-8-2]
+   */
+  putTaskVocab(vocab: TaskVocabRequired): Promise<{ ok: boolean }> {
+    return request(taskVocabWriteResponseSchema, '/api/settings/tasks', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ vocab }),
+    });
   },
 
   // ---- エージェントジョブ (S2fe109) ----------------------------------------

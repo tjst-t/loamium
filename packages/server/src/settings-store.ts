@@ -32,10 +32,12 @@ import {
   agentPermissionsSchema,
   parseAppSettings,
   serializeAppSettings,
+  parseTaskVocab,
   type AppSettings,
   type AgentConfig,
   type AgentPermissions,
   type AgentBackend,
+  type TaskVocabRequired,
 } from '@loamium/shared';
 import { resolveVaultFile } from './vault.js';
 
@@ -299,6 +301,60 @@ export async function saveAgentPrivacyDeny(vaultRoot: string, deny: string[]): P
   const file = agentPrivacyPath(vaultRoot);
   await fs.mkdir(path.dirname(file), { recursive: true });
   await fs.writeFile(file, `${JSON.stringify({ deny }, null, 2)}\n`, 'utf8');
+}
+
+// ---- タスク語彙 (system/settings.yaml tasks: — Se3b7a2-8 / ADR-0029) --------
+
+/**
+ * `system/settings.yaml` から `tasks:` セクションを読み込み TaskVocab を返す (寛容 read)。
+ *
+ * - ファイル不在 → DEFAULT_TASK_VOCAB を返す (フォールバック保証)。
+ * - tasks: セクションなし / 不正 → DEFAULT_TASK_VOCAB を返す (寛容 read)。
+ * - この関数は決して例外を投げない。
+ *
+ * [AC-Se3b7a2-8]
+ */
+export async function loadTaskVocab(vaultRoot: string): Promise<TaskVocabRequired> {
+  let abs: string;
+  try {
+    abs = resolveVaultFile(vaultRoot, SYSTEM_SETTINGS_PATH);
+  } catch {
+    return parseTaskVocab(null);
+  }
+  let text: string | null = null;
+  try {
+    text = await fs.readFile(abs, 'utf8');
+  } catch (err) {
+    const isEnoent =
+      err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT';
+    if (!isEnoent) {
+      console.error(`[loamium/settings-store] failed to read settings.yaml for tasks vocab: ${String(err)}`);
+    }
+    // ENOENT は正常 (初回 / 設定未作成) — parseTaskVocab(null) が DEFAULT を返す
+  }
+  return parseTaskVocab(text);
+}
+
+/**
+ * TaskVocab を `system/settings.yaml` の `tasks:` セクションに書き込む。
+ * 既存の AppSettings は読み込んでマージしてから保存する (他フィールドを壊さない)。
+ *
+ * - 親ディレクトリ (system/) を自動作成する。
+ * - UTF-8 / LF 固定。
+ * - 書き込み後の mtime を返す (楽観的競合検出用)。
+ * - 失敗した場合は例外を投げる (呼び出し側がハンドリングする)。
+ *
+ * [AC-Se3b7a2-8]
+ */
+export async function saveTaskVocab(
+  vaultRoot: string,
+  vocab: TaskVocabRequired,
+): Promise<{ mtime: number }> {
+  // 現在の AppSettings を読み込んでから tasks フィールドを更新する (他フィールドを壊さない)
+  const current = await loadSettings(vaultRoot);
+  const updated: AppSettings = { ...current, tasks: vocab };
+  const { mtime } = await saveSettings(vaultRoot, updated);
+  return { mtime };
 }
 
 // ---- $ENV_VAR 解決 -----------------------------------------------------------

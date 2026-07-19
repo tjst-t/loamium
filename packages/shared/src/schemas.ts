@@ -7,7 +7,7 @@ import { normalizeVaultFilePath, VaultPathError } from './path.js';
 import { parseQuery, DqlParseError } from './dql.js';
 import { commandParamSchema } from './loamium-command.js';
 import { AGENT_CAPABILITIES, agentPermissionsSchema } from './agent-capabilities.js';
-import { appSettingsSchema } from './system-definitions.js';
+import { appSettingsSchema, taskVocabSchema } from './system-definitions.js';
 
 // ---- 権限モード ----
 
@@ -370,6 +370,21 @@ export const taskQueryRowSchema = z.object({
   checked: z.boolean(),
   /** 行頭インデント文字数 (ネスト表示用) */
   indent: z.number().int().nonnegative(),
+  /**
+   * Dataview インラインフィールド `[status:: value]` の値 (ADR-0029 / Se3b7a2-1)。
+   * NFC 正規化後 toLowerCase。フィールドなしは null。
+   */
+  status: z.string().nullable(),
+  /**
+   * Dataview インラインフィールド `[priority:: value]` の値 (ADR-0029 / Se3b7a2-1)。
+   * NFC 正規化後 toLowerCase。フィールドなしは null。
+   */
+  priority: z.string().nullable(),
+  /**
+   * Dataview インラインフィールド `[due:: YYYY-MM-DD]` の値 (ADR-0029 / Se3b7a2-1)。
+   * 形式不正 / フィールドなしは null。
+   */
+  due: z.string().nullable(),
 });
 export type TaskQueryRow = z.infer<typeof taskQueryRowSchema>;
 
@@ -1217,6 +1232,38 @@ export const agentPrivacyWriteResponseSchema = z.object({
   ok: z.boolean(),
 });
 export type AgentPrivacyWriteResponse = z.infer<typeof agentPrivacyWriteResponseSchema>;
+
+// ---- Group 5: タスク語彙 (system/settings.yaml tasks: — Se3b7a2-8 / ADR-0029) ----
+
+/**
+ * GET /api/settings/tasks のレスポンス。
+ * tasks: セクションが未設定でも DEFAULT_TASK_VOCAB を返す (フォールバック保証)。
+ */
+export const taskVocabResponseSchema = z.object({
+  vocab: taskVocabSchema.extend({
+    statuses: taskVocabSchema.shape.statuses.unwrap(),
+    priorities: taskVocabSchema.shape.priorities.unwrap(),
+  }),
+});
+export type TaskVocabResponse = z.infer<typeof taskVocabResponseSchema>;
+
+/**
+ * PUT /api/settings/tasks のリクエスト。
+ * vocab: 書き込むタスク語彙。statuses/priorities は必須配列 (put なので全体置換)。
+ */
+export const taskVocabWriteRequestSchema = z.object({
+  vocab: taskVocabSchema.extend({
+    statuses: taskVocabSchema.shape.statuses.unwrap(),
+    priorities: taskVocabSchema.shape.priorities.unwrap(),
+  }),
+});
+export type TaskVocabWriteRequest = z.infer<typeof taskVocabWriteRequestSchema>;
+
+/** PUT /api/settings/tasks のレスポンス。 */
+export const taskVocabWriteResponseSchema = z.object({
+  ok: z.boolean(),
+});
+export type TaskVocabWriteResponse = z.infer<typeof taskVocabWriteResponseSchema>;
 
 // ---- 接続テスト (POST /api/settings/agent/connection/test) ----
 

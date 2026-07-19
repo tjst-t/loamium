@@ -158,8 +158,10 @@ const CAPABILITY_TOOL_NAMES: Record<Capability, readonly string[]> = {
   journal_append: ['journal_append'],
   note_create: ['note_create'],
   // note_edit はノート patch 編集 (note_edit) + フロントマタープロパティ/タグ編集 (note_property)
-  // + リネーム/移動 (note_move。[[リンク]]一括追従) を広告する (編集系のため同一ケーパビリティに畳む)。
-  note_edit: ['note_edit', 'note_move', 'note_property'],
+  // + リネーム/移動 (note_move。[[リンク]]一括追従)
+  // + タスク Dataview インラインフィールド設定 (task_set_fields。ADR-0029 / Se3b7a2-6)
+  // を広告する (編集系のため同一ケーパビリティに畳む)。
+  note_edit: ['note_edit', 'note_move', 'note_property', 'task_set_fields'],
   // note_delete は破壊的なノート削除。独立ケーパビリティで full のみ許可 (MODE_ALLOWED)。
   note_delete: ['note_delete'],
   // template_write はテンプレート適用によるノート生成を広告する (Sc4b9d1-3):

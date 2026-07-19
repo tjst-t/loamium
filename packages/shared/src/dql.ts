@@ -388,6 +388,11 @@ function taskField(note: QueryableNote, task: NoteTask, field: string): FieldVal
   if (key === 'completed' || key === 'checked') return task.checked;
   if (key === 'text') return task.text;
   if (key === 'line') return task.line;
+  // Se3b7a2-3: Dataview インラインフィールド (status / priority / due) を解決する。
+  // null フィールドは欠損扱い — compare/truthy の欠損ルール (null-false) に従う。
+  if (key === 'status') return task.status;
+  if (key === 'priority') return task.priority;
+  if (key === 'due') return task.due;
   return noteField(note, field);
 }
 
@@ -532,6 +537,10 @@ export function executeQuery(ast: DqlQuery, notes: readonly QueryableNote[]): Qu
       text: task.text,
       checked: task.checked,
       indent: task.indent,
+      // Se3b7a2-3: Dataview インラインフィールド (ADR-0029)
+      status: task.status,
+      priority: task.priority,
+      due: task.due,
     }));
     return { type: 'task', results: rows };
   }

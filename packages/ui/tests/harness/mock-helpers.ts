@@ -177,5 +177,42 @@ export async function installCatchAll(page: Page): Promise<string[]> {
       void route.fallback();
     }
   });
+  // GET /api/events (Sd5c9f4-4 SSE プッシュ — EventSource はロング接続)。
+  // モック環境では即座に空の SSE ストリームを返す (イベントは送らない)。
+  await page.route('**/api/events', (route) => {
+    void route.fulfill({
+      status: 200,
+      contentType: 'text/event-stream',
+      headers: { 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' },
+      body: ': keep-alive\n\n',
+    });
+  });
+  // GET/PUT /api/settings/tasks (Se3b7a2-8 タスク語彙設定)。
+  // 既定は DEFAULT_TASK_VOCAB 相当 (statuses + priorities)。
+  await page.route('**/api/settings/tasks', (route) => {
+    const method = route.request().method();
+    if (method === 'GET') {
+      void route.fulfill(json({
+        vocab: {
+          statuses: [
+            { key: 'todo', label: 'TODO', color: '#64748b' },
+            { key: 'progress', label: '進行中', color: '#2563eb' },
+            { key: 'blocked', label: 'ブロック', color: '#dc2626' },
+            { key: 'done', label: '完了', color: '#16a34a', done: true },
+          ],
+          priorities: [
+            { key: 'highest', label: '最高', color: '#dc2626' },
+            { key: 'high', label: '高', color: '#ea580c' },
+            { key: 'medium', label: '中', color: '#2563eb' },
+            { key: 'low', label: '低', color: '#64748b' },
+          ],
+        },
+      }));
+    } else if (method === 'PUT') {
+      void route.fulfill(json({ ok: true }));
+    } else {
+      void route.fallback();
+    }
+  });
   return unexpected;
 }

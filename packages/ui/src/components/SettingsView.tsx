@@ -25,6 +25,7 @@ import { TemplatesPanel } from './TemplatesPanel.js';
 import { SmartFoldersPanel } from './SmartFoldersPanel.js';
 import { CommandsPanel } from './CommandsPanel.js';
 import { AgentJobsPanel } from './AgentJobsPanel.js';
+import { TaskVocabPanel } from './TaskVocabPanel.js';
 import type {
   AppSettings,
   AgentConnectionResponse,
@@ -38,7 +39,7 @@ import type {
 
 // ---- 型 ----
 
-type SettingsGroup = 'general' | 'agent' | 'privacy' | 'templates' | 'smart-folders' | 'commands' | 'agent-jobs';
+type SettingsGroup = 'general' | 'agent' | 'privacy' | 'templates' | 'smart-folders' | 'commands' | 'agent-jobs' | 'tasks';
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 interface SettingsViewProps {
@@ -1246,7 +1247,7 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
     : null;
 
   // コンテンツグループ (master-detail) かどうか
-  const isContentGroup = activeGroup === 'templates' || activeGroup === 'smart-folders' || activeGroup === 'commands' || activeGroup === 'agent-jobs';
+  const isContentGroup = activeGroup === 'templates' || activeGroup === 'smart-folders' || activeGroup === 'commands' || activeGroup === 'agent-jobs' || activeGroup === 'tasks';
 
   const mainClass = `settings-main${readonly ? ' readonly' : ''}${isContentGroup ? ' settings-main-md' : ''}`;
 
@@ -1331,6 +1332,19 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
           <IconClock />
           エージェントジョブ
         </button>
+        <button
+          type="button"
+          className={`nav-item${activeGroup === 'tasks' ? ' active' : ''}`}
+          data-testid="settings-nav-item"
+          data-group="tasks"
+          onClick={() => switchGroup('tasks')}
+        >
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2.5" y="2.5" width="11" height="11" rx="2" />
+            <path d="M5 8l2.2 2.2L11 5.5" />
+          </svg>
+          タスク語彙
+        </button>
       </nav>
 
       {/* 右: パネル or master-detail */}
@@ -1352,6 +1366,10 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
           {/* エージェントジョブ — S2fe109 */}
           {activeGroup === 'agent-jobs' && (
             <AgentJobsPanel mode={mode} />
+          )}
+          {/* タスク語彙 — Se3b7a2-8 */}
+          {activeGroup === 'tasks' && (
+            <TaskVocabPanel mode={mode} />
           )}
         </div>
       ) : (

@@ -25,11 +25,13 @@ import {
   normalizeVaultPath,
   VaultPathError,
   JournalDateError,
+  setInlineField,
   type Capability,
 } from '@loamium/shared';
 import type { ServerConfig } from './config.js';
 import type { VaultIndex } from './noteIndex.js';
 import { writeAuditEntry } from './audit.js';
+import { readNote } from './vault.js';
 import {
   appendToJournal,
   appendToNote,
@@ -231,6 +233,102 @@ export function createVaultWriteTools(
           if (!result.ok) return failText(result);
           await audit(config, 'agent.note_edit', resolved.rel);
           return textResult(`ノートを編集しました: ${resolved.rel}`, { path: resolved.rel });
+        },
+      }),
+    );
+  }
+
+  // ---- task_set_fields (note_edit) -------------------------------------------
+
+  if (capSet.has('note_edit')) {
+    tools.push(
+      defineTool({
+        name: 'task_set_fields',
+        label: 'タスク インラインフィールド編集',
+        description:
+          'ノート内の特定行のタスクに Dataview インラインフィールド (status / priority / due) を ' +
+          '設定または削除する (ADR-0029)。チェックボックス文字 ([x] / [ ]) はこのツールでは変更しない。\n' +
+          '- line: 0-indexed 行番号 (task_query / dql_query の "line" フィールドと対応)\n' +
+          '- status/priority/due: 設定する値。null を渡すとフィールドを削除する。省略 (undefined) は変更なし\n' +
+          '- 行が存在しない / タスク行でない場合はエラー\n' +
+          '- 書き込みは patchNote を経由するため audit.log に記録される (ADR-0016)',
+        parameters: Type.Object({
+          path: Type.String({ description: 'vault 相対パス (既存ノート)' }),
+          line: Type.Number({ description: '変更対象の 0-indexed 行番号 (task_query の line フィールド)' }),
+          status: Type.Optional(
+            Type.Union([Type.String(), Type.Null()], {
+              description: '設定する status 値 (null でフィールド削除)',
+            }),
+          ),
+          priority: Type.Optional(
+            Type.Union([Type.String(), Type.Null()], {
+              description: '設定する priority 値 (null でフィールド削除)',
+            }),
+          ),
+          due: Type.Optional(
+            Type.Union([Type.String(), Type.Null()], {
+              description: '設定する due 日付 YYYY-MM-DD (null でフィールド削除)',
+            }),
+          ),
+        }),
+        async execute(_id, params): Promise<ToolResult> {
+          const resolved = resolveWritablePath(params.path, isDenied);
+          if (!resolved.ok) return resolved.result;
+
+          // ノートを読み込んで対象行を取得する
+          const content = await readNote(config.vaultRoot, resolved.rel);
+          if (content === null) {
+            return textResult(`ノートが見つかりません: ${resolved.rel}`, {
+              error: true,
+              path: resolved.rel,
+            });
+          }
+          const lines = content.split('\n');
+          const lineIdx = Math.trunc(params.line);
+          const rawLine: string | undefined = lines[lineIdx];
+          if (lineIdx < 0 || lineIdx >= lines.length || rawLine === undefined) {
+            return textResult(
+              `行番号が範囲外です: ${String(lineIdx)} (行数: ${String(lines.length)})`,
+              { error: true },
+            );
+          }
+          const oldLine: string = rawLine;
+          // タスク行かどうか (- [ ] / - [x] 形式) を確認する
+          if (!/^\s*-\s+\[[^\]]\]/.test(oldLine)) {
+            return textResult(
+              `指定行はタスク行ではありません (行 ${String(lineIdx)}): ${oldLine.slice(0, 80)}`,
+              { error: true },
+            );
+          }
+
+          // setInlineField を順番に適用して新しい行テキストを構築する
+          let newLine: string = oldLine;
+          // undefined = 変更なし / null = 削除 / string = 設定
+          if (params.status !== undefined) {
+            newLine = setInlineField(newLine, 'status', params.status ?? null);
+          }
+          if (params.priority !== undefined) {
+            newLine = setInlineField(newLine, 'priority', params.priority ?? null);
+          }
+          if (params.due !== undefined) {
+            newLine = setInlineField(newLine, 'due', params.due ?? null);
+          }
+
+          if (newLine === oldLine) {
+            return textResult(`変更なし (指定フィールドの値は既に同じです): ${resolved.rel} 行 ${String(lineIdx)}`, {
+              path: resolved.rel,
+            });
+          }
+
+          // patchNote (ADR-0016) を使って旧行→新行を置換する
+          // oldLine が一意でない場合は patchNote がエラーを返す (行番号ではなくテキストで一意性を確認)
+          const patchResult = await patchNote(config, resolved.rel, oldLine, newLine);
+          if (!patchResult.ok) return failText(patchResult);
+          await audit(config, 'agent.task_set_fields', resolved.rel);
+          return textResult(
+            `タスクフィールドを更新しました: ${resolved.rel} 行 ${String(lineIdx)}`,
+            { path: resolved.rel },
+          );
         },
       }),
     );
@@ -515,6 +613,7 @@ export const VAULT_WRITE_TOOL_NAMES = [
   'note_edit',
   'note_move',
   'note_property',
+  'task_set_fields',
   'template_delete',
   'template_write',
 ] as const;

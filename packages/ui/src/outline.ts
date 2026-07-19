@@ -30,6 +30,14 @@ import {
 } from '@codemirror/view';
 import { codeFolding, foldEffect, foldedRanges, syntaxTree, unfoldEffect } from '@codemirror/language';
 import type { SyntaxNode } from '@lezer/common';
+import {
+  extractInlineFields,
+  setInlineField,
+  DEFAULT_TASK_VOCAB,
+  type TaskVocabRequired,
+} from '@loamium/shared';
+import { api } from './api.js';
+import { notePathFacet } from './live-preview.js';
 
 /** インデント単位 (4 スペース — decisions.json I1: 1. リストの CommonMark ネスト要件を満たす) */
 export const INDENT_UNIT = '    ';
@@ -222,11 +230,63 @@ const outlineFolding: Extension = codeFolding({
   },
 });
 
-// ---- チェックボックス (- [ ] / - [x]) ---------------------------------------
+// ---- チェックボックス (- [ ] / - [x]) + ピル + トリガー --------------------
 
 const CHECK_SVG =
   '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>';
+const GEAR_SVG =
+  '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4"/></svg>';
+const FLAG_OUTLINE_SVG =
+  '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10l-2 4 2 4H5v4H3z"/></svg>';
+const CAL_SMALL_SVG =
+  '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2.5" y="3" width="11" height="10.5" rx="2"/><path d="M2.5 7h11M5.5 1v3M10.5 1v3"/></svg>';
+const CHECK_MARK_SVG =
+  '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l4 4 6-7"/></svg>';
 
+/** キャッシュ: 語彙を一度取得したら再利用 */
+let _cachedVocab: TaskVocabRequired | null = null;
+
+async function getVocab(): Promise<TaskVocabRequired> {
+  if (_cachedVocab !== null) return _cachedVocab;
+  try {
+    _cachedVocab = await api.getTaskVocab();
+  } catch {
+    _cachedVocab = DEFAULT_TASK_VOCAB;
+  }
+  return _cachedVocab;
+}
+
+/** 今日の YYYY-MM-DD */
+function todayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+/** 明日の YYYY-MM-DD */
+function tomorrowStr(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+/** 来週月曜の YYYY-MM-DD */
+function nextWeekStr(): string {
+  const d = new Date();
+  const day = d.getDay();
+  const daysToMon = day === 0 ? 1 : 8 - day;
+  d.setDate(d.getDate() + daysToMon);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** 期日クラス */
+function dueCssClass(due: string): string {
+  const today = todayStr();
+  const tom = tomorrowStr();
+  if (due < today) return 'dc-overdue';
+  if (due === today) return 'dc-today';
+  if (due === tom) return 'dc-tomorrow';
+  return 'dc-future';
+}
+
+/** チェックボックス丸ウィジェット (Se3b7a2-2) */
 class TaskCheckboxWidget extends WidgetType {
   constructor(
     readonly checked: boolean,
@@ -241,13 +301,15 @@ class TaskCheckboxWidget extends WidgetType {
 
   override toDOM(view: EditorView): HTMLElement {
     const btn = document.createElement('button');
+    btn.type = 'button';
     btn.className = this.checked ? 'task-checkbox checked' : 'task-checkbox';
     btn.setAttribute('data-testid', 'task-checkbox');
     btn.setAttribute('data-line', String(this.lineNo));
+    btn.setAttribute('data-done', this.checked ? 'true' : 'false');
     btn.setAttribute('aria-label', this.checked ? '完了タスク' : '未完了タスク');
-    if (this.checked) btn.innerHTML = CHECK_SVG;
+    btn.innerHTML = CHECK_SVG;
     btn.onmousedown = (e) => {
-      e.preventDefault(); // カーソル移動させずにトグルする
+      e.preventDefault();
     };
     btn.onclick = (e) => {
       e.preventDefault();
@@ -262,6 +324,410 @@ class TaskCheckboxWidget extends WidgetType {
       });
     };
     return btn;
+  }
+}
+
+/** ステータスピル (Se3b7a2-2) */
+class StatusPillWidget extends WidgetType {
+  constructor(
+    readonly statusKey: string,
+    readonly vocab: TaskVocabRequired,
+  ) { super(); }
+
+  override eq(other: StatusPillWidget): boolean {
+    return other.statusKey === this.statusKey;
+  }
+
+  override toDOM(): HTMLElement {
+    const pill = document.createElement('span');
+    pill.className = 'status-pill';
+    pill.setAttribute('data-testid', 'status-pill');
+    pill.setAttribute('data-status', this.statusKey);
+    const entry = this.vocab.statuses.find((s) => s.key === this.statusKey);
+    pill.textContent = entry?.label ?? this.statusKey;
+    return pill;
+  }
+}
+
+/** 優先度フラグ (Se3b7a2-2) */
+class PriorityFlagWidget extends WidgetType {
+  constructor(
+    readonly priorityKey: string,
+    readonly vocab: TaskVocabRequired,
+  ) { super(); }
+
+  override eq(other: PriorityFlagWidget): boolean {
+    return other.priorityKey === this.priorityKey;
+  }
+
+  override toDOM(): HTMLElement {
+    const flag = document.createElement('span');
+    flag.className = 'priority-flag';
+    flag.setAttribute('data-testid', 'priority-flag');
+    flag.setAttribute('data-priority', this.priorityKey);
+    flag.innerHTML = FLAG_OUTLINE_SVG;
+    const entry = this.vocab.priorities.find((p) => p.key === this.priorityKey);
+    flag.append(document.createTextNode(entry?.label ?? this.priorityKey));
+    return flag;
+  }
+}
+
+/** 期日チップ (Se3b7a2-2) */
+class DueChipWidget extends WidgetType {
+  constructor(readonly due: string) { super(); }
+
+  override eq(other: DueChipWidget): boolean {
+    return other.due === this.due;
+  }
+
+  override toDOM(): HTMLElement {
+    const chip = document.createElement('span');
+    chip.className = `due-chip ${dueCssClass(this.due)}`;
+    chip.setAttribute('data-testid', 'due-chip');
+    chip.innerHTML = CAL_SMALL_SVG;
+    chip.append(document.createTextNode(this.due));
+    return chip;
+  }
+}
+
+/** クイック編集トリガーボタン (ギアアイコン — Se3b7a2-2) */
+class CheckboxFieldsTriggerWidget extends WidgetType {
+  constructor(
+    readonly lineNo: number,
+    readonly lineText: string,
+  ) { super(); }
+
+  override eq(other: CheckboxFieldsTriggerWidget): boolean {
+    return other.lineNo === this.lineNo && other.lineText === this.lineText;
+  }
+
+  override toDOM(view: EditorView): HTMLElement {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'checkbox-fields-trigger';
+    btn.setAttribute('data-testid', 'checkbox-fields-trigger');
+    btn.setAttribute('data-line', String(this.lineNo));
+    btn.setAttribute('aria-label', 'ステータス・期限・優先度を編集');
+    btn.innerHTML = GEAR_SVG;
+    btn.onmousedown = (e) => { e.preventDefault(); };
+    btn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      void openCheckboxFieldsPopover(view, this.lineNo, this.lineText, btn);
+    };
+    return btn;
+  }
+}
+
+// ---- クイック編集ポップオーバー (Se3b7a2-2) ----------------------------------
+
+interface PopoverEditorState {
+  status: string | null;
+  priority: string | null;
+  due: string | null;
+  calYear: number;
+  calMonth: number;
+}
+
+async function openCheckboxFieldsPopover(
+  view: EditorView,
+  lineNo: number,
+  lineText: string,
+  triggerEl: HTMLElement,
+): Promise<void> {
+  // 既存のポップオーバーがあれば閉じる
+  const existing = document.querySelector('.checkbox-fields-popover');
+  if (existing !== null) { existing.remove(); if (existing.getAttribute('data-line') === String(lineNo)) return; }
+
+  // triggerRect は非同期処理前に取得 (getVocab() 待機中に DOM から外れる可能性があるため)
+  const triggerRect = triggerEl.getBoundingClientRect();
+
+  const vocab = await getVocab();
+  const fields = extractInlineFields(lineText);
+
+  const st: PopoverEditorState = {
+    status: fields.status,
+    priority: fields.priority,
+    due: fields.due,
+    calYear: new Date().getFullYear(),
+    calMonth: new Date().getMonth(),
+  };
+
+  const pop = document.createElement('div');
+  pop.className = 'checkbox-fields-popover';
+  pop.setAttribute('data-testid', 'checkbox-fields-popover');
+  pop.setAttribute('data-line', String(lineNo));
+
+  // --- Status section ---
+  const secSt = document.createElement('div');
+  secSt.className = 'tqe-section';
+  const lblSt = document.createElement('div');
+  lblSt.className = 'tqe-section-label';
+  lblSt.textContent = 'ステータス';
+  const stOpts = document.createElement('div');
+  stOpts.className = 'tqe-status-opts';
+
+  const renderStOpts = (): void => {
+    stOpts.replaceChildren();
+    const noneBtn = document.createElement('button');
+    noneBtn.type = 'button';
+    noneBtn.className = st.status === null ? 'tqe-status-opt active' : 'tqe-status-opt';
+    noneBtn.setAttribute('data-status', 'none');
+    noneBtn.setAttribute('data-testid', 'status-opt-none');
+    const noneG = document.createElement('span');
+    noneG.className = 'so-glyph';
+    const noneC = document.createElement('span');
+    noneC.className = 'so-check';
+    noneC.textContent = '✓';
+    noneBtn.append(noneG, document.createTextNode('なし'), noneC);
+    noneBtn.addEventListener('click', () => { st.status = null; renderStOpts(); });
+    stOpts.append(noneBtn);
+    for (const s of vocab.statuses) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = st.status === s.key ? 'tqe-status-opt active' : 'tqe-status-opt';
+      btn.setAttribute('data-status', s.key);
+      btn.setAttribute('data-testid', `status-opt-${s.key}`);
+      const g = document.createElement('span');
+      g.className = 'so-glyph';
+      const c = document.createElement('span');
+      c.className = 'so-check';
+      c.textContent = '✓';
+      btn.append(g, document.createTextNode(s.label), c);
+      const sKey = s.key;
+      btn.addEventListener('click', () => { st.status = sKey; renderStOpts(); });
+      stOpts.append(btn);
+    }
+  };
+  renderStOpts();
+  secSt.append(lblSt, stOpts);
+
+  // --- Due section ---
+  const secDue = document.createElement('div');
+  secDue.className = 'tqe-section';
+  const lblDue = document.createElement('div');
+  lblDue.className = 'tqe-section-label';
+  lblDue.textContent = '期限';
+  const presets = document.createElement('div');
+  presets.className = 'tqe-presets';
+
+  const renderPresets = (): void => {
+    presets.replaceChildren();
+    const items = [
+      { label: '今日', val: todayStr(), testid: 'due-preset-today' },
+      { label: '明日', val: tomorrowStr(), testid: 'due-preset-tomorrow' },
+      { label: '来週', val: nextWeekStr(), testid: 'due-preset-nextweek' },
+    ];
+    for (const item of items) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = st.due === item.val ? 'tqe-preset-btn active' : 'tqe-preset-btn';
+      btn.setAttribute('data-testid', item.testid);
+      btn.textContent = item.label;
+      btn.addEventListener('click', () => { st.due = item.val; renderPresets(); renderCal(); });
+      presets.append(btn);
+    }
+    if (st.due !== null) {
+      const clr = document.createElement('button');
+      clr.type = 'button';
+      clr.className = 'tqe-preset-btn clear';
+      clr.setAttribute('data-testid', 'due-preset-clear');
+      clr.textContent = 'クリア';
+      clr.addEventListener('click', () => { st.due = null; renderPresets(); renderCal(); });
+      presets.append(clr);
+    }
+  };
+  renderPresets();
+
+  const cal = document.createElement('div');
+  cal.className = 'tqe-calendar';
+  cal.setAttribute('data-testid', 'due-calendar');
+  const DOW = ['日', '月', '火', '水', '木', '金', '土'];
+  const renderCal = (): void => {
+    cal.replaceChildren();
+    const { calYear: y, calMonth: m } = st;
+    const hdr = document.createElement('div');
+    hdr.className = 'tqe-cal-header';
+    const prev = document.createElement('button');
+    prev.type = 'button';
+    prev.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>';
+    prev.addEventListener('click', () => {
+      if (st.calMonth === 0) { st.calMonth = 11; st.calYear--; } else { st.calMonth--; }
+      renderCal();
+    });
+    const mlbl = document.createElement('span');
+    mlbl.textContent = `${String(y)}年 ${String(m + 1)}月`;
+    const next = document.createElement('button');
+    next.type = 'button';
+    next.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>';
+    next.addEventListener('click', () => {
+      if (st.calMonth === 11) { st.calMonth = 0; st.calYear++; } else { st.calMonth++; }
+      renderCal();
+    });
+    hdr.append(prev, mlbl, next);
+    const grid = document.createElement('div');
+    grid.className = 'tqe-cal-grid';
+    for (const d of DOW) {
+      const dw = document.createElement('div');
+      dw.className = 'tqe-cal-dow';
+      dw.textContent = d;
+      grid.append(dw);
+    }
+    const firstDay = new Date(y, m, 1).getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    for (let i = 0; i < firstDay; i++) {
+      const ph = document.createElement('div');
+      ph.className = 'tqe-cal-day other-month';
+      grid.append(ph);
+    }
+    const today = todayStr();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${String(y)}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const cell = document.createElement('div');
+      cell.className = 'tqe-cal-day';
+      if (dateStr === today) cell.classList.add('today');
+      if (dateStr === st.due) cell.classList.add('selected');
+      cell.textContent = String(d);
+      cell.setAttribute('data-testid', 'cal-day');
+      cell.setAttribute('data-date', dateStr);
+      cell.addEventListener('click', () => { st.due = dateStr; renderPresets(); renderCal(); });
+      grid.append(cell);
+    }
+    cal.append(hdr, grid);
+  };
+  renderCal();
+  secDue.append(lblDue, presets, cal);
+
+  // --- Priority section ---
+  const secPri = document.createElement('div');
+  secPri.className = 'tqe-section';
+  const lblPri = document.createElement('div');
+  lblPri.className = 'tqe-section-label';
+  lblPri.textContent = '優先度';
+  const priOpts = document.createElement('div');
+  priOpts.className = 'tqe-priority-opts';
+  const renderPriOpts = (): void => {
+    priOpts.replaceChildren();
+    const noneBtn = document.createElement('button');
+    noneBtn.type = 'button';
+    noneBtn.className = st.priority === null ? 'tqe-priority-opt selected' : 'tqe-priority-opt';
+    noneBtn.setAttribute('data-val', 'none');
+    noneBtn.setAttribute('data-testid', 'priority-opt-none');
+    const noneDot = document.createElement('span');
+    noneDot.className = 'pf-dot';
+    const noneChk = document.createElement('span');
+    noneChk.className = 'check-mark';
+    if (st.priority === null) noneChk.innerHTML = CHECK_MARK_SVG;
+    noneBtn.append(noneDot, document.createTextNode('なし'), noneChk);
+    noneBtn.addEventListener('click', () => { st.priority = null; renderPriOpts(); });
+    priOpts.append(noneBtn);
+    for (const p of vocab.priorities) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = st.priority === p.key ? 'tqe-priority-opt selected' : 'tqe-priority-opt';
+      btn.setAttribute('data-val', p.key);
+      btn.setAttribute('data-testid', `priority-opt-${p.key}`);
+      const dot = document.createElement('span');
+      dot.className = 'pf-dot';
+      const chk = document.createElement('span');
+      chk.className = 'check-mark';
+      if (st.priority === p.key) chk.innerHTML = CHECK_MARK_SVG;
+      btn.append(dot, document.createTextNode(p.label), chk);
+      const pKey = p.key;
+      btn.addEventListener('click', () => { st.priority = pKey; renderPriOpts(); });
+      priOpts.append(btn);
+    }
+  };
+  renderPriOpts();
+  secPri.append(lblPri, priOpts);
+
+  // --- Footer ---
+  const footer = document.createElement('div');
+  footer.className = 'tqe-footer';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'btn btn-sm';
+  cancelBtn.setAttribute('data-testid', 'checkbox-fields-cancel');
+  cancelBtn.textContent = 'キャンセル';
+  cancelBtn.addEventListener('click', () => { pop.remove(); });
+  const applyBtn = document.createElement('button');
+  applyBtn.type = 'button';
+  applyBtn.className = 'btn btn-sm btn-primary';
+  applyBtn.setAttribute('data-testid', 'checkbox-fields-apply');
+  applyBtn.textContent = '適用';
+  applyBtn.addEventListener('click', () => {
+    void applyCheckboxFields(view, lineNo, lineText, st.status, st.priority, st.due, pop);
+  });
+  footer.append(cancelBtn, applyBtn);
+
+  pop.append(secSt, secDue, secPri, footer);
+
+  // ポップオーバーを document.body に固定位置で付加 (コードミラーの DOM 再描画に影響されない)
+  pop.style.cssText =
+    'position:fixed;z-index:500;background:var(--bg-editor,#fff);' +
+    'border:1px solid var(--border-strong,#ccc);border-radius:12px;' +
+    'padding:16px;box-shadow:0 4px 24px rgba(0,0,0,.18);min-width:280px;max-width:340px;';
+
+  document.body.append(pop);
+
+  // 位置決め: 取得後に設定 (append 後でないと offsetWidth などが出ない)
+  const popW = pop.offsetWidth || 300;
+  const left = Math.min(triggerRect.left, window.innerWidth - popW - 8);
+  const top = triggerRect.bottom + 4;
+  pop.style.left = `${String(Math.max(8, Math.round(left)))}px`;
+  pop.style.top = `${String(Math.round(top))}px`;
+
+  // クリックアウトサイドで閉じる
+  const closeOnOutside = (e: MouseEvent): void => {
+    if (!pop.contains(e.target as Node) && e.target !== triggerEl) {
+      pop.remove();
+      document.removeEventListener('click', closeOnOutside);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', closeOnOutside), 0);
+}
+
+async function applyCheckboxFields(
+  view: EditorView,
+  lineNo: number,
+  lineText: string,
+  status: string | null,
+  priority: string | null,
+  due: string | null,
+  pop: HTMLElement,
+): Promise<void> {
+  const notePath = view.state.facet(notePathFacet);
+  if (notePath.length === 0) { pop.remove(); return; }
+
+  let newLine = lineText;
+  // status
+  const curFields = extractInlineFields(lineText);
+  if (status !== curFields.status) {
+    newLine = setInlineField(newLine, 'status', status ?? undefined);
+  }
+  if (priority !== curFields.priority) {
+    newLine = setInlineField(newLine, 'priority', priority ?? undefined);
+  }
+  if (due !== curFields.due) {
+    newLine = setInlineField(newLine, 'due', due ?? undefined);
+  }
+  if (newLine === lineText) { pop.remove(); return; }
+
+  pop.remove();
+  try {
+    await api.patchNote(notePath, lineText, newLine);
+    // 成功時: ドキュメントの該当行を更新 (エディタのバッファも同期)
+    const state = view.state;
+    const line = state.doc.line(lineNo);
+    if (line.text === lineText) {
+      view.dispatch({
+        changes: { from: line.from, to: line.to, insert: newLine },
+        userEvent: 'input.update-task-fields',
+      });
+    }
+  } catch (err: unknown) {
+    // 409: ambiguous — ステータスバーには表示しない (シンプルに無視)
+    void err;
   }
 }
 
@@ -297,15 +763,20 @@ function listDepth(node: SyntaxNode): number {
 }
 
 /**
- * リスト装飾 (チェックボックス + 箇条書きドット) を構築する。
+ * リスト装飾 (チェックボックス + 箇条書きドット + ピル + トリガー) を構築する。
  *
  * チェックボックス判定は lezer の `TaskMarker` に頼らず、ListItem のマーカー直後の
  * 行頭 `[ ]` / `[x]` / `[X]` を直接見る。lezer-markdown の TaskList は `]` の直後に
  * 空白を要求するため、`- [ ]` (末尾 = 空タスク) や `- [x]` (リンクとして誤解析) を
  * 取りこぼす。これが「TODO がチェックボックスにならない場合がある」の原因だった。
  * ListItem 経由なのでコードフェンス内などは自然に除外される。
+ *
+ * Se3b7a2-2: チェックボックスは丸 (data-done)。インラインフィールドがあれば
+ * 非アクティブ行に status-pill / priority-flag / due-chip ウィジェットを追加。
+ * 行末に checkbox-fields-trigger を追加し、クリックでポップオーバーを開く。
+ * インラインフィールドテキスト自体は置換せず残す (アクティブ行でソース表示される)。
  */
-function buildListDecorations(view: EditorView): DecorationSet {
+function buildListDecorations(view: EditorView, vocab: TaskVocabRequired): DecorationSet {
   const widgets: ReturnType<Decoration['range']>[] = [];
   const state = view.state;
   const active = activeLines(state);
@@ -348,6 +819,41 @@ function buildListDecorations(view: EditorView): DecorationSet {
               widget: new TaskCheckboxWidget(checked, line.number),
             }).range(bracketFrom, bracketFrom + 3),
           );
+          // Se3b7a2-2: インラインフィールドのピルウィジェット + trigger (行末に追加)
+          const lineText = line.text;
+          const fields = extractInlineFields(lineText);
+          // ピル/trigger を行末ウィジェットとして追加
+          if (fields.status !== null) {
+            widgets.push(
+              Decoration.widget({
+                widget: new StatusPillWidget(fields.status, vocab),
+                side: 1,
+              }).range(line.to),
+            );
+          }
+          if (fields.due !== null) {
+            widgets.push(
+              Decoration.widget({
+                widget: new DueChipWidget(fields.due),
+                side: 1,
+              }).range(line.to),
+            );
+          }
+          if (fields.priority !== null) {
+            widgets.push(
+              Decoration.widget({
+                widget: new PriorityFlagWidget(fields.priority, vocab),
+                side: 1,
+              }).range(line.to),
+            );
+          }
+          // trigger ボタン (常に行末に追加)
+          widgets.push(
+            Decoration.widget({
+              widget: new CheckboxFieldsTriggerWidget(line.number, lineText),
+              side: 1,
+            }).range(line.to),
+          );
           return;
         }
         // 通常の箇条書き: マーカー文字を深さ別の装飾ドットへ置換 (数字リストは素のまま)。
@@ -363,29 +869,39 @@ function buildListDecorations(view: EditorView): DecorationSet {
   return Decoration.set(widgets, true);
 }
 
-const listDecoPlugin = ViewPlugin.fromClass(
-  class {
-    decorations: DecorationSet;
+function makeListDecoPlugin(vocab: TaskVocabRequired): Extension {
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet;
 
-    constructor(view: EditorView) {
-      this.decorations = buildListDecorations(view);
-    }
-
-    update(update: ViewUpdate): void {
-      if (
-        update.docChanged ||
-        update.selectionSet ||
-        update.viewportChanged ||
-        syntaxTree(update.state) !== syntaxTree(update.startState)
-      ) {
-        this.decorations = buildListDecorations(update.view);
+      constructor(view: EditorView) {
+        this.decorations = buildListDecorations(view, vocab);
       }
-    }
-  },
-  { decorations: (v) => v.decorations },
-);
 
-/** アウトライン操作一式 (Editor に登録する) */
+      update(update: ViewUpdate): void {
+        if (
+          update.docChanged ||
+          update.selectionSet ||
+          update.viewportChanged ||
+          syntaxTree(update.state) !== syntaxTree(update.startState)
+        ) {
+          this.decorations = buildListDecorations(update.view, vocab);
+        }
+      }
+    },
+    { decorations: (v) => v.decorations },
+  );
+}
+
+/** アウトライン操作一式 (Editor に登録する)。
+ * タスク語彙は起動時に一度 GET /api/settings/tasks で取得 (失敗時は DEFAULT_TASK_VOCAB)。
+ */
 export function outlineExtension(): Extension {
-  return [outlineFolding, outlineFoldGutter, outlineKeymap, listDecoPlugin];
+  // 語彙は非同期に取得するが、Extension は同期で返す必要があるため
+  // まず DEFAULT_TASK_VOCAB で作成し、取得後にキャッシュを更新する (次回ビュー更新で反映)。
+  const plugin = makeListDecoPlugin(DEFAULT_TASK_VOCAB);
+  // バックグラウンドで語彙を取得してキャッシュに保存 (makeListDecoPlugin の再実行は不要 —
+  // getVocab() のキャッシュ (_cachedVocab) を popover 側で共有するため)。
+  void getVocab();
+  return [outlineFolding, outlineFoldGutter, outlineKeymap, plugin];
 }
