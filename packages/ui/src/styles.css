@@ -11,7 +11,7 @@
   --bg-active: #e6e3f7;
   --border: #e3e3e8;
   --editor-active-line: #f7f6fb;
-  --editor-selection: rgba(110, 86, 207, 0.18);
+  --editor-selection: rgba(110, 86, 207, 0.30);
   --border-strong: #d4d4dc;
   --text: #23242b;
   --text-muted: #75767f;
@@ -42,7 +42,7 @@
   --bg-active: #302d4a;
   --border: #2e2f3a;
   --editor-active-line: #2c2d3a;
-  --editor-selection: rgba(157, 138, 238, 0.22);
+  --editor-selection: rgba(157, 138, 238, 0.34);
   --border-strong: #3a3b4a;
   --text: #e2e3ec;
   --text-muted: #9899a8;
@@ -485,7 +485,7 @@ a { color: var(--link); text-decoration: none; }
 .editor-host .cm-activeLine { background: var(--editor-active-line); }
 .editor-host .cm-cursor { border-left-color: var(--accent); border-left-width: 1.5px; }
 .editor-host .cm-selectionBackground,
-.editor-host .cm-editor ::selection { background: var(--editor-selection); }
+.editor-host .cm-editor ::selection { background: var(--editor-selection) !important; }
 
 /* markdown ソース装飾 (見出し等の軽い強調 — ライブプレビューは S9ab6c3) */
 .editor-host .cm-md-heading { font-weight: 700; }
@@ -1151,7 +1151,7 @@ code {
    ========================================================================== */
 
 .editor-host .cm-gutters {
-  background: transparent;
+  background: transparent !important;
   border-right: none;
 }
 .editor-host .cm-outline-gutter {
@@ -1201,13 +1201,16 @@ code {
 /* Sb6f1d3-1 — 見出し fold ガター (cm-outline-gutter と独立した別列) */
 .editor-host .cm-heading-fold-gutter {
   width: 22px;
+  background: transparent !important;
 }
 .editor-host .cm-heading-fold-gutter .cm-gutterElement {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: transparent !important;
 }
 
+/* heading-fold-toggle: リスト fold-toggle に準拠したシンプルなシェブロン */
 .heading-fold-toggle {
   width: 16px;
   height: 16px;
@@ -1223,11 +1226,11 @@ code {
   opacity: 0;
   transition: opacity 0.1s, transform 0.12s;
 }
-/* ガター行ホバーで出現 */
-.editor-host .cm-gutterElement:hover .heading-fold-toggle { opacity: 0.7; }
+/* ガター行ホバーで出現 (fold-toggle と同じ opacity 値) */
+.editor-host .cm-heading-fold-gutter .cm-gutterElement:hover .heading-fold-toggle { opacity: 1; }
 .heading-fold-toggle:hover { background: var(--bg-hover); color: var(--text); opacity: 1; }
 .heading-fold-toggle svg { width: 11px; height: 11px; }
-/* 折りたたみ中: chevron を -90deg 回転し常時表示 */
+/* 折りたたみ中: chevron を -90deg 回転し常時表示 (fold-toggle.folded に準拠) */
 .heading-fold-toggle.folded {
   color: var(--accent);
   opacity: 1;

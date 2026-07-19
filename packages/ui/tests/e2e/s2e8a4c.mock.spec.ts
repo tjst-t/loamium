@@ -253,7 +253,7 @@ test('[MOCK] S2e8a4c-5: sidebar-commands-section がサイドバーに存在し�
   await expect(page.getByTestId('sidebar-commands-section')).toHaveCount(0);
 
   // スマートビューに切り替え
-  await page.getByTestId('sidebar-view-smart').first().click();
+  await page.getByTestId('sidebar-view-smart').click();
   await expect(page.getByTestId('sidebar-commands-section')).toHaveCount(0);
 });
 

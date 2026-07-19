@@ -1560,32 +1560,6 @@ export function App(): JSX.Element {
           </button>
         </div>
 
-        {/* モバイル: ノート/スマートセグメントトグル (AC-Sa6c3b0-1-7) */}
-        <div className="sidebar-mobile-view-toggle">
-          <div className="seg-toggle" data-testid="sidebar-view-toggle" role="tablist" aria-label="サイドバー表示切替">
-            <button
-              className={`seg-btn${sidebarView === 'physical' ? ' active' : ''}`}
-              data-testid="sidebar-view-physical"
-              aria-selected={sidebarView === 'physical'}
-              role="tab"
-              onClick={() => switchSidebarView('physical')}
-            >
-              <DocumentIcon />
-              ノート
-            </button>
-            <button
-              className={`seg-btn${sidebarView === 'smart' ? ' active' : ''}`}
-              data-testid="sidebar-view-smart"
-              aria-selected={sidebarView === 'smart'}
-              role="tab"
-              onClick={() => switchSidebarView('smart')}
-            >
-              <SearchIcon />
-              スマート
-            </button>
-          </div>
-        </div>
-
         <JournalNav
           today={today}
           baseDate={journalBaseDate}
@@ -1600,11 +1574,18 @@ export function App(): JSX.Element {
         />
 
         <div className="tree-section-title" data-testid="smart-view-header">
-          <span className="sidebar-view-toggle">
+          <span
+            className="sidebar-view-toggle"
+            data-testid="sidebar-view-toggle"
+            role="tablist"
+            aria-label="サイドバー表示切替"
+          >
             <button
               className={`sidebar-view-btn${sidebarView === 'physical' ? ' active' : ''}`}
               data-testid="sidebar-view-physical"
+              aria-selected={sidebarView === 'physical'}
               aria-pressed={sidebarView === 'physical'}
+              role="tab"
               title="物理フォルダビュー"
               onClick={() => switchSidebarView('physical')}
             >
@@ -1613,7 +1594,9 @@ export function App(): JSX.Element {
             <button
               className={`sidebar-view-btn${sidebarView === 'smart' ? ' active' : ''}`}
               data-testid="sidebar-view-smart"
+              aria-selected={sidebarView === 'smart'}
               aria-pressed={sidebarView === 'smart'}
+              role="tab"
               title="スマートビュー"
               onClick={() => switchSidebarView('smart')}
             >
