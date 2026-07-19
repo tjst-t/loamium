@@ -237,3 +237,35 @@ export function StarFilledIcon({ className }: IconProps): JSX.Element {
     </svg>
   );
 }
+
+/** ハンバーガーメニューアイコン (モバイルサイドバートグル — Sa6c3b0-1) */
+export function MenuIcon({ className }: IconProps): JSX.Element {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <path d="M3 5h14M3 10h14M3 15h14"/>
+    </svg>
+  );
+}
+
+/** ノートアイコン (モバイルボトムナビ — Sa6c3b0-6) */
+export function NoteNavIcon({ className }: IconProps): JSX.Element {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+    </svg>
+  );
+}
+
+/** エージェントアイコン (モバイルボトムナビ / Agent シート — Sa6c3b0-6) */
+export function AgentNavIcon({ className }: IconProps): JSX.Element {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+      <path d="M7 11V7a5 5 0 0110 0v4"/>
+      <circle cx="12" cy="16" r="1" fill="currentColor"/>
+    </svg>
+  );
+}
