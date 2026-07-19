@@ -10,6 +10,8 @@
   --bg-hover: #ececf1;
   --bg-active: #e6e3f7;
   --border: #e3e3e8;
+  --editor-active-line: #f7f6fb;
+  --editor-selection: rgba(110, 86, 207, 0.18);
   --border-strong: #d4d4dc;
   --text: #23242b;
   --text-muted: #75767f;
@@ -39,6 +41,8 @@
   --bg-hover: #2d2e3a;
   --bg-active: #302d4a;
   --border: #2e2f3a;
+  --editor-active-line: #2c2d3a;
+  --editor-selection: rgba(157, 138, 238, 0.22);
   --border-strong: #3a3b4a;
   --text: #e2e3ec;
   --text-muted: #9899a8;
@@ -57,8 +61,8 @@
   --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.40), 0 16px 48px rgba(0, 0, 0, 0.60);
 }
 
-/* CodeMirror アクティブ行はダークで CSS 変数参照できないため直接上書き */
-[data-theme="dark"] .editor-host .cm-activeLine { background: #2c2d3a; }
+/* CodeMirror アクティブ行・選択色は CSS 変数で制御 (S2e8a4c-2) */
+[data-theme="dark"] .editor-host .cm-activeLine { background: var(--editor-active-line); }
 
 * { box-sizing: border-box; }
 
@@ -193,31 +197,54 @@ a { color: var(--link); text-decoration: none; }
 .journal-date-btn:hover { background: var(--bg-hover); }
 .journal-date-btn .dow { color: var(--text-muted); font-weight: 500; margin-left: 4px; }
 
-.journal-list { position: relative; }
-.journal-list-pop {
-  position: absolute;
-  z-index: 30;
-  top: 6px;
-  left: 0;
-  right: 0;
+/* ---- カレンダーポップアップ (S2e8a4c-1) ---- */
+.journal-calendar-popup {
+  position: relative;
+  z-index: 50;
   background: var(--bg-editor);
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   box-shadow: var(--shadow-lg);
-  padding: 4px;
+  padding: 8px;
+  margin-top: 4px;
 }
-.journal-list-item {
+.jcal-header {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  width: 100%;
-  padding: 5px 8px;
-  border-radius: 5px;
-  font-size: 13px;
-  text-align: left;
+  margin-bottom: 6px;
 }
-.journal-list-item:hover { background: var(--bg-hover); }
-.journal-list-item.today { color: var(--accent); font-weight: 600; }
-.journal-list-item .dim { color: var(--text-faint); font-size: 12px; }
+.jcal-month-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.jcal-nav { width: 22px; height: 22px; }
+.jcal-dow-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  margin-bottom: 2px;
+}
+.jcal-dow { font-size: 11px; color: var(--text-faint); padding: 2px 0; }
+.jcal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.jcal-day {
+  aspect-ratio: 1;
+  border-radius: 4px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text);
+}
+.jcal-day:hover { background: var(--bg-hover); }
+.jcal-day.today { background: var(--accent); color: #fff; font-weight: 700; }
+.jcal-day-empty { pointer-events: none; }
 
 /* ---- File tree -------------------------------------------------------- */
 
@@ -276,6 +303,13 @@ a { color: var(--link); text-decoration: none; }
 }
 .tree-item.active .file-ico { color: var(--accent); }
 .tree-item .name { overflow: hidden; text-overflow: ellipsis; }
+
+/* D&D ドラッグオーバー (S2e8a4c-3) */
+.tree-item.drag-over,
+.tree-folder.drag-over {
+  background: var(--accent-soft);
+  outline: 1.5px solid var(--accent);
+}
 
 .tree-children { margin-left: 15px; border-left: 1px solid var(--border); padding-left: 4px; }
 
@@ -448,10 +482,10 @@ a { color: var(--link); text-decoration: none; }
   caret-color: var(--accent);
 }
 .editor-host .cm-line { padding: 0 6px; border-radius: 4px; }
-.editor-host .cm-activeLine { background: #f7f6fb; }
+.editor-host .cm-activeLine { background: var(--editor-active-line); }
 .editor-host .cm-cursor { border-left-color: var(--accent); border-left-width: 1.5px; }
 .editor-host .cm-selectionBackground,
-.editor-host .cm-editor ::selection { background: var(--bg-active); }
+.editor-host .cm-editor ::selection { background: var(--editor-selection); }
 
 /* markdown ソース装飾 (見出し等の軽い強調 — ライブプレビューは S9ab6c3) */
 .editor-host .cm-md-heading { font-weight: 700; }

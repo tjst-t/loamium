@@ -259,6 +259,17 @@ export function NoteNavIcon({ className }: IconProps): JSX.Element {
   );
 }
 
+/** カレンダーアイコン (S2e8a4c-1 JournalNav) */
+export function CalendarIcon({ className }: IconProps): JSX.Element {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1.5" y="3" width="13" height="11" rx="1.5" />
+      <path d="M5 1.5v3M11 1.5v3" />
+      <path d="M1.5 7h13" />
+    </svg>
+  );
+}
+
 /** エージェントアイコン (モバイルボトムナビ / Agent シート — Sa6c3b0-6) */
 export function AgentNavIcon({ className }: IconProps): JSX.Element {
   return (
