@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type Mouse
 import {
   isValidJournalDate,
   journalPath,
+  noteTitle,
   shiftJournalDate,
   todayJournalDate,
   type FileMeta,
@@ -29,6 +30,7 @@ import {
   type TemplateSummary,
 } from '@loamium/shared';
 import { api, ApiError } from './api.js';
+import { useVaultEvents } from './useVaultEvents.js';
 import { formatSize } from './file-kind.js';
 import {
   parseLocation,
@@ -300,6 +302,8 @@ export function App(): JSX.Element {
   const seekCounterRef = useRef(0);
   /** 保存成功のたびに増える — 右サイドバーのバックリンク再取得トリガー (S6fbf45-2) */
   const [backlinksToken, setBacklinksToken] = useState(0);
+  /** SSE sf_invalidated で通知された SF ID 配列 — SmartView の差分再フェッチに使う (Sd5c9f4-4) */
+  const [sseSfInvalidatedIds, setSseSfInvalidatedIds] = useState<string[]>([]);
 
   const docRef = useRef<OpenDoc | null>(null);
   const previewRef = useRef<string | null>(null);
@@ -382,6 +386,71 @@ export function App(): JSX.Element {
     void refreshTags();
     void refreshPropertyKeys();
   }, [refreshNotes, refreshTags, refreshPropertyKeys]);
+
+  // ---- SSE イベント処理 (Sd5c9f4-4) -------------------------------------------
+
+  /** SSE notes_changed: upsert→getNoteMeta で 1 件差分更新、delete→filter 除去。 */
+  const handleSseNotesChanged = useCallback(
+    (changedPath: string, op: 'upsert' | 'delete'): void => {
+      if (op === 'delete') {
+        setNotes((prev) => {
+          if (prev === null) return prev;
+          return prev.filter((n) => n.path !== changedPath);
+        });
+      } else {
+        // upsert: getNoteMeta で最新情報を取得し NoteMeta へ変換してマージ
+        api.getNoteMeta(changedPath).then(
+          (meta) => {
+            // NoteMetaResponse → NoteMeta 変換 (folder/title を path から導出)
+            const folder = changedPath.includes('/')
+              ? changedPath.slice(0, changedPath.lastIndexOf('/'))
+              : '';
+            const noteMeta: NoteMeta = {
+              path: changedPath,
+              title: noteTitle(changedPath),
+              tags: meta.tags,
+              folder,
+              mtime: meta.mtime,
+            };
+            setNotes((prev) => {
+              if (prev === null) return [noteMeta];
+              const idx = prev.findIndex((n) => n.path === changedPath);
+              let next: NoteMeta[];
+              if (idx >= 0) {
+                next = prev.map((n, i) => (i === idx ? noteMeta : n));
+              } else {
+                next = [...prev, noteMeta];
+              }
+              // パス昇順を維持
+              return next.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+            });
+          },
+          (err: unknown) => {
+            // getNoteMeta 失敗時は全件再取得にフォールバック
+            console.error('[loamium] SSE notes_changed getNoteMeta failed:', err);
+            void refreshNotes();
+          },
+        );
+      }
+    },
+    [refreshNotes],
+  );
+
+  /** SSE sf_invalidated: 展開済み SF の再フェッチを SmartView に通知。
+   *
+   * 毎回新しい配列オブジェクトをセットすることで React が deps 変化として検知し
+   * SmartFolder の useEffect が確実にトリガーされる。
+   * setTimeout でのリセットは useEffect 実行前に呼ばれる場合があり NG (React 18 batching)。
+   */
+  const handleSseSfInvalidated = useCallback((ids: string[]): void => {
+    setSseSfInvalidatedIds([...ids]);
+  }, []);
+
+  // SSE 購読 (Sd5c9f4-4)
+  useVaultEvents({
+    onSfInvalidated: handleSseSfInvalidated,
+    onNotesChanged: handleSseNotesChanged,
+  });
 
   // 新規プロパティの型を .loamium/property-types.json へ永続化する (Sd13ab1-2)。
   // 永続化後、型スキーマとキー候補を最新化する (別ファイルでも同じ型に解決される)。
@@ -1649,6 +1718,7 @@ export function App(): JSX.Element {
             triggerAdd={smartAddTrigger}
             onModeChange={setSmartViewMode}
             commandSaveToken={commandSaveToken}
+            invalidatedIds={sseSfInvalidatedIds}
           />
         ) : (
           <>

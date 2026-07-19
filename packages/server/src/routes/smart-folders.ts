@@ -29,8 +29,13 @@ import {
   resolveSmartFolderNotes,
   writeSmartFoldersConfig,
 } from '../smart-folders-service.js';
+import type { DqlQueryCache } from '../dql-cache.js';
 
-export function smartFoldersRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEnv> {
+export function smartFoldersRoutes(
+  config: ServerConfig,
+  index: VaultIndex,
+  cache?: DqlQueryCache,
+): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
   // ---- GET /api/smart-folders -----------------------------------------------
@@ -54,6 +59,9 @@ export function smartFoldersRoutes(config: ServerConfig, index: VaultIndex): Hon
 
     await writeSmartFoldersConfig(config.vaultRoot, normalized.items);
 
+    // 定義変更 → 全キャッシュを破棄 (priority 6: ファイルが正)
+    cache?.invalidateAll();
+
     const cfg = { version: body.data.version, items: normalized.items };
     return c.json(cfg);
   });
@@ -61,7 +69,7 @@ export function smartFoldersRoutes(config: ServerConfig, index: VaultIndex): Hon
   // ---- GET /api/smart-folders/{id}/notes ------------------------------------
   app.get('/api/smart-folders/:id/notes', async (c) => {
     const id = c.req.param('id');
-    const resolved = await resolveSmartFolderNotes(config.vaultRoot, index, id);
+    const resolved = await resolveSmartFolderNotes(config.vaultRoot, index, id, cache);
     if (!resolved.ok) {
       if (resolved.reason === 'not_found') {
         return errorJson(c, 404, 'not_found', `smart folder "${id}" not found`);

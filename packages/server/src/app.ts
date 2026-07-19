@@ -19,15 +19,26 @@ import { settingsRoutes } from './routes/settings.js';
 import { systemFilesRoutes } from './routes/system-files.js';
 import { llmRoutes } from './routes/llm.js';
 import { vaultSeedRoutes } from './routes/vault-seed.js';
+import { eventsRoutes } from './routes/events.js';
 import { auditMiddleware } from './audit.js';
 import { permissionMiddleware } from './permissions.js';
 import { indexSyncMiddleware } from './indexSync.js';
 import { loadAgentConfig } from './agent-service.js';
 import { egressGuardStats } from './egress-guard.js';
 import type { VaultIndex } from './noteIndex.js';
+import { DqlQueryCache } from './dql-cache.js';
+import type { SSEBroadcaster } from './sse-broadcaster.js';
 
-export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv> {
+export { DqlQueryCache };
+
+export function createApp(
+  config: ServerConfig,
+  index: VaultIndex,
+  dqlCache?: DqlQueryCache,
+  sseBroadcaster?: SSEBroadcaster,
+): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
+  const cache = dqlCache ?? new DqlQueryCache();
 
   /**
    * グローバルエラーハンドラ — ルートで捕捉されなかった例外のバックストップ。
@@ -120,6 +131,13 @@ export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv>
     return c.json(res);
   });
 
+  // SSE イベントストリーム (Sd5c9f4-3): read-only/append-only でも通過させるため
+  // permissionMiddleware の前に登録する。GET = 'read' なので実際はミドルウェアを
+  // 通過しても問題ないが、ミドルウェアを経由しない方がオーバーヘッドが少ない。
+  if (sseBroadcaster !== undefined) {
+    app.route('/', eventsRoutes(sseBroadcaster));
+  }
+
   // 監査ログが権限チェックを包む (403 拒否も result: denied で記録される)。
   // indexSync は書き込み成功後にインデックスを即時更新する (write-through)。
   app.use('/api/*', auditMiddleware(config));
@@ -138,7 +156,7 @@ export function createApp(config: ServerConfig, index: VaultIndex): Hono<AppEnv>
   // 汎用テンプレート (GET /api/templates 一覧 + POST instantiate — S89a350-2)
   app.route('/', templatesRoutes(config));
   // スマートフォルダ定義 CRUD・解決 (S32940c-2)
-  app.route('/', smartFoldersRoutes(config, index));
+  app.route('/', smartFoldersRoutes(config, index, cache));
   // スマートコマンド定義一覧 (Sd22b1f-1)
   app.route('/', commandsRoutes(config, index));
   // エージェント (S53409d-3) — 権限・監査はルート内で管理

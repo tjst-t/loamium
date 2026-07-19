@@ -4,10 +4,10 @@
   "progress": {
     "current_sprint": null,
     "total": 54,
-    "done": 50,
+    "done": 51,
     "in_progress": 0,
-    "remaining": 4,
-    "percentage": 92
+    "remaining": 3,
+    "percentage": 94
   },
   "execution_order": [
     "Sd63ad1",
@@ -6668,13 +6668,13 @@
       "title": "スマートフォルダ高速化 — DQL キャッシュ + ファイル変更 SSE プッシュ",
       "description": "スマートビューの表示遅延と stale 問題を同時解決する。サーバー側に DQL 結果キャッシュ（ファイルパスの依存集合付き）を実装し、chokidar ファイル監視（S31ba00 既存）と連携して変更があったスマートフォルダだけ無効化する。クライアントは GET /api/events（SSE）を購読し、キャッシュ無効化イベントを受け取ったら対象スマートフォルダのみ再フェッチする。物理フォルダのツリー描画も変更ファイルのパスで差分更新し、ノート保存後 1 秒以内に反映されることを acceptance テストで確認する。バックログ「query スマートフォルダの再取得」を同時解消する。",
       "milestone": false,
-      "status": "pending",
+      "status": "done",
       "depends_on": null,
       "detail_level": "detailed",
       "stories": {
         "Sd5c9f4-1": {
           "title": "サーバー側 DQL 結果キャッシュ（依存ファイルパス集合付き）",
-          "status": "pending",
+          "status": "done",
           "story_type": "api",
           "user_review_required": false,
           "review_reason": null,
@@ -6684,59 +6684,59 @@
               "id": "AC-Sd5c9f4-1-1",
               "description": "同一スマートフォルダ ID の GET /api/smart-folders/{id}/notes を連続 2 回呼んだとき、2 回目はキャッシュヒットし VaultIndex.queryNotes() が 2 回目は呼ばれない（ユニットテストで stub 検証）。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sd5c9f4-1-2",
               "description": "キャッシュエントリは結果に含まれたファイルパスの Set を依存集合として保持する。ユニットテストで依存 Set が正しく取り出せることを確認。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sd5c9f4-1-3",
               "description": "キャッシュは常にファイルから再構築可能（priority 6）。DqlQueryCache を破棄・再生成した後、同クエリを実行すると正しい結果が返る。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sd5c9f4-1-4",
               "description": "キャッシュが存在しない状態（起動直後）でも GET /api/smart-folders/{id}/notes は正常に 200 を返し、以後キャッシュされる。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sd5c9f4-1-5",
               "description": "FROM #tag はタグを持つファイルが依存集合に含まれる。FROM \"folder\" はそのフォルダ配下のファイルが含まれる。各パターンをユニットテストで検証。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "Sd5c9f4-1-1": {
               "title": "DqlQueryCache クラスを packages/server/src/dql-cache.ts に実装",
               "description": "Map<id,{result,deps:Set<string>,queryHash}> をインメモリ保持。get はミス時 null。set(id,result,deps)。invalidate(changedPath) は deps に含む全エントリ削除。invalidateAll。queryHash は DQL の SHA-256 短縮。strict/any 禁止。",
-              "status": "pending"
+              "status": "done"
             },
             "Sd5c9f4-1-2": {
               "title": "resolveSmartFolderNotes でキャッシュを利用するよう拡張",
               "description": "cache?: DqlQueryCache オプション引数追加。query kind はヒットなら即返す、ミスは executeQuery 後 deps を set。pin kind はキャッシュ不要。ADR-0016 契約維持。",
-              "status": "pending"
+              "status": "done"
             },
             "Sd5c9f4-1-3": {
               "title": "routes/smart-folders.ts で DqlQueryCache を注入",
               "description": "cache 引数を追加し app.ts から渡す。GET notes で cache 使用。PUT smart-folders 時 cache.invalidateAll()。app.ts で 1 インスタンスを VaultIndex と同ライフタイムで管理。",
-              "status": "pending"
+              "status": "done"
             },
             "Sd5c9f4-1-4": {
               "title": "DqlQueryCache のユニットテスト（dql-cache.test.ts）",
               "description": "(a) set→get ヒット (b) invalidate(path) で deps 該当のみ削除 (c) 非該当は残る (d) invalidateAll で全消え (e) queryHash 不一致で null。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sd5c9f4-2": {
           "title": "chokidar 変更検知でキャッシュ無効化 + VaultIndex の変更通知フック",
-          "status": "pending",
+          "status": "done",
           "story_type": "api",
           "user_review_required": false,
           "review_reason": null,
@@ -6746,48 +6746,48 @@
               "id": "AC-Sd5c9f4-2-1",
               "description": "chokidar の change/add/unlink で DqlQueryCache.invalidate(changedPath) が呼ばれ、その path を deps に含むエントリのみ削除される。watcher コールバックをスタブ化して検証。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sd5c9f4-2-2",
               "description": "VaultIndex.refreshFile()/removeFile() 完了時、登録された onChange コールバックが変更ファイルの vault 相対パスで呼ばれる。ユニットテストで確認。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sd5c9f4-2-3",
               "description": "indexSyncMiddleware（書き込み API 経由の更新）も refreshFile 後に onChange を呼ぶ。REST API からのノート保存でもキャッシュ無効化される。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sd5c9f4-2-4",
               "description": "onChange コールバックの例外はキャッチして stderr に記録し、インデックス更新やファイルを壊さない。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "Sd5c9f4-2-1": {
               "title": "VaultIndex に onChange コールバック登録機構を追加",
               "description": "setOnChange(cb:(changedPath:string,op:'upsert'|'delete')=>void)。refreshFile 末尾で cb(rel,'upsert')、removeFile 末尾で cb(rel,'delete')。例外は try/catch→console.error、再スローしない。",
-              "status": "pending"
+              "status": "done"
             },
             "Sd5c9f4-2-2": {
               "title": "index.ts で DqlQueryCache を onChange に接続",
               "description": "index.setOnChange((path,op)=>{ const ids=cache.invalidate(path); emitInvalidationEvent(path,op,ids); })。DqlQueryCache と SSEBroadcaster のライフタイムを管理。",
-              "status": "pending"
+              "status": "done"
             },
             "Sd5c9f4-2-3": {
               "title": "onChange 経由のキャッシュ無効化ユニットテスト",
               "description": "(a) refreshFile 後 cb 呼び出し (b) removeFile 後 cb (c) cb 例外でも refreshFile 完了扱い。invalidate 統合ケース追加。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sd5c9f4-3": {
           "title": "GET /api/events SSE エンドポイント — キャッシュ無効化イベント配信",
-          "status": "pending",
+          "status": "done",
           "story_type": "api",
           "user_review_required": false,
           "review_reason": null,
@@ -6797,59 +6797,59 @@
               "id": "AC-Sd5c9f4-3-1",
               "description": "GET /api/events を EventSource で購読すると Content-Type: text/event-stream が返り、接続が維持される（30 秒以上切断されない）。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sd5c9f4-3-2",
               "description": "ファイル変更時 { type:'sf_invalidated', affectedIds: string[] } イベントが全クライアントに配信される。affectedIds は変更ファイルを deps に持つ SF ID（空配列のときは送信しない）。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sd5c9f4-3-3",
               "description": "{ type:'notes_changed', path, op:'upsert'|'delete' } イベントも同時送信され、クライアントは FileTree 差分更新に使う。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sd5c9f4-3-4",
               "description": "クライアント切断時、サーバーは送信キューを解放しメモリリークしない。接続→切断を 5 回繰り返す integration テストで確認。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sd5c9f4-3-5",
               "description": "GET /api/events は read-only/append-only モードでも利用可能（読み取り専用インフラのため権限不要）。permissionMiddleware で遮断されないことをテストで確認。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "Sd5c9f4-3-1": {
               "title": "SSEBroadcaster クラスを packages/server/src/sse-broadcaster.ts に実装",
               "description": "subscribe(writer):unsubscribe。Map<id,writer>。broadcast(eventData) は全 writer に data:JSON。書き込みエラー（切断）は catch→Map から除去+stderr。StreamWriter 互換 interface（テスト用モック可）。",
-              "status": "pending"
+              "status": "done"
             },
             "Sd5c9f4-3-2": {
               "title": "routes/events.ts に GET /api/events ルートを実装",
               "description": "hono/streaming stream()。接続時 subscribe、切断で unsubscribe。text/event-stream / no-cache / keep-alive。25 秒ごとに : keepalive コメント。read-only 通過設計。app.ts に登録。",
-              "status": "pending"
+              "status": "done"
             },
             "Sd5c9f4-3-3": {
               "title": "index.ts でキャッシュ無効化イベントを broadcaster 経由で送信",
               "description": "emitInvalidationEvent(path,op,affectedIds)。affectedIds が空でなければ broadcast({type:'sf_invalidated',affectedIds})。同時に broadcast({type:'notes_changed',path,op})。",
-              "status": "pending"
+              "status": "done"
             },
             "Sd5c9f4-3-4": {
               "title": "エージェントツール判断の記録と agent-help.ts への注記",
               "description": "GET /api/events は UI 受動購読インフラでエージェント操作対象外。ツール追加せず、判断を agent-help.ts に 1 行コメントで記録（ADR-0014）。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sd5c9f4-4": {
           "title": "クライアント SSE 購読 — スマートフォルダ差分再フェッチ＋物理ツリー差分更新",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": true,
           "review_reason": "SSE 購読・再接続 UI の動作と物理ツリー差分更新の視覚的な自然さをユーザーが確認する必要がある。",
@@ -6859,59 +6859,59 @@
               "id": "AC-Sd5c9f4-4-1",
               "description": "UI が /api/events を EventSource で購読し、sf_invalidated 受信時に affectedIds のうち現在展開中（loaded）のスマートフォルダだけ再フェッチする。未展開は再フェッチしない。mock テストで SSE 注入して確認。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sd5c9f4-4-2",
               "description": "notes_changed（upsert,path）受信時、App.tsx の notes 状態が差分更新される（getNoteMeta で 1 件取得しマージ）。全件 listNotes を再呼びしない。mock テストで確認。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sd5c9f4-4-3",
               "description": "notes_changed（delete,path）受信時、notes 状態からそのパスが除去される。mock テストで確認。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sd5c9f4-4-4",
               "description": "EventSource が切断（onerror）したとき 3 秒後に自動再接続する。再接続後は同じ購読状態が復元される。mock テストで onerror 発火+setTimeout スタブで確認。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sd5c9f4-4-5",
               "description": "コンポーネントアンマウント時 EventSource.close() が呼ばれメモリリークしない（useEffect クリーンアップ）。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "Sd5c9f4-4-1": {
               "title": "useVaultEvents カスタムフック（packages/ui/src/useVaultEvents.ts）を実装",
               "description": "EventSource を /api/events で開き onSfInvalidated(ids)/onNotesChanged(path,op) を呼ぶ。cleanup で close。onerror で 3 秒後再接続（useRef タイマー）。JSON.parse 失敗は console.warn。eventSourceFactory 引数でモック可。",
-              "status": "pending"
+              "status": "done"
             },
             "Sd5c9f4-4-2": {
               "title": "SmartView / SmartFolder で sf_invalidated を受けて差分再フェッチ",
               "description": "invalidatedIds prop 追加。SmartFolder は自分の id が含まれかつ loaded のときのみ resolveSmartFolder 再実行。loading 中は無視。App.tsx から useVaultEvents コールバックを渡す。",
-              "status": "pending"
+              "status": "done"
             },
             "Sd5c9f4-4-3": {
               "title": "App.tsx で notes_changed イベントを受け差分更新",
               "description": "onNotesChanged で upsert は getNoteMeta→setNotes マージ+ソート、delete は filter 除去。既存 refreshNotes 呼び出しは維持（二重更新は安全収束）。",
-              "status": "pending"
+              "status": "done"
             },
             "Sd5c9f4-4-4": {
               "title": "api.ts に getVaultEventsUrl 追加と getNoteMeta 型確認",
               "description": "getVaultEventsUrl():string を追加（テストでモック容易化）。既存 getNoteMeta を使用。NoteMetaResponse が notes 差分マージに使えるか型検証。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sd5c9f4-5": {
           "title": "ノート保存後 1 秒以内反映の acceptance テスト（e2e）",
-          "status": "pending",
+          "status": "done",
           "story_type": "mixed",
           "user_review_required": false,
           "review_reason": null,
@@ -6921,43 +6921,43 @@
               "id": "AC-Sd5c9f4-5-1",
               "description": "e2e: DQL クエリを持つ SF を展開した状態で外部から PUT /api/notes で新規ノート作成→そのフォルダのリストに新規ノートが現れる（waitForSelector timeout 内）。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sd5c9f4-5-2",
               "description": "e2e: 既存ノートを PUT 更新（status を done に）したとき SF がそのノートを含むようになる。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sd5c9f4-5-3",
               "description": "e2e: DELETE でノート削除時、SF 一覧からそのノートが消える。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sd5c9f4-5-4",
               "description": "e2e: 物理ツリーで外部から PUT 新規作成時、サイドバーツリーにそのノートが現れる（キャッシュ→SSE→差分更新のフルパス検証）。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             },
             {
               "id": "AC-Sd5c9f4-5-5",
               "description": "CI flakiness を避けるためテストは 2 秒タイムアウト（1 秒ガードに余裕）を使い、chokidar awaitWriteFinish 150ms を含めて余裕を持たせる旨をテスト内コメントで明記する。",
               "test": null,
-              "status": "pending"
+              "status": "done"
             }
           ],
           "tasks": {
             "Sd5c9f4-5-1": {
               "title": "smart-folder-latency.e2e.spec.ts を新規作成",
               "description": "既存 smart-view.e2e パターンで作成。sf-latency フォルダに query SF 設定。展開状態で putNote→waitForSelector timeout:2000。AC-5-1〜5-3 を 3 ケース実装。",
-              "status": "pending"
+              "status": "done"
             },
             "Sd5c9f4-5-2": {
               "title": "notes-sse-latency.e2e.spec.ts — 物理ツリー差分更新の acceptance テスト",
               "description": "物理ビューで新規ノートが 2 秒以内に tree-item として現れることを確認。putNote→waitForSelector timeout:2000。外部書き込み→SSE→差分更新のフルパス。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
