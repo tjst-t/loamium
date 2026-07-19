@@ -9,6 +9,8 @@
 import { useEffect, useRef, type JSX } from 'react';
 import { EditorState, type Extension } from '@codemirror/state';
 import { EditorView, keymap, highlightActiveLine, drawSelection } from '@codemirror/view';
+import { foldedRanges, unfoldEffect } from '@codemirror/language';
+export type { EditorView };
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { syntaxHighlighting, HighlightStyle } from '@codemirror/language';
@@ -97,6 +99,12 @@ export interface EditorProps {
   tags: TagCount[] | null;
   onChange: (text: string) => void;
   onSave: () => void;
+  /**
+   * EditorView が生成されたときに呼ばれる (Sb6f1d3-2)。
+   * App が editorViewRef に保持し、TOC クリックの unfoldEffect dispatch に使う。
+   * destroy 時は null を渡す。
+   */
+  onViewReady?: (view: EditorView | null) => void;
   /** 解決済み [[リンク]] クリック — 対象ノートを開く */
   onOpenNote: (path: string) => void;
   /** dataview TASK 結果クリック — 対象ノートを開いて該当行へ (Sb1593c-2) */
@@ -133,7 +141,10 @@ export function Editor({
   onOpenTag,
   onUploadFiles,
   onDragActive,
+  onViewReady,
 }: EditorProps): JSX.Element {
+  const onViewReadyRef = useRef(onViewReady);
+  onViewReadyRef.current = onViewReady;
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -253,10 +264,42 @@ export function Editor({
       parent: host,
     });
     viewRef.current = view;
+    // テスト / デバッグ用: グローバルに EditorView と unfold ヘルパーを公開する。
+    // Playwright ではブラウザプロセス内から ESM モジュールを動的 import できないため、
+    // アプリ側でバインドした関数を expose して Playwright test から呼ぶ。
+    const g = window as unknown as {
+      __loamiumEditorView__: EditorView | null;
+      __loamiumUnfoldAtCursor__: (() => boolean) | null;
+    };
+    g.__loamiumEditorView__ = view;
+    g.__loamiumUnfoldAtCursor__ = (): boolean => {
+      const s = view.state;
+      const head = s.selection.main.head;
+      let found: { from: number; to: number } | null = null;
+      // カーソルを含む fold range を探す (from <= head <= to)
+      // 見出し fold は [heading.line.to, sectionEnd] の範囲で保持される
+      foldedRanges(s).between(0, s.doc.length, (from, to) => {
+        if (from <= head && head <= to) { found = { from, to }; return false; }
+        return undefined;
+      });
+      if (found !== null) {
+        view.dispatch({ effects: unfoldEffect.of(found) });
+        return true;
+      }
+      return false;
+    };
+    onViewReadyRef.current?.(view);
 
     return () => {
       view.destroy();
       viewRef.current = null;
+      const gc = window as unknown as {
+        __loamiumEditorView__: EditorView | null;
+        __loamiumUnfoldAtCursor__: (() => boolean) | null;
+      };
+      gc.__loamiumEditorView__ = null;
+      gc.__loamiumUnfoldAtCursor__ = null;
+      onViewReadyRef.current?.(null);
     };
     // 初回のみ生成。ドキュメント差し替えは下の effect で行う。
     // eslint-disable-next-line react-hooks/exhaustive-deps

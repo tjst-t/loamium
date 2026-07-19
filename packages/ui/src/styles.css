@@ -1164,6 +1164,42 @@ code {
 }
 .fold-pill:hover { background: #e5dff8; }
 
+/* Sb6f1d3-1 — 見出し fold ガター (cm-outline-gutter と独立した別列) */
+.editor-host .cm-heading-fold-gutter {
+  width: 22px;
+}
+.editor-host .cm-heading-fold-gutter .cm-gutterElement {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.heading-fold-toggle {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: 4px;
+  color: var(--text-faint);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s, transform 0.12s;
+}
+/* ガター行ホバーで出現 */
+.editor-host .cm-gutterElement:hover .heading-fold-toggle { opacity: 0.7; }
+.heading-fold-toggle:hover { background: var(--bg-hover); color: var(--text); opacity: 1; }
+.heading-fold-toggle svg { width: 11px; height: 11px; }
+/* 折りたたみ中: chevron を -90deg 回転し常時表示 */
+.heading-fold-toggle.folded {
+  color: var(--accent);
+  opacity: 1;
+  transform: rotate(-90deg);
+}
+
 .task-checkbox {
   width: 15px;
   height: 15px;
