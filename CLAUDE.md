@@ -30,6 +30,8 @@ Backend: Hono / Frontend: React + CodeMirror 6 (lezer-markdown) / 検索: Fuse.j
   - ツールは既存の監査済みサービス層を経由する(ADR-0016)。REST と重複する独自の実行・解決・直列化ロジックを新設しない(二重管理の排除)。エージェント専用の直接ファイル操作・独自フォーマットは禁止(「ピュア Markdown 絶対」と整合)
   - 権限はケーパビリティで制御し(ADR-0015)、書き込み系ツールは書込モードでのみ広告する。機密領域は deny リストで一覧・書き込みから除外する(ADR-0018)
   - 使い方の詳細は base システムプロンプトへ移さず help トピックに置く(ADR-0014。常時=base / 詳細=help)。help はどの権限セットでも利用可能を維持する
+- **機能ガイド更新義務**: 新機能追加・仕様変更を行った場合は、対応するガイド Markdown を `packages/server/src/samples/機能ガイド/` に追加・更新すること。ガイドはピュア Markdown で書き、`loamium init-samples` でユーザーが取得できる形で保持する。ユーザーが init-samples で得るドキュメントが常に最新機能を反映するよう維持する
+  - 例: スマートコマンドの仕様変更 → `packages/server/src/samples/機能ガイド/スマートコマンドの使い方.md` を更新。新機能追加時は新ガイドファイルを作成し `samples/index.md` の機能ガイドセクションにリンクを追加する
 
 ## Server
 

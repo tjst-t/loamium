@@ -1448,3 +1448,21 @@ export const localModelDeleteResponseSchema = z.object({
   filename: z.string(),
 });
 export type LocalModelDeleteResponse = z.infer<typeof localModelDeleteResponseSchema>;
+
+// ---- vault seed (POST /api/vault/seed — S7e2d5c-1) ----
+
+/** POST /api/vault/seed のリクエストボディ。 */
+export const vaultSeedRequestSchema = z.object({
+  /** true なら既存ファイルを上書きする (既定 false = 既存はスキップ)。 */
+  force: z.boolean().optional(),
+});
+export type VaultSeedRequest = z.infer<typeof vaultSeedRequestSchema>;
+
+/** POST /api/vault/seed のレスポンス。 */
+export const vaultSeedResponseSchema = z.object({
+  /** 投入されたファイル数。 */
+  seeded: z.number().int().nonnegative(),
+  /** スキップされたファイル数 (既存 + force=false の場合)。 */
+  skipped: z.number().int().nonnegative(),
+});
+export type VaultSeedResponse = z.infer<typeof vaultSeedResponseSchema>;

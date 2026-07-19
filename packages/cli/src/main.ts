@@ -65,6 +65,7 @@ import {
   agentModelsResponseSchema,
   agentJobListResponseSchema,
   agentJobRunResponseSchema,
+  vaultSeedResponseSchema,
 } from '@loamium/shared';
 import {
   apiFetch,
@@ -656,6 +657,24 @@ function buildProgram(): Command {
     });
 
   program.addCommand(commandCmd);
+
+  // ---- vault シード (S7e2d5c-1) ----
+
+  // loamium init-samples [--force] [--json]  (POST /api/vault/seed)
+  sub('init-samples', 'サンプルファイルをvaultへ投入する (POST /api/vault/seed)')
+    .option('--force', '既存ファイルも上書きする (既定: 既存はスキップ)')
+    .action(async (opts: JsonOpt & { force?: boolean }) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, '/api/vault/seed', postJson({ force: opts.force ?? false }));
+      output(opts, result, () => {
+        const res = parseAs(result, vaultSeedResponseSchema, 'init-samples');
+        const vaultDesc = base !== '' ? base : 'vault';
+        println(
+          `${String(res.seeded)} ファイルを ${vaultDesc} に投入しました` +
+          (res.skipped > 0 ? `（既存 ${String(res.skipped)} 件はスキップ）` : ''),
+        );
+      });
+    });
 
   // ---- 設定 API (Sa10026-5) ----
   // REST と 1:1 対応する loamium settings 系サブコマンド (AC-Sa10026-5-3)

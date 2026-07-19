@@ -40,6 +40,8 @@ import type { PermissionMode } from './schemas.js';
  *   - command_write    : スマートコマンド定義 (YAML) の作成・更新・削除 (ADR-0016:
  *                        system/commands/*.yaml を writeSystemCommand/deleteSystemCommand 経由で
  *                        authoring)。書き込み系の独立ケーパビリティで full のみ許可。
+ *   - vault_seed       : サンプルファイルの vault 投入 (S7e2d5c-1: POST /api/vault/seed と
+ *                        同一の SeedService 経由)。書き込み系のため full のみ許可。
  *   - web              : Web アクセス (ADR-0017 / S5e0206: web_fetch / web_search)
  */
 export const AGENT_CAPABILITIES = [
@@ -54,6 +56,7 @@ export const AGENT_CAPABILITIES = [
   'smartfolder_write',
   'command_run',
   'command_write',
+  'vault_seed',
   'web',
 ] as const;
 export type Capability = (typeof AGENT_CAPABILITIES)[number];
@@ -178,6 +181,9 @@ const CAPABILITY_TOOL_NAMES: Record<Capability, readonly string[]> = {
   // command_write はスマートコマンド定義の作成/更新/削除を広告する。
   // 書き込み系のため full のみで許可される (clampByMode / MODE_ALLOWED)。
   command_write: ['command_delete', 'command_write'],
+  // vault_seed はサンプルファイルの vault 投入ツールを広告する (S7e2d5c-1)。
+  // POST /api/vault/seed と同一の SeedService 経由。書き込み系のため full のみで許可。
+  vault_seed: ['vault_seed'],
   web: ['web_fetch', 'web_search'],
 };
 

@@ -156,7 +156,8 @@ describe('[AC-Sa629e2-2-1] make samples で全機能トピックのサンプル 
     expect(await readFile(indexPath, 'utf8')).toBe(sentinel);
 
     // 次のテストのために元の index を復元しておく (再実行では上書きされないため手動で)
-    const original = await readFile(path.join(repoRoot, 'samples', 'index.md'), 'utf8');
+    // サンプル正本は packages/server/src/samples/ に移動済み (S7e2d5c-2)
+    const original = await readFile(path.join(repoRoot, 'packages/server/src/samples', 'index.md'), 'utf8');
     await writeFile(indexPath, original, 'utf8');
   });
 });

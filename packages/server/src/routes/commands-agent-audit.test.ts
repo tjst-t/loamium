@@ -51,12 +51,11 @@ import {
 } from '@loamium/shared';
 import type { ServerConfig } from '../config.js';
 
-/** リポジトリ同梱サンプル (make samples の正本) の絶対パス */
+/** リポジトリ同梱サンプル (make samples の正本) の絶対パス。
+ * サンプルは S7e2d5c-2 で packages/server/src/samples/ へ移動済み。
+ * このファイルは packages/server/src/routes/ にあるため、1 つ上の src/samples/ を指す。 */
 const SAMPLE_MEETING_SUMMARY = path.resolve(
   __dirname,
-  '..',
-  '..',
-  '..',
   '..',
   'samples',
   'commands',
