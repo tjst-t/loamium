@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loamium — 折りたたみトグル配置比較 (v2)</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+/* ================================================================
+   heading-fold-v2.html 専用スタイル — 配置比較ページ
+   ================================================================ */
+
+/* ページ全体をスクロール可能な縦並びレイアウトに */
+body { background: var(--bg-app); }
+.comparison-page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 36px 24px 120px;
+}
+.comparison-page h1 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+.comparison-page > .page-sub {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  margin: 0 0 36px;
+  line-height: 1.7;
+}
+
+/* セクション枠 */
+.compare-section {
+  margin-bottom: 44px;
+}
+.compare-section-label {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.compare-section-label .badge-ng {
+  background: #fdf0f0;
+  color: #d64545;
+  border: 1px solid #f5c9c9;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 1px 8px;
+}
+.compare-section-label .badge-a {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  border: 1px solid #d4cbf5;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 1px 8px;
+}
+.compare-section-label .badge-b {
+  background: #e9f2fd;
+  color: #2a5ea2;
+  border: 1px solid #b8d4f5;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 1px 8px;
+}
+
+/* エディタ枠 (app-shell なしの単体再現) */
+.editor-frame {
+  background: var(--bg-editor);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(20,20,35,0.06);
+}
+.editor-frame-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.editor-frame-bar .dot-row { display: flex; gap: 5px; }
+.editor-frame-bar .dot-row span {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--border-strong);
+  display: inline-block;
+}
+.editor-frame-bar .fname {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin: 0 auto;
+}
+
+.editor-body {
+  padding: 20px 0 24px;
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+/* セクションキャプション */
+.compare-caption {
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.65;
+  padding: 0 2px;
+}
+.compare-caption strong { color: var(--text); }
+
+/* ================================================================
+   現状 (NG) — 左ガターが遠い
+   ================================================================ */
+
+/* NGデモ専用: 広いガター、コンテンツは大きくインデント */
+.ng-line {
+  display: flex;
+  align-items: baseline;
+  min-height: 1.75em;
+  padding: 0 6px;
+  border-radius: 4px;
+}
+.ng-gutter {
+  /* 広いガター: 実際の現状に近い幅 */
+  width: 36px;
+  flex-shrink: 0;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  align-self: stretch;
+}
+.ng-content-indent {
+  padding-left: 16px; /* コンテンツがさらにインデントされている */
+  flex: 1;
+  min-width: 0;
+}
+/* NG用: chevronを上端揃えに見せて問題を強調 */
+.ng-gutter-misaligned {
+  width: 36px;
+  flex-shrink: 0;
+  display: inline-flex;
+  justify-content: center;
+  align-items: flex-start; /* ← ここが問題: 上端揃えで大きなH1見出しとズレる */
+  align-self: stretch;
+  padding-top: 2px;
+}
+
+.ng-toggle {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  color: var(--text-faint);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.9;
+  background: none;
+  padding: 0;
+  flex-shrink: 0;
+}
+.ng-toggle svg { width: 11px; height: 11px; }
+
+/* NG用 annotation: 赤矢印 + ラベル */
+.ng-gap-indicator {
+  display: inline-block;
+  height: 2px;
+  background: #f5a0a0;
+  vertical-align: middle;
+  position: relative;
+}
+
+/* ================================================================
+   案A: テキスト直前 (Obsidian 方式)
+   ================================================================ */
+
+/* 案A専用 cm-line: gutterなし、chevronをコンテンツ直前に */
+.line-a {
+  display: flex;
+  align-items: baseline;
+  min-height: 1.75em;
+  padding: 0 6px 0 32px; /* 左余白はコンテンツの字下げ量のみ */
+  border-radius: 4px;
+  position: relative;
+}
+.line-a:hover { background: #f7f6fb; }
+
+/* chevronをテキスト直前に置く小コンテナ */
+.inline-toggle-wrap {
+  display: inline-flex;
+  align-items: center; /* ← ベースライン揃えではなく中央揃え */
+  flex-shrink: 0;
+  /* chevronとテキストの隙間は 4px */
+  margin-right: 4px;
+}
+
+/* 案A用 toggle ボタン */
+.inline-fold-toggle {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  color: var(--text-faint);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.1s, transform 0.12s;
+  background: none;
+  padding: 0;
+  flex-shrink: 0;
+}
+.line-a:hover .inline-fold-toggle { opacity: 1; }
+.inline-fold-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+  opacity: 1;
+}
+.inline-fold-toggle svg { width: 11px; height: 11px; }
+
+/* H1 は大きいのでchevronのサイズを少し大きくして存在感を合わせる */
+.line-a.is-h1 .inline-fold-toggle { width: 18px; height: 18px; }
+.line-a.is-h1 .inline-fold-toggle svg { width: 12px; height: 12px; }
+
+/* 折りたたみ中 */
+.inline-fold-toggle.folded {
+  color: var(--accent);
+  opacity: 1;
+  transform: rotate(-90deg);
+}
+
+/* 案A: H1の左オフセット — chevronが出るぶん少し引く */
+.line-a.is-h1 { padding-left: 10px; }
+.line-a.is-h2 { padding-left: 18px; }
+.line-a.is-h3 { padding-left: 24px; }
+.line-a.is-list { padding-left: 32px; }
+.line-a.is-list-indent { padding-left: 52px; }
+
+/* placeholder: chevronがない行 (プレーンテキスト行) */
+.toggle-placeholder {
+  width: 16px;
+  flex-shrink: 0;
+  margin-right: 4px;
+  display: inline-block;
+}
+.line-a.is-h1 .toggle-placeholder { width: 18px; }
+
+/* 案A: 折りたたみ中のpill — コンテンツ末尾 */
+.fold-pill-a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 0 8px;
+  margin-left: 8px;
+  vertical-align: middle;
+  cursor: pointer;
+  line-height: 1.8;
+}
+.fold-pill-a:hover { background: #e5dff8; }
+
+/* ================================================================
+   案B: 詰めたガター
+   ================================================================ */
+
+/* 案B用 cm-line: ガターを薄く保持、コンテンツとの間隔を詰める */
+.line-b {
+  display: flex;
+  align-items: center; /* ← 中央揃えで高さのある見出しにも対応 */
+  min-height: 1.75em;
+  padding: 0 6px;
+  border-radius: 4px;
+}
+.line-b:hover { background: #f7f6fb; }
+
+/* 案B用ガター: 幅を詰めてコンテンツに寄せる */
+.gutter-b {
+  width: 22px;
+  flex-shrink: 0;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  align-self: stretch;
+}
+
+/* 案B用 toggle ボタン */
+.gutter-fold-toggle {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  color: var(--text-faint);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.1s, transform 0.12s;
+  background: none;
+  padding: 0;
+  flex-shrink: 0;
+}
+.line-b:hover .gutter-fold-toggle { opacity: 1; }
+.gutter-fold-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+  opacity: 1;
+}
+.gutter-fold-toggle svg { width: 11px; height: 11px; }
+.gutter-fold-toggle.folded {
+  color: var(--accent);
+  opacity: 1;
+  transform: rotate(-90deg);
+}
+
+/* 案B用コンテンツ: 左余白を最小化してガターに密着 */
+.content-b {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+  padding-left: 4px; /* ガターとの間隔: 4px のみ */
+}
+
+/* 折りたたみ中のpill (B案) */
+.fold-pill-b {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 0 8px;
+  margin-left: 8px;
+  vertical-align: middle;
+  cursor: pointer;
+  line-height: 1.8;
+}
+.fold-pill-b:hover { background: #e5dff8; }
+
+/* 案B リストのbulletとインデント */
+.line-b.indent-b-1 { padding-left: 28px; }
+
+/* 問題可視化用の「ギャップ矢印」 */
+.gap-arrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  vertical-align: middle;
+  color: #d64545;
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  margin: 0 2px;
+}
+.gap-arrow .arrow-line {
+  display: inline-block;
+  height: 1.5px;
+  background: #d64545;
+  flex-shrink: 0;
+}
+
+/* NG セクションの問題アノテーション */
+.ng-problem-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #fdf0f0;
+  border: 1px solid #f5c9c9;
+  border-radius: 7px;
+  padding: 7px 12px;
+  font-size: 12px;
+  color: #9b3030;
+  line-height: 1.6;
+  margin-top: 8px;
+}
+.ng-problem-note svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 2px; color: #d64545; }
+
+</style>
+</head>
+<body>
+
+<div class="comparison-page">
+
+  <h1>折りたたみトグル配置 — 比較プロトタイプ</h1>
+  <p class="page-sub">見出し・リスト行の fold chevron をどこに置くか。3 案を並べて比較する。</p>
+
+  <!-- ===================================================
+       現状 (NG)
+       =================================================== -->
+  <div class="compare-section">
+    <div class="compare-section-label">
+      <span class="badge-ng">NG</span>
+      現状 — 左ガターが遠く、chevron がテキストから浮く
+    </div>
+
+    <div class="editor-frame">
+      <div class="editor-frame-bar">
+        <div class="dot-row"><span></span><span></span><span></span></div>
+        <span class="fname">設計メモ.md</span>
+      </div>
+      <div class="editor-body">
+
+        <!-- H1: chevron が上端 + 大きなフォントとのギャップが顕著 -->
+        <div class="ng-line">
+          <div class="ng-gutter-misaligned">
+            <!-- chevronが上端揃いで、H1の大きなテキストの中央より上に浮く -->
+            <button class="ng-toggle" aria-label="折りたたむ">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+          </div>
+          <div class="ng-content-indent">
+            <span class="md-h1">プロジェクト概要</span>
+          </div>
+        </div>
+
+        <!-- 問題1: ガターとテキストのギャップ可視化 -->
+        <div style="display:flex; align-items:center; padding: 0 6px; margin: 2px 0;">
+          <div style="width:36px; flex-shrink:0; display:flex; justify-content:center;">
+            <svg width="9" height="9" viewBox="0 0 9 9" fill="#d64545"><path d="M4.5 0L9 9H0z"/></svg>
+          </div>
+          <div style="padding-left:16px; flex:1; display:flex; align-items:center; gap:4px;">
+            <div style="height:1.5px; width:52px; background:#f5a0a0; flex-shrink:0;"></div>
+            <span style="font-size:11px; color:#d64545; font-weight:600; white-space:nowrap;">← 52px のギャップ</span>
+          </div>
+        </div>
+
+        <!-- H2 -->
+        <div class="ng-line" style="margin-top:4px;">
+          <div class="ng-gutter">
+            <button class="ng-toggle" aria-label="折りたたむ">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+          </div>
+          <div class="ng-content-indent">
+            <span class="md-h2">アーキテクチャ</span>
+          </div>
+        </div>
+
+        <!-- list line with toggle -->
+        <div class="ng-line">
+          <div class="ng-gutter">
+            <button class="ng-toggle" aria-label="折りたたむ">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+          </div>
+          <div class="ng-content-indent">
+            <span class="md-list"><span class="bullet">•</span> フロントエンド (React + CodeMirror 6)</span>
+          </div>
+        </div>
+
+        <div class="ng-line">
+          <div class="ng-gutter"></div>
+          <div class="ng-content-indent">
+            <span class="md-list"><span class="bullet">•</span> バックエンド (Hono / Node.js)</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="ng-problem-note">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="8" cy="8" r="5.5"/><path d="M8 5.5v3M8 10.5h.01"/></svg>
+      <span>H1 では chevron がテキストの垂直中央より <strong>上に浮き</strong>、テキストとの水平ギャップも広い。リスト行でも chevron がガター中央にあり、bullet との視覚的つながりが薄い。</span>
+    </div>
+  </div>
+
+
+  <!-- ===================================================
+       案A: Obsidian 方式 (推奨)
+       =================================================== -->
+  <div class="compare-section">
+    <div class="compare-section-label">
+      <span class="badge-a">案A 推奨</span>
+      Obsidian 方式 — chevron をテキスト直前に配置
+    </div>
+
+    <div class="editor-frame">
+      <div class="editor-frame-bar">
+        <div class="dot-row"><span></span><span></span><span></span></div>
+        <span class="fname">設計メモ.md</span>
+      </div>
+      <div class="editor-body">
+
+        <!-- H1: chevronがテキストのすぐ左、垂直中央揃え -->
+        <div class="line-a is-h1" id="a-h1">
+          <div class="inline-toggle-wrap">
+            <button class="inline-fold-toggle" data-testid="heading-fold-toggle" data-section="a-h1" title="セクションを折りたたむ" aria-label="H1 セクションを折りたたむ">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+          </div>
+          <span class="md-h1">プロジェクト概要</span>
+        </div>
+
+        <!-- H1 body -->
+        <div class="line-a is-h1">
+          <div class="toggle-placeholder"></div>
+          <span>Loamium はローカル Markdown を正本とする個人用ノートアプリ。</span>
+        </div>
+
+        <!-- H2: 展開中 -->
+        <div class="line-a is-h2" id="a-h2">
+          <div class="inline-toggle-wrap">
+            <button class="inline-fold-toggle" data-testid="heading-fold-toggle" data-section="a-h2" title="セクションを折りたたむ" aria-label="H2 セクションを折りたたむ">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+          </div>
+          <span class="md-h2">アーキテクチャ</span>
+        </div>
+
+        <!-- list with fold toggle: chevron が bullet のすぐ左 -->
+        <div class="line-a is-list" id="a-list1">
+          <div class="inline-toggle-wrap">
+            <button class="inline-fold-toggle" data-testid="fold-toggle" data-section="a-list1" title="サブツリーを折りたたむ" aria-label="リスト折りたたみ">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+          </div>
+          <span class="md-list"><span class="bullet">•</span> フロントエンド (React + CodeMirror 6)</span>
+        </div>
+
+        <!-- sub-item -->
+        <div class="line-a is-list-indent" id="a-list-sub1">
+          <div class="toggle-placeholder"></div>
+          <span class="md-list"><span class="bullet">◦</span> ライブプレビュー: Decoration API</span>
+        </div>
+        <div class="line-a is-list-indent">
+          <div class="toggle-placeholder"></div>
+          <span class="md-list"><span class="bullet">◦</span> アウトライン操作 (C 方式 / Tab で移動)</span>
+        </div>
+
+        <!-- H2: 折りたたみ中 → fold-pill 表示 -->
+        <div class="line-a is-h2 a-folded" id="a-h2-folded">
+          <div class="inline-toggle-wrap">
+            <button class="inline-fold-toggle folded" data-testid="heading-fold-toggle" data-section="a-h2-folded" title="セクションを展開する" aria-label="折りたたまれた H2 セクション — クリックで展開">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+          </div>
+          <span class="md-h2">バックエンド
+            <button class="fold-pill-a" data-testid="fold-pill" title="クリックで 12 行を展開" aria-label="12 行が折りたたまれています">
+              <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8h10"/><path d="M3 4h10"/><path d="M3 12h10"/></svg>
+              … 12 行
+            </button>
+          </span>
+        </div>
+
+      </div>
+    </div>
+
+    <p class="compare-caption">
+      <strong>案A: Obsidian 方式。</strong>
+      chevron がテキストの直前 (4px 間隔) に来るため「テキスト行の付属物」として自然に読める。
+      ガター列が不要になりエディタ幅を最大化できるが、CodeMirror GutterMarker API を使わず
+      Decoration (WidgetDecoration) で行頭に埋め込む実装に切り替える必要がある。
+    </p>
+  </div>
+
+
+  <!-- ===================================================
+       案B: 詰めたガター
+       =================================================== -->
+  <div class="compare-section">
+    <div class="compare-section-label">
+      <span class="badge-b">案B</span>
+      詰めたガター — 薄い左ガターをコンテンツに密着させる
+    </div>
+
+    <div class="editor-frame">
+      <div class="editor-frame-bar">
+        <div class="dot-row"><span></span><span></span><span></span></div>
+        <span class="fname">設計メモ.md</span>
+      </div>
+      <div class="editor-body" style="padding-left: 8px;">
+
+        <!-- H1 -->
+        <div class="line-b" id="b-h1">
+          <div class="gutter-b">
+            <button class="gutter-fold-toggle" data-testid="heading-fold-toggle" data-section="b-h1" title="セクションを折りたたむ" aria-label="H1 セクションを折りたたむ">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+          </div>
+          <div class="content-b">
+            <span class="md-h1">プロジェクト概要</span>
+          </div>
+        </div>
+
+        <!-- H1 body -->
+        <div class="line-b">
+          <div class="gutter-b"></div>
+          <div class="content-b">
+            Loamium はローカル Markdown を正本とする個人用ノートアプリ。
+          </div>
+        </div>
+
+        <!-- H2 展開中 -->
+        <div class="line-b" id="b-h2">
+          <div class="gutter-b">
+            <button class="gutter-fold-toggle" data-testid="heading-fold-toggle" data-section="b-h2" title="セクションを折りたたむ" aria-label="H2 セクションを折りたたむ">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+          </div>
+          <div class="content-b">
+            <span class="md-h2">アーキテクチャ</span>
+          </div>
+        </div>
+
+        <!-- リスト with fold -->
+        <div class="line-b" id="b-list1">
+          <div class="gutter-b">
+            <button class="gutter-fold-toggle" data-testid="fold-toggle" data-section="b-list1" title="サブツリーを折りたたむ" aria-label="リスト折りたたみ">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+          </div>
+          <div class="content-b">
+            <span class="md-list"><span class="bullet">•</span> フロントエンド (React + CodeMirror 6)</span>
+          </div>
+        </div>
+
+        <!-- sub-item -->
+        <div class="line-b indent-b-1">
+          <div class="gutter-b"></div>
+          <div class="content-b">
+            <span class="md-list"><span class="bullet">◦</span> ライブプレビュー: Decoration API</span>
+          </div>
+        </div>
+        <div class="line-b indent-b-1">
+          <div class="gutter-b"></div>
+          <div class="content-b">
+            <span class="md-list"><span class="bullet">◦</span> アウトライン操作 (C 方式 / Tab で移動)</span>
+          </div>
+        </div>
+
+        <!-- H2 折りたたみ中 -->
+        <div class="line-b" id="b-h2-folded">
+          <div class="gutter-b">
+            <button class="gutter-fold-toggle folded" data-testid="heading-fold-toggle" data-section="b-h2-folded" title="セクションを展開する" aria-label="折りたたまれた H2 — クリックで展開">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+          </div>
+          <div class="content-b">
+            <span class="md-h2">バックエンド
+              <button class="fold-pill-b" data-testid="fold-pill" title="クリックで 12 行を展開" aria-label="12 行が折りたたまれています">
+                <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 8h10"/><path d="M3 4h10"/><path d="M3 12h10"/></svg>
+                … 12 行
+              </button>
+            </span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <p class="compare-caption">
+      <strong>案B: 詰めたガター方式。</strong>
+      GutterMarker API は現行のまま維持。ガター幅を 36px → 22px に縮小し、コンテンツの左 padding を 4px に揃えることで chevron とテキストの間隔を約 26px 削減する。
+      実装変更は CSS 調整のみで最小だが、ガターは常に一定列に固定されるため、
+      H1 の大きなフォントに対して chevron がやや小さく見えるという視覚的な不均衡は残る。
+    </p>
+  </div>
+
+</div><!-- /comparison-page -->
+
+<a class="proto-chip" href="index.html">← プロトタイプ一覧</a>
+
+<script>
+// インタラクション: 各セクションのトグルをクリックで折りたたみ/展開をトグル
+// (案A)
+document.querySelectorAll('.inline-fold-toggle').forEach(btn => {
+  btn.addEventListener('click', () => {
+    btn.classList.toggle('folded');
+    const title = btn.classList.contains('folded')
+      ? 'セクションを展開する' : 'セクションを折りたたむ';
+    btn.title = title;
+  });
+});
+
+// (案B)
+document.querySelectorAll('.gutter-fold-toggle').forEach(btn => {
+  btn.addEventListener('click', () => {
+    btn.classList.toggle('folded');
+    const title = btn.classList.contains('folded')
+      ? 'セクションを展開する' : 'セクションを折りたたむ';
+    btn.title = title;
+  });
+});
+</script>
+</body>
+</html>
