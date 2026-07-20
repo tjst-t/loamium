@@ -653,6 +653,11 @@ export type AgentSessionDetailResponse = z.infer<typeof agentSessionDetailRespon
 
 export const agentSendMessageRequestSchema = z.object({
   content: z.string().min(1, 'content must not be empty'),
+  /**
+   * 現在エディタで開いているノートの vault 相対パス (Story 7: 現在文書コンテキスト付与)。
+   * 未指定 / null = 文書未オープン。サーバーはこれを turn コンテキストとして注入する。
+   */
+  currentNotePath: z.string().optional().nullable(),
 });
 export type AgentSendMessageRequest = z.infer<typeof agentSendMessageRequestSchema>;
 

@@ -69,6 +69,11 @@ export interface RightSidebarProps {
    * AgentPane の done 受信時に転送し、左サイドバー (ファイルツリー) を再取得させる。
    */
   onNotesChanged?: (() => void) | undefined;
+  /**
+   * 現在エディタで開いているノートのパス (Story 7: エージェントへの現在文書コンテキスト付与)。
+   * AgentPane に転送し、メッセージ送信時のコンテキストとして注入する。
+   */
+  currentNotePath?: string | null;
 }
 
 /** インフォアイコン (プロトタイプ準拠) */
@@ -99,6 +104,7 @@ export function RightSidebar({
   hidden = false,
   notes = null,
   onNotesChanged,
+  currentNotePath = null,
 }: RightSidebarProps): JSX.Element {
   const [tab, setTab] = useState<RightTab>('info');
   const [collapsed, setCollapsed] = useState(false);
@@ -288,7 +294,7 @@ export function RightSidebar({
       {/* エージェントペイン — 非選択/collapsed 時も display:none で DOM に残す
           (rs-pane-fill で .agent-body に高さを伝え、in-flight セッションを保持)。 */}
       <div className="rs-pane-fill" style={!collapsed && tab === 'agent' ? undefined : { display: 'none' }}>
-        <AgentPane health={health} notes={notes} onOpenNote={onOpenNote} onNotesChanged={onNotesChanged} />
+        <AgentPane health={health} notes={notes} onOpenNote={onOpenNote} onNotesChanged={onNotesChanged} currentNotePath={currentNotePath} />
       </div>
     </aside>
   );

@@ -38,6 +38,8 @@ import {
   agentCreateSessionRequestSchema,
   agentTruncateRequestSchema,
   resolvePermissions,
+  normalizeVaultPath,
+  VaultPathError,
 } from '@loamium/shared';
 import { loadSessionPerms, saveSessionPerms } from '../agent-session-perms.js';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
@@ -384,7 +386,26 @@ export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
 
     const bodyResult = await parseBody(c, agentSendMessageRequestSchema);
     if (!bodyResult.ok) return bodyResult.response;
-    const { content } = bodyResult.data;
+    const { content, currentNotePath } = bodyResult.data;
+
+    // Story 7: 現在開いているノートのパスが指定された場合、ターンのコンテキストとして注入する。
+    // base システムプロンプトへは移さない (ADR-0014)。turn ごとの一時コンテキストとして
+    // ユーザーメッセージの先頭に付与し、Agent が「この文書」を参照できるようにする。
+    // vault 内パス検証: normalizeVaultPath が ../ 脱出を弾く。検証失敗は無視してコンテキスト注入なし。
+    let resolvedContent = content;
+    if (typeof currentNotePath === 'string' && currentNotePath.length > 0) {
+      let validPath: string | null = null;
+      try {
+        validPath = normalizeVaultPath(currentNotePath);
+      } catch (err) {
+        if (!(err instanceof VaultPathError)) throw err;
+        // パス検証失敗 → コンテキスト注入なし (安全側)
+      }
+      if (validPath !== null) {
+        resolvedContent =
+          `[現在開いているノート: ${validPath}]\n\n${content}`;
+      }
+    }
 
     // fast-path: メモリ内アクティブセッション。
     // slow-path: サーバー再起動後などアクティブに無い場合は JSONL からリハイドレートして
@@ -493,7 +514,7 @@ export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
       });
 
       try {
-        await session.prompt(content);
+        await session.prompt(resolvedContent);
         // agent_settled が来るまで待つ (エラー時も必ず settled になる)
         await session.waitForIdle();
       } catch (err) {

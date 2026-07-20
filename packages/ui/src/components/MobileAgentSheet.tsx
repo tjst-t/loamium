@@ -136,6 +136,7 @@ export function MobileAgentSheet({
           notes={notes}
           onOpenNote={onOpenNote}
           onNotesChanged={onNotesChanged}
+          currentNotePath={currentNotePath}
         />
       </div>
     </div>

@@ -409,70 +409,8 @@ export function App(): JSX.Element {
     void refreshPropertyKeys();
   }, [refreshNotes, refreshTags, refreshPropertyKeys]);
 
-  // ---- SSE イベント処理 (Sd5c9f4-4) -------------------------------------------
-
-  /** SSE notes_changed: upsert→getNoteMeta で 1 件差分更新、delete→filter 除去。 */
-  const handleSseNotesChanged = useCallback(
-    (changedPath: string, op: 'upsert' | 'delete'): void => {
-      if (op === 'delete') {
-        setNotes((prev) => {
-          if (prev === null) return prev;
-          return prev.filter((n) => n.path !== changedPath);
-        });
-      } else {
-        // upsert: getNoteMeta で最新情報を取得し NoteMeta へ変換してマージ
-        api.getNoteMeta(changedPath).then(
-          (meta) => {
-            // NoteMetaResponse → NoteMeta 変換 (folder/title を path から導出)
-            const folder = changedPath.includes('/')
-              ? changedPath.slice(0, changedPath.lastIndexOf('/'))
-              : '';
-            const noteMeta: NoteMeta = {
-              path: changedPath,
-              title: noteTitle(changedPath),
-              tags: meta.tags,
-              folder,
-              mtime: meta.mtime,
-            };
-            setNotes((prev) => {
-              if (prev === null) return [noteMeta];
-              const idx = prev.findIndex((n) => n.path === changedPath);
-              let next: NoteMeta[];
-              if (idx >= 0) {
-                next = prev.map((n, i) => (i === idx ? noteMeta : n));
-              } else {
-                next = [...prev, noteMeta];
-              }
-              // パス昇順を維持
-              return next.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-            });
-          },
-          (err: unknown) => {
-            // getNoteMeta 失敗時は全件再取得にフォールバック
-            console.error('[loamium] SSE notes_changed getNoteMeta failed:', err);
-            void refreshNotes();
-          },
-        );
-      }
-    },
-    [refreshNotes],
-  );
-
-  /** SSE sf_invalidated: 展開済み SF の再フェッチを SmartView に通知。
-   *
-   * 毎回新しい配列オブジェクトをセットすることで React が deps 変化として検知し
-   * SmartFolder の useEffect が確実にトリガーされる。
-   * setTimeout でのリセットは useEffect 実行前に呼ばれる場合があり NG (React 18 batching)。
-   */
-  const handleSseSfInvalidated = useCallback((ids: string[]): void => {
-    setSseSfInvalidatedIds([...ids]);
-  }, []);
-
-  // SSE 購読 (Sd5c9f4-4)
-  useVaultEvents({
-    onSfInvalidated: handleSseSfInvalidated,
-    onNotesChanged: handleSseNotesChanged,
-  });
+  // SSE イベント処理 (Sd5c9f4-4) は pushToast / setOpenDoc の後に定義 (Story 6 で使うため)。
+  // → setOpenDoc / pushToast の定義後、useVaultEvents 購読を含めてまとめて下に移動。
 
   // 新規プロパティの型を .loamium/property-types.json へ永続化する (Sd13ab1-2)。
   // 永続化後、型スキーマとキー候補を最新化する (別ファイルでも同じ型に解決される)。
@@ -643,6 +581,107 @@ export function App(): JSX.Element {
     },
     [],
   );
+
+  // ---- SSE イベント処理 (Sd5c9f4-4) -------------------------------------------
+  // pushToast / setOpenDoc の後に定義 (Story 6 で両方を依存に取るため)。
+
+  /** SSE notes_changed: upsert→getNoteMeta で 1 件差分更新、delete→filter 除去。
+   *
+   * Story 6: upsert かつ changedPath が現在開いているノートのパスに一致するとき、
+   * エディタ本文を最新内容へ自動更新する。
+   * - dirty でない(未編集)の場合: 自動で本文を差し替える。スクロール/カーソル位置は
+   *   CodeMirror の setOpenDoc が resetToken を変更し CodeMirror のリセットが走るため
+   *   トップに戻る(現状の loadNote と同じ挙動)。
+   * - dirty(編集中)の場合: ユーザーの未保存編集を破棄しないためトーストで通知して保留。
+   *   リモート更新があったことを伝え、ユーザーが明示的に保存 or 破棄を選べる。
+   */
+  const handleSseNotesChanged = useCallback(
+    (changedPath: string, op: 'upsert' | 'delete'): void => {
+      if (op === 'delete') {
+        setNotes((prev) => {
+          if (prev === null) return prev;
+          return prev.filter((n) => n.path !== changedPath);
+        });
+      } else {
+        // upsert: getNoteMeta で最新情報を取得し NoteMeta へ変換してマージ
+        api.getNoteMeta(changedPath).then(
+          (meta) => {
+            // NoteMetaResponse → NoteMeta 変換 (folder/title を path から導出)
+            const folder = changedPath.includes('/')
+              ? changedPath.slice(0, changedPath.lastIndexOf('/'))
+              : '';
+            const noteMeta: NoteMeta = {
+              path: changedPath,
+              title: noteTitle(changedPath),
+              tags: meta.tags,
+              folder,
+              mtime: meta.mtime,
+            };
+            setNotes((prev) => {
+              if (prev === null) return [noteMeta];
+              const idx = prev.findIndex((n) => n.path === changedPath);
+              let next: NoteMeta[];
+              if (idx >= 0) {
+                next = prev.map((n, i) => (i === idx ? noteMeta : n));
+              } else {
+                next = [...prev, noteMeta];
+              }
+              // パス昇順を維持
+              return next.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+            });
+
+            // Story 6: 現在開いているノートの場合、エディタ本文も更新する。
+            if (docRef.current?.path === changedPath && previewRef.current === null) {
+              if (dirtyRef.current) {
+                // 編集中: 未保存編集を破棄しないためトーストで通知する (安全側)。
+                // ユーザーは保存 (Ctrl+S) または「破棄して再読み込み」で対応できる。
+                pushToast({
+                  kind: 'error',
+                  title: 'リモート変更があります',
+                  sub: `${changedPath} がエージェントによって更新されました。保存または破棄してから再読み込みしてください。`,
+                });
+              } else {
+                // 未編集: エディタ本文を自動更新する。
+                api.getNote(changedPath).then(
+                  (note) => {
+                    // 再チェック: 取得完了後も同じノートが開かれているか確認
+                    if (docRef.current?.path === changedPath && !dirtyRef.current) {
+                      setOpenDoc(note.path, note.content, note.mtime, note.frontmatter);
+                    }
+                  },
+                  (err: unknown) => {
+                    console.error('[loamium] SSE auto-reload getNote failed:', err);
+                  },
+                );
+              }
+            }
+          },
+          (err: unknown) => {
+            // getNoteMeta 失敗時は全件再取得にフォールバック
+            console.error('[loamium] SSE notes_changed getNoteMeta failed:', err);
+            void refreshNotes();
+          },
+        );
+      }
+    },
+    [refreshNotes, pushToast, setOpenDoc],
+  );
+
+  /** SSE sf_invalidated: 展開済み SF の再フェッチを SmartView に通知。
+   *
+   * 毎回新しい配列オブジェクトをセットすることで React が deps 変化として検知し
+   * SmartFolder の useEffect が確実にトリガーされる。
+   * setTimeout でのリセットは useEffect 実行前に呼ばれる場合があり NG (React 18 batching)。
+   */
+  const handleSseSfInvalidated = useCallback((ids: string[]): void => {
+    setSseSfInvalidatedIds([...ids]);
+  }, []);
+
+  // SSE 購読 (Sd5c9f4-4)
+  useVaultEvents({
+    onSfInvalidated: handleSseSfInvalidated,
+    onNotesChanged: handleSseNotesChanged,
+  });
 
   // ---- 履歴同期 ----
   const syncNavFlags = useCallback((): void => {
@@ -2239,6 +2278,7 @@ export function App(): JSX.Element {
         hidden={route.kind === 'search'}
         notes={notes}
         onNotesChanged={onNotesChanged}
+        currentNotePath={doc?.path ?? null}
       />
 
       {/* ================= ポップアップ ================= */}

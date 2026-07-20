@@ -552,9 +552,15 @@ export interface AgentPaneProps {
    * streaming 中の各 delta では呼ばず、done で1回だけ呼ぶ。
    */
   onNotesChanged?: (() => void) | undefined;
+  /**
+   * 現在エディタで開いているノートの vault 相対パス (Story 7: 現在文書コンテキスト)。
+   * null = ノート未オープン。メッセージ送信時にサーバーへ渡し、Agent がこの文書を
+   * 参照できるようコンテキストとして注入する (ADR-0014: base プロンプトには載せない)。
+   */
+  currentNotePath?: string | null;
 }
 
-export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged }: AgentPaneProps): JSX.Element {
+export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged, currentNotePath = null }: AgentPaneProps): JSX.Element {
   const agentEnabled = health?.agent?.enabled ?? false;
 
   const [status, setStatus] = useState<AgentStatus>(agentEnabled ? 'ready' : 'unconfigured');
@@ -614,6 +620,10 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged }: 
   // sidebar-refresh: send コールバックの deps を変えずに最新の onNotesChanged を参照する。
   const onNotesChangedRef = useRef(onNotesChanged);
   onNotesChangedRef.current = onNotesChanged;
+
+  // Story 7: 現在ノートパスを ref で保持 (send コールバックの deps に含めない)。
+  const currentNotePathRef = useRef(currentNotePath);
+  currentNotePathRef.current = currentNotePath;
 
   // ノートパスのセット (wikilink 解決用)
   const notePaths = useMemo<ReadonlySet<string>>(
@@ -1028,10 +1038,16 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged }: 
         });
 
         try {
+          // Story 7: 現在ノートパスをコンテキストとして送信する。
+          const notePath = currentNotePathRef.current;
+          const sendBody: { content: string; currentNotePath?: string } = { content: text };
+          if (typeof notePath === 'string' && notePath.length > 0) {
+            sendBody.currentNotePath = notePath;
+          }
           const response = await fetch(`/api/agent/sessions/${currentSessionId}/messages`, {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ content: text }),
+            body: JSON.stringify(sendBody),
             signal: ac.signal,
           });
 
@@ -1240,10 +1256,16 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged }: 
         });
 
         try {
+          // Story 7: 現在ノートパスをコンテキストとして送信する (edit-mode re-send)。
+          const notePathEdit = currentNotePathRef.current;
+          const sendBodyEdit: { content: string; currentNotePath?: string } = { content: text };
+          if (typeof notePathEdit === 'string' && notePathEdit.length > 0) {
+            sendBodyEdit.currentNotePath = notePathEdit;
+          }
           const response = await fetch(`/api/agent/sessions/${currentSessionId}/messages`, {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ content: text }),
+            body: JSON.stringify(sendBodyEdit),
             signal: ac.signal,
           });
 
