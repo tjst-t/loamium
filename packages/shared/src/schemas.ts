@@ -672,6 +672,25 @@ export const agentAbortResponseSchema = z.object({
 });
 export type AgentAbortResponse = z.infer<typeof agentAbortResponseSchema>;
 
+/**
+ * POST /api/agent/sessions/{id}/truncate のリクエスト (Story Sfa11c0: メッセージ編集)。
+ *
+ * fromUserMessageIndex: 0 始まりのユーザーメッセージインデックス。
+ * このインデックスのユーザーメッセージ (含む) 以降の履歴を切り捨てる。
+ * 例: index=1 → 1番目のユーザーメッセージとそれ以降のアシスタント応答を削除。
+ */
+export const agentTruncateRequestSchema = z.object({
+  fromUserMessageIndex: z.number().int().nonnegative(),
+});
+export type AgentTruncateRequest = z.infer<typeof agentTruncateRequestSchema>;
+
+export const agentTruncateResponseSchema = z.object({
+  ok: z.boolean(),
+  /** 切り捨て後のユーザーメッセージ数 */
+  remainingUserMessages: z.number().int().nonnegative(),
+});
+export type AgentTruncateResponse = z.infer<typeof agentTruncateResponseSchema>;
+
 // ---- 意味型スキーマ配信 (GET /api/property-types — S87f4b7-2) ----
 
 /**

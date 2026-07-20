@@ -193,6 +193,28 @@ async function apiPut(url: string, body: unknown): Promise<unknown> {
   return res.json();
 }
 
+/**
+ * POST /api/agent/sessions/{id}/truncate を呼び、指定インデックス以降の履歴を切り捨てる。
+ * fromUserMessageIndex は 0 始まりのユーザーメッセージインデックス。
+ */
+async function apiTruncateSession(sessionId: string, fromUserMessageIndex: number): Promise<void> {
+  const res = await fetch(`/api/agent/sessions/${sessionId}/truncate`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ fromUserMessageIndex }),
+  });
+  if (!res.ok) {
+    let msg = `HTTP ${String(res.status)}`;
+    try {
+      const j = (await res.json()) as Record<string, unknown>;
+      if (typeof j['message'] === 'string') msg = j['message'];
+    } catch {
+      // ignore
+    }
+    throw new Error(msg);
+  }
+}
+
 // ---- SSE ストリーム読取 -------------------------------------------------------
 
 interface SseEvent {
@@ -567,6 +589,16 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged }: 
   // ---- 条件付き自動スクロール (Story 3) -----------------------------------------
   /** ユーザーが最下部付近(80px以内)にいるか。最下部にいる間のみ自動追従する。 */
   const [isAtBottom, setIsAtBottom] = useState(true);
+
+  // ---- メッセージ編集状態 (Story Sfa11c0) -----------------------------------------
+
+  /**
+   * 編集中のユーザーメッセージ: { userMsgIndex: 編集対象ユーザーメッセージインデックス(0始まり) }
+   * null = 通常モード (編集なし)
+   */
+  const [editingUserMsgIndex, setEditingUserMsgIndex] = useState<number | null>(null);
+
+  // ---- /---- ----------------------------------------------------------------
 
   /**
    * MF-2: 遅延セッション作成中に abort が呼ばれたとき、作成されたセッション ID を
@@ -1098,6 +1130,214 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged }: 
     })();
   }, [inputText, sessionId, status, selectedCaps, parseEffective, fetchSessions]);
 
+  // ---- メッセージ編集開始 (Story Sfa11c0) ----------------------------------------
+
+  /**
+   * ユーザーメッセージの「編集」ボタンを押したとき呼ぶ。
+   * 対象メッセージの内容を入力欄に復元し、編集モードを開始する。
+   *
+   * @param userMsgIndex - 0 始まりのユーザーメッセージインデックス
+   * @param content      - 編集対象メッセージの内容 (入力欄に復元する)
+   */
+  const handleStartEdit = useCallback(
+    (userMsgIndex: number, content: string): void => {
+      if (status === 'streaming') return;
+      setEditingUserMsgIndex(userMsgIndex);
+      setInputText(content);
+      // テキストエリアにフォーカス (UX)
+      setTimeout(() => textareaRef.current?.focus(), 0);
+    },
+    [status],
+  );
+
+  /** 編集をキャンセルして通常モードへ戻す。 */
+  const handleCancelEdit = useCallback((): void => {
+    setEditingUserMsgIndex(null);
+    setInputText('');
+  }, []);
+
+  /**
+   * 編集モードで送信したとき呼ぶ。
+   * 1. truncate エンドポイントでサーバー側履歴を切り捨てる。
+   * 2. UI 状態のメッセージ列を切り捨て後の状態に更新する。
+   * 3. 通常の handleSend と同じフローで再送信する。
+   *
+   * セッションが存在しない場合 (sessionId === null) は、履歴切り捨て不要のため
+   * そのまま通常送信する (実質 editingUserMsgIndex は存在しない)。
+   */
+  const handleEditSend = useCallback((): void => {
+    const text = inputText.trim();
+    if (!text || status === 'streaming') return;
+    if (sendInFlightRef.current) return;
+
+    const currentSessionId = sessionId;
+    const editIdx = editingUserMsgIndex;
+
+    if (editIdx === null || currentSessionId === null) {
+      // 通常送信にフォールバック
+      setEditingUserMsgIndex(null);
+      handleSend();
+      return;
+    }
+
+    sendInFlightRef.current = true;
+
+    // 編集モード解除
+    setEditingUserMsgIndex(null);
+
+    // UI を即座に切り捨て: editIdx より後 (以降) のメッセージを削除し、
+    // 編集後のテキストで新しいユーザーメッセージを追加する
+    // editIdx は ユーザーメッセージの中でのインデックスなので、
+    // messages 配列を走査してユーザーメッセージ数を数えながら切り捨て位置を決める。
+    setMessages((prev) => {
+      let userCount = 0;
+      let cutIndex = prev.length; // デフォルト: 切り捨てなし
+      for (let i = 0; i < prev.length; i++) {
+        const m = prev[i];
+        if (m && m.role === 'user') {
+          if (userCount === editIdx) {
+            cutIndex = i;
+            break;
+          }
+          userCount++;
+        }
+      }
+      // cutIndex 以降を削除し、編集後のユーザーメッセージを追加
+      return [...prev.slice(0, cutIndex), { role: 'user' as const, content: text, tools: [] }];
+    });
+    setInputText('');
+    setStatus('streaming');
+
+    const ac = new AbortController();
+    setAbortController(ac);
+
+    void (async () => {
+      try {
+        activeSendSessionIdRef.current = currentSessionId;
+
+        // サーバー側履歴を切り捨てる
+        try {
+          await apiTruncateSession(currentSessionId, editIdx);
+        } catch (err) {
+          setMessages((prev) => {
+            const next = [...prev];
+            const last = next[next.length - 1];
+            if (last && last.role === 'assistant') {
+              next[next.length - 1] = { ...last, error: `切り捨て失敗: ${String(err)}` };
+            } else {
+              next.push({ role: 'assistant' as const, content: '', tools: [], error: `切り捨て失敗: ${String(err)}` });
+            }
+            return next;
+          });
+          return;
+        }
+
+        // アシスタントバブルを追加 (逐次更新用)
+        let assistantIdx = -1;
+        setMessages((prev) => {
+          assistantIdx = prev.length;
+          return [...prev, { role: 'assistant' as const, content: '', tools: [] }];
+        });
+
+        try {
+          const response = await fetch(`/api/agent/sessions/${currentSessionId}/messages`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ content: text }),
+            signal: ac.signal,
+          });
+
+          if (!response.ok) {
+            const errMsg = `HTTP ${String(response.status)}`;
+            setMessages((prev) => {
+              const next = [...prev];
+              if (assistantIdx >= 0 && assistantIdx < next.length) {
+                next[assistantIdx] = { role: 'assistant', content: '', tools: [], error: errMsg };
+              }
+              return next;
+            });
+            return;
+          }
+
+          for await (const event of readSseStream(response)) {
+            if (ac.signal.aborted) break;
+
+            if (event.type === 'text_delta' && event.text) {
+              setMessages((prev) => {
+                const next = [...prev];
+                const item = next[assistantIdx];
+                if (item) {
+                  next[assistantIdx] = { ...item, content: item.content + event.text };
+                }
+                return next;
+              });
+            } else if (event.type === 'tool_start' && event.toolCallId && event.name) {
+              const chip: ToolChipItem = {
+                toolCallId: event.toolCallId,
+                name: event.name,
+                argsSummary: event.argsSummary ?? '',
+                done: false,
+              };
+              setMessages((prev) => {
+                const next = [...prev];
+                const item = next[assistantIdx];
+                if (item) {
+                  next[assistantIdx] = { ...item, tools: [...item.tools, chip] };
+                }
+                return next;
+              });
+            } else if (event.type === 'tool_end' && event.toolCallId) {
+              const tid = event.toolCallId;
+              setMessages((prev) => {
+                const next = [...prev];
+                const item = next[assistantIdx];
+                if (item) {
+                  const updatedTools = item.tools.map((c) =>
+                    c.toolCallId === tid ? { ...c, done: true } : c,
+                  );
+                  next[assistantIdx] = { ...item, tools: updatedTools };
+                }
+                return next;
+              });
+            } else if (event.type === 'error') {
+              const errMsg = event.message ?? '不明なエラー';
+              setMessages((prev) => {
+                const next = [...prev];
+                const item = next[assistantIdx];
+                if (item) {
+                  next[assistantIdx] = { ...item, error: errMsg };
+                }
+                return next;
+              });
+              return;
+            } else if (event.type === 'done') {
+              onNotesChangedRef.current?.();
+              break;
+            }
+          }
+        } catch (err) {
+          if ((err as Error).name === 'AbortError') {
+            // 中断 — 部分応答は残す
+          } else {
+            setMessages((prev) => {
+              const next = [...prev];
+              const item = next[assistantIdx];
+              if (item) {
+                next[assistantIdx] = { ...item, error: String(err) };
+              }
+              return next;
+            });
+          }
+        }
+      } finally {
+        sendInFlightRef.current = false;
+        activeSendSessionIdRef.current = null;
+        setStatus('ready');
+        setAbortController(null);
+      }
+    })();
+  }, [inputText, sessionId, status, editingUserMsgIndex, handleSend]);
+
   // ---- 中断 ------------------------------------------------------------------
 
   const handleAbort = useCallback((): void => {
@@ -1115,10 +1355,17 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged }: 
     (e: KeyboardEvent<HTMLTextAreaElement>): void => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        handleSend();
+        if (editingUserMsgIndex !== null) {
+          handleEditSend();
+        } else {
+          handleSend();
+        }
+      }
+      if (e.key === 'Escape' && editingUserMsgIndex !== null) {
+        handleCancelEdit();
       }
     },
-    [handleSend],
+    [handleSend, handleEditSend, handleCancelEdit, editingUserMsgIndex],
   );
 
   // ---- 入力欄オートグロー (上方向、上限 = チャット高の 1/3) ----------------------
@@ -1400,53 +1647,99 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged }: 
           </div>
         )}
 
-        {messages.map((msg, idx) =>
-          msg.role === 'user' ? (
-            <div
-              key={idx}
-              className="agent-msg-user"
-              data-testid="agent-msg-user"
-            >
-              {msg.content}
-            </div>
-          ) : msg.error !== undefined ? (
-            <div
-              key={idx}
-              className="agent-error"
-              data-testid="agent-error"
-            >
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M8 2L1.8 13h12.4z" />
-                <path d="M8 6.5v3M8 11.5h.01" />
-              </svg>
-              <div>{msg.error}</div>
-            </div>
-          ) : (
-            <div
-              key={idx}
-              className="agent-msg-assistant"
-              data-testid="agent-msg-assistant"
-            >
-              {/* ツールチップ (メッセージ上部) */}
-              {msg.tools.length > 0 && (
-                <div className="agent-tool-chips">
-                  {msg.tools.map((chip) => (
-                    <ToolChip key={chip.toolCallId} chip={chip} />
-                  ))}
+        {(() => {
+          // ユーザーメッセージのインデックスカウンタを保持しながらレンダリングする
+          let userMsgCounter = 0;
+          return messages.map((msg, idx) => {
+            if (msg.role === 'user') {
+              const currentUserMsgIndex = userMsgCounter;
+              userMsgCounter++;
+              const isBeingEdited = editingUserMsgIndex === currentUserMsgIndex;
+              return (
+                <div
+                  key={idx}
+                  className={`agent-msg-user-wrap${isBeingEdited ? ' editing' : ''}`}
+                  data-testid="agent-msg-user-wrap"
+                >
+                  <div
+                    className="agent-msg-user"
+                    data-testid="agent-msg-user"
+                    data-user-msg-index={currentUserMsgIndex}
+                  >
+                    {msg.content}
+                  </div>
+                  {/* 編集ボタン: ストリーミング中と編集中は無効 */}
+                  {!isStreaming && (
+                    <button
+                      className={`agent-msg-edit-btn${isBeingEdited ? ' active' : ''}`}
+                      data-testid="agent-msg-edit-btn"
+                      data-user-msg-index={currentUserMsgIndex}
+                      title={isBeingEdited ? '編集をキャンセル (Esc)' : 'このメッセージを編集して再送信'}
+                      aria-label={isBeingEdited ? '編集をキャンセル' : 'メッセージを編集'}
+                      onClick={() => {
+                        if (isBeingEdited) {
+                          handleCancelEdit();
+                        } else {
+                          handleStartEdit(currentUserMsgIndex, msg.content);
+                        }
+                      }}
+                    >
+                      {isBeingEdited ? (
+                        /* キャンセルアイコン (×) */
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                          <path d="M4 4l8 8M12 4l-8 8" />
+                        </svg>
+                      ) : (
+                        /* 編集アイコン (鉛筆) */
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M11 2.5l2.5 2.5-7.5 7.5H3.5V10L11 2.5z" />
+                          <path d="M9.5 4l2.5 2.5" />
+                        </svg>
+                      )}
+                    </button>
+                  )}
                 </div>
-              )}
-              {/* メッセージ本文 ([[リンク]] 解決付き) */}
-              <AssistantText
-                content={msg.content}
-                notePaths={notePaths}
-                onOpenNote={handleOpenNote}
-              />
-              {isStreaming && idx === messages.length - 1 && msg.content.length === 0 && msg.tools.length === 0 && (
-                <span className="agent-streaming-caret" />
-              )}
-            </div>
-          ),
-        )}
+              );
+            }
+            return msg.error !== undefined ? (
+              <div
+                key={idx}
+                className="agent-error"
+                data-testid="agent-error"
+              >
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M8 2L1.8 13h12.4z" />
+                  <path d="M8 6.5v3M8 11.5h.01" />
+                </svg>
+                <div>{msg.error}</div>
+              </div>
+            ) : (
+              <div
+                key={idx}
+                className="agent-msg-assistant"
+                data-testid="agent-msg-assistant"
+              >
+                {/* ツールチップ (メッセージ上部) */}
+                {msg.tools.length > 0 && (
+                  <div className="agent-tool-chips">
+                    {msg.tools.map((chip) => (
+                      <ToolChip key={chip.toolCallId} chip={chip} />
+                    ))}
+                  </div>
+                )}
+                {/* メッセージ本文 ([[リンク]] 解決付き) */}
+                <AssistantText
+                  content={msg.content}
+                  notePaths={notePaths}
+                  onOpenNote={handleOpenNote}
+                />
+                {isStreaming && idx === messages.length - 1 && msg.content.length === 0 && msg.tools.length === 0 && (
+                  <span className="agent-streaming-caret" />
+                )}
+              </div>
+            );
+          });
+        })()}
 
         <div ref={messagesEndRef} />
 
@@ -1473,13 +1766,35 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged }: 
       </div>
 
       {/* 入力欄 */}
-      <div className="agent-input-row">
+      <div className={`agent-input-row${editingUserMsgIndex !== null ? ' editing' : ''}`}>
+        {editingUserMsgIndex !== null && (
+          <div className="agent-edit-banner" data-testid="agent-edit-banner">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ width: 12, height: 12, flexShrink: 0 }}>
+              <path d="M11 2.5l2.5 2.5-7.5 7.5H3.5V10L11 2.5z" />
+            </svg>
+            <span>メッセージを編集中 — 送信で以降を上書き</span>
+            <button
+              className="agent-edit-cancel"
+              data-testid="agent-edit-cancel"
+              title="編集をキャンセル (Esc)"
+              onClick={handleCancelEdit}
+            >
+              キャンセル
+            </button>
+          </div>
+        )}
         <textarea
           ref={textareaRef}
           className="agent-input"
           data-testid="agent-input"
           rows={1}
-          placeholder={isStreaming ? '応答中…' : 'vault について質問…'}
+          placeholder={
+            isStreaming
+              ? '応答中…'
+              : editingUserMsgIndex !== null
+                ? 'メッセージを編集してEnterで再送信…'
+                : 'vault について質問…'
+          }
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -1494,6 +1809,19 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged }: 
           >
             <svg viewBox="0 0 16 16" fill="currentColor">
               <rect x="4" y="4" width="8" height="8" rx="1.5" />
+            </svg>
+          </button>
+        ) : editingUserMsgIndex !== null ? (
+          <button
+            className="agent-send editing"
+            data-testid="agent-send"
+            title="再送信 (Enter)"
+            disabled={!canSend}
+            onClick={handleEditSend}
+          >
+            {/* 再送信アイコン (矢印+リロード) */}
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2L7.5 8.5M14 2L9.5 14l-2-5.5L2 6.5z" />
             </svg>
           </button>
         ) : (
@@ -1513,7 +1841,9 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged }: 
       <div className="agent-hint">
         {isStreaming
           ? '応答中 — 中断すると部分応答は残ります'
-          : 'Enter 送信 / Shift+Enter 改行'}
+          : editingUserMsgIndex !== null
+            ? 'Enter で再送信 / Esc でキャンセル'
+            : 'Enter 送信 / Shift+Enter 改行'}
       </div>
     </div>
   );

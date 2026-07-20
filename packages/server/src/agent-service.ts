@@ -53,6 +53,7 @@ import {
   DefaultResourceLoader,
   type AgentSession,
   type ResourceLoader,
+  type SessionMessageEntry,
 } from '@earendil-works/pi-coding-agent';
 import {
   agentConfigSchema,
@@ -765,6 +766,66 @@ function extractToolUses(content: unknown): { name: string; argsSummary: string 
       name: c.name,
       argsSummary: JSON.stringify(c.input ?? {}).slice(0, 80),
     }));
+}
+
+/**
+ * セッション履歴を指定したユーザーメッセージインデックス以降で切り捨てる。
+ *
+ * pi SDK の sessionManager.branch() を使ってリーフポインタを巻き戻し、
+ * agent.state.messages も最新のセッションコンテキストで更新する。
+ * (navigateTree のセルフ実装: ツリーUIが不要なため最小実装で代替)
+ *
+ * @param session - 対象の AgentSession
+ * @param fromUserMessageIndex - 0 始まり。このインデックスのユーザーメッセージ以降を削除
+ * @returns 切り捨て後のユーザーメッセージ数
+ * @throws Error - インデックスが範囲外、またはセッションのエントリが取得できない場合
+ */
+export function truncateSessionMessages(
+  session: AgentSession,
+  fromUserMessageIndex: number,
+): number {
+  // アクティブブランチのエントリを取得 (リーフからルートへのチェーン)
+  const branchEntries = session.sessionManager.getBranch();
+
+  // ユーザーメッセージエントリを出現順に収集 (SessionMessageEntry 型で絞り込む)
+  const userMessageEntries = branchEntries.filter(
+    (e): e is SessionMessageEntry =>
+      e.type === 'message' &&
+      typeof e.message === 'object' &&
+      e.message !== null &&
+      (e.message as { role?: unknown }).role === 'user',
+  );
+
+  if (fromUserMessageIndex >= userMessageEntries.length) {
+    throw new Error(
+      `fromUserMessageIndex ${String(fromUserMessageIndex)} is out of range (total user messages: ${String(userMessageEntries.length)})`,
+    );
+  }
+
+  // 切り捨て対象ユーザーメッセージエントリの直前エントリが新しいリーフになる
+  const targetEntry = userMessageEntries[fromUserMessageIndex];
+  if (!targetEntry) {
+    throw new Error(`Cannot find entry at fromUserMessageIndex ${String(fromUserMessageIndex)}`);
+  }
+
+  // 対象ユーザーメッセージの親エントリ ID が新しいリーフ (null = ルート)
+  // SessionEntryBase.parentId: string | null
+  const newLeafId: string | null = targetEntry.parentId;
+
+  if (newLeafId === null) {
+    // ルートへ巻き戻す
+    session.sessionManager.resetLeaf();
+  } else {
+    // 親エントリへ巻き戻す (branch はリーフポインタを変更するだけでエントリは削除しない)
+    session.sessionManager.branch(newLeafId);
+  }
+
+  // agent.state.messages をセッションコンテキストで同期する
+  const sessionContext = session.sessionManager.buildSessionContext();
+  session.agent.state.messages = sessionContext.messages;
+
+  // 切り捨て後のユーザーメッセージ数 = fromUserMessageIndex 個
+  return fromUserMessageIndex;
 }
 
 /**

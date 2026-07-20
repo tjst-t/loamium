@@ -4,8 +4,9 @@
  * POST   /api/agent/sessions             新規セッション作成 → { id }
  * GET    /api/agent/sessions             セッション一覧 → { sessions }
  * GET    /api/agent/sessions/{id}        セッション詳細 (メッセージ履歴) → { id, messages }
- * POST   /api/agent/sessions/{id}/messages  SSE テキスト配信
- * POST   /api/agent/sessions/{id}/abort     中断 → { ok }
+ * POST   /api/agent/sessions/{id}/messages   SSE テキスト配信
+ * POST   /api/agent/sessions/{id}/abort      中断 → { ok }
+ * POST   /api/agent/sessions/{id}/truncate   履歴切り捨て (Sfa11c0) → { ok, remainingUserMessages }
  *
  * SSE イベント (data: <json>\n\n):
  *   { type:'text_delta', text }
@@ -29,11 +30,13 @@ import {
   deleteSession,
   getEffectiveCapabilities,
   evictActiveSession,
+  truncateSessionMessages,
 } from '../agent-service.js';
 import { parseBody, errorJson, setAudit, type AppEnv } from '../http.js';
 import {
   agentSendMessageRequestSchema,
   agentCreateSessionRequestSchema,
+  agentTruncateRequestSchema,
   resolvePermissions,
 } from '@loamium/shared';
 import { loadSessionPerms, saveSessionPerms } from '../agent-session-perms.js';
@@ -315,6 +318,56 @@ export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
       }
     }
     return c.json({ ok: true });
+  });
+
+  // ---- POST /api/agent/sessions/{id}/truncate (Story Sfa11c0) ---------------
+  //
+  // 指定インデックス以降のユーザーメッセージと応答を切り捨てる。
+  // アクティブセッション必須 (メモリ内のツリー構造を操作するため)。
+  // サーバー再起動後は sessionManager がディスクから復元されているため
+  // getSessionFromDisk で再オープンしてから truncate する。
+  // 書き込み系操作のため 監査ログを記録する (ADR-0016)。
+
+  app.post('/api/agent/sessions/:id/truncate', async (c) => {
+    const sessionId = c.req.param('id');
+
+    // セキュリティ: セッション ID を検証する
+    try {
+      validateSessionId(sessionId);
+    } catch {
+      return errorJson(c, 400, 'invalid_session_id', 'session id contains invalid characters');
+    }
+
+    const bodyResult = await parseBody(c, agentTruncateRequestSchema);
+    if (!bodyResult.ok) return bodyResult.response;
+    const { fromUserMessageIndex } = bodyResult.data;
+
+    // fast-path: メモリ内アクティブセッション。
+    // slow-path: 再起動後などアクティブに無い場合はディスクからリハイドレートする。
+    let session = getActiveSession(sessionId);
+    if (!session) {
+      const configResult = await loadAgentConfig(config.vaultRoot);
+      if (!configResult.ok) {
+        return errorJson(c, 400, 'agent_not_configured', 'agent is not configured');
+      }
+      try {
+        session = await getSessionFromDisk(sessionId, config, configResult.config, index);
+      } catch {
+        return errorJson(c, 404, 'session_not_found', `session not found: ${sessionId}`);
+      }
+    }
+
+    let remainingUserMessages: number;
+    try {
+      remainingUserMessages = truncateSessionMessages(session, fromUserMessageIndex);
+    } catch (err) {
+      return errorJson(c, 400, 'truncate_failed', String(err));
+    }
+
+    // 監査ログ: 書き込み系操作 (ADR-0016)
+    setAudit(c, 'agent.session.truncate', sessionId);
+
+    return c.json({ ok: true, remainingUserMessages });
   });
 
   // ---- POST /api/agent/sessions/{id}/messages (SSE) --------------------------

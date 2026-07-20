@@ -1175,6 +1175,21 @@ code {
 }
 .pwa-dismiss-btn:hover { background: var(--bg-hover); color: var(--text-muted); }
 
+/* ---- メッセージ編集ボタン: モバイルタップターゲット (≤680px) ---- */
+@media (max-width: 680px) {
+  /* 編集ボタンを常時表示し、タップターゲット 44px 確保 */
+  .agent-msg-edit-btn {
+    opacity: 1;
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+  }
+  .agent-edit-cancel {
+    min-height: 44px;
+    padding: 4px 12px;
+  }
+}
+
 /* ≥961px: デスクトップ (ボトムバー・シート非表示) */
 @media (min-width: 961px) {
   .mobile-bottom-nav { display: none !important; }
@@ -4764,6 +4779,96 @@ button.callout-title { cursor: pointer; }
   gap: 14px;
   min-height: 0;
 }
+/* ---- メッセージ編集 UI (Story Sfa11c0) ---------------------------------------- */
+
+/* ユーザーメッセージのラッパー: ホバーで編集ボタンを表示 */
+.agent-msg-user-wrap {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 4px;
+  /* ボタン表示用のアンカー */
+  position: relative;
+}
+
+/* 編集ボタン: 常にラッパー右端に並べる (ホバー/フォーカスで可視化) */
+.agent-msg-edit-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  min-height: 28px; /* モバイルタップターゲット用: @media で 44px に拡大 */
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--text-faint);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0; /* デフォルトは非表示 */
+  transition: opacity 0.1s, background 0.1s;
+  align-self: center;
+}
+.agent-msg-edit-btn svg { width: 13px; height: 13px; }
+/* ホバー/フォーカス時に可視化 */
+.agent-msg-user-wrap:hover .agent-msg-edit-btn,
+.agent-msg-edit-btn:focus-visible {
+  opacity: 1;
+}
+.agent-msg-edit-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border);
+  color: var(--text-muted);
+  opacity: 1;
+}
+/* 編集中の active 状態 */
+.agent-msg-edit-btn.active {
+  opacity: 1;
+  background: var(--danger-soft, #fdf2f2);
+  color: var(--danger, #c0392b);
+  border-color: #f0caca;
+}
+
+/* 編集中のユーザーメッセージを強調 */
+.agent-msg-user-wrap.editing .agent-msg-user {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb, 100,60,200),.12);
+}
+
+/* 入力欄の編集バナー (上部帯) */
+.agent-edit-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--accent);
+  padding: 4px 0 6px;
+  width: 100%;
+  flex-basis: 100%; /* 入力行全幅にする */
+  order: -1; /* textarea より上に表示 */
+}
+.agent-edit-banner span { flex: 1; }
+.agent-edit-cancel {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 2px 7px;
+  cursor: pointer;
+  flex-shrink: 0;
+  min-height: 22px;
+}
+.agent-edit-cancel:hover { background: var(--bg-hover); }
+
+/* 入力欄: 編集モード時に wrap を column に変えてバナーを上段に表示 */
+.agent-input-row.editing {
+  flex-wrap: wrap;
+}
+
+/* ---- /メッセージ編集 UI ----------------------------------------------------- */
+
 .agent-msg-user {
   align-self: flex-end;
   max-width: 88%;
