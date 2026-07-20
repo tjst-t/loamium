@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "Sfa11c0",
+    "current_sprint": null,
     "total": 55,
-    "done": 54,
-    "in_progress": 1,
+    "done": 55,
+    "in_progress": 0,
     "remaining": 0,
-    "percentage": 98
+    "percentage": 100
   },
   "execution_order": [
     "Sd63ad1",
@@ -8018,13 +8018,13 @@
       "title": "UI/エージェント修正まとめ 2 — ノート全幅表示 / 右サイドバートグル / Agent スクロール・表 / 権限デフォルト / 開いてる文書連携 / メッセージ編集",
       "description": "ユーザーが実機で発見した 8 点の修正を一括実施する。(1) 右サイドバー折りたたみ時にノート表示領域を全幅化し、余白が残ったまま中央にスクロールバーが浮く不自然な表示を解消。(2) 右サイドバー開閉トグルのアイコンを状態(開/閉)で反転。(3) Agent 出力を条件付き追従(最下部のみ追従)にし、最下部以外では「一番下へ」ボタンを表示。(4) Agent チャットの GFM テーブルを正しくレンダリング。(5) Agent 新規セッションの既定実行権限を設定メニューで変更・永続化(現状 read-only 固定)。(6) Agent が現在開いている文書へ書き込んだら明示リロードなしでエディタに反映。(7) Agent が現在開いている文書を自動認識できるようコンテキスト付与。(8) 過去メッセージを編集してそこから会話をやり直す(Claude/ChatGPT 風)。制約: ピュア Markdown 絶対 / TS strict(any 禁止) / モバイルレスポンシブ(44px, @media max-width:680px) / 書き込み系は監査ログ / エージェント機能(5,7)は監査済みサービス層経由+agent-help・機能ガイド更新(ADR-0014/0015/0016/0018)。実装注意: AgentPane.tsx を複数ストーリー(3,4,8)が共有し App.tsx も 6/7 で触れるため、共有ファイルを触るストーリーは worktree 並列ではなく逐次実行する(古い base 分岐によるマージ欠落を回避)。",
       "milestone": true,
-      "status": "in_progress",
+      "status": "done",
       "depends_on": null,
       "detail_level": "detailed",
       "stories": {
         "Sfa11c0-1": {
           "title": "右サイドバー折りたたみ時にノート表示領域を全幅化(余白+中央スクロールバーの不自然表示を解消)",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": true,
           "review_reason": "エディタのレイアウト回帰。折りたたみ/展開の見た目をユーザー確認する必要がある",
@@ -8034,54 +8034,54 @@
               "id": "AC-Sfa11c0-1-1",
               "description": "右サイドバーが collapsed のとき、エディタ本文コンテナが右サイドバー分の空き幅も含めて広がる(未使用の余白が残らない)。中央固定幅を保つ場合でも、スクロール/表示コンテナ自体は利用可能幅いっぱいになる。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-1-2",
               "description": "スクロールバーが表示領域の右端に付く(コンテンツ中央付近に浮かない)。overflow を持つ要素と本文幅が一致する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-1-3",
               "description": "右サイドバー展開時は従来のレイアウトを維持し、折りたたみ↔展開の切替でレイアウトが破綻しない(本文の再中央寄せ/幅が滑らかに追従)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-1-4",
               "description": "モバイル(@media max-width:680px)でも余白・スクロール異常が出ないことを確認する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-1-5",
               "description": "Playwright(または Vitest)で、右サイドバー折りたたみ時に本文コンテナが期待幅/クラスになることを検証する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sfa11c0-1-1": {
               "title": "レイアウト原因調査",
               "description": "右サイドバー collapsed 時のグリッド/フレックス幅・中央寄せ CSS(直近の中央寄せコミット d05f5d7 等)を調べ、余白と中央スクロールバーの発生箇所を特定する。",
-              "status": "pending"
+              "status": "done"
             },
             "Sfa11c0-1-2": {
               "title": "折りたたみ時の全幅レイアウト実装",
               "description": "collapsed 状態で本文表示領域が全幅を使うよう CSS/レイアウトを修正。中央寄せ(固定幅)を保つ場合もスクロールコンテナは全幅に一致させる。",
-              "status": "pending"
+              "status": "done"
             },
             "Sfa11c0-1-3": {
               "title": "レスポンシブ確認とテスト",
               "description": "モバイル/タブレット/デスクトップの各ブレークポイントで確認し、折りたたみ時レイアウトの Playwright/Vitest を追加。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sfa11c0-2": {
           "title": "右サイドバー開閉トグルのアイコンを状態(開/閉)に応じて反転させる",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": true,
           "review_reason": "アイコンの見た目変化をユーザー確認",
@@ -8091,43 +8091,43 @@
               "id": "AC-Sfa11c0-2-1",
               "description": "collapsed(畳んでいる)時はパネルを開く方向を示すアイコン(例: 左向き `<`)、expanded(開いている)時は閉じる方向を示すアイコン(右向き `>`)を表示する。CSS rotate か別アイコンで状態により向きが変わる。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-2-2",
               "description": "ボタンの aria-label / title が状態に応じて「サイドバーを開く」/「サイドバーを閉じる」に切り替わる。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-2-3",
               "description": "タップターゲットが 44px 以上(@media max-width:680px)を満たす。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-2-4",
               "description": "Vitest: collapsed / expanded でアイコンの向き(または aria-label)が異なることを検証する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sfa11c0-2-1": {
               "title": "トグルアイコンの状態反映",
               "description": "RightSidebar.tsx のトグルボタンで collapsed 状態に応じてアイコン向き(rotate または別アイコン)と aria-label を切り替える。",
-              "status": "pending"
+              "status": "done"
             },
             "Sfa11c0-2-2": {
               "title": "テスト追加",
               "description": "collapsed/expanded でアイコン/aria-label が異なることの Vitest を追加。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sfa11c0-3": {
           "title": "Agent チャットのスクロールを条件付き追従にし、最下部以外では「一番下へ」ボタンを表示",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": true,
           "review_reason": "スクロール挙動と新規ボタンの操作感をユーザー確認",
@@ -8137,54 +8137,54 @@
               "id": "AC-Sfa11c0-3-1",
               "description": "出力ストリーミング中、ユーザーがメッセージ最下部付近(閾値内)にいる場合のみ自動追従する。上方にスクロールしている間は強制的に最下部へ動かさない。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-3-2",
               "description": "最下部にいないとき、チャット領域に「一番下へ」ボタン(下向き矢印、右下 float)が表示され、クリックで最下部へスクロールし、最下部到達でボタンが消える。最下部にいるときは非表示。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-3-3",
               "description": "最下部判定は scrollTop/scrollHeight/clientHeight による閾値で行い、リサイズや新メッセージでボタン表示がちらつかない。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-3-4",
               "description": "「一番下へ」ボタンはタップターゲット 44px 以上、モバイル対応で、メッセージ本文を隠さない位置に配置する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-3-5",
               "description": "Vitest/RTL: 最下部判定に応じて自動追従の有無とボタン表示が切り替わることを検証する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sfa11c0-3-1": {
               "title": "条件付き自動スクロール",
               "description": "AgentPane.tsx の無条件 scrollIntoView を、最下部近接判定に基づく条件付き追従へ変更(stick-to-bottom)。",
-              "status": "pending"
+              "status": "done"
             },
             "Sfa11c0-3-2": {
               "title": "「一番下へ」ボタン",
               "description": "スクロール位置を監視し、最下部でないときに float ボタンを表示。クリックで最下部へスクロール。",
-              "status": "pending"
+              "status": "done"
             },
             "Sfa11c0-3-3": {
               "title": "テスト追加",
               "description": "追従有無/ボタン表示切替の RTL テストを追加。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sfa11c0-4": {
           "title": "Agent チャットで GFM テーブル(Markdown 表)を正しくレンダリングする",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": true,
           "review_reason": "表の描画結果を視覚確認",
@@ -8194,48 +8194,48 @@
               "id": "AC-Sfa11c0-4-1",
               "description": "Agent チャットの assistant メッセージ中の GFM テーブルが <table> 要素として描画される。renderChatMarkdown(marked gfm + DOMPurify)でテーブルが消える原因を特定して修正する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-4-2",
               "description": "テーブルに最低限のスタイル(罫線・セルパディング)が付き、レイアウトが崩れない。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-4-3",
               "description": "長い/広い表はモバイルを含め横スクロール可能で、チャット幅からはみ出して他要素を壊さない。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-4-4",
               "description": "Vitest: renderChatMarkdown が GFM テーブル Markdown を <table>/<td> を含む HTML に変換することを検証する(Markdown パースはユニットテスト必須)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sfa11c0-4-1": {
               "title": "テーブル非描画の原因特定",
               "description": "DOMPurify の許可タグ/属性、marked の gfm/breaks 設定、CSS(table 非表示)を調べテーブルが出ない原因を特定。",
-              "status": "pending"
+              "status": "done"
             },
             "Sfa11c0-4-2": {
               "title": "テーブル描画修正+スタイル",
               "description": "テーブルが描画されるよう修正し、罫線・パディング・横スクロールの最小スタイルを付与。",
-              "status": "pending"
+              "status": "done"
             },
             "Sfa11c0-4-3": {
               "title": "テスト追加",
               "description": "renderChatMarkdown のテーブル変換 Vitest を追加。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sfa11c0-5": {
           "title": "Agent 新規セッションの既定実行権限を設定メニューで変更・永続化できるようにする",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": true,
           "review_reason": "設定 UI の見た目と既定権限の変更操作をユーザー確認",
@@ -8245,65 +8245,65 @@
               "id": "AC-Sfa11c0-5-1",
               "description": "SettingsView(統一設定ハブ)に「Agent 新規セッションの既定権限」を選べる UI を追加する。選択肢は ADR-0015 のケーパビリティ・プリセット(read-only / write など)に準拠する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-5-2",
               "description": "設定値は system 設定として永続化し、型付き設定 API(GET/PATCH)+ zod で検証する(REST↔CLI 1:1、型は packages/shared 共有)。書き込みは監査ログ(.loamium/audit.log)に記録する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-5-3",
               "description": "新規 Agent セッション作成時、選択権限(selectedCaps)の初期値がこの既定値になる。未設定時は read-only にフォールバックする。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-5-4",
               "description": "既定を write にしても、deny リスト/機密領域除外・自己昇格防止境界(ADR-0018)は維持される。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-5-5",
               "description": "agent-help(packages/server/src/agent-help.ts)と機能ガイド(packages/server/src/samples/機能ガイド/)に既定権限設定の説明を追加する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-5-6",
               "description": "Vitest: 既定値の解決(未設定=read-only フォールバック)と設定反映を検証する。設定 UI はモバイルで 44px タップターゲットを満たす。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sfa11c0-5-1": {
               "title": "既定権限の設定 API/永続化",
               "description": "system 設定に既定権限キーを追加し、型付き設定 API(zod)+ 監査ログ経由で読み書きできるようにする(packages/shared に型)。",
-              "status": "pending"
+              "status": "done"
             },
             "Sfa11c0-5-2": {
               "title": "SettingsView に UI 追加",
               "description": "既定権限を選択・保存する UI を統一設定ハブに追加(モバイル 44px)。",
-              "status": "pending"
+              "status": "done"
             },
             "Sfa11c0-5-3": {
               "title": "新規セッション既定反映",
               "description": "AgentPane の selectedCaps 初期値を既定設定から解決する。未設定は read-only フォールバック。",
-              "status": "pending"
+              "status": "done"
             },
             "Sfa11c0-5-4": {
               "title": "help/ガイド更新+テスト",
               "description": "agent-help と機能ガイドを更新し、既定解決/反映の Vitest を追加。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sfa11c0-6": {
           "title": "Agent が現在開いている文書へ書き込んだら明示リロードなしでエディタに反映する",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": false,
           "review_reason": null,
@@ -8313,48 +8313,48 @@
               "id": "AC-Sfa11c0-6-1",
               "description": "Agent がファイル書込(done/ツールイベント)した対象が、現在エディタで開いているノートの場合、明示操作なしに本文が最新内容へ更新される(既存の SSE/ファイル変更プッシュ/onNotesChanged 経路を活用)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-6-2",
               "description": "未編集(dirty でない)時は自動で本文を差し替える。編集中(dirty)の場合はユーザーの未保存編集を破棄せず、競合を通知して選択できる(または安全側で自動反映を保留する)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-6-3",
               "description": "一覧ツリーだけでなく開いている本文まで反映される。可能な範囲でスクロール/カーソル位置を保持する。ピュア Markdown を保持する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-6-4",
               "description": "Vitest/結合テスト: 対象ノートへの書込後、開いているエディタ内容が更新される(dirty 時は破棄しない)ことを検証する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sfa11c0-6-1": {
               "title": "現在文書の変更検知",
               "description": "Agent 書込イベント/ファイル変更 SSE の対象パスが現在開いているノートと一致するか判定する経路を実装。",
-              "status": "pending"
+              "status": "done"
             },
             "Sfa11c0-6-2": {
               "title": "自動リロード+競合ハンドリング",
               "description": "dirty でなければ本文を最新化。dirty 時は未保存編集を守り競合を通知/保留。",
-              "status": "pending"
+              "status": "done"
             },
             "Sfa11c0-6-3": {
               "title": "テスト追加",
               "description": "対象ノート書込→エディタ反映/ dirty 保護の Vitest/結合テストを追加。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sfa11c0-7": {
           "title": "Agent が「現在開いている文書」を自動認識できるようコンテキストを付与する",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": false,
           "review_reason": null,
@@ -8364,54 +8364,54 @@
               "id": "AC-Sfa11c0-7-1",
               "description": "Agent へのメッセージ送信/セッションに、現在開いているノートのパス(必要に応じて抜粋)がコンテキストとして渡る。実装は監査済みサービス層を経由し(ADR-0016)、エージェント専用の独自ファイル操作を新設しない。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-7-2",
               "description": "Agent が「現在の文書」を参照して回答/ツール実行できる(例: 「この文書を要約」で開いているノートを対象にする)。ケーパビリティ境界(read/write)と deny リストを尊重する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-7-3",
               "description": "現在開いている文書が無い場合もエラーにならず、通常どおり動作する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-7-4",
               "description": "agent-help に「現在開いている文書コンテキスト」トピックを追加し、機能ガイドを更新する。使い方詳細は base システムプロンプトへ移さず help に置く(ADR-0014)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-7-5",
               "description": "Vitest/e2e: コンテキストが Agent リクエストに含まれることを検証する。agent-tools.e2e の advertised-toolset ピンが壊れないことを確認する(境界変更時は要実行)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sfa11c0-7-1": {
               "title": "現在文書コンテキストの受け渡し",
               "description": "UI から現在ノートパス(必要なら抜粋)を Agent セッション/リクエストへ渡し、サーバー側で監査済みサービス層経由で Agent に供給する。",
-              "status": "pending"
+              "status": "done"
             },
             "Sfa11c0-7-2": {
               "title": "help/ガイド更新",
               "description": "agent-help にトピック追加、機能ガイドを更新(base プロンプトは肥大化させない)。",
-              "status": "pending"
+              "status": "done"
             },
             "Sfa11c0-7-3": {
               "title": "テスト追加",
               "description": "コンテキスト付与の検証テストと agent-tools.e2e ピンの確認。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "Sfa11c0-8": {
           "title": "Agent の過去メッセージを編集し、そこから会話をやり直せるようにする(Claude/ChatGPT 風)",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": true,
           "review_reason": "メッセージ編集→やり直しの操作フローをユーザー確認",
@@ -8421,48 +8421,48 @@
               "id": "AC-Sfa11c0-8-1",
               "description": "ユーザーメッセージに編集操作(ホバー等)が表示され、編集して再送信すると、その地点より後の会話(以降のユーザー/アシスタント/ツール履歴)が破棄され、編集後メッセージから再生成が始まる。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-8-2",
               "description": "セッションの messages 状態と永続化(GET /api/agent/sessions/{id})が編集後の履歴と整合する。切り詰めた以降の履歴が残らない。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-8-3",
               "description": "途中からやり直した会話が正しくストリーミング表示され、中断・再送信で UI が壊れない。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-8-4",
               "description": "メッセージ編集 UI はモバイル対応(44px タップターゲット、@media max-width:680px)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-Sfa11c0-8-5",
               "description": "Vitest/RTL: メッセージ編集→以降切り詰め→再送信のフローを検証する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "Sfa11c0-8-1": {
               "title": "メッセージ編集 UI",
               "description": "ユーザーメッセージに編集/再送信 UI を追加(モバイル対応)。",
-              "status": "pending"
+              "status": "done"
             },
             "Sfa11c0-8-2": {
               "title": "履歴切り詰め+再送信",
               "description": "編集地点以降の messages を破棄して再生成を開始し、セッション永続化と整合させる。",
-              "status": "pending"
+              "status": "done"
             },
             "Sfa11c0-8-3": {
               "title": "テスト追加",
               "description": "編集→切り詰め→再送信フローの RTL テストを追加。",
-              "status": "pending"
+              "status": "done"
             }
           }
         }
