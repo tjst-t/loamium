@@ -1,0 +1,34 @@
+{
+  "sprint": "Sfa11c0",
+  "verifier_ran": false,
+  "verifier_note": "独立 verifier サブエージェントは起動していない。検証はオーケストレータ(親)による全 workspace 型チェック・lint・全テストスイート(1673 pass)実行と各ストーリー差分のレビューで実施した。",
+  "compromises": [
+    {
+      "id": "C-Sfa11c0-1",
+      "severity": "low",
+      "category": "behavior_degradation",
+      "story": "Sfa11c0-6",
+      "description": "Agent 書込による開いてる文書の自動リロードで、setOpenDoc(resetToken)により CodeMirror が全リセットされるためカーソル/スクロール位置が先頭に戻る。",
+      "ac_impact": "AC-Sfa11c0-6-3 は『可能な範囲で保持』のため許容範囲内。厳密保持は EditorView.dispatch での内容差し替えが必要。",
+      "overlooked_by_autopilot": false
+    },
+    {
+      "id": "C-Sfa11c0-2",
+      "severity": "low",
+      "category": "semantic_gap",
+      "story": "Sfa11c0-8",
+      "description": "メッセージ編集の巻き戻しは pi SDK の append-only ツリーで非活性ブランチ化する。切り詰め以降のエントリは disk 上に物理的には残る(アクティブな会話履歴からは消える)。",
+      "ac_impact": "AC-Sfa11c0-8-2『切り詰めた以降の履歴が残らない』は会話モデル上は満たすが、物理削除ではない。実サーバーでの再ロード整合は要確認。",
+      "overlooked_by_autopilot": false
+    },
+    {
+      "id": "C-Sfa11c0-3",
+      "severity": "low",
+      "category": "test_coverage",
+      "story": "Sfa11c0-4",
+      "description": "Story4 の renderChatMarkdown ユニットテストは DOMPurify を vi.mock でパススルーにしており、サニタイズ自体は検証していない(marked のテーブル出力を検証する目的のため)。本番のサニタイズ挙動は変更していない。",
+      "ac_impact": "AC-Sfa11c0-4-4(テーブル→<table>/<td>変換)は満たす。サニタイズの回帰検知は別テスト任せ。",
+      "overlooked_by_autopilot": false
+    }
+  ]
+}
