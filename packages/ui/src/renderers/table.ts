@@ -199,6 +199,51 @@ const ICON_PLUS =
   '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>';
 const ICON_CODE =
   '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 4.5 2 8l3.5 3.5M10.5 4.5 14 8l-3.5 3.5"/></svg>';
+// 幅トグル: 「収める」= 内向き矢印、「標準」= 外向き矢印
+const ICON_COMPRESS =
+  '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3 4.5 5.5 2 5.5M9 3l2.5 2.5L14 5.5M7 13l-2.5-2.5H2M9 13l2.5-2.5H14"/></svg>';
+const ICON_EXPAND =
+  '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6V2.5h3.5M14 6V2.5h-3.5M2 10v3.5h3.5M14 10v3.5h-3.5"/></svg>';
+
+// ---- テーブル幅表示モード (Sfa11c0 後続) --------------------------------------
+
+/** テーブル幅の表示モード。natural=自然幅+列内スクロール / fit=列幅に収めセル折返し。 */
+export type TableWidthMode = 'natural' | 'fit';
+
+/** djb2 ハッシュ。テーブルの同一性キー(ヘッダ + 列数)から安定した ID を作る。 */
+function djb2(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
+/** テーブルの同一性(ヘッダ内容 + 列数)。セル/行の編集では変わらず、列構成が変わると変わる。 */
+export function tableIdentity(model: TableModel): string {
+  return djb2(`${model.header.join('')}#${String(model.header.length)}`);
+}
+
+/** localStorage の幅モード保存キー。ピュア Markdown 絶対: 表示状態はノートに書かない。 */
+function widthModeKey(notePath: string, model: TableModel): string {
+  return `loamium.tableWidthMode:${notePath}:${tableIdentity(model)}`;
+}
+
+function readWidthMode(key: string): TableWidthMode {
+  try {
+    const v = localStorage.getItem(key);
+    if (v === 'fit' || v === 'natural') return v;
+  } catch {
+    // localStorage 不可(プライベートモード等)は既定にフォールバック
+  }
+  return 'natural';
+}
+
+function writeWidthMode(key: string, mode: TableWidthMode): void {
+  try {
+    localStorage.setItem(key, mode);
+  } catch {
+    // 保存不可は握りつぶす(表示は続行)
+  }
+}
 
 // ---- 描画 -------------------------------------------------------------------
 
@@ -211,7 +256,11 @@ const ICON_CODE =
  * 行追加バーはテーブルの真下 (テーブル幅)、列追加バーはテーブルの右
  * (テーブル高さ) に収まり、ホバー時のみ表示される控えめなコントロールになる。
  */
-export function renderMarkdownTable(lines: string[], handlers?: TableEditHandlers): HTMLElement {
+export function renderMarkdownTable(
+  lines: string[],
+  handlers?: TableEditHandlers,
+  opts?: { notePath?: string },
+): HTMLElement {
   const model = parseTableModel(lines);
   const editable = handlers !== undefined;
 
@@ -219,6 +268,11 @@ export function renderMarkdownTable(lines: string[], handlers?: TableEditHandler
   wrap.className = editable ? 'md-table-wrap editable' : 'md-table-wrap';
   wrap.setAttribute('data-testid', 'table-widget');
   if (editable) wrap.setAttribute('data-editable', 'true');
+
+  // 幅表示モード (Sfa11c0 後続): notePath があるとき(=エディタ)だけ永続トグルを出す。
+  // 既定は natural(自然幅 + 列内スクロール)。fit で読み取り列に収めセルを折り返す。
+  const widthKey = opts?.notePath !== undefined ? widthModeKey(opts.notePath, model) : null;
+  wrap.setAttribute('data-width-mode', widthKey !== null ? readWidthMode(widthKey) : 'natural');
 
   const table = document.createElement('table');
   table.className = 'md-table';
@@ -494,6 +548,33 @@ export function renderMarkdownTable(lines: string[], handlers?: TableEditHandler
   wrap.append(table);
 
   if (editable && handlers !== undefined) {
+    // 幅トグル(Sfa11c0 後続) — テーブル左上・ホバー表示。natural ⇔ fit を切替え永続化。
+    if (widthKey !== null) {
+      const modeBtn = document.createElement('button');
+      modeBtn.type = 'button';
+      modeBtn.className = 'md-table-width-toggle';
+      modeBtn.setAttribute('data-testid', 'table-width-toggle');
+      const syncModeBtn = (): void => {
+        const isFit = wrap.getAttribute('data-width-mode') === 'fit';
+        modeBtn.title = isFit
+          ? '幅: 収める(列内にセルを折り返し)— クリックで標準に戻す'
+          : '幅: 標準(自然幅・広いと横スクロール)— クリックで列内に収める';
+        modeBtn.innerHTML = isFit ? ICON_EXPAND : ICON_COMPRESS;
+        modeBtn.setAttribute('aria-pressed', isFit ? 'true' : 'false');
+      };
+      syncModeBtn();
+      modeBtn.addEventListener('mousedown', (e) => e.preventDefault());
+      modeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const next: TableWidthMode = wrap.getAttribute('data-width-mode') === 'fit' ? 'natural' : 'fit';
+        wrap.setAttribute('data-width-mode', next);
+        writeWidthMode(widthKey, next);
+        syncModeBtn();
+      });
+      wrap.append(modeBtn);
+    }
+
     // 『ソースを編集』(AC-Sa629e2-1-4) — テーブル右上・ホバー表示の明示切替
     if (handlers.editSource !== undefined) {
       const editSource = handlers.editSource.bind(handlers);

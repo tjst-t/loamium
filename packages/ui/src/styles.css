@@ -489,29 +489,37 @@ a { color: var(--link); text-decoration: none; }
   background: var(--bg-editor);
 }
 .editor-host .cm-editor.cm-focused { outline: none; }
-/* エディタ表示領域は全幅を使う(scroller を全幅にしてスクロールバーを右端に付ける)。
-   背景: 過去に cm-scroller を width:min(820px,100%)+margin:auto で中央寄せした結果、
-   スクローラーが本文幅で中央配置され、縦スクロールバーが表示領域の中央付近に浮き、
-   右サイドバー折りたたみ時に未使用の余白が残る問題が出た(ユーザー報告)。
-   → min-width:100% で scroller を常に全幅化し、スクロールバーを右端に、折りたたんだ
-   空き幅も本文領域に使う。cm-content 側は max-width で中央寄せしない(margin:auto は
-   ガターが sticky-left のまま残りシェブロン⇔テキスト間にギャップを生むため)。 */
+/* エディタ表示領域: scroller は常に全幅(縦スクロールバーを右端に固定)。
+   読み取り幅は cm-content の max-width で最大 820px に制限する。
+   背景と設計 (Sfa11c0-1 → 後続修正):
+   - 過去に cm-scroller を width:min(820px,100%)+margin:auto で中央寄せした結果、
+     縦スクロールバーが本文幅で中央付近に浮き、collapsed 時に余白が残った(ユーザー報告)。
+   - その後 min-width:100% で全幅化したが、大画面では本文が端まで広がり読みにくい問題が
+     再燃(横幅が大きくなる)。
+   - scroller の padding-inline で中央寄せする案は、block widget (dataview/コードフェンス等)
+     があると CodeMirror の横幅測定と衝突し、エディタ全体に横スクロールバーが出た(ユーザー報告)。
+   - cm-content に margin:auto で中央寄せする案は、ガター(cm-outline-gutter, sticky-left)だけ
+     左端に取り残されシェブロン⇔本文にギャップが出た。
+   → 美しい解: CM の `.cm-scroller` は既定で `display:flex`(ガター + 本文が flex 子)。
+     scroller は全幅のまま(padding を足さない = CM のジオメトリを乱さない)、
+     **`justify-content: center`** でガター+本文グループを隣接したまま中央寄せする。
+     cm-content 側は `max-width:820px`(margin:auto は付けない)で読み取り列を 820px に制限。
+     縦スクロールバーは全幅 scroller の右端に付き(Sfa11c0-1 の浮きスクロールバー修正を維持)、
+     ガターは本文の直左に密着したまま中央へ寄る(ギャップなし)。widget があっても横スクロールは出ない。
+   - 820px を超える幅の要素(広いテーブル等)は要素側で overflow-x:auto スクロールさせる
+     (.md-table-wrap)。列自体は既定で読み取り列を超えさせない(テーブル表示モードは後述トグル)。 */
 .editor-host .cm-scroller {
   font-family: var(--font-mono);
   line-height: 1.75;
   padding: 28px 0 120px;
-  /* ガター+本文を1ユニットで中央寄せ。
-     - width:min(820px,100%) で読み取り幅を最大 820px に制限し、中央配置する。
-     - min-width:100% を追加することで、ワークスペースが 820px を超えた場合
-       (右サイドバー collapsed 等) も cm-scroller が全幅に広がり、縦スクロール
-       バーが右端に付く (collapsed 時の余白/中央スクロールバー問題を解消)。
-     - H1 折りたたみで内容が短くなっても min-width:100% のため scroller は
-       縮まず中央に飛ばない。 */
-  width: min(820px, 100%);
-  min-width: 100%;
-  margin: 0 auto;
+  /* flex(CM 既定)のガター+本文グループを中央寄せ。820px 未満なら本文が全幅に伸び自然に左詰め。 */
+  justify-content: center;
 }
 .editor-host .cm-content {
+  /* 読み取り列を 820px に制限。ワークスペースが 820px 未満なら 100% で全幅。
+     max-width のみ(margin:auto は付けない — 付けるとガターだけ左端に残る)。中央寄せは
+     scroller の justify-content:center が担う。 */
+  max-width: 820px;
   padding: 0 28px 0 4px;
   caret-color: var(--accent);
 }
@@ -1335,6 +1343,10 @@ code {
   overflow: hidden;
   background: var(--bg-panel);
   cursor: pointer;
+  /* 読み取り列(820px)を超えさせない硬い上限。コードフェンス等の長い行が cm-content を
+     820px より広げると全体の中央寄せ(justify-content:center)が崩れるため。
+     はみ出す内容は pre.shiki 等の overflow-x:auto で widget 内スクロールさせる。 */
+  max-width: min(820px, 100%);
 }
 .fence-widget .fence-bar {
   display: flex;
@@ -1367,10 +1379,27 @@ code {
 }
 
 /* ---- GFM テーブルのライブプレビュー (S79c210-2) ------------------------------ */
+/* B方式 (Sfa11c0 後続修正): 読み取り列は 820px に制限され、それより広いテーブルは
+   列内で横スクロールさせる。列自体は超えさせない (max-width:100% で親=cm-content 幅に収める)。
+   右端フェード + スクロールシャドウで「まだ右に続く」を示唆する (Lea Verou の
+   background-attachment:local テクニック。端にいるときはカバーで隠れ、スクロール可能時のみ影が出る)。 */
 .md-table-wrap {
   margin: 6px 0;
   overflow-x: auto;
   cursor: text;
+  /* 読み取り列(820px, cm-content と一致)を超えさせない硬い上限。
+     max-width:100% だけだと、editable wrap の width:max-content が cm-content を
+     820px より広げてしまい(CM が widget 幅で cm-content を拡張)、justify-content:center の
+     中央寄せが崩れる。min(820px,100%) で widget を必ず 820px 以内に収め、cm-content を
+     820px に安定させる(= 中央寄せ維持)。超過分は overflow-x:auto で列内スクロール。 */
+  max-width: min(820px, 100%);
+  background:
+    /* 端のカバー (bg 色。端にいるとき影を隠す) */
+    linear-gradient(to right, var(--bg-editor), rgba(0, 0, 0, 0)) 0 0 / 20px 100% no-repeat local,
+    linear-gradient(to left, var(--bg-editor), rgba(0, 0, 0, 0)) 100% 0 / 20px 100% no-repeat local,
+    /* スクロール可能を示す影 (スクロール時のみ露出) */
+    radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0)) 0 0 / 8px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0)) 100% 0 / 8px 100% no-repeat scroll;
 }
 .md-table {
   border-collapse: collapse;
@@ -1408,7 +1437,8 @@ code {
   grid-template-rows: 18px max-content 14px;
   gap: 2px;
   width: max-content;
-  max-width: 100%;
+  /* 読み取り列を超えさせない硬い上限(中央寄せ維持のため。base .md-table-wrap と同値)。 */
+  max-width: min(820px, 100%);
   padding: 0;
 }
 .md-table-wrap.editable > .md-table { grid-area: 2 / 1 / 3 / 2; }
@@ -1522,6 +1552,60 @@ code {
   opacity: 1;
   color: var(--accent);
   border-color: var(--accent);
+}
+
+/* ---- テーブル幅トグル (Sfa11c0 後続) ----------------------------------------
+   標準(natural)= 自然幅、読み取り列(820px)より広ければ列内で横スクロール。
+   収める(fit)  = 読み取り列に強制的に収め、セルを折り返す(table-layout:fixed)。
+   表示状態はノートに書かず localStorage に保存(ピュア Markdown 絶対)。 */
+.md-table-width-toggle {
+  grid-area: 1 / 1 / 2 / 3;
+  justify-self: start;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-hover);
+  color: var(--text-faint);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.md-table-width-toggle svg { width: 12px; height: 12px; flex: none; }
+.md-table-wrap.editable:hover .md-table-width-toggle { opacity: 0.7; }
+.md-table-width-toggle:hover { opacity: 1; color: var(--accent); border-color: var(--accent); }
+/* fit 中は常時うっすら表示してモードが分かるように */
+.md-table-wrap.editable[data-width-mode="fit"] .md-table-width-toggle {
+  opacity: 0.7;
+  color: var(--accent);
+  border-color: var(--accent);
+}
+/* モバイル: タップターゲット拡大 */
+@media (max-width: 680px) {
+  .md-table-width-toggle { width: 44px; height: 44px; }
+}
+
+/* fit モード: 読み取り列に収めてセル折り返し */
+.md-table-wrap[data-width-mode="fit"] { overflow-x: hidden; }
+.md-table-wrap.editable[data-width-mode="fit"] {
+  width: 100%;
+  grid-template-columns: 1fr 14px;
+}
+.md-table-wrap[data-width-mode="fit"] > .md-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+.md-table-wrap[data-width-mode="fit"] .md-table th,
+.md-table-wrap[data-width-mode="fit"] .md-table td {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .math-inline { padding: 0 2px; }
@@ -4882,6 +4966,63 @@ button.callout-title { cursor: pointer; }
   align-self: stretch;
   font-size: 13px;
   line-height: 1.7;
+}
+
+/* ---- 推論(thinking)折りたたみ (Sfa11c0 後続修正) --------------------------- */
+.agent-reasoning {
+  margin: 0 0 6px;
+}
+.agent-reasoning-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 6px 2px 2px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.agent-reasoning-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.agent-reasoning-chevron {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  transition: transform 0.12s ease;
+}
+.agent-reasoning.open .agent-reasoning-chevron {
+  transform: rotate(90deg);
+}
+.agent-reasoning-body {
+  margin: 4px 0 0;
+  padding: 8px 10px;
+  border-left: 2px solid var(--border-strong);
+  background: var(--bg-subtle, var(--bg-hover));
+  border-radius: 0 6px 6px 0;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+/* 空応答ガード: テキストも推論も無いターンの控えめな注記 */
+.agent-msg-empty {
+  color: var(--text-faint);
+  font-size: 12px;
+  font-style: italic;
+}
+/* モバイル: 推論トグルのタップターゲットを 44px 以上に */
+@media (max-width: 680px) {
+  .agent-reasoning-toggle {
+    min-height: 44px;
+    padding-left: 6px;
+    padding-right: 10px;
+  }
 }
 /* Markdown 整形描画コンテナ (marked + DOMPurify) */
 .agent-md { overflow-wrap: anywhere; }

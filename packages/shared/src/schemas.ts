@@ -636,6 +636,12 @@ export const agentMessageSchema = z.object({
   role: z.enum(['user', 'assistant']),
   content: z.string(),
   tools: z.array(agentToolSummarySchema),
+  /**
+   * 推論(thinking / reasoning)テキスト。推論モデルが返す思考ブロックを連結したもの。
+   * UI では折りたたみで表示する。text 本文が空(思考のみ応答)でも復元時に残す。
+   * 後方互換のため optional (旧レスポンス/旧クライアント互換)。
+   */
+  reasoning: z.string().optional(),
 });
 export type AgentMessage = z.infer<typeof agentMessageSchema>;
 

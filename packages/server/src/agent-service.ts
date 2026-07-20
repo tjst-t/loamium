@@ -713,6 +713,7 @@ export function extractSessionMessages(session: AgentSession): {
   role: 'user' | 'assistant';
   content: string;
   tools: { name: string; argsSummary: string; status: 'running' | 'done' }[];
+  reasoning?: string;
 }[] {
   const msgs: ReturnType<typeof extractSessionMessages> = [];
   const piMessages = session.messages;
@@ -726,7 +727,11 @@ export function extractSessionMessages(session: AgentSession): {
     } else if (msg.role === 'assistant') {
       const textContent = extractText(msg.content);
       const toolUses = extractToolUses(msg.content);
-      if (textContent || toolUses.length > 0) {
+      const reasoning = extractReasoning(msg.content);
+      // 推論モデルは text 本文なし(thinking のみ)で応答を終えることがある。
+      // そのターンをスキップすると復元時に空欄になり「反応しない」ように見えるため、
+      // reasoning があれば復元対象に含める。
+      if (textContent || toolUses.length > 0 || reasoning) {
         msgs.push({
           role: 'assistant',
           content: textContent,
@@ -735,6 +740,7 @@ export function extractSessionMessages(session: AgentSession): {
             argsSummary: t.argsSummary,
             status: 'done' as const,
           })),
+          ...(reasoning ? { reasoning } : {}),
         });
       }
     }
@@ -753,6 +759,20 @@ function extractText(content: unknown): string {
       .join('');
   }
   return '';
+}
+
+/** メッセージのコンテンツ配列から thinking(推論)ブロックのテキストを連結して抽出する。 */
+function extractReasoning(content: unknown): string {
+  if (!Array.isArray(content)) return '';
+  return content
+    .filter((c): c is { type: 'thinking'; thinking: string } =>
+      typeof c === 'object' &&
+      c !== null &&
+      (c as Record<string, unknown>)['type'] === 'thinking' &&
+      typeof (c as Record<string, unknown>)['thinking'] === 'string',
+    )
+    .map((c) => c.thinking)
+    .join('');
 }
 
 /** メッセージからツール呼び出しを抽出する。 */

@@ -116,6 +116,8 @@ interface AgentMessageItem {
   error?: string; // エラーバブルとして表示
   /** このメッセージで実行されたツール一覧 */
   tools: ToolChipItem[];
+  /** 推論(thinking)モデルの思考テキスト。折りたたみで表示する。 */
+  reasoning?: string;
 }
 
 interface SessionSummary {
@@ -219,7 +221,7 @@ async function apiTruncateSession(sessionId: string, fromUserMessageIndex: numbe
 // ---- SSE ストリーム読取 -------------------------------------------------------
 
 interface SseEvent {
-  type: 'text_delta' | 'tool_start' | 'tool_end' | 'error' | 'done';
+  type: 'text_delta' | 'reasoning_delta' | 'tool_start' | 'tool_end' | 'error' | 'done';
   text?: string;
   toolCallId?: string;
   name?: string;
@@ -529,6 +531,54 @@ function ToolChip({ chip }: { chip: ToolChipItem }): JSX.Element {
   );
 }
 
+// ---- 推論(thinking)折りたたみブロック -----------------------------------------
+
+/**
+ * 推論モデルの thinking テキストを折りたたみ表示する (ChatGPT/Claude 風)。
+ * 既定は折りたたみ。ヘッダをタップ/クリックで展開。推論のみ(text 無し)応答でも
+ * 中身が見えることで「反応が無い」誤解を防ぐ。ストリーミング中(streaming=本文未着)は
+ * 思考中であることが分かるよう既定展開する。
+ */
+function ReasoningBlock({
+  reasoning,
+  defaultOpen,
+}: {
+  reasoning: string;
+  defaultOpen: boolean;
+}): JSX.Element {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className={`agent-reasoning${open ? ' open' : ''}`} data-testid="agent-reasoning">
+      <button
+        type="button"
+        className="agent-reasoning-toggle"
+        data-testid="agent-reasoning-toggle"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <svg
+          className="agent-reasoning-chevron"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M6 4l4 4-4 4" />
+        </svg>
+        <span>推論</span>
+      </button>
+      {open && (
+        <div className="agent-reasoning-body" data-testid="agent-reasoning-body">
+          {reasoning}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---- 相対時刻表示 ------------------------------------------------------------
 
 function relativeTime(ts: number): string {
@@ -780,6 +830,7 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged, cu
               role: 'user' | 'assistant';
               content: string;
               tools: { name: string; argsSummary: string; status: 'running' | 'done' }[];
+              reasoning?: string;
             }[];
             effectivePermissions?: unknown;
           };
@@ -792,6 +843,7 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged, cu
               argsSummary: t.argsSummary,
               done: true,
             })),
+            ...(m.reasoning ? { reasoning: m.reasoning } : {}),
           }));
           setSessionId(targetId);
           setMessages(restored);
@@ -913,6 +965,7 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged, cu
             role: 'user' | 'assistant';
             content: string;
             tools: { name: string; argsSummary: string; status: 'running' | 'done' }[];
+            reasoning?: string;
           }[];
           effectivePermissions?: unknown;
         };
@@ -925,6 +978,7 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged, cu
             argsSummary: t.argsSummary,
             done: true,
           })),
+          ...(m.reasoning ? { reasoning: m.reasoning } : {}),
         }));
         setSessionId(id);
         setMessages(restored);
@@ -1099,6 +1153,16 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged, cu
                 const item = next[assistantIdx];
                 if (item) {
                   next[assistantIdx] = { ...item, content: item.content + event.text };
+                }
+                return next;
+              });
+            } else if (event.type === 'reasoning_delta' && event.text) {
+              // 推論(thinking)ストリーム。折りたたみ表示用に reasoning へ蓄積する。
+              setMessages((prev) => {
+                const next = [...prev];
+                const item = next[assistantIdx];
+                if (item) {
+                  next[assistantIdx] = { ...item, reasoning: (item.reasoning ?? '') + event.text };
                 }
                 return next;
               });
@@ -1317,6 +1381,16 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged, cu
                 const item = next[assistantIdx];
                 if (item) {
                   next[assistantIdx] = { ...item, content: item.content + event.text };
+                }
+                return next;
+              });
+            } else if (event.type === 'reasoning_delta' && event.text) {
+              // 推論(thinking)ストリーム。折りたたみ表示用に reasoning へ蓄積する。
+              setMessages((prev) => {
+                const next = [...prev];
+                const item = next[assistantIdx];
+                if (item) {
+                  next[assistantIdx] = { ...item, reasoning: (item.reasoning ?? '') + event.text };
                 }
                 return next;
               });
@@ -1768,6 +1842,13 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged, cu
                 className="agent-msg-assistant"
                 data-testid="agent-msg-assistant"
               >
+                {/* 推論(thinking)折りたたみ。本文未着でストリーミング中は既定展開。 */}
+                {msg.reasoning !== undefined && msg.reasoning.length > 0 && (
+                  <ReasoningBlock
+                    reasoning={msg.reasoning}
+                    defaultOpen={isStreaming && idx === messages.length - 1 && msg.content.length === 0}
+                  />
+                )}
                 {/* ツールチップ (メッセージ上部) */}
                 {msg.tools.length > 0 && (
                   <div className="agent-tool-chips">
@@ -1785,6 +1866,16 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged, cu
                 {isStreaming && idx === messages.length - 1 && msg.content.length === 0 && msg.tools.length === 0 && (
                   <span className="agent-streaming-caret" />
                 )}
+                {/* 空応答ガード: 完了したのに本文もツールも推論も無いターンは
+                    「反応が無い」ように見えるため、その旨を明示する。 */}
+                {msg.content.length === 0 &&
+                  msg.tools.length === 0 &&
+                  (msg.reasoning === undefined || msg.reasoning.length === 0) &&
+                  !(isStreaming && idx === messages.length - 1) && (
+                    <div className="agent-msg-empty" data-testid="agent-msg-empty">
+                      (このターンはテキスト応答がありませんでした)
+                    </div>
+                  )}
               </div>
             );
           });

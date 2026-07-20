@@ -464,6 +464,10 @@ export function agentRoutes(config: ServerConfig, index: VaultIndex): Hono<AppEn
             const ae = event.assistantMessageEvent;
             if (ae.type === 'text_delta') {
               await sendEvent({ type: 'text_delta', text: ae.delta });
+            } else if (ae.type === 'thinking_delta') {
+              // 推論(thinking)モデルの思考ストリーム。UI では折りたたみ表示する。
+              // これを転送しないと「思考のみ(text なし)」応答が空表示になり反応が無いように見える。
+              await sendEvent({ type: 'reasoning_delta', text: ae.delta });
             }
           } else if (event.type === 'tool_execution_start') {
             const argsSummary = buildArgsSummary(event.toolName, event.args);

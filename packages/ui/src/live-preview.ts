@@ -301,7 +301,7 @@ class TableWidget extends WidgetType {
           }
           view.focus();
         },
-      });
+      }, { notePath: this.notePath });
     } catch (err: unknown) {
       el = document.createElement('div');
       el.className = 'fence-render-error';

@@ -15,6 +15,7 @@ import {
   addColumn,
   deleteRow,
   deleteColumn,
+  tableIdentity,
 } from '../../src/renderers/table';
 
 describe('splitTableRow', () => {
@@ -159,5 +160,30 @@ describe('行/列の追加・削除', () => {
     const m = parseTableModel(['| a |', '| --- |', '| 1 |']);
     deleteColumn(m, 0);
     expect(m.header).toEqual(['a']);
+  });
+});
+
+describe('tableIdentity (幅モード永続キーの同一性)', () => {
+  it('同一モデルは同一 ID を返す (決定的)', () => {
+    const m = parseTableModel(['| a | b |', '| --- | --- |', '| 1 | 2 |']);
+    expect(tableIdentity(m)).toBe(tableIdentity(m));
+  });
+
+  it('セル/行の編集ではヘッダが同じなら ID は変わらない (モード保持)', () => {
+    const m1 = parseTableModel(['| a | b |', '| --- | --- |', '| 1 | 2 |']);
+    const m2 = parseTableModel(['| a | b |', '| --- | --- |', '| 99 | 88 |', '| x | y |']);
+    expect(tableIdentity(m2)).toBe(tableIdentity(m1));
+  });
+
+  it('ヘッダ内容が変わると ID が変わる', () => {
+    const m1 = parseTableModel(['| a | b |', '| --- | --- |', '| 1 | 2 |']);
+    const m2 = parseTableModel(['| a | c |', '| --- | --- |', '| 1 | 2 |']);
+    expect(tableIdentity(m2)).not.toBe(tableIdentity(m1));
+  });
+
+  it('列数が変わると ID が変わる', () => {
+    const m1 = parseTableModel(['| a | b |', '| --- | --- |', '| 1 | 2 |']);
+    const m2 = parseTableModel(['| a | b | c |', '| --- | --- | --- |', '| 1 | 2 | 3 |']);
+    expect(tableIdentity(m2)).not.toBe(tableIdentity(m1));
   });
 });

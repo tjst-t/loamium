@@ -92,6 +92,75 @@ test('[MOCK] 送信でユーザー発言が表示され、SSE の text_delta が
   expect(unexpected).toEqual([]);
 });
 
+test('[MOCK] reasoning_delta が「推論」折りたたみとして表示され、展開できる', async ({
+  page,
+}) => {
+  const unexpected = await bootAgent(page);
+  await page.route(`**/api/agent/sessions/${SESSION_ID}/messages`, (route) => {
+    void route.fulfill(
+      sse([
+        { type: 'reasoning_delta', text: 'まず要件を' },
+        { type: 'reasoning_delta', text: '整理する。' },
+        { type: 'text_delta', text: '承知しました。' },
+        { type: 'done' },
+      ]),
+    );
+  });
+  await openAgentPane(page);
+  await page.getByTestId('agent-input').fill('計画を立てて');
+  await page.getByTestId('agent-send').click();
+  await expect(page.getByTestId('agent-msg-assistant')).toContainText('承知しました。');
+  // 折りたたみトグルが出る。既定は折りたたみ (本文が来たため body は非表示)。
+  const toggle = page.getByTestId('agent-reasoning-toggle');
+  await expect(toggle).toBeVisible();
+  await expect(page.getByTestId('agent-reasoning-body')).toHaveCount(0);
+  // 展開すると推論テキストが見える。
+  await toggle.click();
+  await expect(page.getByTestId('agent-reasoning-body')).toContainText('まず要件を整理する。');
+  expect(unexpected).toEqual([]);
+});
+
+test('[MOCK] 思考のみ(text なし)応答でも推論が表示され、空表示にならない', async ({
+  page,
+}) => {
+  const unexpected = await bootAgent(page);
+  await page.route(`**/api/agent/sessions/${SESSION_ID}/messages`, (route) => {
+    void route.fulfill(
+      sse([
+        { type: 'reasoning_delta', text: '了解の返信なので追加アクションは不要。' },
+        { type: 'done' },
+      ]),
+    );
+  });
+  await openAgentPane(page);
+  await page.getByTestId('agent-input').fill('わかりました。');
+  await page.getByTestId('agent-send').click();
+  // 本文は空でも推論トグルが出る = 「反応が無い」誤解を防ぐ。
+  const toggle = page.getByTestId('agent-reasoning-toggle');
+  await expect(toggle).toBeVisible();
+  // 思考のみ (本文未着) は既定展開。
+  await expect(page.getByTestId('agent-reasoning-body')).toContainText(
+    '了解の返信なので追加アクションは不要。',
+  );
+  expect(unexpected).toEqual([]);
+});
+
+test('[MOCK] text も推論もツールも無い空応答はプレースホルダを表示する', async ({
+  page,
+}) => {
+  const unexpected = await bootAgent(page);
+  await page.route(`**/api/agent/sessions/${SESSION_ID}/messages`, (route) => {
+    void route.fulfill(sse([{ type: 'done' }]));
+  });
+  await openAgentPane(page);
+  await page.getByTestId('agent-input').fill('...');
+  await page.getByTestId('agent-send').click();
+  await expect(page.getByTestId('agent-msg-empty')).toContainText(
+    'テキスト応答がありませんでした',
+  );
+  expect(unexpected).toEqual([]);
+});
+
 test('[MOCK] 入力が空のとき送信ボタンは無効', async ({ page }) => {
   const unexpected = await bootAgent(page);
   await openAgentPane(page);
