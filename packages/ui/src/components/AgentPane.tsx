@@ -235,6 +235,29 @@ async function* readSseStream(response: Response): AsyncGenerator<SseEvent> {
   }
 }
 
+// ---- 条件付き自動スクロール ロジック (Story 3) ---------------------------------
+
+/** スクロールコンテナが最下部付近にあるか判定する閾値 (px)。 */
+export const SCROLL_TO_BOTTOM_THRESHOLD = 80;
+
+/**
+ * スクロールコンテナの現在位置から「最下部付近か」を判定する純粋関数。
+ * テストで scrollHeight/scrollTop/clientHeight をモックして検証できる。
+ *
+ * @param scrollHeight - el.scrollHeight
+ * @param scrollTop    - el.scrollTop
+ * @param clientHeight - el.clientHeight
+ * @param threshold    - 最下部とみなす距離 (px), 既定は SCROLL_TO_BOTTOM_THRESHOLD
+ */
+export function isScrolledToBottom(
+  scrollHeight: number,
+  scrollTop: number,
+  clientHeight: number,
+  threshold = SCROLL_TO_BOTTOM_THRESHOLD,
+): boolean {
+  return scrollHeight - scrollTop - clientHeight <= threshold;
+}
+
 // ---- チャット Markdown レンダリング (marked + DOMPurify) -----------------------
 
 /** HTML 特殊文字をエスケープする ([[リンク]] display をアンカーへ埋め込む前処理)。 */
@@ -255,7 +278,7 @@ function escapeHtml(s: string): string {
  * ロジックで、ここで必要な「元テキストを保ったままコード/非コードに分割」とは目的が異なるため
  * 局所実装する。フェンス行そのもの・フェンス内・インラインコードすべてをコード領域として扱う。
  */
-function splitCodeRegions(content: string): Array<{ code: boolean; value: string }> {
+export function splitCodeRegions(content: string): Array<{ code: boolean; value: string }> {
   const segments: Array<{ code: boolean; value: string }> = [];
   const lines = content.split('\n');
   let inFence = false;
@@ -265,13 +288,15 @@ function splitCodeRegions(content: string): Array<{ code: boolean; value: string
 
   const flushNonCode = (): void => {
     if (bufNonCode.length > 0) {
-      segments.push({ code: false, value: bufNonCode.join('\n') });
+      // 各要素はすでに末尾に '\n' を持つ (isLast でなければ) ため join('') で結合する。
+      // join('\n') にすると行間に二重改行が生まれ GFM テーブルが段落として誤解釈される。
+      segments.push({ code: false, value: bufNonCode.join('') });
       bufNonCode = [];
     }
   };
   const flushCode = (): void => {
     if (bufCode.length > 0) {
-      segments.push({ code: true, value: bufCode.join('\n') });
+      segments.push({ code: true, value: bufCode.join('') });
       bufCode = [];
     }
   };
@@ -346,7 +371,7 @@ function replaceWikilinksOutsideInlineCode(
  *   存在ノート → <a class="agent-wikilink" data-wl-target="<resolvedPath>" data-testid="agent-wikilink">display</a>
  *   不在ノート → <span class="agent-wikilink broken" data-testid="agent-wikilink-broken" title="...">display</span>
  */
-function renderChatMarkdown(content: string, notePaths: ReadonlySet<string>): string {
+export function renderChatMarkdown(content: string, notePaths: ReadonlySet<string>): string {
   const wikilinkReplacer = (target: string, display: string): string => {
     const trimmedTarget = target.trim();
     const targetMd = trimmedTarget.endsWith('.md') ? trimmedTarget : `${trimmedTarget}.md`;
@@ -539,6 +564,10 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged }: 
   const messagesRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // ---- 条件付き自動スクロール (Story 3) -----------------------------------------
+  /** ユーザーが最下部付近(80px以内)にいるか。最下部にいる間のみ自動追従する。 */
+  const [isAtBottom, setIsAtBottom] = useState(true);
+
   /**
    * MF-2: 遅延セッション作成中に abort が呼ばれたとき、作成されたセッション ID を
    * 参照できるよう ref で追跡する。状態更新 (setSessionId) は非同期なのでここに保持。
@@ -718,11 +747,26 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged }: 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentEnabled]);
 
-  // ---- メッセージ末尾に自動スクロール ------------------------------------------
+  // ---- 条件付き自動スクロール / 「一番下へ」ボタン (Story 3) --------------------
 
+  /** スクロールコンテナの scroll イベント → 最下部近接か判定して state 更新。 */
   useEffect(() => {
+    const el = messagesRef.current;
+    if (!el) return;
+
+    const onScroll = (): void => {
+      setIsAtBottom(isScrolledToBottom(el.scrollHeight, el.scrollTop, el.clientHeight));
+    };
+
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
+
+  /** messages 変化時: 最下部近接のときだけ自動追従する。 */
+  useEffect(() => {
+    if (!isAtBottom) return;
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isAtBottom]);
 
   // ---- スイッチャー外クリック / Esc で閉じる ------------------------------------
 
@@ -1341,7 +1385,7 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged }: 
       </div>
 
       {/* メッセージ一覧 */}
-      <div className="agent-messages" data-testid="agent-messages" ref={messagesRef}>
+      <div className="agent-messages" data-testid="agent-messages" ref={messagesRef} style={{ position: 'relative' }}>
         {messages.length === 0 && (
           <div className="empty-state" style={{ padding: '32px 18px' }}>
             <div className="glyph">
@@ -1405,6 +1449,27 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged }: 
         )}
 
         <div ref={messagesEndRef} />
+
+        {/* 一番下へボタン: 最下部にいないときのみ表示 */}
+        {!isAtBottom && (
+          <button
+            className="agent-scroll-to-bottom"
+            data-testid="agent-scroll-to-bottom"
+            aria-label="一番下へ"
+            title="一番下へ"
+            onClick={() => {
+              const el = messagesRef.current;
+              if (el) {
+                el.scrollTop = el.scrollHeight;
+                setIsAtBottom(true);
+              }
+            }}
+          >
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 6l4 4 4-4" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* 入力欄 */}

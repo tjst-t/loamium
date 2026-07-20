@@ -4829,11 +4829,17 @@ button.callout-title { cursor: pointer; }
   border-collapse: collapse;
   margin: 6px 0;
   font-size: 12.5px;
+  /* 横スクロール: max-width 超えた広い表でチャット幅を壊さない */
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+  white-space: nowrap;
 }
 .agent-md th, .agent-md td {
   border: 1px solid var(--border);
   padding: 3px 8px;
   text-align: left;
+  white-space: normal; /* セル内は折り返し可 */
 }
 .agent-md th { background: var(--bg-panel); font-weight: 600; }
 .agent-md a:not(.agent-wikilink) {
@@ -4864,6 +4870,37 @@ button.callout-title { cursor: pointer; }
   animation: agent-blink 1s steps(2) infinite;
 }
 @keyframes agent-blink { 50% { opacity: 0; } }
+
+/* 「一番下へ」ボタン (Story 3: 条件付き自動スクロール) */
+.agent-scroll-to-bottom {
+  /* agent-messages は flex column。float は効かないため align-self で右端へ寄せ、
+     sticky でスクロール時も最下部近くに追従表示する。 */
+  position: sticky;
+  bottom: 8px;
+  align-self: flex-end;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-panel);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  transition: background 0.15s, color 0.15s;
+  z-index: 10;
+  /* モバイル: タップターゲット 44px 以上を確保 */
+  min-width: 44px;
+  min-height: 44px;
+}
+.agent-scroll-to-bottom:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.agent-scroll-to-bottom svg { width: 18px; height: 18px; flex: none; }
+
 .agent-input-row {
   border-top: 1px solid var(--border);
   padding: 10px 12px;
