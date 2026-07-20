@@ -188,18 +188,49 @@ function isFoldTransaction(update: ViewUpdate): boolean {
   );
 }
 
-const outlineFoldGutter: Extension = gutter({
+/** 統合 fold ガター: 見出し行には HeadingFoldToggleMarker、
+ *  リスト行には FoldToggleMarker、それ以外は null を返す単一列。
+ *  これにより heading / list どちらのシェブロンも同一 x 位置に揃う。 */
+const unifiedFoldGutter: Extension = gutter({
   class: 'cm-outline-gutter',
   lineMarker(view, block) {
     const line = view.state.doc.lineAt(block.from);
-    if (foldableListRange(view.state, line) === null) return null;
-    return new FoldToggleMarker(line.number, foldedAt(view.state, line) !== null);
+    // 見出し行を優先チェック
+    if (foldableHeadingRange(view.state, line) !== null) {
+      const level = headingLevelAt(view.state, line);
+      if (level > 0) {
+        return new HeadingFoldToggleMarker(
+          line.number,
+          level,
+          headingFoldedAt(view.state, line) !== null,
+        );
+      }
+    }
+    // リスト行
+    if (foldableListRange(view.state, line) !== null) {
+      return new FoldToggleMarker(line.number, foldedAt(view.state, line) !== null);
+    }
+    return null;
   },
   lineMarkerChange: (update) =>
     update.docChanged || update.viewportChanged || isFoldTransaction(update),
   domEventHandlers: {
     click(view, block) {
       const line = view.state.doc.lineAt(block.from);
+      // 見出し行のクリック処理
+      if (foldableHeadingRange(view.state, line) !== null) {
+        const folded = headingFoldedAt(view.state, line);
+        if (folded !== null) {
+          view.dispatch({ effects: unfoldEffect.of(folded) });
+          return true;
+        }
+        const range = foldableHeadingRange(view.state, line);
+        if (range !== null) {
+          view.dispatch({ effects: foldEffect.of(range) });
+          return true;
+        }
+      }
+      // リスト行のクリック処理
       const folded = foldedAt(view.state, line);
       if (folded !== null) {
         view.dispatch({ effects: unfoldEffect.of(folded) });
@@ -1325,37 +1356,6 @@ class HeadingFoldToggleMarker extends GutterMarker {
   }
 }
 
-const headingFoldGutter: Extension = gutter({
-  class: 'cm-heading-fold-gutter',
-  lineMarker(view, block) {
-    const line = view.state.doc.lineAt(block.from);
-    if (foldableHeadingRange(view.state, line) === null) return null;
-    const level = headingLevelAt(view.state, line);
-    if (level === 0) return null;
-    return new HeadingFoldToggleMarker(
-      line.number,
-      level,
-      headingFoldedAt(view.state, line) !== null,
-    );
-  },
-  lineMarkerChange: (update) =>
-    update.docChanged || update.viewportChanged || isFoldTransaction(update),
-  domEventHandlers: {
-    click(view, block) {
-      const line = view.state.doc.lineAt(block.from);
-      const folded = headingFoldedAt(view.state, line);
-      if (folded !== null) {
-        view.dispatch({ effects: unfoldEffect.of(folded) });
-        return true;
-      }
-      const range = foldableHeadingRange(view.state, line);
-      if (range === null) return false;
-      view.dispatch({ effects: foldEffect.of(range) });
-      return true;
-    },
-  },
-});
-
 /** 見出し fold キーボードショートカット (Ctrl-Shift-[ / Ctrl-Shift-]) */
 const headingFoldKeymap: Extension = Prec.high(
   keymap.of([
@@ -1395,7 +1395,7 @@ export function outlineExtension(): Extension {
   // バックグラウンドで語彙を取得してキャッシュに保存 (makeListDecoPlugin の再実行は不要 —
   // getVocab() のキャッシュ (_cachedVocab) を popover 側で共有するため)。
   void getVocab();
-  // headingFoldGutter / headingFoldKeymap を outlineFolding / outlineFoldGutter と共存させる。
+  // unifiedFoldGutter に統合: 見出し・リストどちらのシェブロンも同一 x 列に揃う。
   // 共通の codeFolding() (outlineFolding) を 1 つだけ使い、fold state の二重管理を避ける。
-  return [outlineFolding, outlineFoldGutter, headingFoldGutter, headingFoldKeymap, outlineKeymap, plugin];
+  return [outlineFolding, unifiedFoldGutter, headingFoldKeymap, outlineKeymap, plugin];
 }

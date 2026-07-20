@@ -1213,22 +1213,7 @@ code {
 }
 .fold-pill:hover { background: #e5dff8; }
 
-/* Sb6f1d3-1 — 見出し fold ガター (cm-outline-gutter と独立した別列) */
-.editor-host .cm-heading-fold-gutter {
-  width: 22px;
-  background: transparent !important;
-}
-.editor-host .cm-heading-fold-gutter .cm-gutterElement {
-  display: flex;
-  /* 案B 詰めたガター: align-items: center でトグルをブロック高の中央に揃える。
-     H1/H2/H3 は font-size 拡大でブロック高が増えるが、center 揃えで
-     テキストの垂直中央にシェブロンが来る (prototype 案B .gutter-b に準拠)。 */
-  align-items: center;
-  justify-content: center;
-  background: transparent !important;
-}
-
-/* heading-fold-toggle: リスト fold-toggle に準拠したシンプルなシェブロン */
+/* heading-fold-toggle: 統合 cm-outline-gutter 内で fold-toggle と同列に配置される */
 .heading-fold-toggle {
   width: 16px;
   height: 16px;
@@ -1244,8 +1229,8 @@ code {
   opacity: 0;
   transition: opacity 0.1s, transform 0.12s;
 }
-/* ガター行ホバーで出現 (fold-toggle と同じ opacity 値) */
-.editor-host .cm-heading-fold-gutter .cm-gutterElement:hover .heading-fold-toggle { opacity: 1; }
+/* ガター行ホバーで出現 (fold-toggle と同じ opacity 値・統合ガター) */
+.editor-host .cm-outline-gutter .cm-gutterElement:hover .heading-fold-toggle { opacity: 1; }
 .heading-fold-toggle:hover { background: var(--bg-hover); color: var(--text); opacity: 1; }
 .heading-fold-toggle svg { width: 11px; height: 11px; }
 /* 折りたたみ中: chevron を -90deg 回転し常時表示 (fold-toggle.folded に準拠) */
