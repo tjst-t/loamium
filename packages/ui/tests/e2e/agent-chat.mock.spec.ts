@@ -135,10 +135,13 @@ test('[MOCK] 思考のみ(text なし)応答でも推論が表示され、空表
   await openAgentPane(page);
   await page.getByTestId('agent-input').fill('わかりました。');
   await page.getByTestId('agent-send').click();
-  // 本文は空でも推論トグルが出る = 「反応が無い」誤解を防ぐ。
+  // 本文が空でも推論トグルが出る = 「反応が無い(空表示)」誤解を防ぐ。
   const toggle = page.getByTestId('agent-reasoning-toggle');
   await expect(toggle).toBeVisible();
-  // 思考のみ (本文未着) は既定展開。
+  // 空応答プレースホルダは出ない (推論があるため)。
+  await expect(page.getByTestId('agent-msg-empty')).toHaveCount(0);
+  // 既定は折りたたみ。展開すると推論テキストが読める。
+  await toggle.click();
   await expect(page.getByTestId('agent-reasoning-body')).toContainText(
     '了解の返信なので追加アクションは不要。',
   );

@@ -129,15 +129,25 @@ export function MobileAgentSheet({
         </div>
       )}
 
-      {/* AgentPane 本体: 既存実装をそのまま再利用 (AC-6-2) */}
+      {/* AgentPane 本体: 既存実装をそのまま再利用 (AC-6-2)。
+          open のときだけマウントする。理由:
+          - デスクトップではシートは常時 display:none だが常にマウントされていたため、
+            AgentPane が右サイドバーと二重にマウントされ、agent-* の testid が
+            2 要素にマッチして Playwright の mock e2e(agent-chat 等)が strict-mode 違反で
+            全滅していた(Sa6c3b0 で混入。verify ゲートが test-ui を回さず未検知)。
+          - 閉じている間は不要な AgentPane + health 取得を避けられる(パフォーマンス)。
+          open で再マウントされるが、AgentPane は localStorage から現在セッションを復元するため
+          モバイルの閲覧用途では問題ない。 */}
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <AgentPane
-          health={health}
-          notes={notes}
-          onOpenNote={onOpenNote}
-          onNotesChanged={onNotesChanged}
-          currentNotePath={currentNotePath}
-        />
+        {open && (
+          <AgentPane
+            health={health}
+            notes={notes}
+            onOpenNote={onOpenNote}
+            onNotesChanged={onNotesChanged}
+            currentNotePath={currentNotePath}
+          />
+        )}
       </div>
     </div>
   );

@@ -81,7 +81,17 @@ test-ui:
 	@mkdir -p reports/ui
 	cd packages/ui && npx playwright test
 
-verify: test
+# UI の mock テストのみ (全 API を page.route でモック = 決定的、外部依存なし)。
+# verify ゲート用。e2e (実サーバー/実エージェント) は環境依存のため verify には含めない。
+test-ui-mock:
+	@mkdir -p reports/ui
+	cd packages/ui && npx playwright test --project=mock
+
+# verify: ユニット/受け入れ (vitest) に加え UI の mock e2e も回す。
+# 背景: 以前は verify=test のみで Playwright がゲート外だったため、モバイル対応 (Sa6c3b0) で
+# agent mock e2e が全滅しても、削除機能の stale テストが残っても検知できなかった。
+# 決定的な mock スイートを回して UI 回帰を確実に捕まえる。
+verify: test test-ui-mock
 
 # 機能サンプルノート集を vault へ投入する (S7e2d5c-3: SeedService シム)。
 # 正本は packages/server/src/samples/ に移動済み (S7e2d5c-2)。

@@ -48,7 +48,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type DragEvent as ReactDragEvent,
 } from 'react';
-import type { CommandSummary, NoteMeta, PermissionMode, SmartViewItem } from '@loamium/shared';
+import type { NoteMeta, PermissionMode, SmartViewItem } from '@loamium/shared';
 import { api } from '../api.js';
 import {
   ChevronDownIcon,
@@ -467,125 +467,6 @@ function SmartFolderPin({
         </div>
       )}
       {dropIndicator === 'after' && <div className="smart-drop-indicator" data-testid="smart-drop-indicator" />}
-    </div>
-  );
-}
-
-// --------------------------------------------------------------------------
-// スマートコマンドセクション (commands/*.yaml 一覧)
-// --------------------------------------------------------------------------
-
-/** ⚡ アイコン (スマートコマンドセクション用) */
-function CommandBoltIcon(): JSX.Element {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 2L4 9h5l-2 5 7-8H9l1.5-4z" />
-    </svg>
-  );
-}
-
-type CommandsLoadState =
-  | { kind: 'idle' }
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string }
-  | { kind: 'loaded'; commands: CommandSummary[] };
-
-interface SmartCommandsSectionProps {
-  onOpenNote: (path: string) => void;
-  /** インクリメントで一覧を再取得する (保存後リフレッシュ用) */
-  saveToken?: number | undefined;
-}
-
-function SmartCommandsSection({ onOpenNote, saveToken }: SmartCommandsSectionProps): JSX.Element {
-  const [collapsed, setCollapsed] = useState(false);
-  const [state, setState] = useState<CommandsLoadState>({ kind: 'loading' });
-
-  useEffect(() => {
-    let cancelled = false;
-    setState({ kind: 'loading' });
-    api.listCommands().then(
-      (commands) => {
-        if (!cancelled) setState({ kind: 'loaded', commands });
-      },
-      (err: unknown) => {
-        if (!cancelled) {
-          const message = err instanceof Error ? err.message : String(err);
-          setState({ kind: 'error', message });
-        }
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [saveToken]);
-
-  const toggle = useCallback((): void => {
-    setCollapsed((prev) => !prev);
-  }, []);
-
-  return (
-    <div className="sidebar-commands-section" data-testid="sidebar-commands-section">
-      {/* セクションヘッダ */}
-      <div className="sidebar-commands-header" data-testid="sidebar-commands-section-header">
-        <button
-          type="button"
-          className="tree-item sidebar-commands-toggle"
-          data-testid="sidebar-commands-section-toggle"
-          onClick={toggle}
-          aria-expanded={!collapsed}
-        >
-          <ChevronDownIcon className={collapsed ? 'chev closed' : 'chev'} />
-          <span className="smart-icon svg-icon sidebar-cmd-ico" aria-hidden="true">
-            <CommandBoltIcon />
-          </span>
-          <span className="name">スマートコマンド</span>
-        </button>
-      </div>
-
-      {/* セクション本体 */}
-      {!collapsed && (
-        <div className="tree-children sidebar-commands-body">
-          {state.kind === 'loading' && (
-            <div className="smart-folder-state" data-testid="sidebar-commands-loading">
-              読み込み中…
-            </div>
-          )}
-          {state.kind === 'error' && (
-            <div className="smart-folder-state smart-folder-state-error" data-testid="sidebar-commands-error">
-              <WarnTriangleIcon />
-              <span>取得に失敗しました</span>
-            </div>
-          )}
-          {state.kind === 'loaded' && state.commands.length === 0 && (
-            <div className="smart-folder-state" data-testid="sidebar-commands-empty">
-              <span>コマンドがありません</span>
-            </div>
-          )}
-          {state.kind === 'loaded' &&
-            state.commands.map((cmd) => (
-              <button
-                key={cmd.id}
-                type="button"
-                className={`tree-item sidebar-command-item${cmd.valid ? '' : ' sidebar-command-invalid'}`}
-                data-testid="sidebar-command-item"
-                data-command-id={cmd.id}
-                data-valid={String(cmd.valid)}
-                title={cmd.valid ? (cmd.description ?? cmd.name) : `[無効] ${cmd.error}`}
-                onClick={() => onOpenNote(cmd.path)}
-              >
-                <span className="smart-icon svg-icon sidebar-cmd-ico" aria-hidden="true">
-                  <CommandBoltIcon />
-                </span>
-                <span className="name">{cmd.name}</span>
-                {!cmd.valid && (
-                  <span className="sidebar-cmd-warn" aria-hidden="true">
-                    <WarnTriangleIcon />
-                  </span>
-                )}
-              </button>
-            ))}
-        </div>
-      )}
     </div>
   );
 }
