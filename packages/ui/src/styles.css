@@ -481,10 +481,14 @@ a { color: var(--link); text-decoration: none; }
   font-family: var(--font-mono);
   line-height: 1.75;
   padding: 28px 0 120px;
+  /* ガター+本文を1ユニットで中央寄せ。max-width ではなく固定幅 (width:min())
+     を使うことで、H1 折りたたみで内容が短くなっても scroller が縮まず中央に
+     飛ばない。ガター列は中央寄せユニットの左端 = 左余白の一部として計算される。 */
+  width: min(820px, 100%);
+  margin: 0 auto;
 }
 .editor-host .cm-content {
-  max-width: 760px;
-  padding: 0 32px 0 4px;
+  padding: 0 28px 0 4px;
   caret-color: var(--accent);
 }
 .editor-host .cm-line { padding: 0 6px; border-radius: 4px; }
