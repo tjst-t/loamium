@@ -182,17 +182,18 @@ describe('appSettingsSchema boundary [AC-Sa10026-3-2]', () => {
     }
   });
 
-  it('スキーマが持つフィールドは移植可能・git 追跡可能な設定のみ (Se3b7a2-8 で tasks を追加し 5 フィールド)', () => {
+  it('スキーマが持つフィールドは移植可能・git 追跡可能な設定のみ (Se3b7a2-8 で tasks、Sfa11c0-5 で agentDefaultPreset を追加し 6 フィールド)', () => {
     const schemaShape = appSettingsSchema.shape;
     const schemaKeys = Object.keys(schemaShape);
-    // 現在定義されているフィールド (theme / defaultFolder / journalTemplate / showSystemFolder / tasks)
+    // 現在定義されているフィールド (theme / defaultFolder / journalTemplate / showSystemFolder / tasks / agentDefaultPreset)
     expect(schemaKeys).toContain('theme');
     expect(schemaKeys).toContain('defaultFolder');
     expect(schemaKeys).toContain('journalTemplate');
     expect(schemaKeys).toContain('showSystemFolder');
     expect(schemaKeys).toContain('tasks'); // Se3b7a2-8: タスク語彙 (ADR-0029)
+    expect(schemaKeys).toContain('agentDefaultPreset'); // Sfa11c0-5: Agent 新規セッション既定権限 (移植可能な設定)
     // 境界確認: 端末依存フィールドは存在しない (スキーマに追加した場合はここで検出される)
-    expect(schemaKeys.length).toBe(5);
+    expect(schemaKeys.length).toBe(6);
   });
 });
 
