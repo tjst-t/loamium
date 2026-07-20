@@ -24,6 +24,7 @@ import { auditMiddleware } from './audit.js';
 import { permissionMiddleware } from './permissions.js';
 import { indexSyncMiddleware } from './indexSync.js';
 import { loadAgentConfig } from './agent-service.js';
+import { resolveServerVersion } from './app-version.js';
 import { egressGuardStats } from './egress-guard.js';
 import type { VaultIndex } from './noteIndex.js';
 import { DqlQueryCache } from './dql-cache.js';
@@ -124,6 +125,7 @@ export function createApp(
     const res: HealthResponse = {
       status: 'ok',
       mode: config.mode,
+      version: resolveServerVersion(),
       agent: agentResult.ok
         ? { enabled: true, reason: null }
         : { enabled: false, reason: agentResult.reason },

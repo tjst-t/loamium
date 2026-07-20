@@ -148,3 +148,35 @@ cargo build --release --manifest-path packages/app-tauri/src-tauri/Cargo.toml
 # 3. フル bundle（インストーラー生成）
 cargo tauri build --project-path packages/app-tauri
 ```
+
+---
+
+## 5. バージョンとリリース（タグ運用）
+
+Loamium はバージョン文字列を **git タグ `vX.Y.Z`** から埋め込みます。専用のバージョンファイルは持たず、タグが唯一の入力です。
+
+### バージョンの埋め込み
+
+- **UI**: ビルド時に Vite の `define` が `__APP_VERSION__` を注入します（`packages/ui/vite.config.ts` の `resolveAppVersion()`）。解決順は
+  1. 環境変数 `LOAMIUM_VERSION`（CI がタグから設定）
+  2. `git describe --tags`（開発時）
+  3. ルート `package.json` の version（フォールバック）
+  ロゴ右に控えめに表示されます。リリースタグちょうどなら `v0.1.0`、タグ以降の開発ビルドは `v0.1.0+NN`（NN = タグからのコミット数）と表示されます（ハッシュ付きの完全値はツールチップ）。
+- **サーバー**: `GET /api/health` の `version` フィールドで返します（`LOAMIUM_VERSION` → `package.json`。git 非依存）。CLI／エージェントから参照できます。
+
+### タグを切ると 3 つの成果物が自動リリース
+
+`vX.Y.Z` タグを push すると、GitHub Actions が同じタグの Release に成果物を集約します。
+
+```bash
+git tag v1.2.3
+git push origin v1.2.3
+```
+
+| ワークフロー | 成果物 |
+|---|---|
+| `release-web.yml`   | サーバー + UI ビルド済みの自己完結 tar.gz（`loamium-web-vX.Y.Z.tar.gz`、linux-x64。同梱 tsx で `node_modules/.bin/tsx packages/server/src/index.ts` 起動） |
+| `docker-publish.yml`| GHCR の Docker イメージ（`ghcr.io/<repo>:X.Y.Z` ほか。`LOAMIUM_VERSION` を build-arg で埋め込み） |
+| `electron-build.yml`| Windows デスクトップアプリ（NSIS インストーラー + zip） |
+
+いずれもタグ名からバージョンを解決します。さらに CI は `scripts/apply-version.mjs` で各成果物の `package.json` の version もタグから焼き込むため、**リポジトリの `package.json` を手で更新する必要はありません**（据え置きのままでよい）。`vX.Y.Z` タグを切ることが唯一の操作です。

@@ -1,0 +1,79 @@
+name: Release web build bundle
+
+# タグ vX.Y.Z を push すると、サーバー + UI をビルドした「そのまま起動できる」
+# tar.gz を作成し GitHub Release に添付する。
+# (Docker イメージは docker-publish.yml、Electron は electron-build.yml が担当。
+#  3 者は同じタグの同一 Release に成果物を集約する)
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release-web:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 各 package.json の version をタグから焼き込む (health fallback / bundle 内整合)
+      - name: Apply version from tag to package.json
+        run: node scripts/apply-version.mjs "${{ github.ref_name }}"
+
+      - name: Build server + UI (embed version from tag)
+        env:
+          # ロゴ右のバージョン表示・/api/health にタグ由来の値を埋め込む
+          LOAMIUM_VERSION: ${{ github.ref_name }}
+        run: make build
+
+      - name: Assemble self-contained web bundle
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          # Docker の runner ステージと同一構成 (tsx でサーバーを起動する)。
+          # サーバー/共有パッケージはビルド不要 — TS ソースを tsx で直接実行する。
+          DIR="loamium-web-${VERSION}"
+          rm -rf "$DIR"
+          mkdir -p "$DIR/packages/shared" "$DIR/packages/server" "$DIR/packages/ui"
+
+          cp package.json package-lock.json DEPLOY.md README.md "$DIR/"
+          cp -R node_modules "$DIR/node_modules"
+          cp -R packages/shared/package.json packages/shared/src "$DIR/packages/shared/"
+          cp -R packages/server/package.json packages/server/src "$DIR/packages/server/"
+          cp -R packages/ui/dist "$DIR/packages/ui/"
+
+          # 起動手順を同梱
+          cat > "$DIR/START.md" <<EOF
+          # Loamium ${VERSION} — web bundle (linux-x64)
+
+          Node.js 22+ があれば、追加の \`npm install\` 無しで起動できます。
+          サーバーは同梱の tsx で TypeScript ソースを直接実行します。
+
+          \`\`\`sh
+          export LOAMIUM_VAULT=/path/to/your/vault
+          LOAMIUM_UI_DIST=packages/ui/dist PORT=3000 \\
+            node_modules/.bin/tsx packages/server/src/index.ts
+          \`\`\`
+
+          ブラウザで http://127.0.0.1:3000 を開いてください。
+          詳細は DEPLOY.md を参照。
+          EOF
+
+          tar -czf "${DIR}.tar.gz" "$DIR"
+          ls -lh "${DIR}.tar.gz"
+
+      - name: Attach bundle to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: loamium-web-*.tar.gz

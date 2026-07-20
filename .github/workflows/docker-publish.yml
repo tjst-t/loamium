@@ -47,5 +47,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # タグ名 (例 v1.2.3) をそのままバージョンとして埋め込む
+          build-args: |
+            LOAMIUM_VERSION=${{ github.ref_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

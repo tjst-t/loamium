@@ -504,6 +504,11 @@ export const healthResponseSchema = z.object({
   status: z.literal('ok'),
   mode: permissionModeSchema,
   /**
+   * サーバーのアプリバージョン (例 "v0.1.0")。
+   * タグ `vX.Y.Z` から埋め込まれる。旧クライアント互換のため optional。
+   */
+  version: z.string().optional(),
+  /**
    * エージェント設定の有無 (S53409d-2)。
    * agent.json が有効な場合 enabled:true。
    * 旧バージョンとの後方互換のため optional (未設定時は not_configured 扱い)。

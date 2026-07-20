@@ -20,9 +20,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build shared package
-        run: npm run build -w @loamium/shared
-
+      # @loamium/shared はビルド不要 (exports が src/index.ts を直接指す)。
+      # bun は shared の TS ソースをそのままバンドルする。
       - name: Cross-compile server for Windows x64
         run: |
           bun build \
@@ -60,10 +59,31 @@ jobs:
           name: loamium-server-exe
           path: packages/app-electron/resources/
 
-      - name: Build shared package
-        run: npm run build -w @loamium/shared
+      # タグ (例 v1.2.3) からバージョンを解決する。
+      # workflow_dispatch (タグ無し) では app-electron の既存 version をそのまま使う。
+      - name: Resolve version from tag
+        id: version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF_NAME}"          # 例 v1.2.3
+            VERSION="${TAG#v}"                 # electron-builder 用 (先頭 v を除去)
+          else
+            VERSION="$(node -p "require('./packages/app-electron/package.json').version")"
+            TAG="v${VERSION}"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          # electron-builder は package.json の version を成果物名に使うため焼き込む
+          # (共通スクリプトで全 package.json を揃える)
+          node scripts/apply-version.mjs "${VERSION}"
 
+      # 注: @loamium/shared はビルド不要 (exports が src/index.ts を直接指す)。
+      # UI ビルドは shared を TS ソースのまま参照するため、事前ビルドは不要。
       - name: Build UI
+        # ロゴ右のバージョン表示にタグ由来の値を埋め込む
+        env:
+          LOAMIUM_VERSION: ${{ steps.version.outputs.tag }}
         run: npm run build -w @loamium/ui
 
       - name: Build Electron main + preload

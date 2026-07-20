@@ -161,6 +161,18 @@ function historyIndexOf(state: unknown): number {
 }
 
 /**
+ * ロゴ右のバージョン表示用に文字列を整える。
+ * git describe の開発サフィックス `-<コミット数>-g<ハッシュ>` を `+<コミット数>`
+ * に置き換え、「タグからの距離」を残す。
+ *   例 v0.1.0-111-gd05f5d7 → v0.1.0+111 (タグ v0.1.0 から 111 コミット先)
+ * リリースタグちょうど (v1.2.3) や prerelease (v1.2.3-rc1) は変化しない。
+ * ハッシュ付きの完全な値は title 属性に残す。
+ */
+function displayVersion(raw: string): string {
+  return raw.replace(/-(\d+)-g[0-9a-f]+$/, '+$1');
+}
+
+/**
  * リネームダイアログの「[[リンク]] N 件を自動更新」表示 (S6fbf45-3 /
  * prototype/tree-rename.html)。件数は GET /api/backlinks から求める。
  */
@@ -1588,6 +1600,9 @@ export function App(): JSX.Element {
         <div className="sidebar-header">
           <div className="vault-badge">L</div>
           <div className="vault-name">Loamium</div>
+          <span className="vault-version" title={`Loamium ${__APP_VERSION__}`}>
+            {displayVersion(__APP_VERSION__)}
+          </span>
           <button
             className="icon-btn"
             data-testid="sidebar-search"
