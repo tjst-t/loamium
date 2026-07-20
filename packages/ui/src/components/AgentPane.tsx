@@ -101,6 +101,28 @@ function matchPreset(caps: readonly Capability[]): AgentPresetName | null {
   return null;
 }
 
+/**
+ * system/settings.yaml から Agent 新規セッションの既定ケーパビリティ集合を解決する。
+ * 解決順: agentDefaultCapabilities(カスタム集合) → agentDefaultPreset(プリセット, 後方互換)
+ * → 'read-only'。無効値は無視して次のフォールバックへ。
+ */
+function resolveAgentDefaultCaps(settings: {
+  agentDefaultCapabilities?: readonly string[] | undefined;
+  agentDefaultPreset?: string | undefined;
+}): Capability[] {
+  const custom = settings.agentDefaultCapabilities;
+  if (Array.isArray(custom)) {
+    const known: readonly string[] = AGENT_CAPABILITIES;
+    return sortCaps(custom.filter((c): c is Capability => known.includes(c)));
+  }
+  const preset = settings.agentDefaultPreset;
+  const validPresets: readonly string[] = AGENT_PRESET_NAMES;
+  if (typeof preset === 'string' && validPresets.includes(preset)) {
+    return [...AGENT_PRESETS[preset as AgentPresetName]];
+  }
+  return [...AGENT_PRESETS['read-only']];
+}
+
 /** ツールチップ状態 */
 interface ToolChipItem {
   toolCallId: string;
@@ -535,18 +557,12 @@ function ToolChip({ chip }: { chip: ToolChipItem }): JSX.Element {
 
 /**
  * 推論モデルの thinking テキストを折りたたみ表示する (ChatGPT/Claude 風)。
- * 既定は折りたたみ。ヘッダをタップ/クリックで展開。推論のみ(text 無し)応答でも
- * 中身が見えることで「反応が無い」誤解を防ぐ。ストリーミング中(streaming=本文未着)は
- * 思考中であることが分かるよう既定展開する。
+ * 常に折りたたみで開始し、ヘッダをタップ/クリックで展開する(ユーザー要望)。
+ * 折りたたみ時も「推論」トグルは見えるため、推論のみ(text 無し)応答でも
+ * 「反応が無い(空表示)」誤解は防げる。
  */
-function ReasoningBlock({
-  reasoning,
-  defaultOpen,
-}: {
-  reasoning: string;
-  defaultOpen: boolean;
-}): JSX.Element {
-  const [open, setOpen] = useState(defaultOpen);
+function ReasoningBlock({ reasoning }: { reasoning: string }): JSX.Element {
+  const [open, setOpen] = useState(false);
   return (
     <div className={`agent-reasoning${open ? ' open' : ''}`} data-testid="agent-reasoning">
       <button
@@ -626,6 +642,11 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged, cu
   const [selectedCaps, setSelectedCaps] = useState<Capability[]>(() => [
     ...AGENT_PRESETS['read-only'],
   ]);
+  // 新規セッションの既定として保存済みのケーパビリティ集合 (system/settings.yaml)。
+  // null = 未取得。ポップオーバーの「既定に設定済み」判定に使う。
+  const [savedDefaultCaps, setSavedDefaultCaps] = useState<Capability[] | null>(null);
+  // 「既定にする」保存中フラグ。
+  const [savingDefault, setSavingDefault] = useState(false);
   // 権限ポップオーバーの開閉状態 (セッションバーの権限ボタンにアンカー)。
   const [permOpen, setPermOpen] = useState(false);
   // 現在セッションの実効権限 (GET 詳細の effectivePermissions)。null = 未取得。
@@ -659,22 +680,20 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged, cu
   // ---- /---- ----------------------------------------------------------------
 
   /**
-   * Sfa11c0-5: マウント時に system/settings.yaml の agentDefaultPreset を取得して
-   * 新規セッション (sessionId === null) の selectedCaps 初期値として適用する。
-   * 既存セッションに接続した状態では上書きしない (sessionId が null のときのみ)。
+   * マウント時に system/settings.yaml の Agent 既定権限を取得して新規セッションの
+   * selectedCaps 初期値に適用する。解決順: agentDefaultCapabilities(カスタム集合) →
+   * agentDefaultPreset(プリセット, 後方互換) → 'read-only'。
+   * savedDefaultCaps は「既定に設定済み」表示のため常に保持する。
    * 取得失敗時は useState の初期値 (read-only) のまま使う。
    */
   useEffect(() => {
     void (async () => {
       try {
         const settings = await api.getSystemSettings();
-        const preset = settings.agentDefaultPreset ?? 'read-only';
-        // 有効なプリセット名かチェック (AGENT_PRESET_NAMES は as const tuple なので型的に確認)
-        const validPresets: readonly string[] = AGENT_PRESET_NAMES;
-        if (!validPresets.includes(preset)) return;
-        // 現在の sessionId は state 経由でなく、まだマウント直後なので null のはず。
-        // セッション切替後に再マウントされることはないため、ここで上書きしても安全。
-        setSelectedCaps([...AGENT_PRESETS[preset as keyof typeof AGENT_PRESETS]]);
+        const resolved = resolveAgentDefaultCaps(settings);
+        setSavedDefaultCaps(resolved);
+        // マウント直後は sessionId=null (新規)。既存セッション復元はこの後に走るため上書きしない。
+        setSelectedCaps(resolved);
       } catch {
         // 取得失敗時は read-only (useState 初期値) のまま
       }
@@ -796,6 +815,29 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged, cu
     [selectedCaps, applyPermissions],
   );
 
+  /**
+   * 現在の権限選択を「新規セッションの既定」として system/settings.yaml に保存する
+   * (agentDefaultCapabilities)。プリセットでもカスタム集合でも保存できる。
+   * 既存設定 (theme/tasks 等) は GET してからマージし PUT する (passthrough 保持)。
+   */
+  const handleSetAsDefault = useCallback((caps: readonly Capability[]): void => {
+    setSavingDefault(true);
+    void (async () => {
+      try {
+        const current = await api.getSystemSettings();
+        const res = await api.putSystemSettings({
+          ...current,
+          agentDefaultCapabilities: sortCaps(caps),
+        });
+        setSavedDefaultCaps(resolveAgentDefaultCaps(res.settings));
+      } catch {
+        // 保存失敗は無視 (UI 表示は変わらない)
+      } finally {
+        setSavingDefault(false);
+      }
+    })();
+  }, []);
+
   // ---- 初期化 ---------------------------------------------------------------
 
   useEffect(() => {
@@ -870,7 +912,14 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged, cu
 
   // ---- 条件付き自動スクロール / 「一番下へ」ボタン (Story 3) --------------------
 
-  /** スクロールコンテナの scroll イベント → 最下部近接か判定して state 更新。 */
+  /**
+   * スクロールコンテナの scroll イベント → 最下部近接か判定して state 更新。
+   * deps に status を含める理由: 初回マウント時に health 未取得だと status は
+   * 'unconfigured' で、その分岐は agent-messages を描画しない (messagesRef が null) ため
+   * リスナが張られない。health 取得後に status が 'ready' へ変わって初めてコンテナが
+   * 現れるので、そのタイミングで再実行してリスナを張り直す(これが無いと条件付き追従も
+   * 「一番下へ」ボタンも一切動かなかった)。
+   */
   useEffect(() => {
     const el = messagesRef.current;
     if (!el) return;
@@ -881,13 +930,38 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged, cu
 
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [status]);
 
-  /** messages 変化時: 最下部近接のときだけ自動追従する。 */
+  /**
+   * 最下部へ追従する（最下部近接のときだけ）。scrollIntoView はネストしたスクロール
+   * コンテナで期待通り動かない（別祖先がスクロールされる）ため scrollTop を直接
+   * scrollHeight にして確実に最下部へ送る。
+   */
+  const followBottomIfPinned = useCallback((): void => {
+    const el = messagesRef.current;
+    if (!el || !isAtBottom) return;
+    el.scrollTop = el.scrollHeight;
+  }, [isAtBottom]);
+
+  /** messages 変化時 (復元・送信・ストリーミング追記) に追従する。 */
   useEffect(() => {
-    if (!isAtBottom) return;
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isAtBottom]);
+    followBottomIfPinned();
+  }, [messages, followBottomIfPinned]);
+
+  /**
+   * コンテナのリサイズ時にも追従する。重要: 右サイドバーはタブ切替でも AgentPane を
+   * unmount しない設計のため、Agent タブが非表示(高さ0)の間にセッションが復元されると
+   * messages 変化時の追従は scrollHeight=0 で失敗し、タブ表示後も最下部へ行かず
+   * 「先頭で固まる/追従しない/ボタンも出ない」状態になっていた(ユーザー報告「全く動かない」)。
+   * ResizeObserver でコンテナが 0→実高さ になった瞬間(=表示された瞬間)に追従し直す。
+   */
+  useEffect(() => {
+    const el = messagesRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => followBottomIfPinned());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [status, followBottomIfPinned]);
 
   // ---- スイッチャー外クリック / Esc で閉じる ------------------------------------
 
@@ -1589,6 +1663,8 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged, cu
   const selectedCapSet = new Set(permCaps);
   // 権限ボタンのバッジ (有効ケーパビリティ数)。
   const permCount = permCaps.length;
+  // 現在の権限選択が「新規セッションの既定」として保存済みの集合と一致するか。
+  const isCurrentDefault = savedDefaultCaps !== null && sameCapSet(permCaps, savedDefaultCaps);
 
   return (
     <div
@@ -1700,6 +1776,33 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged, cu
                   </span>
                 </div>
               )}
+
+              {/* 新規セッションの既定権限をこの選択(プリセット/カスタム集合)で保存する。
+                  全体設定ではなく Agent ページで完結させる (ユーザー要望)。 */}
+              <div className="agent-perm-default" data-testid="agent-perm-default">
+                <button
+                  type="button"
+                  className={`agent-perm-default-btn${isCurrentDefault ? ' is-default' : ''}`}
+                  data-testid="agent-perm-set-default"
+                  disabled={savingDefault || isCurrentDefault}
+                  onClick={() => handleSetAsDefault(permCaps)}
+                  title="この権限セットを新規セッションの既定として保存します"
+                >
+                  {isCurrentDefault ? (
+                    <>
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M3 8.5l3.5 3.5L13 4.5" />
+                      </svg>
+                      <span>新規セッションの既定に設定済み</span>
+                    </>
+                  ) : (
+                    <span>{savingDefault ? '保存中…' : 'この権限を新規セッションの既定にする'}</span>
+                  )}
+                </button>
+                <p className="agent-perm-default-hint">
+                  次に「+」で作る新規セッションはこの権限で始まります(プリセット/カスタムどちらも保存可)。
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -1844,10 +1947,7 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged, cu
               >
                 {/* 推論(thinking)折りたたみ。本文未着でストリーミング中は既定展開。 */}
                 {msg.reasoning !== undefined && msg.reasoning.length > 0 && (
-                  <ReasoningBlock
-                    reasoning={msg.reasoning}
-                    defaultOpen={isStreaming && idx === messages.length - 1 && msg.content.length === 0}
-                  />
+                  <ReasoningBlock reasoning={msg.reasoning} />
                 )}
                 {/* ツールチップ (メッセージ上部) */}
                 {msg.tools.length > 0 && (

@@ -20,7 +20,7 @@ import { z } from 'zod';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { parseNote } from './markdown.js';
 import { normalizeVaultFilePath, VaultPathError } from './path.js';
-import { AGENT_PRESET_NAMES } from './agent-capabilities.js';
+import { AGENT_PRESET_NAMES, AGENT_CAPABILITIES } from './agent-capabilities.js';
 
 // ---- システム定義フォルダ名 ----
 
@@ -443,6 +443,15 @@ export const appSettingsSchema = z.object({
    * サーバー LOAMIUM_MODE によるクランプは新規セッション作成時にも適用される。
    */
   agentDefaultPreset: z.enum(AGENT_PRESET_NAMES).optional(),
+  /**
+   * Agent 新規セッションの既定権限をケーパビリティ集合で指定する (Sfa11c0 後続 / カスタム権限)。
+   * プリセット (read-only / notes-rw / full) に縛られず任意のケーパビリティ集合を既定にできる。
+   * Agent ページの権限ポップオーバーから保存する (全体設定 UI からは編集しない)。
+   * 解決順: agentDefaultCapabilities があればそれを使い、無ければ agentDefaultPreset を
+   * プリセット展開し、どちらも無ければ 'read-only' にフォールバックする。
+   * サーバー LOAMIUM_MODE によるクランプは新規セッション作成時に適用される。
+   */
+  agentDefaultCapabilities: z.array(z.enum(AGENT_CAPABILITIES)).optional(),
 }).passthrough();
 
 export type AppSettings = z.infer<typeof appSettingsSchema>;

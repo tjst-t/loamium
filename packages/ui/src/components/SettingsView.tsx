@@ -36,7 +36,6 @@ import type {
   AgentBackend,
   LocalModelInfo,
 } from '@loamium/shared';
-import { AGENT_PRESET_NAMES } from '@loamium/shared';
 
 // ---- 型 ----
 
@@ -1483,32 +1482,8 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
               />
               <p className="hint">空なら空ファイルで生成。</p>
             </div>
-            {/* Sfa11c0-5: Agent 新規セッションの既定権限 */}
-            <div className="settings-field" style={{ minHeight: 44 }}>
-              <label htmlFor="f-agent-default-preset">Agent 新規セッションの既定権限</label>
-              <select
-                id="f-agent-default-preset"
-                data-testid="settings-field"
-                data-name="agentDefaultPreset"
-                disabled={readonly}
-                value={generalDraft.agentDefaultPreset ?? 'read-only'}
-                onChange={(e) =>
-                  setGeneralDraft((d) => ({
-                    ...d,
-                    agentDefaultPreset: e.target.value as typeof AGENT_PRESET_NAMES[number],
-                  }))
-                }
-              >
-                <option value="read-only">read-only（読み取りのみ・既定）</option>
-                <option value="notes-rw">notes-rw（ノート読み書き）</option>
-                <option value="full">full（全ケーパビリティ）</option>
-              </select>
-              <p className="hint">
-                チャットペインで新規セッションを開始するときの権限の初期値です。
-                deny リスト・機密領域除外・自己昇格防止は設定に関わらず常に有効です。
-                サーバーの LOAMIUM_MODE によるクランプも適用されます (ADR-0015)。
-              </p>
-            </div>
+            {/* Agent 新規セッションの既定権限は Agent ページ (権限ポップオーバー) へ移動
+                (Sfa11c0 後続 / ユーザー要望)。プリセットだけでなくカスタム集合も保存できる。 */}
           </div>
           <div className="settings-actions">
             <button

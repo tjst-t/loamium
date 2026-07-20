@@ -384,6 +384,7 @@ import {
   DEFAULT_APP_SETTINGS,
   appSettingsSchema,
   SYSTEM_SETTINGS_PATH,
+  type AppSettings,
 } from './system-definitions.js';
 
 describe('parseAppSettings [AC-Sa10026-3-1]', () => {
@@ -481,6 +482,28 @@ describe('parseAppSettings [AC-Sa10026-3-1]', () => {
     const restored = parseAppSettings(yaml);
     expect(restored.agentDefaultPreset).toBe('full');
   });
+
+  it('agentDefaultCapabilities (カスタム集合) をパースできる [Sfa11c0 後続]', () => {
+    const result = parseAppSettings(
+      'agentDefaultCapabilities:\n  - read\n  - journal_append\n  - note_create\n',
+    );
+    expect(result.agentDefaultCapabilities).toEqual(['read', 'journal_append', 'note_create']);
+  });
+
+  it('agentDefaultCapabilities に不正なケーパビリティが混ざると undefined にフォールバック [Sfa11c0 後続]', () => {
+    // 配列内の enum 不一致は array 全体の parse を失敗させ、passthrough なしの optional は undefined。
+    const result = parseAppSettings('agentDefaultCapabilities:\n  - read\n  - super_power\n');
+    expect(result.agentDefaultCapabilities).toBeUndefined();
+  });
+
+  it('agentDefaultCapabilities のラウンドトリップ [Sfa11c0 後続]', () => {
+    const settings: AppSettings = {
+      ...DEFAULT_APP_SETTINGS,
+      agentDefaultCapabilities: ['read', 'note_edit'],
+    };
+    const restored = parseAppSettings(serializeAppSettings(settings));
+    expect(restored.agentDefaultCapabilities).toEqual(['read', 'note_edit']);
+  });
 });
 
 describe('serializeAppSettings [AC-Sa10026-3-1]', () => {
@@ -526,15 +549,16 @@ describe('appSettingsSchema boundary [AC-Sa10026-3-2]', () => {
     }
   });
 
-  it('スキーマのフィールドは移植可能な設定のみ (6 フィールド: Sfa11c0 で agentDefaultPreset を追加)', () => {
+  it('スキーマのフィールドは移植可能な設定のみ (7 フィールド: agentDefaultPreset + agentDefaultCapabilities)', () => {
     const schemaKeys = Object.keys(appSettingsSchema.shape);
     expect(schemaKeys).toContain('theme');
     expect(schemaKeys).toContain('defaultFolder');
     expect(schemaKeys).toContain('journalTemplate');
     expect(schemaKeys).toContain('showSystemFolder');
     expect(schemaKeys).toContain('tasks'); // Se3b7a2-8: タスク語彙 (ADR-0029)
-    expect(schemaKeys).toContain('agentDefaultPreset'); // Sfa11c0: Agent 新規セッション既定権限
-    expect(schemaKeys.length).toBe(6);
+    expect(schemaKeys).toContain('agentDefaultPreset'); // Sfa11c0: Agent 既定権限 (プリセット, 後方互換)
+    expect(schemaKeys).toContain('agentDefaultCapabilities'); // Sfa11c0 後続: カスタム既定権限 (集合)
+    expect(schemaKeys.length).toBe(7);
   });
 });
 
