@@ -22,7 +22,7 @@ import { type BacklinkSource, type HealthResponse, type NoteMeta } from '@loamiu
 import { api, ApiError } from '../api.js';
 import { InfoPanel, ActionsMenu } from './InfoPanel.js';
 import { AgentPane } from './AgentPane.js';
-import { ChevronRightIcon } from '../icons.js';
+import { ChevronLeftIcon, ChevronRightIcon } from '../icons.js';
 
 export type RightTab = 'info' | 'agent';
 
@@ -209,14 +209,15 @@ export function RightSidebar({
 
       <div className="panel-header">
         {collapsed ? (
-          /* collapsed: toggle ボタンのみ */
+          /* collapsed: toggle ボタンのみ。左向きシェブロン = パネルを開く方向を示す */
           <button
             className="icon-btn"
             data-testid="right-sidebar-toggle"
+            aria-label="サイドバーを開く"
             title="サイドバーを開く"
             onClick={() => setCollapsed(false)}
           >
-            <ChevronRightIcon />
+            <ChevronLeftIcon />
           </button>
         ) : (
           /* expanded: タブ切替 + ⋯ メニュー + toggle */
@@ -259,6 +260,7 @@ export function RightSidebar({
             <button
               className="icon-btn"
               data-testid="right-sidebar-toggle"
+              aria-label="サイドバーを閉じる"
               title="サイドバーを閉じる"
               style={{ marginLeft: 4 }}
               onClick={() => setCollapsed(true)}

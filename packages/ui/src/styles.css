@@ -489,21 +489,26 @@ a { color: var(--link); text-decoration: none; }
   background: var(--bg-editor);
 }
 .editor-host .cm-editor.cm-focused { outline: none; }
-/* Fix #3: エディタ内容は左揃え(中央寄せしない)。
-   cm-content を中央寄せ(margin:auto)すると cm-gutters(sticky left)がエディタ
-   左端に張り付いたままになり、折りたたみシェブロンとテキストの間に大きなギャップが出る。
-   また cm-scroller を中央寄せすると H1 折りたたみで内容が短くなったとき scroller が
-   縮んで中央に飛ぶ(描画位置ずれ)。→ どちらも中央寄せしない。cm-content を max-width で
-   読取幅だけ制限して左揃えにすると、ガターは scroller 左端=テキスト直左に密着し、
-   折りたたみでも位置がずれない。 */
+/* エディタ表示領域は全幅を使う(scroller を全幅にしてスクロールバーを右端に付ける)。
+   背景: 過去に cm-scroller を width:min(820px,100%)+margin:auto で中央寄せした結果、
+   スクローラーが本文幅で中央配置され、縦スクロールバーが表示領域の中央付近に浮き、
+   右サイドバー折りたたみ時に未使用の余白が残る問題が出た(ユーザー報告)。
+   → min-width:100% で scroller を常に全幅化し、スクロールバーを右端に、折りたたんだ
+   空き幅も本文領域に使う。cm-content 側は max-width で中央寄せしない(margin:auto は
+   ガターが sticky-left のまま残りシェブロン⇔テキスト間にギャップを生むため)。 */
 .editor-host .cm-scroller {
   font-family: var(--font-mono);
   line-height: 1.75;
   padding: 28px 0 120px;
-  /* ガター+本文を1ユニットで中央寄せ。max-width ではなく固定幅 (width:min())
-     を使うことで、H1 折りたたみで内容が短くなっても scroller が縮まず中央に
-     飛ばない。ガター列は中央寄せユニットの左端 = 左余白の一部として計算される。 */
+  /* ガター+本文を1ユニットで中央寄せ。
+     - width:min(820px,100%) で読み取り幅を最大 820px に制限し、中央配置する。
+     - min-width:100% を追加することで、ワークスペースが 820px を超えた場合
+       (右サイドバー collapsed 等) も cm-scroller が全幅に広がり、縦スクロール
+       バーが右端に付く (collapsed 時の余白/中央スクロールバー問題を解消)。
+     - H1 折りたたみで内容が短くなっても min-width:100% のため scroller は
+       縮まず中央に飛ばない。 */
   width: min(820px, 100%);
+  min-width: 100%;
   margin: 0 auto;
 }
 .editor-host .cm-content {

@@ -2,11 +2,11 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": null,
+    "current_sprint": "Sfa11c0",
     "total": 55,
     "done": 54,
-    "in_progress": 0,
-    "remaining": 1,
+    "in_progress": 1,
+    "remaining": 0,
     "percentage": 98
   },
   "execution_order": [
@@ -8018,7 +8018,7 @@
       "title": "UI/エージェント修正まとめ 2 — ノート全幅表示 / 右サイドバートグル / Agent スクロール・表 / 権限デフォルト / 開いてる文書連携 / メッセージ編集",
       "description": "ユーザーが実機で発見した 8 点の修正を一括実施する。(1) 右サイドバー折りたたみ時にノート表示領域を全幅化し、余白が残ったまま中央にスクロールバーが浮く不自然な表示を解消。(2) 右サイドバー開閉トグルのアイコンを状態(開/閉)で反転。(3) Agent 出力を条件付き追従(最下部のみ追従)にし、最下部以外では「一番下へ」ボタンを表示。(4) Agent チャットの GFM テーブルを正しくレンダリング。(5) Agent 新規セッションの既定実行権限を設定メニューで変更・永続化(現状 read-only 固定)。(6) Agent が現在開いている文書へ書き込んだら明示リロードなしでエディタに反映。(7) Agent が現在開いている文書を自動認識できるようコンテキスト付与。(8) 過去メッセージを編集してそこから会話をやり直す(Claude/ChatGPT 風)。制約: ピュア Markdown 絶対 / TS strict(any 禁止) / モバイルレスポンシブ(44px, @media max-width:680px) / 書き込み系は監査ログ / エージェント機能(5,7)は監査済みサービス層経由+agent-help・機能ガイド更新(ADR-0014/0015/0016/0018)。実装注意: AgentPane.tsx を複数ストーリー(3,4,8)が共有し App.tsx も 6/7 で触れるため、共有ファイルを触るストーリーは worktree 並列ではなく逐次実行する(古い base 分岐によるマージ欠落を回避)。",
       "milestone": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends_on": null,
       "detail_level": "detailed",
       "stories": {
