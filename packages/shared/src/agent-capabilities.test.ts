@@ -357,3 +357,46 @@ describe('[AC-S5bd678-1-2] clampByMode', () => {
     expect(clampByMode(['web', 'read'], 'read-only')).toEqual(['read', 'web']);
   });
 });
+
+// ---- [Sfa11c0-5] agentDefaultPreset 設定反映: deny/自己昇格防止の維持 ----
+
+describe('[Sfa11c0-5] agentDefaultPreset=full 設定時も deny/自己昇格防止が維持される', () => {
+  it('full プリセット由来の caps でも設定書込ツールは advertised-toolset に含まれない (自己昇格防止)', () => {
+    // agentDefaultPreset=full を設定してもこのプリセット由来の caps は full=全ケーパビリティ
+    // settings書込ツールは CAPABILITY_TOOL_NAMES に存在しないため構造的に除外される
+    const fullCaps = resolvePermissions('full');
+    const tools = deriveToolNames(fullCaps);
+    for (const excluded of SETTINGS_EXCLUDED_TOOL_NAMES) {
+      expect(tools).not.toContain(excluded);
+    }
+  });
+
+  it('agentDefaultPreset=full でも LOAMIUM_MODE=read-only ならクランプで read+web のみになる', () => {
+    // 既定を full にしてもサーバーモードが read-only の場合は実効権限が read+web に落ちる (ADR-0015)
+    const fullCaps = resolvePermissions('full');
+    const clamped = clampByMode(fullCaps, 'read-only');
+    expect(clamped).toEqual(['read', 'web']);
+    // write 系ケーパビリティが除外されている
+    expect(clamped).not.toContain('note_edit');
+    expect(clamped).not.toContain('note_create');
+    expect(clamped).not.toContain('note_delete');
+    expect(clamped).not.toContain('full');
+  });
+
+  it('agentDefaultPreset=full でも LOAMIUM_MODE=append-only ならクランプで read+journal_append+web のみになる', () => {
+    const fullCaps = resolvePermissions('full');
+    const clamped = clampByMode(fullCaps, 'append-only');
+    expect(clamped).toEqual(['read', 'journal_append', 'web']);
+  });
+
+  it('agentDefaultPreset 未設定 (undefined) のとき resolvePermissions は read-only にフォールバックする', () => {
+    // AppSettings.agentDefaultPreset が undefined の場合、UI は read-only を使う
+    // サーバー側でも resolvePermissions(undefined) === ['read']
+    expect(resolvePermissions(undefined)).toEqual(['read']);
+  });
+
+  it('agentDefaultPreset=notes-rw のとき resolvePermissions は正しいケーパビリティ集合を返す', () => {
+    const caps = resolvePermissions('notes-rw');
+    expect(caps).toEqual(['read', 'journal_append', 'note_create', 'note_edit']);
+  });
+});

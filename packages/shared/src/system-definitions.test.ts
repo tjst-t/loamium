@@ -456,6 +456,31 @@ describe('parseAppSettings [AC-Sa10026-3-1]', () => {
   it('SYSTEM_SETTINGS_PATH が system/settings.yaml', () => {
     expect(SYSTEM_SETTINGS_PATH).toBe('system/settings.yaml');
   });
+
+  it('agentDefaultPreset が有効なプリセット名でパースできる [Sfa11c0]', () => {
+    const result = parseAppSettings('agentDefaultPreset: notes-rw\n');
+    expect(result.agentDefaultPreset).toBe('notes-rw');
+  });
+
+  it('agentDefaultPreset が不正値のとき undefined にフォールバックする [Sfa11c0]', () => {
+    // 不正な enum 値は schema の .optional() により全体は失敗せず、フィールドが既定値扱いに
+    // passthrough schema では safeParse 成功し agentDefaultPreset が undefined になる
+    const result = parseAppSettings('agentDefaultPreset: super-admin\n');
+    // 不正 enum は zod が失敗させる → console.error + DEFAULT 返却
+    expect(result.agentDefaultPreset).toBeUndefined();
+  });
+
+  it('agentDefaultPreset 未設定のとき undefined (read-only フォールバックは呼出側が行う) [Sfa11c0]', () => {
+    const result = parseAppSettings('theme: light\n');
+    expect(result.agentDefaultPreset).toBeUndefined();
+  });
+
+  it('agentDefaultPreset = full のラウンドトリップ [Sfa11c0]', () => {
+    const settings = { ...DEFAULT_APP_SETTINGS, agentDefaultPreset: 'full' as const };
+    const yaml = serializeAppSettings(settings);
+    const restored = parseAppSettings(yaml);
+    expect(restored.agentDefaultPreset).toBe('full');
+  });
 });
 
 describe('serializeAppSettings [AC-Sa10026-3-1]', () => {
@@ -501,14 +526,15 @@ describe('appSettingsSchema boundary [AC-Sa10026-3-2]', () => {
     }
   });
 
-  it('スキーマのフィールドは移植可能な設定のみ (5 フィールド: Se3b7a2-8 で tasks を追加)', () => {
+  it('スキーマのフィールドは移植可能な設定のみ (6 フィールド: Sfa11c0 で agentDefaultPreset を追加)', () => {
     const schemaKeys = Object.keys(appSettingsSchema.shape);
     expect(schemaKeys).toContain('theme');
     expect(schemaKeys).toContain('defaultFolder');
     expect(schemaKeys).toContain('journalTemplate');
     expect(schemaKeys).toContain('showSystemFolder');
     expect(schemaKeys).toContain('tasks'); // Se3b7a2-8: タスク語彙 (ADR-0029)
-    expect(schemaKeys.length).toBe(5);
+    expect(schemaKeys).toContain('agentDefaultPreset'); // Sfa11c0: Agent 新規セッション既定権限
+    expect(schemaKeys.length).toBe(6);
   });
 });
 

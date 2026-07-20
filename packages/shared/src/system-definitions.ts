@@ -20,6 +20,7 @@ import { z } from 'zod';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { parseNote } from './markdown.js';
 import { normalizeVaultFilePath, VaultPathError } from './path.js';
+import { AGENT_PRESET_NAMES } from './agent-capabilities.js';
 
 // ---- システム定義フォルダ名 ----
 
@@ -434,6 +435,14 @@ export const appSettingsSchema = z.object({
    * 未設定 (undefined) は DEFAULT_TASK_VOCAB がフォールバックとして使われる。
    */
   tasks: taskVocabSchema.optional(),
+  /**
+   * Agent 新規セッションの既定権限プリセット (Sfa11c0 / Story 5)。
+   * チャット UI で新規セッションを作成するときの selectedCaps 初期値として使う。
+   * 選択肢は ADR-0015 ケーパビリティプリセット (read-only / notes-rw / full)。
+   * 未設定 (undefined) → 'read-only' にフォールバック (サーバー既定と一致)。
+   * サーバー LOAMIUM_MODE によるクランプは新規セッション作成時にも適用される。
+   */
+  agentDefaultPreset: z.enum(AGENT_PRESET_NAMES).optional(),
 }).passthrough();
 
 export type AppSettings = z.infer<typeof appSettingsSchema>;

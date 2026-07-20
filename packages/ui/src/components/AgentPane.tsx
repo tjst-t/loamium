@@ -48,6 +48,7 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import type { HealthResponse, NoteMeta, Capability, AgentPresetName } from '@loamium/shared';
 import { AGENT_CAPABILITIES, AGENT_PRESET_NAMES, AGENT_PRESETS } from '@loamium/shared';
+import { api } from '../api.js';
 
 // ---- 型 -----------------------------------------------------------------------
 
@@ -569,8 +570,9 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged, cu
   const [inputText, setInputText] = useState('');
   const [abortController, setAbortController] = useState<AbortController | null>(null);
 
-  // 権限セレクタ (S5bd678-3): 新規セッション作成時に送る選択ケーパビリティ集合。
-  // 既定は read-only プリセット (サーバー既定と一致)。
+  // 権限セレクタ (S5bd678-3 / Sfa11c0-5): 新規セッション作成時に送る選択ケーパビリティ集合。
+  // 初期値は system/settings.yaml の agentDefaultPreset から解決する。
+  // 未設定 / 取得失敗時は read-only プリセット (サーバー既定と一致) にフォールバック。
   const [selectedCaps, setSelectedCaps] = useState<Capability[]>(() => [
     ...AGENT_PRESETS['read-only'],
   ]);
@@ -605,6 +607,31 @@ export function AgentPane({ health, notes = null, onOpenNote, onNotesChanged, cu
   const [editingUserMsgIndex, setEditingUserMsgIndex] = useState<number | null>(null);
 
   // ---- /---- ----------------------------------------------------------------
+
+  /**
+   * Sfa11c0-5: マウント時に system/settings.yaml の agentDefaultPreset を取得して
+   * 新規セッション (sessionId === null) の selectedCaps 初期値として適用する。
+   * 既存セッションに接続した状態では上書きしない (sessionId が null のときのみ)。
+   * 取得失敗時は useState の初期値 (read-only) のまま使う。
+   */
+  useEffect(() => {
+    void (async () => {
+      try {
+        const settings = await api.getSystemSettings();
+        const preset = settings.agentDefaultPreset ?? 'read-only';
+        // 有効なプリセット名かチェック (AGENT_PRESET_NAMES は as const tuple なので型的に確認)
+        const validPresets: readonly string[] = AGENT_PRESET_NAMES;
+        if (!validPresets.includes(preset)) return;
+        // 現在の sessionId は state 経由でなく、まだマウント直後なので null のはず。
+        // セッション切替後に再マウントされることはないため、ここで上書きしても安全。
+        setSelectedCaps([...AGENT_PRESETS[preset as keyof typeof AGENT_PRESETS]]);
+      } catch {
+        // 取得失敗時は read-only (useState 初期値) のまま
+      }
+    })();
+    // マウント時のみ実行 (依存配列は空)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /**
    * MF-2: 遅延セッション作成中に abort が呼ばれたとき、作成されたセッション ID を
