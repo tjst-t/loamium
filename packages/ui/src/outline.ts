@@ -76,36 +76,70 @@ function subtreeEndLine(state: EditorState, item: SyntaxNode, startLine: number)
 }
 
 /**
- * リスト行のインデント操作。リスト行でなければ false (キーを消費しない)。
- * dir=1: サブツリー全行に INDENT_UNIT を挿入 / dir=-1: 先頭行の字下げ幅を上限に削る。
+ * 選択範囲がまたぐ「トップレベルの選択リスト項目」を集める (S6848dc-3)。
+ *
+ * from..to が重なる各行を走査し、その行から始まる ListItem を集めるが、
+ * すでに前の項目のサブツリー (end 行以下) に含まれる行はスキップする。
+ * これにより、あるアイテムが別の選択アイテムのサブツリーに含まれる場合の
+ * 二重適用を防ぐ (トップレベルの選択項目単位で 1 回だけ、サブツリーは巻き込む)。
+ *
+ * @returns 各項目の {start, end} 行番号 (昇順・非重複)。リスト行が 1 つも
+ *          無ければ空配列。
  */
-function changeListIndent(view: EditorView, dir: 1 | -1): boolean {
-  if (view.composing) return false; // IME 変換中は Tab を奪わない (decisions.json I3)
-  const { state } = view;
-  const line = state.doc.lineAt(state.selection.main.head);
-  const item = listItemStartingAt(state, line);
-  if (item === null) return false;
+function collectSelectedTopItems(
+  state: EditorState,
+  from: number,
+  to: number,
+): { start: number; end: number }[] {
+  const fromLine = state.doc.lineAt(from).number;
+  const toLine = state.doc.lineAt(to).number;
+  const items: { start: number; end: number }[] = [];
+  let coveredThrough = 0; // ここまでの行は既存項目のサブツリーに含まれる
+  for (let n = fromLine; n <= toLine; n++) {
+    if (n <= coveredThrough) continue; // 直前項目のサブツリー内 → 二重適用しない
+    const line = state.doc.line(n);
+    const item = listItemStartingAt(state, line);
+    if (item === null) continue; // 非リスト行は無視 (リスト行のみ処理)
+    const end = subtreeEndLine(state, item, n);
+    items.push({ start: n, end });
+    coveredThrough = end;
+  }
+  return items;
+}
 
-  const start = line.number;
-  const end = subtreeEndLine(state, item, start);
-  const changes: { from: number; to?: number; insert?: string }[] = [];
-
+/**
+ * 単一のリスト項目 (start..end のサブツリー) をインデント/アンインデントする
+ * ChangeSpec を changes に追加する。dir=1 は各行に INDENT_UNIT を挿入、
+ * dir=-1 は先頭行の字下げ幅を上限に各行から空白を削る。
+ *
+ * @returns 適用可能なら true (変更を push した/兄弟が無い等で no-op でも消費)。
+ */
+function indentItemChanges(
+  state: EditorState,
+  item: { start: number; end: number },
+  dir: 1 | -1,
+  changes: { from: number; to?: number; insert?: string }[],
+): void {
+  const { start, end } = item;
+  const startLine = state.doc.line(start);
   if (dir === 1) {
     // アウトライナー標準: 直前に同レベルの兄弟項目があるときだけ 1 段深くできる。
     // 先頭項目を字下げすると CommonMark ではコードブロック化し
     // ピュア Markdown を壊すため no-op とする (priority 1)。
-    let prev = item.prevSibling;
+    const node = listItemStartingAt(state, startLine);
+    if (node === null) return;
+    let prev = node.prevSibling;
     while (prev !== null && prev.name !== 'ListItem') prev = prev.prevSibling;
-    if (prev === null) return true; // リスト行として消費するが no-op
+    if (prev === null) return; // 兄弟なし → この項目はインデントしない (no-op)
     for (let n = start; n <= end; n++) {
       const l = state.doc.line(n);
       if (l.length === 0) continue; // 空行はインデントしない
       changes.push({ from: l.from, insert: INDENT_UNIT });
     }
   } else {
-    const leading = /^ */.exec(line.text)?.[0].length ?? 0;
+    const leading = /^ */.exec(startLine.text)?.[0].length ?? 0;
     const removable = Math.min(INDENT_UNIT.length, leading);
-    if (removable === 0) return true; // トップレベルでの Shift+Tab は no-op (リスト行として消費)
+    if (removable === 0) return; // トップレベル → これ以上浅くしない (クランプ)
     for (let n = start; n <= end; n++) {
       const l = state.doc.line(n);
       const lead = /^ */.exec(l.text)?.[0].length ?? 0;
@@ -113,8 +147,34 @@ function changeListIndent(view: EditorView, dir: 1 | -1): boolean {
       changes.push({ from: l.from, to: l.from + Math.min(removable, lead) });
     }
   }
+}
 
+/**
+ * リスト行のインデント操作。リスト行でなければ false (キーを消費しない)。
+ * dir=1: サブツリー全行に INDENT_UNIT を挿入 / dir=-1: 先頭行の字下げ幅を上限に削る。
+ *
+ * S6848dc-3: 複数行選択に対応。選択範囲がまたぐトップレベルのリスト項目を
+ * すべて集め、各項目 (とそのサブツリー) にインデント/アンインデントを適用する。
+ * 選択がすべて非リスト行なら false (キーを消費しない)。単一カーソルの既存
+ * 挙動は選択範囲が 1 項目に収まるケースとして自然に包含される。
+ */
+function changeListIndent(view: EditorView, dir: 1 | -1): boolean {
+  if (view.composing) return false; // IME 変換中は Tab を奪わない (decisions.json I3)
+  const { state } = view;
+  const sel = state.selection.main;
+  const items = collectSelectedTopItems(state, sel.from, sel.to);
+  if (items.length === 0) return false; // リスト行が 1 つも無い → キーを消費しない
+
+  const changes: { from: number; to?: number; insert?: string }[] = [];
+  for (const item of items) {
+    indentItemChanges(state, item, dir, changes);
+  }
+
+  // リスト行を処理したので、変更が 0 でもキーは消費する
+  // (トップレベルでの Shift+Tab / 兄弟なしの Tab は no-op だが Tab をブラウザに渡さない)。
   if (changes.length === 0) return true;
+  // selection は指定しない: CodeMirror が既存の選択を changes 越しに自動マッピング
+  // するため、インデント後も妥当な範囲/カーソル位置を保つ (AC / 方針 3)。
   view.dispatch({
     changes,
     scrollIntoView: true,
