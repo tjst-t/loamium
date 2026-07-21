@@ -38,6 +38,7 @@ import {
 } from '@loamium/shared';
 import { api } from './api.js';
 import { notePathFacet } from './live-preview.js';
+import { renumberChangesForRange } from './list-renumber.js';
 
 /** インデント単位 (4 スペース — decisions.json I1: 1. リストの CommonMark ネスト要件を満たす) */
 export const INDENT_UNIT = '    ';
@@ -119,8 +120,56 @@ function changeListIndent(view: EditorView, dir: 1 | -1): boolean {
     scrollIntoView: true,
     userEvent: dir === 1 ? 'input.indent' : 'delete.dedent',
   });
+  // インデント変更後の再採番は下の renumberListener (updateListener) が担う。
+  // (Tab/Shift+Tab/Enter/削除/貼り付け いずれの経路でも一箇所で整合を取るため)
   return true;
 }
+
+/**
+ * 順序リストの再採番リスナ (S6848dc-5)。
+ *
+ * doc を変更したトランザクション (自分の再採番トランザクションを除く) の後で、
+ * 変更が触れた行範囲を含む順序リストブロックを CommonMark のネスト規則で再採番する。
+ * これにより Tab/Shift+Tab (changeListIndent)・Enter (markdownKeymap の
+ * insertNewlineContinueMarkup による項目継続)・項目削除・貼り付けなど、
+ * すべての編集経路で番号が一貫する (AC-2 / AC-4)。
+ *
+ * 採番ロジックは DOM 非依存の純関数 renumberChangesForRange に委譲する。
+ * 自己ループ防止: 再採番トランザクションには userEvent 'input.renumber' を付け、
+ * それを検出したら再処理しない。
+ */
+const renumberListener: Extension = EditorView.updateListener.of((update) => {
+  if (!update.docChanged) return;
+  // 自分の再採番トランザクションはスキップ (無限ループ防止)
+  if (update.transactions.some((tr) => tr.isUserEvent('input.renumber'))) return;
+  if (update.transactions.length === 0) return;
+
+  // 変更が触れた新ドキュメント上の行範囲を集める
+  let minLine = Number.POSITIVE_INFINITY;
+  let maxLine = Number.NEGATIVE_INFINITY;
+  for (const tr of update.transactions) {
+    tr.changes.iterChangedRanges((_fromA, _toA, fromB, toB) => {
+      const a = update.state.doc.lineAt(fromB).number;
+      const b = update.state.doc.lineAt(toB).number;
+      if (a < minLine) minLine = a;
+      if (b > maxLine) maxLine = b;
+    });
+  }
+  if (!Number.isFinite(minLine) || !Number.isFinite(maxLine)) return;
+
+  const changes = renumberChangesForRange(update.state, minLine, maxLine);
+  if (changes.length === 0) return;
+  // updateListener 内からの dispatch は次のマイクロタスクで行う (再入防止)。
+  queueMicrotask(() => {
+    if (update.view.state !== update.state) {
+      // 既に別の変更が入っている場合は現在の state で再計算し直す
+      const cur = renumberChangesForRange(update.view.state, minLine, maxLine);
+      if (cur.length > 0) update.view.dispatch({ changes: cur, userEvent: 'input.renumber' });
+      return;
+    }
+    update.view.dispatch({ changes, userEvent: 'input.renumber' });
+  });
+});
 
 const outlineKeymap: Extension = Prec.high(
   keymap.of([
@@ -1397,5 +1446,5 @@ export function outlineExtension(): Extension {
   void getVocab();
   // unifiedFoldGutter に統合: 見出し・リストどちらのシェブロンも同一 x 列に揃う。
   // 共通の codeFolding() (outlineFolding) を 1 つだけ使い、fold state の二重管理を避ける。
-  return [outlineFolding, unifiedFoldGutter, headingFoldKeymap, outlineKeymap, plugin];
+  return [outlineFolding, unifiedFoldGutter, headingFoldKeymap, outlineKeymap, renumberListener, plugin];
 }
