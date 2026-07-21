@@ -28,7 +28,15 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from '@codemirror/view';
-import { codeFolding, foldEffect, foldedRanges, syntaxTree, unfoldEffect } from '@codemirror/language';
+import {
+  codeFolding,
+  foldEffect,
+  foldedRanges,
+  indentUnit,
+  syntaxTree,
+  unfoldEffect,
+} from '@codemirror/language';
+import { indentMore, indentLess } from '@codemirror/commands';
 import type { SyntaxNode } from '@lezer/common';
 import {
   extractInlineFields,
@@ -237,6 +245,46 @@ const outlineKeymap: Extension = Prec.high(
     { key: 'Shift-Tab', run: (view) => changeListIndent(view, -1) },
   ]),
 );
+
+/**
+ * リスト外 (段落・見出し等) での Tab / Shift+Tab フォールバック (S6848dc-4)。
+ *
+ * outlineKeymap (Prec.high) がリスト行を処理して true を返すため、このキーマップは
+ * **非リスト行でのみ**到達する (リスト行では走らない)。非リスト行の Tab は
+ * 「リスト構造のインデント」ではなく「素のタブ/インデント文字の挿入」にする
+ * (S9ab6c3 の C 方式境界を維持: 非リスト行は outline 操作の対象外)。
+ *
+ * 主目的はフォーカス流出の防止: フォールバックが無いと changeListIndent が false を
+ * 返し、誰もキーを消費せずブラウザ既定のフォーカス移動 (プロパティ/フロントマター欄など
+ * 次のフォーカス可能要素へジャンプ) に流れてしまう。ここで常に true を返して
+ * preventDefault し、フォーカスをエディタ内に留める。
+ *
+ * インデント単位は outlineExtension で indentUnit を INDENT_UNIT (4 スペース) に
+ * 設定するため、insertTab/indentMore/indentLess も 4 スペース単位で一貫する
+ * (decisions.json: ピュア Markdown。行頭 4 スペースがコードブロックになりうる点は
+ *  「ふつうにタブを入れて」というユーザー要望に沿う既知の許容挙動)。
+ */
+const tabFallbackKeymap: Extension = keymap.of([
+  {
+    key: 'Tab',
+    run(view) {
+      if (view.composing) return false; // IME 変換中は Tab を奪わない (outlineKeymap と整合)
+      // 空選択ならインデント単位を挿入、複数行選択なら選択行をインデント。
+      indentMore(view);
+      return true; // フォーカス移動を止める (preventDefault)
+    },
+  },
+  {
+    key: 'Shift-Tab',
+    run(view) {
+      if (view.composing) return false;
+      // アンインデント (行頭が既に非空白なら no-op)。いずれにせよ true で
+      // フォーカス移動を止める。
+      indentLess(view);
+      return true;
+    },
+  },
+]);
 
 // ---- 折りたたみ (fold-toggle ガター + fold-pill placeholder) ----------------
 
@@ -1506,5 +1554,20 @@ export function outlineExtension(): Extension {
   void getVocab();
   // unifiedFoldGutter に統合: 見出し・リストどちらのシェブロンも同一 x 列に揃う。
   // 共通の codeFolding() (outlineFolding) を 1 つだけ使い、fold state の二重管理を避ける。
-  return [outlineFolding, unifiedFoldGutter, headingFoldKeymap, outlineKeymap, renumberListener, plugin];
+  //
+  // キーマップの優先順位 (S6848dc-4):
+  //   outlineKeymap (Prec.high) → tabFallbackKeymap (default prec)
+  // outlineKeymap がリスト行を処理して true を返すため、tabFallbackKeymap は
+  // 非リスト行にのみ到達する。indentUnit を INDENT_UNIT に合わせ、フォールバックの
+  // indentMore/indentLess も 4 スペース単位で一貫させる。
+  return [
+    indentUnit.of(INDENT_UNIT),
+    outlineFolding,
+    unifiedFoldGutter,
+    headingFoldKeymap,
+    outlineKeymap,
+    tabFallbackKeymap,
+    renumberListener,
+    plugin,
+  ];
 }
