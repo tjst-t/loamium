@@ -1,0 +1,28 @@
+{
+  "id": "ADR-0030",
+  "title": "リモート変更時の編集競合は 3-way 自動マージ(diff3)で解決し、競合ハンクのみ UI 提示する(last-write-wins からの更新)",
+  "status": "tentative",
+  "date": "2026-07-21",
+  "context": "実機フィードバックで『リモートで変更があったときに、自動で競合編集のマージ処理をしてほしい』という要望が出た。現行の競合制御は last-write-wins + mtime 楽観検出(PUT の baseMtime → 409 Conflict、Sa704c3/Sd63ad1)であり、フロントは SSE notes_changed を受けて、非 dirty(未編集)なら自動リロード、dirty(編集中)ならトースト通知で『保存または破棄してから再読み込み』を促す手動対応に留まる(Sd5c9f4 Story6、packages/ui/src/App.tsx:598-668)。マルチデバイス(同一 vault を別デバイス / 内蔵エージェント書込 / git pull で編集)で dirty 編集中にリモート変更が来ると、ユーザーは編集を保存(=リモート変更を握り潰す/409)するか破棄(=自分の編集を失う)しかなく、非競合な変更同士でも共存できない。前提: 正本は常にピュア Markdown 文字列 1 本(priority 1)、DESIGN_PRINCIPLES priority2 は『競合制御は last-write-wins + mtime/hash による楽観的検出から始める』、VISION out_of_scope は『マルチユーザー・コラボレーション』(単一ユーザーのマルチデバイス自動マージはこの禁止に該当しない)、書込は ADR-0016 の監査済みサービス層経由・監査ログ必須、依存/ネイティブ攻撃面は最小化方針(ADR-0011/0025)。",
+  "alternatives": [
+    {
+      "name": "3-way 自動マージ(diff3)。base=最後に取得したリモート内容 / ours=ローカル編集バッファ / theirs=新リモート内容 で行単位マージし、非競合ハンクは自動統合、競合ハンクのみ UI 提示(採用)",
+      "tradeoff": "非競合な変更(別段落・別リスト項目の編集)はユーザー操作なしで共存でき、本当に同じ箇所を触った競合ハンクだけ確認を求める。純 JS の diff3(自前 or node-diff3 相当の軽量実装)で実現でき、正本はピュア Markdown 文字列 1 本のまま(CRDT 化しない)。代償はマージロジックの複雑性と網羅的ユニットテストの必要、および行単位マージゆえの稀な誤マージ(競合検出は保守的に倒す)。"
+    },
+    {
+      "name": "CRDT(Yjs / Automerge)でリアルタイム協調編集基盤にする",
+      "tradeoff": "強力で自動収束するが重量級。正本がピュア Markdown 文字列ではなく CRDT ドキュメントになり priority1『ピュア Markdown 絶対』と衝突、VISION out_of_scope のマルチユーザー協調編集に踏み込む。個人用マルチデバイスには過剰。不採用。"
+    },
+    {
+      "name": "現状維持(last-write-wins + dirty 時トースト通知で手動保存/破棄)",
+      "tradeoff": "実装コスト最小・依存追加なしだが、要望(自動マージ)を満たさず dirty 編集中のリモート変更で編集喪失/衝突が残る。不採用(ただし本 ADR の非競合自動統合は『まず非競合のみ自動、競合は既存ダイアログ流用』として段階導入可能)。"
+    }
+  ],
+  "decision": "dirty(編集中)にリモート変更(SSE notes_changed が現在ノートに一致)を受けたとき、base(最後に取得したリモート内容)・ours(ローカル編集バッファ)・theirs(新リモート内容)による 3-way diff3 マージを実行する。非競合ハンクは自動統合してエディタへ反映し、ユーザーのローカル編集を保持する。競合ハンク(base に対し ours と theirs が同一行域を非同一に変更)のみ UI で明示し、ユーザーに解決を委ねる(全面上書きを強制しない)。非 dirty 時は従来どおり自動リロード(現行挙動を維持)。マージ結果の書き戻しは ADR-0016 の監査済みサービス層を経由し監査ログに記録する。エージェント/CLI の無条件書込は別軸として last-write-wins を維持する。これに伴い DESIGN_PRINCIPLES priority2 を『初期は last-write-wins + mtime 楽観検出。リアルタイム編集競合(dirty 中のリモート変更)は 3-way 自動マージ+競合ハンク UI へ更新』と改定する(改定は本 ADR 受理時に反映)。",
+  "consequences": "diff3 マージ層の追加(純 JS 実装 or 軽量依存)。純 JS なら攻撃面増は小さいが、外部依存を採る場合は ADR-0011/0025 の依存最小方針とのトレードオフを明示する。マージのユニットテストが必須(非競合の自動統合 / 競合検出 / 同一変更の冪等 / 空 base 等)。誤マージ回避のため競合検出は保守的側に倒す(疑わしきは競合扱い)。マージ層は差し替え可能な単一モジュールに閉じる。ARCHITECTURE.md の Data Flow(競合節)と DESIGN_PRINCIPLES priority2 の追従更新が必要。",
+  "reversibility_cost": "medium",
+  "affects": ["packages/ui/src/App.tsx", "packages/ui/src/useVaultEvents.ts", "packages/server (書込サービス層)", "docs/DESIGN_PRINCIPLES.json (priority2)", "docs/ARCHITECTURE.md"],
+  "supersedes": null,
+  "superseded_by": null,
+  "notes": "status:tentative — ユーザー確認待ち(autopilot review で #7 を ④ 方向転換として分類、AskUserQuestion がタイムアウトしたため推奨案『ADR 先行→次 Sprint で実装』をデフォルト採用して起草)。実装 Sprint は S2df65d。受理されたら status を accepted にし、DESIGN_PRINCIPLES priority2 / ARCHITECTURE.md の competition 節を更新する。段階導入可(まず非競合自動統合、競合は既存の上書きダイアログ流用 → 後に専用の競合ハンク UI)。ユーザーが『自動マージ見送り(現状維持)』を選ぶ場合は本 ADR を superseded/withdrawn にし S2df65d をスコープ縮小する。"
+}
