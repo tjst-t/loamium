@@ -2,11 +2,11 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": null,
+    "current_sprint": "S6848dc",
     "total": 57,
     "done": 55,
-    "in_progress": 0,
-    "remaining": 2,
+    "in_progress": 1,
+    "remaining": 1,
     "percentage": 96
   },
   "execution_order": [
@@ -8474,7 +8474,7 @@
       "title": "エディタ/リスト修正まとめ 3 — リスト折返しぶら下げ / リスト内画像 / 複数行Tab / リスト外Tab / 番号採番 / リストタイプ変換",
       "description": "実機フィードバックの 6 点(リスト編集/表示)を一括修正する。(1) リスト項目の折り返し行を左端でなく前行のテキスト開始位置にそろえる(ぶら下げインデント)。(2) リスト内に埋め込んだ画像 ![](...) を表示する。(3) 複数行を選択して Tab / Shift+Tab でまとめてレベル変更。(4) リスト外で Tab を押したときフォーカスをプロパティ欄へ奪われず通常のタブ挿入にする。(5) 番号付きリストのインデントで子が 1. から採番されるよう修正(現状 1. の下が 2. になる)。(6) 箇条書き⇄番号付きリストの一括変換手段(Ctrl-K 統一パレット + Ctrl+Shift+7/8 ショートカット、他アプリ=Google Docs/Word 慣例参照)。制約: ピュア Markdown 絶対(表示はデコレーション/CSS、採番・変換は実ファイルの Markdown 書き換えでブロックID等を足さない) / TS strict(any 禁止) / モバイルレスポンシブ(44px, @media max-width:680px) / Markdown 採番・変換ロジックはユニットテスト必須 / 変換機能はエージェント操作ツール+agent-help+機能ガイド更新(ADR-0016 監査済みサービス層経由, ADR-0019 Ctrl-K パレット)。実装注意: 全ストーリーが outline.ts(リスト keymap/デコレーション)を共有するため worktree 並列でなく逐次実行。採番ロジック(5)は複数行Tab(3)とリスト変換(6)で共有する。",
       "milestone": true,
-      "status": "pending",
+      "status": "in_progress",
       "depends_on": null,
       "detail_level": "detailed",
       "stories": {
