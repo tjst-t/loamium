@@ -556,8 +556,11 @@ a { color: var(--link); text-decoration: none; }
    ハイライトが見えなくなる。選択レイヤを内容の前面(z-index:1)へ上げてアクティブ行背景の上に
    表示する。カーソルレイヤ(z-index:150)より下なのでカーソルは前面を維持。半透明なので文字は
    読め、pointer-events:none でクリック/ドラッグ選択は内容へ透過する(実機 CDP で単一行/複数行/
-   折り返し最終行の全幅表示・カーソル可視・ドラッグ選択/選択内クリックを確認)。 */
-.editor-host .cm-scroller > .cm-selectionLayer { z-index: 1; pointer-events: none; }
+   折り返し最終行の全幅表示・カーソル可視・ドラッグ選択/選択内クリックを確認)。
+   重要: CM は選択レイヤの z-index:-2 を「インラインスタイル」で設定するため、通常の CSS
+   規則では上書きできない(インラインが勝つ)。author の !important のみがインラインを上書き
+   できるので z-index に !important を付ける。 */
+.editor-host .cm-scroller > .cm-selectionLayer { z-index: 1 !important; pointer-events: none; }
 
 /* markdown ソース装飾 (見出し等の軽い強調 — ライブプレビューは S9ab6c3) */
 .editor-host .cm-md-heading { font-weight: 700; }
