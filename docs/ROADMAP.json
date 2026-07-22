@@ -8537,7 +8537,7 @@
         },
         "S6848dc-2": {
           "title": "リスト項目内に埋め込んだ画像を表示する",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": true,
           "review_reason": "リスト内の画像レンダリングの見た目・ライブプレビュー切替を実機で確認する必要がある。",
@@ -8546,49 +8546,49 @@
             {
               "id": "AC-S6848dc-2-1",
               "description": "箇条書き/番号付きリスト項目内の ![alt](path) がインライン画像として表示される(添付画像・vault 内相対パス)。",
-              "test": null,
-              "status": "pending"
+              "test": "packages/ui/tests/e2e/list-image.mock.spec.ts",
+              "status": "done"
             },
             {
               "id": "AC-S6848dc-2-2",
               "description": "カーソルが当該行にあるときはソース(Markdown 記法)を表示し、外れると画像プレビューに戻る(既存ライブプレビュー挙動と一貫)。",
-              "test": null,
-              "status": "pending"
+              "test": "packages/ui/tests/e2e/list-image.mock.spec.ts",
+              "status": "done"
             },
             {
               "id": "AC-S6848dc-2-3",
               "description": "リストマーカー(ドット/番号)と画像が同一リスト行内で共存し、リスト装飾(buildListDecorations)と画像 widget が競合しない。",
-              "test": null,
-              "status": "pending"
+              "test": "packages/ui/tests/e2e/list-image.mock.spec.ts",
+              "status": "done"
             },
             {
               "id": "AC-S6848dc-2-4",
               "description": "ピュア Markdown 不変。モバイルでも画像が親幅を超えてはみ出さない(max-width 対応)。",
-              "test": null,
-              "status": "pending"
+              "test": "packages/ui/tests/e2e/list-image.mock.spec.ts",
+              "status": "done"
             },
             {
               "id": "AC-S6848dc-2-5",
               "description": "リスト内画像がレンダリングされることを Playwright/Vitest で検証する。",
-              "test": null,
-              "status": "pending"
+              "test": "packages/ui/tests/e2e/list-image.mock.spec.ts",
+              "status": "done"
             }
           ],
           "tasks": {
             "S6848dc-2-1": {
               "title": "競合原因の特定",
-              "description": "live-preview.ts の Image 装飾と outline.ts の buildListDecorations の適用順・範囲を調べ、リスト行で画像 widget が効かない理由を特定。",
-              "status": "pending"
+              "description": "live-preview.ts の Image 装飾と outline.ts の buildListDecorations の適用順・範囲を調べ、リスト行で画像 widget が効かない理由を特定。真因: 競合は存在せず、live-preview の Image 装飾は構文木を context 非依存に走査するため ListItem 内の Image ノードにも既に適用され、buildListDecorations は ListMark の範囲のみを replace するので範囲が重ならない(現 HEAD で既に描画されていた)。",
+              "status": "done"
             },
             "S6848dc-2-2": {
               "title": "リスト行での画像 widget 適用",
-              "description": "リスト行でも画像デコレーションが適用されるよう装飾構築を修正(マーカー装飾と画像 widget の共存)。",
-              "status": "pending"
+              "description": "リスト行でも画像デコレーションが適用されるよう装飾構築を修正(マーカー装飾と画像 widget の共存)。既存挙動を確認し、追加改修は不要と判断(装飾は既に共存)。",
+              "status": "done"
             },
             "S6848dc-2-3": {
               "title": "テストとレスポンシブ",
-              "description": "リスト内画像のテストを追加、モバイル表示を確認。",
-              "status": "pending"
+              "description": "リスト内画像のテストを追加、モバイル表示を確認。list-image.mock.spec.ts を新規追加(箇条書き/番号付き/ネスト描画・カーソル切替・モバイル非オーバーフローを検証)。",
+              "status": "done"
             }
           }
         },

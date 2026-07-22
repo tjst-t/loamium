@@ -111,7 +111,8 @@ async function assertHangs(page: Page, text: string): Promise<void> {
   const hangX = box.lineLeft + box.paddingInlineStart;
   // 折り返し 2 行目以降の本文左端がぶら下げ位置にそろう (左端 0 = 行左端には戻らない)。
   for (let i = 1; i < box.rowLefts.length; i++) {
-    expect(Math.abs(box.rowLefts[i] - hangX)).toBeLessThan(3);
+    const left = box.rowLefts[i] ?? 0;
+    expect(Math.abs(left - hangX)).toBeLessThan(3);
   }
   // ぶら下げ位置は基準パディング (行左端 + 6px) より明確に右 = マーカー幅ぶん字下げされている。
   expect(hangX - (box.lineLeft + 6)).toBeGreaterThan(10);
