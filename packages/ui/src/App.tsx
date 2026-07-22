@@ -45,6 +45,7 @@ import { moveNote, moveFolder } from './folder-move.js';
 import { BookmarkStar } from './components/BookmarkStar.js';
 import { CommandEditor } from './components/CommandEditor.js';
 import { Editor, type EditorView } from './components/Editor.js';
+import { convertListToBullet, convertListToOrdered } from './list-convert-cmd.js';
 import { MobileAgentSheet } from './components/MobileAgentSheet.js';
 import { FilePreview } from './components/FilePreview.js';
 import { FilesPage } from './components/FilesPage.js';
@@ -1611,6 +1612,25 @@ export function App(): JSX.Element {
       onOpenTodayJournal: () => {
         setPaletteOpen(false);
         void openJournalNav();
+      },
+      // リストタイプ変換 (S6848dc-6): パレットを閉じ、エディタにフォーカスを戻してから
+      // 選択リストを変換する。変換ロジックは shared の convertListLines を共有する
+      // Command (list-convert-cmd) を editorViewRef のビューに適用する。
+      onConvertListToBullet: () => {
+        setPaletteOpen(false);
+        const view = editorViewRef.current;
+        if (view !== null) {
+          view.focus();
+          convertListToBullet(view);
+        }
+      },
+      onConvertListToOrdered: () => {
+        setPaletteOpen(false);
+        const view = editorViewRef.current;
+        if (view !== null) {
+          view.focus();
+          convertListToOrdered(view);
+        }
       },
     }),
     [openTemplatePicker, switchSidebarView, openSearch, openJournalNav],

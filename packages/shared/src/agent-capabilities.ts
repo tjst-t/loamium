@@ -26,6 +26,7 @@ import type { PermissionMode } from './schemas.js';
  *   - note_create      : ノート新規作成
  *   - note_edit        : ノート編集 (patch) + フロントマタープロパティ/タグ編集 (note_property)
  *                        + ノートのリネーム/移動 (note_move。[[リンク]]一括追従)
+ *                        + リストタイプ変換 (note_convert_list。箇条書き ⇄ 番号付き)
  *   - note_delete      : ノート削除 (破壊的・不可逆)。書き込み系の独立ケーパビリティで full のみ許可。
  *   - template_write   : テンプレート適用による書き込み
  *   - dataview_write   : dataview 経由の書き込み
@@ -160,8 +161,9 @@ const CAPABILITY_TOOL_NAMES: Record<Capability, readonly string[]> = {
   // note_edit はノート patch 編集 (note_edit) + フロントマタープロパティ/タグ編集 (note_property)
   // + リネーム/移動 (note_move。[[リンク]]一括追従)
   // + タスク Dataview インラインフィールド設定 (task_set_fields。ADR-0029 / Se3b7a2-6)
+  // + リストタイプ変換 (note_convert_list。箇条書き ⇄ 番号付き。S6848dc-6)
   // を広告する (編集系のため同一ケーパビリティに畳む)。
-  note_edit: ['note_edit', 'note_move', 'note_property', 'task_set_fields'],
+  note_edit: ['note_convert_list', 'note_edit', 'note_move', 'note_property', 'task_set_fields'],
   // note_delete は破壊的なノート削除。独立ケーパビリティで full のみ許可 (MODE_ALLOWED)。
   note_delete: ['note_delete'],
   // template_write はテンプレート適用によるノート生成を広告する (Sc4b9d1-3):

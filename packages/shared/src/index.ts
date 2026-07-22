@@ -103,6 +103,14 @@ export {
 } from './journal.js';
 export { toLf, appendText, countOccurrences } from './text.js';
 export {
+  renumberLines,
+  renumberOrderedLists,
+  convertListLines,
+  convertListMarkdown,
+  DEFAULT_BULLET_MARKER,
+  type ListConvertTarget,
+} from './list-convert.js';
+export {
   extractHeadings,
   extractOutgoingLinks,
   extractNoteMetaTags,

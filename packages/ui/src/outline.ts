@@ -47,6 +47,7 @@ import {
 import { api } from './api.js';
 import { notePathFacet } from './live-preview.js';
 import { renumberChangesForRange } from './list-renumber.js';
+import { convertListToBullet, convertListToOrdered } from './list-convert-cmd.js';
 
 /** インデント単位 (4 スペース — decisions.json I1: 1. リストの CommonMark ネスト要件を満たす) */
 export const INDENT_UNIT = '    ';
@@ -243,6 +244,11 @@ const outlineKeymap: Extension = Prec.high(
   keymap.of([
     { key: 'Tab', run: (view) => changeListIndent(view, 1) },
     { key: 'Shift-Tab', run: (view) => changeListIndent(view, -1) },
+    // リストタイプ変換ショートカット (S6848dc-6 / AC-2, Google Docs/Word 慣例):
+    //   Ctrl+Shift+8 = 箇条書き (bullet) / Ctrl+Shift+7 = 番号付き (ordered)。
+    // リスト行に触れていなければ Command が false を返しキーを消費しない。
+    { key: 'Mod-Shift-8', run: convertListToBullet, preventDefault: true },
+    { key: 'Mod-Shift-7', run: convertListToOrdered, preventDefault: true },
   ]),
 );
 
