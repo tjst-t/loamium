@@ -54,20 +54,10 @@ async function openWithListJournal(page: import('@playwright/test').Page): Promi
   return unexpected;
 }
 
-test('[MOCK] 見出し・段落で Tab、トップレベルのリスト行で Shift+Tab はドキュメントを変えない', async ({ page }) => {
+test('[MOCK] トップレベルのリスト行の Shift+Tab / 兄弟なし先頭行の Tab はドキュメントを変えない', async ({ page }) => {
   const unexpected = await openWithListJournal(page);
 
-  // 見出し行にカーソル → Tab (インデント操作にならない = dirty にならない)
-  await editorLine(page, '見出し行').click();
-  await page.keyboard.press('Tab');
-  await expect(page.getByTestId('save-status')).toHaveAttribute('data-state', 'saved');
-
-  // 段落行にカーソル → Tab
-  await editorLine(page, '段落テキストです。').click();
-  await page.keyboard.press('Tab');
-  await expect(page.getByTestId('save-status')).toHaveAttribute('data-state', 'saved');
-
-  // インデント 0 のリスト行で Shift+Tab → no-op
+  // インデント 0 のリスト行で Shift+Tab → no-op (キーは消費するが変更なし)
   await editorLine(page, '親タスク').click();
   await page.keyboard.press('Shift+Tab');
   await expect(page.getByTestId('save-status')).toHaveAttribute('data-state', 'saved');
@@ -79,6 +69,31 @@ test('[MOCK] 見出し・段落で Tab、トップレベルのリスト行で Sh
   await expect(page.getByTestId('save-status')).toHaveAttribute('data-state', 'saved');
 
   // PUT (保存) が一度も飛んでいない = ドキュメント不変
+  expect(unexpected).toEqual([]);
+});
+
+test('[MOCK] リスト外 (段落・見出し) の Tab は素のインデントを挿入しフォーカスを奪わない (S6848dc-4)', async ({ page }) => {
+  const unexpected = await openWithListJournal(page);
+  const content = page.locator('[data-testid="editor"] .cm-content');
+
+  // 段落行の行頭で Tab → 素のインデントが入り dirty になる (フォーカスは留まる)
+  await editorLine(page, '段落テキストです。').click();
+  await page.keyboard.press('Home');
+  await page.keyboard.press('Tab');
+  await expect(content).toBeFocused(); // フォーカスがエディタから流出しない
+  await expect(page.getByTestId('save-status')).toHaveAttribute('data-state', 'dirty');
+
+  // Shift+Tab で戻す (フォーカスは留まる)
+  await page.keyboard.press('Home');
+  await page.keyboard.press('Shift+Tab');
+  await expect(content).toBeFocused();
+
+  // 見出し行の Shift+Tab (先頭に空白なし) → no-op でもフォーカスは留まる
+  await editorLine(page, '見出し行').click();
+  await page.keyboard.press('Home');
+  await page.keyboard.press('Shift+Tab');
+  await expect(content).toBeFocused();
+
   expect(unexpected).toEqual([]);
 });
 

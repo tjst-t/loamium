@@ -28,7 +28,15 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from '@codemirror/view';
-import { codeFolding, foldEffect, foldedRanges, syntaxTree, unfoldEffect } from '@codemirror/language';
+import {
+  codeFolding,
+  foldEffect,
+  foldedRanges,
+  indentUnit,
+  syntaxTree,
+  unfoldEffect,
+} from '@codemirror/language';
+import { indentMore, indentLess } from '@codemirror/commands';
 import type { SyntaxNode } from '@lezer/common';
 import {
   extractInlineFields,
@@ -38,6 +46,8 @@ import {
 } from '@loamium/shared';
 import { api } from './api.js';
 import { notePathFacet } from './live-preview.js';
+import { renumberChangesForRange } from './list-renumber.js';
+import { convertListToBullet, convertListToOrdered } from './list-convert-cmd.js';
 
 /** インデント単位 (4 スペース — decisions.json I1: 1. リストの CommonMark ネスト要件を満たす) */
 export const INDENT_UNIT = '    ';
@@ -75,36 +85,70 @@ function subtreeEndLine(state: EditorState, item: SyntaxNode, startLine: number)
 }
 
 /**
- * リスト行のインデント操作。リスト行でなければ false (キーを消費しない)。
- * dir=1: サブツリー全行に INDENT_UNIT を挿入 / dir=-1: 先頭行の字下げ幅を上限に削る。
+ * 選択範囲がまたぐ「トップレベルの選択リスト項目」を集める (S6848dc-3)。
+ *
+ * from..to が重なる各行を走査し、その行から始まる ListItem を集めるが、
+ * すでに前の項目のサブツリー (end 行以下) に含まれる行はスキップする。
+ * これにより、あるアイテムが別の選択アイテムのサブツリーに含まれる場合の
+ * 二重適用を防ぐ (トップレベルの選択項目単位で 1 回だけ、サブツリーは巻き込む)。
+ *
+ * @returns 各項目の {start, end} 行番号 (昇順・非重複)。リスト行が 1 つも
+ *          無ければ空配列。
  */
-function changeListIndent(view: EditorView, dir: 1 | -1): boolean {
-  if (view.composing) return false; // IME 変換中は Tab を奪わない (decisions.json I3)
-  const { state } = view;
-  const line = state.doc.lineAt(state.selection.main.head);
-  const item = listItemStartingAt(state, line);
-  if (item === null) return false;
+function collectSelectedTopItems(
+  state: EditorState,
+  from: number,
+  to: number,
+): { start: number; end: number }[] {
+  const fromLine = state.doc.lineAt(from).number;
+  const toLine = state.doc.lineAt(to).number;
+  const items: { start: number; end: number }[] = [];
+  let coveredThrough = 0; // ここまでの行は既存項目のサブツリーに含まれる
+  for (let n = fromLine; n <= toLine; n++) {
+    if (n <= coveredThrough) continue; // 直前項目のサブツリー内 → 二重適用しない
+    const line = state.doc.line(n);
+    const item = listItemStartingAt(state, line);
+    if (item === null) continue; // 非リスト行は無視 (リスト行のみ処理)
+    const end = subtreeEndLine(state, item, n);
+    items.push({ start: n, end });
+    coveredThrough = end;
+  }
+  return items;
+}
 
-  const start = line.number;
-  const end = subtreeEndLine(state, item, start);
-  const changes: { from: number; to?: number; insert?: string }[] = [];
-
+/**
+ * 単一のリスト項目 (start..end のサブツリー) をインデント/アンインデントする
+ * ChangeSpec を changes に追加する。dir=1 は各行に INDENT_UNIT を挿入、
+ * dir=-1 は先頭行の字下げ幅を上限に各行から空白を削る。
+ *
+ * @returns 適用可能なら true (変更を push した/兄弟が無い等で no-op でも消費)。
+ */
+function indentItemChanges(
+  state: EditorState,
+  item: { start: number; end: number },
+  dir: 1 | -1,
+  changes: { from: number; to?: number; insert?: string }[],
+): void {
+  const { start, end } = item;
+  const startLine = state.doc.line(start);
   if (dir === 1) {
     // アウトライナー標準: 直前に同レベルの兄弟項目があるときだけ 1 段深くできる。
     // 先頭項目を字下げすると CommonMark ではコードブロック化し
     // ピュア Markdown を壊すため no-op とする (priority 1)。
-    let prev = item.prevSibling;
+    const node = listItemStartingAt(state, startLine);
+    if (node === null) return;
+    let prev = node.prevSibling;
     while (prev !== null && prev.name !== 'ListItem') prev = prev.prevSibling;
-    if (prev === null) return true; // リスト行として消費するが no-op
+    if (prev === null) return; // 兄弟なし → この項目はインデントしない (no-op)
     for (let n = start; n <= end; n++) {
       const l = state.doc.line(n);
       if (l.length === 0) continue; // 空行はインデントしない
       changes.push({ from: l.from, insert: INDENT_UNIT });
     }
   } else {
-    const leading = /^ */.exec(line.text)?.[0].length ?? 0;
+    const leading = /^ */.exec(startLine.text)?.[0].length ?? 0;
     const removable = Math.min(INDENT_UNIT.length, leading);
-    if (removable === 0) return true; // トップレベルでの Shift+Tab は no-op (リスト行として消費)
+    if (removable === 0) return; // トップレベル → これ以上浅くしない (クランプ)
     for (let n = start; n <= end; n++) {
       const l = state.doc.line(n);
       const lead = /^ */.exec(l.text)?.[0].length ?? 0;
@@ -112,22 +156,141 @@ function changeListIndent(view: EditorView, dir: 1 | -1): boolean {
       changes.push({ from: l.from, to: l.from + Math.min(removable, lead) });
     }
   }
+}
 
+/**
+ * リスト行のインデント操作。リスト行でなければ false (キーを消費しない)。
+ * dir=1: サブツリー全行に INDENT_UNIT を挿入 / dir=-1: 先頭行の字下げ幅を上限に削る。
+ *
+ * S6848dc-3: 複数行選択に対応。選択範囲がまたぐトップレベルのリスト項目を
+ * すべて集め、各項目 (とそのサブツリー) にインデント/アンインデントを適用する。
+ * 選択がすべて非リスト行なら false (キーを消費しない)。単一カーソルの既存
+ * 挙動は選択範囲が 1 項目に収まるケースとして自然に包含される。
+ */
+function changeListIndent(view: EditorView, dir: 1 | -1): boolean {
+  if (view.composing) return false; // IME 変換中は Tab を奪わない (decisions.json I3)
+  const { state } = view;
+  const sel = state.selection.main;
+  const items = collectSelectedTopItems(state, sel.from, sel.to);
+  if (items.length === 0) return false; // リスト行が 1 つも無い → キーを消費しない
+
+  const changes: { from: number; to?: number; insert?: string }[] = [];
+  for (const item of items) {
+    indentItemChanges(state, item, dir, changes);
+  }
+
+  // リスト行を処理したので、変更が 0 でもキーは消費する
+  // (トップレベルでの Shift+Tab / 兄弟なしの Tab は no-op だが Tab をブラウザに渡さない)。
   if (changes.length === 0) return true;
+  // selection は指定しない: CodeMirror が既存の選択を changes 越しに自動マッピング
+  // するため、インデント後も妥当な範囲/カーソル位置を保つ (AC / 方針 3)。
   view.dispatch({
     changes,
     scrollIntoView: true,
     userEvent: dir === 1 ? 'input.indent' : 'delete.dedent',
   });
+  // インデント変更後の再採番は下の renumberListener (updateListener) が担う。
+  // (Tab/Shift+Tab/Enter/削除/貼り付け いずれの経路でも一箇所で整合を取るため)
   return true;
 }
+
+/**
+ * 順序リストの再採番リスナ (S6848dc-5)。
+ *
+ * doc を変更したトランザクション (自分の再採番トランザクションを除く) の後で、
+ * 変更が触れた行範囲を含む順序リストブロックを CommonMark のネスト規則で再採番する。
+ * これにより Tab/Shift+Tab (changeListIndent)・Enter (markdownKeymap の
+ * insertNewlineContinueMarkup による項目継続)・項目削除・貼り付けなど、
+ * すべての編集経路で番号が一貫する (AC-2 / AC-4)。
+ *
+ * 採番ロジックは DOM 非依存の純関数 renumberChangesForRange に委譲する。
+ * 自己ループ防止: 再採番トランザクションには userEvent 'input.renumber' を付け、
+ * それを検出したら再処理しない。
+ */
+const renumberListener: Extension = EditorView.updateListener.of((update) => {
+  if (!update.docChanged) return;
+  // 自分の再採番トランザクションはスキップ (無限ループ防止)
+  if (update.transactions.some((tr) => tr.isUserEvent('input.renumber'))) return;
+  if (update.transactions.length === 0) return;
+
+  // 変更が触れた新ドキュメント上の行範囲を集める
+  let minLine = Number.POSITIVE_INFINITY;
+  let maxLine = Number.NEGATIVE_INFINITY;
+  for (const tr of update.transactions) {
+    tr.changes.iterChangedRanges((_fromA, _toA, fromB, toB) => {
+      const a = update.state.doc.lineAt(fromB).number;
+      const b = update.state.doc.lineAt(toB).number;
+      if (a < minLine) minLine = a;
+      if (b > maxLine) maxLine = b;
+    });
+  }
+  if (!Number.isFinite(minLine) || !Number.isFinite(maxLine)) return;
+
+  const changes = renumberChangesForRange(update.state, minLine, maxLine);
+  if (changes.length === 0) return;
+  // updateListener 内からの dispatch は次のマイクロタスクで行う (再入防止)。
+  queueMicrotask(() => {
+    if (update.view.state !== update.state) {
+      // 既に別の変更が入っている場合は現在の state で再計算し直す
+      const cur = renumberChangesForRange(update.view.state, minLine, maxLine);
+      if (cur.length > 0) update.view.dispatch({ changes: cur, userEvent: 'input.renumber' });
+      return;
+    }
+    update.view.dispatch({ changes, userEvent: 'input.renumber' });
+  });
+});
 
 const outlineKeymap: Extension = Prec.high(
   keymap.of([
     { key: 'Tab', run: (view) => changeListIndent(view, 1) },
     { key: 'Shift-Tab', run: (view) => changeListIndent(view, -1) },
+    // リストタイプ変換ショートカット (S6848dc-6 / AC-2, Google Docs/Word 慣例):
+    //   Ctrl+Shift+8 = 箇条書き (bullet) / Ctrl+Shift+7 = 番号付き (ordered)。
+    // リスト行に触れていなければ Command が false を返しキーを消費しない。
+    { key: 'Mod-Shift-8', run: convertListToBullet, preventDefault: true },
+    { key: 'Mod-Shift-7', run: convertListToOrdered, preventDefault: true },
   ]),
 );
+
+/**
+ * リスト外 (段落・見出し等) での Tab / Shift+Tab フォールバック (S6848dc-4)。
+ *
+ * outlineKeymap (Prec.high) がリスト行を処理して true を返すため、このキーマップは
+ * **非リスト行でのみ**到達する (リスト行では走らない)。非リスト行の Tab は
+ * 「リスト構造のインデント」ではなく「素のタブ/インデント文字の挿入」にする
+ * (S9ab6c3 の C 方式境界を維持: 非リスト行は outline 操作の対象外)。
+ *
+ * 主目的はフォーカス流出の防止: フォールバックが無いと changeListIndent が false を
+ * 返し、誰もキーを消費せずブラウザ既定のフォーカス移動 (プロパティ/フロントマター欄など
+ * 次のフォーカス可能要素へジャンプ) に流れてしまう。ここで常に true を返して
+ * preventDefault し、フォーカスをエディタ内に留める。
+ *
+ * インデント単位は outlineExtension で indentUnit を INDENT_UNIT (4 スペース) に
+ * 設定するため、insertTab/indentMore/indentLess も 4 スペース単位で一貫する
+ * (decisions.json: ピュア Markdown。行頭 4 スペースがコードブロックになりうる点は
+ *  「ふつうにタブを入れて」というユーザー要望に沿う既知の許容挙動)。
+ */
+const tabFallbackKeymap: Extension = keymap.of([
+  {
+    key: 'Tab',
+    run(view) {
+      if (view.composing) return false; // IME 変換中は Tab を奪わない (outlineKeymap と整合)
+      // 空選択ならインデント単位を挿入、複数行選択なら選択行をインデント。
+      indentMore(view);
+      return true; // フォーカス移動を止める (preventDefault)
+    },
+  },
+  {
+    key: 'Shift-Tab',
+    run(view) {
+      if (view.composing) return false;
+      // アンインデント (行頭が既に非空白なら no-op)。いずれにせよ true で
+      // フォーカス移動を止める。
+      indentLess(view);
+      return true;
+    },
+  },
+]);
 
 // ---- 折りたたみ (fold-toggle ガター + fold-pill placeholder) ----------------
 
@@ -1239,6 +1402,99 @@ function makeListDecoPlugin(vocab: TaskVocabRequired): Extension {
   );
 }
 
+// ---- リスト折り返しのぶら下げインデント (S6848dc-1) -------------------------
+// lineWrapping 環境でリスト行の 2 行目以降を「マーカー直後のテキスト開始位置」に
+// そろえる。ファイルは書き換えず (ピュア Markdown 不変)、リスト行 (cm-line) スコープの
+// ライン装飾で padding-inline-start + 負の text-indent を与える (`.cm-scroller` の
+// padding-inline は触らない — block widget の横スクロール前例を回避)。
+//
+// ぶら下げ量 (--hang) は「アイテム本文の開始カラム」を ch 単位で表す。等幅フォント
+// (var(--font-mono)) なので 1ch = ソース 1 カラム幅。深さ (先頭インデント) はソースの
+// 先行空白としてカラムに含まれるため、ネストが深いほど --hang が自然に大きくなる (AC-2)。
+
+/**
+ * リスト行のアイテム本文が始まるカラム (0 始まり) を返す。
+ * = 先頭空白 (ネストのインデント) + ListMark + マーク直後の空白。
+ * ListMark が見つからなければ null (リスト行でない)。
+ */
+function listHangColumns(state: EditorState, node: SyntaxNode, line: Line): number | null {
+  let markTo = -1;
+  const cur = node.cursor();
+  if (cur.firstChild()) {
+    do {
+      if (cur.name === 'ListMark') {
+        markTo = cur.to;
+        break;
+      }
+    } while (cur.nextSibling());
+  }
+  if (markTo < 0) return null;
+  // マーク直後の空白 (通常 1 個) を本文開始まで含める。
+  const afterMark = state.doc.sliceString(markTo, line.to);
+  const gap = /^[ \t]*/.exec(afterMark)?.[0].length ?? 0;
+  return markTo + gap - line.from;
+}
+
+/**
+ * リスト行に「ぶら下げ量」を CSS 変数 (--hang) として渡すライン装飾を構築する。
+ * 実際の padding-inline-start / text-indent 適用は styles.css (.cm-list-line) 側。
+ * カーソル行 (ソース表示中) も含めて適用してよい — ソース行はマーカーがそのまま
+ * 見えるが、折り返しがテキスト開始位置にそろうのは装飾表示と同じく望ましい。
+ */
+function buildListHangDecorations(view: EditorView): DecorationSet {
+  const deco: ReturnType<Decoration['range']>[] = [];
+  const state = view.state;
+  const seen = new Set<number>();
+  for (const { from, to } of view.visibleRanges) {
+    syntaxTree(state).iterate({
+      from,
+      to,
+      enter(node) {
+        if (node.name !== 'ListItem') return;
+        const line = state.doc.lineAt(node.from);
+        // 同一行に対する ListItem は 1 回だけ (ネストの祖先/子で重複しないよう先頭行で判定)
+        if (seen.has(line.number)) return;
+        const cols = listHangColumns(state, node.node, line);
+        if (cols === null || cols <= 0) return;
+        seen.add(line.number);
+        deco.push(
+          Decoration.line({
+            class: 'cm-list-line',
+            attributes: { style: `--hang: ${String(cols)}ch` },
+          }).range(line.from),
+        );
+      },
+    });
+  }
+  // ライン装飾は from 昇順で並べる (visibleRanges は昇順なので push 順で概ね整列するが、
+  // ネストにより同一 from に複数 ListItem enter するケースを seen で 1 本化済み)。
+  deco.sort((a, b) => a.from - b.from);
+  return Decoration.set(deco);
+}
+
+function makeListHangPlugin(): Extension {
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet;
+
+      constructor(view: EditorView) {
+        this.decorations = buildListHangDecorations(view);
+      }
+
+      update(update: ViewUpdate): void {
+        if (
+          update.docChanged ||
+          update.viewportChanged ||
+          syntaxTree(update.state) !== syntaxTree(update.startState)
+        ) {
+          this.decorations = buildListHangDecorations(update.view);
+        }
+      }
+    },
+    { decorations: (v) => v.decorations },
+  );
+}
+
 // ---- 見出し折りたたみ (Sb6f1d3-1) ------------------------------------------
 // セッションのみ有効: fold 状態は EditorState に保持され、EditorState.create で
 // 消去される (ノート切替時にリセット)。localStorage/IndexedDB への永続化は一切行わない。
@@ -1397,5 +1653,22 @@ export function outlineExtension(): Extension {
   void getVocab();
   // unifiedFoldGutter に統合: 見出し・リストどちらのシェブロンも同一 x 列に揃う。
   // 共通の codeFolding() (outlineFolding) を 1 つだけ使い、fold state の二重管理を避ける。
-  return [outlineFolding, unifiedFoldGutter, headingFoldKeymap, outlineKeymap, plugin];
+  //
+  // キーマップの優先順位 (S6848dc-4):
+  //   outlineKeymap (Prec.high) → tabFallbackKeymap (default prec)
+  // outlineKeymap がリスト行を処理して true を返すため、tabFallbackKeymap は
+  // 非リスト行にのみ到達する。indentUnit を INDENT_UNIT に合わせ、フォールバックの
+  // indentMore/indentLess も 4 スペース単位で一貫させる。
+  return [
+    indentUnit.of(INDENT_UNIT),
+    outlineFolding,
+    unifiedFoldGutter,
+    headingFoldKeymap,
+    outlineKeymap,
+    tabFallbackKeymap,
+    renumberListener,
+    plugin,
+    // S6848dc-1: 折り返し 2 行目以降を本文開始位置にそろえるぶら下げインデント (表示のみ)
+    makeListHangPlugin(),
+  ];
 }

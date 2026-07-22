@@ -34,7 +34,8 @@ test('[AC-Sde7a63-1-1][E2E] Ctrl-K でコマンドパレットが開き search-i
 test('[AC-Sde7a63-1-1][E2E] 空クエリでコマンドセクションが表示される', async ({ page }) => {
   await page.keyboard.press('Control+k');
   await expect(page.getByTestId('palette-section-commands')).toBeVisible();
-  await expect(page.locator('[data-testid="command-item"][data-source="builtin"]')).toHaveCount(5);
+  // S6848dc-6: リスト変換コマンド 2 件を追加し 5→7 件。
+  await expect(page.locator('[data-testid="command-item"][data-source="builtin"]')).toHaveCount(7);
 });
 
 // =========================================================================

@@ -4,10 +4,10 @@
   "progress": {
     "current_sprint": null,
     "total": 57,
-    "done": 55,
+    "done": 56,
     "in_progress": 0,
-    "remaining": 2,
-    "percentage": 96
+    "remaining": 1,
+    "percentage": 98
   },
   "execution_order": [
     "Sd63ad1",
@@ -8474,13 +8474,13 @@
       "title": "エディタ/リスト修正まとめ 3 — リスト折返しぶら下げ / リスト内画像 / 複数行Tab / リスト外Tab / 番号採番 / リストタイプ変換",
       "description": "実機フィードバックの 6 点(リスト編集/表示)を一括修正する。(1) リスト項目の折り返し行を左端でなく前行のテキスト開始位置にそろえる(ぶら下げインデント)。(2) リスト内に埋め込んだ画像 ![](...) を表示する。(3) 複数行を選択して Tab / Shift+Tab でまとめてレベル変更。(4) リスト外で Tab を押したときフォーカスをプロパティ欄へ奪われず通常のタブ挿入にする。(5) 番号付きリストのインデントで子が 1. から採番されるよう修正(現状 1. の下が 2. になる)。(6) 箇条書き⇄番号付きリストの一括変換手段(Ctrl-K 統一パレット + Ctrl+Shift+7/8 ショートカット、他アプリ=Google Docs/Word 慣例参照)。制約: ピュア Markdown 絶対(表示はデコレーション/CSS、採番・変換は実ファイルの Markdown 書き換えでブロックID等を足さない) / TS strict(any 禁止) / モバイルレスポンシブ(44px, @media max-width:680px) / Markdown 採番・変換ロジックはユニットテスト必須 / 変換機能はエージェント操作ツール+agent-help+機能ガイド更新(ADR-0016 監査済みサービス層経由, ADR-0019 Ctrl-K パレット)。実装注意: 全ストーリーが outline.ts(リスト keymap/デコレーション)を共有するため worktree 並列でなく逐次実行。採番ロジック(5)は複数行Tab(3)とリスト変換(6)で共有する。",
       "milestone": true,
-      "status": "pending",
+      "status": "done",
       "depends_on": null,
       "detail_level": "detailed",
       "stories": {
         "S6848dc-1": {
           "title": "リスト折り返し行のぶら下げインデント(前行のテキスト開始位置にそろえる)",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": true,
           "review_reason": "折り返し表示のレイアウト回帰。ぶら下げ揃えの見え方(深さごとの位置)を実機で確認する必要がある。",
@@ -8490,54 +8490,60 @@
               "id": "AC-S6848dc-1-1",
               "description": "箇条書き/番号付きリストで 1 項目のテキストが折り返すと、2 行目以降がリストマーカー直後のテキスト開始位置にそろう(左端 0px に戻らない)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-1-2",
               "description": "ネスト(インデント)した項目でも、その項目のテキスト開始位置に折り返しがそろう(深さに応じてぶら下げ位置が変わる)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-1-3",
               "description": "ピュア Markdown 不変 — 表示のみの CSS/デコレーションで実現し、ファイル内容(空白・記法)を書き換えない。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-1-4",
               "description": "モバイル(@media max-width:680px)でも折り返しのぶら下げ揃えが崩れず、本文が横スクロールしない。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-1-5",
               "description": "長文リスト項目の折り返し 2 行目のインデント量が期待値になることを Playwright または Vitest で検証する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S6848dc-1-1": {
               "title": "原因調査",
               "description": "cm-line の padding とリスト装飾(outline.ts BulletWidget / buildListDecorations)を調べ、折り返し行が左端に戻る箇所を特定。",
-              "status": "pending"
+              "status": "done"
             },
             "S6848dc-1-2": {
               "title": "ぶら下げインデント実装",
               "description": "リスト行に text-indent 負値 + padding-left(またはハンギング相当)を深さ対応で付与し、折り返し行をテキスト開始位置にそろえる。block widget/リスト装飾と両立させる。",
-              "status": "pending"
+              "status": "done"
             },
             "S6848dc-1-3": {
               "title": "レスポンシブ確認とテスト",
               "description": "モバイル/タブレット/デスクトップで確認し、折り返しぶら下げの回帰テストを追加。",
-              "status": "pending"
+              "status": "done"
+            },
+            "S6848dc-1-fix-1": {
+              "title": "長トークン折返し修正",
+              "description": ".cm-list-line に word-break:break-all(実機計測 8px→638px でマーカー行に収まる)",
+              "status": "done"
             }
-          }
+          },
+          "user_reviewed": "2026-07-22 (ユーザー承認: マージ指示)"
         },
         "S6848dc-2": {
           "title": "リスト項目内に埋め込んだ画像を表示する",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": true,
           "review_reason": "リスト内の画像レンダリングの見た目・ライブプレビュー切替を実機で確認する必要がある。",
@@ -8546,55 +8552,66 @@
             {
               "id": "AC-S6848dc-2-1",
               "description": "箇条書き/番号付きリスト項目内の ![alt](path) がインライン画像として表示される(添付画像・vault 内相対パス)。",
-              "test": null,
-              "status": "pending"
+              "test": "packages/ui/tests/e2e/list-image.mock.spec.ts",
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-2-2",
               "description": "カーソルが当該行にあるときはソース(Markdown 記法)を表示し、外れると画像プレビューに戻る(既存ライブプレビュー挙動と一貫)。",
-              "test": null,
-              "status": "pending"
+              "test": "packages/ui/tests/e2e/list-image.mock.spec.ts",
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-2-3",
               "description": "リストマーカー(ドット/番号)と画像が同一リスト行内で共存し、リスト装飾(buildListDecorations)と画像 widget が競合しない。",
-              "test": null,
-              "status": "pending"
+              "test": "packages/ui/tests/e2e/list-image.mock.spec.ts",
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-2-4",
               "description": "ピュア Markdown 不変。モバイルでも画像が親幅を超えてはみ出さない(max-width 対応)。",
-              "test": null,
-              "status": "pending"
+              "test": "packages/ui/tests/e2e/list-image.mock.spec.ts",
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-2-5",
               "description": "リスト内画像がレンダリングされることを Playwright/Vitest で検証する。",
-              "test": null,
-              "status": "pending"
+              "test": "packages/ui/tests/e2e/list-image.mock.spec.ts",
+              "status": "pass"
             }
           ],
           "tasks": {
             "S6848dc-2-1": {
               "title": "競合原因の特定",
-              "description": "live-preview.ts の Image 装飾と outline.ts の buildListDecorations の適用順・範囲を調べ、リスト行で画像 widget が効かない理由を特定。",
-              "status": "pending"
+              "description": "live-preview.ts の Image 装飾と outline.ts の buildListDecorations の適用順・範囲を調べ、リスト行で画像 widget が効かない理由を特定。真因: 競合は存在せず、live-preview の Image 装飾は構文木を context 非依存に走査するため ListItem 内の Image ノードにも既に適用され、buildListDecorations は ListMark の範囲のみを replace するので範囲が重ならない(現 HEAD で既に描画されていた)。",
+              "status": "done"
             },
             "S6848dc-2-2": {
               "title": "リスト行での画像 widget 適用",
-              "description": "リスト行でも画像デコレーションが適用されるよう装飾構築を修正(マーカー装飾と画像 widget の共存)。",
-              "status": "pending"
+              "description": "リスト行でも画像デコレーションが適用されるよう装飾構築を修正(マーカー装飾と画像 widget の共存)。既存挙動を確認し、追加改修は不要と判断(装飾は既に共存)。",
+              "status": "done"
             },
             "S6848dc-2-3": {
               "title": "テストとレスポンシブ",
-              "description": "リスト内画像のテストを追加、モバイル表示を確認。",
-              "status": "pending"
+              "description": "リスト内画像のテストを追加、モバイル表示を確認。list-image.mock.spec.ts を新規追加(箇条書き/番号付き/ネスト描画・カーソル切替・モバイル非オーバーフローを検証)。",
+              "status": "done"
+            },
+            "S6848dc-2-fix-1": {
+              "title": "インライン ![[image]] 画像描画",
+              "description": "live-preview.ts に WIKILINK_RE 前の埋め込みスキャン追加、画像拡張子を renderImageEmbed で描画。wiki記法テスト追加",
+              "status": "done"
+            },
+            "S6848dc-2-fix-2": {
+              "title": "(既存不具合)SSE自己エコーのカーソル飛び抑制",
+              "description": "App.tsx handleSseNotesChanged: 取得内容==現在値なら再読込せずカーソル保持。回帰テスト追加",
+              "status": "done"
             }
-          }
+          },
+          "user_reviewed": "2026-07-22 (ユーザー承認: マージ指示)"
         },
         "S6848dc-3": {
           "title": "複数行選択で Tab / Shift+Tab によるレベル一括変更",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": false,
           "review_reason": null,
@@ -8604,54 +8621,54 @@
               "id": "AC-S6848dc-3-1",
               "description": "複数のリスト行にまたがる選択で Tab を押すと、選択に含まれる全リスト項目(とその子)のインデントが 1 段深くなる。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-3-2",
               "description": "Shift+Tab で選択した全リスト行が 1 段浅くなる(最上位はそれ以上浅くしない)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-3-3",
               "description": "選択がリスト行と非リスト行の混在でも破綻しない(リスト行のみ処理する等、定義した妥当な挙動)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-3-4",
               "description": "番号付きリストでは一括レベル変更後も採番が正しい(AC-${A}-5-* の採番ロジックと整合)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-3-5",
               "description": "ピュア Markdown 不変(インデントは実ファイルの空白編集)。複数行 Tab の挙動をテストで検証する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S6848dc-3-1": {
               "title": "changeListIndent を選択範囲対応に拡張",
               "description": "outline.ts の changeListIndent を、選択末端行だけでなく選択に重なる全リスト項目へ一括適用するよう拡張。",
-              "status": "pending"
+              "status": "done"
             },
             "S6848dc-3-2": {
               "title": "採番整合",
               "description": "一括インデント/アンインデント後に番号付きリストを再採番(-5 のロジック共有)。",
-              "status": "pending"
+              "status": "done"
             },
             "S6848dc-3-3": {
               "title": "テスト",
               "description": "複数行選択 Tab/Shift+Tab の e2e/unit テストを追加。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S6848dc-4": {
           "title": "リスト外で Tab を押したら通常のタブ挿入(フォーカスをプロパティ欄へ奪わせない)",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": false,
           "review_reason": null,
@@ -8661,49 +8678,49 @@
               "id": "AC-S6848dc-4-1",
               "description": "リスト外(段落・見出し等)で Tab を押すと、フォーカス移動せず通常のタブ/インデントが挿入される(preventDefault される)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-4-2",
               "description": "Shift+Tab もフォーカスを奪わない(アンインデント or 何もしない、定義した挙動)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-4-3",
               "description": "リスト内の既存インデント動作(-3 の複数行含む)は維持される。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-4-4",
               "description": "挿入されるタブがピュア Markdown として妥当(タブ or スペース、既存のインデント設定に従う)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-4-5",
               "description": "リスト外 Tab で通常挿入され、フォーカスが移動しないことをテストで検証する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S6848dc-4-1": {
               "title": "keymap フォールバック追加",
               "description": "outlineKeymap がリスト外で false を返す際、insertTab/indentMore が拾って preventDefault するよう keymap 優先順位を調整。",
-              "status": "pending"
+              "status": "done"
             },
             "S6848dc-4-2": {
               "title": "テスト",
               "description": "リスト外 Tab の挿入挙動・非フォーカス移動を検証するテストを追加。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S6848dc-5": {
           "title": "番号付きリストのインデント時の採番修正(子は 1. から)",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": false,
           "review_reason": null,
@@ -8713,54 +8730,54 @@
               "id": "AC-S6848dc-5-1",
               "description": "1. 項目の下にインデントで子項目を作ると、子は 1. から採番される(親の連番を引き継がない)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-5-2",
               "description": "同一階層の兄弟は連番(1. 2. 3.)を維持し、インデント/アンインデント/項目追加・削除で採番が再計算される。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-5-3",
               "description": "採番はピュア Markdown のファイル内容として正しく書き換わる(表示だけのごまかしでなく、保存される Markdown が正しい)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-5-4",
               "description": "Tab/Shift+Tab(-3 の複数行含む)と改行での新項目追加で採番が一貫する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-5-5",
               "description": "採番ロジック(インデント/アンインデント/改行)のユニットテストを Markdown 編集単位で追加する(CLAUDE.md: Markdown 編集はユニットテスト必須)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S6848dc-5-1": {
               "title": "採番ロジック実装",
               "description": "OrderedList をインデント/アンインデント/改行時に階層ごと再採番する純関数を実装(ピュア Markdown 文字列の変換)。",
-              "status": "pending"
+              "status": "done"
             },
             "S6848dc-5-2": {
               "title": "changeListIndent/改行への組込",
               "description": "採番ロジックをリスト編集操作に接続し、-3(複数行)・-6(変換)と共有。",
-              "status": "pending"
+              "status": "done"
             },
             "S6848dc-5-3": {
               "title": "ユニットテスト",
               "description": "採番の各パターン(ネスト開始/兄弟連番/アンインデント/削除)のユニットテストを追加。",
-              "status": "pending"
+              "status": "done"
             }
           }
         },
         "S6848dc-6": {
           "title": "リストタイプの一括変換(箇条書き ⇄ 番号付き)— Ctrl-K パレット + ショートカット + エージェントツール",
-          "status": "pending",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": true,
           "review_reason": "新しいコマンド/ショートカットの UX。変換操作の発見性・複数行選択時の挙動を実機で確認する必要がある。",
@@ -8770,63 +8787,72 @@
               "id": "AC-S6848dc-6-1",
               "description": "リスト行(単一/複数選択)に対し、Ctrl-K 統一コマンドパレット(ADR-0019)から「箇条書きに変換」「番号付きに変換」を実行でき、選択範囲のマーカーが一括変換される。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-6-2",
               "description": "ショートカット Ctrl+Shift+8(箇条書き)/ Ctrl+Shift+7(番号付き)で変換できる(Google Docs/Word 慣例)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-6-3",
               "description": "番号付きへ変換したときの採番が正しい(-5 の採番ロジックを共有、ネスト対応)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-6-4",
               "description": "変換はピュア Markdown の書き換え(- ⇄ 1. )で、ネスト階層・子項目・インデントを保持する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-6-5",
               "description": "エージェントも同機能を操作できるツールを実装し(ADR-0016 監査済みサービス層経由)、agent-help(agent-help.ts)と機能ガイド(samples/機能ガイド/)を更新する(CLAUDE.md: エージェント操作ツール必須 / 機能ガイド更新義務)。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             },
             {
               "id": "AC-S6848dc-6-6",
               "description": "変換の UI テスト(Playwright/Vitest)と変換ロジックのユニットテストを追加する。",
               "test": null,
-              "status": "pending"
+              "status": "pass"
             }
           ],
           "tasks": {
             "S6848dc-6-1": {
               "title": "変換ロジック",
               "description": "bullet ⇄ ordered の変換純関数(ネスト保持・採番は -5 共有)を実装。",
-              "status": "pending"
+              "status": "done"
             },
             "S6848dc-6-2": {
               "title": "Ctrl-K コマンド + ショートカット",
               "description": "統一パレットに変換コマンドを登録し、Ctrl+Shift+7/8 キーマップを追加(複数行選択対応)。",
-              "status": "pending"
+              "status": "done"
             },
             "S6848dc-6-3": {
               "title": "エージェントツール + help + ガイド",
               "description": "リスト変換のエージェントツールを監査済みサービス層経由で実装、agent-help.ts と samples/機能ガイド/ を更新、samples/index.md にリンク追加。",
-              "status": "pending"
+              "status": "done"
             },
             "S6848dc-6-4": {
               "title": "テスト",
               "description": "変換ロジックの unit と UI の e2e を追加。",
-              "status": "pending"
+              "status": "done"
             }
-          }
+          },
+          "user_reviewed": "2026-07-22 (ユーザー承認: マージ指示)"
         }
-      }
+      },
+      "corrections": [
+        {
+          "type": "reopen",
+          "milestone": "S6848dc",
+          "ref": "docs/sprint-logs/S6848dc/reopen.json",
+          "note": "実機レビューで #1 長トークン折返し / #2 SSE自己エコーのカーソル飛び(既存) / #3 インライン![[image]]未描画 の3件を修正・実機再確認"
+        }
+      ]
     },
     "S2df65d": {
       "title": "リモート変更時の編集競合を 3-way 自動マージ(ADR-0030)",
@@ -9374,6 +9400,14 @@
       "kind": "feature",
       "status": "open",
       "from_sprint": "S1b4e8f"
+    },
+    {
+      "title": "テスト安定化: playwright mock の retries 設定 or 既存フレーク根治(wikilink.mock:90 他)",
+      "kind": "chore",
+      "description": "playwright は workers:1 retries:0 のため単一フレークで make verify 全体が赤になる。wikilink.mock:90 は Enter 選択のポップアップ直後タイミング競合で main でも ~2/10 再現(S6848dc で当該1件は click 化で決定化済み)。retries 設定 or 他フレークの根治で verify ゲートの信頼性を上げる。",
+      "added_in": "S6848dc",
+      "reason": "S6848dc verify で顕在化。本スプリント無関係の既存フレーク・CI 安定性の技術的負債。",
+      "status": "pending"
     }
   ]
 }

@@ -26,7 +26,9 @@ import {
   VaultPathError,
   JournalDateError,
   setInlineField,
+  convertListLines,
   type Capability,
+  type ListConvertTarget,
 } from '@loamium/shared';
 import type { ServerConfig } from './config.js';
 import type { VaultIndex } from './noteIndex.js';
@@ -334,6 +336,85 @@ export function createVaultWriteTools(
     );
   }
 
+  // ---- note_convert_list (note_edit) -----------------------------------------
+
+  if (capSet.has('note_edit')) {
+    tools.push(
+      defineTool({
+        name: 'note_convert_list',
+        label: 'リストタイプ変換',
+        description:
+          'ノート内のリスト行を箇条書き (`- `) ⇄ 番号付き (`1. `) へ一括変換する (S6848dc-6)。' +
+          'UI の Ctrl+Shift+8 / Ctrl+Shift+7 と同じ共有純関数 (convertListLines) を使い、' +
+          'ネストのインデント・子項目・チェックボックス (- [ ]) を保持する。番号付きへの変換時は ' +
+          'CommonMark のネスト規則で採番する (各階層 1 から連番、子リストは 1 から再開)。\n' +
+          '- target: "bullet" (箇条書きへ) | "ordered" (番号付きへ)\n' +
+          '- fromLine/toLine: 1-indexed の変換対象行範囲 (両端含む)。省略時はノート全体のリスト行。\n' +
+          '  範囲を指定してもリストのネスト整合のため、その行を含むリストブロックは正しく採番される。\n' +
+          '- 書き込みは note-service (REST と同一のフル置換層) を経由し audit.log に記録される (ADR-0016)。' +
+          '独自ファイル操作・独自フォーマットは使わない (ピュア Markdown 絶対)。',
+        parameters: Type.Object({
+          path: Type.String({ description: 'vault 相対パス (既存ノート)' }),
+          target: Type.Union([Type.Literal('bullet'), Type.Literal('ordered')], {
+            description: '変換先タイプ ("bullet" = 箇条書き / "ordered" = 番号付き)',
+          }),
+          fromLine: Type.Optional(
+            Type.Number({ description: '変換開始行 1-indexed (省略時はノート全体)' }),
+          ),
+          toLine: Type.Optional(
+            Type.Number({ description: '変換終了行 1-indexed・両端含む (省略時はノート全体)' }),
+          ),
+        }),
+        async execute(_id, params): Promise<ToolResult> {
+          const resolved = resolveWritablePath(params.path, isDenied);
+          if (!resolved.ok) return resolved.result;
+
+          const content = await readNote(config.vaultRoot, resolved.rel);
+          if (content === null) {
+            return textResult(`ノートが見つかりません: ${resolved.rel}`, {
+              error: true,
+              path: resolved.rel,
+            });
+          }
+
+          const lines = content.split('\n');
+          const total = lines.length;
+          const target: ListConvertTarget = params.target;
+
+          // 行範囲 (1-indexed, 両端含む) を決める。省略時はノート全体。
+          const from1 = params.fromLine === undefined ? 1 : Math.trunc(params.fromLine);
+          const to1 = params.toLine === undefined ? total : Math.trunc(params.toLine);
+          const start = Math.max(1, Math.min(from1, total));
+          const end = Math.max(start, Math.min(to1, total));
+
+          // 対象範囲だけを convertListLines に通し、範囲外の行はそのまま結合する。
+          // convertListLines はネスト採番を範囲内で完結させる (共有純関数)。
+          const before = lines.slice(0, start - 1);
+          const targetSlice = lines.slice(start - 1, end);
+          const after = lines.slice(end);
+          const convertedSlice = convertListLines(targetSlice, target);
+          const newContent = [...before, ...convertedSlice, ...after].join('\n');
+
+          if (newContent === content) {
+            return textResult(
+              `変換なし (対象範囲にリスト行が無いか既に${target === 'bullet' ? '箇条書き' : '番号付き'}です): ${resolved.rel}`,
+              { path: resolved.rel },
+            );
+          }
+
+          // note-service のフル置換層 (REST PUT と同一) で書き込む (ADR-0016)。
+          const result = await upsertNote(config, resolved.rel, newContent);
+          await audit(config, 'agent.note_convert_list', resolved.rel);
+          void result;
+          return textResult(
+            `リストを${target === 'bullet' ? '箇条書き' : '番号付き'}に変換しました: ${resolved.rel} (行 ${String(start)}–${String(end)})`,
+            { path: resolved.rel },
+          );
+        },
+      }),
+    );
+  }
+
   // ---- note_property (note_edit) ----------------------------------------------
 
   if (capSet.has('note_edit')) {
@@ -608,6 +689,7 @@ export function createVaultWriteTools(
 export const VAULT_WRITE_TOOL_NAMES = [
   'dataview_write',
   'journal_append',
+  'note_convert_list',
   'note_create',
   'note_delete',
   'note_edit',

@@ -96,7 +96,7 @@ describe('createVaultWriteTools', () => {
 
   // ---- AC-S5bd678-2-2: 広告制御 ------------------------------------------------
 
-  it('[AC-S5bd678-2-2] 全 write caps で 10 ツールが生成される (sorted 一致 / Se3b7a2-6)', () => {
+  it('[AC-S5bd678-2-2] 全 write caps で 11 ツールが生成される (sorted 一致 / Se3b7a2-6 / S6848dc-6)', () => {
     const names = createVaultWriteTools(config, index, noDeny, ALL_WRITE_CAPS)
       .map((t) => t.name)
       .sort();
@@ -114,16 +114,23 @@ describe('createVaultWriteTools', () => {
     expect(names).not.toContain('note_property');
     expect(names).not.toContain('note_move');
     expect(names).not.toContain('task_set_fields');
+    expect(names).not.toContain('note_convert_list');
     // note_delete は独立ケーパビリティ
     expect(names).not.toContain('note_delete');
     expect(names).not.toContain('template_delete');
   });
 
-  it('[agent-write-coverage] note_edit cap は note_edit + note_move + note_property + task_set_fields を広告する (Se3b7a2-6)', () => {
+  it('[agent-write-coverage / S6848dc-6] note_edit cap は note_convert_list + note_edit + note_move + note_property + task_set_fields を広告する', () => {
     const names = createVaultWriteTools(config, index, noDeny, ['note_edit'])
       .map((t) => t.name)
       .sort();
-    expect(names).toEqual(['note_edit', 'note_move', 'note_property', 'task_set_fields']);
+    expect(names).toEqual([
+      'note_convert_list',
+      'note_edit',
+      'note_move',
+      'note_property',
+      'task_set_fields',
+    ]);
   });
 
   it('[agent-write-coverage] note_delete cap は note_delete のみを広告する (独立)', () => {
@@ -668,5 +675,108 @@ describe('createVaultWriteTools', () => {
     );
     const entries = await readAudit(vaultRoot);
     expect(entries.some((e) => e.op === 'agent.task_set_fields')).toBe(true);
+  });
+
+  // ---- [S6848dc-6] note_convert_list -----------------------------------------
+
+  it('[AC-S6848dc-6-5] note_convert_list が箇条書きを番号付きへネスト採番して変換する', async () => {
+    await writeFile(
+      path.join(vaultRoot, 'plan.md'),
+      '# 計画\n\n- a\n    - x\n    - y\n- b\n',
+      'utf8',
+    );
+    const t = tool('note_convert_list');
+    const res = await t.execute(
+      't1',
+      { path: 'plan', target: 'ordered' },
+      noSignal, noUpdate, fakeCtx,
+    );
+    expect(detailsOf(res).error).toBeUndefined();
+    const written = await readFile(path.join(vaultRoot, 'plan.md'), 'utf8');
+    expect(written).toBe('# 計画\n\n1. a\n    1. x\n    2. y\n2. b\n');
+  });
+
+  it('[AC-S6848dc-6-5] note_convert_list が番号付きを箇条書きへ変換する (round-trip)', async () => {
+    await writeFile(
+      path.join(vaultRoot, 'plan.md'),
+      '1. a\n2. b\n3. c\n',
+      'utf8',
+    );
+    const t = tool('note_convert_list');
+    const res = await t.execute(
+      't1',
+      { path: 'plan', target: 'bullet' },
+      noSignal, noUpdate, fakeCtx,
+    );
+    expect(detailsOf(res).error).toBeUndefined();
+    const written = await readFile(path.join(vaultRoot, 'plan.md'), 'utf8');
+    expect(written).toBe('- a\n- b\n- c\n');
+  });
+
+  it('[AC-S6848dc-6-5] note_convert_list は fromLine/toLine 範囲外の行を変えずチェックボックスを保持する', async () => {
+    await writeFile(
+      path.join(vaultRoot, 'plan.md'),
+      '- keep\n- [ ] convert\n- [x] convert2\n- keep2\n',
+      'utf8',
+    );
+    const t = tool('note_convert_list');
+    // 2–3 行目 (1-indexed) のみ ordered へ
+    const res = await t.execute(
+      't1',
+      { path: 'plan', target: 'ordered', fromLine: 2, toLine: 3 },
+      noSignal, noUpdate, fakeCtx,
+    );
+    expect(detailsOf(res).error).toBeUndefined();
+    const written = await readFile(path.join(vaultRoot, 'plan.md'), 'utf8');
+    expect(written).toBe('- keep\n1. [ ] convert\n2. [x] convert2\n- keep2\n');
+  });
+
+  it('[AC-S6848dc-6-5] note_convert_list は存在しないノートにエラーを返す', async () => {
+    const t = tool('note_convert_list');
+    const res = await t.execute(
+      't1',
+      { path: 'nope', target: 'ordered' },
+      noSignal, noUpdate, fakeCtx,
+    );
+    expect(detailsOf(res).error).toBe(true);
+    expect(textOf(res)).toMatch(/見つかりません|not found/i);
+  });
+
+  it('[AC-S6848dc-6-5] note_convert_list はリスト行が無いと「変換なし」を返しファイルを変えない', async () => {
+    await writeFile(path.join(vaultRoot, 'plan.md'), '# 見出しのみ\n\n段落\n', 'utf8');
+    const t = tool('note_convert_list');
+    const res = await t.execute(
+      't1',
+      { path: 'plan', target: 'ordered' },
+      noSignal, noUpdate, fakeCtx,
+    );
+    expect(detailsOf(res).error).toBeUndefined();
+    expect(textOf(res)).toMatch(/変換なし/);
+    const written = await readFile(path.join(vaultRoot, 'plan.md'), 'utf8');
+    expect(written).toBe('# 見出しのみ\n\n段落\n');
+  });
+
+  it('[AC-S6848dc-6-5] note_convert_list の成功は audit.log に op:agent.note_convert_list を記録する (ADR-0016)', async () => {
+    await writeFile(path.join(vaultRoot, 'plan.md'), '- a\n- b\n', 'utf8');
+    const t = tool('note_convert_list');
+    await t.execute(
+      't1',
+      { path: 'plan', target: 'ordered' },
+      noSignal, noUpdate, fakeCtx,
+    );
+    const entries = await readAudit(vaultRoot);
+    expect(entries.some((e) => e.op === 'agent.note_convert_list')).toBe(true);
+  });
+
+  it('[AC-S6848dc-6-5] note_convert_list は privacy deny のパスを拒否する (ADR-0018)', async () => {
+    const denyPrivate = (rel: string): boolean => rel.startsWith('private/');
+    await writeFile(path.join(vaultRoot, 'plan.md'), '- a\n', 'utf8');
+    const t = tool('note_convert_list', ALL_WRITE_CAPS, denyPrivate);
+    const res = await t.execute(
+      't1',
+      { path: 'private/secret', target: 'ordered' },
+      noSignal, noUpdate, fakeCtx,
+    );
+    expect(detailsOf(res).error).toBe(true);
   });
 });

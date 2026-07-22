@@ -58,6 +58,26 @@ function JournalIcon(): React.ReactElement {
   );
 }
 
+function BulletListIcon(): React.ReactElement {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <circle cx="3" cy="4" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="3" cy="8" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="3" cy="12" r="1.1" fill="currentColor" stroke="none" />
+      <path d="M6.5 4h7M6.5 8h7M6.5 12h7" />
+    </svg>
+  );
+}
+
+function OrderedListIcon(): React.ReactElement {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6.5 4h7M6.5 8h7M6.5 12h7" />
+      <path d="M2 2.5v3M1.4 5.5h1.4M1.4 2.9l.9-.6M1.3 9.4h1.6M1.3 9.2c0-.7 1.6-.6 1.6.3 0 .5-1.6 1.3-1.6 1.9h1.7" strokeWidth="1.1" />
+    </svg>
+  );
+}
+
 /** コマンドが受け取るハンドラのインターフェイス。App.tsx のハンドラと 1:1 で対応。 */
 export interface BuiltinCommandHandlers {
   /** 新規ノート作成ダイアログを開く */
@@ -70,6 +90,10 @@ export interface BuiltinCommandHandlers {
   onOpenAdvancedSearch: () => void;
   /** 今日のジャーナルを開く */
   onOpenTodayJournal: () => void;
+  /** 選択中のリストを箇条書きに変換する (S6848dc-6) */
+  onConvertListToBullet: () => void;
+  /** 選択中のリストを番号付きに変換する (S6848dc-6) */
+  onConvertListToOrdered: () => void;
 }
 
 /**
@@ -127,5 +151,23 @@ export function registerBuiltinCommands(handlers: BuiltinCommandHandlers): void 
     icon: React.createElement(JournalIcon),
     source: 'builtin',
     run: handlers.onOpenTodayJournal,
+  });
+
+  registerCommand({
+    id: 'convert-list-to-bullet',
+    title: 'リストを箇条書きに変換',
+    keywords: ['list', 'リスト', '箇条書き', 'bullet', 'convert', '変換', 'unordered'],
+    icon: React.createElement(BulletListIcon),
+    source: 'builtin',
+    run: handlers.onConvertListToBullet,
+  });
+
+  registerCommand({
+    id: 'convert-list-to-ordered',
+    title: 'リストを番号付きに変換',
+    keywords: ['list', 'リスト', '番号付き', '番号', 'ordered', 'numbered', 'convert', '変換'],
+    icon: React.createElement(OrderedListIcon),
+    source: 'builtin',
+    run: handlers.onConvertListToOrdered,
   });
 }

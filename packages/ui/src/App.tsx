@@ -45,6 +45,7 @@ import { moveNote, moveFolder } from './folder-move.js';
 import { BookmarkStar } from './components/BookmarkStar.js';
 import { CommandEditor } from './components/CommandEditor.js';
 import { Editor, type EditorView } from './components/Editor.js';
+import { convertListToBullet, convertListToOrdered } from './list-convert-cmd.js';
 import { MobileAgentSheet } from './components/MobileAgentSheet.js';
 import { FilePreview } from './components/FilePreview.js';
 import { FilesPage } from './components/FilesPage.js';
@@ -646,6 +647,16 @@ export function App(): JSX.Element {
                   (note) => {
                     // 再チェック: 取得完了後も同じノートが開かれているか確認
                     if (docRef.current?.path === changedPath && !dirtyRef.current) {
+                      // 自己エコー抑制 (S6848dc review fix): 自分の autosave が chokidar→SSE で
+                      // 戻ってきただけの場合、取得内容はエディタ現在値と一致する。setOpenDoc は
+                      // 常に resetToken を更新し CodeMirror を全リセットする (カーソルが先頭へ飛び
+                      // スクロールも失われる) ため、内容が同一なら再読込せずカーソル/スクロールを
+                      // 保持する。真の外部変更 (内容差あり) のときだけ再読込する。
+                      if (note.content === contentRef.current) {
+                        // mtime だけ最新化 (次回保存の baseMtime 競合検出用)
+                        if (docRef.current !== null) docRef.current = { ...docRef.current, mtime: note.mtime };
+                        return;
+                      }
                       setOpenDoc(note.path, note.content, note.mtime, note.frontmatter);
                     }
                   },
@@ -1611,6 +1622,25 @@ export function App(): JSX.Element {
       onOpenTodayJournal: () => {
         setPaletteOpen(false);
         void openJournalNav();
+      },
+      // リストタイプ変換 (S6848dc-6): パレットを閉じ、エディタにフォーカスを戻してから
+      // 選択リストを変換する。変換ロジックは shared の convertListLines を共有する
+      // Command (list-convert-cmd) を editorViewRef のビューに適用する。
+      onConvertListToBullet: () => {
+        setPaletteOpen(false);
+        const view = editorViewRef.current;
+        if (view !== null) {
+          view.focus();
+          convertListToBullet(view);
+        }
+      },
+      onConvertListToOrdered: () => {
+        setPaletteOpen(false);
+        const view = editorViewRef.current;
+        if (view !== null) {
+          view.focus();
+          convertListToOrdered(view);
+        }
       },
     }),
     [openTemplatePicker, switchSidebarView, openSearch, openJournalNav],
