@@ -1,0 +1,60 @@
+{
+  "sprint": "S6848dc",
+  "title": "エディタ/リスト修正まとめ 3",
+  "decisions": [
+    {
+      "id": "D-S6848dc-1",
+      "topic": "#5 順序リスト採番の実現方式",
+      "decision": "採番中核を DOM 非依存の純関数(packages/shared/list-convert.ts の renumberLines / renumberOrderedLists、ui/list-renumber.ts は re-export + CM 依存の renumberChangesForRange のみ)に切り出し、outline.ts の単一 updateListener(renumberListener)で Tab/Shift+Tab/Enter/削除/貼付/変換の全編集経路を一括再採番する。",
+      "rationale": "ピュア Markdown 絶対(priority1): 装飾でごまかさず実ファイルの番号を CommonMark ネスト規則で正しく書き換える。単一 listener に集約して二重管理を排除(各編集ハンドラに採番を散らさない)。純関数は node vitest でユニットテスト可能(22件)。",
+      "tradeoff": "毎編集で listener が走るが、順序リスト以外は renumberChangesForRange が [] を返し即収束。自己 dispatch は userEvent 'input.renumber' の skip + queueMicrotask で再入防止。独立 verifier が無限ループ/カーソル飛び/性能の各観点で安全と確認。"
+    },
+    {
+      "id": "D-S6848dc-2",
+      "topic": "#6 リストタイプ変換のロジック配置とエージェント統合",
+      "decision": "変換純関数 convertListLines/convertListMarkdown を packages/shared に一元化し、UI コマンド(Ctrl-K パレット + Ctrl+Shift+7/8)とサーバのエージェントツール note_convert_list が同一関数を共有。エージェントツールは note-service の upsertNote(REST PUT と同一層)経由で書き込み監査ログに記録。",
+      "rationale": "ADR-0016(書込は監査済みサービス層経由・独自ファイル操作禁止)、ADR-0019(Ctrl-K 統一パレット)、ADR-0015(ケーパビリティ制御・書込モードのみ広告)に準拠。採番も shared へ移し UI/サーバで二重定義しない(二重管理排除)。CLAUDE.md のエージェント操作ツール必須・agent-help・機能ガイド更新義務を充足。",
+      "tradeoff": "採番中核の shared 移設で ui/list-renumber.ts を re-export 化(既存 22 テスト・outline.ts の import は無改変で維持)。advertised-toolset ピン(full 32→33 / write-tools 10→11)を更新。"
+    },
+    {
+      "id": "D-S6848dc-3",
+      "topic": "#4 非リスト行 Tab の挙動と S9ab6c3 境界の扱い",
+      "decision": "非リスト行の Tab はフォーカス移動(プロパティ欄流出)を止め、素のタブ/インデント(indentMore、4sp indentUnit)を挿入する。Shift+Tab は indentLess で常に true を返しフォーカスを奪わない。リスト行は高優先 outlineKeymap(Prec.high)が消費し、非リスト行のみフォールバックが拾う優先順位。",
+      "rationale": "ユーザー要望『リスト外で Tab を押すとプロパティに飛ぶ→ふつうにタブを入れて』の直球解決。S9ab6c3 の AC-S9ab6c3-1-2『非リスト行では Tab を〈リストのインデント操作〉にしない』境界は維持(素のタブ挿入はリスト構造化ではない)。プロトタイプで両立を明示しユーザー承認済み。",
+      "tradeoff": "行頭 4 スペースが CommonMark のコードブロックになりうる点は『ふつうにタブ』要望に沿う既知の許容挙動(コードコメント明記)。既存 [AC-S9ab6c3-1-2] テストは挙動変更(フォーカス保持+独自記法非混入)を反映してより強いアサーションへ更新(弱体化ではない)。"
+    },
+    {
+      "id": "D-S6848dc-4",
+      "topic": "#1 折り返しぶら下げの実現方式",
+      "decision": "リスト行にライン装飾(--hang を ch 単位で付与)+ styles.css の .cm-line.cm-list-line に padding-inline-start / 負 text-indent を適用してぶら下げを実現。深さは先頭空白のカラムで自然にスケール。",
+      "rationale": "表示のみ(ピュア Markdown 不変)。.cm-scroller の padding-inline は触らず .cm-line スコープに閉じ、ブロックウィジェットの横スクロール破綻(既知の読取幅キャップ落とし穴)を回避。",
+      "tradeoff": "等幅フォント(--font-mono)前提の ch 単位。プロポーショナルフォントに切替えるとぶら下げ位置が微ずれし得るが現行仕様外。レイアウト回帰のため要ユーザー目視レビュー。"
+    },
+    {
+      "id": "D-S6848dc-5",
+      "topic": "#2 リスト内画像 — 現状確認による無改修",
+      "decision": "現 HEAD ではリスト項目内の ![](path) は既にインライン描画される(live-preview.ts の Image 装飾が構文木を context 非依存に走査し ListItem 内 Image も拾う。outline.ts の buildListDecorations は ListMark 範囲のみ replace で非重複=競合なし)。装飾ロジックは改修せず、回帰防止の Playwright テスト 3 件を追加して挙動を確定。",
+      "rationale": "二重管理を作らない(既に動くものを再実装しない)。独立 verifier が『真の失敗を pre-existing と正当化していないか』を敵対的に検証し、実際に描画されることを DOM 観測で確認(トートロジーでない回帰テスト)。ユーザー報告(表示されない)はより古い観測に基づく可能性。",
+      "tradeoff": "ユーザー報告時点の環境と現 HEAD の差分は不明。ユーザーの実機シナリオ(特定の添付パス等)での最終確認を milestone レビューに委ねる(user_review_required)。"
+    },
+    {
+      "id": "D-S6848dc-6",
+      "topic": "既存フレークテスト wikilink.mock:90 の決定化",
+      "decision": "make verify で 1 件失敗した wikilink.mock.spec.ts:90 を、Enter 選択→可視 create オプションの click に置換して決定化(隣接 app-error テストが既に採る確立パターン、コメントで backlog: wikilink.mock flaky と記録済み)。アサーションは不変。",
+      "rationale": "実証: 同テストは main でも 2/10 でフレークし(私のブランチも 1/5=同率)、playwright は workers:1 retries なし。本スプリントの変更(採番 listener は順序リスト以外で無処理・Tab フォールバックは Tab のみ)とは無関係の既存フレーク。憶測でなく main との flake 率比較で確認。verify ゲートを意味あるものにするため安定化。",
+      "tradeoff": "本スプリントのストーリー外のテストを 1 箇所触った(スコープ外だが必要・アサーション不変・既存パターン準拠)。修正版は x10 で 10/10 pass。"
+    },
+    {
+      "id": "D-S6848dc-7",
+      "topic": "実装の逐次実行(worktree 並列の回避)",
+      "decision": "全 6 ストーリーを worktree 並列ではなく、依存順(#5 採番→#3/#4/#6→#1/#2)で 1 件ずつ逐次実装・逐次コミットした。",
+      "rationale": "全ストーリーが outline.ts / styles.css を共有し、#3/#6 が #5 の採番純関数を再利用するため。worktree 並列は古い base 分岐によるマージ欠落(既知の落とし穴)を招く。各実装エージェントが全テストスイートを実行し回帰を即検知。"
+    },
+    {
+      "id": "D-S6848dc-8",
+      "topic": "#7 リモート自動競合マージのスプリント分離",
+      "decision": "④方向転換の #7 は本 milestone 境界の向こう(S2df65d)に分離し、ADR-0030(tentative)の受理を前提とする。本スプリントには含めない。",
+      "rationale": "DESIGN_PRINCIPLES priority2『競合制御は last-write-wins から始める』を更新する load-bearing 判断のため、設計ゲート(ADR)を先に通す。autopilot review で ④ と分類済み。ユーザーが方針(実装/見送り)を milestone で確定できる。"
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "sprint": "S6848dc",
+  "stopped_at": "milestone_S6848dc",
+  "verifier_ran": true,
+  "verifier_verdict": "pass_with_notes",
+  "verifier_note": "独立検証エージェント(読み取り専用)が git diff main...autopilot/main/S6848dc を敵対的に検証。全 6 ストーリーの AC を実充足(AC_met: yes)、禁止改変(test skip/assertion weakening/error swallow/type any/AC 削除)なし、規約違反(ピュア Markdown/TS strict/モバイル/エージェント統合義務)なし。#2『既に描画される』主張は真(live-preview.ts 未変更・回帰テストは非トートロジー)。#4/#5 のテスト変更は弱体化でなく仕様反映(より強いアサーション)と判定。",
+  "compromises": [
+    {
+      "id": "C-S6848dc-1",
+      "type": "test_stability",
+      "severity": "low",
+      "story": "(スコープ外・verify ゲート)",
+      "file": "packages/ui/tests/e2e/wikilink.mock.spec.ts:90",
+      "description": "make verify で 1 件だけ失敗した既存フレークテスト(Enter 選択のポップアップ直後タイミング競合)を、隣接 app-error テストが既に採る確立パターン(可視 create オプションの click)に置換して決定化。アサーションは不変。x10 で 10/10 pass。",
+      "rationale": "本スプリント無関係の既存フレーク。main でも 2/10 で再現(私のブランチも 1/5 で同率)、playwright は workers:1 retries なし。憶測でなく main との flake 率比較で確認。verify ゲートを意味あるものにするための安定化。",
+      "ac_impact": "本スプリントの AC には影響なし。触ったのは既存の他機能(wikilink)テスト 1 箇所のみ。",
+      "adr_ref": "none",
+      "overlooked_by_autopilot": false
+    },
+    {
+      "id": "C-S6848dc-2",
+      "type": "behavior_change",
+      "severity": "low",
+      "story": "S6848dc-4",
+      "file": "packages/ui/src/outline.ts",
+      "description": "非リスト行 Tab の挙動が S9ab6c3 の『フォーカス移動/無反応』から『素のタブ(4sp)挿入』へ変わる(ユーザー要望の直球対応)。AC-S9ab6c3-1-2 の『非リスト行でリスト構造化しない』境界は維持。既存 [AC-S9ab6c3-1-2] テストは新挙動(フォーカス保持+独自記法非混入)を反映して更新。",
+      "rationale": "ユーザー要望『リスト外で Tab を押すとプロパティに飛ぶ→ふつうにタブを入れて』。プロトタイプで両立を明示しユーザー承認済み。",
+      "ac_impact": "行頭 4 スペースが CommonMark のコードブロック化しうる点は既知の許容挙動(コードコメント明記)。実機での体験をユーザー確認推奨。",
+      "adr_ref": "none",
+      "overlooked_by_autopilot": false
+    },
+    {
+      "id": "C-S6848dc-3",
+      "type": "verification_gap",
+      "severity": "low",
+      "story": "S6848dc-2",
+      "file": "packages/ui/src/live-preview.ts",
+      "description": "#2 リスト内画像は現 HEAD で既に描画されるため装飾コードは無改修とし、回帰テスト 3 件のみ追加。ユーザー報告(表示されない)時点の環境と現 HEAD の差分は不明。",
+      "rationale": "既に動くものを再実装せず二重管理を避ける。独立 verifier が実描画を DOM 観測で確認済み。",
+      "ac_impact": "自動テストで DOM/レイアウトは検証済みだが、ユーザーの実機シナリオ(特定添付パス等)での最終確認が必要(user_review_required)。もし実機で依然表示されなければ Review Mode ① で具体的リプロと共に再オープン。",
+      "adr_ref": "none",
+      "overlooked_by_autopilot": false
+    }
+  ],
+  "blockers_encountered": [
+    {
+      "description": "初回 make verify で wikilink.mock:90 が 1 件フレーク失敗(exit 2)。既存フレークと実証(main 2/10)し決定化して解消、再 verify で解決。",
+      "resolved": true
+    }
+  ],
+  "scope_changes": [
+    {
+      "description": "スコープ外の既存フレークテスト wikilink.mock:90 を 1 箇所安定化(C-S6848dc-1)。",
+      "reason": "verify ゲートの green 化に必要、アサーション不変、既存パターン準拠。"
+    }
+  ]
+}
