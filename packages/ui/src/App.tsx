@@ -647,6 +647,16 @@ export function App(): JSX.Element {
                   (note) => {
                     // 再チェック: 取得完了後も同じノートが開かれているか確認
                     if (docRef.current?.path === changedPath && !dirtyRef.current) {
+                      // 自己エコー抑制 (S6848dc review fix): 自分の autosave が chokidar→SSE で
+                      // 戻ってきただけの場合、取得内容はエディタ現在値と一致する。setOpenDoc は
+                      // 常に resetToken を更新し CodeMirror を全リセットする (カーソルが先頭へ飛び
+                      // スクロールも失われる) ため、内容が同一なら再読込せずカーソル/スクロールを
+                      // 保持する。真の外部変更 (内容差あり) のときだけ再読込する。
+                      if (note.content === contentRef.current) {
+                        // mtime だけ最新化 (次回保存の baseMtime 競合検出用)
+                        if (docRef.current !== null) docRef.current = { ...docRef.current, mtime: note.mtime };
+                        return;
+                      }
                       setOpenDoc(note.path, note.content, note.mtime, note.frontmatter);
                     }
                   },

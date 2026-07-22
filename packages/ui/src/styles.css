@@ -533,6 +533,13 @@ a { color: var(--link); text-decoration: none; }
 .editor-host .cm-line.cm-list-line {
   padding-inline-start: calc(6px + var(--hang, 0ch));
   text-indent: calc(-1 * var(--hang, 0ch));
+  /* S6848dc-1 fix: スペースなしの長い連続トークン (URL・英字列など) が、リストマーカー widget +
+     先頭スペース + break-spaces の折返し挙動により「マーカーだけ 1 行目・トークンは次行送り」に
+     なる不具合を防ぐ。break-all で任意文字位置に折り返し、トークンをマーカー行から流し始める
+     (overflow-wrap:anywhere だけでは 1 文字残りで次行送りになるため break-all を使う)。
+     実機計測: firstLineTokenWidth 8px→638px でマーカー行に収まることを確認。 */
+  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 .editor-host .cm-activeLine { background: var(--editor-active-line); }
 .editor-host .cm-cursor { border-left-color: var(--accent); border-left-width: 1.5px; }
