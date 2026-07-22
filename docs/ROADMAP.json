@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "S6848dc",
+    "current_sprint": null,
     "total": 57,
-    "done": 55,
+    "done": 56,
     "in_progress": 0,
-    "remaining": 2,
-    "percentage": 96
+    "remaining": 1,
+    "percentage": 98
   },
   "execution_order": [
     "Sd63ad1",
@@ -8474,13 +8474,13 @@
       "title": "エディタ/リスト修正まとめ 3 — リスト折返しぶら下げ / リスト内画像 / 複数行Tab / リスト外Tab / 番号採番 / リストタイプ変換",
       "description": "実機フィードバックの 6 点(リスト編集/表示)を一括修正する。(1) リスト項目の折り返し行を左端でなく前行のテキスト開始位置にそろえる(ぶら下げインデント)。(2) リスト内に埋め込んだ画像 ![](...) を表示する。(3) 複数行を選択して Tab / Shift+Tab でまとめてレベル変更。(4) リスト外で Tab を押したときフォーカスをプロパティ欄へ奪われず通常のタブ挿入にする。(5) 番号付きリストのインデントで子が 1. から採番されるよう修正(現状 1. の下が 2. になる)。(6) 箇条書き⇄番号付きリストの一括変換手段(Ctrl-K 統一パレット + Ctrl+Shift+7/8 ショートカット、他アプリ=Google Docs/Word 慣例参照)。制約: ピュア Markdown 絶対(表示はデコレーション/CSS、採番・変換は実ファイルの Markdown 書き換えでブロックID等を足さない) / TS strict(any 禁止) / モバイルレスポンシブ(44px, @media max-width:680px) / Markdown 採番・変換ロジックはユニットテスト必須 / 変換機能はエージェント操作ツール+agent-help+機能ガイド更新(ADR-0016 監査済みサービス層経由, ADR-0019 Ctrl-K パレット)。実装注意: 全ストーリーが outline.ts(リスト keymap/デコレーション)を共有するため worktree 並列でなく逐次実行。採番ロジック(5)は複数行Tab(3)とリスト変換(6)で共有する。",
       "milestone": true,
-      "status": "partial",
+      "status": "done",
       "depends_on": null,
       "detail_level": "detailed",
       "stories": {
         "S6848dc-1": {
           "title": "リスト折り返し行のぶら下げインデント(前行のテキスト開始位置にそろえる)",
-          "status": "needs_user_review",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": true,
           "review_reason": "折り返し表示のレイアウト回帰。ぶら下げ揃えの見え方(深さごとの位置)を実機で確認する必要がある。",
@@ -8538,11 +8538,12 @@
               "description": ".cm-list-line に word-break:break-all(実機計測 8px→638px でマーカー行に収まる)",
               "status": "done"
             }
-          }
+          },
+          "user_reviewed": "2026-07-22 (ユーザー承認: マージ指示)"
         },
         "S6848dc-2": {
           "title": "リスト項目内に埋め込んだ画像を表示する",
-          "status": "needs_user_review",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": true,
           "review_reason": "リスト内の画像レンダリングの見た目・ライブプレビュー切替を実機で確認する必要がある。",
@@ -8605,7 +8606,8 @@
               "description": "App.tsx handleSseNotesChanged: 取得内容==現在値なら再読込せずカーソル保持。回帰テスト追加",
               "status": "done"
             }
-          }
+          },
+          "user_reviewed": "2026-07-22 (ユーザー承認: マージ指示)"
         },
         "S6848dc-3": {
           "title": "複数行選択で Tab / Shift+Tab によるレベル一括変更",
@@ -8775,7 +8777,7 @@
         },
         "S6848dc-6": {
           "title": "リストタイプの一括変換(箇条書き ⇄ 番号付き)— Ctrl-K パレット + ショートカット + エージェントツール",
-          "status": "needs_user_review",
+          "status": "done",
           "story_type": "gui",
           "user_review_required": true,
           "review_reason": "新しいコマンド/ショートカットの UX。変換操作の発見性・複数行選択時の挙動を実機で確認する必要がある。",
@@ -8839,7 +8841,8 @@
               "description": "変換ロジックの unit と UI の e2e を追加。",
               "status": "done"
             }
-          }
+          },
+          "user_reviewed": "2026-07-22 (ユーザー承認: マージ指示)"
         }
       },
       "corrections": [
