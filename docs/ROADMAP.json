@@ -8532,6 +8532,11 @@
               "title": "レスポンシブ確認とテスト",
               "description": "モバイル/タブレット/デスクトップで確認し、折り返しぶら下げの回帰テストを追加。",
               "status": "done"
+            },
+            "S6848dc-1-fix-1": {
+              "title": "長トークン折返し修正",
+              "description": ".cm-list-line に word-break:break-all(実機計測 8px→638px でマーカー行に収まる)",
+              "status": "done"
             }
           }
         },
@@ -8588,6 +8593,16 @@
             "S6848dc-2-3": {
               "title": "テストとレスポンシブ",
               "description": "リスト内画像のテストを追加、モバイル表示を確認。list-image.mock.spec.ts を新規追加(箇条書き/番号付き/ネスト描画・カーソル切替・モバイル非オーバーフローを検証)。",
+              "status": "done"
+            },
+            "S6848dc-2-fix-1": {
+              "title": "インライン ![[image]] 画像描画",
+              "description": "live-preview.ts に WIKILINK_RE 前の埋め込みスキャン追加、画像拡張子を renderImageEmbed で描画。wiki記法テスト追加",
+              "status": "done"
+            },
+            "S6848dc-2-fix-2": {
+              "title": "(既存不具合)SSE自己エコーのカーソル飛び抑制",
+              "description": "App.tsx handleSseNotesChanged: 取得内容==現在値なら再読込せずカーソル保持。回帰テスト追加",
               "status": "done"
             }
           }
@@ -8826,7 +8841,15 @@
             }
           }
         }
-      }
+      },
+      "corrections": [
+        {
+          "type": "reopen",
+          "milestone": "S6848dc",
+          "ref": "docs/sprint-logs/S6848dc/reopen.json",
+          "note": "実機レビューで #1 長トークン折返し / #2 SSE自己エコーのカーソル飛び(既存) / #3 インライン![[image]]未描画 の3件を修正・実機再確認"
+        }
+      ]
     },
     "S2df65d": {
       "title": "リモート変更時の編集競合を 3-way 自動マージ(ADR-0030)",
