@@ -47,7 +47,13 @@ import {
   type RenderContext,
   type RenderEnv,
 } from './registries.js';
-import { renderImageEmbed } from './renderers/embed.js';
+import {
+  embedExtensionOf,
+  IMAGE_EXTENSIONS,
+  parseEmbedTarget,
+  renderImageEmbed,
+  resolveEmbedFilePath,
+} from './renderers/embed.js';
 import { renderMarkdownTable, TABLE_CELL_FOCUS_EVENT } from './renderers/table.js';
 import {
   PROPS_FOCUS_EVENT,
@@ -841,6 +847,16 @@ class BodyTagWidget extends WidgetType {
 
 const WIKILINK_RE = /\[\[([^[\]|]+)(?:\|([^[\]]+))?\]\]/g;
 
+/**
+ * インライン ![[target]] wiki 埋め込み (S6848dc-2 review)。
+ * テキスト混在行 (リスト項目・段落) の ![[image.png]] を画像として描くために、
+ * WIKILINK_RE より前に走査する。範囲は先頭 `!` から末尾 `]]` まで。
+ * m[1] = target (#section / |alias を含む生ターゲット)。
+ * 内側の [[...]] を WIKILINK_RE が拾って赤い broken リンクにするのを防ぐため、
+ * 検出範囲は claimed / codeClaims の両方へ push する (呼び出し側の責務)。
+ */
+const INLINE_EMBED_RE = /!\[\[([^[\]|]+(?:\|[^[\]]+)?)\]\]/g;
+
 interface ClaimedRange {
   from: number;
   to: number;
@@ -868,6 +884,14 @@ function buildInlineDecorations(view: EditorView): DecorationSet {
     if (target.length === 0) return notePath; // [[#見出し]] は同一ノート内
     return resolveLinkTarget(target, vaultPaths);
   };
+  // インライン ![[image]] の basename → 実パス解決に使う RenderContext。
+  // block 側 (buildBlockDecorations) と同じ添付一覧 (getFiles) を参照する。
+  const embedEnv: RenderEnv = {
+    getNotePaths: () => vaultPaths,
+    openNote: (path) => wikilinkEnv?.openNote(path),
+    getFiles: () => wikilinkEnv?.getFiles?.() ?? null,
+  };
+  const embedCtx: RenderContext = { notePath, env: embedEnv, embedChain: [notePath] };
   /**
    * 装飾を一切適用しない範囲 (コードスパン・fence・autolink)。
    * [[リンク]] はこのリストだけを避ける — lezer は [[x]] の内側 [x] を
@@ -970,6 +994,42 @@ function buildInlineDecorations(view: EditorView): DecorationSet {
     for (let n = firstLine; n <= lastLine; n++) {
       if (active.has(n) || fenceLines.has(n)) continue;
       const line = doc.line(n);
+
+      // ---- インライン ![[image]] wiki 埋め込み (S6848dc-2 review) ----
+      // WIKILINK_RE より前に走査し、画像拡張子なら画像として描画する。
+      // active 行 (カーソル行) は上の continue で既に除外されているため、
+      // ここに来るのは非アクティブ行だけ = 常に装飾表示 (ソースはカーソル行で見える)。
+      // 検出範囲を claimed / codeClaims 両方へ push して、後続の WIKILINK_RE と
+      // inline ルールが内側 [[...]] を broken リンクとして再処理するのを防ぐ。
+      INLINE_EMBED_RE.lastIndex = 0;
+      let em: RegExpExecArray | null;
+      while ((em = INLINE_EMBED_RE.exec(line.text)) !== null) {
+        if (em[0].length === 0) break; // 無限ループ防止
+        const from = line.from + em.index;
+        const to = from + em[0].length;
+        // codeClaims (コードスパン・fence・標準 ![](url) 画像) のみ避ける。
+        // claimed は避けない: lezer が ![[x]] 内側の [x] を Link と解釈して claimed へ
+        // 積むため (WIKILINK_RE と同じ理由)。ここで claimed を見ると常に skip される。
+        if (overlaps(codeClaims, from, to)) continue;
+        const rawTarget = em[1] ?? '';
+        const { target, alias } = parseEmbedTarget(rawTarget);
+        const ext = embedExtensionOf(target);
+        // 画像拡張子のみ描画する。非画像 (![[note]] 等) は装飾せずフォールスルーし、
+        // 従来挙動 (WIKILINK_RE / inline ルール) に委ねる — 壊さないことを優先 (要件2)。
+        if (ext === null || !(IMAGE_EXTENSIONS as readonly string[]).includes(ext)) continue;
+        // basename は添付一覧で実パスへ解決 (未ロード時は書かれたパスをそのまま使う)。
+        const resolved = resolveEmbedFilePath(target, embedCtx);
+        const src = em[0];
+        const captionAlt = alias ?? '';
+        decos.push(
+          Decoration.replace({
+            widget: new InlineRuleWidget(src, () => renderImageEmbed(resolved, captionAlt)),
+          }).range(from, to),
+        );
+        // 内側 [[...]] を後続走査から守る (claimed → inline ルール / codeClaims → WIKILINK_RE)。
+        claimed.push({ from, to });
+        codeClaims.push({ from, to });
+      }
 
       WIKILINK_RE.lastIndex = 0;
       let m: RegExpExecArray | null;

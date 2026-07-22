@@ -201,8 +201,10 @@ test('[MOCK] コードフェンス・インラインコード内の [[リンク]
   expect(unexpected).toEqual([]);
 });
 
-test('[MOCK] 非 Markdown ターゲット ([[image.png]]) の壊れリンクはクリックしてもノートを作成しない', async ({ page }) => {
-  const unexpected = await openApp(page, '添付 ![[image.png]] を参照。\n\nアンカー行。\n', 'アンカー行');
+test('[MOCK] 非 wiki 埋め込みの [[image.png]] (! 無し) は壊れリンク扱い (ノートとして未解決)', async ({ page }) => {
+  // ! を伴わない裸の [[image.png]] は埋め込みではなく通常 wikilink。
+  // 拡張子付き = 非 Markdown ターゲットで未解決なので壊れ表示 (クリックで作成しない)。
+  const unexpected = await openApp(page, '添付 [[image.png]] を参照。\n\nアンカー行。\n', 'アンカー行');
 
   await editorLine(page, 'アンカー行').click();
   const broken = page.getByTestId('wikilink-broken');
