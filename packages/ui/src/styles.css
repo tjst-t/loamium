@@ -543,8 +543,14 @@ a { color: var(--link); text-decoration: none; }
 }
 .editor-host .cm-activeLine { background: var(--editor-active-line); }
 .editor-host .cm-cursor { border-left-color: var(--accent); border-left-width: 1.5px; }
-.editor-host .cm-selectionBackground,
-.editor-host .cm-editor ::selection { background: var(--editor-selection) !important; }
+.editor-host .cm-selectionBackground { background: var(--editor-selection) !important; }
+/* 複数行選択が「各行文字幅でガタガタ・左右不揃い」に見える不具合の修正。
+   drawSelection() は中間行を全幅で塗る矩形 (.cm-selectionBackground) を描くが、
+   ネイティブ ::selection を !important で塗ると、ソース表示行 (選択範囲は activeLines で
+   ソースになる) の文字幅ネイティブ選択が全幅矩形の上に重なり、階段状に見えてしまう。
+   エディタ内のネイティブ選択を透明にして drawSelection の全幅ハイライトへ一本化する
+   (実機 CDP で全幅の一枚ブロックになることを確認)。 */
+.editor-host .cm-editor ::selection { background: transparent !important; }
 
 /* markdown ソース装飾 (見出し等の軽い強調 — ライブプレビューは S9ab6c3) */
 .editor-host .cm-md-heading { font-weight: 700; }
