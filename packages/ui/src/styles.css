@@ -524,6 +524,16 @@ a { color: var(--link); text-decoration: none; }
   caret-color: var(--accent);
 }
 .editor-host .cm-line { padding: 0 6px; border-radius: 4px; }
+/* S6848dc-1: リスト行の折り返しぶら下げインデント。--hang はぶら下げ量 (本文開始カラム,
+   ch 単位) を outline.ts のライン装飾が inline style で渡す。padding-inline-start で
+   本文開始位置まで字下げし、text-indent で 1 行目だけ元位置 (マーカー先頭) へ引き戻す。
+   → 1 行目はマーカーから、折り返し 2 行目以降は本文開始位置 (--hang) にそろう。
+   cm-line スコープに閉じるため .cm-scroller のジオメトリは乱さない (block widget 横スクロール回避)。
+   既存の左パディング 6px は維持する (padding は個別プロパティで上書き)。 */
+.editor-host .cm-line.cm-list-line {
+  padding-inline-start: calc(6px + var(--hang, 0ch));
+  text-indent: calc(-1 * var(--hang, 0ch));
+}
 .editor-host .cm-activeLine { background: var(--editor-active-line); }
 .editor-host .cm-cursor { border-left-color: var(--accent); border-left-width: 1.5px; }
 .editor-host .cm-selectionBackground,

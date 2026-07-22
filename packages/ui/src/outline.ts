@@ -1402,6 +1402,99 @@ function makeListDecoPlugin(vocab: TaskVocabRequired): Extension {
   );
 }
 
+// ---- リスト折り返しのぶら下げインデント (S6848dc-1) -------------------------
+// lineWrapping 環境でリスト行の 2 行目以降を「マーカー直後のテキスト開始位置」に
+// そろえる。ファイルは書き換えず (ピュア Markdown 不変)、リスト行 (cm-line) スコープの
+// ライン装飾で padding-inline-start + 負の text-indent を与える (`.cm-scroller` の
+// padding-inline は触らない — block widget の横スクロール前例を回避)。
+//
+// ぶら下げ量 (--hang) は「アイテム本文の開始カラム」を ch 単位で表す。等幅フォント
+// (var(--font-mono)) なので 1ch = ソース 1 カラム幅。深さ (先頭インデント) はソースの
+// 先行空白としてカラムに含まれるため、ネストが深いほど --hang が自然に大きくなる (AC-2)。
+
+/**
+ * リスト行のアイテム本文が始まるカラム (0 始まり) を返す。
+ * = 先頭空白 (ネストのインデント) + ListMark + マーク直後の空白。
+ * ListMark が見つからなければ null (リスト行でない)。
+ */
+function listHangColumns(state: EditorState, node: SyntaxNode, line: Line): number | null {
+  let markTo = -1;
+  const cur = node.cursor();
+  if (cur.firstChild()) {
+    do {
+      if (cur.name === 'ListMark') {
+        markTo = cur.to;
+        break;
+      }
+    } while (cur.nextSibling());
+  }
+  if (markTo < 0) return null;
+  // マーク直後の空白 (通常 1 個) を本文開始まで含める。
+  const afterMark = state.doc.sliceString(markTo, line.to);
+  const gap = /^[ \t]*/.exec(afterMark)?.[0].length ?? 0;
+  return markTo + gap - line.from;
+}
+
+/**
+ * リスト行に「ぶら下げ量」を CSS 変数 (--hang) として渡すライン装飾を構築する。
+ * 実際の padding-inline-start / text-indent 適用は styles.css (.cm-list-line) 側。
+ * カーソル行 (ソース表示中) も含めて適用してよい — ソース行はマーカーがそのまま
+ * 見えるが、折り返しがテキスト開始位置にそろうのは装飾表示と同じく望ましい。
+ */
+function buildListHangDecorations(view: EditorView): DecorationSet {
+  const deco: ReturnType<Decoration['range']>[] = [];
+  const state = view.state;
+  const seen = new Set<number>();
+  for (const { from, to } of view.visibleRanges) {
+    syntaxTree(state).iterate({
+      from,
+      to,
+      enter(node) {
+        if (node.name !== 'ListItem') return;
+        const line = state.doc.lineAt(node.from);
+        // 同一行に対する ListItem は 1 回だけ (ネストの祖先/子で重複しないよう先頭行で判定)
+        if (seen.has(line.number)) return;
+        const cols = listHangColumns(state, node.node, line);
+        if (cols === null || cols <= 0) return;
+        seen.add(line.number);
+        deco.push(
+          Decoration.line({
+            class: 'cm-list-line',
+            attributes: { style: `--hang: ${String(cols)}ch` },
+          }).range(line.from),
+        );
+      },
+    });
+  }
+  // ライン装飾は from 昇順で並べる (visibleRanges は昇順なので push 順で概ね整列するが、
+  // ネストにより同一 from に複数 ListItem enter するケースを seen で 1 本化済み)。
+  deco.sort((a, b) => a.from - b.from);
+  return Decoration.set(deco);
+}
+
+function makeListHangPlugin(): Extension {
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet;
+
+      constructor(view: EditorView) {
+        this.decorations = buildListHangDecorations(view);
+      }
+
+      update(update: ViewUpdate): void {
+        if (
+          update.docChanged ||
+          update.viewportChanged ||
+          syntaxTree(update.state) !== syntaxTree(update.startState)
+        ) {
+          this.decorations = buildListHangDecorations(update.view);
+        }
+      }
+    },
+    { decorations: (v) => v.decorations },
+  );
+}
+
 // ---- 見出し折りたたみ (Sb6f1d3-1) ------------------------------------------
 // セッションのみ有効: fold 状態は EditorState に保持され、EditorState.create で
 // 消去される (ノート切替時にリセット)。localStorage/IndexedDB への永続化は一切行わない。
@@ -1575,5 +1668,7 @@ export function outlineExtension(): Extension {
     tabFallbackKeymap,
     renumberListener,
     plugin,
+    // S6848dc-1: 折り返し 2 行目以降を本文開始位置にそろえるぶら下げインデント (表示のみ)
+    makeListHangPlugin(),
   ];
 }
