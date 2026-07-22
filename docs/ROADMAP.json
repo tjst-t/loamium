@@ -9374,6 +9374,14 @@
       "kind": "feature",
       "status": "open",
       "from_sprint": "S1b4e8f"
+    },
+    {
+      "title": "テスト安定化: playwright mock の retries 設定 or 既存フレーク根治(wikilink.mock:90 他)",
+      "kind": "chore",
+      "description": "playwright は workers:1 retries:0 のため単一フレークで make verify 全体が赤になる。wikilink.mock:90 は Enter 選択のポップアップ直後タイミング競合で main でも ~2/10 再現(S6848dc で当該1件は click 化で決定化済み)。retries 設定 or 他フレークの根治で verify ゲートの信頼性を上げる。",
+      "added_in": "S6848dc",
+      "reason": "S6848dc verify で顕在化。本スプリント無関係の既存フレーク・CI 安定性の技術的負債。",
+      "status": "pending"
     }
   ]
 }
