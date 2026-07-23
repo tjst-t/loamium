@@ -20,6 +20,8 @@ import {
   noteTitle,
   shiftJournalDate,
   todayJournalDate,
+  diff3Merge,
+  type ConflictHunk,
   type FileMeta,
   type NoteMeta,
   type PermissionMode,
@@ -58,6 +60,7 @@ import { JournalNav } from './components/JournalNav.js';
 import { RightSidebar } from './components/RightSidebar.js';
 import { ContextMenu } from './components/ContextMenu.js';
 import { ConflictDialog, DeleteDialog, DeleteFolderDialog, NameDialog } from './components/dialogs.js';
+import { ConflictResolverDialog } from './components/ConflictResolverDialog.js';
 import { MoveDialog } from './components/MoveDialog.js';
 import { NewNoteDialog } from './components/NewNoteDialog.js';
 import { SearchPalette } from './components/SearchPalette.js';
@@ -112,6 +115,26 @@ interface OpenDoc {
    * settings.yaml / smart-folders/*.yaml 等はこの経路で扱う。
    */
   isSystemSource: boolean;
+  /**
+   * 3-way マージ用の共通祖先 (S2df65d-1 / ADR-0030)。
+   * 最後にサーバーから取得したリモート内容。エディタセッション内揮発のみ (ファイルに書かない)。
+   * setOpenDoc 呼び出し時 (初回ロード・非 dirty 自動リロード) に content をコピーして記録する。
+   */
+  baseMd: string;
+}
+
+/** 3-way 競合ダイアログの状態 (S2df65d-1) */
+interface ConflictResolverState {
+  /** 競合が発生したノートのパス */
+  path: string;
+  /** theirs の取得時の mtime (PUT の baseMtime に使う) */
+  theirsMtime: number;
+  /** theirs (新しいリモート内容) */
+  theirs: string;
+  /** diff3Merge の結果: マージ済みテキスト (競合プレースホルダー込み) */
+  merged: string;
+  /** 競合ハンク一覧 */
+  conflicts: ConflictHunk[];
 }
 
 type DialogState =
@@ -291,6 +314,16 @@ export function App(): JSX.Element {
   const [dirty, setDirty] = useState(false);
   const [appError, setAppError] = useState<string | null>(null);
   const [conflictPath, setConflictPath] = useState<string | null>(null);
+  /** 3-way 競合ダイアログの状態 (S2df65d-1 / ADR-0030) */
+  const [conflictResolver, setConflictResolver] = useState<ConflictResolverState | null>(null);
+  /** IME 合成中フラグ (日本語入力中に SSE が来ても待機するため) */
+  const composingRef = useRef(false);
+  /** IME 合成中に来た SSE のキュー (合成完了後に処理する) */
+  const pendingSseRef = useRef<Array<{ path: string; op: 'upsert' | 'delete' }>>([]);
+  /** 競合ダイアログ表示中に来た SSE のキュー (ダイアログ閉後に再マージする) */
+  const conflictQueueRef = useRef<Array<{ path: string; op: 'upsert' | 'delete' }>>([]);
+  /** ConflictResolverDialog が現在表示中かどうかの ref (キュー処理判定用) */
+  const conflictResolverOpenRef = useRef(false);
 
   // ---- ルーティング (Sf1a90a-1) ----
   const [route, setRoute] = useState<Route>({ kind: 'home' });
@@ -347,6 +380,15 @@ export function App(): JSX.Element {
   const savingRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resetCounterRef = useRef(0);
+  /**
+   * 最後に PUT 成功した内容のスナップショット (自己エコー抑制に使う — S2df65d regression fix)。
+   *
+   * saveNow() が PUT 成功したとき、送信した text を記録する。
+   * SSEハンドラで note.content がこの値と一致する場合は「自分の書き込みのエコー」と判断し
+   * 3-way マージも競合ダイアログも起動しない。これにより、連続プロパティ編集など
+   * 「保存後に次の編集が始まった状態でSSEが来る」ケースでも正しく抑制できる。
+   */
+  const lastSavedContentRef = useRef<string | null>(null);
   docRef.current = doc;
   previewRef.current = preview;
 
@@ -507,7 +549,14 @@ export function App(): JSX.Element {
           ? await api.putSystemFileSource(d.path, text, base)
           : await api.putNote(d.path, text, base);
         markSaved(d.path, res.mtime);
-        if (docRef.current !== null) docRef.current = { ...docRef.current, mtime: res.mtime };
+        // 保存成功: mtime と baseMd を最新化し、自己エコー抑制用に保存内容を記録する。
+        // baseMd = 保存した text にすることで次の PUT の 3-way base が正しく設定される。
+        // lastSavedContentRef は SSE ハンドラが「自分の書き込みのエコー」を判定するのに使う
+        // (S2df65d regression fix: contentRef が次の編集で変わっていてもエコー抑制できる)。
+        if (docRef.current !== null) {
+          docRef.current = { ...docRef.current, mtime: res.mtime, baseMd: text };
+        }
+        lastSavedContentRef.current = text;
         if (contentRef.current === text) {
           dirtyRef.current = false;
           setDirty(false);
@@ -584,9 +633,12 @@ export function App(): JSX.Element {
         resetToken: resetCounterRef.current,
         frontmatter,
         isSystemSource: opts?.isSystemSource ?? false,
+        baseMd: text, // 3-way マージ用: 最後に取得したリモート内容を記録 (S2df65d-1)
       };
       contentRef.current = text;
       dirtyRef.current = false;
+      // 新規ノートオープン時は lastSavedContentRef をリセット (別ノートのエコー誤抑制を防ぐ)
+      lastSavedContentRef.current = null;
       docRef.current = next;
       setDoc(next);
       setDirty(false);
@@ -598,96 +650,184 @@ export function App(): JSX.Element {
   // ---- SSE イベント処理 (Sd5c9f4-4) -------------------------------------------
   // pushToast / setOpenDoc の後に定義 (Story 6 で両方を依存に取るため)。
 
-  /** SSE notes_changed: upsert→getNoteMeta で 1 件差分更新、delete→filter 除去。
+  /**
+   * SSE notes_changed の内部処理本体 (S2df65d-1 / ADR-0030)。
    *
-   * Story 6: upsert かつ changedPath が現在開いているノートのパスに一致するとき、
-   * エディタ本文を最新内容へ自動更新する。
-   * - dirty でない(未編集)の場合: 自動で本文を差し替える。スクロール/カーソル位置は
-   *   CodeMirror の setOpenDoc が resetToken を変更し CodeMirror のリセットが走るため
-   *   トップに戻る(現状の loadNote と同じ挙動)。
-   * - dirty(編集中)の場合: ユーザーの未保存編集を破棄しないためトーストで通知して保留。
-   *   リモート更新があったことを伝え、ユーザーが明示的に保存 or 破棄を選べる。
+   * - 非 dirty: 従来どおり自動リロード (自己エコー抑制維持)
+   * - dirty + 非競合: diff3Merge → CM Transaction でカーソル保持しつつ自動反映
+   * - dirty + 競合あり: ConflictResolverDialog を開く
+   * - 自己エコー抑制 (S6848dc review fix): contentRef と一致する場合は mtime のみ更新
    */
-  const handleSseNotesChanged = useCallback(
+  const handleSseNotesChangedCore = useCallback(
     (changedPath: string, op: 'upsert' | 'delete'): void => {
       if (op === 'delete') {
         setNotes((prev) => {
           if (prev === null) return prev;
           return prev.filter((n) => n.path !== changedPath);
         });
-      } else {
-        // upsert: getNoteMeta で最新情報を取得し NoteMeta へ変換してマージ
-        api.getNoteMeta(changedPath).then(
-          (meta) => {
-            // NoteMetaResponse → NoteMeta 変換 (folder/title を path から導出)
-            const folder = changedPath.includes('/')
-              ? changedPath.slice(0, changedPath.lastIndexOf('/'))
-              : '';
-            const noteMeta: NoteMeta = {
-              path: changedPath,
-              title: noteTitle(changedPath),
-              tags: meta.tags,
-              folder,
-              mtime: meta.mtime,
-            };
-            setNotes((prev) => {
-              if (prev === null) return [noteMeta];
-              const idx = prev.findIndex((n) => n.path === changedPath);
-              let next: NoteMeta[];
-              if (idx >= 0) {
-                next = prev.map((n, i) => (i === idx ? noteMeta : n));
-              } else {
-                next = [...prev, noteMeta];
-              }
-              // パス昇順を維持
-              return next.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-            });
-
-            // Story 6: 現在開いているノートの場合、エディタ本文も更新する。
-            if (docRef.current?.path === changedPath && previewRef.current === null) {
-              if (dirtyRef.current) {
-                // 編集中: 未保存編集を破棄しないためトーストで通知する (安全側)。
-                // ユーザーは保存 (Ctrl+S) または「破棄して再読み込み」で対応できる。
-                pushToast({
-                  kind: 'error',
-                  title: 'リモート変更があります',
-                  sub: `${changedPath} がエージェントによって更新されました。保存または破棄してから再読み込みしてください。`,
-                });
-              } else {
-                // 未編集: エディタ本文を自動更新する。
-                api.getNote(changedPath).then(
-                  (note) => {
-                    // 再チェック: 取得完了後も同じノートが開かれているか確認
-                    if (docRef.current?.path === changedPath && !dirtyRef.current) {
-                      // 自己エコー抑制 (S6848dc review fix): 自分の autosave が chokidar→SSE で
-                      // 戻ってきただけの場合、取得内容はエディタ現在値と一致する。setOpenDoc は
-                      // 常に resetToken を更新し CodeMirror を全リセットする (カーソルが先頭へ飛び
-                      // スクロールも失われる) ため、内容が同一なら再読込せずカーソル/スクロールを
-                      // 保持する。真の外部変更 (内容差あり) のときだけ再読込する。
-                      if (note.content === contentRef.current) {
-                        // mtime だけ最新化 (次回保存の baseMtime 競合検出用)
-                        if (docRef.current !== null) docRef.current = { ...docRef.current, mtime: note.mtime };
-                        return;
-                      }
-                      setOpenDoc(note.path, note.content, note.mtime, note.frontmatter);
-                    }
-                  },
-                  (err: unknown) => {
-                    console.error('[loamium] SSE auto-reload getNote failed:', err);
-                  },
-                );
-              }
-            }
-          },
-          (err: unknown) => {
-            // getNoteMeta 失敗時は全件再取得にフォールバック
-            console.error('[loamium] SSE notes_changed getNoteMeta failed:', err);
-            void refreshNotes();
-          },
-        );
+        return;
       }
+
+      // upsert: getNoteMeta で最新情報を取得し NoteMeta へ変換してマージ
+      api.getNoteMeta(changedPath).then(
+        (meta) => {
+          // NoteMetaResponse → NoteMeta 変換 (folder/title を path から導出)
+          const folder = changedPath.includes('/')
+            ? changedPath.slice(0, changedPath.lastIndexOf('/'))
+            : '';
+          const noteMeta: NoteMeta = {
+            path: changedPath,
+            title: noteTitle(changedPath),
+            tags: meta.tags,
+            folder,
+            mtime: meta.mtime,
+          };
+          setNotes((prev) => {
+            if (prev === null) return [noteMeta];
+            const idx = prev.findIndex((n) => n.path === changedPath);
+            let next: NoteMeta[];
+            if (idx >= 0) {
+              next = prev.map((n, i) => (i === idx ? noteMeta : n));
+            } else {
+              next = [...prev, noteMeta];
+            }
+            // パス昇順を維持
+            return next.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+          });
+
+          // 現在開いているノートの場合、エディタ本文も更新する。
+          if (docRef.current?.path === changedPath && previewRef.current === null) {
+            if (!dirtyRef.current) {
+              // 未編集: エディタ本文を自動更新する (従来の挙動を維持)。
+              api.getNote(changedPath).then(
+                (note) => {
+                  if (docRef.current?.path === changedPath && !dirtyRef.current) {
+                    // 自己エコー抑制 (S6848dc review fix): 自分の autosave が chokidar→SSE で
+                    // 戻ってきただけの場合、取得内容はエディタ現在値と一致する。
+                    if (note.content === contentRef.current) {
+                      // mtime だけ最新化 (次回保存の baseMtime 競合検出用)
+                      if (docRef.current !== null) {
+                        docRef.current = { ...docRef.current, mtime: note.mtime, baseMd: note.content };
+                      }
+                      return;
+                    }
+                    setOpenDoc(note.path, note.content, note.mtime, note.frontmatter);
+                  }
+                },
+                (err: unknown) => {
+                  console.error('[loamium] SSE auto-reload getNote failed:', err);
+                },
+              );
+            } else {
+              // dirty (編集中): 3-way マージを実行する (S2df65d-1 / ADR-0030)
+              api.getNote(changedPath).then(
+                (note) => {
+                  // 再チェック: 取得完了後も同じノートが開かれており dirty か確認
+                  const currentDoc = docRef.current;
+                  if (currentDoc?.path !== changedPath || !dirtyRef.current) return;
+
+                  // 自己エコー抑制: 自分の書き込みが SSE で戻ってきた場合。
+                  // (1) contentRef と一致: まだ次の編集が始まっていない場合
+                  // (2) lastSavedContentRef と一致: 保存後に次の編集が始まっていても
+                  //     「自分が保存した内容のエコー」として正しく抑制できる
+                  //     (S2df65d regression fix: プロパティ連続編集など全書き込み経路をカバー)
+                  if (
+                    note.content === contentRef.current ||
+                    note.content === lastSavedContentRef.current
+                  ) {
+                    if (docRef.current !== null) {
+                      docRef.current = { ...docRef.current, mtime: note.mtime, baseMd: note.content };
+                    }
+                    return;
+                  }
+
+                  const base = currentDoc.baseMd;
+                  const oursContent = contentRef.current;
+                  const theirs = note.content;
+
+                  const result = diff3Merge(base, oursContent, theirs);
+
+                  if (result.conflicts.length === 0) {
+                    // 非競合: CM Transaction でカーソル保持しつつ自動反映。
+                    //
+                    // 【設計注記 (review fix / D-S2df65d-NC-autosave)】
+                    // view.dispatch() は Editor の suppressRef を経由しないため、
+                    // updateListener → onEditorChange → autosave タイマーが発火する。
+                    // これは意図した仕様 (方針B):
+                    //   - マージ結果は autosave (AUTOSAVE_DEBOUNCE_MS 後) によって自動保存される
+                    //   - baseMd を note.mtime と theirs に更新しているため次回 PUT で 409 は起きない
+                    //   - ユーザー編集はマージ結果に含まれており失われない (AC-S2df65d-1-1 充足)
+                    // SC-2 postcondition: 「自動統合後 autosave によりマージ結果が保存される」
+                    const view = editorViewRef.current;
+                    if (view !== null) {
+                      const currentText = view.state.doc.toString();
+                      if (currentText !== result.merged) {
+                        view.dispatch(
+                          view.state.update({
+                            changes: { from: 0, to: view.state.doc.length, insert: result.merged },
+                            // カーソル位置は CM が保持 (selection は変更しない)
+                          }),
+                        );
+                        // onEditorChange が発火するため contentRef は updateListener 経由で更新される。
+                        // ただし非同期の競合を防ぐため先行して同期更新もしておく。
+                        contentRef.current = result.merged;
+                      }
+                    } else {
+                      // EditorView が未初期化の場合は contentRef を直接更新
+                      contentRef.current = result.merged;
+                    }
+                    // baseMd を theirs に更新 (次回リモート変更への対応 + autosave 時に 409 を起こさない)
+                    if (docRef.current !== null) {
+                      docRef.current = { ...docRef.current, mtime: note.mtime, baseMd: theirs };
+                    }
+                  } else {
+                    // 競合あり: ConflictResolverDialog を開く
+                    // ダイアログ表示中の再 SSE はキューに入れる (D-S2df65d-10)
+                    if (conflictResolverOpenRef.current) {
+                      conflictQueueRef.current.push({ path: changedPath, op: 'upsert' });
+                      return;
+                    }
+                    conflictResolverOpenRef.current = true;
+                    setConflictResolver({
+                      path: changedPath,
+                      theirsMtime: note.mtime,
+                      theirs,
+                      merged: result.merged,
+                      conflicts: result.conflicts,
+                    });
+                  }
+                },
+                (err: unknown) => {
+                  console.error('[loamium] SSE 3-way merge getNote failed:', err);
+                },
+              );
+            }
+          }
+        },
+        (err: unknown) => {
+          console.error('[loamium] SSE notes_changed getNoteMeta failed:', err);
+          void refreshNotes();
+        },
+      );
     },
-    [refreshNotes, pushToast, setOpenDoc],
+    [refreshNotes, setOpenDoc, editorViewRef],
+  );
+
+  /**
+   * SSE notes_changed の公開ハンドラ。
+   * IME 合成中 (compositionstart〜compositionend) は待機キューに入れ、
+   * 合成完了後に再処理する。
+   */
+  const handleSseNotesChanged = useCallback(
+    (changedPath: string, op: 'upsert' | 'delete'): void => {
+      // IME 合成中は待機キューに積む (日本語入力と競合しない)
+      if (composingRef.current) {
+        pendingSseRef.current.push({ path: changedPath, op });
+        return;
+      }
+      handleSseNotesChangedCore(changedPath, op);
+    },
+    [handleSseNotesChangedCore],
   );
 
   /** SSE sf_invalidated: 展開済み SF の再フェッチを SmartView に通知。
@@ -706,11 +846,58 @@ export function App(): JSX.Element {
     onNotesChanged: handleSseNotesChanged,
   });
 
+  // ---- IME 合成イベントリスナー (S2df65d-1: 日本語入力中の SSE 待機) ----
+  useEffect(() => {
+    const onCompositionStart = (): void => { composingRef.current = true; };
+    const onCompositionEnd = (): void => {
+      composingRef.current = false;
+      // 待機中の SSE を一括処理
+      const pending = pendingSseRef.current.splice(0);
+      for (const evt of pending) {
+        handleSseNotesChangedCore(evt.path, evt.op);
+      }
+    };
+    document.addEventListener('compositionstart', onCompositionStart);
+    document.addEventListener('compositionend', onCompositionEnd);
+    return () => {
+      document.removeEventListener('compositionstart', onCompositionStart);
+      document.removeEventListener('compositionend', onCompositionEnd);
+    };
+  }, [handleSseNotesChangedCore]);
+
+  // ---- テスト用 SSE 注入フック (開発モードのみ expose) ----
+  // window.__loamium_testSseInject で mock.spec.ts から SSE イベントを注入できる。
+  // 本番ビルドには露出させない (import.meta.env.DEV)。
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    type SseInjectFn = (evt: { type: string; path: string; op: string }) => void;
+    const inject: SseInjectFn = (evt) => {
+      if (
+        typeof evt === 'object' &&
+        evt !== null &&
+        evt.type === 'notes_changed' &&
+        typeof evt.path === 'string' &&
+        (evt.op === 'upsert' || evt.op === 'delete')
+      ) {
+        handleSseNotesChanged(evt.path, evt.op);
+      }
+    };
+    (window as unknown as Record<string, unknown>)['__loamium_testSseInject'] = inject;
+    return () => {
+      delete (window as unknown as Record<string, unknown>)['__loamium_testSseInject'];
+    };
+  }, [handleSseNotesChanged]);
+
   // ---- 履歴同期 ----
   const syncNavFlags = useCallback((): void => {
     setCanBack(histIndexRef.current > 0);
     setCanForward(histIndexRef.current < histMaxRef.current);
   }, []);
+
+  // conflictResolverOpenRef を conflictResolver ステート変化に同期する
+  useEffect(() => {
+    conflictResolverOpenRef.current = conflictResolver !== null;
+  }, [conflictResolver]);
 
   /** Route を URL/履歴へ反映する (push=新規履歴 / replace=現在を差替 / none=履歴不変)。 */
   const applyHistory = useCallback(
@@ -1652,7 +1839,7 @@ export function App(): JSX.Element {
   // ---- ジャーナルナビゲーション ----
   const journalBaseDate = doc?.journalDate ?? today;
 
-  // ---- 競合ダイアログ ----
+  // ---- 競合ダイアログ (既存: 楽観ロック409) ----
   const resolveConflictOverwrite = useCallback((): void => {
     setConflictPath(null);
     void saveNow({ force: true });
@@ -1675,6 +1862,69 @@ export function App(): JSX.Element {
       setAppError(`再読み込みに失敗しました — ${errMessage(err)}`);
     }
   }, [setOpenDoc]);
+
+  // ---- 3-way 競合ダイアログ (ConflictResolverDialog, S2df65d-1) ----
+
+  /** 競合ダイアログ: 解決済みテキストを PUT して保存する */
+  const handleConflictResolverSave = useCallback(
+    async (resolvedText: string): Promise<void> => {
+      const state = conflictResolver;
+      if (state === null) return;
+      try {
+        const res = await api.putNote(state.path, resolvedText, state.theirsMtime);
+        // 保存成功: ダイアログを閉じ、エディタを更新、dirty=false
+        setConflictResolver(null);
+        conflictResolverOpenRef.current = false;
+        setOpenDoc(state.path, resolvedText, res.mtime, docRef.current?.frontmatter ?? null);
+        void refreshNotes();
+        void refreshTags();
+        void refreshPropertyKeys();
+        setBacklinksToken((v) => v + 1);
+        setConflictPath(null);
+        // キューに残っている SSE を処理する
+        const queued = conflictQueueRef.current.splice(0);
+        for (const evt of queued) {
+          handleSseNotesChangedCore(evt.path, evt.op);
+        }
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 409) {
+          // 保存直前に再競合 → ダイアログを閉じてトースト通知
+          setConflictResolver(null);
+          conflictResolverOpenRef.current = false;
+          pushToast({
+            kind: 'error',
+            title: '再競合が発生しました',
+            sub: '保存中にさらにリモート変更がありました。もう一度マージが必要です。',
+          });
+          // 再マージトリガー: 最新内容を取得して再マージ
+          handleSseNotesChangedCore(state.path, 'upsert');
+        } else {
+          setAppError(`マージ保存に失敗しました — ${errMessage(err)}`);
+        }
+      }
+    },
+    [conflictResolver, setOpenDoc, refreshNotes, refreshTags, refreshPropertyKeys, pushToast, handleSseNotesChangedCore],
+  );
+
+  /** 競合ダイアログ: キャンセル (ローカル編集を保持し未解決のまま) */
+  const handleConflictResolverCancel = useCallback((): void => {
+    setConflictResolver(null);
+    conflictResolverOpenRef.current = false;
+    pushToast({
+      kind: 'error',
+      title: '競合が未解決です',
+      // キャンセル後、キューに積まれていた SSE を即処理するため、
+      // 保留中のリモート変更があれば再度ダイアログが出る可能性がある旨をトーストで案内する。
+      sub: '未解決の競合が残っています。次の変更または保留中のリモート変更で再度通知します。',
+    });
+    // キューに残っている SSE を即処理する。
+    // キャンセル直後に再度ダイアログが開く可能性があるが、これは意図した動作
+    // (保留中の変更が複数ある場合の安全な再通知 — D-S2df65d-10)。
+    const queued = conflictQueueRef.current.splice(0);
+    for (const evt of queued) {
+      handleSseNotesChangedCore(evt.path, evt.op);
+    }
+  }, [pushToast, handleSseNotesChangedCore]);
 
   // ---- 現在ルート表示 (route-display) 用のパンくず ----
   const breadcrumb = useMemo(() => {
@@ -2796,6 +3046,17 @@ export function App(): JSX.Element {
           path={conflictPath}
           onOverwrite={resolveConflictOverwrite}
           onReload={() => void resolveConflictReload()}
+        />
+      )}
+
+      {/* ---- 3-way 競合解決ダイアログ (S2df65d-1 / ADR-0030) ---- */}
+      {conflictResolver !== null && (
+        <ConflictResolverDialog
+          path={conflictResolver.path}
+          merged={conflictResolver.merged}
+          conflicts={conflictResolver.conflicts}
+          onSave={(resolved) => void handleConflictResolverSave(resolved)}
+          onCancel={handleConflictResolverCancel}
         />
       )}
 

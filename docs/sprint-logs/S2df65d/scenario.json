@@ -42,7 +42,7 @@
         "baseMd を theirs に更新(次回変更に備える)",
         "成功トースト: 『リモート変更を自動統合しました』(または静かに行う)"
       ],
-      "postcondition": "エディタにマージ結果が反映され、ユーザーの編集は保持されている。dirty=true。",
+      "postcondition": "エディタにマージ結果が反映され、ユーザーの編集は保持されている。view.dispatch() により onEditorChange が発火し autosave タイマーが起動するため、AUTOSAVE_DEBOUNCE_MS 後にマージ結果が自動保存される(baseMtime=theirs の mtime のため 409 は起きない)。dirty は autosave 完了まで true、完了後 false に戻る(方針B / D-S2df65d-NC-autosave)。",
       "ac_covered": ["AC-S2df65d-1-1"]
     },
     {

@@ -66,6 +66,41 @@
       "decision": "story が 1 本 (S2df65d-1) のみで、tasks が App.tsx / shared / UI コンポーネントなど同一ファイルに密結合しているため worktree 並列は避け、task 順(diff3 モジュール→ SSE ハンドラ→競合ハンク UI→書き戻し→テスト/ドキュメント)に逐次実装する。",
       "rationale": "MEMORY: Worktree old-base pitfall。共有ファイル(App.tsx / shared/index.ts)を複数 worktree が触ると merge conflict の原因になる。1本ストーリーで依存が強いため逐次が安全。",
       "tradeoff": "並列化の速度メリットを捨てるが安全性を取る。"
+    },
+    {
+      "id": "D-S2df65d-10",
+      "topic": "IME 合成中の SSE 待機と、ダイアログ表示中の再 SSE キュー処理",
+      "decision": "2 つのキューを設ける: (1) pendingSseRef — IME compositionstart 〜 compositionend の間に来た SSE を保留し、compositionend 後に一括処理する。(2) conflictQueueRef — ConflictResolverDialog が表示中に来た SSE を保留し、ダイアログが閉じた後(onSave/onCancel 完了後)に再処理する。多重ダイアログは開かない。",
+      "rationale": "open risks 対応。IME: compositionstart/end リスナーを document に登録し composingRef で合成中を管理。日本語入力の確定前に SSE マージが走るとエディタの合成バッファが破壊される。ダイアログ再 SSE: conflictResolverOpenRef で表示中を管理し、キューに積んでダイアログ閉後に handleSseNotesChangedCore を呼ぶ(DESIGN_PRINCIPLES priority1 安全側に倒す)。",
+      "tradeoff": "キューは in-memory のみ。ページリロードで失われるが、リロード後は fresh baseMd でセッションが始まるため問題なし。"
+    },
+    {
+      "id": "D-S2df65d-11",
+      "topic": "window.__loamium_testSseInject の開発モード限定露出",
+      "decision": "import.meta.env.DEV が true のとき(Vite dev server 環境)のみ window.__loamium_testSseInject を expose する。本番ビルド (import.meta.env.DEV === false) では useEffect が早期 return するため window に露出しない。",
+      "rationale": "mock.spec.ts が require するシグネチャ: (evt: { type: string; path: string; op: string }) => void。production build の攻撃面を増やさないために DEV ガードが必須(open risks 要件)。",
+      "tradeoff": "Playwright の e2e テスト (実 Vite) も DEV モードで動くため、e2e.spec.ts は realSSE でテストしつつ inject は利用可能。"
+    },
+    {
+      "id": "D-S2df65d-12",
+      "topic": "モバイルテスト (mock.spec.ts) でのサイドバー開操作の追加",
+      "decision": "conflict-merge.mock.spec.ts の '[AC-S2df65d-1-6] モバイル幅' テストで、setViewportSize 後に sidebar-toggle ボタンをクリックしてサイドバーを開いてから tree-item をクリックする操作を追加した。",
+      "rationale": "モバイル幅(≤680px)では CSS でサイドバーがデフォルト非表示になる(Sa6c3b0 実装)。テストがそのサイドバー操作フローを再現する必要があった。テストシナリオは生成済みのため、UI 仕様を守りつつテストを最小限修正した(弱体化ではなくモバイル操作フロー補完)。",
+      "tradeoff": "テストが UI の実際のモバイルフロー (ハンバーガー → サイドバー → ノート選択) を正確に再現するため、回帰検出能力が向上する。"
+    },
+    {
+      "id": "D-S2df65d-NC-autosave",
+      "topic": "非競合自動統合後の dirty/autosave: 方針A (suppress API) vs 方針B (autosave を意図仕様として許容)",
+      "decision": "方針B を選択する。Editor の suppressRef を外部に露出する新 API は作らず、view.dispatch() が onEditorChange を発火させ autosave タイマーが走ることを意図した仕様とする。",
+      "rationale": "方針A (suppressRef を外部 API として expose) は Editor/App 間の境界に複雑な状態フラグを追加し、suppressRef の ON/OFF タイミングのバグが別の問題を引き起こすリスクがある。方針B の autosave 保存はユーザーにとって安全: baseMd が note.mtime (theirs) に更新されているため autosave 時の PUT baseMtime が最新であり 409 は起きない。ユーザー編集はマージ結果に含まれるため AC-S2df65d-1-1 (ユーザー編集を失わない) を充足する。DESIGN_PRINCIPLES priority5 (シンプルさ>汎用性) に沿う。",
+      "tradeoff": "非競合自動統合後に autosave (1.5 秒後) が走り dirty=false になる。SC-2 の postcondition を更新して実態と合わせた (dirty=true が一時的に維持され autosave 後 false になる)。mock テストで autosave 後の dirty 状態を検証するテストを conflict-merge.mock.spec.ts に追加した。"
+    },
+    {
+      "id": "D-S2df65d-selfecho-regression",
+      "topic": "自己エコー抑制の全書き込み経路への一貫化 (S2df65d 回帰修正)",
+      "decision": "lastSavedContentRef を App.tsx に追加し、saveNow() が PUT 成功時に送信した content スナップショットを記録する。SSE ハンドラの dirty 経路で note.content が contentRef.current に加えて lastSavedContentRef.current とも一致する場合に自己エコーと判定する。また saveNow() 成功時に docRef.current.baseMd を保存した text で更新する。",
+      "rationale": "ADR-0030 自己エコー抑制の不完全さ回帰: 既存実装の note.content === contentRef.current チェックは、保存後に次のプロパティ編集が始まった場合（contentRef が新しい内容になっている状態でSSEが届く場合）に機能しない。具体的には properties.e2e.spec.ts:215 の連続プロパティ追加・削除シーケンスで ConflictResolverDialog が誤表示された。lastSavedContentRef で「最後に PUT 成功した内容」を追跡することで、saveNow 後に次の編集が始まっていても自己エコーを正しく抑制できる。baseMd の saveNow 時更新も合わせて修正し、次回の 3-way マージで base が最新の保存済み内容を指すようにした。",
+      "tradeoff": "真の外部変更（他デバイスから来た変更）も保存内容と一致する場合は抑制されるが、これは起こりえない（同じ内容なら 3-way マージも競合も発生しないため問題なし）。setOpenDoc 呼び出し時に lastSavedContentRef をリセットすることで別ノート間の誤抑制を防ぐ。"
     }
   ]
 }

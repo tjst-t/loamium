@@ -608,6 +608,12 @@ export const AGENT_HELP_TOPICS: Record<string, string> = {
     '# agentDefaultPreset: notes-rw',
     '```',
   ].join('\n'),
+
+  // ---- 3-way マージ競合解決 (S2df65d-1 / ADR-0030) ----
+  // エージェントツールは追加しない (D-S2df65d-7)。
+  // 3-way マージは dirty ローカル編集中という UI セッション固有の状態に対して働くものであり、
+  // エージェントの書き込みは別軸として last-write-wins を維持する (ADR-0030 decision 明示)。
+  // エージェントが明示的に 3-way マージを要求するユースケースはないため、ツールは不要。
 };
 
 /** 利用可能トピックのソート済み一覧 (安定した出力のため)。 */

@@ -242,3 +242,8 @@ export {
   type AgentJobDetailResponse,
   type JobRunResult,
 } from './agent-jobs.js';
+export {
+  diff3Merge,
+  type Diff3Result,
+  type ConflictHunk,
+} from './diff3.js';

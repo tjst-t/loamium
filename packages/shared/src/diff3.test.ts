@@ -128,6 +128,35 @@ describe('diff3Merge — 競合検出 (保守的)', () => {
       ).toBe(true);
     }
   });
+
+  it('[ADR-0030 保守的] ours の insertBefore と theirs の changeAt が同一 base 位置に共存するとき競合として返す', () => {
+    // review fix: 隣接 insert+change 共存ケースの回帰テスト (medium② 修正対象)
+    // base: 行 X / 行 Y
+    // ours: 行 X の後ろに「行 X.5 (ours 挿入)」を追記 (insert at baseIdx=1)
+    // theirs: 行 X を変更 (change at baseIdx=0)
+    // → ours の insertBefore[1] と theirs の changeAt[0] が base 行 0 の変更範囲内で共存
+    //   保守的側に倒し、競合として返すべき
+    const base = '行 X\n行 Y\n';
+    const ours = '行 X\n行 X.5 (ours 挿入)\n行 Y\n'; // base[1] の前に挿入
+    const theirs = '行 X (theirs 変更)\n行 Y\n'; // base[0] を変更
+
+    const result = diff3Merge(base, ours, theirs);
+
+    // 保守的競合検出: INSERT + CHANGE が同一 base 範囲に共存 → 必ず競合
+    expect(result.conflicts.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('[ADR-0030 保守的] theirs の insertBefore と ours の changeAt が同一 base 位置に共存するとき競合として返す', () => {
+    // 上記の逆パターン (theirs が insert, ours が change)
+    const base = '行 X\n行 Y\n';
+    const ours = '行 X (ours 変更)\n行 Y\n'; // base[0] を変更
+    const theirs = '行 X\n行 X.5 (theirs 挿入)\n行 Y\n'; // base[1] の前に挿入
+
+    const result = diff3Merge(base, ours, theirs);
+
+    // 保守的競合検出: CHANGE + INSERT が同一 base 範囲に共存 → 必ず競合
+    expect(result.conflicts.length).toBeGreaterThanOrEqual(1);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -165,23 +194,22 @@ describe('diff3Merge — 同一変更の冪等', () => {
 // ---------------------------------------------------------------------------
 
 describe('diff3Merge — 空 base', () => {
-  it('[AC-S2df65d-1-5] base が空文字の場合、ours と theirs が非競合なら両方を統合する', () => {
+  it('[AC-S2df65d-1-5] base が空で ours≠theirs は競合として返す(保守的)', () => {
+    // review fix: 保守的実装に合わせてタイトルと必須アサーションを厳格化
+    // base が空 = ours/theirs がともに新規追加で共通祖先がない → 保守的に競合扱い
     const base = '';
     const ours = '行 A (ours)\n';
     const theirs = '行 B (theirs)\n';
 
     const result = diff3Merge(base, ours, theirs);
 
-    // 両方とも base(空)から新規追加 → ours と theirs がともに独立した追加
-    // 競合 or 非競合どちらも許容するが、競合の場合は両ハンクを含む
-    if (result.conflicts.length === 0) {
-      expect(result.merged).toContain('行 A (ours)');
-      expect(result.merged).toContain('行 B (theirs)');
-    } else {
-      // 競合として扱う場合: ours, theirs が各ハンクに含まれる
-      const allOurs = result.conflicts.flatMap((h) => h.ours);
-      expect(allOurs.some((l) => l.includes('ours') || l.includes('theirs'))).toBe(true);
-    }
+    // 実装は base 空 + ours≠theirs を競合として返す (diff3.ts 早期終了ロジック)
+    expect(result.conflicts.length).toBeGreaterThanOrEqual(1);
+    // 競合ハンクに ours/theirs の内容が含まれること
+    const allOurs = result.conflicts.flatMap((h) => h.ours);
+    const allTheirs = result.conflicts.flatMap((h) => h.theirs);
+    expect(allOurs.some((l) => l.includes('ours'))).toBe(true);
+    expect(allTheirs.some((l) => l.includes('theirs'))).toBe(true);
   });
 
   it('[AC-S2df65d-1-5] base が空で ours と theirs が同一内容の場合、競合なし', () => {
