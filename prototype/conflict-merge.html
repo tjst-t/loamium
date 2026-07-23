@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loamium — 競合マージ解決ダイアログ (S2df65d)</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* SVG アイコンサイズ基底ガード */
+  :where(svg) { width: 16px; height: 16px; }
+
+  /* ---- ページ背景(3ペインシェルのシルエット) ---- */
+  .page-bg {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    display: flex;
+    background: var(--bg-app);
+  }
+  .page-bg .bg-sidebar {
+    width: 264px;
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border);
+  }
+  .page-bg .bg-workspace { flex: 1; background: var(--bg-editor); }
+  .page-bg .bg-panel { width: 300px; background: var(--bg-panel); border-left: 1px solid var(--border); }
+
+  /* ---- 状態セクション区切り ---- */
+  .state-section {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 48px 24px 24px;
+  }
+  .state-heading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 0 18px;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .state-heading .line { flex: 1; border-top: 1px solid var(--border); }
+  .state-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--accent-soft);
+    color: var(--accent-hover);
+    border-radius: 8px;
+    padding: 2px 10px;
+  }
+
+  /* ---- 競合解決ダイアログ ---- */
+  .conflict-dialog-backdrop {
+    position: relative;
+    inset: auto;
+    background: rgba(25, 25, 40, 0.35);
+    border-radius: 14px;
+    padding: 32px 16px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+  }
+
+  .conflict-dialog {
+    width: 720px;
+    max-width: calc(100vw - 32px);
+    background: var(--bg-editor);
+    border-radius: 14px;
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    max-height: 90vh;
+  }
+
+  /* ---- ダイアログヘッダ ---- */
+  .conflict-dialog-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .conflict-dialog-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: var(--warn-soft);
+    color: var(--warn);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .conflict-dialog-icon svg { width: 20px; height: 20px; }
+  .conflict-dialog-title-block { flex: 1; min-width: 0; }
+  .conflict-dialog-title-block h2 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+  .conflict-summary {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .conflict-summary-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 9px;
+    border-radius: 6px;
+  }
+  .conflict-summary-chip.ok {
+    background: #e6f5ee;
+    color: #1f7a4d;
+  }
+  .conflict-summary-chip.warn {
+    background: var(--warn-soft);
+    color: var(--warn);
+  }
+  .conflict-summary-chip svg { width: 12px; height: 12px; }
+
+  /* ---- スクロール可能なハンク一覧 ---- */
+  .conflict-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* ---- 自動マージ済みバナー ---- */
+  .auto-merged-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: #e6f5ee;
+    border: 1px solid #a7d9bc;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 12.5px;
+    color: #1f7a4d;
+    line-height: 1.5;
+  }
+  .auto-merged-banner svg { width: 15px; height: 15px; flex-shrink: 0; margin-top: 1px; }
+  .auto-merged-content { flex: 1; }
+  .auto-merged-content strong { display: block; margin-bottom: 2px; font-weight: 700; }
+  .auto-merged-detail {
+    font-size: 12px;
+    color: #2f8055;
+    margin-top: 6px;
+    font-family: var(--font-mono);
+    background: rgba(0,0,0,0.04);
+    border-radius: 6px;
+    padding: 5px 9px;
+    line-height: 1.6;
+  }
+
+  /* ---- ハンク番号ラベル ---- */
+  .hunk-section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    padding: 0 2px;
+  }
+
+  /* ---- 競合ハンク 1 件 ---- */
+  .conflict-hunk-item {
+    border: 1.5px solid var(--border-strong);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--bg-editor);
+    transition: border-color 0.15s;
+  }
+  .conflict-hunk-item.resolved-ours { border-color: var(--accent); }
+  .conflict-hunk-item.resolved-theirs { border-color: #1f7a4d; }
+  .conflict-hunk-item.resolved-both { border-color: var(--warn); }
+
+  .hunk-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  .hunk-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--warn-soft);
+    color: var(--warn);
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .resolved-ours .hunk-num { background: var(--accent-soft); color: var(--accent); }
+  .resolved-theirs .hunk-num { background: #e6f5ee; color: #1f7a4d; }
+  .resolved-both .hunk-num { background: var(--warn-soft); color: var(--warn); }
+
+  .hunk-status-chip {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 8px;
+    border-radius: 5px;
+  }
+  .hunk-status-chip.pending { background: var(--warn-soft); color: var(--warn); }
+  .hunk-status-chip.done-ours { background: var(--accent-soft); color: var(--accent); }
+  .hunk-status-chip.done-theirs { background: #e6f5ee; color: #1f7a4d; }
+  .hunk-status-chip.done-both { background: var(--warn-soft); color: var(--warn); }
+
+  /* ---- 並列表示(ours / theirs) ---- */
+  .hunk-diff-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid var(--border);
+  }
+  .hunk-side {
+    padding: 10px 12px;
+    min-width: 0;
+  }
+  .hunk-side + .hunk-side {
+    border-left: 1px solid var(--border);
+  }
+  .hunk-side-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .hunk-side-label.ours { color: var(--accent); }
+  .hunk-side-label.theirs { color: #1f7a4d; }
+  .hunk-side-label svg { width: 12px; height: 12px; }
+  .hunk-code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.65;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: var(--bg-app);
+    border-radius: 6px;
+    padding: 7px 10px;
+    margin: 0;
+  }
+  /* 変更された行をハイライト */
+  .hunk-code .line-added { background: #d3f5e3; border-radius: 2px; display: block; margin: 0 -10px; padding: 0 10px; }
+  .hunk-code .line-removed { background: #fde8e8; border-radius: 2px; display: block; margin: 0 -10px; padding: 0 10px; }
+  .hunk-code .line-changed { background: #fff5d6; border-radius: 2px; display: block; margin: 0 -10px; padding: 0 10px; }
+
+  /* ---- ハンク選択ボタン ---- */
+  .hunk-actions {
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--bg-panel);
+    flex-wrap: wrap;
+  }
+  .hunk-btn {
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 1.5px solid var(--border-strong);
+    background: var(--bg-editor);
+    color: var(--text);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.1s, border-color 0.1s;
+    white-space: nowrap;
+  }
+  .hunk-btn:hover { background: var(--bg-hover); }
+  .hunk-btn svg { width: 13px; height: 13px; }
+  .hunk-btn.btn-ours { border-color: var(--accent); color: var(--accent); }
+  .hunk-btn.btn-ours:hover { background: var(--accent-soft); }
+  .hunk-btn.btn-ours.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .hunk-btn.btn-theirs { border-color: #1f7a4d; color: #1f7a4d; }
+  .hunk-btn.btn-theirs:hover { background: #e6f5ee; }
+  .hunk-btn.btn-theirs.active { background: #1f7a4d; color: #fff; border-color: #1f7a4d; }
+  .hunk-btn.btn-both { border-color: var(--warn); color: var(--warn); }
+  .hunk-btn.btn-both:hover { background: var(--warn-soft); }
+  .hunk-btn.btn-both.active { background: var(--warn); color: #fff; border-color: var(--warn); }
+
+  /* ---- フッタ ---- */
+  .conflict-dialog-footer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-panel);
+    flex-shrink: 0;
+  }
+  .conflict-progress-text {
+    flex: 1;
+    font-size: 12.5px;
+    color: var(--text-muted);
+  }
+  .conflict-progress-text strong { color: var(--text); }
+  .foot-actions { display: flex; gap: 8px; }
+  .btn {
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-editor);
+    color: var(--text);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn:hover { background: var(--bg-hover); }
+  .btn.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.btn-primary:hover { background: var(--accent-hover); }
+  .btn.btn-primary[aria-disabled="true"],
+  .btn.btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: var(--accent);
+    pointer-events: none;
+  }
+
+  /* ---- proto ヘッダ ---- */
+  .proto-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: rgba(110, 86, 207, 0.92);
+    backdrop-filter: blur(6px);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .proto-header .proto-badge {
+    background: rgba(255,255,255,0.22);
+    border-radius: 4px;
+    padding: 1px 8px;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+  }
+  .proto-header a { color: rgba(255,255,255,0.75); text-decoration: underline; }
+  .proto-header a:hover { color: #fff; }
+
+  /* proto注記ボックス */
+  .proto-note {
+    margin: 16px 0 0;
+    padding: 10px 14px;
+    background: #fff9e6;
+    border-left: 3px solid var(--warn);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+  .proto-note code {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--text);
+    background: var(--code-bg);
+    padding: 0 4px;
+    border-radius: 3px;
+  }
+  .proto-back {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 99;
+    background: var(--bg-editor);
+    border: 1px solid var(--border-strong);
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    padding: 7px 18px;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ---- モバイル対応 ---- */
+  @media (max-width: 680px) {
+    .state-section {
+      padding: 28px 12px 16px;
+    }
+
+    /* ダイアログ全体 */
+    .conflict-dialog {
+      width: 100%;
+      max-height: 85vh;
+      border-radius: 14px 14px 0 0;
+    }
+    .conflict-dialog-backdrop {
+      padding: 16px 0 0;
+      align-items: flex-end;
+      border-radius: 0;
+    }
+
+    /* ヘッダ */
+    .conflict-dialog-header {
+      padding: 14px 16px 12px;
+      gap: 10px;
+    }
+    .conflict-dialog-icon {
+      width: 34px;
+      height: 34px;
+    }
+
+    /* ハンクの並列→縦積み */
+    .hunk-diff-grid {
+      grid-template-columns: 1fr;
+    }
+    .hunk-side + .hunk-side {
+      border-left: none;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ハンクボタン: 44px タップターゲット */
+    .hunk-btn {
+      min-height: 44px;
+      font-size: 13.5px;
+      padding: 8px 14px;
+    }
+
+    /* フッタボタン */
+    .btn {
+      min-height: 44px;
+      padding: 8px 14px;
+      font-size: 13px;
+    }
+    .conflict-dialog-footer {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+      padding: 12px 16px 20px;
+    }
+    .conflict-progress-text { text-align: center; }
+    .foot-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .foot-actions .btn { flex: 1; justify-content: center; }
+
+    /* ハンクアクション */
+    .hunk-actions {
+      flex-direction: column;
+    }
+    .hunk-actions .hunk-btn {
+      justify-content: center;
+      width: 100%;
+    }
+
+    /* proto ヘッダ */
+    .proto-header { font-size: 11px; padding: 5px 12px; }
+  }
+
+  /* ページトップにprotoヘッダ分の余白 */
+  .page-top-spacer { height: 34px; }
+</style>
+</head>
+<!--
+  ============================================================================
+  競合マージ解決ダイアログ プロトタイプ (Sprint S2df65d)
+  ADR-0030: リモート変更時の 3-way 自動マージ — dirty 編集中の競合解決 UI
+
+  表現する状態:
+    「dirty 編集中にリモート変更が入り、非競合は自動統合済み・競合ハンクのみ残っている」
+
+  data-testid 契約 (S2df65d 追加分):
+    conflict-resolver-dialog  … 競合解決モーダル (role=dialog)
+    conflict-hunk-item        … 競合ハンク 1 件
+    conflict-choose-ours      … 自分の変更を採用
+    conflict-choose-theirs    … リモートの変更を採用
+    conflict-choose-both      … 両方を残す
+    conflict-save-merge       … マージ結果を保存 (全ハンク解決後に有効化)
+    conflict-cancel           … 後で解決(キャンセル)
+    conflict-hunk-count       … 未解決ハンク件数バッジ
+
+  状態一覧 (SC-3 を中心に表示):
+    1. 競合ダイアログ — ハンク未解決状態(初期表示)
+    2. 競合ダイアログ — ハンク 1 件解決済み(部分的解決)
+    3. 競合ダイアログ — 全ハンク解決済み(保存ボタン有効)
+  ============================================================================
+-->
+<body>
+
+<!-- プロトタイプ識別ヘッダ(製品 UI 外) -->
+<div class="proto-header" aria-hidden="true">
+  <span class="proto-badge">PROTOTYPE</span>
+  S2df65d — 競合マージ解決ダイアログ (ADR-0030)
+  <span style="margin-left:auto; font-weight:400; opacity:.8;">製品 UI ではありません</span>
+  <a href="index.html">← 一覧へ</a>
+</div>
+<div class="page-top-spacer"></div>
+
+<!-- 背景シルエット -->
+<div class="page-bg" aria-hidden="true">
+  <div class="bg-sidebar"></div>
+  <div class="bg-workspace"></div>
+  <div class="bg-panel"></div>
+</div>
+
+<!-- ==================================================================
+     状態 1: 競合ダイアログ — 全ハンク未解決(初期表示・SC-3)
+     ================================================================== -->
+<div class="state-section">
+  <div class="state-heading">
+    <span>状態 1 — 競合ダイアログ(未解決: 2 件)</span>
+    <span class="state-badge">conflict_dialog_open</span>
+    <span class="line"></span>
+  </div>
+
+  <div class="conflict-dialog-backdrop">
+    <div class="conflict-dialog"
+         data-testid="conflict-resolver-dialog"
+         role="dialog"
+         aria-modal="true"
+         aria-label="リモートの変更と競合しています">
+
+      <!-- ダイアログヘッダ -->
+      <div class="conflict-dialog-header">
+        <div class="conflict-dialog-icon">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+            <path d="M10 3L18 17H2L10 3z"/>
+            <path d="M10 9v4M10 15h.01"/>
+          </svg>
+        </div>
+        <div class="conflict-dialog-title-block">
+          <h2>リモートの変更と競合しています</h2>
+          <div class="conflict-summary">
+            <span class="conflict-summary-chip ok">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 8l3.5 3.5 6.5-7"/></svg>
+              3 件を自動マージ済み
+            </span>
+            <span class="conflict-summary-chip warn" data-testid="conflict-hunk-count">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v4M8 11h.01"/></svg>
+              2 件の競合を解決してください
+            </span>
+          </div>
+        </div>
+        <button class="icon-btn" title="後で解決 (Esc)" data-testid="conflict-cancel" style="width:32px;height:32px;border-radius:8px;">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+            <path d="M4 4l8 8M12 4l-8 8"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- スクロール可能エリア -->
+      <div class="conflict-body">
+
+        <!-- 自動統合済みバナー -->
+        <div class="auto-merged-banner">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M3 8l3.5 3.5 6.5-7"/>
+          </svg>
+          <div class="auto-merged-content">
+            <strong>3 件の変更を自動でマージしました</strong>
+            非競合の変更はエディタに適用済みです。以下の競合ハンクのみ手動で選択してください。
+            <div class="auto-merged-detail">+ ## プロジェクト概要 (リモートが追加 → 自動適用済み)
++ - 担当: 田中, 鈴木 (リモートが更新 → 自動適用済み)
++ 更新日: 2026-07-23 (リモートが追加 → 自動適用済み)</div>
+          </div>
+        </div>
+
+        <div class="hunk-section-label">競合ハンク — 2 件</div>
+
+        <!-- ---- 競合ハンク 1 ---- -->
+        <div class="conflict-hunk-item" data-testid="conflict-hunk-item" data-hunk-index="0">
+          <div class="hunk-header">
+            <span class="hunk-num">1</span>
+            <span>行 12–16 付近 · 見出し・優先度の変更</span>
+            <span class="hunk-status-chip pending">未解決</span>
+          </div>
+          <div class="hunk-diff-grid">
+            <!-- あなたの編集 (ours) -->
+            <div class="hunk-side">
+              <div class="hunk-side-label ours">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v6M5 8h6"/></svg>
+                あなたの編集
+              </div>
+              <pre class="hunk-code">## タスク一覧
+<span class="line-changed">### 優先度: 高</span>
+- [ ] ADR-0030 実装
+- [ ] テスト追加
+- [ ] ドキュメント更新</pre>
+            </div>
+            <!-- リモート (theirs) -->
+            <div class="hunk-side">
+              <div class="hunk-side-label theirs">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 2v10M3 8l5 5 5-5"/><path d="M2 14h12"/></svg>
+                リモート
+              </div>
+              <pre class="hunk-code">## タスク一覧
+<span class="line-changed">### 優先度: 緊急</span>
+- [ ] ADR-0030 実装
+- [ ] テスト追加
+- [ ] ドキュメント更新</pre>
+            </div>
+          </div>
+          <div class="hunk-actions">
+            <button class="hunk-btn btn-ours" data-testid="conflict-choose-ours" data-hunk="0">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M5.5 8l2 2 3-3"/></svg>
+              こちらを使う (ours)
+            </button>
+            <button class="hunk-btn btn-theirs" data-testid="conflict-choose-theirs" data-hunk="0">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 2v10M3 8l5 5 5-5"/><path d="M2 14h12"/></svg>
+              リモートを使う (theirs)
+            </button>
+            <button class="hunk-btn btn-both" data-testid="conflict-choose-both" data-hunk="0">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 4h10M3 8h10M3 12h10"/></svg>
+              両方残す
+            </button>
+          </div>
+        </div>
+
+        <!-- ---- 競合ハンク 2 ---- -->
+        <div class="conflict-hunk-item" data-testid="conflict-hunk-item" data-hunk-index="1">
+          <div class="hunk-header">
+            <span class="hunk-num">2</span>
+            <span>行 24–27 付近 · メモ内容の変更</span>
+            <span class="hunk-status-chip pending">未解決</span>
+          </div>
+          <div class="hunk-diff-grid">
+            <!-- ours -->
+            <div class="hunk-side">
+              <div class="hunk-side-label ours">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v6M5 8h6"/></svg>
+                あなたの編集
+              </div>
+              <pre class="hunk-code">## 備考
+<span class="line-changed">フロント側は Next.js を採用。
+TypeScript strict モードで統一。</span></pre>
+            </div>
+            <!-- theirs -->
+            <div class="hunk-side">
+              <div class="hunk-side-label theirs">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 2v10M3 8l5 5 5-5"/><path d="M2 14h12"/></svg>
+                リモート
+              </div>
+              <pre class="hunk-code">## 備考
+<span class="line-changed">フロント側は React + Vite を採用。
+バンドラは esbuild。</span></pre>
+            </div>
+          </div>
+          <div class="hunk-actions">
+            <button class="hunk-btn btn-ours" data-testid="conflict-choose-ours" data-hunk="1">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M5.5 8l2 2 3-3"/></svg>
+              こちらを使う (ours)
+            </button>
+            <button class="hunk-btn btn-theirs" data-testid="conflict-choose-theirs" data-hunk="1">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 2v10M3 8l5 5 5-5"/><path d="M2 14h12"/></svg>
+              リモートを使う (theirs)
+            </button>
+            <button class="hunk-btn btn-both" data-testid="conflict-choose-both" data-hunk="1">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 4h10M3 8h10M3 12h10"/></svg>
+              両方残す
+            </button>
+          </div>
+        </div>
+
+      </div><!-- /.conflict-body -->
+
+      <!-- フッタ -->
+      <div class="conflict-dialog-footer">
+        <div class="conflict-progress-text">
+          <strong>0 / 2</strong> 件解決済み
+        </div>
+        <div class="foot-actions">
+          <button class="btn" data-testid="conflict-cancel">
+            後で解決
+          </button>
+          <button class="btn btn-primary" data-testid="conflict-save-merge" aria-disabled="true" disabled>
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 8l3.5 3.5 6.5-7"/></svg>
+            マージ結果を保存
+          </button>
+        </div>
+      </div>
+
+    </div><!-- /.conflict-dialog -->
+  </div>
+
+  <div class="proto-note">
+    <strong>状態 1 初期表示</strong> —
+    <code>conflict-resolver-dialog</code> が開いた直後。全ハンクが未解決のため
+    <code>conflict-save-merge</code> は <code>aria-disabled="true" disabled</code>。
+    自動統合済みの 3 件は緑バナーで明示(ours / theirs の Markdown テキストのみ表示。
+    <code>&lt;&lt;&lt;</code> <code>===</code> <code>&gt;&gt;&gt;</code> 等の競合マーカーはファイルに書かない — ADR-0030)。
+  </div>
+</div>
+
+<!-- ==================================================================
+     状態 2: ハンク 1 件解決済み(部分的解決・conflict_resolving)
+     ================================================================== -->
+<div class="state-section">
+  <div class="state-heading">
+    <span>状態 2 — ハンク 1 件解決済み(部分的解決)</span>
+    <span class="state-badge">conflict_resolving</span>
+    <span class="line"></span>
+  </div>
+
+  <div class="conflict-dialog-backdrop">
+    <div class="conflict-dialog"
+         data-testid="conflict-resolver-dialog"
+         role="dialog"
+         aria-modal="true"
+         aria-label="リモートの変更と競合しています">
+
+      <div class="conflict-dialog-header">
+        <div class="conflict-dialog-icon">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+            <path d="M10 3L18 17H2L10 3z"/>
+            <path d="M10 9v4M10 15h.01"/>
+          </svg>
+        </div>
+        <div class="conflict-dialog-title-block">
+          <h2>リモートの変更と競合しています</h2>
+          <div class="conflict-summary">
+            <span class="conflict-summary-chip ok">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 8l3.5 3.5 6.5-7"/></svg>
+              3 件を自動マージ済み
+            </span>
+            <span class="conflict-summary-chip warn" data-testid="conflict-hunk-count">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v4M8 11h.01"/></svg>
+              残り 1 件の競合
+            </span>
+          </div>
+        </div>
+        <button class="icon-btn" title="後で解決 (Esc)" data-testid="conflict-cancel" style="width:32px;height:32px;border-radius:8px;">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+            <path d="M4 4l8 8M12 4l-8 8"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="conflict-body">
+
+        <div class="auto-merged-banner">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M3 8l3.5 3.5 6.5-7"/>
+          </svg>
+          <div class="auto-merged-content">
+            <strong>3 件の変更を自動でマージしました</strong>
+            非競合の変更はエディタに適用済みです。以下の競合ハンクのみ手動で選択してください。
+          </div>
+        </div>
+
+        <div class="hunk-section-label">競合ハンク — 2 件</div>
+
+        <!-- ハンク 1: 解決済み(ours を選択) -->
+        <div class="conflict-hunk-item resolved-ours" data-testid="conflict-hunk-item" data-hunk-index="0">
+          <div class="hunk-header">
+            <span class="hunk-num">1</span>
+            <span>行 12–16 付近 · 見出し・優先度の変更</span>
+            <span class="hunk-status-chip done-ours">あなたの変更を採用</span>
+          </div>
+          <div class="hunk-diff-grid">
+            <div class="hunk-side">
+              <div class="hunk-side-label ours">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v6M5 8h6"/></svg>
+                あなたの編集
+              </div>
+              <pre class="hunk-code">## タスク一覧
+<span class="line-changed">### 優先度: 高</span>
+- [ ] ADR-0030 実装
+- [ ] テスト追加
+- [ ] ドキュメント更新</pre>
+            </div>
+            <div class="hunk-side">
+              <div class="hunk-side-label theirs">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 2v10M3 8l5 5 5-5"/><path d="M2 14h12"/></svg>
+                リモート
+              </div>
+              <pre class="hunk-code">## タスク一覧
+<span class="line-changed">### 優先度: 緊急</span>
+- [ ] ADR-0030 実装
+- [ ] テスト追加
+- [ ] ドキュメント更新</pre>
+            </div>
+          </div>
+          <div class="hunk-actions">
+            <button class="hunk-btn btn-ours active" data-testid="conflict-choose-ours" data-hunk="0">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M5.5 8l2 2 3-3"/></svg>
+              こちらを使う (ours) ✓
+            </button>
+            <button class="hunk-btn btn-theirs" data-testid="conflict-choose-theirs" data-hunk="0">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 2v10M3 8l5 5 5-5"/><path d="M2 14h12"/></svg>
+              リモートを使う (theirs)
+            </button>
+            <button class="hunk-btn btn-both" data-testid="conflict-choose-both" data-hunk="0">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 4h10M3 8h10M3 12h10"/></svg>
+              両方残す
+            </button>
+          </div>
+        </div>
+
+        <!-- ハンク 2: 未解決 -->
+        <div class="conflict-hunk-item" data-testid="conflict-hunk-item" data-hunk-index="1">
+          <div class="hunk-header">
+            <span class="hunk-num">2</span>
+            <span>行 24–27 付近 · メモ内容の変更</span>
+            <span class="hunk-status-chip pending">未解決</span>
+          </div>
+          <div class="hunk-diff-grid">
+            <div class="hunk-side">
+              <div class="hunk-side-label ours">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v6M5 8h6"/></svg>
+                あなたの編集
+              </div>
+              <pre class="hunk-code">## 備考
+<span class="line-changed">フロント側は Next.js を採用。
+TypeScript strict モードで統一。</span></pre>
+            </div>
+            <div class="hunk-side">
+              <div class="hunk-side-label theirs">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 2v10M3 8l5 5 5-5"/><path d="M2 14h12"/></svg>
+                リモート
+              </div>
+              <pre class="hunk-code">## 備考
+<span class="line-changed">フロント側は React + Vite を採用。
+バンドラは esbuild。</span></pre>
+            </div>
+          </div>
+          <div class="hunk-actions">
+            <button class="hunk-btn btn-ours" data-testid="conflict-choose-ours" data-hunk="1">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M5.5 8l2 2 3-3"/></svg>
+              こちらを使う (ours)
+            </button>
+            <button class="hunk-btn btn-theirs" data-testid="conflict-choose-theirs" data-hunk="1">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 2v10M3 8l5 5 5-5"/><path d="M2 14h12"/></svg>
+              リモートを使う (theirs)
+            </button>
+            <button class="hunk-btn btn-both" data-testid="conflict-choose-both" data-hunk="1">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 4h10M3 8h10M3 12h10"/></svg>
+              両方残す
+            </button>
+          </div>
+        </div>
+
+      </div><!-- /.conflict-body -->
+
+      <div class="conflict-dialog-footer">
+        <div class="conflict-progress-text">
+          <strong>1 / 2</strong> 件解決済み
+        </div>
+        <div class="foot-actions">
+          <button class="btn" data-testid="conflict-cancel">後で解決</button>
+          <button class="btn btn-primary" data-testid="conflict-save-merge" aria-disabled="true" disabled>
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 8l3.5 3.5 6.5-7"/></svg>
+            マージ結果を保存
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="proto-note">
+    <strong>状態 2 部分解決</strong> —
+    ハンク 1 で「こちらを使う (ours)」を選択。ハンク枠が紫ボーダー(<code>resolved-ours</code>)になり、
+    ボタンが <code>active</code> 状態で強調。残り 1 件未解決のため <code>conflict-save-merge</code> はまだ disabled。
+  </div>
+</div>
+
+<!-- ==================================================================
+     状態 3: 全ハンク解決済み → 保存ボタン有効(saving_merge_result へ進む)
+     ================================================================== -->
+<div class="state-section" style="padding-bottom: 80px;">
+  <div class="state-heading">
+    <span>状態 3 — 全ハンク解決済み(保存ボタン有効)</span>
+    <span class="state-badge" style="background:#e6f5ee;color:#1f7a4d;">全解決</span>
+    <span class="line"></span>
+  </div>
+
+  <div class="conflict-dialog-backdrop">
+    <div class="conflict-dialog"
+         data-testid="conflict-resolver-dialog"
+         role="dialog"
+         aria-modal="true"
+         aria-label="リモートの変更と競合しています">
+
+      <div class="conflict-dialog-header">
+        <div class="conflict-dialog-icon" style="background:#e6f5ee;color:#1f7a4d;">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+            <path d="M4 10l4.5 4.5L16 7"/>
+          </svg>
+        </div>
+        <div class="conflict-dialog-title-block">
+          <h2>すべての競合が解決されました</h2>
+          <div class="conflict-summary">
+            <span class="conflict-summary-chip ok">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 8l3.5 3.5 6.5-7"/></svg>
+              3 件を自動マージ済み
+            </span>
+            <span class="conflict-summary-chip ok" data-testid="conflict-hunk-count">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 8l3.5 3.5 6.5-7"/></svg>
+              2 件の競合を解決済み
+            </span>
+          </div>
+        </div>
+        <button class="icon-btn" title="後で解決 (Esc)" data-testid="conflict-cancel" style="width:32px;height:32px;border-radius:8px;">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+            <path d="M4 4l8 8M12 4l-8 8"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="conflict-body">
+
+        <div class="auto-merged-banner">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M3 8l3.5 3.5 6.5-7"/>
+          </svg>
+          <div class="auto-merged-content">
+            <strong>3 件の変更を自動でマージしました</strong>
+            非競合の変更はエディタに適用済みです。競合ハンクはすべて解決済みです。
+          </div>
+        </div>
+
+        <div class="hunk-section-label">競合ハンク — 2 件(全解決)</div>
+
+        <!-- ハンク 1: ours を採用 -->
+        <div class="conflict-hunk-item resolved-ours" data-testid="conflict-hunk-item" data-hunk-index="0">
+          <div class="hunk-header">
+            <span class="hunk-num">1</span>
+            <span>行 12–16 付近 · 見出し・優先度の変更</span>
+            <span class="hunk-status-chip done-ours">あなたの変更を採用</span>
+          </div>
+          <div class="hunk-diff-grid">
+            <div class="hunk-side">
+              <div class="hunk-side-label ours">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v6M5 8h6"/></svg>
+                あなたの編集
+              </div>
+              <pre class="hunk-code">## タスク一覧
+<span class="line-changed">### 優先度: 高</span>
+- [ ] ADR-0030 実装
+- [ ] テスト追加
+- [ ] ドキュメント更新</pre>
+            </div>
+            <div class="hunk-side">
+              <div class="hunk-side-label theirs">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 2v10M3 8l5 5 5-5"/><path d="M2 14h12"/></svg>
+                リモート
+              </div>
+              <pre class="hunk-code">## タスク一覧
+<span class="line-changed">### 優先度: 緊急</span>
+- [ ] ADR-0030 実装
+- [ ] テスト追加
+- [ ] ドキュメント更新</pre>
+            </div>
+          </div>
+          <div class="hunk-actions">
+            <button class="hunk-btn btn-ours active" data-testid="conflict-choose-ours" data-hunk="0">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M5.5 8l2 2 3-3"/></svg>
+              こちらを使う (ours) ✓
+            </button>
+            <button class="hunk-btn btn-theirs" data-testid="conflict-choose-theirs" data-hunk="0">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 2v10M3 8l5 5 5-5"/><path d="M2 14h12"/></svg>
+              リモートを使う (theirs)
+            </button>
+            <button class="hunk-btn btn-both" data-testid="conflict-choose-both" data-hunk="0">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 4h10M3 8h10M3 12h10"/></svg>
+              両方残す
+            </button>
+          </div>
+        </div>
+
+        <!-- ハンク 2: theirs を採用 -->
+        <div class="conflict-hunk-item resolved-theirs" data-testid="conflict-hunk-item" data-hunk-index="1">
+          <div class="hunk-header">
+            <span class="hunk-num">2</span>
+            <span>行 24–27 付近 · メモ内容の変更</span>
+            <span class="hunk-status-chip done-theirs">リモートを採用</span>
+          </div>
+          <div class="hunk-diff-grid">
+            <div class="hunk-side">
+              <div class="hunk-side-label ours">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v6M5 8h6"/></svg>
+                あなたの編集
+              </div>
+              <pre class="hunk-code">## 備考
+<span class="line-changed">フロント側は Next.js を採用。
+TypeScript strict モードで統一。</span></pre>
+            </div>
+            <div class="hunk-side">
+              <div class="hunk-side-label theirs">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 2v10M3 8l5 5 5-5"/><path d="M2 14h12"/></svg>
+                リモート
+              </div>
+              <pre class="hunk-code">## 備考
+<span class="line-changed">フロント側は React + Vite を採用。
+バンドラは esbuild。</span></pre>
+            </div>
+          </div>
+          <div class="hunk-actions">
+            <button class="hunk-btn btn-ours" data-testid="conflict-choose-ours" data-hunk="1">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M5.5 8l2 2 3-3"/></svg>
+              こちらを使う (ours)
+            </button>
+            <button class="hunk-btn btn-theirs active" data-testid="conflict-choose-theirs" data-hunk="1">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 2v10M3 8l5 5 5-5"/><path d="M2 14h12"/></svg>
+              リモートを使う (theirs) ✓
+            </button>
+            <button class="hunk-btn btn-both" data-testid="conflict-choose-both" data-hunk="1">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 4h10M3 8h10M3 12h10"/></svg>
+              両方残す
+            </button>
+          </div>
+        </div>
+
+      </div><!-- /.conflict-body -->
+
+      <!-- フッタ: 全解決 → conflict-save-merge 有効 -->
+      <div class="conflict-dialog-footer">
+        <div class="conflict-progress-text">
+          <strong>2 / 2</strong> 件解決済み — 保存できます
+        </div>
+        <div class="foot-actions">
+          <button class="btn" data-testid="conflict-cancel">後で解決</button>
+          <button class="btn btn-primary" data-testid="conflict-save-merge">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 8l3.5 3.5 6.5-7"/></svg>
+            マージ結果を保存
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="proto-note">
+    <strong>状態 3 全解決</strong> —
+    ハンク 2 で「リモートを使う (theirs)」を選択。ハンク枠が緑ボーダー(<code>resolved-theirs</code>)に変わる。
+    <code>conflict-save-merge</code> が有効化(disabled 解除)。クリックで <code>PUT /api/notes/{path}</code>
+    (baseMtime 付き楽観ロック)。成功後にダイアログを閉じて <code>dirty=false</code>。
+    409 再競合の場合はダイアログを閉じてトーストで再マージを促す(SC-4)。
+    <br>
+    <br>
+    <strong>モバイル確認</strong> — ブラウザ幅を 680px 以下に縮めると ours/theirs 並列が縦積みになり、
+    ボタンが全幅・44px 以上のタップ高になります。フッタが縦方向に展開されます。
+  </div>
+</div>
+
+<!-- 戻るチップ -->
+<a class="proto-back" href="index.html">
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="width:14px;height:14px;">
+    <path d="M10 3L5 8l5 5"/>
+  </svg>
+  プロトタイプ一覧へ
+</a>
+
+</body>
+</html>
