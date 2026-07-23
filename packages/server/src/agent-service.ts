@@ -458,7 +458,8 @@ export async function createPiSession(
     // ADR-0016 (Sc4b9d1-3): テンプレート templates_list (read) / template_instantiate
     // (template_write cap 再利用)。REST と同一の解決エンジン (templates-service) を共有する。
     // ADR-0018: agent 経路として isDenied を渡し、解決保存先の機密領域 deny を強制する。
-    ...createTemplateTools(serverConfig, isDenied, effectiveCaps),
+    // ADR-0031: VaultIndex を渡して select+optionsQuery の厳格 select 検証を有効化。
+    ...createTemplateTools(serverConfig, isDenied, effectiveCaps, index),
     // ADR-0017: web が有効ケーパビリティに含まれるときだけ web_fetch / web_search を追加。
     // allowPrivate は本番既定 false (SSRF 防止)。
     ...createVaultWebTools(serverConfig, config, effectiveCaps),
@@ -553,7 +554,8 @@ export async function openPiSession(
     ...createCommandTools(serverConfig, index, isDenied, effectiveCaps),
     // ADR-0016 (Sc4b9d1-3): 復元した実効ケーパビリティに応じてテンプレートツールを追加。
     // ADR-0018: agent 経路として isDenied を渡し、解決保存先の機密領域 deny を強制する。
-    ...createTemplateTools(serverConfig, isDenied, effectiveCaps),
+    // ADR-0031: VaultIndex を渡して select+optionsQuery の厳格 select 検証を有効化。
+    ...createTemplateTools(serverConfig, isDenied, effectiveCaps, index),
     // ADR-0017: 復元した実効ケーパビリティに web が含まれるときだけ web ツールを追加。
     ...createVaultWebTools(serverConfig, config, effectiveCaps),
     // S7e2d5c-1: 復元した実効ケーパビリティに vault_seed が含まれるとき vault_seed ツールを追加。

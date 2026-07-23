@@ -97,20 +97,31 @@ export const commandParamSchema = z
     /** 入力ウィジェット種別。 */
     type: commandParamTypeSchema.optional(),
     /**
-     * select 型の選択肢一覧。type='select' のときは非空配列が必須。
+     * select 型の選択肢一覧。type='select' かつ optionsQuery が無いときは非空配列が必須。
+     * optionsQuery が指定された場合は options を省略可 (ADR-0031 / S1bd397)。
      * 他の型では存在を許容するが実行時は無視される (additive)。
      * [AC-Sf2f114-5-1]
      */
     options: z.array(z.string()).optional(),
+    /**
+     * 動的選択肢クエリ (ADR-0031 / S1bd397)。DQL LIST クエリ文字列。
+     * select 型: optionsQuery が指定された場合は静的 options を省略可。
+     * text/string 型: オートコンプリート候補 (自由入力も可)。
+     * note 型: 絞り込みノートピッカー候補。
+     * 省略時は従来挙動 (後方互換)。
+     */
+    optionsQuery: z.string().optional(),
   })
   .superRefine((data, ctx) => {
-    // select 型には options が必要 (非空)
+    // select 型には options が必要 (非空)。ただし optionsQuery があれば options 省略可 (ADR-0031)
     if (data.type === 'select') {
-      if (data.options === undefined || data.options.length === 0) {
+      const hasOptions = data.options !== undefined && data.options.length > 0;
+      const hasOptionsQuery = data.optionsQuery !== undefined && data.optionsQuery.trim() !== '';
+      if (!hasOptions && !hasOptionsQuery) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['options'],
-          message: "param type 'select' requires non-empty options array",
+          message: "param type 'select' requires non-empty options array or optionsQuery",
         });
       }
     }

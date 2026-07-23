@@ -35,6 +35,8 @@ import {
   SYSTEM_COMMANDS_DIR,
   SYSTEM_TEMPLATES_DIR,
   agentJobSchema,
+  resolveOptionsQuery,
+  validateOptionsDependencies,
   type AgentJob,
   type CommandStepResult,
   type CommandSummary,
@@ -154,14 +156,16 @@ export function summaryFor(rel: string, content: string): CommandSummary {
  * runCommand の結果。HTTP に依存しない判別可能 union。
  * REST は各バリアントを従来と同一の HTTP レスポンスへ、agent ツールはテキストへマップする。
  *
- * - invalid_name       : コマンド名がパス検証で拒否 (REST: 400 invalid_path)。
- * - not_found          : コマンド未検出 (REST: 404 not_found)。
- * - invalid_command    : コマンド定義パース失敗 (REST: 400 invalid_command)。
- * - missing_params     : 必須 param 不足 (REST: 400 missing_params + missing[])。
- * - forbidden          : append-only で MUTATE ステップ含む (REST: 403 forbidden)。
- * - invalid_target_path: ステップ内の target パスがパス検証で拒否 (REST: 400 invalid_target_path)。
- *                        既存挙動どおりステップ実行を打ち切って即返す (results は打ち切り前のぶん)。
- * - ok                 : 実行完了 (results / openPath)。ステップ失敗は results 内 ok:false で表す。
+ * - invalid_name        : コマンド名がパス検証で拒否 (REST: 400 invalid_path)。
+ * - not_found           : コマンド未検出 (REST: 404 not_found)。
+ * - invalid_command     : コマンド定義パース失敗 (REST: 400 invalid_command)。
+ * - missing_params      : 必須 param 不足 (REST: 400 missing_params + missing[])。
+ * - forbidden           : append-only で MUTATE ステップ含む (REST: 403 forbidden)。
+ * - invalid_target_path : ステップ内の target パスがパス検証で拒否 (REST: 400 invalid_target_path)。
+ *                         既存挙動どおりステップ実行を打ち切って即返す (results は打ち切り前のぶん)。
+ * - invalid_select_value: select+optionsQuery の param 値が候補外 (REST: 422, ADR-0031 / S1bd397)。
+ *                         paramName に対象変数名。VaultIndex 参照時のみ発生。
+ * - ok                  : 実行完了 (results / openPath)。ステップ失敗は results 内 ok:false で表す。
  */
 export type RunCommandResult =
   | { status: 'invalid_name'; message: string }
@@ -170,6 +174,7 @@ export type RunCommandResult =
   | { status: 'missing_params'; missing: string[] }
   | { status: 'forbidden'; message: string }
   | { status: 'invalid_target_path'; message: string; results: CommandStepResult[] }
+  | { status: 'invalid_select_value'; paramName: string; message: string }
   | { status: 'ok'; results: CommandStepResult[]; openPath?: string; commandPath: string };
 
 /**
@@ -276,7 +281,59 @@ export async function runCommand(
     }
   }
 
-  // 5. resolve コンテキスト構築。
+  // 5. ADR-0031 / S1bd397-2: select+optionsQuery の厳格 select 検証。
+  // テンプレート側 (instantiateTemplate) と対称に、宣言順で解決済みパラメータを積み上げながら
+  // select+optionsQuery の値が候補集合に含まれるか検証する。
+  //   - text+optionsQuery は自由入力なので検証しない。
+  //   - 候補 0 件は検証スキップ (D7: ユーザーをブロックしない)。
+  //   - 候補外は invalid_select_value を返す (実行しない)。
+  //   - 循環/前方参照は validateOptionsDependencies で拒否 (宣言順制約)。
+  // VaultIndex は既に index 引数で渡されているため後方互換コスト不要。
+  {
+    // 依存宣言順検証: 前方参照・循環禁止
+    const depCheck = validateOptionsDependencies(cmd.params);
+    if (!depCheck.valid) {
+      return {
+        status: 'invalid_command',
+        message: `optionsQuery 依存エラー: ${depCheck.error ?? '不明な依存エラー'}`,
+      };
+    }
+
+    const notes = index.queryNotes();
+    // 宣言順で解決済みパラメータを積み上げながら検証 (依存クエリ対応)
+    const resolvedForDep: Record<string, string> = {};
+    for (const p of cmd.params) {
+      const val = params[p.name];
+      const effective = val !== undefined && val !== '' ? val : undefined;
+      const value = effective ?? (p.default !== undefined ? p.default : '');
+      if (p.type === 'select' && p.optionsQuery !== undefined) {
+        try {
+          const { candidates } = resolveOptionsQuery(
+            p.optionsQuery,
+            notes,
+            undefined,
+            resolvedForDep,
+          );
+          // 候補 0 件 → 検証スキップ (D7)
+          if (candidates.length > 0) {
+            const validValues = new Set(candidates.map((c) => c.value));
+            if (!validValues.has(value)) {
+              return {
+                status: 'invalid_select_value',
+                paramName: p.name,
+                message: `'${value}' は '${p.name}' の有効な候補ではありません`,
+              };
+            }
+          }
+        } catch {
+          // DQL 構文エラー等は検証スキップ (候補解決不能のため free input 扱い)
+        }
+      }
+      resolvedForDep[p.name] = value;
+    }
+  }
+
+  // 6. resolve コンテキスト構築。
   const now = new Date();
   const resolvedParams: Record<string, string> = {};
   for (const p of cmd.params) {
@@ -293,7 +350,7 @@ export async function runCommand(
     }
   }
 
-  // 6. ステップを順次実行 [AC-Sd22b1f-2-1]。
+  // 7. ステップを順次実行 [AC-Sd22b1f-2-1]。
   const results: CommandStepResult[] = [];
   let openPath: string | undefined;
 

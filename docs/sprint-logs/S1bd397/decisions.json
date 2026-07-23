@@ -122,6 +122,16 @@
    "id": "D-S1bd397-proto-1",
    "decision": "プロトタイプのウィジェット種別注釈(.widget-tag: 'dynamic-select · optionsQuery: ...' 等)は実装しない",
    "rationale": "ユーザーレビュー(2026-07-23)で明示指摘: 各入力の上のメタ注釈は削除。実 UI は『ラベル + 入力ウィジェット』のみで、ウィジェット種別や optionsQuery 文字列を画面に出さない(製品要素のみ・プロトタイプ注釈は持ち込まない)。data-widget 属性は testid 用に残すが視認テキスト注釈は出さない。"
+  },
+  {
+   "id": "D-S1bd397-cmd-select-1",
+   "topic": "runCommand への厳格 select 検証の追加 (テンプレートとの対称化)",
+   "decision": "commands-service.runCommand にも instantiateTemplate と対称な select+optionsQuery 厳格検証を実装した。検証ロジックは共有ヘルパ (resolveOptionsQuery / validateOptionsDependencies) を経由し、独自ロジックを新設しない (ADR-0016)。RunCommandResult に invalid_select_value バリアントを追加し、REST (422) と agent ツール (テキストエラー) がそれぞれマップする。VaultIndex は既存の第 2 引数 index を再利用するため後方互換コスト不要。",
+   "alternatives": [
+    "VaultIndex を optional 引数として別途追加する案: runCommand にはすでに index が必須引数として存在するため不要。",
+    "routes/commands.ts 側でフィルタする案: ADR-0016 に違反するため却下。"
+   ],
+   "rationale": "ADR-0031 (select+optionsQuery の厳格 select 検証) / ADR-0016 (単一サービス層) の契約を commands 側でも満たすため。テンプレートと対称な実装とすることで、REST・CLI・agent が同一の候補検証経路を共有する。text+optionsQuery は自由入力を許容 (D7 と整合)。候補 0 件は検証スキップ (D7)。"
   }
  ]
 }

@@ -420,6 +420,34 @@ export const errorResponseSchema = z.object({
 });
 export type ErrorResponse = z.infer<typeof errorResponseSchema>;
 
+// ---- 動的選択肢解決 (POST /api/options-query — ADR-0031 / S1bd397) ----
+
+/** POST /api/options-query のリクエスト。 */
+export const optionsQueryRequestSchema = z.object({
+  /** 実行する DQL クエリ (LIST のみ v1)。 */
+  dql: z.string().min(1, 'dql must not be empty'),
+  /** 依存クエリ用: 解決済み上流変数を差し込んでから実行する。 */
+  resolvedVars: z.record(z.string(), z.string()).optional(),
+  /** 取得件数上限 (既定 50)。 */
+  topN: z.number().int().positive().optional(),
+});
+export type OptionsQueryRequest = z.infer<typeof optionsQueryRequestSchema>;
+
+/** 候補 1 件 (v1: value=label=ノートタイトル)。 */
+export const optionsQueryCandidateSchema = z.object({
+  value: z.string(),
+  label: z.string(),
+});
+export type OptionsQueryCandidate = z.infer<typeof optionsQueryCandidateSchema>;
+
+/** POST /api/options-query の正常レスポンス。 */
+export const optionsQueryResponseSchema = z.object({
+  candidates: z.array(optionsQueryCandidateSchema),
+  /** topN で打ち切られた場合 true。 */
+  truncated: z.boolean(),
+});
+export type OptionsQueryResponse = z.infer<typeof optionsQueryResponseSchema>;
+
 // ---- 汎用テンプレート (S89a350) ----
 
 /**
@@ -441,8 +469,16 @@ export const templateVarSchema = z.object({
   label: z.string().optional(),
   /** 既定値 (date は `{{date:YYYY-MM-DD}}` 等のテンプレート記法も可)。 */
   default: z.string().optional(),
-  /** select の選択肢。 */
+  /** select の選択肢 (静的)。select+optionsQuery の場合は省略可 (ADR-0031)。 */
   options: z.array(z.string()).optional(),
+  /**
+   * 動的選択肢クエリ (ADR-0031 / S1bd397)。DQL LIST クエリ文字列。
+   * 指定時、POST /api/options-query でノートタイトルを候補として解決する。
+   * text 型: オートコンプリート候補 (自由入力も可)。
+   * select 型: 動的候補 (optionsQuery がある場合は静的 options を省略可)。
+   * 省略時は従来挙動 (後方互換)。
+   */
+  optionsQuery: z.string().optional(),
 });
 export type TemplateVar = z.infer<typeof templateVarSchema>;
 

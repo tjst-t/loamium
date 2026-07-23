@@ -181,6 +181,11 @@ export function createCommandTools(
                 error: true,
                 id: params.id,
               });
+            case 'invalid_select_value':
+              return textResult(
+                `パラメータ '${outcome.paramName}' の値が候補外です: ${outcome.message}`,
+                { error: true, id: params.id },
+              );
             case 'ok': {
               // REST の setAudit('command.run', ...) に対応する監査を直接記録する
               // (書き込みステップ・agent-run.step は runCommand が既に記録済み)。

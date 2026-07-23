@@ -22,6 +22,7 @@ import { defineTool } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 import type { Capability } from '@loamium/shared';
 import type { ServerConfig } from './config.js';
+import type { VaultIndex } from './noteIndex.js';
 import { writeAuditEntry } from './audit.js';
 import { instantiateTemplate, listTemplates } from './templates-service.js';
 
@@ -51,6 +52,7 @@ export function createTemplateTools(
   config: ServerConfig,
   isDenied: (relPath: string) => boolean,
   caps: readonly Capability[],
+  vaultIndex?: VaultIndex,
 ): ReturnType<typeof defineTool>[] {
   const vaultRoot = config.vaultRoot;
   const capSet = new Set<Capability>(caps);
@@ -124,6 +126,7 @@ export function createTemplateTools(
             vars,
             params.date,
             isDenied,
+            vaultIndex,
           );
 
           switch (outcome.status) {
@@ -142,6 +145,12 @@ export function createTemplateTools(
               return textResult(`機密領域への保存は拒否されました: ${outcome.message}`, {
                 error: true,
               });
+            case 'invalid_select_value':
+              // ADR-0031: select+optionsQuery の候補外の値
+              return textResult(
+                `パラメータ '${outcome.paramName}' の値が候補外です: ${outcome.message}`,
+                { error: true },
+              );
             case 'ok': {
               // HTTP を通らないため op: agent.template_instantiate を直接監査へ記録する。
               await writeAuditEntry(config, {
