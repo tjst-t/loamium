@@ -1,0 +1,127 @@
+{
+ "sprint": "S1bd397",
+ "created": "2026-07-23",
+ "touched_adrs": [
+  "ADR-0031",
+  "ADR-0001",
+  "ADR-0016",
+  "ADR-0022",
+  "ADR-0014",
+  "ADR-0015"
+ ],
+ "decisions": [
+  {
+   "id": "D1",
+   "topic": "候補解決ヘルパの配置",
+   "decision": "packages/shared/src/options-query.ts に resolveOptionsQuery(dql, notes, topN) を置く。DQL 純関数 parseQuery/executeQuery を直接呼ぶ。packages/server 側に resolveDynamicOptions(dql, vaultIndex, topN) のサーバーアダプタを packages/server/src/options-query-resolver.ts に置き、VaultIndex.queryNotes() を渡す。これにより REST/CLI/agent すべて同一経路を経由する (ADR-0001/0016)。",
+   "alternatives": [
+    "サーバー側だけにヘルパを置く案: shared に pure helper を置けないため REST と agent で別経路になるリスクあり → 却下"
+   ],
+   "rationale": "ADR-0001 (第二のクエリ機構禁止) と ADR-0016 (単一サービス層) を同時に満たすため、pure 部分は shared、IO 依存部分 (VaultIndex 参照) はサーバー側に分離する。"
+  },
+  {
+   "id": "D2",
+   "topic": "候補の値とラベルの定義 (v1)",
+   "decision": "v1 は DQL LIST 結果の title フィールド (ノートタイトル) を value = label として使う。path は値に使わない。ADR-0031 決定 (4) に準拠。valueField / labelField の加算は v1 スコープ外。",
+   "alternatives": [
+    "path を value にする案: Epic の {{プロジェクト名}} はタイトルで十分なため不要 → v1 では不採用"
+   ],
+   "rationale": "ADR-0031 の v1 仕様に厳密に従う。path/title デュアル対応は後追い拡張とする (DESIGN_PRINCIPLES priority 5: シンプルさ > 汎用性)。"
+  },
+  {
+   "id": "D3",
+   "topic": "top-N のデフォルト値",
+   "decision": "デフォルト 50 件。超過時は truncated: true フラグを返す。クライアント側に打ち切りを通知し、silent な切り捨てをしない (ADR-0031 consequences)。",
+   "alternatives": [
+    "100件案: 個人用 vault では 50 で十分、UI 性能を考慮して 50 で確定"
+   ],
+   "rationale": "ADR-0031 の 'top-N (既定 50) + 打ち切りフラグ' に準拠。"
+  },
+  {
+   "id": "D4",
+   "topic": "候補解決 API エンドポイントの追加可否",
+   "decision": "新規エンドポイントは作らない。UI は GET /api/templates/{name} のレスポンス内 vars[].optionsQuery を持ち、候補解決は POST /api/options-query (新規追加) で行う。ただし POST /api/query を直接叩く既存手段も使える。実装方針: 候補解決専用ライトウェイトエンドポイント POST /api/options-query を追加し、body: {dql, resolvedVars?, topN?} → {candidates, truncated} を返す。これは GET /api/templates/{name}/options?var=X よりも REST ful かつ依存クエリの resolvedVars 注入が容易。",
+   "alternatives": [
+    "GET /api/templates/{name}/options?var=X: テンプレート固有で commands との共用が難しい → 却下",
+    "POST /api/query を再利用するのみ: UI が LIST 結果を候補変換する処理を持つことになりクライアント側に余計なロジックが漏れる → 専用エンドポイントが明確"
+   ],
+   "rationale": "ADR-0016 (同一サービス層) + ADR-0001 (DQL 再利用) を満たしつつ、テンプレートとコマンドを共通化するため専用エンドポイント。"
+  },
+  {
+   "id": "D5",
+   "topic": "TemplateVar に optionsQuery を追加する際の superRefine 修正",
+   "decision": "既存の select 型は options が必須だったが、select+optionsQuery でも有効とする。superRefine を修正: optionsQuery が存在する場合は options 非存在でも有効。後方互換: optionsQuery なし + select + options[]=現状挙動。",
+   "alternatives": [
+    "select に options を依然必須とする案: optionsQuery のみで静的候補が不要なケースに対応できない → 却下"
+   ],
+   "rationale": "ADR-0031 の加算的拡張 (ADR-0022) に従い、optionsQuery が候補の代替源となるため。"
+  },
+  {
+   "id": "D6",
+   "topic": "CommandParam の select superRefine 修正",
+   "decision": "loamium-command.ts の commandParamSchema の superRefine も同様に修正: type='select' でも optionsQuery があれば options 省略可。",
+   "alternatives": [],
+   "rationale": "D5 と対称で整合性を保つ。"
+  },
+  {
+   "id": "D7",
+   "topic": "厳格 select の 0 件フォールバック方針",
+   "decision": "select+optionsQuery で候補が 0 件のとき、サーバー側検証では 0 件を候補外扱いにせず、'free input' モードに倒す (検証スキップ)。理由: 0 件はクエリが空振りしたケースであり、ユーザーを完全にブロックすべきでない。UI は空+ヒント表示。ADR-0031 consequences に明示されている挙動。",
+   "alternatives": [
+    "0 件でも厳格拒否する案: ユーザーを詰まらせる → 却下"
+   ],
+   "rationale": "ADR-0031 consequences: '0 件時は厳格 select は空+ヒント表示、text は自由入力にフォールバックする挙動を定義'。"
+  },
+  {
+   "id": "D8",
+   "topic": "依存クエリの解決順序と循環検出",
+   "decision": "optionsQuery 内の {{変数名}} 参照は宣言順で解決済み変数のみ許容。循環検出: 各変数の optionsQuery が参照する変数名セットを宣言順で走査し、自身または既出変数を参照したらエラー。前方参照 (まだ解決されていない変数への参照) も同様にエラー。循環検出ロジックは shared/src/options-query.ts の validateOptionsDependencies() として実装。",
+   "alternatives": [],
+   "rationale": "ADR-0031 決定 (5): '解決は宣言順・循環禁止'。"
+  },
+  {
+   "id": "D9",
+   "topic": "UI での候補取得タイミング",
+   "decision": "TemplateModal: モーダル表示時に依存なし変数の候補を即時フェッチ。依存あり変数は上流変数の値が確定するたびに再フェッチ。コマンド param フォームも同様。フェッチ中はローディングスピナー表示。失敗時はフォールバック (text は自由入力、select は空+ヒント)。",
+   "alternatives": [],
+   "rationale": "UX 優先。依存クエリは上流変化で再解決 (ADR-0031 決定 (5))。"
+  },
+  {
+   "id": "D10",
+   "topic": "note+optionsQuery の TemplateVar 対応",
+   "decision": "v1 で templates の TemplateVar に note 型を追加しない。Epic テンプレートは select+optionsQuery (値=タイトル) で実現可能。ADR-0031 notes: 'テンプレートには現状 note 型が無いため Epic ケースは select+optionsQuery(値=タイトル)で足りる'。commands の note+optionsQuery はスコープ内。",
+   "alternatives": [],
+   "rationale": "スコープ最小化 (DESIGN_PRINCIPLES priority 5) + ADR-0031 notes の記述に準拠。"
+  },
+  {
+   "id": "D11",
+   "topic": "UI コンポーネント構造 (候補ドロップダウン)",
+   "decision": "select+optionsQuery: <select> 要素 (既存) のまま options を動的候補で差し替え。optionsQuery なし=静的候補、あり=動的候補。text+optionsQuery: <input> + <datalist> によるネイティブオートコンプリート (IME 考慮: composing 中は候補選択抑止)。note+optionsQuery (commands): 既存ノートピッカー UI を流用し DQL 絞り込み候補で初期化。",
+   "alternatives": [
+    "カスタムドロップダウン: アクセシビリティ・IME 対応コストが高い → <select>/<datalist> ネイティブで十分"
+   ],
+   "rationale": "DESIGN_PRINCIPLES ui_ux: IME 対応が第一級。ネイティブ要素はブラウザの IME 連携が自動で得られる。"
+  },
+  {
+   "id": "D12",
+   "topic": "agent-tools e2e の advertised-toolset pin への影響",
+   "decision": "Story5 で agent-help.ts の template/command トピックに optionsQuery 説明を追記するが、これはツール名の追加/削除ではないため agent-tools.e2e の tools 名一覧 pin には非影響。ツール名 (template_instantiate / command_run 等) は変わらない。確認テストとして Story5 の ac に 'agent-tools e2e が green であること' を明示するが、pin の変更は不要。",
+   "alternatives": [],
+   "rationale": "memory: agent-toolset e2e pin に記載通り。ツール名一覧のみ pin、help 内容変更は非影響。"
+  },
+  {
+   "id": "D13",
+   "topic": "逐次実行の順序",
+   "decision": "共有ファイル (schemas.ts, loamium-command.ts, templates-service.ts, commands-service.ts, TemplateModal.tsx, CommandEditor.tsx) が多いため worktree 並列不可 (memory: worktree old-base pitfall)。逐次ウェーブ: Wave1 (S1bd397-1: 基盤スキーマ+候補解決ヘルパ) → Wave2 (S1bd397-2: 厳格 select 検証) → Wave3 (S1bd397-3: 依存クエリ) → Wave4 (S1bd397-4: UI) → Wave5 (S1bd397-5: agent/ガイド)。",
+   "alternatives": [
+    "Story1+2 並列案: schemas.ts を共有するため衝突 → 却下"
+   ],
+   "rationale": "memory: worktree old-base pitfall + ADR-0031 notes: 'stories がファイル共有と明記'。"
+  },
+  {
+   "id": "D-S1bd397-proto-1",
+   "decision": "プロトタイプのウィジェット種別注釈(.widget-tag: 'dynamic-select · optionsQuery: ...' 等)は実装しない",
+   "rationale": "ユーザーレビュー(2026-07-23)で明示指摘: 各入力の上のメタ注釈は削除。実 UI は『ラベル + 入力ウィジェット』のみで、ウィジェット種別や optionsQuery 文字列を画面に出さない(製品要素のみ・プロトタイプ注釈は持ち込まない)。data-widget 属性は testid 用に残すが視認テキスト注釈は出さない。"
+  }
+ ]
+}
