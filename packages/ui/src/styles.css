@@ -4860,6 +4860,59 @@ button.callout-title { cursor: pointer; }
 }
 
 /* ==========================================================================
+   S1bd397-4 — optionsQuery 動的候補ウィジェット (TemplateModal + ParamFormModal)
+   ========================================================================== */
+
+/* テンプレートモーダル: 候補ヒント */
+.tpl-options-hint {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  padding: 2px 0 4px;
+}
+.tpl-options-loading { color: var(--text-faint); }
+.tpl-options-empty { color: var(--text-faint); }
+.tpl-options-truncated { color: var(--text-faint); }
+
+/* dynamic-select <select> のスタイル合わせ */
+.tpl-dynamic-select {
+  appearance: auto;
+  width: 100%;
+}
+
+/* パラメータフォーム: 候補ヒント */
+.param-options-hint {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  padding: 2px 0 4px;
+}
+.param-options-loading { color: var(--text-faint); }
+.param-options-empty { color: var(--text-faint); }
+
+/* モバイル対応 (S1bd397-4 / 規約: max-width:680px, タップターゲット 44px, font-size 16px) */
+@media (max-width: 680px) {
+  /* テンプレートモーダル: タップターゲット 44px / iOS ズーム防止 font-size 16px */
+  .tpl-input,
+  .tpl-dynamic-select {
+    font-size: 16px; /* iOS ズーム防止 */
+    min-height: 44px;
+    padding: 10px 11px;
+  }
+  .tpl-select-opts { gap: 8px; }
+  .tpl-opt { min-height: 44px; padding: 10px 14px; }
+
+  /* 作成ボタン: タップターゲット 44px */
+  .tpl-foot-actions .btn { min-height: 44px; }
+
+  /* パラメータフォーム: タップターゲット 44px / iOS ズーム防止 */
+  .param-input {
+    font-size: 16px; /* iOS ズーム防止 */
+    min-height: 44px;
+  }
+  select.param-input { min-height: 44px; }
+  .param-foot-actions .btn { min-height: 44px; }
+}
+
+/* ==========================================================================
    S8086d9-2 — ブックマークスター (ノートヘッダ右端)
    ========================================================================== */
 

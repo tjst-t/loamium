@@ -49,6 +49,7 @@ import {
   agentPermissionsWriteResponseSchema,
   taskVocabResponseSchema,
   taskVocabWriteResponseSchema,
+  optionsQueryResponseSchema,
   type TemplateInstantiateResponse,
   type TemplateSummary,
   type PropertyKeyCount,
@@ -76,6 +77,7 @@ import {
   type CommandRunResponse,
   type CommandSourceResponse,
   type CommandSourceWriteResponse,
+  type OptionsQueryResponse,
   type SystemFileListResponse,
   type SystemFileSourceResponse,
   type SystemFileSourceWriteResponse,
@@ -435,6 +437,33 @@ export const api = {
   async listCommands(): Promise<CommandSummary[]> {
     const res = await request(commandsResponseSchema, '/api/commands');
     return res.commands;
+  },
+
+  /**
+   * 動的候補取得 (POST /api/options-query — S1bd397-1)。
+   * dql: LIST クエリ文字列。resolvedVars: 依存クエリ用変数マップ (任意)。topN: 上限件数 (任意)。
+   */
+  async queryOptions(
+    dql: string,
+    resolvedVars?: Record<string, string>,
+    topN?: number,
+  ): Promise<OptionsQueryResponse> {
+    const body: Record<string, unknown> = { dql };
+    if (resolvedVars !== undefined) body['resolvedVars'] = resolvedVars;
+    if (topN !== undefined) body['topN'] = topN;
+    const res = await fetch('/api/options-query', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      let errBody: unknown = null;
+      try { errBody = await res.json(); } catch { /* ignore */ }
+      const parsed = errorResponseSchema.safeParse(errBody);
+      if (parsed.success) throw new ApiError(res.status, parsed.data.error, parsed.data.message);
+      throw new ApiError(res.status, 'http_error', `HTTP ${String(res.status)}`);
+    }
+    return optionsQueryResponseSchema.parse(await res.json());
   },
 
   /**

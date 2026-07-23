@@ -111,6 +111,23 @@ interface TestRunParamFormProps {
   onCancel: () => void;
 }
 
+/** 候補フェッチ状態 (S1bd397-4) */
+type CandidateState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'loaded'; candidates: { value: string; label: string }[]; truncated: boolean }
+  | { status: 'error' };
+
+function interpolateQuery(dql: string, resolvedVars: Record<string, string>): string {
+  return dql.replace(/\{\{([^}]+)\}\}/g, (_, name: string) => resolvedVars[name] ?? '');
+}
+
+function getQueryDeps(optionsQuery: string | undefined): string[] {
+  if (optionsQuery === undefined) return [];
+  const matches = optionsQuery.matchAll(/\{\{([^}]+)\}\}/g);
+  return Array.from(matches, (m) => m[1] ?? '').filter((n) => n !== '');
+}
+
 function todayDateStr(): string {
   const d = new Date();
   const y = d.getFullYear();
@@ -136,9 +153,72 @@ function TestRunParamForm({
   const [showErrors, setShowErrors] = useState(false);
   const firstInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null>(null);
 
+  // 候補フェッチ状態 (S1bd397-4)
+  const [candidateStates, setCandidateStates] = useState<Record<string, CandidateState>>(() => {
+    const init: Record<string, CandidateState> = {};
+    for (const p of params) init[p.name] = { status: 'idle' };
+    return init;
+  });
+
+  const fetchCandidates = useCallback(
+    async (paramName: string, dql: string, resolvedVars: Record<string, string>): Promise<void> => {
+      setCandidateStates((prev) => ({ ...prev, [paramName]: { status: 'loading' } }));
+      try {
+        const interpolated = interpolateQuery(dql, resolvedVars);
+        const resp = await api.queryOptions(interpolated);
+        setCandidateStates((prev) => ({
+          ...prev,
+          [paramName]: { status: 'loaded', candidates: resp.candidates, truncated: resp.truncated },
+        }));
+        if (resp.candidates.length > 0) {
+          setValues((prev) => {
+            const cur = prev[paramName] ?? '';
+            if (cur === '' || !resp.candidates.some((c) => c.value === cur)) {
+              return { ...prev, [paramName]: resp.candidates[0]?.value ?? '' };
+            }
+            return prev;
+          });
+        }
+      } catch {
+        setCandidateStates((prev) => ({ ...prev, [paramName]: { status: 'error' } }));
+      }
+    },
+    [],
+  );
+
+  // 初回マウント: 依存なし optionsQuery パラメータをフェッチ
+  useEffect(() => {
+    for (const p of params) {
+      if (p.optionsQuery === undefined) continue;
+      const deps = getQueryDeps(p.optionsQuery);
+      if (deps.length === 0) {
+        void fetchCandidates(p.name, p.optionsQuery, {});
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     firstInputRef.current?.focus();
   }, []);
+
+  // 値変化時: 依存クエリの再フェッチ (S1bd397-4)
+  const prevValuesRef = useRef(values);
+  useEffect(() => {
+    const prev = prevValuesRef.current;
+    prevValuesRef.current = values;
+    for (const p of params) {
+      if (p.optionsQuery === undefined) continue;
+      const deps = getQueryDeps(p.optionsQuery);
+      if (deps.length === 0) continue;
+      const changed = deps.some((dep) => prev[dep] !== values[dep]);
+      if (changed) {
+        const resolvedVars: Record<string, string> = {};
+        for (const dep of deps) resolvedVars[dep] = values[dep] ?? '';
+        void fetchCandidates(p.name, p.optionsQuery, resolvedVars);
+      }
+    }
+  }, [values, params, fetchCandidates]);
 
   const requiredMissing = useMemo(
     () =>
@@ -225,6 +305,7 @@ function TestRunParamForm({
             const invalid = showErrors && requiredMissing.includes(p.name);
             const label = p.label ?? p.name;
             const fieldType = p.type ?? 'string';
+            const csState = candidateStates[p.name] ?? { status: 'idle' };
             return (
               <div
                 key={p.name}
@@ -243,7 +324,68 @@ function TestRunParamForm({
                   )}
                 </label>
                 <div className="param-field-body">
-                  {fieldType === 'text' ? (
+                  {/* ローディングインジケータ (S1bd397-4) */}
+                  {p.optionsQuery !== undefined && csState.status === 'loading' && (
+                    <div
+                      className="param-options-hint param-options-loading"
+                      data-testid="param-field-options-loading"
+                      data-name={p.name}
+                    >
+                      候補を取得中…
+                    </div>
+                  )}
+                  {/* 0件ヒント (S1bd397-4) */}
+                  {p.optionsQuery !== undefined && csState.status === 'loaded' && csState.candidates.length === 0 && (
+                    <div
+                      className="param-options-hint param-options-empty"
+                      data-testid="param-field-options-empty"
+                      data-name={p.name}
+                    >
+                      候補なし。直接入力してください
+                    </div>
+                  )}
+                  {/* select+optionsQuery → 動的ドロップダウン (S1bd397-4) */}
+                  {fieldType === 'select' && p.optionsQuery !== undefined ? (() => {
+                    const isLoading = csState.status === 'loading' || csState.status === 'idle';
+                    const candidates = csState.status === 'loaded' ? csState.candidates : [];
+                    const hasNoCandidate = csState.status === 'loaded' && candidates.length === 0;
+                    const isError = csState.status === 'error';
+                    if (hasNoCandidate || isError) {
+                      return (
+                        <input
+                          className={`param-input${invalid ? ' invalid' : ''}`}
+                          data-testid="param-field-input"
+                          data-name={p.name}
+                          type="text"
+                          value={values[p.name] ?? ''}
+                          placeholder={label}
+                          autoComplete="off"
+                          aria-invalid={invalid ? 'true' : undefined}
+                          onChange={(e) => setValue(p.name, e.target.value)}
+                          ref={(el) => { if (i === 0) firstInputRef.current = el; }}
+                        />
+                      );
+                    }
+                    return (
+                      <select
+                        className={`param-input${invalid ? ' invalid' : ''}`}
+                        data-testid="param-field-input"
+                        data-name={p.name}
+                        data-widget="dynamic-select"
+                        value={values[p.name] ?? ''}
+                        disabled={isLoading}
+                        aria-busy={isLoading ? 'true' : undefined}
+                        aria-invalid={invalid ? 'true' : undefined}
+                        onChange={(e) => setValue(p.name, e.target.value)}
+                        ref={(el) => { if (i === 0) firstInputRef.current = el; }}
+                      >
+                        {candidates.map((c) => (
+                          <option key={c.value} value={c.value}>{c.label}</option>
+                        ))}
+                      </select>
+                    );
+                  })()
+                  : fieldType === 'text' ? (
                     <textarea
                       className={`param-input${invalid ? ' invalid' : ''}`}
                       data-testid="param-field-input"

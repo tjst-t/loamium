@@ -5,9 +5,16 @@
  * - type='string' (または省略) → <input type="text"> (1 行)
  * - type='text'               → <textarea> (複数行)
  * - type='date'               → <input type="date">
+ * - type='select'+optionsQuery → <select> 動的ドロップダウン (data-widget="dynamic-select")
+ * - type='note'+optionsQuery  → ノートピッカー (data-widget="note-picker")
  * - required 検証 / インラインエラー / submit 無効化
  * - Enter で実行 / Esc でパレットへ戻る (パレットは閉じない)
  * - 実行後: 成功は呼び出し元が閉じる / 失敗は param-form-result を表示
+ *
+ * S1bd397-4: optionsQuery 対応
+ *   testid_contract (追加分):
+ *   param-field-input[data-name][data-widget="dynamic-select"|"autocomplete"|"note-picker"]
+ *   param-field-options-loading[data-name], param-field-options-empty[data-name]
  *
  * testid_contract (Sde7a63-3):
  *   param-form-modal, param-form-modal-backdrop, param-form-title,
@@ -74,6 +81,25 @@ function initialValue(p: CommandParam): string {
   return '';
 }
 
+/** 候補フェッチ状態 */
+type CandidateState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'loaded'; candidates: { value: string; label: string }[]; truncated: boolean }
+  | { status: 'error' };
+
+/** optionsQuery 内の {{変数名}} を resolvedVars で差し込んで返す。 */
+function interpolateQuery(dql: string, resolvedVars: Record<string, string>): string {
+  return dql.replace(/\{\{([^}]+)\}\}/g, (_, name: string) => resolvedVars[name] ?? '');
+}
+
+/** optionsQuery が参照する変数名一覧を返す。 */
+function getQueryDeps(optionsQuery: string | undefined): string[] {
+  if (optionsQuery === undefined) return [];
+  const matches = optionsQuery.matchAll(/\{\{([^}]+)\}\}/g);
+  return Array.from(matches, (m) => m[1] ?? '').filter((n) => n !== '');
+}
+
 export function ParamFormModal({
   commandName,
   commandId,
@@ -95,6 +121,69 @@ export function ParamFormModal({
   const [runResult, setRunResult] = useState<CommandRunResponse | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const firstInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+
+  // 候補フェッチ状態 (S1bd397-4)
+  const [candidateStates, setCandidateStates] = useState<Record<string, CandidateState>>(() => {
+    const init: Record<string, CandidateState> = {};
+    for (const p of params) init[p.name] = { status: 'idle' };
+    return init;
+  });
+
+  const fetchCandidates = useCallback(
+    async (paramName: string, dql: string, resolvedVars: Record<string, string>): Promise<void> => {
+      setCandidateStates((prev) => ({ ...prev, [paramName]: { status: 'loading' } }));
+      try {
+        const interpolated = interpolateQuery(dql, resolvedVars);
+        const resp = await api.queryOptions(interpolated);
+        setCandidateStates((prev) => ({
+          ...prev,
+          [paramName]: { status: 'loaded', candidates: resp.candidates, truncated: resp.truncated },
+        }));
+        if (resp.candidates.length > 0) {
+          setValues((prev) => {
+            const cur = prev[paramName] ?? '';
+            if (cur === '' || !resp.candidates.some((c) => c.value === cur)) {
+              return { ...prev, [paramName]: resp.candidates[0]?.value ?? '' };
+            }
+            return prev;
+          });
+        }
+      } catch {
+        setCandidateStates((prev) => ({ ...prev, [paramName]: { status: 'error' } }));
+      }
+    },
+    [],
+  );
+
+  // 初回マウント: 依存なし optionsQuery パラメータをフェッチ
+  useEffect(() => {
+    for (const p of params) {
+      if (p.optionsQuery === undefined) continue;
+      const deps = getQueryDeps(p.optionsQuery);
+      if (deps.length === 0) {
+        void fetchCandidates(p.name, p.optionsQuery, {});
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 値変化時: 依存クエリの再フェッチ
+  const prevValuesRef = useRef(values);
+  useEffect(() => {
+    const prev = prevValuesRef.current;
+    prevValuesRef.current = values;
+    for (const p of params) {
+      if (p.optionsQuery === undefined) continue;
+      const deps = getQueryDeps(p.optionsQuery);
+      if (deps.length === 0) continue;
+      const changed = deps.some((dep) => prev[dep] !== values[dep]);
+      if (changed) {
+        const resolvedVars: Record<string, string> = {};
+        for (const dep of deps) resolvedVars[dep] = values[dep] ?? '';
+        void fetchCandidates(p.name, p.optionsQuery, resolvedVars);
+      }
+    }
+  }, [values, params, fetchCandidates]);
 
   const setValue = useCallback((name: string, value: string): void => {
     setValues((prev) => ({ ...prev, [name]: value }));
@@ -234,6 +323,7 @@ export function ParamFormModal({
               const invalid = showErrors && requiredMissing.includes(p.name);
               const label = p.label ?? p.name;
               const fieldType = p.type ?? 'string';
+              const csState = candidateStates[p.name] ?? { status: 'idle' };
               return (
                 <div
                   key={p.name}
@@ -252,12 +342,33 @@ export function ParamFormModal({
                     )}
                   </label>
                   <div className="param-field-body">
+                    {/* ローディングインジケータ (S1bd397-4) */}
+                    {p.optionsQuery !== undefined && csState.status === 'loading' && (
+                      <div
+                        className="param-options-hint param-options-loading"
+                        data-testid="param-field-options-loading"
+                        data-name={p.name}
+                      >
+                        候補を取得中…
+                      </div>
+                    )}
+                    {/* 0件ヒント (S1bd397-4) */}
+                    {p.optionsQuery !== undefined && csState.status === 'loaded' && csState.candidates.length === 0 && (
+                      <div
+                        className="param-options-hint param-options-empty"
+                        data-testid="param-field-options-empty"
+                        data-name={p.name}
+                      >
+                        候補なし。直接入力してください
+                      </div>
+                    )}
                     <ParamFieldInput
                       param={p}
                       value={values[p.name] ?? ''}
                       invalid={invalid}
                       onChange={(v) => setValue(p.name, v)}
                       inputRef={i === 0 ? firstInputRef : undefined}
+                      candidateState={csState}
                     />
                     {invalid && (
                       <div
@@ -406,12 +517,129 @@ interface ParamFieldInputProps {
   invalid: boolean;
   onChange: (value: string) => void;
   inputRef?: React.MutableRefObject<HTMLInputElement | HTMLTextAreaElement | null> | undefined;
+  candidateState: CandidateState;
 }
 
-function ParamFieldInput({ param, value, invalid, onChange, inputRef }: ParamFieldInputProps): JSX.Element {
+function ParamFieldInput({ param, value, invalid, onChange, inputRef, candidateState: cs }: ParamFieldInputProps): JSX.Element {
   const fieldType = param.type ?? 'string';
 
-  // type='text' → textarea (複数行)
+  // select+optionsQuery → 動的ドロップダウン (S1bd397-4)
+  if (fieldType === 'select' && param.optionsQuery !== undefined) {
+    const isLoading = cs.status === 'loading' || cs.status === 'idle';
+    const candidates = cs.status === 'loaded' ? cs.candidates : [];
+    const hasNoCandidate = cs.status === 'loaded' && candidates.length === 0;
+    const isError = cs.status === 'error';
+
+    // 0件またはエラー → フォールバック自由入力
+    if (hasNoCandidate || isError) {
+      return (
+        <input
+          className={`param-input${invalid ? ' invalid' : ''}`}
+          data-testid="param-field-input"
+          data-name={param.name}
+          type="text"
+          value={value}
+          placeholder={param.label ?? param.name}
+          autoComplete="off"
+          aria-invalid={invalid ? 'true' : undefined}
+          onChange={(e) => onChange(e.target.value)}
+          ref={(el) => {
+            if (inputRef !== undefined) inputRef.current = el;
+          }}
+        />
+      );
+    }
+
+    return (
+      <select
+        className={`param-input${invalid ? ' invalid' : ''}`}
+        data-testid="param-field-input"
+        data-name={param.name}
+        data-widget="dynamic-select"
+        value={value}
+        disabled={isLoading}
+        aria-busy={isLoading ? 'true' : undefined}
+        aria-invalid={invalid ? 'true' : undefined}
+        onChange={(e) => onChange(e.target.value)}
+        ref={(el) => {
+          if (inputRef !== undefined) inputRef.current = el as unknown as HTMLInputElement;
+        }}
+      >
+        {candidates.map((c) => (
+          <option key={c.value} value={c.value}>
+            {c.label}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  // note+optionsQuery → ノートピッカー (S1bd397-4)
+  if (fieldType === 'note' && param.optionsQuery !== undefined) {
+    const candidates = cs.status === 'loaded' ? cs.candidates : [];
+    const listId = `param-datalist-note-${param.name}`;
+    return (
+      <>
+        <input
+          className={`param-input${invalid ? ' invalid' : ''}`}
+          data-testid="param-field-input"
+          data-name={param.name}
+          data-widget="note-picker"
+          type="text"
+          list={listId}
+          value={value}
+          placeholder={param.label ?? param.name}
+          autoComplete="off"
+          aria-invalid={invalid ? 'true' : undefined}
+          onChange={(e) => onChange(e.target.value)}
+          ref={(el) => {
+            if (inputRef !== undefined) inputRef.current = el;
+          }}
+        />
+        <datalist id={listId}>
+          {candidates.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </datalist>
+      </>
+    );
+  }
+
+  // text+optionsQuery → オートコンプリート (S1bd397-4)
+  if (fieldType === 'text' && param.optionsQuery !== undefined) {
+    const candidates = cs.status === 'loaded' ? cs.candidates : [];
+    const listId = `param-datalist-text-${param.name}`;
+    return (
+      <>
+        <textarea
+          className={`param-input${invalid ? ' invalid' : ''}`}
+          data-testid="param-field-input"
+          data-name={param.name}
+          data-widget="autocomplete"
+          rows={3}
+          value={value}
+          placeholder={param.label ?? param.name}
+          autoComplete="off"
+          aria-invalid={invalid ? 'true' : undefined}
+          onChange={(e) => onChange(e.target.value)}
+          ref={(el) => {
+            if (inputRef !== undefined) inputRef.current = el;
+          }}
+        />
+        <datalist id={listId}>
+          {candidates.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </datalist>
+      </>
+    );
+  }
+
+  // type='text' (optionsQuery なし) → textarea (複数行)
   if (fieldType === 'text') {
     return (
       <textarea

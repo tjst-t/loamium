@@ -6,14 +6,22 @@
  * キーボードで完結する (Tab 項目移動 / Enter 作成 / Esc 中断 / ←→ で select 切替)。
  * 必須変数が未入力なら確定不可 + インラインエラー。保存先はライブプレビューする。
  *
+ * S1bd397-4: optionsQuery 対応 (dynamic-select / autocomplete)。
+ *   - select+optionsQuery → <select> 動的ドロップダウン (data-widget="dynamic-select")
+ *   - text+optionsQuery  → <input>+<datalist> オートコンプリート (data-widget="autocomplete")
+ *   - 依存クエリ: 上流変数変化で再フェッチ
+ *
  * data-testid (prototype/TESTIDS.md 準拠):
  *   template-modal-backdrop / template-modal / template-target-preview
  *   template-var-input (data-var) / template-var-error (data-var)
  *   template-create / template-cancel
+ *   template-var-options-loading (data-var) / template-var-options-empty (data-var)
+ *   template-var-options-truncated (data-var)
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type KeyboardEvent } from 'react';
 import { resolveTemplate, todayJournalDate, type TemplateSummary, type TemplateVar } from '@loamium/shared';
 import { CloseIcon } from '../icons.js';
+import { api } from '../api.js';
 
 interface TemplateModalProps {
   template: TemplateSummary;
@@ -29,9 +37,28 @@ function initialValue(v: TemplateVar): string {
     return resolveTemplate(v.default, { date: new Date(), now: new Date() }).text;
   }
   if (v.type === 'date') return todayJournalDate();
-  if (v.type === 'select' && v.options !== undefined && v.options.length > 0) return v.options[0] ?? '';
+  if (v.type === 'select' && v.options !== undefined && v.options.length > 0 && v.optionsQuery === undefined) return v.options[0] ?? '';
   return '';
 }
+
+/** optionsQuery 内の {{変数名}} を resolvedVars で差し込んで返す。 */
+function interpolateQuery(dql: string, resolvedVars: Record<string, string>): string {
+  return dql.replace(/\{\{([^}]+)\}\}/g, (_, name: string) => resolvedVars[name] ?? '');
+}
+
+/** optionsQuery が参照する変数名一覧を返す。 */
+function getQueryDeps(optionsQuery: string | undefined): string[] {
+  if (optionsQuery === undefined) return [];
+  const matches = optionsQuery.matchAll(/\{\{([^}]+)\}\}/g);
+  return Array.from(matches, (m) => m[1] ?? '').filter((n) => n !== '');
+}
+
+/** 候補フェッチ状態 */
+type CandidateState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'loaded'; candidates: { value: string; label: string }[]; truncated: boolean }
+  | { status: 'error' };
 
 export function TemplateModal(props: TemplateModalProps): JSX.Element {
   const { template } = props;
@@ -44,6 +71,15 @@ export function TemplateModal(props: TemplateModalProps): JSX.Element {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const firstFieldRef = useRef<HTMLInputElement | HTMLDivElement | null>(null);
+
+  // 候補フェッチ状態: 変数名 → CandidateState
+  const [candidateStates, setCandidateStates] = useState<Record<string, CandidateState>>(() => {
+    const init: Record<string, CandidateState> = {};
+    for (const v of template.vars) {
+      init[v.name] = v.optionsQuery !== undefined ? { status: 'idle' } : { status: 'idle' };
+    }
+    return init;
+  });
 
   // 日付型変数があれば {{date:...}} の基準日として使う (prototype: 日付フィールドが
   // 保存先プレビューを駆動する)。
@@ -61,6 +97,69 @@ export function TemplateModal(props: TemplateModalProps): JSX.Element {
     setValues((prev) => ({ ...prev, [name]: value }));
     setSubmitError(null);
   }, []);
+
+  // optionsQuery を持つ変数のフェッチ
+  const fetchCandidates = useCallback(
+    async (varName: string, dql: string, resolvedVars: Record<string, string>): Promise<void> => {
+      setCandidateStates((prev) => ({ ...prev, [varName]: { status: 'loading' } }));
+      try {
+        const interpolated = interpolateQuery(dql, resolvedVars);
+        const resp = await api.queryOptions(interpolated);
+        setCandidateStates((prev) => ({
+          ...prev,
+          [varName]: { status: 'loaded', candidates: resp.candidates, truncated: resp.truncated },
+        }));
+        // 候補が1件以上あれば最初の候補を初期値に設定 (値が空の場合)
+        if (resp.candidates.length > 0) {
+          setValues((prev) => {
+            const cur = prev[varName] ?? '';
+            if (cur === '' || !resp.candidates.some((c) => c.value === cur)) {
+              return { ...prev, [varName]: resp.candidates[0]?.value ?? '' };
+            }
+            return prev;
+          });
+        } else {
+          // 0件: 現在値をリセットしない (自由入力フォールバック)
+        }
+      } catch {
+        setCandidateStates((prev) => ({ ...prev, [varName]: { status: 'error' } }));
+      }
+    },
+    [],
+  );
+
+  // 初回マウント時: 依存なし optionsQuery 変数をフェッチ
+  useEffect(() => {
+    for (const v of template.vars) {
+      if (v.optionsQuery === undefined) continue;
+      const deps = getQueryDeps(v.optionsQuery);
+      if (deps.length === 0) {
+        void fetchCandidates(v.name, v.optionsQuery, {});
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 変数値変化時: 依存クエリの再フェッチ
+  const prevValuesRef = useRef(values);
+  useEffect(() => {
+    const prev = prevValuesRef.current;
+    prevValuesRef.current = values;
+
+    for (const v of template.vars) {
+      if (v.optionsQuery === undefined) continue;
+      const deps = getQueryDeps(v.optionsQuery);
+      if (deps.length === 0) continue;
+      // 上流変数のどれかが変化したか確認
+      const changed = deps.some((dep) => prev[dep] !== values[dep]);
+      if (changed) {
+        // 上流値を resolvedVars として注入して再フェッチ
+        const resolvedVars: Record<string, string> = {};
+        for (const dep of deps) resolvedVars[dep] = values[dep] ?? '';
+        void fetchCandidates(v.name, v.optionsQuery, resolvedVars);
+      }
+    }
+  }, [values, template.vars, fetchCandidates]);
 
   const requiredMissing = useMemo(
     () => template.vars.filter((v) => v.required && (values[v.name] ?? '').trim() === '').map((v) => v.name),
@@ -175,6 +274,7 @@ export function TemplateModal(props: TemplateModalProps): JSX.Element {
           )}
           {template.vars.map((v, i) => {
             const invalid = showErrors && requiredMissing.includes(v.name);
+            const csState = candidateStates[v.name] ?? { status: 'idle' };
             return (
               <div
                 key={v.name}
@@ -192,11 +292,42 @@ export function TemplateModal(props: TemplateModalProps): JSX.Element {
                   )}
                 </label>
                 <div className="tpl-var-field">
+                  {/* ローディングインジケータ */}
+                  {csState.status === 'loading' && (
+                    <div
+                      className="tpl-options-hint tpl-options-loading"
+                      data-testid="template-var-options-loading"
+                      data-var={v.name}
+                    >
+                      候補を取得中…
+                    </div>
+                  )}
+                  {/* 0件ヒント */}
+                  {csState.status === 'loaded' && csState.candidates.length === 0 && (
+                    <div
+                      className="tpl-options-hint tpl-options-empty"
+                      data-testid="template-var-options-empty"
+                      data-var={v.name}
+                    >
+                      候補なし。直接入力してください
+                    </div>
+                  )}
+                  {/* 打ち切りヒント */}
+                  {csState.status === 'loaded' && csState.truncated && (
+                    <div
+                      className="tpl-options-hint tpl-options-truncated"
+                      data-testid="template-var-options-truncated"
+                      data-var={v.name}
+                    >
+                      件数が多いため一部のみ表示
+                    </div>
+                  )}
                   <VarInput
                     variable={v}
                     value={values[v.name] ?? ''}
                     onChange={(value) => setValue(v.name, value)}
                     inputRef={i === 0 ? firstFieldRef : undefined}
+                    candidateState={csState}
                   />
                   {invalid && (
                     <div
@@ -256,11 +387,92 @@ interface VarInputProps {
   value: string;
   onChange: (value: string) => void;
   inputRef?: React.MutableRefObject<HTMLInputElement | HTMLDivElement | null> | undefined;
+  candidateState: CandidateState;
 }
 
 function VarInput(props: VarInputProps): JSX.Element {
-  const { variable: v, value } = props;
+  const { variable: v, value, candidateState: cs } = props;
 
+  // select+optionsQuery → 動的ドロップダウン
+  if (v.type === 'select' && v.optionsQuery !== undefined) {
+    const isLoading = cs.status === 'loading' || cs.status === 'idle';
+    const candidates = cs.status === 'loaded' ? cs.candidates : [];
+    const hasNoCandidate = cs.status === 'loaded' && candidates.length === 0;
+    const isError = cs.status === 'error';
+
+    // 0件またはエラー → フォールバック自由入力
+    if (hasNoCandidate || isError) {
+      return (
+        <input
+          className="tpl-input"
+          data-testid="template-var-input"
+          data-var={v.name}
+          type="text"
+          value={value}
+          autoComplete="off"
+          onChange={(e) => props.onChange(e.target.value)}
+          ref={(el) => {
+            if (props.inputRef) props.inputRef.current = el;
+          }}
+        />
+      );
+    }
+
+    return (
+      <select
+        className="tpl-input tpl-dynamic-select"
+        data-testid="template-var-input"
+        data-var={v.name}
+        data-widget="dynamic-select"
+        value={value}
+        disabled={isLoading}
+        aria-busy={isLoading ? 'true' : undefined}
+        onChange={(e) => props.onChange(e.target.value)}
+        ref={(el) => {
+          if (props.inputRef) props.inputRef.current = el as unknown as HTMLInputElement;
+        }}
+      >
+        {candidates.map((c) => (
+          <option key={c.value} value={c.value}>
+            {c.label}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  // text+optionsQuery → オートコンプリート (input + datalist)
+  if (v.optionsQuery !== undefined) {
+    const listId = `tpl-datalist-${v.name}`;
+    const candidates = cs.status === 'loaded' ? cs.candidates : [];
+    return (
+      <>
+        <input
+          className="tpl-input"
+          data-testid="template-var-input"
+          data-var={v.name}
+          data-widget="autocomplete"
+          type="text"
+          list={listId}
+          value={value}
+          autoComplete="off"
+          onChange={(e) => props.onChange(e.target.value)}
+          ref={(el) => {
+            if (props.inputRef) props.inputRef.current = el;
+          }}
+        />
+        <datalist id={listId}>
+          {candidates.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </datalist>
+      </>
+    );
+  }
+
+  // 静的 select (optionsQuery なし)
   if (v.type === 'select') {
     const options = v.options ?? [];
     return (
