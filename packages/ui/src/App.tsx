@@ -38,7 +38,9 @@ import {
   searchParamsToQuery,
   type Route,
   type SearchParams,
+  type SettingsGroup,
 } from './router.js';
+import { collectFolderPaths } from './tree.js';
 import { makeTagClickHandler } from './tag-click.js';
 import { isCommandFile, isSystemSourceFile } from './commandEditorUtils.js';
 import { moveNote, moveFolder } from './folder-move.js';
@@ -69,7 +71,9 @@ import {
   ChevronRightIcon,
   CheckCircleIcon,
   CloseIcon,
+  CollapseAllIcon,
   DocumentIcon,
+  ExpandAllIcon,
   FolderIcon,
   GearIcon,
   LinkIcon,
@@ -78,6 +82,7 @@ import {
   NewFolderIcon,
   NoteNavIcon,
   PlusIcon,
+  ReloadIcon,
   SearchIcon,
   UploadIcon,
   WarnTriangleIcon,
@@ -271,6 +276,10 @@ export function App(): JSX.Element {
   const [toasts, setToasts] = useState<UploadToast[]>([]);
   // フォルダツリーの折りたたみ状態 (S79c210-1)。既定は全展開 (集合が空)。
   const [collapsedFolders, setCollapsedFolders] = useState<ReadonlySet<string>>(new Set());
+  // スマートビューの全展開/全折りたたみ指示 (token インクリメントで全行に伝播)。
+  const [smartTreeSignal, setSmartTreeSignal] = useState<{ action: 'expand' | 'collapse'; token: number }>(
+    { action: 'expand', token: 0 },
+  );
   // UI 状態としてのみ存在する空フォルダ (フォルダ内フォルダの新規作成)。
   // vault にファイルは書かず、最初のノート作成で実体化する (priority 1)。
   const [extraFolders, setExtraFolders] = useState<string[]>([]);
@@ -291,6 +300,9 @@ export function App(): JSX.Element {
   const histMaxRef = useRef(0);
   const [canBack, setCanBack] = useState(false);
   const [canForward, setCanForward] = useState(false);
+  // ヘッダのリロードボタン。token インクリメントで設定/検索ページを再マウント (再取得)。
+  const [reloadToken, setReloadToken] = useState(0);
+  const [reloading, setReloading] = useState(false);
 
   // ---- ジャーナル ----
   const [today, setToday] = useState<string | null>(null);
@@ -719,8 +731,9 @@ export function App(): JSX.Element {
 
   // ---- ノート/ジャーナルの読み込み (履歴は呼び出し側で反映) ----
   const loadNote = useCallback(
-    async (path: string): Promise<string | null> => {
-      if (docRef.current?.path === path && previewRef.current === null) return path;
+    async (path: string, opts?: { force?: boolean }): Promise<string | null> => {
+      // force=true はリロード用: 同一パスでも再取得する (ヘッダのリロードボタン)。
+      if (opts?.force !== true && docRef.current?.path === path && previewRef.current === null) return path;
       if (!(await saveNow())) return null;
       try {
         // ADR-0024: commands/*.yaml は notes API の .md 強制を回避して source エンドポイントで読む
@@ -831,8 +844,16 @@ export function App(): JSX.Element {
     void saveNow();
     setDoc((d) => (d !== null ? { ...d, text: contentRef.current } : d));
     setPreview(null);
-    applyHistory({ kind: 'settings' }, 'push');
+    applyHistory({ kind: 'settings', group: null }, 'push');
   }, [applyHistory, saveNow]);
+
+  /**
+   * 設定グループの切替 (Sa100c6-nav)。各グループを URL (/settings/<group>) に載せて履歴に積む。
+   * 戻る/進むでグループ間を移動でき、コンテンツ群は開くとサブメニューが隠れて戻るで戻れる。
+   */
+  const switchSettingsGroup = useCallback((group: SettingsGroup): void => {
+    applyHistory({ kind: 'settings', group }, 'push');
+  }, [applyHistory]);
 
   /**
    * 設定保存後に App 側の設定 state を再取得する (Sa10026-9 #7)。
@@ -846,6 +867,45 @@ export function App(): JSX.Element {
       setShowSystemFolder(s.showSystemFolder);
     });
   }, []);
+
+  /**
+   * ヘッダのリロードボタン: 現在のルートの内容をサーバーから再取得する。
+   * - note: 開いているノート本文を強制再取得 (agent/外部エディタの変更を反映)。
+   *   添付プレビュー表示中は添付/ノート一覧を最新化。
+   * - files: ノート/添付一覧を再取得。
+   * - settings / search: reloadToken を進めてページを再マウント (内部の取得をやり直す)。
+   * いずれもサイドバーのツリー最新化のため refreshNotes を伴う。
+   */
+  const reloadCurrent = useCallback(async (): Promise<void> => {
+    if (reloading) return;
+    setReloading(true);
+    try {
+      const r = routeRef.current;
+      if (r.kind === 'settings') {
+        refreshAppSettings();
+        setReloadToken((v) => v + 1);
+        return;
+      }
+      if (r.kind === 'search') {
+        setReloadToken((v) => v + 1);
+        return;
+      }
+      if (r.kind === 'files') {
+        await Promise.all([refreshNotes(), refreshFiles()]);
+        return;
+      }
+      // note ルート
+      void refreshNotes();
+      if (previewRef.current !== null) {
+        await refreshFiles();
+        return;
+      }
+      const d = docRef.current;
+      if (d !== null) await loadNote(d.path, { force: true });
+    } finally {
+      setReloading(false);
+    }
+  }, [reloading, refreshAppSettings, refreshNotes, refreshFiles, loadNote]);
 
   /**
    * 詳細検索ページ (/search?…) へ遷移 (S935867-1)。条件は URL クエリに同期する。
@@ -958,7 +1018,7 @@ export function App(): JSX.Element {
     } else if (r0.kind === 'files') {
       applyHistory({ kind: 'files' }, 'replace');
     } else if (r0.kind === 'settings') {
-      applyHistory({ kind: 'settings' }, 'replace');
+      applyHistory({ kind: 'settings', group: r0.group }, 'replace');
     } else if (r0.kind === 'search') {
       applyHistory({ kind: 'search', params: r0.params }, 'replace');
     } else {
@@ -1065,6 +1125,37 @@ export function App(): JSX.Element {
       return next;
     });
   }, []);
+
+  /**
+   * ツリーをすべて展開する (ノート/スマート両対応)。ヘッダの全展開ボタンから呼ぶ。
+   * 物理ビューは collapsedFolders を空にし、スマートビューは全行へ expand シグナルを送る。
+   */
+  const expandAllTree = useCallback((): void => {
+    if (sidebarView === 'smart') {
+      setSmartTreeSignal((s) => ({ action: 'expand', token: s.token + 1 }));
+    } else {
+      setCollapsedFolders(new Set());
+    }
+  }, [sidebarView]);
+
+  /** ツリーをすべて折りたたむ (ノート/スマート両対応)。ヘッダの全折りたたみボタンから呼ぶ。 */
+  const collapseAllTree = useCallback((): void => {
+    if (sidebarView === 'smart') {
+      setSmartTreeSignal((s) => ({ action: 'collapse', token: s.token + 1 }));
+      return;
+    }
+    // 物理ビュー: 現在ツリーに現れる全フォルダ (system/ 含む) を折りたたむ。
+    const folders = new Set<string>(collectFolderPaths(notes ?? [], extraFolders));
+    if (showSystemFolder && systemFiles !== null) {
+      for (const f of systemFiles) {
+        const parent = f.path.includes('/') ? f.path.slice(0, f.path.lastIndexOf('/')) : '';
+        if (parent === '') continue;
+        const parts = parent.split('/');
+        for (let i = 1; i <= parts.length; i++) folders.add(parts.slice(0, i).join('/'));
+      }
+    }
+    setCollapsedFolders(folders);
+  }, [sidebarView, notes, extraFolders, showSystemFolder, systemFiles]);
 
   /** path の全祖先フォルダを展開する (新規作成したフォルダ/ノートを見失わない)。 */
   const expandAncestors = useCallback((folder: string): void => {
@@ -1725,6 +1816,26 @@ export function App(): JSX.Element {
               スマート
             </button>
           </span>
+          <div className="tree-actions">
+            {/* ノート/スマート両対応: ツリー全展開・全折りたたみ (VSCode 風) */}
+            <button
+              className="icon-btn"
+              data-testid="tree-expand-all"
+              title="ツリーをすべて展開"
+              aria-label="ツリーをすべて展開"
+              onClick={expandAllTree}
+            >
+              <ExpandAllIcon />
+            </button>
+            <button
+              className="icon-btn"
+              data-testid="tree-collapse-all"
+              title="ツリーをすべて折りたたむ"
+              aria-label="ツリーをすべて折りたたむ"
+              onClick={collapseAllTree}
+            >
+              <CollapseAllIcon />
+            </button>
           {sidebarView === 'smart' && smartViewMode === 'full' && (
             <span className="actions" style={{ position: 'relative' }}>
               <button
@@ -1851,6 +1962,7 @@ export function App(): JSX.Element {
               )}
             </span>
           )}
+          </div>
         </div>
 
         {sidebarView === 'smart' ? (
@@ -1861,6 +1973,7 @@ export function App(): JSX.Element {
             onModeChange={setSmartViewMode}
             commandSaveToken={commandSaveToken}
             invalidatedIds={sseSfInvalidatedIds}
+            treeSignal={smartTreeSignal}
           />
         ) : (
           <>
@@ -1917,10 +2030,8 @@ export function App(): JSX.Element {
 
       {/* ================= 中央: メイン 1 画面 ================= */}
       <main className="workspace">
-        <div
-          className="editor-header"
-          style={route.kind === 'settings' ? { display: 'none' } : undefined}
-        >
+        <div className="editor-header">
+
           {/* モバイルハンバーガーボタン (AC-Sa6c3b0-1-2) */}
           <button
             className={`sidebar-toggle-btn${mobileSidebarOpen ? ' open' : ''}`}
@@ -1950,12 +2061,32 @@ export function App(): JSX.Element {
             >
               <ChevronRightIcon />
             </button>
+            {/* リロード: 現在の画面 (ノート/ファイル一覧/設定/検索) をサーバーから再取得。
+                戻る/進むと同じナビ操作グループにまとめる (ブラウザ標準の < > ⟳ 並び)。 */}
+            <button
+              className="nav-btn reload-btn"
+              data-testid="header-reload"
+              title="再読み込み (現在の画面をサーバーから取得し直す)"
+              aria-label="再読み込み"
+              disabled={reloading}
+              onClick={() => void reloadCurrent()}
+            >
+              <ReloadIcon className={reloading ? 'spinning' : ''} />
+            </button>
           </div>
           <nav className="route-crumbs breadcrumb" data-testid="route-display" aria-label="現在のルート">
             {route.kind === 'files' ? (
               <span className="route-token">/files</span>
             ) : route.kind === 'settings' ? (
-              <span className="route-token">/settings</span>
+              <>
+                <span className="route-token">/settings</span>
+                {route.group !== null && (
+                  <>
+                    <span className="sep">/</span>
+                    <span className="current">{route.group}</span>
+                  </>
+                )}
+              </>
             ) : route.kind === 'search' ? (
               <>
                 <span className="route-token">/search</span>
@@ -2015,7 +2146,10 @@ export function App(): JSX.Element {
 
         {route.kind === 'settings' ? (
           <SettingsView
+            key={`settings-${String(reloadToken)}`}
             mode={appMode}
+            group={route.group}
+            onSwitchGroup={switchSettingsGroup}
             onClose={() => {
               // 履歴があれば戻る (エディタへ)。無ければ開いているノート or ジャーナルへ。
               if (canBack) window.history.back();
@@ -2026,6 +2160,7 @@ export function App(): JSX.Element {
           />
         ) : route.kind === 'search' ? (
           <SearchPage
+            key={`search-${String(reloadToken)}`}
             params={route.params}
             onNavigate={openSearch}
             onOpenNoteInEditor={(path) => void openNotePath(path)}
@@ -2306,6 +2441,7 @@ export function App(): JSX.Element {
         }}
         onSearchTag={handleTagClick}
         hidden={route.kind === 'search'}
+        forceCollapsed={route.kind === 'settings'}
         notes={notes}
         onNotesChanged={onNotesChanged}
         currentNotePath={doc?.path ?? null}

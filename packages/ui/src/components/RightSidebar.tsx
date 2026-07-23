@@ -13,6 +13,8 @@
  */
 import {
   useEffect,
+  useLayoutEffect,
+  useRef,
   useState,
   type JSX,
   type CSSProperties,
@@ -62,6 +64,11 @@ export interface RightSidebarProps {
    * unmount ではなく display:none — 各ペインの状態を維持する。
    */
   hidden?: boolean;
+  /**
+   * true のとき内部状態に関わらず折りたたみ表示にする (設定ルート中の自動折りたたみ)。
+   * ユーザーが選んだ collapsed 状態 (state) は保持され、false に戻ると元の状態が復元される。
+   */
+  forceCollapsed?: boolean;
   /** vault のノート一覧 (エージェントペインの [[wikilink]] 解決用) */
   notes?: NoteMeta[] | null;
   /**
@@ -102,12 +109,33 @@ export function RightSidebar({
   onJumpToLine,
   onSearchTag,
   hidden = false,
+  forceCollapsed = false,
   notes = null,
   onNotesChanged,
   currentNotePath = null,
 }: RightSidebarProps): JSX.Element {
   const [tab, setTab] = useState<RightTab>('info');
   const [collapsed, setCollapsed] = useState(false);
+
+  // 設定ルートへの出入りで collapsed を退避/復元する (S...settings-collapse)。
+  //   入る (forceCollapsed false→true): 現在の状態を退避して自動で折りたたむ。
+  //   出る (true→false): 退避した状態へ復元する。
+  // 退避後は collapsed を通常の state として扱うため、設定中でもユーザーが
+  // トグルで手動で開ける (例: 設定を開いたまま Agent にテンプレートを作らせる)。
+  const collapsedRef = useRef(collapsed);
+  collapsedRef.current = collapsed;
+  const savedCollapsedRef = useRef<boolean | null>(null);
+  useLayoutEffect(() => {
+    if (forceCollapsed) {
+      if (savedCollapsedRef.current === null) {
+        savedCollapsedRef.current = collapsedRef.current;
+        setCollapsed(true);
+      }
+    } else if (savedCollapsedRef.current !== null) {
+      setCollapsed(savedCollapsedRef.current);
+      savedCollapsedRef.current = null;
+    }
+  }, [forceCollapsed]);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [width, setWidth] = useState<number>(readStoredWidth);
 
@@ -188,6 +216,11 @@ export function RightSidebar({
     backlinks?.flatMap((src) => src.links.map((link) => ({ source: src.source, link }))) ?? [];
   const countKnown = notePath !== null && backlinks !== null && backlinkError === null;
 
+  // 設定ルート中はノート未オープン = インフォ (バックリンク/アウトライン/プロパティ) が空になる。
+  // そのため実効タブを Agent に固定し、インフォタブは選べないようにする。
+  // tab state 自体は書き換えないので、設定を抜けると元のタブ選択に戻る。
+  const effectiveTab: RightTab = forceCollapsed ? 'agent' : tab;
+
   // /search では表示しない (display:none — マウントは維持)。
   // collapsed 時は CSS の .collapsed 幅 (40px) を優先し、inline width は付けない。
   const asideStyle: CSSProperties = {
@@ -215,7 +248,9 @@ export function RightSidebar({
 
       <div className="panel-header">
         {collapsed ? (
-          /* collapsed: toggle ボタンのみ。左向きシェブロン = パネルを開く方向を示す */
+          /* collapsed: toggle ボタンのみ。左向きシェブロン = パネルを開く方向を示す。
+             設定ルート中に自動折りたたみされていても、このトグルで手動で開ける
+             (設定を開いたまま Agent にテンプレート作成などをさせられる)。 */
           <button
             className="icon-btn"
             data-testid="right-sidebar-toggle"
@@ -230,10 +265,12 @@ export function RightSidebar({
           <>
             <div className="seg-toggle" role="tablist" aria-label="右サイドバー切替">
               <button
-                className={`seg-btn${tab === 'info' ? ' active' : ''}`}
+                className={`seg-btn${effectiveTab === 'info' ? ' active' : ''}`}
                 data-testid="right-tab-info"
                 role="tab"
-                aria-selected={tab === 'info'}
+                aria-selected={effectiveTab === 'info'}
+                disabled={forceCollapsed}
+                title={forceCollapsed ? '設定中はインフォを表示できません(ノート未オープン)' : undefined}
                 onClick={() => setTab('info')}
               >
                 <InfoIcon />
@@ -249,10 +286,10 @@ export function RightSidebar({
                 )}
               </button>
               <button
-                className={`seg-btn${tab === 'agent' ? ' active' : ''}`}
+                className={`seg-btn${effectiveTab === 'agent' ? ' active' : ''}`}
                 data-testid="right-tab-agent"
                 role="tab"
-                aria-selected={tab === 'agent'}
+                aria-selected={effectiveTab === 'agent'}
                 onClick={() => setTab('agent')}
               >
                 <AgentIcon />
@@ -279,7 +316,7 @@ export function RightSidebar({
 
       {/* インフォパネル本体 — 非選択/collapsed 時も display:none で DOM に残す
           (contents で InfoPanel の子を .panel の flex 子として扱う)。 */}
-      <div style={{ display: !collapsed && tab === 'info' ? 'contents' : 'none' }}>
+      <div style={{ display: !collapsed && effectiveTab === 'info' ? 'contents' : 'none' }}>
         <InfoPanel
           notePath={notePath}
           refreshToken={refreshToken}
@@ -293,7 +330,7 @@ export function RightSidebar({
 
       {/* エージェントペイン — 非選択/collapsed 時も display:none で DOM に残す
           (rs-pane-fill で .agent-body に高さを伝え、in-flight セッションを保持)。 */}
-      <div className="rs-pane-fill" style={!collapsed && tab === 'agent' ? undefined : { display: 'none' }}>
+      <div className="rs-pane-fill" style={!collapsed && effectiveTab === 'agent' ? undefined : { display: 'none' }}>
         <AgentPane health={health} notes={notes} onOpenNote={onOpenNote} onNotesChanged={onNotesChanged} currentNotePath={currentNotePath} />
       </div>
     </aside>

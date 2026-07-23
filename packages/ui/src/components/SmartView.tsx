@@ -60,6 +60,29 @@ import {
 import { SmartIcon } from './SmartIcons.js';
 import { SmartFolderForm } from './SmartFolderForm.js';
 
+/**
+ * ツリー一括展開/折りたたみの指示 (App のヘッダボタンから伝播)。
+ * token をインクリメントするたびに全展開可能行が action を適用する。token=0 は未操作。
+ */
+export interface TreeSignal {
+  readonly action: 'expand' | 'collapse';
+  readonly token: number;
+}
+
+/**
+ * treeSignal (全展開/全折りたたみ) を購読し、token 変化時に展開状態へ反映する共通フック。
+ * 展開時のロードは呼び出し側の「expanded になったらロード」エフェクトに任せる。
+ */
+function useTreeSignal(signal: TreeSignal | undefined, setExpanded: (v: boolean) => void): void {
+  const lastTokenRef = useRef(0);
+  useEffect(() => {
+    if (signal === undefined || signal.token === lastTokenRef.current) return;
+    lastTokenRef.current = signal.token;
+    if (signal.token === 0) return; // マウント時の初期値 (未操作) は無視
+    setExpanded(signal.action === 'expand');
+  }, [signal, setExpanded]);
+}
+
 // --------------------------------------------------------------------------
 // 削除確認ダイアログ
 // --------------------------------------------------------------------------
@@ -241,31 +264,39 @@ interface SmartFolderProps {
   dragProps?: DragItemProps;
   /** SSE invalidated ID 一覧 — 自分の id が含まれかつ loaded なら再フェッチ (Sd5c9f4-4) */
   invalidatedIds?: string[];
+  /** ツリー一括展開/折りたたみの指示 */
+  treeSignal?: TreeSignal;
 }
 
-function SmartFolder({ item, onOpenNote, onContextMenu, dragProps, invalidatedIds }: SmartFolderProps): JSX.Element {
+function SmartFolder({ item, onOpenNote, onContextMenu, dragProps, invalidatedIds, treeSignal }: SmartFolderProps): JSX.Element {
   const [expanded, setExpanded] = useState(false);
   const [loadState, setLoadState] = useState<FolderLoadState>({ kind: 'idle' });
 
   const iconStr = item.icon ?? 'search';
 
-  const toggle = useCallback((): void => {
-    setExpanded((prev) => {
-      const next = !prev;
-      // 初めて展開するときのみ fetch
-      if (next && loadState.kind === 'idle') {
-        setLoadState({ kind: 'loading' });
-        api.resolveSmartFolder(item.id).then(
-          (res) => setLoadState({ kind: 'loaded', notes: res.notes }),
-          (err: unknown) => {
-            const msg = err instanceof Error ? err.message : String(err);
-            setLoadState({ kind: 'error', message: msg });
-          },
-        );
-      }
-      return next;
+  // idle のときだけ fetch する (関数型 setState で最新の loadState を判定)。
+  const ensureLoaded = useCallback((): void => {
+    setLoadState((prev) => {
+      if (prev.kind !== 'idle') return prev;
+      api.resolveSmartFolder(item.id).then(
+        (res) => setLoadState({ kind: 'loaded', notes: res.notes }),
+        (err: unknown) => setLoadState({ kind: 'error', message: err instanceof Error ? err.message : String(err) }),
+      );
+      return { kind: 'loading' };
     });
-  }, [item.id, loadState.kind]);
+  }, [item.id]);
+
+  // 展開状態になったら (トグル・一括展開いずれ経由でも) 未ロードなら fetch する。
+  useEffect(() => {
+    if (expanded) ensureLoaded();
+  }, [expanded, ensureLoaded]);
+
+  // 全展開/全折りたたみ (App ヘッダボタン) を購読
+  useTreeSignal(treeSignal, setExpanded);
+
+  const toggle = useCallback((): void => {
+    setExpanded((prev) => !prev);
+  }, []);
 
   // SSE sf_invalidated: 自分の id が含まれかつ loaded のときのみ再フェッチ (Sd5c9f4-4)
   useEffect(() => {
@@ -387,6 +418,8 @@ interface SmartFolderPinProps {
   onOpenNote: (path: string) => void;
   onContextMenu?: (e: ReactMouseEvent<HTMLElement>, item: SmartViewItem) => void;
   dragProps?: DragItemProps;
+  /** ツリー一括展開/折りたたみの指示 */
+  treeSignal?: TreeSignal;
 }
 
 function SmartFolderPin({
@@ -394,28 +427,33 @@ function SmartFolderPin({
   onOpenNote,
   onContextMenu,
   dragProps,
+  treeSignal,
 }: SmartFolderPinProps): JSX.Element {
   const [expanded, setExpanded] = useState(false);
   const [loadState, setLoadState] = useState<FolderLoadState>({ kind: 'idle' });
 
   const iconStr = item.icon ?? 'folder';
 
-  const toggle = useCallback((): void => {
-    setExpanded((prev) => {
-      const next = !prev;
-      if (next && loadState.kind === 'idle') {
-        setLoadState({ kind: 'loading' });
-        api.resolveSmartFolder(item.id).then(
-          (res) => setLoadState({ kind: 'loaded', notes: res.notes }),
-          (err: unknown) => {
-            const msg = err instanceof Error ? err.message : String(err);
-            setLoadState({ kind: 'error', message: msg });
-          },
-        );
-      }
-      return next;
+  const ensureLoaded = useCallback((): void => {
+    setLoadState((prev) => {
+      if (prev.kind !== 'idle') return prev;
+      api.resolveSmartFolder(item.id).then(
+        (res) => setLoadState({ kind: 'loaded', notes: res.notes }),
+        (err: unknown) => setLoadState({ kind: 'error', message: err instanceof Error ? err.message : String(err) }),
+      );
+      return { kind: 'loading' };
     });
-  }, [item.id, loadState.kind]);
+  }, [item.id]);
+
+  useEffect(() => {
+    if (expanded) ensureLoaded();
+  }, [expanded, ensureLoaded]);
+
+  useTreeSignal(treeSignal, setExpanded);
+
+  const toggle = useCallback((): void => {
+    setExpanded((prev) => !prev);
+  }, []);
 
   const dropIndicator = dragProps?.dropIndicator ?? null;
 
@@ -489,6 +527,8 @@ export interface SmartViewProps {
    * 展開済み (loaded) のフォルダのみ再フェッチする。
    */
   invalidatedIds?: string[];
+  /** ツリー一括展開/折りたたみの指示 (App ヘッダの全開/全閉ボタン)。 */
+  treeSignal?: TreeSignal;
 }
 
 type ViewLoadState =
@@ -501,7 +541,7 @@ type FormMode =
   | { type: 'create' }
   | { type: 'edit'; item: SmartViewItem };
 
-export function SmartView({ onOpenNote, onSwitchToPhysical, triggerAdd, onModeChange, commandSaveToken: _commandSaveToken, invalidatedIds }: SmartViewProps): JSX.Element {
+export function SmartView({ onOpenNote, onSwitchToPhysical, triggerAdd, onModeChange, commandSaveToken: _commandSaveToken, invalidatedIds, treeSignal }: SmartViewProps): JSX.Element {
   const [viewState, setViewState] = useState<ViewLoadState>({ kind: 'loading' });
   const [mode, setMode] = useState<PermissionMode | null>(null);
   const [formMode, setFormMode] = useState<FormMode>(null);
@@ -825,6 +865,7 @@ export function SmartView({ onOpenNote, onSwitchToPhysical, triggerAdd, onModeCh
                   {...(isFull ? { onContextMenu: handleContextMenu } : {})}
                   {...(dragProps !== undefined ? { dragProps } : {})}
                   {...(invalidatedIds !== undefined ? { invalidatedIds } : {})}
+                  {...(treeSignal !== undefined ? { treeSignal } : {})}
                 />
               );
             }
@@ -837,6 +878,7 @@ export function SmartView({ onOpenNote, onSwitchToPhysical, triggerAdd, onModeCh
                   onOpenNote={onOpenNote}
                   {...(isFull ? { onContextMenu: handleContextMenu } : {})}
                   {...(dragProps !== undefined ? { dragProps } : {})}
+                  {...(treeSignal !== undefined ? { treeSignal } : {})}
                 />
               );
             }

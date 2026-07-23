@@ -28,8 +28,10 @@ describe('routeToPath', () => {
     expect(routeToPath({ kind: 'files' })).toBe('/files');
     expect(routeToPath({ kind: 'home' })).toBe('/');
   });
-  it('settings は /settings (Sa10026-9 #2)', () => {
-    expect(routeToPath({ kind: 'settings' })).toBe('/settings');
+  it('settings は group=null で /settings、group 指定で /settings/<group> (Sa10026-9 #2)', () => {
+    expect(routeToPath({ kind: 'settings', group: null })).toBe('/settings');
+    expect(routeToPath({ kind: 'settings', group: 'agent' })).toBe('/settings/agent');
+    expect(routeToPath({ kind: 'settings', group: 'smart-folders' })).toBe('/settings/smart-folders');
   });
   it('search は条件を URL クエリに載せ、空値・既定 sort は省略する (S935867-1)', () => {
     expect(
@@ -52,8 +54,18 @@ describe('parseLocation', () => {
   it('/files はファイル一覧', () => {
     expect(parseLocation('/files')).toEqual({ kind: 'files' });
   });
-  it('/settings は設定ページ (Sa10026-9 #2)', () => {
-    expect(parseLocation('/settings')).toEqual({ kind: 'settings' });
+  it('/settings は設定メニュー (group=null)、/settings/<group> は個別グループ (Sa10026-9 #2)', () => {
+    expect(parseLocation('/settings')).toEqual({ kind: 'settings', group: null });
+    expect(parseLocation('/settings/agent')).toEqual({ kind: 'settings', group: 'agent' });
+    expect(parseLocation('/settings/smart-folders')).toEqual({ kind: 'settings', group: 'smart-folders' });
+    // 未知グループはメニュートップへフォールバック
+    expect(parseLocation('/settings/bogus')).toEqual({ kind: 'settings', group: null });
+  });
+  it('routeToPath → parseLocation の往復で設定グループが保存される', () => {
+    for (const group of [null, 'general', 'agent', 'privacy', 'templates', 'tasks'] as const) {
+      const route: Route = { kind: 'settings', group };
+      expect(parseLocation(routeToPath(route))).toEqual(route);
+    }
   });
   it('/ と未知パスは home', () => {
     expect(parseLocation('/')).toEqual({ kind: 'home' });

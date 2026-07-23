@@ -26,6 +26,7 @@ import { SmartFoldersPanel } from './SmartFoldersPanel.js';
 import { CommandsPanel } from './CommandsPanel.js';
 import { AgentJobsPanel } from './AgentJobsPanel.js';
 import { TaskVocabPanel } from './TaskVocabPanel.js';
+import type { SettingsGroup } from '../router.js';
 import type {
   AppSettings,
   AgentConnectionResponse,
@@ -39,12 +40,19 @@ import type {
 
 // ---- 型 ----
 
-type SettingsGroup = 'general' | 'agent' | 'privacy' | 'templates' | 'smart-folders' | 'commands' | 'agent-jobs' | 'tasks';
+// SettingsGroup は router.ts に一元化 (/settings/<group> の URL セグメントと一致させる)。
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 interface SettingsViewProps {
   /** read-only / append-only モードか (App が GET /api/health 結果を渡す) */
   mode: 'full' | 'append-only' | 'read-only';
+  /**
+   * 現在の設定グループ (URL 由来 — controlled)。null は設定メニュートップ。
+   * 描画上は null を 'general' として扱う (デスクトップの既定プレビュー)。
+   */
+  group: SettingsGroup | null;
+  /** ナビ項目クリック時にグループを切り替える (App が履歴 push する)。 */
+  onSwitchGroup: (group: SettingsGroup) => void;
   onClose: () => void;
   /**
    * 全体設定 (defaultFolder 等) の保存成功後に呼ぶ (Sa10026-9 #7)。
@@ -790,10 +798,11 @@ function LocalModelSection({
 
 // ---- SettingsView (main) ----
 
-export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX.Element {
+export function SettingsView({ mode, group, onSwitchGroup, onClose, onSaved }: SettingsViewProps): JSX.Element {
   const readonly = mode === 'read-only' || mode === 'append-only';
 
-  const [activeGroup, setActiveGroup] = useState<SettingsGroup>('general');
+  // group は URL 由来 (controlled)。null (メニュートップ) は 'general' として詳細を描く。
+  const activeGroup: SettingsGroup = group ?? 'general';
 
   // ---- 全体設定 ----
   const [generalSettings, setGeneralSettings] = useState<AppSettings>({
@@ -938,12 +947,17 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
     void loadGeneral();
   }, [loadGeneral]);
 
-  const switchGroup = useCallback((g: SettingsGroup): void => {
-    setActiveGroup(g);
-    if (g === 'agent') void loadAgent();
-    if (g === 'privacy') void loadPrivacy();
+  // controlled group 由来: グループ変化 (URL 遷移・戻る/進む含む) での遅延ロード。
+  useEffect(() => {
+    if (activeGroup === 'agent') void loadAgent();
+    if (activeGroup === 'privacy') void loadPrivacy();
     // コンテンツ系 (templates/smart-folders/commands) は各パネルが自分でロードする
-  }, [loadAgent, loadPrivacy]);
+  }, [activeGroup, loadAgent, loadPrivacy]);
+
+  // ナビ項目クリック: URL (/settings/<group>) を切り替える (App が履歴 push)。
+  const switchGroup = useCallback((g: SettingsGroup): void => {
+    onSwitchGroup(g);
+  }, [onSwitchGroup]);
 
   // ---- 全体: 保存 ----
   const saveGeneral = useCallback(async (): Promise<void> => {
@@ -1251,8 +1265,23 @@ export function SettingsView({ mode, onClose, onSaved }: SettingsViewProps): JSX
 
   const mainClass = `settings-main${readonly ? ' readonly' : ''}${isContentGroup ? ' settings-main-md' : ''}`;
 
+  /**
+   * レイアウトモード (CSS のレスポンシブ切替に使う data-view):
+   *   menu    = 設定メニュートップ (group=null)。デスクトップはナビ+全体、モバイルはナビのみ。
+   *   setting = 全体/エージェント/プライバシー。デスクトップはナビ+フォーム、モバイルは詳細のみ。
+   *   content = テンプレート〜タスク語彙 (コンテンツ群)。全幅で開きサブメニューを隠す (戻るで戻る)。
+   */
+  const settingsLayout: 'menu' | 'setting' | 'content' =
+    group === null ? 'menu' : isContentGroup ? 'content' : 'setting';
+
   return (
-    <div className="settings-view" data-testid="settings-view" role="region" aria-label="設定">
+    <div
+      className="settings-view"
+      data-testid="settings-view"
+      data-view={settingsLayout}
+      role="region"
+      aria-label="設定"
+    >
       {/* 左ナビ: 2グループ (設定/コンテンツ) — AC-Sa100c6-1-1 */}
       <nav className="settings-nav" data-testid="settings-nav" aria-label="設定カテゴリ">
         <div className="nav-title">設定</div>
