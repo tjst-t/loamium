@@ -52,7 +52,7 @@
   "architecture": [
     "正本は Markdown 文字列 1 本。データモデルをブロック配列にしない(C 方式)",
     "REST API(Hono)を最初に作り、CLI はそれを叩く薄いラッパーにする。エンドポイントと CLI コマンドは 1:1",
-    "ファイル変更監視(chokidar)+ インメモリインデックス再構築をデータフローの最初から組み込む。競合制御は last-write-wins + mtime/hash による楽観的検出から始める",
+    "ファイル変更監視(chokidar)+ インメモリインデックス再構築をデータフローの最初から組み込む。競合制御は初期は last-write-wins + mtime/hash による楽観的検出から始め、リアルタイム編集競合(dirty 中のリモート変更)は 3-way 自動マージ + 競合ハンク UI で解決する(ADR-0030)。エージェント/CLI の無条件書込は別軸として last-write-wins を維持する",
     "エージェントの権限境界を最初から持つ: CLI/API に read-only / append-only / full の権限モードと監査ログ(.loamium/audit.log)",
     "拡張レンダリングは fence / inline / block の 3 レジストリを最初から持つ。server 種別用に POST /render/:lang を用意する(実装は後でよい)",
     "frontmatter(YAML)は第一級市民としてデータモデルに含める(tags, aliases, created, status を緩く定義)",
