@@ -112,3 +112,20 @@ export function buildTree(
 
   return sortDeep(roots);
 }
+
+/**
+ * ツリー内に現れる全フォルダパス (各フォルダとその全祖先) を列挙する。
+ * 「すべて折りたたむ」で collapsedFolders に一括投入するために使う (S79c210-1 の逆操作)。
+ * ノートの folder と extraFolders の両方から祖先を含めて集める。
+ */
+export function collectFolderPaths(notes: NoteMeta[], extraFolders: string[]): string[] {
+  const set = new Set<string>();
+  const addWithAncestors = (folder: string): void => {
+    if (folder === '') return;
+    const parts = folder.split('/');
+    for (let i = 1; i <= parts.length; i++) set.add(parts.slice(0, i).join('/'));
+  };
+  for (const note of notes) addWithAncestors(note.folder);
+  for (const folder of extraFolders) addWithAncestors(folder);
+  return [...set];
+}

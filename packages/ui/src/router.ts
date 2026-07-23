@@ -19,6 +19,28 @@
 /** 検索結果の並び順 (S935867-1 — prototype/search-page.html の select 3 択)。 */
 export type SearchSort = 'updated' | 'score' | 'name';
 
+/**
+ * 設定ハブのグループ ID (Sa10026-7 / Sa100c6-1)。URL セグメントとして `/settings/<group>` に載せる。
+ * 【設定】general / agent / privacy と【コンテンツ】templates / smart-folders / commands /
+ * agent-jobs / tasks。null は設定メニュー (グループ未選択のトップ) を表す。
+ */
+export const SETTINGS_GROUPS = [
+  'general',
+  'agent',
+  'privacy',
+  'templates',
+  'smart-folders',
+  'commands',
+  'agent-jobs',
+  'tasks',
+] as const;
+
+export type SettingsGroup = (typeof SETTINGS_GROUPS)[number];
+
+function isSettingsGroup(v: string): v is SettingsGroup {
+  return (SETTINGS_GROUPS as readonly string[]).includes(v);
+}
+
 /** 詳細検索ページの条件 (URL クエリに 1:1 で同期する)。 */
 export interface SearchParams {
   /** 全文キーワード (GET /api/search?q=) */
@@ -34,7 +56,8 @@ export interface SearchParams {
 export type Route =
   | { readonly kind: 'note'; readonly path: string }
   | { readonly kind: 'files' }
-  | { readonly kind: 'settings' }
+  // group=null は設定メニュートップ (/settings)。個別グループは /settings/<group>。
+  | { readonly kind: 'settings'; readonly group: SettingsGroup | null }
   | { readonly kind: 'search'; readonly params: SearchParams }
   | { readonly kind: 'home' };
 
@@ -72,7 +95,8 @@ export function routeToPath(route: Route): string {
     case 'files':
       return '/files';
     case 'settings':
-      return '/settings';
+      // group 未選択はメニュートップ /settings。個別グループは /settings/<group>。
+      return route.group === null ? '/settings' : `/settings/${route.group}`;
     case 'home':
       return '/';
     case 'search': {
@@ -103,7 +127,15 @@ export function parseLocation(pathname: string, search = ''): Route {
     path = path.slice(0, qIdx);
   }
   if (path === '/files') return { kind: 'files' };
-  if (path === '/settings') return { kind: 'settings' };
+  if (path === '/settings') return { kind: 'settings', group: null };
+  {
+    const sm = /^\/settings\/([^/]+)$/.exec(path);
+    if (sm?.[1] !== undefined) {
+      const seg = decodeURIComponent(sm[1]);
+      // 未知グループはメニュートップへフォールバック (壊れた URL でも設定は開く)。
+      return { kind: 'settings', group: isSettingsGroup(seg) ? seg : null };
+    }
+  }
   if (path === '/search') return { kind: 'search', params: parseSearchParams(query) };
   const m = /^\/n\/(.+)$/.exec(path);
   const raw = m?.[1];
@@ -131,6 +163,7 @@ export function parseLocation(pathname: string, search = ''): Route {
 export function sameRoute(a: Route, b: Route): boolean {
   if (a.kind !== b.kind) return false;
   if (a.kind === 'note' && b.kind === 'note') return a.path === b.path;
+  if (a.kind === 'settings' && b.kind === 'settings') return a.group === b.group;
   if (a.kind === 'search' && b.kind === 'search') {
     return searchParamsToQuery(a.params) === searchParamsToQuery(b.params);
   }

@@ -40,6 +40,41 @@ export function ChevronDownIcon({ className }: IconProps): JSX.Element {
   );
 }
 
+/**
+ * ツリーをすべて展開 (VSCode の unfold / expand-all 風の二重シェブロン)。
+ * 中心から外側へ開くシェブロン = 展開を表す。フォルダトグルの ChevronDownIcon と同系の線画。
+ */
+export function ExpandAllIcon({ className }: IconProps): JSX.Element {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4.5 6L8 2.5L11.5 6" />
+      <path d="M4.5 10L8 13.5L11.5 10" />
+    </svg>
+  );
+}
+
+/**
+ * ツリーをすべて折りたたむ (VSCode の fold / collapse-all 風の二重シェブロン)。
+ * 外側から中心へ閉じるシェブロン = 折りたたみを表す。
+ */
+export function CollapseAllIcon({ className }: IconProps): JSX.Element {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4.5 3L8 6.5L11.5 3" />
+      <path d="M4.5 13L8 9.5L11.5 13" />
+    </svg>
+  );
+}
+
+/** リロード (更新) — 二重の円弧矢印 (Heroicons arrow-path 相当)。 */
+export function ReloadIcon({ className }: IconProps): JSX.Element {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+    </svg>
+  );
+}
+
 export function ListIcon({ className }: IconProps): JSX.Element {
   return (
     <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
