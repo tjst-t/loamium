@@ -132,6 +132,31 @@
     "routes/commands.ts 側でフィルタする案: ADR-0016 に違反するため却下。"
    ],
    "rationale": "ADR-0031 (select+optionsQuery の厳格 select 検証) / ADR-0016 (単一サービス層) の契約を commands 側でも満たすため。テンプレートと対称な実装とすることで、REST・CLI・agent が同一の候補検証経路を共有する。text+optionsQuery は自由入力を許容 (D7 と整合)。候補 0 件は検証スキップ (D7)。"
+  },
+  {
+   "id": "D-S1bd397-wave5-1",
+   "topic": "Wave5: agent-help の template/command トピックへの optionsQuery 説明追記方針",
+   "decision": "新トピックを増やすのではなく既存 template / command トピックに節を追加した。template トピックには '## optionsQuery — 動的選択肢' 節、command トピックには '## optionsQuery — params の動的選択肢' 節をそれぞれ追加。select+optionsQuery の厳格ドロップダウン/text+optionsQuery の自由入力/note+optionsQuery の絞り込みノートピッカー (commands のみ) の 3 組合せを記載。制約 (値=ノートタイトル, top-N 50, 依存クエリ宣言順・循環禁止) とエージェント向けの実益 (invalid_select_value, DQL で事前確認) も明記した。",
+   "alternatives": [
+    "optionsQuery 専用トピックを新設する案: ADR-0014 (常時=base/詳細=help) では既存トピックへの追記が筋。ツール名は変わらないため agent-tools e2e の advertised-toolset pin への影響なし (D12) → 既存トピック拡張を採用。"
+   ],
+   "rationale": "CLAUDE.md 義務: 機能追加時は agent-help(agent-help.ts)に使い方を追加する。既存トピックへの節追加で ADR-0014/ADR-0016 に準拠し、agent-tools e2e pin に非影響 (D12) を維持する。"
+  },
+  {
+   "id": "D-S1bd397-wave5-2",
+   "topic": "Wave5: 機能ガイド更新方針 (テンプレート.md / スマートコマンドの使い方.md)",
+   "decision": "テンプレート.md に '## 動的選択肢 (optionsQuery)' 節を追加。Epic テンプレートの使用例 (select+optionsQuery で #project ノートから親プロジェクトを選ぶ, 依存クエリで Epic 候補を絞り込む) を掲載。スマートコマンドの使い方.md に '## 動的選択肢 (optionsQuery)' 節を追加。select/text/note + optionsQuery の 3 組合せと依存クエリの例を掲載。samples/index.md はリンクの変更が不要 (既存リンク: [[テンプレート]] / [[スマートコマンドの使い方]] が継続して有効)。",
+   "alternatives": [
+    "新ガイドファイルを作成する案: 既存ガイドへの節追加で足りるため不採用 (DESIGN_PRINCIPLES priority 5: シンプルさ > 汎用性)。"
+   ],
+   "rationale": "CLAUDE.md 義務: 新機能追加時は samples/機能ガイド/ に追加・更新し init-samples で取得できるドキュメントを最新に保つ。"
+  },
+  {
+   "id": "D-S1bd397-wave5-3",
+   "topic": "Wave5: 新規 agent ツールを作らない理由",
+   "decision": "template_instantiate / command_run は既にバックエンドで optionsQuery の厳格 select 検証を実装済み (Wave2 / D-S1bd397-cmd-select-1)。エージェントが optionsQuery 候補を事前確認したい場合は既存の query ツール (DQL) を使えばよい (ADR-0016: 監査済みサービス層経由・二重管理禁止)。optionsQuery 専用の新 agent ツールは作らない。",
+   "alternatives": [],
+   "rationale": "ADR-0016 (REST と重複する独自の実行・解決ロジックを新設しない) + ADR-0031 consequences (agent は既存 DQL ツールで候補を発見でき、agent 専用の追加機構は不要)。"
   }
  ]
 }
