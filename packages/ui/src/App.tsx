@@ -319,8 +319,6 @@ export function App(): JSX.Element {
   // ---- モバイル (Sa6c3b0) ----
   /** モバイルサイドバーオーバーレイの開閉 (AC-Sa6c3b0-1-2) */
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  /** モバイル viewport 判定 (≤680px): sidebar-new-note をヘッダー側に移す (S1bd397-4) */
-  const [isMobileViewport, setIsMobileViewport] = useState(() => window.matchMedia('(max-width: 680px)').matches);
   /** モバイル Agent シートの開閉 (AC-Sa6c3b0-6-2) */
   const [mobileAgentSheetOpen, setMobileAgentSheetOpen] = useState(false);
   /** PWA インストールプロンプトの表示 (AC-Sa6c3b0-4) */
@@ -377,14 +375,6 @@ export function App(): JSX.Element {
     mq.addEventListener('change', onChange);
     return () => mq.removeEventListener('change', onChange);
   }, [theme]);
-
-  // モバイル viewport 判定: リサイズに追従 (S1bd397-4)
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 680px)');
-    const onMqChange = (e: MediaQueryListEvent): void => setIsMobileViewport(e.matches);
-    mq.addEventListener('change', onMqChange);
-    return () => mq.removeEventListener('change', onMqChange);
-  }, []);
 
   const refreshNotes = useCallback(async (): Promise<void> => {
     try {
@@ -1283,6 +1273,7 @@ export function App(): JSX.Element {
   /** 新規ノート ▸ 「テンプレートから新規作成」→ 一覧を取得して picker を開く。 */
   const openTemplatePicker = useCallback((): void => {
     setNewNoteMenuOpen(false);
+    setMobileSidebarOpen(false);
     setTemplates(null);
     setTemplatesError(null);
     setPickerOpen(true);
@@ -1913,58 +1904,61 @@ export function App(): JSX.Element {
           )}
           {sidebarView === 'physical' && (
             <span className="actions" style={{ position: 'relative' }}>
-              {/* デスクトップのみ表示: モバイルは workspace ヘッダーに移動 (S1bd397-4) */}
-              {!isMobileViewport && (
+              <button
+                className="icon-btn"
+                data-testid="sidebar-new-note"
+                title="新規ノート"
+                aria-haspopup="menu"
+                aria-expanded={newNoteMenuOpen}
+                onClick={() => setNewNoteMenuOpen((v) => !v)}
+              >
+                <NewNoteIcon />
+              </button>
+              <button
+                className="icon-btn"
+                data-testid="sidebar-new-folder"
+                title="新規フォルダ"
+                onClick={() => setDialog({ type: 'new-folder', parent: selectedFolder })}
+              >
+                <NewFolderIcon />
+              </button>
+              {newNoteMenuOpen && (
                 <>
-                  <button
-                    className="icon-btn"
-                    data-testid="sidebar-new-note"
-                    title="新規ノート"
-                    aria-haspopup="menu"
-                    aria-expanded={newNoteMenuOpen}
-                    onClick={() => setNewNoteMenuOpen((v) => !v)}
+                  <div className="newnote-menu-scrim" onMouseDown={() => setNewNoteMenuOpen(false)} />
+                  <div
+                    className="newnote-menu"
+                    data-testid="new-note-menu"
+                    role="menu"
+                    style={{ top: 26, right: 0 }}
                   >
-                    <NewNoteIcon />
-                  </button>
-                  {newNoteMenuOpen && (
-                    <>
-                      <div className="newnote-menu-scrim" onMouseDown={() => setNewNoteMenuOpen(false)} />
-                      <div
-                        className="newnote-menu"
-                        data-testid="new-note-menu"
-                        role="menu"
-                        style={{ top: 26, right: 0 }}
-                      >
-                        <button
-                          className="nm-item"
-                          data-testid="new-note-menu-blank"
-                          role="menuitem"
-                          onClick={() => {
-                            setNewNoteMenuOpen(false);
-                            setDialog({ type: 'new-note', folder: selectedFolder });
-                          }}
-                        >
-                          <DocumentIcon />
-                          <span className="nm-main">
-                            空のノート<span className="nm-sub">見出しのみの新規ノート</span>
-                          </span>
-                        </button>
-                        <div className="nm-sep" />
-                        <button
-                          className="nm-item"
-                          data-testid="new-note-menu-template"
-                          role="menuitem"
-                          onClick={openTemplatePicker}
-                        >
-                          <DocumentIcon />
-                          <span className="nm-main">
-                            テンプレートから新規作成
-                            <span className="nm-sub">templates/ から選ぶ</span>
-                          </span>
-                        </button>
-                      </div>
-                    </>
-                  )}
+                    <button
+                      className="nm-item"
+                      data-testid="new-note-menu-blank"
+                      role="menuitem"
+                      onClick={() => {
+                        setNewNoteMenuOpen(false);
+                        setDialog({ type: 'new-note', folder: selectedFolder });
+                      }}
+                    >
+                      <DocumentIcon />
+                      <span className="nm-main">
+                        空のノート<span className="nm-sub">見出しのみの新規ノート</span>
+                      </span>
+                    </button>
+                    <div className="nm-sep" />
+                    <button
+                      className="nm-item"
+                      data-testid="new-note-menu-template"
+                      role="menuitem"
+                      onClick={openTemplatePicker}
+                    >
+                      <DocumentIcon />
+                      <span className="nm-main">
+                        テンプレートから新規作成
+                        <span className="nm-sub">templates/ から選ぶ</span>
+                      </span>
+                    </button>
+                  </div>
                 </>
               )}
             </span>
@@ -2049,60 +2043,6 @@ export function App(): JSX.Element {
           >
             <MenuIcon />
           </button>
-          {/* モバイル専用: sidebar-new-note をヘッダー右端に移す (S1bd397-4 / sidebar は display:none) */}
-          {isMobileViewport && (
-            <span style={{ position: 'relative', marginLeft: 'auto' }}>
-              <button
-                className="icon-btn"
-                data-testid="sidebar-new-note"
-                title="新規ノート"
-                aria-haspopup="menu"
-                aria-expanded={newNoteMenuOpen}
-                onClick={() => setNewNoteMenuOpen((v) => !v)}
-              >
-                <NewNoteIcon />
-              </button>
-              {newNoteMenuOpen && (
-                <>
-                  <div className="newnote-menu-scrim" onMouseDown={() => setNewNoteMenuOpen(false)} />
-                  <div
-                    className="newnote-menu"
-                    data-testid="new-note-menu"
-                    role="menu"
-                    style={{ top: 36, right: 0 }}
-                  >
-                    <button
-                      className="nm-item"
-                      data-testid="new-note-menu-blank"
-                      role="menuitem"
-                      onClick={() => {
-                        setNewNoteMenuOpen(false);
-                        setDialog({ type: 'new-note', folder: selectedFolder });
-                      }}
-                    >
-                      <DocumentIcon />
-                      <span className="nm-main">
-                        空のノート<span className="nm-sub">見出しのみの新規ノート</span>
-                      </span>
-                    </button>
-                    <div className="nm-sep" />
-                    <button
-                      className="nm-item"
-                      data-testid="new-note-menu-template"
-                      role="menuitem"
-                      onClick={openTemplatePicker}
-                    >
-                      <DocumentIcon />
-                      <span className="nm-main">
-                        テンプレートから新規作成
-                        <span className="nm-sub">templates/ から選ぶ</span>
-                      </span>
-                    </button>
-                  </div>
-                </>
-              )}
-            </span>
-          )}
           <div className="nav-group">
             <button
               className="nav-btn"

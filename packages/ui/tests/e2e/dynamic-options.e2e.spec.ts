@@ -104,6 +104,12 @@ test.beforeEach(async ({ page }) => {
 });
 
 async function openEpicTemplateModal(page: Page): Promise<void> {
+  // モバイル viewport (≤680px) ではサイドバーが非表示なので sidebar-toggle で先に開く
+  const toggleBtn = page.getByTestId('sidebar-toggle');
+  if (await toggleBtn.isVisible()) {
+    await toggleBtn.click();
+    await expect(page.locator('.sidebar[data-mobile-open="true"]')).toBeVisible();
+  }
   await page.getByTestId('sidebar-new-note').click();
   await expect(page.getByTestId('new-note-menu')).toBeVisible();
   await page.getByTestId('new-note-menu-template').click();
