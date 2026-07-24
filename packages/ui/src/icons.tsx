@@ -7,6 +7,28 @@ interface IconProps {
   className?: string;
 }
 
+/**
+ * Loamium ロゴマーク (芽生え)。アプリアイコン (resources/icon.ico / favicon) と同じ意匠の
+ * 前景 (双葉+土) のみ。背景の紫角丸は親要素 (.vault-badge の gradient) が担うため、
+ * ここは currentColor (既定=白) で描く。
+ */
+export function LogoMark({ className }: IconProps): JSX.Element {
+  return (
+    <svg className={className} viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
+      <ellipse cx="256" cy="374" rx="98" ry="15" opacity="0.32" />
+      <path
+        d="M256 378 C 252 344 254 322 256 300"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="26"
+        strokeLinecap="round"
+      />
+      <path d="M256 308 C 270 258 312 226 360 216 C 350 262 318 296 256 308 Z" />
+      <path d="M256 308 C 242 258 200 226 152 216 C 162 262 194 296 256 308 Z" opacity="0.9" />
+    </svg>
+  );
+}
+
 export function GearIcon({ className }: IconProps): JSX.Element {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">

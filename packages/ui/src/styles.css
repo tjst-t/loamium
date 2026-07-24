@@ -138,6 +138,13 @@ a { color: var(--link); text-decoration: none; }
   flex-shrink: 0;
 }
 
+/* ロゴマーク (芽生え) — バッジ内で明示サイズ指定 (インライン SVG が巨大化するのを防ぐ)。 */
+.vault-badge-mark {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
 .vault-name {
   font-weight: 600;
   font-size: 13px;

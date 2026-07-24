@@ -22,11 +22,22 @@ jobs:
 
       # @loamium/shared はビルド不要 (exports が src/index.ts を直接指す)。
       # bun は shared の TS ソースをそのままバンドルする。
+      #
+      # node-llama-cpp (ADR-0025 のネイティブ addon) は **external** にする。
+      # bun --compile はエンジン層 (local-llm-engine.ts) の動的 import('node-llama-cpp')
+      # まで辿り、そこから参照される OS 別プレビルド (@node-llama-cpp/win-x64 等) を
+      # ビルド時解決しようとして失敗する (該当 OS 以外は npm ci で入らない)。
+      # external 指定でバンドルから除外し、実行時 import に委ねる。単一ファイル bun
+      # バイナリにネイティブ addon は元来同梱できないため、パッケージ済み exe では
+      # ローカル LLM は利用不可 = LocalLlmUnavailableError で graceful degradation
+      # (CLAUDE.md「利用不可は握りつぶさず明示エラー」/ ADR-0025 と整合)。
       - name: Cross-compile server for Windows x64
         run: |
           bun build \
             --compile \
             --target=bun-windows-x64 \
+            --external "node-llama-cpp" \
+            --external "@node-llama-cpp/*" \
             --outfile=packages/app-electron/resources/loamium-server.exe \
             packages/server/src/index.ts
 

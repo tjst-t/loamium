@@ -80,6 +80,7 @@ import {
   FolderIcon,
   GearIcon,
   LinkIcon,
+  LogoMark,
   MenuIcon,
   NewNoteIcon,
   NewFolderIcon,
@@ -2009,7 +2010,9 @@ export function App(): JSX.Element {
         data-mobile-open={mobileSidebarOpen ? 'true' : 'false'}
       >
         <div className="sidebar-header">
-          <div className="vault-badge">L</div>
+          <div className="vault-badge" aria-label="Loamium">
+            <LogoMark className="vault-badge-mark" />
+          </div>
           <div className="vault-name">Loamium</div>
           <span className="vault-version" title={`Loamium ${__APP_VERSION__}`}>
             {displayVersion(__APP_VERSION__)}
