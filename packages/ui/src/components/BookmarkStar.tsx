@@ -2,27 +2,31 @@
  * ブックマークスター — ノートヘッダ右端 (S8086d9-2)。
  *
  * - data-bookmarked='true'|'false' で状態を表す (テスト契約)。
- * - クリックで POST /api/notes/{path}/properties を送り楽観更新する。
- *   API 失敗時は元の状態へロールバック。
+ * - クリックで **開いているエディタのバッファ** の frontmatter を直接編集する (onToggle)。
+ *   ディスクへの直接書き込み (旧 POST /api/notes/{path}/properties) は行わない。永続化は
+ *   通常の自動保存フローに委ねる。これにより未保存の編集を失わず、エディタもリセットされない
+ *   (「開いているファイルを編集する」— タスクフィールド編集と同じ方式)。
  * - read-only / append-only モード (GET /api/health) では aria-disabled='true' で
  *   非インタラクティブにする。
  * - key={docPath} でマウントされるので、ノート切替時に状態がリセットされる。
  */
 import { useCallback, useEffect, useState, type JSX } from 'react';
-import type { PermissionMode, NotePropertyWriteRequest } from '@loamium/shared';
+import type { PermissionMode } from '@loamium/shared';
 import { api } from '../api.js';
 import { StarFilledIcon, StarOutlineIcon } from '../icons.js';
 
 export interface BookmarkStarProps {
-  /** 現在開いているノートの vault 相対パス */
-  docPath: string;
   /** 初回表示時の frontmatter (サーバーから取得済み) */
   initialFrontmatter: Record<string, unknown> | null;
-  /** ブックマーク操作成功後に呼ばれるコールバック (editor content の同期用) */
-  onChanged?: () => void;
+  /**
+   * ★ トグル時に呼ばれる。開いているエディタバッファの frontmatter で `bookmark` を
+   * set(next=true)/unset(next=false) し、適用できたら true を返す
+   * (エディタ未接続 / モデル化できない frontmatter では false)。
+   */
+  onToggle: (next: boolean) => boolean;
 }
 
-export function BookmarkStar({ docPath, initialFrontmatter, onChanged }: BookmarkStarProps): JSX.Element {
+export function BookmarkStar({ initialFrontmatter, onToggle }: BookmarkStarProps): JSX.Element {
   const [bookmarked, setBookmarked] = useState<boolean>(
     Boolean(initialFrontmatter?.bookmark),
   );
@@ -50,27 +54,11 @@ export function BookmarkStar({ docPath, initialFrontmatter, onChanged }: Bookmar
     // read-only / append-only は書込不可なのでクリックを無視
     if (mode !== null && mode !== 'full') return;
 
-    const prev = bookmarked;
-    const next = !prev;
-    setBookmarked(next); // 楽観更新
-
-    const body: NotePropertyWriteRequest = next
-      ? { set: { bookmark: true } }
-      : { unset: ['bookmark'] };
-
-    api.setNoteProperties(docPath, body).then(
-      (res) => {
-        // サーバー応答の frontmatter で確定
-        setBookmarked(Boolean(res.frontmatter?.bookmark));
-        // 成功後: 呼び出し元 (App) にエディタ内容の再取得を依頼する
-        onChanged?.();
-      },
-      () => {
-        // 失敗時はロールバック
-        setBookmarked(prev);
-      },
-    );
-  }, [mode, bookmarked, docPath]);
+    const next = !bookmarked;
+    // 開いているノートのバッファ frontmatter を編集する。適用できたときだけ状態を更新する
+    // (同期処理なのでロールバックは不要)。
+    if (onToggle(next)) setBookmarked(next);
+  }, [mode, bookmarked, onToggle]);
 
   const disabled = mode !== null && mode !== 'full';
 

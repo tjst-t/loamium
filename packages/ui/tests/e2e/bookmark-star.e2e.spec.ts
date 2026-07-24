@@ -36,6 +36,24 @@ async function putSmartFolders(config: unknown): Promise<void> {
   expect(res.ok).toBe(true);
 }
 
+/**
+ * ★ はバッファ frontmatter を編集し、自動保存でディスクへ永続化される (即時ディスク書き込みは
+ * しない)。リロード / スマートフォルダ (サーバ側 DQL) 検証の前に、ディスクへ反映されるまで待つ。
+ */
+async function waitBookmarkPersisted(rel: string, expected: boolean): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const res = await fetch(`${state().apiUrl}/api/notes/${encodePath(rel)}`);
+        if (!res.ok) return null;
+        const note = (await res.json()) as { frontmatter?: Record<string, unknown> | null };
+        return Boolean(note.frontmatter?.bookmark);
+      },
+      { timeout: 5000 },
+    )
+    .toBe(expected);
+}
+
 async function expandFolder(folder: Locator): Promise<void> {
   if ((await folder.getAttribute('aria-expanded')) !== 'true') {
     await folder.click();
@@ -70,21 +88,23 @@ test.describe('bookmark star', () => {
 
     await page.getByTestId('bookmark-star').click();
     await expect(page.getByTestId('bookmark-star')).toHaveAttribute('data-bookmarked', 'true');
-    // frontmatter に永続 → リロードで復元
+    // バッファ編集 → 自動保存でディスクへ永続化されるのを待ってからリロードで復元
+    await waitBookmarkPersisted(`${ROOT}/target.md`, true);
     await page.reload();
     await expect(page.getByTestId('bookmark-star')).toHaveAttribute('data-bookmarked', 'true');
 
     // 再クリックで解除 → 永続
     await page.getByTestId('bookmark-star').click();
     await expect(page.getByTestId('bookmark-star')).toHaveAttribute('data-bookmarked', 'false');
+    await waitBookmarkPersisted(`${ROOT}/target.md`, false);
     await page.reload();
     await expect(page.getByTestId('bookmark-star')).toHaveAttribute('data-bookmarked', 'false');
   });
 
-  test('[AC-S8086d9-2-4] ブックマーク付与でエディタが再取得され frontmatter に bookmark が現れ、解除後に消える', async ({ page }) => {
+  test('[AC-S8086d9-2-4] ブックマーク付与でバッファ frontmatter に bookmark が現れ、解除後に消える', async ({ page }) => {
     // frontmatter は live-preview でプロパティパネル (properties-widget) として描画される。
-    // スター toggle 後にエディタが再取得され、この widget が現れる/消えることを検証する
-    // (= 開いているエディタが disk の変更に同期している証拠)。
+    // スター toggle は開いているエディタのバッファ frontmatter を編集するので、この widget が
+    // 即座に現れる/消える (ディスク再取得を待たない = 開いているファイルを編集している証拠)。
     await page.goto(`${state().uiUrl}/n/${ROOT}/target`);
     await expect(page.getByTestId('editor')).toContainText('本文ターゲット');
     // 付与前: frontmatter 無し → プロパティパネルは無い
@@ -108,6 +128,8 @@ test.describe('bookmark star', () => {
 
     await page.getByTestId('bookmark-star').click();
     await expect(page.getByTestId('bookmark-star')).toHaveAttribute('data-bookmarked', 'true');
+    // スマートフォルダはサーバ側 DQL で解決するので、ディスクへ永続化されるまで待つ
+    await waitBookmarkPersisted(`${ROOT}/target.md`, true);
 
     // スマートビューのブックマークフォルダに出現
     await page.getByTestId('sidebar-view-smart').click();
@@ -119,6 +141,7 @@ test.describe('bookmark star', () => {
     await page.getByTestId('sidebar-view-physical').click();
     await page.getByTestId('bookmark-star').click();
     await expect(page.getByTestId('bookmark-star')).toHaveAttribute('data-bookmarked', 'false');
+    await waitBookmarkPersisted(`${ROOT}/target.md`, false);
     await page.getByTestId('sidebar-view-smart').click();
     const folder2 = page.locator('[data-testid="smart-folder"][data-id="bm-marks"]');
     await expandFolder(folder2);

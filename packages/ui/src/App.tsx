@@ -47,6 +47,7 @@ import { makeTagClickHandler } from './tag-click.js';
 import { isCommandFile, isSystemSourceFile } from './commandEditorUtils.js';
 import { moveNote, moveFolder } from './folder-move.js';
 import { BookmarkStar } from './components/BookmarkStar.js';
+import { toggleFrontmatterFlag } from './frontmatter-flag.js';
 import { CommandEditor } from './components/CommandEditor.js';
 import { Editor, type EditorView } from './components/Editor.js';
 import { convertListToBullet, convertListToOrdered } from './list-convert-cmd.js';
@@ -2384,15 +2385,12 @@ export function App(): JSX.Element {
           {route.kind === 'note' && doc !== null && preview === null && !doc.isSystemSource && (
             <BookmarkStar
               key={doc.path}
-              docPath={doc.path}
               initialFrontmatter={doc.frontmatter}
-              onChanged={() => {
-                const currentDoc = docRef.current;
-                if (currentDoc === null) return;
-                void api.getNote(currentDoc.path).then(
-                  (res) => { setOpenDoc(res.path, res.content, res.mtime, res.frontmatter); },
-                  () => { /* ノート再取得失敗時はエディタ表示をそのまま維持する */ },
-                );
+              onToggle={(next) => {
+                // 開いているエディタのバッファ frontmatter で bookmark を set/unset する。
+                // ディスク直書き・再フェッチはしない (通常の自動保存で永続化)。
+                const view = editorViewRef.current;
+                return view !== null && toggleFrontmatterFlag(view, 'bookmark', next);
               }}
             />
           )}
