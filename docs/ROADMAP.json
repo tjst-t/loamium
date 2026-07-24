@@ -4,10 +4,10 @@
  "progress": {
   "current_sprint": null,
   "total": 58,
-  "done": 56,
-  "in_progress": 1,
-  "remaining": 1,
-  "percentage": 96
+  "done": 58,
+  "in_progress": 0,
+  "remaining": 0,
+  "percentage": 100
  },
  "execution_order": [
   "Sd63ad1",
@@ -8859,7 +8859,7 @@
    "title": "リモート変更時の編集競合を 3-way 自動マージ(ADR-0030)",
    "description": "実機フィードバック『リモートで変更があったときに、自動で競合編集のマージ処理をしてほしい』への対応。dirty(編集中)にリモート変更(SSE notes_changed)を受けたとき、base/ours/theirs の 3-way diff3 マージで非競合ハンクを自動統合し、競合ハンクのみ UI 提示する(現状は last-write-wins + トースト通知の手動対応)。制約: ピュア Markdown 絶対(正本は文字列 1 本、CRDT 化しない) / 書き戻しは ADR-0016 監査済みサービス層経由+監査ログ / マージロジックはユニットテスト必須 / モバイルでも競合 UI が破綻しない。前提: ADR-0030(tentative)の受理。ユーザーが「自動マージ見送り」を選ぶ場合は本 Sprint をスコープ縮小(通知改善+手動マージ支援 UI のみ)する。段階導入可(まず非競合自動統合→専用の競合ハンク UI)。",
    "milestone": true,
-   "status": "in_progress",
+   "status": "done",
    "depends_on": [
     "S6848dc"
    ],
@@ -8867,7 +8867,7 @@
    "stories": {
     "S2df65d-1": {
      "title": "dirty 編集中のリモート変更を 3-way 自動マージし、競合ハンクのみ提示",
-     "status": "needs_user_review",
+     "status": "done",
      "story_type": "gui",
      "user_review_required": true,
      "review_reason": "編集競合の自動マージは誤マージのリスクがあり、競合 UI の見え方と挙動を実機で確認する必要がある。ADR-0030(tentative)の受理が前提。",
@@ -8944,7 +8944,7 @@
    "title": "テンプレート/コマンドの動的選択肢 — DQL 由来 optionsQuery(ADR-0031)",
    "description": "ADR-0031 準拠。テンプレート変数(TemplateVar)とスマートコマンドのパラメータ(CommandParam)に、入力ウィジェット type と直交する任意 optionsQuery(DQL 文字列)を加算し、選択肢を vault から動的生成する。select+optionsQuery=厳格ドロップダウン / text+optionsQuery=自由入力オートコンプリート / (commands の)note+optionsQuery=絞り込みノートピッカー。候補解決は既存 DQL エンジン(dql.ts parseQuery/executeQuery)を再利用し shared/server の単一ヘルパに集約(第二のクエリ機構を作らない)。厳格 select はサーバ側で候補 membership を検証(REST/CLI/agent 同一)。依存クエリは optionsQuery を resolveTemplate してから実行(宣言順・循環禁止)。生成物はピュア Markdown 維持(optionsQuery は定義=system/ 設定側のみ)。案D(本文静的クエリ)はスコープ外=ライブ dataview フェンスで代替。触れる ADR: ADR-0031(主)/ ADR-0001(DQL 再利用)/ ADR-0016(監査済みサービス層・重複ロジック禁止)/ ADR-0022(宣言的加算)/ ADR-0014(help)/ ADR-0015(ケーパビリティ)。",
    "milestone": true,
-   "status": "in_progress",
+   "status": "done",
    "detail_level": "detailed",
    "depends_on": [
     "Sd22b1f",
@@ -9097,7 +9097,7 @@
     },
     "S1bd397-4": {
      "title": "入力フォーム UI — ドロップダウン/オートコンプリート(テンプレート・コマンド)",
-     "status": "needs_user_review",
+     "status": "done",
      "user_review_required": true,
      "review_reason": "GUI Story。TemplateModal・コマンド実行フォームの候補ドロップダウン/オートコンプリートは、プロトタイプ + 実機の視覚レビューが必要。",
      "user_story": "テンプレート/コマンド利用者として、変数入力フォームで候補をドロップダウンやオートコンプリートから選びたい。なぜなら、既存ノートから素早く正確に選択したいから。",
