@@ -5,8 +5,8 @@
   "current_sprint": null,
   "total": 58,
   "done": 56,
-  "in_progress": 0,
-  "remaining": 2,
+  "in_progress": 1,
+  "remaining": 1,
   "percentage": 96
  },
  "execution_order": [
@@ -8859,7 +8859,7 @@
    "title": "リモート変更時の編集競合を 3-way 自動マージ(ADR-0030)",
    "description": "実機フィードバック『リモートで変更があったときに、自動で競合編集のマージ処理をしてほしい』への対応。dirty(編集中)にリモート変更(SSE notes_changed)を受けたとき、base/ours/theirs の 3-way diff3 マージで非競合ハンクを自動統合し、競合ハンクのみ UI 提示する(現状は last-write-wins + トースト通知の手動対応)。制約: ピュア Markdown 絶対(正本は文字列 1 本、CRDT 化しない) / 書き戻しは ADR-0016 監査済みサービス層経由+監査ログ / マージロジックはユニットテスト必須 / モバイルでも競合 UI が破綻しない。前提: ADR-0030(tentative)の受理。ユーザーが「自動マージ見送り」を選ぶ場合は本 Sprint をスコープ縮小(通知改善+手動マージ支援 UI のみ)する。段階導入可(まず非競合自動統合→専用の競合ハンク UI)。",
    "milestone": true,
-   "status": "pending",
+   "status": "in_progress",
    "depends_on": [
     "S6848dc"
    ],
@@ -8867,7 +8867,7 @@
    "stories": {
     "S2df65d-1": {
      "title": "dirty 編集中のリモート変更を 3-way 自動マージし、競合ハンクのみ提示",
-     "status": "pending",
+     "status": "needs_user_review",
      "story_type": "gui",
      "user_review_required": true,
      "review_reason": "編集競合の自動マージは誤マージのリスクがあり、競合 UI の見え方と挙動を実機で確認する必要がある。ADR-0030(tentative)の受理が前提。",
@@ -8876,64 +8876,64 @@
       {
        "id": "AC-S2df65d-1-1",
        "description": "編集中(dirty)に SSE notes_changed で現在ノートのリモート変更を受けたとき、base(最後に取得したリモート内容)/ours(ローカル編集)/theirs(新リモート)の 3-way マージを行い、非競合ハンクは自動でエディタに統合されローカル編集が保持される。",
-       "test": null,
-       "status": "pending"
+       "test": "packages/ui/tests/e2e/conflict-merge.e2e.spec.ts",
+       "status": "pass"
       },
       {
        "id": "AC-S2df65d-1-2",
        "description": "競合ハンク(同一行域を ours と theirs が非同一に変更)がある場合のみ、その箇所を UI で明示しユーザーが解決できる。全面上書きを強制しない。",
-       "test": null,
-       "status": "pending"
+       "test": "packages/ui/tests/e2e/conflict-merge.e2e.spec.ts + packages/ui/tests/e2e/conflict-merge.mock.spec.ts",
+       "status": "pass"
       },
       {
        "id": "AC-S2df65d-1-3",
        "description": "非 dirty 時は従来どおり自動リロード(現行挙動を維持)。",
-       "test": null,
-       "status": "pending"
+       "test": "packages/ui/tests/e2e/conflict-merge.e2e.spec.ts + packages/ui/tests/e2e/conflict-merge.mock.spec.ts",
+       "status": "pass"
       },
       {
        "id": "AC-S2df65d-1-4",
        "description": "マージ結果の書き戻しは ADR-0016 の監査済みサービス層を経由し、監査ログ(.loamium/audit.log)に記録される。ピュア Markdown 不変。",
-       "test": null,
-       "status": "pending"
+       "test": "packages/ui/tests/e2e/conflict-merge.e2e.spec.ts",
+       "status": "pass"
       },
       {
        "id": "AC-S2df65d-1-5",
        "description": "3-way マージロジックのユニットテスト(非競合の自動統合 / 競合検出 / 同一変更の冪等 / 空 base 等)を追加する。",
-       "test": null,
-       "status": "pending"
+       "test": "packages/shared/src/diff3.test.ts",
+       "status": "pass"
       },
       {
        "id": "AC-S2df65d-1-6",
        "description": "モバイル(@media max-width:680px)でも競合解決 UI が破綻せず、タップターゲット 44px 以上。",
-       "test": null,
-       "status": "pending"
+       "test": "packages/ui/tests/e2e/conflict-merge.mock.spec.ts",
+       "status": "pass"
       }
      ],
      "tasks": {
       "S2df65d-1-1": {
        "title": "diff3 マージ層",
-       "description": "純 JS(依存最小)の 3-way diff3 マージモジュールを実装し、base を追跡する(最後に取得したリモート内容の保持)。差し替え可能な単一モジュールに閉じる。",
+       "description": "純 JS 自前実装の 3-way diff3 マージモジュールを packages/shared/src/diff3.ts として実装。エクスポート: diff3Merge(base, ours, theirs): Diff3Result。型: Diff3Result = { merged: string; conflicts: ConflictHunk[] }、ConflictHunk = { startLine: number; endLine: number; ours: string[]; theirs: string[] }。行単位 LCS + ハンク境界アルゴリズム。保守的競合検出(疑わしきは競合)。依存なし(外部ライブラリ不使用)。差し替え可能な単一モジュールに閉じる。設計判断: D-S2df65d-1(純 JS 自前実装)、D-S2df65d-9(逐次実行)を参照。baseMd フィールドを OpenDoc 型に追加(D-S2df65d-2)。packages/shared/src/diff3.test.ts のユニットテストが通ること(AC-S2df65d-1-5)。",
        "status": "pending"
       },
       "S2df65d-1-2": {
        "title": "SSE ハンドラ統合",
-       "description": "App.tsx の handleSseNotesChanged を拡張し、dirty 時に自動マージ(非競合)→競合時のみ UI 提示に分岐。",
+       "description": "App.tsx の handleSseNotesChanged を拡張し、dirty 時に diff3Merge を呼ぶ。非競合: CM Transaction で merged を適用しカーソル保持(D-S2df65d-4)。競合あり: ConflictResolverDialog を開く(D-S2df65d-3)。非 dirty 時: 既存の自動リロード挙動を維持(AC-S2df65d-1-3 を壊さない)。自己エコー抑制(contentRef.current との一致チェック)も維持(D-S2df65d-6)。SSE 注入テスト用に window.__loamium_testSseInject を開発モードのみ expose する(conflict-merge.mock.spec.ts が使用)。",
        "status": "pending"
       },
       "S2df65d-1-3": {
        "title": "競合ハンク UI",
-       "description": "競合箇所をエディタ上/ダイアログで提示し解決させる UI(段階導入: まず既存の上書きダイアログ流用も可)。レスポンシブ対応。",
+       "description": "packages/ui/src/ConflictResolverDialog.tsx を新規作成。props: conflicts(ConflictHunk[])、mergedBase(string)、onSave(resolvedText: string)→void、onCancel()→void。競合ハンク一覧を表示し、各ハンクに conflict-choose-ours / conflict-choose-theirs / conflict-choose-both ボタン。全ハンク解決後に conflict-save-merge ボタンが有効化。キャンセルは conflict-cancel。testid: conflict-resolver-dialog / conflict-hunk-item / conflict-hunk-count / conflict-choose-ours / conflict-choose-theirs / conflict-choose-both / conflict-save-merge / conflict-cancel。モバイル(@media max-width:680px)対応: ダイアログが画面幅内に収まる、タップターゲット 44px 以上(AC-S2df65d-1-6)。設計判断: D-S2df65d-3(ダイアログ方式)。",
        "status": "pending"
       },
       "S2df65d-1-4": {
        "title": "サービス層経由の書き戻し+監査",
-       "description": "マージ結果の保存を監査済みサービス層経由にし監査ログへ記録。",
+       "description": "ConflictResolverDialog の onSave コールバックで PUT /api/notes/{path} に baseMtime 付きで送信。既存の auditMiddleware が自動的に audit.log に記録する(追加実装不要)。409 応答時はダイアログを閉じてトーストで通知し再マージを促す(D-S2df65d-5)。書き戻し後: setOpenDoc でエディタを更新、dirty=false、baseMd を新 mtime のコンテンツに更新。ADR-0016: 既存 PUT エンドポイントを流用し独自書き込み実装を作らない。",
        "status": "pending"
       },
       "S2df65d-1-5": {
        "title": "テストとドキュメント",
-       "description": "マージの unit と競合フローの e2e を追加。ADR-0030 を accepted 化する際に DESIGN_PRINCIPLES priority2 / ARCHITECTURE.md の競合節、機能ガイドを更新。",
+       "description": "diff3 ユニットテスト: packages/shared/src/diff3.test.ts (既に作成済み、スタブファイル待ち)。競合フロー E2E: packages/ui/tests/e2e/conflict-merge.e2e.spec.ts (実サーバー経由)。競合 UI モック: packages/ui/tests/e2e/conflict-merge.mock.spec.ts (SSE 注入)。ADR-0030 を accepted 化(受理済み済み 2026-07-23)。ARCHITECTURE.md の競合節を更新。機能ガイド: packages/server/src/samples/機能ガイド/競合マージの使い方.md を新規作成。samples/index.md の機能ガイドセクションにリンク追加(D-S2df65d-8)。",
        "status": "pending"
       }
      }

@@ -88,7 +88,22 @@ pi SDK(`@earendil-works/pi-coding-agent`)をサーバー内蔵し、エージェ
 
 ### 書き込みフロー (UI / CLI / エージェント共通)
 
-client → REST API → パス正規化・権限チェック → ファイル書き込み(UTF-8/LF) → 監査ログ追記 → インデックス即時更新。外部編集(エディタ・Git)は chokidar が検知してインデックス再構築。競合は last-write-wins + mtime による楽観的検出 (実装済 — Sa704c3: GET/PUT レスポンスが `mtime` を返し、PUT に `baseMtime` を添えると不一致時に 409 conflict。UI は警告ダイアログで上書き / 再読込を選ばせる。エージェント/CLI は従来どおり無条件書き込み)。
+client → REST API → パス正規化・権限チェック → ファイル書き込み(UTF-8/LF) → 監査ログ追記 → インデックス即時更新。外部編集(エディタ・Git)は chokidar が検知してインデックス再構築。
+
+**競合制御 (ADR-0030 で更新):**
+- **API / CLI / エージェント**: last-write-wins + mtime 楽観的検出。PUT に `baseMtime` を添えると不一致時に 409 conflict (Sa704c3)。エージェント/CLI は従来どおり無条件書き込み。
+- **UI (dirty 編集中にリモート変更が来た場合 — 実装済 S2df65d)**: SSE `notes_changed` を受けたとき `diff3Merge(base, ours, theirs)` を実行する 3-way 自動マージを導入。
+  - `base` = 最後にサーバーから取得したリモート内容 (OpenDoc.baseMd、セッション内揮発のみ)
+  - `ours` = エディタの現在の編集バッファ (contentRef.current)
+  - `theirs` = 新しいリモート内容 (SSE 受信後に GET /api/notes/{path} で取得)
+  - **非競合ハンク** → CM Transaction でカーソル保持しつつ自動統合。dirty=true を維持。baseMd を theirs に更新。
+  - **競合ハンク** → ConflictResolverDialog を表示。ours/theirs を並列カードで提示。各ハンクで解決方法 (こちらを使う/リモート/両方) を選択後、PUT /api/notes/{path} (baseMtime=theirsMtime) で書き戻し → auditMiddleware が監査ログに記録。
+  - **非 dirty** → 従来どおり自動リロード (カーソルリセット許容)。
+  - **自己エコー抑制**: PUT 後の chokidar→SSE は contentRef と一致するため mtime 更新のみで再マージしない。
+  - **IME (日本語入力) 中**: compositionstart/end を監視し合成中は待機キューに積む。
+  - **ダイアログ表示中の再 SSE**: 待機キューに積み、ダイアログ閉後に再マージ (多重ダイアログ防止)。
+  - **競合マーカー不使用**: <<<, ===, >>> はファイルにも UI にも書かない (priority1 ピュア Markdown 絶対)。
+  - **diff3 実装**: packages/shared/src/diff3.ts — 純 JS、外部依存なし、行単位 LCS + 保守的競合検出 (疑わしきは競合)。
 
 ### インデックスライフサイクル (実装済 — S31ba00)
 

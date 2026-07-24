@@ -1,0 +1,5 @@
+{
+ "sprint": "S2df65d",
+ "compromises": [],
+ "note": "No notify-after compromises (no test weakening / error swallowing / type-safety relaxation). One self-introduced regression was found AND fixed during verification (properties self-echo), not a compromise. Pre-existing verify-gate redness recorded in verification-results.json verify_gate_finding."
+}
