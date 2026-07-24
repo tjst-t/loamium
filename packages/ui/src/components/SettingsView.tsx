@@ -987,35 +987,40 @@ export function SettingsView({ mode, group, onSwitchGroup, onClose, onSaved }: S
     setAgentStatus('saving');
     setAgentError(null);
     try {
-      await Promise.all([
-        api.putAgentConnection({
-          api: connDraft.api,
-          baseUrl: connDraft.baseUrl,
-          model: connDraft.model,
-          // apiKeyDirty=false のときは apiKey を送らない (既存キーを維持)
-          // apiKeyDirty=true のときはフォームの現在値を送る
-          ...(apiKeyDirty ? { apiKey: connDraft.apiKeyRef } : {}),
-          // backend 明示選択 (S8a3f2e-4)。自動フォールバックはせず、選んだ値をそのまま保存。
-          backend,
-          // localModel: string=選択, null=クリア (local だが未選択 = 接続無効)。
-          localModel,
-        }),
-        // permissions は capability 配列で渡す (preset 名 or 配列 — agentPermissionsSchema 準拠)
-        // capWrite = note_edit + note_create, capWeb = web (ADR-0017 opt-in)
-        api.putAgentPermissions(
-          permDraft.mode === 'full'
-            ? 'full'
-            : permDraft.mode === 'read-only'
-            ? 'read-only'
-            : permDraft.mode === 'notes-rw'
-            ? 'notes-rw'
-            : [
-                'read',
-                ...(permDraft.capWrite ? (['note_create', 'note_edit', 'journal_append'] as const) : []),
-                ...(permDraft.capWeb ? (['web'] as const) : []),
-              ],
-        ),
-      ]);
+      // 接続設定 → 権限 の順に **直列** で保存する。
+      // 両者は同一ファイル (.loamium/agent.json) への read-modify-write で、接続保存が
+      // ファイルを新規作成し、権限保存は既存を前提にする (不在なら
+      // "agent.json not found; configure connection settings first" を投げる)。
+      // 以前は Promise.all で並列実行していたため、agent.json が未作成の vault
+      // (初回設定など) で権限保存が作成前に走って上記エラーになっていた。直列化で
+      // 「作成 → 更新」の順序と、同一ファイルの更新競合 (ロストアップデート) を防ぐ。
+      await api.putAgentConnection({
+        api: connDraft.api,
+        baseUrl: connDraft.baseUrl,
+        model: connDraft.model,
+        // apiKeyDirty=false のときは apiKey を送らない (既存キーを維持)
+        // apiKeyDirty=true のときはフォームの現在値を送る
+        ...(apiKeyDirty ? { apiKey: connDraft.apiKeyRef } : {}),
+        // backend 明示選択 (S8a3f2e-4)。自動フォールバックはせず、選んだ値をそのまま保存。
+        backend,
+        // localModel: string=選択, null=クリア (local だが未選択 = 接続無効)。
+        localModel,
+      });
+      // permissions は capability 配列で渡す (preset 名 or 配列 — agentPermissionsSchema 準拠)
+      // capWrite = note_edit + note_create, capWeb = web (ADR-0017 opt-in)
+      await api.putAgentPermissions(
+        permDraft.mode === 'full'
+          ? 'full'
+          : permDraft.mode === 'read-only'
+          ? 'read-only'
+          : permDraft.mode === 'notes-rw'
+          ? 'notes-rw'
+          : [
+              'read',
+              ...(permDraft.capWrite ? (['note_create', 'note_edit', 'journal_append'] as const) : []),
+              ...(permDraft.capWeb ? (['web'] as const) : []),
+            ],
+      );
       setAgentStatus('saved');
       setApiKeyDirty(false); // 保存成功 → 次回保存は変更があった場合のみ送る
       setTimeout(() => setAgentStatus('idle'), 2000);
