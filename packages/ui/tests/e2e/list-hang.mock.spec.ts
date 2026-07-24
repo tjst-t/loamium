@@ -100,12 +100,14 @@ async function assertHangs(page: Page, text: string): Promise<void> {
 
   // 折り返しが実際に起きている (本文の視覚行が 2 行以上)。
   expect(box.rowCount).toBeGreaterThanOrEqual(2);
-  // ぶら下げ: padding-inline-start は正、text-indent は同量の負 (相殺で 1 行目が元位置)。
-  expect(box.paddingInlineStart).toBeGreaterThan(6); // 6px の基準パディング + --hang
+  // ぶら下げ: padding-inline-start は --hang (正の値)、text-indent は同量の負。
+  // S6848dc で CSS を変更: 旧「6px + --hang」→ 現「--hang のみ」(行横 padding 廃止に合わせ)。
+  // padding-inline-start = --hang > 0 (マーカー幅ぶんのぶら下げ量)。
+  expect(box.paddingInlineStart).toBeGreaterThan(0);
   expect(box.textIndent).toBeLessThan(0);
-  // padding とマイナス text-indent は同量 (--hang) で相殺する → 1 行目のマーカーは
-  // 基準パディング (6px) 位置に戻る (ソースの見た目カラムを崩さない)。
-  expect(Math.abs(box.paddingInlineStart + box.textIndent - 6)).toBeLessThan(1);
+  // padding と text-indent は同量 (--hang) で相殺 → 1 行目はマーカー左端 (行左端) に戻る。
+  // 現行: paddingInlineStart + textIndent ≈ 0 (旧仕様の 6px オフセットは廃止)。
+  expect(Math.abs(box.paddingInlineStart + box.textIndent)).toBeLessThan(1);
 
   // ぶら下げ位置 (= padding 原点) は行左端 + padding-inline-start。
   const hangX = box.lineLeft + box.paddingInlineStart;
@@ -114,8 +116,9 @@ async function assertHangs(page: Page, text: string): Promise<void> {
     const left = box.rowLefts[i] ?? 0;
     expect(Math.abs(left - hangX)).toBeLessThan(3);
   }
-  // ぶら下げ位置は基準パディング (行左端 + 6px) より明確に右 = マーカー幅ぶん字下げされている。
-  expect(hangX - (box.lineLeft + 6)).toBeGreaterThan(10);
+  // ぶら下げ量 (--hang) は十分な幅を持つ: padding-inline-start > 10px (通常 2ch+ 相当)。
+  // マーカーと本文開始位置が視覚的に区別できるぶん字下げされている。
+  expect(box.paddingInlineStart).toBeGreaterThan(10);
 }
 
 test('[MOCK] 箇条書きの折り返し 2 行目がテキスト開始位置にそろう (AC-1)', async ({ page }) => {

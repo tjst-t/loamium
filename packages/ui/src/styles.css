@@ -1127,15 +1127,21 @@ code {
   }
 
   /* ---- Sa6c3b0-3: モバイル閲覧最適化 (AC-3-1/3-2/3-5) ---- */
-  /* 案B: モバイルではガターが無い / 小さいため横 padding を控えめにする。
+  /* 案B: モバイルではガターが小さいため横 padding を控えめにする。
      cm-line の横 padding を 0 に集約したため、本文の従来位置(8+6 / 16+6)を保つよう
      ここに +6px 含めた値を置く(本文とブロックウィジェットが同じ位置にそろう)。 */
+  /* モバイルでは scrollbar-gutter: stable both-edges が cm-scroller の clientWidth を
+     縮小し、cm-content + cm-gutters の合計が clientWidth を超えて横スクロールが発生する
+     バグを防ぐ。モバイルはオーバーレイスクロールバーのため stable 予約は不要。 */
+  .editor-host .cm-scroller {
+    scrollbar-gutter: auto !important;
+  }
   .editor-host .cm-content {
     padding-left: 14px !important;
     padding-right: 22px !important;
-    /* モバイルはガターが無いので、デスクトップの gutter 分差し引き(calc(100% - 22px))を
-       打ち消して全幅にする(閲覧中心・可読幅を確保)。 */
-    width: min(820px, 100%) !important;
+    /* cm-outline-gutter (22px) が存在するため、デスクトップと同様に gutter 幅を差し引いた
+       幅にする。これにより cm-gutters + cm-content の合計が cm-scroller 幅に収まる。 */
+    width: min(820px, calc(100% - 22px)) !important;
   }
   .editor-host .cm-editor {
     font-size: 16px !important;

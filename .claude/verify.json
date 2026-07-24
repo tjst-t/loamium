@@ -11,7 +11,7 @@
     },
     {
       "name": "ui-tests",
-      "command": "make test-ui",
+      "command": "make test-ui-mock",
       "junit_glob": "reports/ui/*.xml"
     }
   ]
