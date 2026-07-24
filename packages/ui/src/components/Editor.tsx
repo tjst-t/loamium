@@ -277,20 +277,20 @@ export function Editor({
         preventDefault: true,
         run: toggleBold,
       },
-      // ESC: 複数行テキスト選択をキャレットへ畳む (選択が空なら他の ESC 挙動に委ねる)。
-      // autocompletion の ESC より低い優先度で登録するため defaultKeymap の後ろに置く。
-      // autocompletion が閉じていて選択があるときのみ true を返す。
+      // ESC: エディタのフォーカスを外す (どの行もアクティブでない状態にする)。
+      // ライブプレビューではカーソル行だけソース表示になり、その行のタスクチェックボックスや
+      // 各種インライン widget が描画されずクリックできない。ESC で blur するとアクティブ行が
+      // 無くなり、全行が widget 表示に戻ってクリック (トグル) できる。
+      // autocompletion の ESC (高優先度) が開いているときは先に閉じるため、このハンドラは
+      // 閉じた後にのみ効く (defaultKeymap の後ろに登録)。選択があれば畳んでから blur する。
       {
         key: 'Escape',
         run: (view) => {
           const sel = view.state.selection;
-          const hasSelection =
-            sel.ranges.length > 1 ||
-            sel.main.anchor !== sel.main.head;
-          if (!hasSelection) return false;
-          view.dispatch({
-            selection: EditorSelection.cursor(sel.main.head),
-          });
+          if (sel.ranges.length > 1 || sel.main.anchor !== sel.main.head) {
+            view.dispatch({ selection: EditorSelection.cursor(sel.main.head) });
+          }
+          view.contentDOM.blur();
           return true;
         },
       },

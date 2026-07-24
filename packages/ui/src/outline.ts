@@ -1279,7 +1279,10 @@ function listDepth(node: SyntaxNode): number {
 function buildListDecorations(view: EditorView, vocab: TaskVocabRequired): DecorationSet {
   const widgets: ReturnType<Decoration['range']>[] = [];
   const state = view.state;
-  const active = activeLines(state);
+  // 編集中 (エディタが focus) のときはカーソル行をソース表示にするが、blur 時はどの行も
+  // アクティブ扱いにしない → 全行が widget 表示になり、タスクのチェックボックス等をクリックで
+  // トグルできる (要望2: ESC で blur してどの行も選ばない状態にする運用)。
+  const active: ReadonlySet<number> = view.hasFocus ? activeLines(state) : new Set<number>();
   for (const { from, to } of view.visibleRanges) {
     syntaxTree(state).iterate({
       from,
@@ -1392,6 +1395,7 @@ function makeListDecoPlugin(vocab: TaskVocabRequired): Extension {
           update.docChanged ||
           update.selectionSet ||
           update.viewportChanged ||
+          update.focusChanged ||
           syntaxTree(update.state) !== syntaxTree(update.startState)
         ) {
           this.decorations = buildListDecorations(update.view, vocab);
