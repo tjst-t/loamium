@@ -516,10 +516,11 @@ a { color: var(--link); text-decoration: none; }
   padding: 28px 0 120px;
   /* flex(CM 既定)のガター+本文グループを中央寄せ。820px 未満なら本文が全幅に伸び自然に左詰め。 */
   justify-content: center;
-  /* 縦スクロールバーの出現で中央寄せ(justify-content:center)がずれ、スクロール中に
-     版面の左右余白が変化して見える不具合を防ぐ。両側に常時スクロールバー分の gutter を
-     予約し、スクロール可否に関わらず版面を安定して中央に保つ。 */
-  scrollbar-gutter: stable both-edges;
+  /* scrollbar-gutter は auto。stable both-edges は両端にスクロールバー幅(~15px)を予約するが、
+     CM の drawSelection がその予約分を座標計算に含めず、カーソル描画が実テキストより ~15px 右へ
+     ずれる不具合を起こしていた(実機計測で確認)。auto にすると整合する。縦スクロールバー出現時の
+     版面の微小シフトは許容する(カーソル整合を優先)。 */
+  scrollbar-gutter: auto;
 }
 .editor-host .cm-content {
   /* 読み取り列を 820px に制限。ワークスペースが 820px 未満なら 100% で全幅。
@@ -529,15 +530,13 @@ a { color: var(--link); text-decoration: none; }
      もブロックウィジェット(テーブル/コードフェンス/callout/プロパティ等)も同じ読み取り列
      content-box を基準に揃う(以前は cm-line だけに 6px を足していたため、ウィジェットが
      本文より左右 6px ずつ広がって余白がズレていた — 本修正で解消)。 */
-  /* 読み取り列は内容に依存しない固定幅にする(flex:none + 明示 width)。
-     CM 既定では cm-content が flex アイテムとして「表示中の最大幅要素(幅広テーブル等)」に
-     追従して伸縮し、スクロールでその要素が描画/非描画になるたび版面幅=左右余白が
-     変わってしまう(ユーザー報告の「テーブル周辺で余白が消える」)。
-     ガター(cm-outline-gutter, 22px)分を差し引いて常にスクローラに収め、
-     820px を上限に安定した中央寄せ版面にする。 */
-  flex: none;
-  width: min(820px, calc(100% - 22px));
-  max-width: 820px;
+  /* 読み取り列は max-width で 820px(ガター 22px 分を差し引く)に制限する。
+     以前は flex:none + 明示 width で固定していたが、CM の flex ジオメトリが乱れて
+     drawSelection のカーソル描画が実テキストより右へずれる不具合が出たため使わない
+     (実機計測で確認: 誤差 ~14→0px)。幅広テーブルは要素側(.md-table-wrap の
+     overflow-x:auto)でスクロールさせるため、max-width でも cm-content が幅広要素に
+     追従して伸びることはなく、余白は段落と揃う(テーブル余白の安定と本文カーソル整合を両立)。 */
+  max-width: min(820px, calc(100% - 22px));
   padding: 0 34px 0 10px;
   caret-color: var(--accent);
 }
