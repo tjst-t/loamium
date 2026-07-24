@@ -26,9 +26,11 @@ import {
   resolveTemplate,
   VaultPathError,
   SYSTEM_TEMPLATES_DIR,
+  resolveOptionsQuery,
   type TemplateSummary,
 } from '@loamium/shared';
 import type { ServerConfig } from './config.js';
+import type { VaultIndex } from './noteIndex.js';
 import { listNoteFiles, readNote, writeNote } from './vault.js';
 import { firstFreePath } from './vault-paths.js';
 
@@ -110,13 +112,15 @@ export async function resolveTemplatePath(
 /**
  * instantiateTemplate の結果。HTTP に依存しない判別可能 union。
  *
- * - invalid_date   : date が YYYY-MM-DD でない (REST: 400 invalid_date)。
- * - not_found      : テンプレート未検出 (REST: 404 template_not_found)。
- * - missing_vars   : 必須変数 / target・本文の未解決変数あり (REST: 400 missing_vars + missing[])。
- * - invalid_target : 解決後 target が vault パスとして不正 (REST: 400 invalid_target)。
- * - denied         : ADR-0018 機密領域 deny により保存先が拒否 (agent 経路のみ発生。
- *                    REST は isDenied を渡さないため到達不能)。
- * - ok             : ノート生成成功 (path = firstFreePath 後の保存先)。
+ * - invalid_date        : date が YYYY-MM-DD でない (REST: 400 invalid_date)。
+ * - not_found           : テンプレート未検出 (REST: 404 template_not_found)。
+ * - missing_vars        : 必須変数 / target・本文の未解決変数あり (REST: 400 missing_vars + missing[])。
+ * - invalid_target      : 解決後 target が vault パスとして不正 (REST: 400 invalid_target)。
+ * - denied              : ADR-0018 機密領域 deny により保存先が拒否 (agent 経路のみ発生。
+ *                         REST は isDenied を渡さないため到達不能)。
+ * - invalid_select_value: select+optionsQuery の変数値が候補外 (REST: 422、ADR-0031 / S1bd397)。
+ *                         paramName に対象変数名。VaultIndex を渡した場合のみ発生。
+ * - ok                  : ノート生成成功 (path = firstFreePath 後の保存先)。
  */
 export type InstantiateTemplateResult =
   | { status: 'invalid_date'; message: string }
@@ -124,6 +128,7 @@ export type InstantiateTemplateResult =
   | { status: 'missing_vars'; missing: string[] }
   | { status: 'invalid_target'; message: string }
   | { status: 'denied'; message: string }
+  | { status: 'invalid_select_value'; paramName: string; message: string }
   | { status: 'ok'; path: string };
 
 /**
@@ -149,6 +154,7 @@ export async function instantiateTemplate(
   varsInput: Record<string, string>,
   date?: string,
   isDenied?: (relPath: string) => boolean,
+  vaultIndex?: VaultIndex,
 ): Promise<InstantiateTemplateResult> {
   const vaultRoot = config.vaultRoot;
 
@@ -176,6 +182,42 @@ export async function instantiateTemplate(
       def.default !== undefined ? resolveTemplate(def.default, { date: dateBase, now }).text : '';
   }
   for (const [k, v] of Object.entries(varsInput)) vars[k] = v;
+
+  // ADR-0031 / S1bd397-2: select+optionsQuery の厳格 select 検証。
+  // VaultIndex が渡された場合のみ実施。text+optionsQuery は自由入力なので検証しない。
+  // 候補 0 件のとき検証スキップ (D7: ユーザーをブロックしない)。
+  if (vaultIndex !== undefined) {
+    const notes = vaultIndex.queryNotes();
+    // 宣言順で解決済み変数を積み上げながら検証 (Wave3: 依存クエリ対応)
+    const resolvedForDep: Record<string, string> = {};
+    for (const def of cfg.vars) {
+      const value = vars[def.name] ?? '';
+      if (def.type === 'select' && def.optionsQuery !== undefined) {
+        try {
+          const { candidates } = resolveOptionsQuery(
+            def.optionsQuery,
+            notes,
+            undefined,
+            resolvedForDep,
+          );
+          // 候補 0 件 → 検証スキップ (D7)
+          if (candidates.length > 0) {
+            const validValues = new Set(candidates.map((c) => c.value));
+            if (!validValues.has(value)) {
+              return {
+                status: 'invalid_select_value',
+                paramName: def.name,
+                message: `'${value}' は '${def.name}' の有効な候補ではありません`,
+              };
+            }
+          }
+        } catch {
+          // DQL 構文エラー等は検証スキップ (候補解決不能のため free input 扱い)
+        }
+      }
+      resolvedForDep[def.name] = value;
+    }
+  }
 
   const missingRequired: string[] = [];
   for (const def of cfg.vars) {

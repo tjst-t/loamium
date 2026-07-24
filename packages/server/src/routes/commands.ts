@@ -257,6 +257,15 @@ export function commandsRoutes(config: ServerConfig, index: VaultIndex): Hono<Ap
         return errorJson(c, 403, 'forbidden', outcome.message);
       case 'invalid_target_path':
         return errorJson(c, 400, 'invalid_target_path', outcome.message);
+      case 'invalid_select_value':
+        return c.json(
+          {
+            error: 'invalid_select_value',
+            message: outcome.message,
+            paramName: outcome.paramName,
+          },
+          422,
+        );
       case 'ok': {
         // 監査ログ: command.run [AC-Sd22b1f-2-3]。書き込みステップ監査は runCommand が直接記録する。
         setAudit(c, 'command.run', outcome.commandPath);

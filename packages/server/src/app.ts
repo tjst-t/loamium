@@ -19,6 +19,7 @@ import { settingsRoutes } from './routes/settings.js';
 import { systemFilesRoutes } from './routes/system-files.js';
 import { llmRoutes } from './routes/llm.js';
 import { vaultSeedRoutes } from './routes/vault-seed.js';
+import { optionsQueryRoutes } from './routes/options-query.js';
 import { eventsRoutes } from './routes/events.js';
 import { auditMiddleware } from './audit.js';
 import { permissionMiddleware } from './permissions.js';
@@ -149,6 +150,8 @@ export function createApp(
   // searchRoutes の GET /api/notes (一覧) は notesRoutes の /api/notes/{path} と
   // プレフィックスが異なるため衝突しない (先に登録して明確化)
   app.route('/', searchRoutes(index));
+  // 動的選択肢解決 (POST /api/options-query — ADR-0031 / S1bd397)
+  app.route('/', optionsQueryRoutes(index));
   app.route('/', journalRoutes(config));
   app.route('/', notesRoutes(config, index));
   // files: GET 配信/一覧 (S9e5ca4-2, Sf53ad6) + POST アップロード/リネーム + DELETE (Sf53ad6)
@@ -156,7 +159,8 @@ export function createApp(
   // 意味型スキーマ配信 (GET /api/property-types — S87f4b7-2)。読み取り専用
   app.route('/', propertyTypesRoutes(config));
   // 汎用テンプレート (GET /api/templates 一覧 + POST instantiate — S89a350-2)
-  app.route('/', templatesRoutes(config));
+  // ADR-0031: VaultIndex を渡して select+optionsQuery の厳格 select 検証を有効化。
+  app.route('/', templatesRoutes(config, index));
   // スマートフォルダ定義 CRUD・解決 (S32940c-2)
   app.route('/', smartFoldersRoutes(config, index, cache));
   // スマートコマンド定義一覧 (Sd22b1f-1)

@@ -47,6 +47,9 @@ export function normalizeVar(raw: unknown): TemplateVar | null {
     const opts = o.options.filter((x): x is string => typeof x === 'string');
     if (opts.length > 0) v.options = opts;
   }
+  if (typeof o.optionsQuery === 'string' && o.optionsQuery.trim() !== '') {
+    v.optionsQuery = o.optionsQuery;
+  }
   return v;
 }
 

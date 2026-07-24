@@ -1460,6 +1460,7 @@ export function App(): JSX.Element {
   /** 新規ノート ▸ 「テンプレートから新規作成」→ 一覧を取得して picker を開く。 */
   const openTemplatePicker = useCallback((): void => {
     setNewNoteMenuOpen(false);
+    setMobileSidebarOpen(false);
     setTemplates(null);
     setTemplatesError(null);
     setPickerOpen(true);

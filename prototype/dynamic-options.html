@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loamium — 動的選択肢 (S1bd397-4 プロトタイプ)</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+/* ============================================================================
+   prototype/dynamic-options.html  — S1bd397-4 GUI Story
+   optionsQuery: 動的ドロップダウン / オートコンプリート / note-picker のモックアップ
+   ============================================================================ */
+
+/* ==== SVG サイズガード(過去失敗事例対策) ==== */
+:where(svg) { width: 16px; height: 16px; }
+
+/* ==== モックバナー(製品 UI ではない旨を明示) ==== */
+.proto-banner {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 200;
+  background: var(--warn);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-align: center;
+  padding: 5px 12px;
+  letter-spacing: 0.04em;
+}
+.proto-banner code { font-family: var(--font-mono); font-size: 11px; background: rgba(0,0,0,.18); border-radius: 4px; padding: 1px 6px; }
+body { padding-top: 28px; } /* バナー高さ分 */
+
+/* ==== レイアウト: 3 ペインシェル(背景) ==== */
+.app { height: calc(100vh - 28px); }
+
+/* ==== ページ本体(モーダル後段の状態カタログ) ==== */
+.page-wrap {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 32px 20px 80px;
+}
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 36px 0 18px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-faint);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.section-title .line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.section-title .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  border-radius: 5px;
+  padding: 1px 7px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+/* ==== 状態カードグリッド ==== */
+.state-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.state-grid-wide {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 14px;
+}
+.state-card {
+  background: var(--bg-editor);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.state-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 14px 9px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+.state-card-head .badge {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  border-radius: 6px;
+  margin-top: 1px;
+}
+.state-card-head.err { background: var(--danger-soft); }
+.state-card-head.err .badge { background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger); }
+.state-card-head.ok { background: #f0faf5; }
+.state-card-head.ok .badge { background: #e0f5ea; color: var(--ok); }
+.state-card-head.warn { background: var(--warn-soft); }
+.state-card-head h3 { margin: 0 0 1px; font-size: 13px; }
+.state-card-head .sub { font-size: 11.5px; color: var(--text-muted); }
+.state-card-body { padding: 14px 14px 12px; }
+
+/* ==== 動的 select(動的ドロップダウン) ==== */
+.dyn-select-wrap { position: relative; }
+.dyn-select {
+  width: 100%;
+  font: inherit;
+  font-size: 13.5px;
+  padding: 9px 32px 9px 11px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-editor);
+  color: var(--text);
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
+  min-height: 44px; /* タップターゲット */
+}
+.dyn-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.dyn-select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: var(--bg-app);
+}
+.dyn-select-wrap .chev-ico {
+  pointer-events: none;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-faint);
+}
+/* ローディング状態のスピナーアニメーション */
+@keyframes spin { to { transform: translateY(-50%) rotate(360deg); } }
+.dyn-select-wrap .spin-ico {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+
+/* ローディング/空/打ち切りのヒント */
+.dyn-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  margin-top: 6px;
+  padding: 5px 8px;
+  border-radius: 6px;
+}
+.dyn-hint.loading { color: var(--accent-hover); background: var(--accent-soft); }
+.dyn-hint.empty   { color: var(--warn); background: var(--warn-soft); }
+.dyn-hint.truncated { color: var(--text-muted); background: var(--bg-hover); }
+
+/* ==== オートコンプリート(text + datalist) ==== */
+.autocomplete-wrap { position: relative; }
+.autocomplete-input {
+  width: 100%;
+  font: inherit;
+  font-size: 13.5px;
+  padding: 9px 34px 9px 11px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-editor);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
+  min-height: 44px;
+}
+.autocomplete-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.autocomplete-wrap .search-ico {
+  pointer-events: none;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-faint);
+}
+/* サジェスト候補ドロップダウン(視覚化用。実装では native datalist) */
+.ac-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0; right: 0;
+  z-index: 40;
+  background: var(--bg-editor);
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  box-shadow: var(--shadow-lg);
+  padding: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.ac-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  min-height: 36px;
+}
+.ac-option:hover, .ac-option.sel { background: var(--bg-active); color: var(--accent-hover); }
+.ac-option .file-ico { color: var(--text-faint); flex-shrink: 0; }
+.ac-option .ac-free {
+  margin-left: auto;
+  font-size: 10.5px;
+  color: var(--text-faint);
+  font-style: italic;
+}
+.ac-option.free-input-row { border-top: 1px solid var(--border); border-radius: 0 0 6px 6px; color: var(--text-muted); }
+
+/* ==== note-picker(コマンドパラメータ用) ==== */
+.note-picker-wrap { position: relative; }
+.note-picker-input {
+  width: 100%;
+  font: inherit;
+  font-size: 13.5px;
+  padding: 9px 36px 9px 32px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-editor);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
+  min-height: 44px;
+}
+.note-picker-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.note-picker-wrap .note-ico {
+  pointer-events: none;
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--accent);
+}
+.note-picker-wrap .search-ico {
+  pointer-events: none;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-faint);
+}
+.note-picker-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0; right: 0;
+  z-index: 40;
+  background: var(--bg-editor);
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  box-shadow: var(--shadow-lg);
+  padding: 4px;
+}
+.note-dd-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 6px 9px 4px;
+}
+.note-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  min-height: 40px;
+}
+.note-option:hover, .note-option.sel { background: var(--bg-active); }
+.note-option .file-ico { color: var(--text-faint); flex-shrink: 0; }
+.note-option .note-path { margin-left: auto; font-size: 10.5px; color: var(--text-faint); font-family: var(--font-mono); }
+.note-option.sel .file-ico { color: var(--accent); }
+
+/* ==== 依存クエリ矢印 ==== */
+.dep-arrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-faint);
+  padding: 4px 0 4px 8px;
+  margin: 2px 0;
+}
+.dep-arrow svg { color: var(--accent); }
+.dep-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  border-radius: 5px;
+  padding: 1px 7px;
+  font-weight: 600;
+}
+
+/* ==== テンプレートモーダル スタイル(styles.css の tpl-* に追加するもの) ==== */
+/* styles.css には tpl-* が定義されているが、独立ファイルなのでここに定義 */
+.tpl-modal {
+  width: 520px;
+  max-width: calc(100vw - 28px);
+  background: var(--bg-editor);
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+}
+.tpl-modal-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.tpl-h-ico { color: var(--text-muted); flex-shrink: 0; margin-top: 2px; }
+.tpl-h-ico svg { width: 18px; height: 18px; }
+.tpl-h-main { flex: 1; min-width: 0; }
+.tpl-h-main h2 { margin: 0 0 2px; font-size: 15px; }
+.tpl-h-main .sub { font-size: 11.5px; color: var(--text-muted); }
+.tpl-h-main .sub code { font-family: var(--font-mono); font-size: 11px; color: var(--accent); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+.tpl-target-label { padding: 10px 18px 2px; font-size: 11px; color: var(--text-faint); font-weight: 600; letter-spacing: 0.03em; }
+.tpl-target {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 18px 4px;
+  padding: 7px 11px;
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.tpl-target .arrow { color: var(--accent); font-weight: 700; }
+.tpl-target-path { word-break: break-all; }
+.tpl-target-path .filled { color: var(--text); font-weight: 600; }
+.tpl-target-path .ph { color: var(--text-faint); }
+.tpl-vars { padding: 6px 18px 8px; }
+.tpl-var-row {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.tpl-var-row:last-child { border-bottom: none; }
+.tpl-var-row.invalid .tpl-var-label { color: var(--danger); }
+.tpl-var-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding-top: 10px;
+}
+.tpl-var-label .ico { color: var(--text-faint); flex-shrink: 0; width: 14px; height: 14px; }
+.tpl-var-label .req { color: var(--danger); font-size: 11px; margin-left: 2px; }
+.tpl-var-label .opt { font-size: 10.5px; color: var(--text-faint); font-weight: 400; margin-left: 4px; }
+.tpl-var-field { min-width: 0; }
+.tpl-input {
+  width: 100%;
+  font: inherit;
+  font-size: 13.5px;
+  padding: 9px 11px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-editor);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
+  min-height: 44px;
+}
+.tpl-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.tpl-error {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--danger);
+  margin-top: 5px;
+}
+.tpl-error svg { width: 13px; height: 13px; flex-shrink: 0; }
+.tpl-modal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+.tpl-kbd-hints { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11.5px; color: var(--text-faint); }
+.tpl-kbd-hints span { display: inline-flex; align-items: center; gap: 4px; }
+.tpl-foot-actions { display: flex; gap: 8px; }
+.tpl-select-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 0;
+}
+.tpl-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  padding: 5px 11px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 20px;
+  background: var(--bg-editor);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 0.1s, color 0.1s, background 0.1s;
+  min-height: 32px;
+}
+.tpl-opt:hover { border-color: var(--accent); color: var(--text); }
+.tpl-opt.sel { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-hover); font-weight: 600; }
+.tpl-opt .dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  flex-shrink: 0;
+}
+.tpl-opt.sel .dot { background: var(--accent); }
+.tpl-opt[data-color="blue"].sel .dot { background: #4488dd; }
+.tpl-opt[data-color="green"].sel .dot { background: var(--ok); }
+.tpl-opt[data-color="amber"].sel .dot { background: var(--warn); }
+.tpl-opt[data-color="gray"].sel .dot { background: var(--text-faint); }
+
+/* ==== コマンドパラメータフォーム ==== */
+.cmd-form {
+  background: var(--bg-editor);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.cmd-form-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+.cmd-form-head h3 { margin: 0; font-size: 13.5px; }
+.cmd-form-head .sub { font-size: 11.5px; color: var(--text-muted); }
+.cmd-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  font-weight: 700;
+  background: #e8f5ee;
+  color: #1f7a4d;
+  border-radius: 5px;
+  padding: 1px 7px;
+}
+.cmd-form-body { padding: 12px 14px 14px; }
+.param-row {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.param-row:last-child { border-bottom: none; }
+.param-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding-top: 11px;
+}
+.param-label .req { color: var(--danger); font-size: 11px; margin-left: 2px; }
+.param-field { min-width: 0; }
+.widget-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--bg-hover);
+  color: var(--text-faint);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-bottom: 4px;
+  letter-spacing: 0.04em;
+  font-family: var(--font-mono);
+}
+.widget-tag.dynamic { background: var(--accent-soft); color: var(--accent-hover); }
+
+/* ==== API 呼び出し可視化(プロトタイプ専用) ==== */
+.api-call {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  margin-top: 8px;
+  padding: 6px 9px;
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  line-height: 1.6;
+}
+.api-call .method {
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  border-radius: 3px;
+  padding: 0 5px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.api-call code { color: var(--text); font-size: 10.5px; }
+
+/* ==== テンプレートモーダルのモバイル対応 ==== */
+@media (max-width: 680px) {
+  .tpl-modal { width: calc(100vw - 16px); max-width: none; border-radius: 12px; }
+  .tpl-var-row { grid-template-columns: 80px 1fr; gap: 6px; }
+  .tpl-modal-foot { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .tpl-kbd-hints { display: none; }
+  .tpl-foot-actions { align-self: stretch; justify-content: flex-end; }
+  .dyn-select, .autocomplete-input, .note-picker-input, .tpl-input {
+    font-size: 16px; /* iOS ズーム防止 */
+    min-height: 44px;
+  }
+  .ac-option, .note-option { min-height: 44px; }
+  .state-grid, .state-grid-wide { grid-template-columns: 1fr; }
+  .param-row { grid-template-columns: 70px 1fr; }
+}
+
+/* ==== インタラクティブモーダルのライブプレビュー ==== */
+.tpl-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  padding: 6px 9px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-editor);
+  min-height: 44px;
+  cursor: text;
+}
+.pc-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  border-radius: 9px;
+  padding: 1px 8px;
+  font-weight: 500;
+}
+.pc-tag .x { color: var(--text-muted); cursor: pointer; font-size: 11px; }
+.pc-tag .x:hover { color: var(--danger); }
+.tpl-tag-input {
+  border: none;
+  outline: none;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  min-width: 80px;
+  flex: 1;
+}
+</style>
+</head>
+<!--
+  ============================================================================
+  prototype/dynamic-options.html  — Sprint S1bd397-4 GUI Story
+  「テンプレート/コマンドの動的選択肢(ADR-0031 optionsQuery)」プロトタイプ
+
+  表現するもの:
+    A. テンプレート作成ダイアログ(Epic テンプレート)
+       - select+optionsQuery → 動的ドロップダウン (<select>)
+       - text  → 通常入力
+       - text+optionsQuery → オートコンプリート (<input>+<datalist> 風)
+       - select(静的 options) → 従来の固定ドロップダウン(比較用)
+       - ローディング / 空 / 打ち切り の状態バリエーション
+    B. スマートコマンドの param フォーム
+       - note+optionsQuery → note-picker(DQL 絞り込み)
+       - 依存クエリ(上流「プロジェクト」→ 下流「Epic」候補絞り込み)
+
+  data-testid 一覧 (scenario.json 準拠):
+    template-var-input[data-widget="dynamic-select"]   : select+optionsQuery
+    template-var-input[data-widget="autocomplete"]     : text+optionsQuery
+    template-var-options-loading[data-var]             : loading
+    template-var-options-empty[data-var]               : 0 件ヒント
+    template-var-options-truncated[data-var]           : 50件超ヒント
+    param-field-input[data-widget="note-picker"]       : note+optionsQuery
+    param-field-options-loading[data-name]             : loading(コマンド)
+    param-field-options-empty[data-name]               : 0 件ヒント(コマンド)
+
+  ※ このファイルはモックアップです。製品 UI ではありません。
+  ============================================================================
+-->
+<body>
+
+<!-- ==== モックバナー ==== -->
+<div class="proto-banner">
+  PROTOTYPE — このページはモックアップです。製品 UI ではありません。
+  Sprint <code>S1bd397-4</code> / optionsQuery 動的選択肢の GUI Story レビュー用
+</div>
+
+<!-- ==== 背景(ダミーの 3 ペインシェル) ==== -->
+<div class="app" aria-hidden="true" id="bgShell">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="vault-badge">L</div>
+      <div class="vault-name">loamium-notes</div>
+    </div>
+    <div class="tree-section-title"><span>ノート</span></div>
+    <div class="tree">
+      <button class="tree-item active" data-path="projects/オンボーディング刷新/index.md">
+        <svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        <span class="name">projects</span>
+      </button>
+      <button class="tree-item" data-path="templates/epic-optionsquery.md">
+        <svg class="chev closed" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        <span class="name">templates</span>
+      </button>
+    </div>
+  </aside>
+  <main class="workspace">
+    <div class="editor-header">
+      <nav class="route-crumbs" style="display:flex;align-items:center;gap:4px;font-size:13px;color:var(--text-muted);">
+        <span style="color:var(--text-faint)">/n/</span>
+        <span>projects</span>
+        <span style="color:var(--text-faint)">/</span>
+        <span style="font-weight:600;color:var(--text)">オンボーディング刷新</span>
+      </nav>
+      <div class="save-status" data-state="saved" style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-faint);">
+        <span class="dot" style="width:7px;height:7px;border-radius:50%;background:var(--ok);"></span>
+        保存済み
+      </div>
+    </div>
+    <div class="cm-scroll"><div class="cm-editor">
+      <div class="cm-line"><span class="gutter"></span><span class="cm-content md-h1">オンボーディング刷新</span></div>
+      <div class="cm-line"><span class="gutter"></span><span class="cm-content" style="color:var(--text-muted);font-size:13px;">#project</span></div>
+    </div></div>
+  </main>
+</div>
+
+<!-- =====================================================================
+     A. テンプレート作成ダイアログ(Epic テンプレート) — インタラクティブ
+     ===================================================================== -->
+<div class="dialog-backdrop" data-testid="template-modal-backdrop" id="epicModalBackdrop" style="padding-top:9vh;">
+  <div class="tpl-modal" data-testid="template-modal" role="dialog" aria-label="Epic テンプレートの変数を入力">
+
+    <div class="tpl-modal-head">
+      <span class="tpl-h-ico">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2.2 4.2A1.5 1.5 0 013.7 2.7h3l1.5 1.6h4.1A1.5 1.5 0 0113.8 5.8v6A1.5 1.5 0 0112.3 13.3H3.7A1.5 1.5 0 012.2 11.8z"/>
+        </svg>
+      </span>
+      <div class="tpl-h-main">
+        <h2>テンプレートから作成: Epic</h2>
+        <div class="sub">保存先パターン <code>projects/{{プロジェクト名}}/epics/{{Epic名}}</code></div>
+      </div>
+      <button class="icon-btn" data-testid="template-cancel" title="中断 (Esc)" onclick="closeEpicModal()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+      </button>
+    </div>
+
+    <!-- 保存先ライブプレビュー -->
+    <div class="tpl-target-label">保存先(入力に応じてライブ更新)</div>
+    <div class="tpl-target" data-testid="template-target-preview">
+      <span class="arrow">→</span>
+      <span class="tpl-target-path" id="epicTargetPath">projects/<span class="ph" id="tpProject">{{プロジェクト名}}</span>/epics/<span class="ph" id="tpEpic">{{Epic名}}</span>.md</span>
+    </div>
+
+    <!-- 変数入力フォーム -->
+    <div class="tpl-vars">
+
+      <!-- 1. プロジェクト名: select + optionsQuery → 動的ドロップダウン -->
+      <div class="tpl-var-row" id="rowProject">
+        <label class="tpl-var-label" for="varProject">
+          <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.2 4.2A1.5 1.5 0 013.7 2.7h3l1.5 1.6h4.1A1.5 1.5 0 0113.8 5.8v6A1.5 1.5 0 0112.3 13.3H3.7A1.5 1.5 0 012.2 11.8z"/></svg>
+          プロジェクト<span class="req">*</span>
+        </label>
+        <div class="tpl-var-field">
+          <div class="dyn-select-wrap">
+            <select class="dyn-select" id="varProject"
+                    data-testid="template-var-input"
+                    data-var="プロジェクト名"
+                    data-widget="dynamic-select"
+                    onchange="onProjectChange(this.value)">
+              <option value="オンボーディング刷新">オンボーディング刷新</option>
+              <option value="検索基盤移行">検索基盤移行</option>
+              <option value="モバイル対応">モバイル対応</option>
+              <option value="ダッシュボード刷新">ダッシュボード刷新</option>
+              <option value="API v2 移行">API v2 移行</option>
+            </select>
+            <svg class="chev-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+          </div>
+          <!-- 打ち切りヒント(このデモでは非表示: loaded_with_candidates の正常状態) -->
+        </div>
+      </div>
+
+      <!-- 2. Epic 名: text(通常入力) -->
+      <div class="tpl-var-row" id="rowEpicName">
+        <label class="tpl-var-label" for="varEpicName">
+          <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M4 4h8M8 4v9M6.2 13h3.6"/></svg>
+          Epic 名<span class="req">*</span>
+        </label>
+        <div class="tpl-var-field">
+          <input class="tpl-input"
+                 id="varEpicName"
+                 data-testid="template-var-input"
+                 data-var="Epic名"
+                 type="text"
+                 placeholder="例: ユーザー認証の刷新"
+                 autocomplete="off"
+                 oninput="updateEpicPreview()">
+          <div class="tpl-error" data-testid="template-var-error" data-var="Epic名" id="epicNameError">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v4M8 11h.01"/></svg>
+            Epic 名は必須です。
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. 担当: text + optionsQuery → オートコンプリート -->
+      <div class="tpl-var-row">
+        <label class="tpl-var-label" for="varAssignee">
+          <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="5.5" r="2.5"/><path d="M3 14c0-2.8 2.2-5 5-5s5 2.2 5 5"/></svg>
+          担当<span class="opt">任意</span>
+        </label>
+        <div class="tpl-var-field">
+          <div class="autocomplete-wrap" id="acWrap">
+            <input class="autocomplete-input"
+                   id="varAssignee"
+                   data-testid="template-var-input"
+                   data-var="担当"
+                   data-widget="autocomplete"
+                   list="assigneeCandidates"
+                   type="text"
+                   placeholder="名前を入力(自由入力も可)"
+                   autocomplete="off"
+                   onfocus="showAcDropdown()"
+                   oninput="filterAcDropdown(this.value)">
+            <svg class="search-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M11 11l2.5 2.5"/></svg>
+            <!-- 視覚化用ドロップダウン(実装では <datalist id="assigneeCandidates"> を使う) -->
+            <div class="ac-dropdown" id="acDropdown" style="display:none;">
+              <div class="ac-option sel" onclick="selectAc('田中 Taro')">
+                <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="5.5" r="2.5"/><path d="M3 14c0-2.8 2.2-5 5-5s5 2.2 5 5"/></svg>
+                田中 Taro
+              </div>
+              <div class="ac-option" onclick="selectAc('佐藤 Hanako')">
+                <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="5.5" r="2.5"/><path d="M3 14c0-2.8 2.2-5 5-5s5 2.2 5 5"/></svg>
+                佐藤 Hanako
+              </div>
+              <div class="ac-option" onclick="selectAc('鈴木 Kenji')">
+                <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="5.5" r="2.5"/><path d="M3 14c0-2.8 2.2-5 5-5s5 2.2 5 5"/></svg>
+                鈴木 Kenji
+              </div>
+              <div class="ac-option" onclick="selectAc('中村 Yumi')">
+                <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="5.5" r="2.5"/><path d="M3 14c0-2.8 2.2-5 5-5s5 2.2 5 5"/></svg>
+                中村 Yumi
+              </div>
+              <div class="ac-option free-input-row">
+                <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+                自由入力 — #person 以外の名前も入力可
+                <span class="ac-free">自由入力可</span>
+              </div>
+            </div>
+          </div>
+          <div class="dyn-hint loading" data-testid="template-var-options-loading" data-var="担当" id="assigneeLoading" style="display:none;">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="5.5" stroke-dasharray="14 20"/></svg>
+            候補を取得中…(POST /api/options-query)
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. ステータス: select(静的 options) — 比較用 -->
+      <div class="tpl-var-row">
+        <label class="tpl-var-label">
+          <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14V3M4 3.5h7.5l-1.6 2.3 1.6 2.3H4"/></svg>
+          ステータス
+        </label>
+        <div class="tpl-var-field">
+          <div class="tpl-select-opts" role="radiogroup"
+               data-testid="template-var-input"
+               data-var="ステータス"
+               id="varStatus">
+            <button type="button" class="tpl-opt sel" data-color="blue" role="radio" aria-checked="true" data-value="計画中" onclick="selectStatus(this)"><span class="dot"></span>計画中</button>
+            <button type="button" class="tpl-opt" data-color="green" role="radio" aria-checked="false" data-value="進行中" onclick="selectStatus(this)"><span class="dot"></span>進行中</button>
+            <button type="button" class="tpl-opt" data-color="gray" role="radio" aria-checked="false" data-value="完了" onclick="selectStatus(this)"><span class="dot"></span>完了</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="tpl-modal-foot">
+      <div class="tpl-kbd-hints">
+        <span><kbd>Tab</kbd> 項目移動</span>
+        <span><kbd>Enter</kbd> 作成</span>
+        <span><kbd>Esc</kbd> 中断</span>
+      </div>
+      <div class="tpl-foot-actions">
+        <button class="btn" data-testid="template-cancel" onclick="closeEpicModal()">キャンセル</button>
+        <button class="btn primary" data-testid="template-create" id="epicCreateBtn" aria-disabled="true" onclick="submitEpicModal()">作成</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- =====================================================================
+     A. 状態カタログ(ローディング / 空 / 打ち切り)
+     ===================================================================== -->
+<div class="page-wrap" id="pageWrap" style="display:none;">
+  <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--ok);color:#fff;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:4px;">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5L13 4.5"/></svg>
+    作成しました: <code id="createdPath" style="font-family:var(--font-mono);font-size:12px;background:rgba(255,255,255,.2);border-radius:4px;padding:1px 7px;"></code>
+  </div>
+
+  <!-- セクション A -->
+  <div class="section-title">
+    <span>A. テンプレート変数入力 — select+optionsQuery の状態バリエーション</span>
+    <span class="badge">上のモーダルは実挙動。下は状態スナップショット</span>
+    <span class="line"></span>
+  </div>
+
+  <div class="state-grid">
+
+    <!-- A-1: loading -->
+    <div class="state-card">
+      <div class="state-card-head">
+        <span class="badge">a-1</span>
+        <div>
+          <h3>loading — 候補取得中</h3>
+          <div class="sub">モーダル表示直後。<code>select</code> は disabled・スピナー表示</div>
+        </div>
+      </div>
+      <div class="state-card-body">
+        <div class="dyn-select-wrap">
+          <select class="dyn-select" disabled>
+            <option>— 候補を取得中 —</option>
+          </select>
+          <svg class="spin-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 2.5A5.5 5.5 0 1113.5 8"/></svg>
+        </div>
+        <div class="dyn-hint loading" data-testid="template-var-options-loading" data-var="プロジェクト名">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 2.5A5.5 5.5 0 1113.5 8"/></svg>
+          POST /api/options-query { dql: "LIST FROM #project" } を実行中…
+        </div>
+        <div class="api-call">
+          <span class="method">POST</span>
+          <code>/api/options-query</code>
+          <span>{ "dql": "LIST FROM #project", "topN": 50 }</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- A-2: loaded_with_candidates -->
+    <div class="state-card">
+      <div class="state-card-head ok">
+        <span class="badge">a-2</span>
+        <div>
+          <h3>loaded — 5 件の候補</h3>
+          <div class="sub">取得成功。<code>select</code> に候補が並び、1 件目が初期値</div>
+        </div>
+      </div>
+      <div class="state-card-body">
+        <div class="dyn-select-wrap">
+          <select class="dyn-select">
+            <option selected>オンボーディング刷新</option>
+            <option>検索基盤移行</option>
+            <option>モバイル対応</option>
+            <option>ダッシュボード刷新</option>
+            <option>API v2 移行</option>
+          </select>
+          <svg class="chev-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        </div>
+        <div class="api-call">
+          <span class="method">200</span>
+          <code>candidates: [{value:"オンボーディング刷新",…}, …+4]</code>
+          <span style="margin-left:auto;white-space:nowrap;">truncated: false</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- A-3: loaded_empty + fallback -->
+    <div class="state-card">
+      <div class="state-card-head err">
+        <span class="badge">a-3</span>
+        <div>
+          <h3>empty — 候補 0 件</h3>
+          <div class="sub">#project ノートがない。自由入力テキストにフォールバック</div>
+        </div>
+      </div>
+      <div class="state-card-body">
+        <input class="tpl-input" type="text" placeholder="プロジェクト名を入力" value="">
+        <div class="dyn-hint empty" data-testid="template-var-options-empty" data-var="プロジェクト名">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3.5M8 11h.01"/></svg>
+          候補なし。#project タグのノートが見つかりません。自由入力してください。
+        </div>
+        <div class="api-call">
+          <span class="method">200</span>
+          <code>candidates: []</code>
+          <span style="margin-left:auto;">truncated: false</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- A-4: truncated -->
+    <div class="state-card">
+      <div class="state-card-head warn">
+        <span class="badge">a-4</span>
+        <div>
+          <h3>truncated — 50 件超</h3>
+          <div class="sub">topN=50 で打ち切り。絞り込みヒントを表示</div>
+        </div>
+      </div>
+      <div class="state-card-body">
+        <div class="dyn-select-wrap">
+          <select class="dyn-select">
+            <option selected>アカウント管理改善</option>
+            <option>オンボーディング刷新</option>
+            <option>検索基盤移行</option>
+            <option>…(上位 50 件)</option>
+          </select>
+          <svg class="chev-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+        </div>
+        <div class="dyn-hint truncated" data-testid="template-var-options-truncated" data-var="プロジェクト名">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3v6M8 11h.01"/></svg>
+          上位 50 件を表示しています。対象が多い場合は絞り込み入力で検索してください。
+        </div>
+        <div class="api-call">
+          <span class="method">200</span>
+          <code>candidates: [{…}×50]</code>
+          <span style="margin-left:auto;">truncated: <strong>true</strong></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- A-5: オートコンプリート(text + optionsQuery) -->
+    <div class="state-card">
+      <div class="state-card-head ok">
+        <span class="badge">a-5</span>
+        <div>
+          <h3>autocomplete — 自由入力可(担当フィールド)</h3>
+          <div class="sub">候補サジェスト + 自由入力の両方が常に可能</div>
+        </div>
+      </div>
+      <div class="state-card-body">
+        <div class="autocomplete-wrap">
+          <input class="autocomplete-input"
+                 type="text"
+                 data-testid="template-var-input"
+                 data-var="担当"
+                 data-widget="autocomplete"
+                 value="田中"
+                 placeholder="名前を入力(自由入力も可)"
+                 readonly>
+          <svg class="search-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M11 11l2.5 2.5"/></svg>
+          <div class="ac-dropdown" style="display:block;position:relative;top:4px;box-shadow:none;border:1px solid var(--border);">
+            <div class="ac-option sel">
+              <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="5.5" r="2.5"/><path d="M3 14c0-2.8 2.2-5 5-5s5 2.2 5 5"/></svg>
+              田中 Taro
+            </div>
+            <div class="ac-option">
+              <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="5.5" r="2.5"/><path d="M3 14c0-2.8 2.2-5 5-5s5 2.2 5 5"/></svg>
+              田中 Hanako
+            </div>
+            <div class="ac-option free-input-row">
+              <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+              「田中」のまま自由入力として確定することもできます
+              <span class="ac-free">自由入力可</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- A-6: 静的 select との比較 -->
+    <div class="state-card">
+      <div class="state-card-head">
+        <span class="badge">a-6</span>
+        <div>
+          <h3>静的 select(比較用)</h3>
+          <div class="sub">optionsQuery なし。options[] をそのままレンダリング</div>
+        </div>
+      </div>
+      <div class="state-card-body">
+        <div class="tpl-select-opts" role="radiogroup">
+          <button type="button" class="tpl-opt sel" data-color="blue" role="radio" aria-checked="true"><span class="dot"></span>計画中</button>
+          <button type="button" class="tpl-opt" data-color="green" role="radio" aria-checked="false"><span class="dot"></span>進行中</button>
+          <button type="button" class="tpl-opt" data-color="gray" role="radio" aria-checked="false"><span class="dot"></span>完了</button>
+        </div>
+        <div style="margin-top:8px;font-size:11.5px;color:var(--text-muted);">
+          選択肢は定義時に固定。ノートの状態には追従しない。
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- セクション B -->
+  <div class="section-title" style="margin-top:48px;">
+    <span>B. スマートコマンドの実行フォーム — note-picker + 依存クエリ</span>
+    <span class="badge">「Epic を追加」コマンドのパラメータフォーム</span>
+    <span class="line"></span>
+  </div>
+
+  <div class="state-grid-wide">
+
+    <!-- B-1: note-picker(loaded) -->
+    <div class="state-card">
+      <div class="state-card-head ok">
+        <span class="badge">b-1</span>
+        <div>
+          <h3>note-picker — DQL 絞り込み候補一覧</h3>
+          <div class="sub">type: note + optionsQuery で #project ノートに絞り込み</div>
+        </div>
+      </div>
+      <div class="state-card-body">
+        <div class="param-row">
+          <div class="param-label">プロジェクト<span class="req">*</span></div>
+          <div class="param-field">
+            <div class="note-picker-wrap">
+              <input class="note-picker-input"
+                     type="text"
+                     data-testid="param-field-input"
+                     data-name="プロジェクト"
+                     data-widget="note-picker"
+                     placeholder="プロジェクトを選択または入力"
+                     value="オンボーディング刷新"
+                     readonly>
+              <svg class="note-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.2 4.2A1.5 1.5 0 013.7 2.7h3l1.5 1.6h4.1A1.5 1.5 0 0113.8 5.8v6A1.5 1.5 0 0112.3 13.3H3.7A1.5 1.5 0 012.2 11.8z"/></svg>
+              <svg class="search-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M11 11l2.5 2.5"/></svg>
+              <div class="note-picker-dropdown" style="position:relative;top:4px;box-shadow:none;border:1px solid var(--border);">
+                <div class="note-dd-label">DQL: LIST FROM #project — 5 件</div>
+                <div class="note-option sel">
+                  <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.2 4.2A1.5 1.5 0 013.7 2.7h3l1.5 1.6h4.1A1.5 1.5 0 0113.8 5.8v6A1.5 1.5 0 0112.3 13.3H3.7A1.5 1.5 0 012.2 11.8z"/></svg>
+                  オンボーディング刷新
+                  <span class="note-path">projects/オンボーディング刷新/index.md</span>
+                </div>
+                <div class="note-option">
+                  <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.2 4.2A1.5 1.5 0 013.7 2.7h3l1.5 1.6h4.1A1.5 1.5 0 0113.8 5.8v6A1.5 1.5 0 0112.3 13.3H3.7A1.5 1.5 0 012.2 11.8z"/></svg>
+                  検索基盤移行
+                  <span class="note-path">projects/検索基盤移行/index.md</span>
+                </div>
+                <div class="note-option">
+                  <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.2 4.2A1.5 1.5 0 013.7 2.7h3l1.5 1.6h4.1A1.5 1.5 0 0113.8 5.8v6A1.5 1.5 0 0112.3 13.3H3.7A1.5 1.5 0 012.2 11.8z"/></svg>
+                  モバイル対応
+                  <span class="note-path">projects/モバイル対応/index.md</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="param-row">
+          <div class="param-label">タイトル<span class="req">*</span></div>
+          <div class="param-field">
+            <input class="tpl-input" type="text" placeholder="Epic タイトルを入力"
+                   data-testid="param-field-input" data-name="title" data-widget="text">
+          </div>
+        </div>
+        <div class="api-call" style="margin-top:10px;">
+          <span class="method">POST</span>
+          <code>/api/options-query</code>
+          <span>{ "dql": "LIST FROM #project", "topN": 50 }</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- B-2: 依存クエリ(upstream → downstream) -->
+    <div class="state-card">
+      <div class="state-card-head ok">
+        <span class="badge">b-2</span>
+        <div>
+          <h3>依存クエリ — 上流変数で候補を絞り込み</h3>
+          <div class="sub">「プロジェクト」を選ぶと「Epic」候補が再フェッチ</div>
+        </div>
+      </div>
+      <div class="state-card-body">
+        <!-- 上流: プロジェクト(選択済み) -->
+        <div class="param-row">
+          <div class="param-label">プロジェクト<span class="req">*</span></div>
+          <div class="param-field">
+            <div class="note-picker-wrap" style="margin-bottom:2px;">
+              <input class="note-picker-input" type="text"
+                     data-testid="param-field-input" data-name="プロジェクト" data-widget="note-picker"
+                     value="オンボーディング刷新" readonly>
+              <svg class="note-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.2 4.2A1.5 1.5 0 013.7 2.7h3l1.5 1.6h4.1A1.5 1.5 0 0113.8 5.8v6A1.5 1.5 0 0112.3 13.3H3.7A1.5 1.5 0 012.2 11.8z"/></svg>
+              <svg class="search-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M11 11l2.5 2.5"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- 依存矢印 -->
+        <div class="dep-arrow">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v8M5 8l3 3 3-3"/></svg>
+          <span>「プロジェクト」が確定すると下流の「Epic」候補を</span>
+          <span class="dep-chip">resolvedVars: { プロジェクト: "オンボーディング刷新" }</span>
+          <span>で再フェッチ</span>
+        </div>
+
+        <!-- 下流: Epic(絞り込み済み) -->
+        <div class="param-row">
+          <div class="param-label">Epic<span class="req">*</span></div>
+          <div class="param-field">
+            <div class="note-picker-wrap">
+              <input class="note-picker-input" type="text"
+                     data-testid="param-field-input" data-name="Epic" data-widget="note-picker"
+                     placeholder="Epic を選択" value="" style="border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);">
+              <svg class="note-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 2.6h8.4L13 4.2v9.2H3z"/><path d="M5 6h6M5 8.5h6M5 11h3.5"/></svg>
+              <svg class="search-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M11 11l2.5 2.5"/></svg>
+              <div class="note-picker-dropdown" style="position:relative;top:4px;box-shadow:none;border:1px solid var(--border);">
+                <div class="note-dd-label">DQL: LIST FROM #epic WHERE project = "オンボーディング刷新" — 2 件</div>
+                <div class="note-option">
+                  <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 2.6h8.4L13 4.2v9.2H3z"/><path d="M5 6h6M5 8.5h6M5 11h3.5"/></svg>
+                  ユーザー招待フロー改善
+                  <span class="note-path">projects/オンボーディング刷新/epics/…</span>
+                </div>
+                <div class="note-option">
+                  <svg class="file-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 2.6h8.4L13 4.2v9.2H3z"/><path d="M5 6h6M5 8.5h6M5 11h3.5"/></svg>
+                  チュートリアル見直し
+                  <span class="note-path">projects/オンボーディング刷新/epics/…</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="api-call" style="margin-top:10px;">
+          <span class="method">POST</span>
+          <code>/api/options-query</code>
+          <div style="line-height:1.8">
+            { "dql": "LIST FROM #epic WHERE project = \"{{プロジェクト}}\"",<br>
+              <span style="padding-left:16px">"resolvedVars": { "プロジェクト": "オンボーディング刷新" } }</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- B-3: note-picker loading -->
+    <div class="state-card">
+      <div class="state-card-head">
+        <span class="badge">b-3</span>
+        <div>
+          <h3>loading — コマンド param フォーム</h3>
+          <div class="sub">上流値変更直後。下流候補を再フェッチ中</div>
+        </div>
+      </div>
+      <div class="state-card-body">
+        <div class="note-picker-wrap">
+          <input class="note-picker-input" type="text"
+                 data-testid="param-field-input" data-name="Epic" data-widget="note-picker"
+                 placeholder="— 候補取得中 —" disabled>
+          <svg class="note-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 2.6h8.4L13 4.2v9.2H3z"/><path d="M5 6h6M5 8.5h6M5 11h3.5"/></svg>
+        </div>
+        <div class="dyn-hint loading" data-testid="param-field-options-loading" data-name="Epic">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 2.5A5.5 5.5 0 1113.5 8"/></svg>
+          「検索基盤移行」の Epic を取得中…
+        </div>
+      </div>
+    </div>
+
+    <!-- B-4: note-picker empty fallback -->
+    <div class="state-card">
+      <div class="state-card-head err">
+        <span class="badge">b-4</span>
+        <div>
+          <h3>empty — 候補なし(全ノートへフォールバック)</h3>
+          <div class="sub">絞り込み結果 0 件。optionsQuery なしの通常 note 型と同様</div>
+        </div>
+      </div>
+      <div class="state-card-body">
+        <div class="note-picker-wrap">
+          <input class="note-picker-input" type="text"
+                 data-testid="param-field-input" data-name="Epic" data-widget="note-picker"
+                 placeholder="Epic ノートを検索">
+          <svg class="note-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 2.6h8.4L13 4.2v9.2H3z"/><path d="M5 6h6M5 8.5h6M5 11h3.5"/></svg>
+          <svg class="search-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M11 11l2.5 2.5"/></svg>
+        </div>
+        <div class="dyn-hint empty" data-testid="param-field-options-empty" data-name="Epic">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3.5M8 11h.01"/></svg>
+          該当 Epic が見つかりません。全ノートから直接検索できます。
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 3 種類のウィジェット比較サマリー -->
+  <div class="section-title" style="margin-top:36px;">
+    <span>ウィジェット比較 — 動的 select / autocomplete / 静的 select の違い</span>
+    <span class="line"></span>
+  </div>
+  <div class="proto-note" style="max-width:none;margin-left:0;">
+    <span class="tag">要点</span>
+    <strong>動的 select</strong> (<code>data-widget="dynamic-select"</code>): モーダル表示時に <code>POST /api/options-query</code> で候補を取得してから <code>&lt;select&gt;</code> に挿入する。取得中は disabled + スピナー。0 件は <code>&lt;input type=text&gt;</code> に切り替えてフォールバック。<strong>任意入力は不可</strong> — 候補のいずれかしか選べない(静的 select と同じ制約)。
+    <br><br>
+    <strong>autocomplete</strong> (<code>data-widget="autocomplete"</code>): <code>&lt;input&gt;</code> + <code>&lt;datalist&gt;</code> によるネイティブサジェスト。候補が来なくても <strong>自由入力が常に可能</strong>。候補取得はノンブロッキングで、入力欄はモーダル表示直後から使える。IME 変換中は誤確定を防ぐ。
+    <br><br>
+    <strong>静的 select</strong> (既存・比較用): <code>options[]</code> をテンプレート定義で固定。ローディングなし。ノートの増減には追従しない。
+    <br><br>
+    <strong>note-picker</strong> (<code>data-widget="note-picker"</code>): コマンド param の <code>type: note</code> 専用。DQL で候補を絞り込んだノートリストを表示し、自由入力(テキストマッチ)も可。<strong>依存クエリ</strong>に対応 — 上流変数が確定すると <code>resolvedVars</code> を注入して再フェッチする。
+  </div>
+</div>
+
+<script>
+  /* =====================================================================
+     テンプレートモーダル(Epic テンプレート)— インタラクティブ
+     ===================================================================== */
+
+  const epicModal    = document.getElementById('epicModalBackdrop');
+  const bgShell      = document.getElementById('bgShell');
+  const pageWrap     = document.getElementById('pageWrap');
+  const epicCreateBtn = document.getElementById('epicCreateBtn');
+  const varProject   = document.getElementById('varProject');
+  const varEpicName  = document.getElementById('varEpicName');
+  const epicNameError = document.getElementById('epicNameError');
+  const rowEpicName  = document.getElementById('rowEpicName');
+  const tpProject    = document.getElementById('tpProject');
+  const tpEpic       = document.getElementById('tpEpic');
+  const epicTargetPath = document.getElementById('epicTargetPath');
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  }
+
+  function updateEpicPreview() {
+    const proj = varProject.value.trim();
+    const epic = varEpicName ? varEpicName.value.trim() : '';
+    const projHtml = proj
+      ? '<span class="filled">' + escapeHtml(proj) + '</span>'
+      : '<span class="ph">{{プロジェクト名}}</span>';
+    const epicHtml = epic
+      ? '<span class="filled">' + escapeHtml(epic) + '</span>'
+      : '<span class="ph">{{Epic名}}</span>';
+    epicTargetPath.innerHTML = 'projects/' + projHtml + '/epics/' + epicHtml + '.md';
+    // 作成ボタン活性化
+    const valid = proj.length > 0 && epic.length > 0;
+    epicCreateBtn.setAttribute('aria-disabled', valid ? 'false' : 'true');
+    if (valid) rowEpicName.classList.remove('invalid');
+    // エラー消去
+    if (epic.length > 0) {
+      epicNameError.style.display = 'none';
+      rowEpicName.classList.remove('invalid');
+    }
+  }
+
+  function onProjectChange(val) {
+    updateEpicPreview();
+  }
+
+  function submitEpicModal() {
+    const epic = varEpicName.value.trim();
+    if (!epic) {
+      rowEpicName.classList.add('invalid');
+      epicNameError.style.display = 'flex';
+      epicCreateBtn.setAttribute('aria-disabled', 'true');
+      varEpicName.focus();
+      return;
+    }
+    // 作成成功 → モーダルを閉じてページを表示
+    const proj = varProject.value.trim();
+    const path = 'projects/' + proj + '/epics/' + epic + '.md';
+    epicModal.style.display = 'none';
+    bgShell.style.display = 'none';
+    pageWrap.style.display = 'block';
+    document.getElementById('createdPath').textContent = path;
+  }
+
+  function closeEpicModal() {
+    // 閉じたら状態カタログを表示
+    epicModal.style.display = 'none';
+    bgShell.style.display = 'none';
+    pageWrap.style.display = 'block';
+  }
+
+  // ステータス select ピル
+  function selectStatus(el) {
+    document.querySelectorAll('#varStatus .tpl-opt').forEach(o => {
+      o.classList.remove('sel');
+      o.setAttribute('aria-checked', 'false');
+    });
+    el.classList.add('sel');
+    el.setAttribute('aria-checked', 'true');
+  }
+
+  // キーボード完結
+  document.addEventListener('keydown', (e) => {
+    if (epicModal.style.display !== 'none') {
+      if (e.key === 'Enter' && document.activeElement !== document.getElementById('varAssignee')) {
+        e.preventDefault();
+        submitEpicModal();
+      } else if (e.key === 'Escape') {
+        closeEpicModal();
+      }
+    }
+  });
+
+  // 背景クリックで閉じる
+  epicModal.addEventListener('mousedown', (e) => {
+    if (e.target === epicModal) closeEpicModal();
+  });
+
+  /* =====================================================================
+     オートコンプリートのドロップダウン制御(視覚化のみ)
+     ===================================================================== */
+  const acDropdown = document.getElementById('acDropdown');
+  const acInput    = document.getElementById('varAssignee');
+
+  function showAcDropdown() {
+    if (acDropdown) acDropdown.style.display = 'block';
+  }
+  function hideAcDropdown() {
+    if (acDropdown) acDropdown.style.display = 'none';
+  }
+  function selectAc(name) {
+    if (acInput) acInput.value = name;
+    hideAcDropdown();
+    updateEpicPreview();
+  }
+  function filterAcDropdown(val) {
+    updateEpicPreview();
+    if (!acDropdown) return;
+    acDropdown.style.display = val.length > 0 ? 'block' : 'none';
+  }
+
+  document.addEventListener('click', (e) => {
+    const wrap = document.getElementById('acWrap');
+    if (wrap && !wrap.contains(e.target)) hideAcDropdown();
+  });
+
+  // 初期プレビュー更新
+  updateEpicPreview();
+</script>
+</body>
+</html>

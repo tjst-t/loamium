@@ -9,6 +9,9 @@
  *     - append-only で prop-set/note-patch/agent-run 含むコマンド → 拒否テキスト。
  *     - target パス脱出 → 拒否テキスト。
  *   ケーパビリティゲート: commands_list は read、command_run は command_run cap のみ広告。
+ *
+ * [AC-S1bd397-2-agent] command_run 経由の select+optionsQuery 厳格検証:
+ *   - index を渡した場合: 候補外 → invalid_select_value 相当で拒否 / 候補内 → 成功。
  */
 import { describe, expect, it, beforeEach } from 'vitest';
 import { tmpdir } from 'node:os';
@@ -499,5 +502,127 @@ describe('createCommandTools', () => {
     expect(await readVaultNote(vaultRoot, 'system/commands/keep.yaml')).toContain('note-create');
     const audit = await readAudit(vaultRoot);
     expect(audit.some((e) => e.op === 'agent.command_delete')).toBe(false);
+  });
+
+  // ---- [AC-S1bd397-2-agent] command_run 経由の select+optionsQuery 厳格検証 ----
+
+  describe('[AC-S1bd397-2-agent] select+optionsQuery 厳格検証 — agent 経路 (command_run)', () => {
+    let vaultRootQ: string;
+    let indexQ: VaultIndex;
+
+    beforeEach(async () => {
+      vaultRootQ = await mkdtemp(path.join(tmpdir(), 'loamium-agent-cmd-optionsquery-'));
+      indexQ = new VaultIndex(vaultRootQ);
+
+      // #project ノートを 2 件シード
+      await mkdir(path.join(vaultRootQ, 'projects'), { recursive: true });
+      await writeFile(
+        path.join(vaultRootQ, 'projects', 'loamium.md'),
+        '---\ntags: [project]\n---\n# loamium\n',
+        'utf8',
+      );
+      await writeFile(
+        path.join(vaultRootQ, 'projects', 'webapp.md'),
+        '---\ntags: [project]\n---\n# webapp\n',
+        'utf8',
+      );
+      await indexQ.build();
+
+      // select+optionsQuery param を持つコマンド
+      await mkdir(path.join(vaultRootQ, 'system', 'commands'), { recursive: true });
+      await writeFile(
+        path.join(vaultRootQ, 'system', 'commands', 'add-to-project.yaml'),
+        [
+          'name: プロジェクト追記',
+          'description: 指定プロジェクトノートへ追記するコマンド',
+          'params:',
+          '  - name: プロジェクト名',
+          '    type: select',
+          '    required: true',
+          '    optionsQuery: "LIST FROM #project"',
+          '  - name: メモ',
+          '    type: text',
+          '    required: true',
+          'steps:',
+          '  - kind: note-append',
+          '    target: "projects/{{プロジェクト名}}.md"',
+          '    content: "{{メモ}}"',
+          '    create: true',
+        ].join('\n'),
+        'utf8',
+      );
+
+      // text+optionsQuery param を持つコマンド (自由入力)
+      await writeFile(
+        path.join(vaultRootQ, 'system', 'commands', 'text-optionsquery.yaml'),
+        [
+          'name: テキスト自由入力テスト',
+          'params:',
+          '  - name: キーワード',
+          '    type: text',
+          '    required: true',
+          '    optionsQuery: "LIST FROM #project"',
+          'steps:',
+          '  - kind: journal-append',
+          '    content: "{{キーワード}}"',
+        ].join('\n'),
+        'utf8',
+      );
+    });
+
+    function toolQ(
+      name: string,
+      caps: Capability[] = ALL_CAPS,
+      isDenied: (relPath: string) => boolean = denyNone,
+    ) {
+      const config = makeConfig(vaultRootQ);
+      const tools = createCommandTools(config, indexQ, isDenied, caps);
+      const t = tools.find((x) => x.name === name);
+      if (!t) throw new Error(`tool not generated: ${name}`);
+      return t;
+    }
+
+    it('[AC-S1bd397-2-agent-5] select+optionsQuery の候補外の値 → 候補外エラーテキストで拒否', async () => {
+      const result = await toolQ('command_run').execute(
+        'c',
+        { id: 'add-to-project', params: { プロジェクト名: '存在しないプロジェクト', メモ: 'テスト' } },
+        undefined,
+        undefined,
+        fakeCtx,
+      );
+      expect(detailsOf(result).error).toBe(true);
+      // invalid_select_value ケース: 候補外エラーテキストを確認
+      expect(textOf(result)).toContain('候補外');
+      expect(textOf(result)).toContain('プロジェクト名');
+      // コマンドは実行されないので監査 command.run は残らない
+      const audit = await readAudit(vaultRootQ);
+      expect(audit.some((e) => e.op === 'command.run')).toBe(false);
+    });
+
+    it('[AC-S1bd397-2-agent-6] select+optionsQuery の候補内の値 → 成功 (コマンド実行)', async () => {
+      const result = await toolQ('command_run').execute(
+        'c',
+        { id: 'add-to-project', params: { プロジェクト名: 'loamium', メモ: 'テストメモ' } },
+        undefined,
+        undefined,
+        fakeCtx,
+      );
+      expect(detailsOf(result).error).toBeUndefined();
+      expect(textOf(result)).toContain('OK');
+      const audit = await readAudit(vaultRootQ);
+      expect(audit.some((e) => e.op === 'command.run')).toBe(true);
+    });
+
+    it('[AC-S1bd397-2-agent-7] text+optionsQuery の param は候補外でも自由入力として受理', async () => {
+      // キーワードは type:text なので optionsQuery があっても候補外 OK
+      const result = await toolQ('command_run').execute(
+        'c',
+        { id: 'text-optionsquery', params: { キーワード: '候補にない完全自由なテキスト' } },
+        undefined,
+        undefined,
+        fakeCtx,
+      );
+      expect(detailsOf(result).error).toBeUndefined();
+    });
   });
 });

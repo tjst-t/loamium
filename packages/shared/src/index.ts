@@ -225,6 +225,13 @@ export {
   type TaskVocabRequired,
 } from './system-definitions.js';
 export {
+  resolveOptionsQuery,
+  validateOptionsDependencies,
+  type OptionsCandidate,
+  type ResolveOptionsQueryResult,
+  type ValidateDependenciesResult,
+} from './options-query.js';
+export {
   agentJobSchema,
   agentJobsSchema,
   agentJobStateSchema,

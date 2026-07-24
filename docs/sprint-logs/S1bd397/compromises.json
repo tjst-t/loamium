@@ -1,0 +1,5 @@
+{
+ "sprint": "S1bd397",
+ "compromises": [],
+ "note": "notify-after 妥協なし(テスト弱体化/握り潰し/型放棄ゼロ)。検証中に自己回帰1件(サイドバー new-folder 欠落)を発見・修正。e2e の transient loading 検証は実サーバーでレースのため決定的な mock に移設(mock に遅延応答の loading テストを追加=カバレッジ維持、弱体化ではない)。環境劣化(Node20)を復旧して検証。"
+}

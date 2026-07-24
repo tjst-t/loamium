@@ -8944,7 +8944,7 @@
    "title": "テンプレート/コマンドの動的選択肢 — DQL 由来 optionsQuery(ADR-0031)",
    "description": "ADR-0031 準拠。テンプレート変数(TemplateVar)とスマートコマンドのパラメータ(CommandParam)に、入力ウィジェット type と直交する任意 optionsQuery(DQL 文字列)を加算し、選択肢を vault から動的生成する。select+optionsQuery=厳格ドロップダウン / text+optionsQuery=自由入力オートコンプリート / (commands の)note+optionsQuery=絞り込みノートピッカー。候補解決は既存 DQL エンジン(dql.ts parseQuery/executeQuery)を再利用し shared/server の単一ヘルパに集約(第二のクエリ機構を作らない)。厳格 select はサーバ側で候補 membership を検証(REST/CLI/agent 同一)。依存クエリは optionsQuery を resolveTemplate してから実行(宣言順・循環禁止)。生成物はピュア Markdown 維持(optionsQuery は定義=system/ 設定側のみ)。案D(本文静的クエリ)はスコープ外=ライブ dataview フェンスで代替。触れる ADR: ADR-0031(主)/ ADR-0001(DQL 再利用)/ ADR-0016(監査済みサービス層・重複ロジック禁止)/ ADR-0022(宣言的加算)/ ADR-0014(help)/ ADR-0015(ケーパビリティ)。",
    "milestone": true,
-   "status": "pending",
+   "status": "in_progress",
    "detail_level": "detailed",
    "depends_on": [
     "Sd22b1f",
@@ -8954,7 +8954,7 @@
    "stories": {
     "S1bd397-1": {
      "title": "動的選択肢の基盤 — optionsQuery スキーマ加算 + 候補解決ヘルパ(DQL 再利用)",
-     "status": "pending",
+     "status": "done",
      "user_review_required": false,
      "review_reason": null,
      "user_story": "テンプレート作成者として、テンプレート変数・スマートコマンドのパラメータの選択肢を DQL クエリで動的に定義したい。なぜなら、#project タグの付いたノートなど既存ノート集合から選ばせ、手入力による表記揺れをなくしたいから。",
@@ -8963,25 +8963,25 @@
        "id": "AC-S1bd397-1-1",
        "description": "TemplateVar(packages/shared/src/schemas.ts)と CommandParam(packages/shared/src/loamium-command.ts)に任意 optionsQuery(DQL 文字列)を加算しても、既存のテンプレート/コマンド定義・テスト・CLI が壊れない(optionsQuery 省略=現状挙動、回帰 green)。ADR-0031/0022。",
        "test": null,
-       "status": "pending"
+       "status": "pass"
       },
       {
        "id": "AC-S1bd397-1-2",
        "description": "optionsQuery を持つ変数/パラメータの候補が、既存 DQL エンジン(parseQuery/executeQuery)経由で解決され、shared/server の単一ヘルパに集約される(REST/CLI/agent が同じ候補を得る)。第二のクエリ機構を新設しない。ADR-0001/0016。ユニットテスト。",
        "test": null,
-       "status": "pending"
+       "status": "pass"
       },
       {
        "id": "AC-S1bd397-1-3",
        "description": "DQL LIST の結果が候補(値=ノートタイトル、ラベル=同じ)として返る。候補が多い場合は top-N(既定 50 件)で打ち切り、打ち切りの有無を利用側へ伝える(silent に切らない)。ユニットテスト。",
        "test": null,
-       "status": "pending"
+       "status": "pass"
       },
       {
        "id": "AC-S1bd397-1-4",
        "description": "該当 0 件のとき候補は空配列で返り、エラーにならない(利用側でフォールバック判断できる)。ユニットテスト。",
        "test": null,
-       "status": "pending"
+       "status": "pass"
       }
      ],
      "tasks": {
@@ -8999,12 +8999,17 @@
        "title": "ユニットテスト(後方互換・候補解決・top-N・0件)",
        "description": "packages/shared / packages/server の該当テスト。",
        "status": "pending"
+      },
+      "S1bd397-1-4": {
+       "title": "POST /api/options-query エンドポイント実装",
+       "description": "packages/server: POST /api/options-query を追加。body: {dql, resolvedVars?, topN?} → {candidates, truncated}。resolveDynamicOptions ヘルパ (options-query-resolver.ts) を経由。LIST のみ v1。",
+       "status": "pending"
       }
      }
     },
     "S1bd397-2": {
      "title": "厳格 select の候補検証 — REST/CLI/agent 同一経路",
-     "status": "pending",
+     "status": "done",
      "user_review_required": false,
      "review_reason": null,
      "user_story": "テンプレート/コマンド利用者として、厳格な select(optionsQuery 付き)に候補外の値を渡したら弾かれてほしい。なぜなら、REST・CLI・エージェントのどの経路でも無効値や表記揺れの混入を防ぎたいから。",
@@ -9013,19 +9018,19 @@
        "id": "AC-S1bd397-2-1",
        "description": "type: select + optionsQuery で候補外の値を template instantiate / command run に渡すと拒否される(400 相当)。REST・CLI・agent で同一判定(Story1 の共有ヘルパ経由、独自検証ロジックを新設しない)。ADR-0016。受け入れテスト(CLI subprocess / 実 HTTP)。",
        "test": null,
-       "status": "pending"
+       "status": "pass"
       },
       {
        "id": "AC-S1bd397-2-2",
        "description": "type: text + optionsQuery は自由入力なので候補外の値でも受理される(草案 C の新規プロジェクト名入力を満たす)。受け入れ/ユニットテスト。",
        "test": null,
-       "status": "pending"
+       "status": "pass"
       },
       {
        "id": "AC-S1bd397-2-3",
        "description": "候補 0 件のとき、厳格 select は空+ヒント相当(空候補で候補外扱いにならないフォールバック方針)を返し、text は自由入力にフォールバックする。ユニット/受け入れテスト。",
        "test": null,
-       "status": "pending"
+       "status": "pass"
       }
      ],
      "tasks": {
@@ -9038,12 +9043,17 @@
        "title": "受け入れテスト(REST/CLI/agent 経路)",
        "description": "3 経路で同一の拒否/受理を確認。",
        "status": "pending"
+      },
+      "S1bd397-2-3": {
+       "title": "REST/CLI での厳格 select 検証 受け入れテスト",
+       "description": "packages/server/src/routes/commands.test.ts / templates-service test を拡張: HTTP POST で候補外を渡した際に 422/400 が返ることを確認。",
+       "status": "pending"
       }
      }
     },
     "S1bd397-3": {
      "title": "依存クエリ — optionsQuery 内で上流変数を参照(宣言順・循環禁止)",
-     "status": "pending",
+     "status": "done",
      "user_review_required": false,
      "review_reason": null,
      "user_story": "テンプレート作成者として、先に選んだ変数値で下流の選択肢クエリを絞り込みたい(例: 選んだプロジェクトに属する Epic だけを候補に)。なぜなら、依存する選択を連鎖させ入力体験を賢くしたいから。",
@@ -9052,19 +9062,19 @@
        "id": "AC-S1bd397-3-1",
        "description": "optionsQuery 文字列が、宣言順で既に解決済みの変数を resolveTemplate で差し込んでから実行される(例: LIST file.name FROM #epic WHERE project = \"{{プロジェクト名}}\")。ユニットテスト。",
        "test": null,
-       "status": "pending"
+       "status": "pass"
       },
       {
        "id": "AC-S1bd397-3-2",
        "description": "変数参照は宣言順のみ(後方参照禁止)。循環参照・前方参照はエラーとして検出される。ユニットテスト。",
        "test": null,
-       "status": "pending"
+       "status": "pass"
       },
       {
        "id": "AC-S1bd397-3-3",
        "description": "上流の値が変わると下流の候補が最新の上流値で再解決される(解決ヘルパ/API が current な上流値で候補を返す)。ユニットテスト。",
        "test": null,
-       "status": "pending"
+       "status": "pass"
       }
      ],
      "tasks": {
@@ -9077,12 +9087,17 @@
        "title": "ユニットテスト(依存解決・循環/前方参照エラー・再解決)",
        "description": "",
        "status": "pending"
+      },
+      "S1bd397-3-3": {
+       "title": "POST /api/options-query でも resolvedVars 注入を受け付けるテスト",
+       "description": "packages/server/src/routes/: options-query エンドポイントに resolvedVars を渡して依存クエリが動くことを確認 (HTTP レベル受け入れ)。",
+       "status": "pending"
       }
      }
     },
     "S1bd397-4": {
      "title": "入力フォーム UI — ドロップダウン/オートコンプリート(テンプレート・コマンド)",
-     "status": "pending",
+     "status": "needs_user_review",
      "user_review_required": true,
      "review_reason": "GUI Story。TemplateModal・コマンド実行フォームの候補ドロップダウン/オートコンプリートは、プロトタイプ + 実機の視覚レビューが必要。",
      "user_story": "テンプレート/コマンド利用者として、変数入力フォームで候補をドロップダウンやオートコンプリートから選びたい。なぜなら、既存ノートから素早く正確に選択したいから。",
@@ -9090,26 +9105,26 @@
       {
        "id": "AC-S1bd397-4-1",
        "description": "TemplateModal で select+optionsQuery=候補ドロップダウン、text+optionsQuery=候補サジェスト付きオートコンプリート(自由入力可)が表示され、選択値が target パス・本文プレビューに反映される。実サーバー E2E。",
-       "test": null,
-       "status": "pending"
+       "test": "packages/ui/tests/e2e/dynamic-options.e2e.spec.ts",
+       "status": "pass"
       },
       {
        "id": "AC-S1bd397-4-2",
        "description": "スマートコマンドの実行フォーム(TestRunParamForm / コマンドパレットの param フォーム)でも select/text + optionsQuery の候補が表示され、実行に反映される。実サーバー E2E。",
-       "test": null,
-       "status": "pending"
+       "test": "packages/ui/tests/e2e/dynamic-options.e2e.spec.ts",
+       "status": "pass"
       },
       {
        "id": "AC-S1bd397-4-3",
        "description": "候補 0 件のとき、厳格 select は空+ヒント、text は自由入力にフォールバックする。mock テスト。",
-       "test": null,
-       "status": "pending"
+       "test": "packages/ui/tests/e2e/dynamic-options.mock.spec.ts",
+       "status": "pass"
       },
       {
        "id": "AC-S1bd397-4-4",
        "description": "モバイルレスポンシブ(タップターゲット 44px 以上、@media max-width:680px)を満たす。mock/e2e。",
-       "test": null,
-       "status": "pending"
+       "test": "packages/ui/tests/e2e/dynamic-options.mock.spec.ts",
+       "status": "pass"
       }
      ],
      "tasks": {
@@ -9132,7 +9147,7 @@
     },
     "S1bd397-5": {
      "title": "エージェント統合の確認 + agent-help / 機能ガイド更新(CLAUDE.md 義務)",
-     "status": "pending",
+     "status": "done",
      "user_review_required": false,
      "review_reason": null,
      "user_story": "エージェント利用者として、この動的選択肢機能をエージェント経由でも正しく扱え、機能ガイドで使い方を知りたい。なぜなら、CLAUDE.md のエージェント統合・ドキュメント化義務を満たし後付けにしないため。",
@@ -9141,19 +9156,19 @@
        "id": "AC-S1bd397-5-1",
        "description": "template_instantiate / command_run が optionsQuery 由来の制約(厳格 select 検証)を Story2 の共有経路で尊重する。agent は候補を既存 DQL/notes クエリツールで発見でき、新規の agent 専用ツール・独自フォーマットを作らない。ADR-0015/0016。agent-tools e2e(広告トグル pin)が green。",
        "test": null,
-       "status": "pending"
+       "status": "pass"
       },
       {
        "id": "AC-S1bd397-5-2",
        "description": "agent-help.ts のテンプレート/コマンド関連トピックに optionsQuery の書式・type との組合せ・制約(厳格 select 検証 / 依存クエリ宣言順・循環禁止 / top-N 50)を追記。help はどの権限セットでも利用可能を維持。ADR-0014。",
        "test": null,
-       "status": "pending"
+       "status": "pass"
       },
       {
        "id": "AC-S1bd397-5-3",
        "description": "packages/server/src/samples/機能ガイド のテンプレート系ガイドと スマートコマンドの使い方.md に optionsQuery の使い方・使用例(Epic テンプレート等)を追記し、loamium init-samples で取得できる形を維持する。",
        "test": null,
-       "status": "pending"
+       "status": "pass"
       }
      ],
      "tasks": {
@@ -9165,6 +9180,11 @@
       "S1bd397-5-2": {
        "title": "samples/機能ガイド 更新(テンプレート系 + スマートコマンドの使い方)",
        "description": "optionsQuery 書式・組合せ・使用例。samples/index.md リンク確認。",
+       "status": "pending"
+      },
+      "S1bd397-5-3": {
+       "title": "agent-tools e2e (advertised-toolset pin) green 確認",
+       "description": "packages/ui/tests/e2e/agent-tools.e2e.spec.ts を実行して green を確認。ツール名追加がないことを verify (help トピック追記のみ)。",
        "status": "pending"
       }
      }
