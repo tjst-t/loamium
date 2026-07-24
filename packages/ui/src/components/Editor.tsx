@@ -7,7 +7,7 @@
  * - Mod-s (Cmd/Ctrl+S) は onSave を呼ぶ (ブラウザの保存ダイアログは抑止)。
  */
 import { useEffect, useRef, type JSX } from 'react';
-import { EditorState, type Extension } from '@codemirror/state';
+import { EditorState, EditorSelection, type Extension } from '@codemirror/state';
 import { EditorView, keymap, highlightActiveLine, drawSelection } from '@codemirror/view';
 import { foldedRanges, unfoldEffect } from '@codemirror/language';
 export type { EditorView };
@@ -56,6 +56,52 @@ function initialAnchor(content: string): number {
   if (parsed.frontmatter === null) return 0;
   return content.length - parsed.body.length;
 }
+
+// ---- エディタ位置保存 / 復元 (localStorage) ---------------------------------
+/** 保存するエントリ一件 */
+interface EditorPosEntry {
+  top: number;
+  head: number;
+}
+const EDITOR_POS_KEY = 'loamium.editorPos.v1';
+const EDITOR_POS_MAX = 50;
+
+function loadEditorPos(): Record<string, EditorPosEntry> {
+  try {
+    const raw = localStorage.getItem(EDITOR_POS_KEY);
+    if (raw === null) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null) return {};
+    return parsed as Record<string, EditorPosEntry>;
+  } catch {
+    return {};
+  }
+}
+
+function saveEditorPos(path: string, entry: EditorPosEntry): void {
+  try {
+    const all = loadEditorPos();
+    // 既存エントリを削除してから先頭へ追加することで LRU 順を維持する
+    delete all[path];
+    const keys = Object.keys(all);
+    // 上限超えたら末尾(最古)を削除
+    if (keys.length >= EDITOR_POS_MAX) {
+      const oldest = keys[keys.length - 1];
+      if (oldest !== undefined) delete all[oldest];
+    }
+    // 先頭に追加するため: 新しいオブジェクトにマージ
+    const next: Record<string, EditorPosEntry> = { [path]: entry, ...all };
+    localStorage.setItem(EDITOR_POS_KEY, JSON.stringify(next));
+  } catch {
+    // localStorage が使えない環境は無視
+  }
+}
+
+function getEditorPos(path: string): EditorPosEntry | null {
+  const all = loadEditorPos();
+  return all[path] ?? null;
+}
+// ---------------------------------------------------------------------------
 
 const mdHighlight = HighlightStyle.define([
   { tag: tags.heading1, class: 'cm-md-heading cm-md-h1' },
@@ -153,6 +199,9 @@ export function Editor({
   const suppressRef = useRef(false);
   onChangeRef.current = onChange;
   onSaveRef.current = onSave;
+  // seek の現在値を ref で保持 (位置復元スクロールとの競合回避に使う)
+  const seekRef = useRef(seek);
+  seekRef.current = seek;
 
   // [[リンク]] 環境: すべて ref 読みの安定オブジェクト (拡張の作り直し不要)
   const notesRef = useRef(notes);
@@ -228,6 +277,23 @@ export function Editor({
         preventDefault: true,
         run: toggleBold,
       },
+      // ESC: 複数行テキスト選択をキャレットへ畳む (選択が空なら他の ESC 挙動に委ねる)。
+      // autocompletion の ESC より低い優先度で登録するため defaultKeymap の後ろに置く。
+      // autocompletion が閉じていて選択があるときのみ true を返す。
+      {
+        key: 'Escape',
+        run: (view) => {
+          const sel = view.state.selection;
+          const hasSelection =
+            sel.ranges.length > 1 ||
+            sel.main.anchor !== sel.main.head;
+          if (!hasSelection) return false;
+          view.dispatch({
+            selection: EditorSelection.cursor(sel.main.head),
+          });
+          return true;
+        },
+      },
       ...defaultKeymap,
       ...historyKeymap,
     ]),
@@ -257,19 +323,40 @@ export function Editor({
     }),
   ]);
 
+  // 現在開いているノート path を ref で追跡 (アンマウント時の保存に使う)
+  const currentPathRef = useRef(docPath);
+  currentPathRef.current = docPath;
+
   useEffect(() => {
     const host = hostRef.current;
     if (host === null) return;
 
+    // 初回表示: 保存済み位置があれば復元カーソルで初期化する (seek がある場合は後 effect が上書き)
+    const savedPos = getEditorPos(docPath);
+    const initialSel = savedPos !== null
+      ? { anchor: Math.min(savedPos.head, content.length) }
+      : { anchor: initialAnchor(content) };
+
     const view = new EditorView({
       state: EditorState.create({
         doc: content,
-        selection: { anchor: initialAnchor(content) },
+        selection: initialSel,
         extensions: buildExtensionsRef.current(docPath),
       }),
       parent: host,
     });
     viewRef.current = view;
+
+    // 保存されたスクロール位置を 1 フレーム後に反映 (レイアウト確定後)。
+    // seek が指定されているときは seek effect がスクロールするため復元しない。
+    if (savedPos !== null) {
+      requestAnimationFrame(() => {
+        if (seekRef.current == null) {
+          view.scrollDOM.scrollTop = savedPos.top;
+        }
+      });
+    }
+
     // テスト / デバッグ用: グローバルに EditorView と unfold ヘルパーを公開する。
     // Playwright ではブラウザプロセス内から ESM モジュールを動的 import できないため、
     // アプリ側でバインドした関数を expose して Playwright test から呼ぶ。
@@ -297,6 +384,11 @@ export function Editor({
     onViewReadyRef.current?.(view);
 
     return () => {
+      // アンマウント時: 現在の位置を保存する
+      saveEditorPos(currentPathRef.current, {
+        top: view.scrollDOM.scrollTop,
+        head: view.state.selection.main.head,
+      });
       view.destroy();
       viewRef.current = null;
       const gc = window as unknown as {
@@ -317,20 +409,51 @@ export function Editor({
     if (view === null) return;
     const prev = mountedDocRef.current;
     if (prev !== null && prev.path === docPath && prev.token === resetToken) return;
+
+    // ノートパスが変わった場合のみ位置の保存・復元を行う。
+    // 同一パスで resetToken だけ変わる場合 (ブックマーク後の再取得 / 競合マージ後の強制リロード等)
+    // は位置を保存せず、初期カーソル (initialAnchor) をそのまま使う。
+    const isPathChange = prev !== null && prev.path !== docPath;
+
+    // ノート切替前: 前のノートの位置を保存する (パスが変わったときのみ)
+    if (isPathChange) {
+      saveEditorPos(prev.path, {
+        top: view.scrollDOM.scrollTop,
+        head: view.state.selection.main.head,
+      });
+    }
+
     mountedDocRef.current = { path: docPath, token: resetToken };
     if (prev === null) return; // 初期内容は EditorState.create で反映済み
+
+    // パス変更時のみ保存済み位置を復元する。同一パスの再読込は initialAnchor を使う。
+    const savedPos = isPathChange ? getEditorPos(docPath) : null;
+    const restoredAnchor = savedPos !== null
+      ? Math.min(savedPos.head, content.length)
+      : initialAnchor(content);
+
     // setState で undo 履歴ごと差し替える: ノート切替後の Ctrl+Z で
     // 前ノートの本文が復活して誤保存される事故を防ぐ (データ安全性)。
     suppressRef.current = true;
     view.setState(
       EditorState.create({
         doc: content,
-        selection: { anchor: initialAnchor(content) },
+        selection: { anchor: restoredAnchor },
         extensions: buildExtensionsRef.current(docPath),
       }),
     );
     suppressRef.current = false;
     view.focus();
+
+    // 保存されたスクロール位置を 1 フレーム後に反映 (レイアウト確定後)。
+    // seek が指定されているときは seek effect がスクロールするため復元しない。
+    if (savedPos !== null) {
+      requestAnimationFrame(() => {
+        if (seekRef.current == null) {
+          view.scrollDOM.scrollTop = savedPos.top;
+        }
+      });
+    }
   }, [docPath, content, resetToken]);
 
   // 全文検索ヒットの該当行へカーソル移動 (Sbd061c-1)。上のドキュメント差し替え
