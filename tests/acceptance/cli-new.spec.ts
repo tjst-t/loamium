@@ -60,7 +60,7 @@ function todayIso(): string {
 beforeAll(async () => {
   const vault = await makeTempVault();
   server = await startServer({ vault });
-  await putNote('templates/議事録.md', MEETING_TEMPLATE);
+  await putNote('system/templates/議事録.md', MEETING_TEMPLATE);
 });
 
 afterAll(async () => {

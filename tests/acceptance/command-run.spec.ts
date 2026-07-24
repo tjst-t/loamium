@@ -179,12 +179,12 @@ describe('[AC-Sd22b1f-2] command run — full mode', () => {
   beforeAll(async () => {
     const vault = await makeTempVault();
     server = await startServer({ vault });
-    await seedNote(server.vault, 'commands/create-todo.yaml', CREATE_TODO_COMMAND);
-    await seedNote(server.vault, 'commands/append-test.yaml', APPEND_COMMAND);
-    await seedNote(server.vault, 'commands/required-param.yaml', REQUIRED_PARAM_COMMAND);
-    await seedNote(server.vault, 'commands/traversal-test.yaml', TRAVERSAL_COMMAND);
-    await seedNote(server.vault, 'commands/fail-stop.yaml', FAIL_STOP_COMMAND);
-    await seedNote(server.vault, 'commands/section-test.yaml', SECTION_COMMAND);
+    await seedNote(server.vault, 'system/commands/create-todo.yaml', CREATE_TODO_COMMAND);
+    await seedNote(server.vault, 'system/commands/append-test.yaml', APPEND_COMMAND);
+    await seedNote(server.vault, 'system/commands/required-param.yaml', REQUIRED_PARAM_COMMAND);
+    await seedNote(server.vault, 'system/commands/traversal-test.yaml', TRAVERSAL_COMMAND);
+    await seedNote(server.vault, 'system/commands/fail-stop.yaml', FAIL_STOP_COMMAND);
+    await seedNote(server.vault, 'system/commands/section-test.yaml', SECTION_COMMAND);
   });
 
   afterAll(async () => {
@@ -299,7 +299,7 @@ describe('[AC-Sd22b1f-2] command run — full mode', () => {
   /** hidden/dot セグメントの traversal コマンドも追加で確認 */
   it('[AC-Sd22b1f-2-2] hidden segment in expanded target → 400 invalid_target_path', async () => {
     // .hidden セグメントを含む target も 400 で拒否
-    await seedNote(server.vault, 'commands/hidden-seg-test.yaml', [
+    await seedNote(server.vault, 'system/commands/hidden-seg-test.yaml', [
       'name: hidden-seg-test',
       'steps:',
       '  - kind: note-create',
@@ -400,7 +400,7 @@ describe('[AC-Sd22b1f-2-3] read-only mode rejects command run', () => {
 
   beforeAll(async () => {
     const vault = await makeTempVault();
-    await seedNote(vault, 'commands/create-todo.yaml', CREATE_TODO_COMMAND);
+    await seedNote(vault, 'system/commands/create-todo.yaml', CREATE_TODO_COMMAND);
     server = await startServer({ vault, mode: 'read-only' });
   });
 
@@ -431,7 +431,7 @@ describe('[AC-Sd22b1f-2-3] append-only mode allows v1 commands', () => {
 
   beforeAll(async () => {
     const vault = await makeTempVault();
-    await seedNote(vault, 'commands/create-todo.yaml', CREATE_TODO_COMMAND);
+    await seedNote(vault, 'system/commands/create-todo.yaml', CREATE_TODO_COMMAND);
     server = await startServer({ vault, mode: 'append-only' });
   });
 
@@ -472,7 +472,7 @@ describe('[BUG-REGRESSION] display name ≠ stem — GET returns id, run uses st
   beforeAll(async () => {
     const vault = await makeTempVault();
     server = await startServer({ vault });
-    await seedNote(server.vault, 'commands/my-cmd.yaml', MY_CMD);
+    await seedNote(server.vault, 'system/commands/my-cmd.yaml', MY_CMD);
   });
 
   afterAll(async () => {
@@ -484,7 +484,7 @@ describe('[BUG-REGRESSION] display name ≠ stem — GET returns id, run uses st
     const res = await fetch(`${server.baseUrl}/api/commands`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { commands: Array<{ id: string; name: string; path: string; valid: boolean }> };
-    const cmd = body.commands.find((c) => c.path === 'commands/my-cmd.yaml');
+    const cmd = body.commands.find((c) => c.path === 'system/commands/my-cmd.yaml');
     expect(cmd).toBeDefined();
     expect(cmd?.id).toBe('my-cmd');
     expect(cmd?.name).toBe('My Command');
@@ -526,10 +526,10 @@ describe('[AC-Sd22b1f-2-4] CLI command run', () => {
   beforeAll(async () => {
     const vault = await makeTempVault();
     server = await startServer({ vault });
-    await seedNote(server.vault, 'commands/create-todo.yaml', CREATE_TODO_COMMAND);
-    await seedNote(server.vault, 'commands/required-param.yaml', REQUIRED_PARAM_COMMAND);
-    await seedNote(server.vault, 'commands/append-test.yaml', APPEND_COMMAND);
-    await seedNote(server.vault, 'commands/cli-when-gate.yaml', CLI_WHEN_GATE_COMMAND);
+    await seedNote(server.vault, 'system/commands/create-todo.yaml', CREATE_TODO_COMMAND);
+    await seedNote(server.vault, 'system/commands/required-param.yaml', REQUIRED_PARAM_COMMAND);
+    await seedNote(server.vault, 'system/commands/append-test.yaml', APPEND_COMMAND);
+    await seedNote(server.vault, 'system/commands/cli-when-gate.yaml', CLI_WHEN_GATE_COMMAND);
   });
 
   afterAll(async () => {
@@ -705,11 +705,11 @@ describe('[AC-Sf2f114-3-1] note-append with section/create/position', () => {
   beforeAll(async () => {
     const vault = await makeTempVault();
     server = await startServer({ vault });
-    await seedNote(server.vault, 'commands/note-append-section.yaml', NOTE_APPEND_SECTION_COMMAND);
-    await seedNote(server.vault, 'commands/note-append-create.yaml', NOTE_APPEND_CREATE_COMMAND);
-    await seedNote(server.vault, 'commands/note-append-top.yaml', NOTE_APPEND_TOP_COMMAND);
-    await seedNote(server.vault, 'commands/note-append-bottom.yaml', NOTE_APPEND_BOTTOM_COMMAND);
-    await seedNote(server.vault, 'commands/note-append-no-create.yaml', NOTE_APPEND_NO_CREATE_COMMAND);
+    await seedNote(server.vault, 'system/commands/note-append-section.yaml', NOTE_APPEND_SECTION_COMMAND);
+    await seedNote(server.vault, 'system/commands/note-append-create.yaml', NOTE_APPEND_CREATE_COMMAND);
+    await seedNote(server.vault, 'system/commands/note-append-top.yaml', NOTE_APPEND_TOP_COMMAND);
+    await seedNote(server.vault, 'system/commands/note-append-bottom.yaml', NOTE_APPEND_BOTTOM_COMMAND);
+    await seedNote(server.vault, 'system/commands/note-append-no-create.yaml', NOTE_APPEND_NO_CREATE_COMMAND);
   });
 
   afterAll(async () => {
@@ -890,7 +890,7 @@ describe('[AC-Sf2f114-3-1] note-append with section/create/position', () => {
 
   it('[AC-Sf2f114-3-2] journal-append unchanged — backward compat (section present)', async () => {
     await putNote(server, journalPath('2026-07-12'), '# 2026-07-12\n\n## Log\n\n- existing\n');
-    await seedNote(server.vault, 'commands/journal-compat-section.yaml', [
+    await seedNote(server.vault, 'system/commands/journal-compat-section.yaml', [
       'name: journal-compat-section',
       'steps:',
       '  - kind: journal-append',
@@ -916,7 +916,7 @@ describe('[AC-Sf2f114-3-1] note-append with section/create/position', () => {
 
   it('[AC-Sf2f114-3-2] journal-append unchanged — backward compat (section absent, bottom)', async () => {
     await putNote(server, journalPath('2026-07-10'), '# 2026-07-10\n\nsome text\n');
-    await seedNote(server.vault, 'commands/journal-compat-bottom.yaml', [
+    await seedNote(server.vault, 'system/commands/journal-compat-bottom.yaml', [
       'name: journal-compat-bottom',
       'steps:',
       '  - kind: journal-append',
@@ -958,7 +958,7 @@ describe('[AC-Sf2f114-3-1] note-append with section/create/position', () => {
       '    content: "{{text}}"',
       '    position: "section"',
 ].join('\n');
-    await seedNote(server.vault, 'commands/position-section-no-section.yaml', POSITION_SECTION_NO_SECTION_COMMAND);
+    await seedNote(server.vault, 'system/commands/position-section-no-section.yaml', POSITION_SECTION_NO_SECTION_COMMAND);
     await putNote(server, 'pos-section-target.md', '# Target\n\nsome content\n');
 
     const { status, body } = await runCommand(server, 'position-section-no-section', {
@@ -1039,9 +1039,9 @@ describe('[AC-Sf2f114-2-1/2] when / when-not 条件付きステップ実行', ()
   beforeAll(async () => {
     const vault = await makeTempVault();
     server = await startServer({ vault });
-    await seedNote(server.vault, 'commands/when-gate.yaml', WHEN_GATE_COMMAND);
-    await seedNote(server.vault, 'commands/when-not-gate.yaml', WHEN_NOT_GATE_COMMAND);
-    await seedNote(server.vault, 'commands/both-condition.yaml', BOTH_CONDITION_COMMAND);
+    await seedNote(server.vault, 'system/commands/when-gate.yaml', WHEN_GATE_COMMAND);
+    await seedNote(server.vault, 'system/commands/when-not-gate.yaml', WHEN_NOT_GATE_COMMAND);
+    await seedNote(server.vault, 'system/commands/both-condition.yaml', BOTH_CONDITION_COMMAND);
   });
 
   afterAll(async () => {
@@ -1223,7 +1223,7 @@ describe('[AC-Sf2f114-2-1/2] when / when-not 条件付きステップ実行', ()
 
   it('[AC-Sf2f114-2-2] 後方互換 — when / when-not なしのステップは変わらず実行される', async () => {
     // CREATE_TODO_COMMAND は when / when-not を持たない既存コマンド
-    await seedNote(server.vault, 'commands/create-todo.yaml', CREATE_TODO_COMMAND);
+    await seedNote(server.vault, 'system/commands/create-todo.yaml', CREATE_TODO_COMMAND);
     const { status, body } = await runCommand(server, 'create-todo', { title: 'compat-test' });
     expect(status).toBe(200);
     const parsed = commandRunResponseSchema.safeParse(body);
@@ -1332,10 +1332,10 @@ describe('[AC-Sf2f114-4-1/2/3] prop-set / note-patch ステップ', () => {
   beforeAll(async () => {
     const vault = await makeTempVault();
     server = await startServer({ vault });
-    await seedNote(server.vault, 'commands/prop-set-test.yaml', PROP_SET_COMMAND);
-    await seedNote(server.vault, 'commands/prop-unset-test.yaml', PROP_UNSET_COMMAND);
-    await seedNote(server.vault, 'commands/prop-set-noop.yaml', PROP_SET_NOOP_COMMAND);
-    await seedNote(server.vault, 'commands/note-patch-test.yaml', NOTE_PATCH_COMMAND);
+    await seedNote(server.vault, 'system/commands/prop-set-test.yaml', PROP_SET_COMMAND);
+    await seedNote(server.vault, 'system/commands/prop-unset-test.yaml', PROP_UNSET_COMMAND);
+    await seedNote(server.vault, 'system/commands/prop-set-noop.yaml', PROP_SET_NOOP_COMMAND);
+    await seedNote(server.vault, 'system/commands/note-patch-test.yaml', NOTE_PATCH_COMMAND);
   });
 
   afterAll(async () => {
@@ -1483,7 +1483,7 @@ describe('[AC-Sf2f114-4-1/2/3] prop-set / note-patch ステップ', () => {
   // -----------------------------------------------------------------------
 
   it('[AC-Sf2f114-4-3] unknown kind is rejected at command parse time', async () => {
-    await seedNote(server.vault, 'commands/unknown-kind.yaml', [
+    await seedNote(server.vault, 'system/commands/unknown-kind.yaml', [
       'name: unknown-kind',
       'steps:',
       '  - kind: invalid-step-kind',
@@ -1608,10 +1608,10 @@ describe('[AC-Sf2f114-5-2] new param types — value flows through resolveTempla
   beforeAll(async () => {
     const vault = await makeTempVault();
     server = await startServer({ vault });
-    await seedNote(server.vault, 'commands/select-run-test.yaml', SELECT_PARAM_CMD);
-    await seedNote(server.vault, 'commands/boolean-run-test.yaml', BOOLEAN_PARAM_CMD);
-    await seedNote(server.vault, 'commands/number-run-test.yaml', NUMBER_PARAM_CMD);
-    await seedNote(server.vault, 'commands/note-run-test.yaml', NOTE_PARAM_CMD);
+    await seedNote(server.vault, 'system/commands/select-run-test.yaml', SELECT_PARAM_CMD);
+    await seedNote(server.vault, 'system/commands/boolean-run-test.yaml', BOOLEAN_PARAM_CMD);
+    await seedNote(server.vault, 'system/commands/number-run-test.yaml', NUMBER_PARAM_CMD);
+    await seedNote(server.vault, 'system/commands/note-run-test.yaml', NOTE_PARAM_CMD);
   });
 
   afterAll(async () => {
@@ -1720,8 +1720,8 @@ describe('[AC-Sf2f114-4-3] append-only rejects prop-set / note-patch commands', 
 
   beforeAll(async () => {
     const vault = await makeTempVault();
-    await seedNote(vault, 'commands/mutating-prop-set.yaml', PROP_SET_CMD);
-    await seedNote(vault, 'commands/mutating-note-patch.yaml', NOTE_PATCH_CMD);
+    await seedNote(vault, 'system/commands/mutating-prop-set.yaml', PROP_SET_CMD);
+    await seedNote(vault, 'system/commands/mutating-note-patch.yaml', NOTE_PATCH_CMD);
     await seedNote(vault, 'target.md', '---\ntitle: Target\n---\n\nTODO item.\n');
     server = await startServer({ vault, mode: 'append-only' });
   });
@@ -1762,7 +1762,7 @@ describe('[AC-Sf2f114-4-3] append-only rejects prop-set / note-patch commands', 
       '    target: "todos/{{title}}.md"',
       '    content: "# {{title}}\\n"',
 ].join('\n');
-    await seedNote(server.vault, 'commands/create-todo.yaml', CREATE_TODO_COMMAND);
+    await seedNote(server.vault, 'system/commands/create-todo.yaml', CREATE_TODO_COMMAND);
 
     const { status } = await runCommand(server, 'create-todo', { title: 'ao-allowed-test' });
     expect(status).toBe(200);
@@ -1807,8 +1807,8 @@ describe('[AC-S5a66e4-6-1/3] CLI command run — agent-run 透過表示', () => 
   beforeAll(async () => {
     const vault = await makeTempVault();
     server = await startServer({ vault });
-    await seedNote(server.vault, 'commands/agent-summary.yaml', AGENT_RUN_COMMAND);
-    await seedNote(server.vault, 'commands/agent-summary-when.yaml', AGENT_RUN_WHEN_COMMAND);
+    await seedNote(server.vault, 'system/commands/agent-summary.yaml', AGENT_RUN_COMMAND);
+    await seedNote(server.vault, 'system/commands/agent-summary-when.yaml', AGENT_RUN_WHEN_COMMAND);
   });
 
   afterAll(async () => {

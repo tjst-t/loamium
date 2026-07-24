@@ -92,7 +92,6 @@ export {
 } from './links.js';
 export {
   JOURNAL_DIR,
-  JOURNAL_TEMPLATE_PATH,
   isValidJournalDate,
   journalPath,
   journalDateToLocalDate,

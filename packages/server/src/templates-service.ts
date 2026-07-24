@@ -5,11 +5,11 @@
  * REST (routes/templates.ts) と agent ツール (agent-template-tools.ts) の双方から
  * 呼べる純関数として置く。エージェント専用の独自解決ロジックは新設しない。
  *
- * 正本: system/templates/*.md (ADR-0010 amendment)。fallback: templates/*.md。
+ * 正本: system/templates/*.md のみ (旧 templates/ フォールバックは廃止。移行は migrate.ts)。
  *
  * ここに集約する純関数:
  *   - listTemplates      : GET /api/templates と同一の列挙 (system/ 優先・壊れはスキップ)。
- *   - resolveTemplatePath: system/templates/{name}.md → templates/{name}.md の順に探す。
+ *   - resolveTemplatePath: system/templates/{name}.md のみを探す。
  *   - instantiateTemplate: POST /api/templates/{name}/instantiate と同一の解決エンジン
  *     (resolveTemplatePath → parseTemplateConfig → resolveTemplate → firstFreePath →
  *      writeNote)。結果ノートはピュア Markdown (loamium-template 記法が残らない)。
@@ -34,19 +34,12 @@ import type { VaultIndex } from './noteIndex.js';
 import { listNoteFiles, readNote, writeNote } from './vault.js';
 import { firstFreePath } from './vault-paths.js';
 
-const TEMPLATES_DIR = 'templates';
-const TEMPLATES_PREFIX = `${TEMPLATES_DIR}/`;
 const SYSTEM_TEMPLATES_PREFIX = `${SYSTEM_TEMPLATES_DIR}/`;
 
 /** 1 ファイルの内容から TemplateSummary を組み立てる (GET /api/templates と同一)。 */
 export function summaryFor(rel: string, content: string): TemplateSummary {
   const cfg = parseTemplateConfig(parseNote(content).frontmatter);
-  let name: string;
-  if (rel.startsWith(SYSTEM_TEMPLATES_PREFIX)) {
-    name = rel.slice(SYSTEM_TEMPLATES_PREFIX.length).replace(/\.md$/i, '');
-  } else {
-    name = rel.slice(TEMPLATES_PREFIX.length).replace(/\.md$/i, '');
-  }
+  const name = rel.slice(SYSTEM_TEMPLATES_PREFIX.length).replace(/\.md$/i, '');
   const summary: TemplateSummary = { name, path: rel, target: cfg.target, vars: cfg.vars };
   if (cfg.description !== undefined) summary.description = cfg.description;
   return summary;
@@ -54,30 +47,20 @@ export function summaryFor(rel: string, content: string): TemplateSummary {
 
 /**
  * vault 内の可視テンプレートを列挙する (GET /api/templates と同一ロジック)。
- * system/templates/ を優先し、同名の templates/ エントリはスキップ (後方互換 shadowing)。
+ * 正本は system/templates/ のみ (旧 templates/ フォールバックは廃止)。
  * 壊れたテンプレート (summaryFor が throw) はスキップしてアプリを落とさない。
  */
 export async function listTemplates(vaultRoot: string): Promise<TemplateSummary[]> {
   const all = await listNoteFiles(vaultRoot);
   const templates: TemplateSummary[] = [];
-  const seenNames = new Set<string>();
 
   for (const rel of all) {
-    const isSystem = rel.startsWith(SYSTEM_TEMPLATES_PREFIX);
-    const isLegacy = rel.startsWith(TEMPLATES_PREFIX);
-    if (!isSystem && !isLegacy) continue;
-
-    const name = isSystem
-      ? rel.slice(SYSTEM_TEMPLATES_PREFIX.length).replace(/\.md$/i, '')
-      : rel.slice(TEMPLATES_PREFIX.length).replace(/\.md$/i, '');
-
-    if (seenNames.has(name)) continue;
+    if (!rel.startsWith(SYSTEM_TEMPLATES_PREFIX)) continue;
 
     const content = await readNote(vaultRoot, rel);
     if (content === null) continue;
     try {
       templates.push(summaryFor(rel, content));
-      seenNames.add(name);
     } catch (err) {
       console.error(`[loamium] skipping broken template ${rel}:`, err);
     }
@@ -87,8 +70,7 @@ export async function listTemplates(vaultRoot: string): Promise<TemplateSummary[
 }
 
 /**
- * テンプレートを解決する: system/templates/{name}.md → templates/{name}.md の順に探す。
- * [AC-Sa10026-2-2]: 旧パスの寛容 read フォールバック。
+ * テンプレートを解決する: system/templates/{name}.md のみ (旧 templates/ フォールバックは廃止)。
  */
 export async function resolveTemplatePath(
   vaultRoot: string,
@@ -99,13 +81,6 @@ export async function resolveTemplatePath(
   if (systemContent !== null) {
     return { rel: systemRel, content: systemContent };
   }
-
-  const legacyRel = normalizeVaultPath(`${TEMPLATES_DIR}/${name}`);
-  const legacyContent = await readNote(vaultRoot, legacyRel);
-  if (legacyContent !== null) {
-    return { rel: legacyRel, content: legacyContent };
-  }
-
   return null;
 }
 
@@ -224,9 +199,7 @@ export async function instantiateTemplate(
     if (def.required && (vars[def.name] ?? '').trim() === '') missingRequired.push(def.name);
   }
 
-  const nameForTarget = rel.startsWith(SYSTEM_TEMPLATES_PREFIX)
-    ? rel.slice(SYSTEM_TEMPLATES_PREFIX.length).replace(/\.md$/i, '')
-    : rel.slice(TEMPLATES_PREFIX.length).replace(/\.md$/i, '');
+  const nameForTarget = rel.slice(SYSTEM_TEMPLATES_PREFIX.length).replace(/\.md$/i, '');
 
   const targetPattern = cfg.target ?? nameForTarget;
   const targetRes = resolveTemplate(targetPattern, { vars, date: dateBase, now, pathMode: true });

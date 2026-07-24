@@ -85,10 +85,10 @@ const BROKEN_TEMPLATE = ['---', 'loamium-template: "これは壊れた定義"', 
 beforeAll(async () => {
   const vault = await makeTempVault();
   server = await startServer({ vault });
-  await putNote('templates/議事録.md', MEETING_TEMPLATE);
-  await putNote('templates/デイリー.md', DAILY_TEMPLATE);
-  await putNote('templates/雛形.md', PLAIN_TEMPLATE);
-  await putNote('templates/broken.md', BROKEN_TEMPLATE);
+  await putNote('system/templates/議事録.md', MEETING_TEMPLATE);
+  await putNote('system/templates/デイリー.md', DAILY_TEMPLATE);
+  await putNote('system/templates/雛形.md', PLAIN_TEMPLATE);
+  await putNote('system/templates/broken.md', BROKEN_TEMPLATE);
   // templates/ 外のノートは一覧に出ない
   await putNote('notes/普通のノート.md', '# 普通\n');
 });
@@ -114,14 +114,14 @@ async function listTemplates(): Promise<TemplateSummary[]> {
 }
 
 describe('[AC-S89a350-2-1] GET /api/templates', () => {
-  it('templates/ 配下の *.md を target / vars 付きで一覧する', async () => {
+  it('system/templates/ 配下の *.md を target / vars 付きで一覧する', async () => {
     const templates = await listTemplates();
     const names = templates.map((t) => t.name).sort();
     expect(names).toEqual(['broken', 'デイリー', '議事録', '雛形']);
 
     const meeting = templates.find((t) => t.name === '議事録');
     expect(meeting).toBeDefined();
-    expect(meeting?.path).toBe('templates/議事録.md');
+    expect(meeting?.path).toBe('system/templates/議事録.md');
     expect(meeting?.target).toBe('議事録/{{date:YYYY}}/{{date:MM}}/{{date:DD}}_{{会議名}}');
     expect(meeting?.description).toBe('会議の議事録');
     // vars が正規化されて返る
@@ -149,7 +149,7 @@ describe('[AC-S89a350-2-1] GET /api/templates', () => {
     expect(broken?.vars).toEqual([]);
   });
 
-  it('templates/ 外のノートは一覧に含まれない', async () => {
+  it('system/templates/ 外のノートは一覧に含まれない', async () => {
     const templates = await listTemplates();
     expect(templates.some((t) => t.path === 'notes/普通のノート.md')).toBe(false);
   });
@@ -254,7 +254,7 @@ describe('[AC-S89a350-2-3] 書き込みは監査ログに記録される', () =>
     const vault = await makeTempVault();
     const ro = await startServer({ vault, mode: 'read-only' });
     try {
-      await fetch(`${ro.baseUrl}/api/notes/${encodeURIComponent('templates/x.md')}`, {
+      await fetch(`${ro.baseUrl}/api/notes/${encodeURIComponent('system/templates/x.md')}`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ content: DAILY_TEMPLATE }),

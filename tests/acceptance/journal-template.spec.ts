@@ -55,7 +55,7 @@ describe('[AC-S67ea41-1-1] 既定テンプレートを適用した本文で遅�
   let server: TestServer;
   beforeAll(async () => {
     const vault = await makeTempVault();
-    await seedFile(vault, 'templates/journal.md', JOURNAL_TEMPLATE);
+    await seedFile(vault, 'system/templates/journal.md', JOURNAL_TEMPLATE);
     server = await startServer({ vault });
   });
   afterAll(async () => {
@@ -98,7 +98,7 @@ describe('[AC-S67ea41-1-1] テンプレート無しは従来どおり空ファ�
     await cleanupVault(server.vault);
   });
 
-  it('templates/journal.md が無ければ空ファイルで作成する', async () => {
+  it('system/templates/journal.md が無ければ空ファイルで作成する', async () => {
     const res = await fetch(`${server.baseUrl}/api/journal?date=2026-05-20`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as JournalBody;
@@ -118,7 +118,7 @@ describe('[AC-S67ea41-1-2] 対象日 (未来日/過去日) 基準で展開する
   let server: TestServer;
   beforeAll(async () => {
     const vault = await makeTempVault();
-    await seedFile(vault, 'templates/journal.md', JOURNAL_TEMPLATE);
+    await seedFile(vault, 'system/templates/journal.md', JOURNAL_TEMPLATE);
     server = await startServer({ vault });
   });
   afterAll(async () => {
@@ -145,7 +145,7 @@ describe('[AC-S67ea41-1-2] read-only は書き込まずテンプレ適用済み�
   let server: TestServer;
   beforeAll(async () => {
     const vault = await makeTempVault();
-    await seedFile(vault, 'templates/journal.md', JOURNAL_TEMPLATE);
+    await seedFile(vault, 'system/templates/journal.md', JOURNAL_TEMPLATE);
     server = await startServer({ vault, mode: 'read-only' });
   });
   afterAll(async () => {
@@ -173,7 +173,7 @@ describe('[AC-S67ea41-1-3] 既存ジャーナルは上書きしない (冪等)',
   let server: TestServer;
   beforeAll(async () => {
     const vault = await makeTempVault();
-    await seedFile(vault, 'templates/journal.md', JOURNAL_TEMPLATE);
+    await seedFile(vault, 'system/templates/journal.md', JOURNAL_TEMPLATE);
     // ユーザーが既に書いたジャーナルを seed
     await seedFile(vault, journalPath('2026-06-01'), '# 手書きの見出し\n\n既存の内容\n');
     server = await startServer({ vault });

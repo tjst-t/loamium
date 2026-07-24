@@ -14,6 +14,7 @@
  * - UTF-8 / LF 固定 (writeNote が toLf を適用)。
  */
 import { promises as fs } from 'node:fs';
+import { ensureDir } from './fs-utils.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { writeNote } from './vault.js';
@@ -49,10 +50,10 @@ export function mapSeedPath(samplesRelPath: string): string {
     const name = samplesRelPath.slice('smart-folders/'.length);
     return `system/smart-folders/${name}`;
   }
-  // templates/*.md → templates/<name>.md
+  // templates/*.md → system/templates/<name>.md (テンプレートの正本は system/templates/ のみ)
   if (samplesRelPath.startsWith('templates/') && samplesRelPath.endsWith('.md')) {
     const name = samplesRelPath.slice('templates/'.length);
-    return `templates/${name}`;
+    return `system/templates/${name}`;
   }
   // その他すべては samples/ 配下へ (index.md も含む)
   return `samples/${samplesRelPath}`;
@@ -142,7 +143,7 @@ export async function seed(
     } else {
       // バイナリ: 親ディレクトリを作成してから copyFile
       const dstAbs = path.resolve(vaultRoot, vaultRel);
-      await fs.mkdir(path.dirname(dstAbs), { recursive: true });
+      await ensureDir(path.dirname(dstAbs));
       await fs.copyFile(srcAbs, dstAbs);
     }
     seeded++;

@@ -144,8 +144,8 @@ describe('[AC-Sd22b1f-3-3] create-todo section コマンド実証', () => {
     const vault = await makeTempVault();
     server = await startServer({ vault });
     // フィクスチャをシード
-    await seedNote(vault, 'commands/create-todo-section.yaml', CREATE_TODO_SECTION_COMMAND);
-    await seedNote(vault, 'commands/create-todo-with-due.yaml', CREATE_TODO_WITH_DUE_COMMAND);
+    await seedNote(vault, 'system/commands/create-todo-section.yaml', CREATE_TODO_SECTION_COMMAND);
+    await seedNote(vault, 'system/commands/create-todo-with-due.yaml', CREATE_TODO_WITH_DUE_COMMAND);
     // 今日のジャーナルを初期化 (## Todo セクションあり)
     await seedNote(
       vault,

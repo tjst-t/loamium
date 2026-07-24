@@ -55,8 +55,8 @@ describe('GET /api/commands/{id}/source', () => {
   beforeAll(async () => {
     const vault = await makeTempVault();
     server = await startServer({ vault });
-    await seedFile(vault, 'commands/test-cmd.yaml', VALID_COMMAND_YAML);
-    await seedFile(vault, 'commands/yml-cmd.yml', 'name: yml-cmd\nsteps:\n  - kind: journal-append\n    content: hello\n');
+    await seedFile(vault, 'system/commands/test-cmd.yaml', VALID_COMMAND_YAML);
+    await seedFile(vault, 'system/commands/yml-cmd.yml', 'name: yml-cmd\nsteps:\n  - kind: journal-append\n    content: hello\n');
   });
 
   afterAll(async () => {
@@ -75,7 +75,7 @@ describe('GET /api/commands/{id}/source', () => {
     ).toBe(true);
     if (!parsed.success) throw new Error('unreachable');
     expect(parsed.data.id).toBe('test-cmd');
-    expect(parsed.data.path).toBe('commands/test-cmd.yaml');
+    expect(parsed.data.path).toBe('system/commands/test-cmd.yaml');
     expect(parsed.data.content).toBe(VALID_COMMAND_YAML);
     expect(typeof parsed.data.mtime).toBe('number');
     expect(parsed.data.mtime).toBeGreaterThan(0);
@@ -95,7 +95,7 @@ describe('GET /api/commands/{id}/source', () => {
     const parsed = commandSourceResponseSchema.safeParse(body);
     expect(parsed.success).toBe(true);
     if (!parsed.success) throw new Error('unreachable');
-    expect(parsed.data.path).toBe('commands/yml-cmd.yml');
+    expect(parsed.data.path).toBe('system/commands/yml-cmd.yml');
     expect(parsed.data.content).toContain('name: yml-cmd');
   });
 
@@ -115,7 +115,7 @@ describe('PUT /api/commands/{id}/source (full mode)', () => {
   beforeAll(async () => {
     const vault = await makeTempVault();
     server = await startServer({ vault, mode: 'full' });
-    await seedFile(vault, 'commands/update-me.yaml', VALID_COMMAND_YAML);
+    await seedFile(vault, 'system/commands/update-me.yaml', VALID_COMMAND_YAML);
   });
 
   afterAll(async () => {
@@ -209,7 +209,7 @@ describe('PUT /api/commands/{id}/source — 権限モード', () => {
     const vault = await makeTempVault();
     const server = await startServer({ vault, mode: 'read-only' });
     try {
-      await seedFile(vault, 'commands/test.yaml', VALID_COMMAND_YAML);
+      await seedFile(vault, 'system/commands/test.yaml', VALID_COMMAND_YAML);
       const res = await fetch(`${server.baseUrl}/api/commands/test/source`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
@@ -227,7 +227,7 @@ describe('PUT /api/commands/{id}/source — 権限モード', () => {
     const vault = await makeTempVault();
     const server = await startServer({ vault, mode: 'append-only' });
     try {
-      await seedFile(vault, 'commands/test.yaml', VALID_COMMAND_YAML);
+      await seedFile(vault, 'system/commands/test.yaml', VALID_COMMAND_YAML);
       const res = await fetch(`${server.baseUrl}/api/commands/test/source`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
@@ -246,7 +246,7 @@ describe('PUT /api/commands/{id}/source — 権限モード', () => {
     const vault = await makeTempVault();
     const server = await startServer({ vault, mode: 'append-only' });
     try {
-      await seedFile(vault, 'commands/test.yaml', VALID_COMMAND_YAML);
+      await seedFile(vault, 'system/commands/test.yaml', VALID_COMMAND_YAML);
       const res = await fetch(`${server.baseUrl}/api/commands/test/source`);
       expect(res.status).toBe(200);
     } finally {

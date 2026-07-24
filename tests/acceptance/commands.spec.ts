@@ -74,9 +74,9 @@ beforeAll(async () => {
   const vault = await makeTempVault();
   server = await startServer({ vault });
   // commands/ フォルダにフィクスチャを配置する (ADR-0024: .yaml は直接 fs 書き込み)
-  await seedVaultFile(vault, 'commands/create-todo.yaml', VALID_COMMAND);
-  await seedVaultFile(vault, 'commands/broken.yaml', BROKEN_COMMAND);
-  await seedVaultFile(vault, 'commands/empty-steps.yaml', EMPTY_STEPS_COMMAND);
+  await seedVaultFile(vault, 'system/commands/create-todo.yaml', VALID_COMMAND);
+  await seedVaultFile(vault, 'system/commands/broken.yaml', BROKEN_COMMAND);
+  await seedVaultFile(vault, 'system/commands/empty-steps.yaml', EMPTY_STEPS_COMMAND);
   // commands/ 外のノートは一覧に出ない
   await putNote('notes/普通のノート.md', '# 普通\n');
 });
@@ -101,7 +101,7 @@ async function listCommands(): Promise<ReturnType<typeof commandsResponseSchema.
 }
 
 describe('[AC-Sd22b1f-1-2] GET /api/commands', () => {
-  it('commands/ 配下の *.yaml をすべて一覧し 200 を返す (ADR-0024)', async () => {
+  it('system/commands/ 配下の *.yaml をすべて一覧し 200 を返す (ADR-0024)', async () => {
     const commands = await listCommands();
     const names = commands.map((c) => c.name).sort();
     // create-todo (valid), broken (invalid), empty-steps (invalid) の 3 件
@@ -114,21 +114,21 @@ describe('[AC-Sd22b1f-1-2] GET /api/commands', () => {
     for (const cmd of commands) {
       expect(typeof cmd.id).toBe('string');
       expect(cmd.id.length).toBeGreaterThan(0);
-      // id は path から導出した stem と一致する (commands/{id}.yaml)
-      expect(cmd.path).toBe(`commands/${cmd.id}.yaml`);
+      // id は path から導出した stem と一致する (system/commands/{id}.yaml)
+      expect(cmd.path).toBe(`system/commands/${cmd.id}.yaml`);
     }
   });
 
   it('正常なコマンドは valid:true で id / name / description / params / path を返す', async () => {
     const commands = await listCommands();
-    const todo = commands.find((c) => c.path === 'commands/create-todo.yaml');
+    const todo = commands.find((c) => c.path === 'system/commands/create-todo.yaml');
     expect(todo).toBeDefined();
     expect(todo?.valid).toBe(true);
     // id は常にファイル stem (拡張子なし) である
     expect(todo?.id).toBe('create-todo');
     // name は YAML トップレベルの name フィールド (省略時は stem と同値)
     expect(todo?.name).toBe('create-todo');
-    expect(todo?.path).toBe('commands/create-todo.yaml');
+    expect(todo?.path).toBe('system/commands/create-todo.yaml');
     // Narrow the discriminated union before accessing valid:true-only fields
     if (todo?.valid === true) {
       expect(todo.description).toBe('Todo を作成してジャーナルに追記する');
@@ -141,7 +141,7 @@ describe('[AC-Sd22b1f-1-2] GET /api/commands', () => {
 
   it('壊れた YAML のコマンドは valid:false + error + id で一覧に含まれる (200 維持)', async () => {
     const commands = await listCommands();
-    const broken = commands.find((c) => c.path === 'commands/broken.yaml');
+    const broken = commands.find((c) => c.path === 'system/commands/broken.yaml');
     expect(broken).toBeDefined();
     expect(broken?.valid).toBe(false);
     // id はファイル stem から導出される (valid:false でも id を持つ)
@@ -157,7 +157,7 @@ describe('[AC-Sd22b1f-1-2] GET /api/commands', () => {
 
   it('steps が空のコマンドは valid:false になる', async () => {
     const commands = await listCommands();
-    const emptySteps = commands.find((c) => c.path === 'commands/empty-steps.yaml');
+    const emptySteps = commands.find((c) => c.path === 'system/commands/empty-steps.yaml');
     expect(emptySteps).toBeDefined();
     expect(emptySteps?.valid).toBe(false);
   });
@@ -169,7 +169,7 @@ describe('[AC-Sd22b1f-1-2] GET /api/commands', () => {
     expect(Array.isArray(body.commands)).toBe(true);
   });
 
-  it('commands/ が空の vault では { commands: [] } を 200 で返す', async () => {
+  it('system/commands/ が空の vault では { commands: [] } を 200 で返す', async () => {
     // 別途空 vault でサーバーを起動して確認する
     const emptyVault = await makeTempVault();
     const emptyServer = await startServer({ vault: emptyVault });
@@ -190,8 +190,8 @@ describe('[AC-Sd22b1f-1-2] GET /api/commands', () => {
     const binaryVault = await makeTempVault();
     const binaryServer = await startServer({ vault: binaryVault });
     try {
-      // commands/ ディレクトリを作成してバイナリファイルを直接置く (.yaml 拡張子)
-      const commandsDir = path.join(binaryVault, 'commands');
+      // system/commands/ ディレクトリを作成してバイナリファイルを直接置く (.yaml 拡張子)
+      const commandsDir = path.join(binaryVault, 'system', 'commands');
       const { mkdir } = await import('node:fs/promises');
       await mkdir(commandsDir, { recursive: true });
       await writeFile(
@@ -206,7 +206,7 @@ describe('[AC-Sd22b1f-1-2] GET /api/commands', () => {
       expect(parsed.success, `commandsResponseSchema validation failed: ${!parsed.success ? JSON.stringify(parsed.error.issues) : ''}`).toBe(true);
       if (!parsed.success) throw new Error('unreachable');
       // binary.yaml がエントリとして含まれること (valid:true/false は問わない)
-      const hasEntry = parsed.data.commands.some((c) => c.path === 'commands/binary.yaml');
+      const hasEntry = parsed.data.commands.some((c) => c.path === 'system/commands/binary.yaml');
       expect(hasEntry).toBe(true);
     } finally {
       await binaryServer.stop();
@@ -272,8 +272,8 @@ describe('[AC-Sf2f114-5-2] GET /api/commands — new param types passthrough', (
   beforeAll(async () => {
     const vault = await makeTempVault();
     srv = await startServer({ vault });
-    await seedVaultFile(vault, 'commands/select-param-test.yaml', SELECT_PARAM_COMMAND);
-    await seedVaultFile(vault, 'commands/select-no-options.yaml', SELECT_NO_OPTIONS_COMMAND);
+    await seedVaultFile(vault, 'system/commands/select-param-test.yaml', SELECT_PARAM_COMMAND);
+    await seedVaultFile(vault, 'system/commands/select-no-options.yaml', SELECT_NO_OPTIONS_COMMAND);
   });
 
   afterAll(async () => {
@@ -296,7 +296,7 @@ describe('[AC-Sf2f114-5-2] GET /api/commands — new param types passthrough', (
 
   it('[AC-Sf2f114-5-2] select param command は valid:true で options が passthrough される', async () => {
     const commands = await listCmds();
-    const cmd = commands.find((c) => c.path === 'commands/select-param-test.yaml');
+    const cmd = commands.find((c) => c.path === 'system/commands/select-param-test.yaml');
     expect(cmd).toBeDefined();
     expect(cmd?.valid).toBe(true);
     if (cmd?.valid !== true) throw new Error('expected valid:true');
@@ -315,7 +315,7 @@ describe('[AC-Sf2f114-5-2] GET /api/commands — new param types passthrough', (
 
   it('[AC-Sf2f114-5-2] select-without-options command は valid:false で一覧に含まれる', async () => {
     const commands = await listCmds();
-    const cmd = commands.find((c) => c.path === 'commands/select-no-options.yaml');
+    const cmd = commands.find((c) => c.path === 'system/commands/select-no-options.yaml');
     expect(cmd).toBeDefined();
     expect(cmd?.valid).toBe(false);
     if (cmd?.valid !== false) throw new Error('expected valid:false');
@@ -337,7 +337,7 @@ describe('[AC-Sd22b1f-1-3] CLI loamium commands', () => {
     expect(result.stderr).toBe('');
     // 正常なコマンドは name\tpath が含まれる
     expect(result.stdout).toContain('create-todo');
-    expect(result.stdout).toContain('commands/create-todo.yaml');
+    expect(result.stdout).toContain('system/commands/create-todo.yaml');
   });
 
   it('有効なコマンドは description も出力する', async () => {
@@ -350,7 +350,7 @@ describe('[AC-Sd22b1f-1-3] CLI loamium commands', () => {
     const result = await cli(['commands']);
     expect(result.code).toBe(0);
     const lines = result.stdout.split('\n');
-    expect(lines.some((l) => l.includes('commands/broken.yaml') && l.includes('[INVALID]'))).toBe(true);
+    expect(lines.some((l) => l.includes('system/commands/broken.yaml') && l.includes('[INVALID]'))).toBe(true);
   });
 
   it('--json フラグで API レスポンスの生 JSON をそのまま出力する', async () => {

@@ -44,7 +44,7 @@ export function createVaultSeedTool(
         label: 'サンプル投入',
         description:
           'Loamium 同梱のサンプルファイル (テンプレート・スマートコマンド・' +
-          'スマートフォルダ定義・機能ガイド Markdown) を vault へ投入する。' +
+          'スマートフォルダ定義・機能ガイド Markdown・サンプルデータ Markdown・画像) を vault へ投入する。' +
           '既定では既存ファイルを上書きしない (force:true 指定時のみ上書き)。' +
           'POST /api/vault/seed と同一の SeedService を経由する (ADR-0016)。',
         parameters: Type.Object({

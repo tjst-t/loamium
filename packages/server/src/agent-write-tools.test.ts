@@ -236,7 +236,7 @@ describe('createVaultWriteTools', () => {
       fakeCtx,
     );
     expect(detailsOf(res).created).toBe(true);
-    const written = await readFile(path.join(vaultRoot, 'templates', 'meeting.md'), 'utf8');
+    const written = await readFile(path.join(vaultRoot, 'system', 'templates','meeting.md'), 'utf8');
     // 標準の Markdown YAML frontmatter で始まる
     expect(written.startsWith('---\n')).toBe(true);
     expect(written).toContain('type: "template"');
@@ -247,7 +247,7 @@ describe('createVaultWriteTools', () => {
   it('[AC-S5bd678-2-1] template_write の出力にブロック ID・独自記法が含まれない (ピュア Markdown)', async () => {
     const tw = tool('template_write');
     await tw.execute('t1', { name: 'plain', body: 'body text\n' }, noSignal, noUpdate, fakeCtx);
-    const written = await readFile(path.join(vaultRoot, 'templates', 'plain.md'), 'utf8');
+    const written = await readFile(path.join(vaultRoot, 'system', 'templates','plain.md'), 'utf8');
     // ブロック ID (^abc123) / 独自 %%記法%% / <!-- loamium: --> 等が無いこと
     expect(written).not.toMatch(/\^[a-zA-Z0-9]{4,}/); // Obsidian ブロック ID
     expect(written).not.toContain('%%');
@@ -443,13 +443,13 @@ describe('createVaultWriteTools', () => {
   // ---- agent-write-coverage: template 上書き / template_delete -----------------
 
   it('[agent-write-coverage] template_write は overwrite:true で既存テンプレートを上書きする', async () => {
-    await mkdir(path.join(vaultRoot, 'templates'), { recursive: true });
-    await writeFile(path.join(vaultRoot, 'templates', 'm.md'), 'OLD\n', 'utf8');
+    await mkdir(path.join(vaultRoot, 'system', 'templates'), { recursive: true });
+    await writeFile(path.join(vaultRoot, 'system', 'templates','m.md'), 'OLD\n', 'utf8');
     const tw = tool('template_write');
     // overwrite なしは拒否 (既存)
     const denied = await tw.execute('t1', { name: 'm', body: 'x' }, noSignal, noUpdate, fakeCtx);
     expect(detailsOf(denied).error).toBe(true);
-    expect(await readFile(path.join(vaultRoot, 'templates', 'm.md'), 'utf8')).toBe('OLD\n');
+    expect(await readFile(path.join(vaultRoot, 'system', 'templates','m.md'), 'utf8')).toBe('OLD\n');
     // overwrite:true は上書き成功 (created:false)
     const ok = await tw.execute(
       't2',
@@ -460,18 +460,18 @@ describe('createVaultWriteTools', () => {
     );
     expect(detailsOf(ok).error).toBeUndefined();
     expect(detailsOf(ok).created).toBe(false);
-    const written = await readFile(path.join(vaultRoot, 'templates', 'm.md'), 'utf8');
+    const written = await readFile(path.join(vaultRoot, 'system', 'templates','m.md'), 'utf8');
     expect(written).toContain('type: "template"');
     expect(written).toContain('# 新');
   });
 
   it('[agent-write-coverage] template_delete が既存テンプレートを削除する / 不在は削除対象なし', async () => {
-    await mkdir(path.join(vaultRoot, 'templates'), { recursive: true });
-    await writeFile(path.join(vaultRoot, 'templates', 'x.md'), '---\ntype: "template"\n---\n', 'utf8');
+    await mkdir(path.join(vaultRoot, 'system', 'templates'), { recursive: true });
+    await writeFile(path.join(vaultRoot, 'system', 'templates','x.md'), '---\ntype: "template"\n---\n', 'utf8');
     const td = tool('template_delete');
     const res = await td.execute('t1', { name: 'x' }, noSignal, noUpdate, fakeCtx);
     expect(detailsOf(res).deleted).toBe(true);
-    await expect(readFile(path.join(vaultRoot, 'templates', 'x.md'), 'utf8')).rejects.toThrow();
+    await expect(readFile(path.join(vaultRoot, 'system', 'templates','x.md'), 'utf8')).rejects.toThrow();
     // 不在は削除対象なし
     const none = await td.execute('t2', { name: 'x' }, noSignal, noUpdate, fakeCtx);
     expect(detailsOf(none).error).toBeUndefined();
@@ -544,7 +544,7 @@ describe('createVaultWriteTools', () => {
     const createEntry = entries.find((e) => e.op === 'agent.note_create');
     expect(createEntry?.path).toBe('fresh.md');
     const tplEntry = entries.find((e) => e.op === 'agent.template_write');
-    expect(tplEntry?.path).toBe('templates/tpl.md');
+    expect(tplEntry?.path).toBe('system/templates/tpl.md');
     // 全て result: ok
     expect(entries.every((e) => e.result === 'ok')).toBe(true);
   });
@@ -573,7 +573,7 @@ describe('createVaultWriteTools', () => {
     const t = tool('task_set_fields');
     const res = await t.execute(
       't1',
-      { path: 'todos', line: 0, status: 'progress' },
+      { path: 'todos', line: 1, status: 'progress' },
       noSignal, noUpdate, fakeCtx,
     );
     expect(detailsOf(res).error).toBeUndefined();
@@ -591,7 +591,7 @@ describe('createVaultWriteTools', () => {
     const t = tool('task_set_fields');
     const res = await t.execute(
       't1',
-      { path: 'todos', line: 0, priority: 'high', due: '2026-08-01' },
+      { path: 'todos', line: 1, priority: 'high', due: '2026-08-01' },
       noSignal, noUpdate, fakeCtx,
     );
     expect(detailsOf(res).error).toBeUndefined();
@@ -609,7 +609,7 @@ describe('createVaultWriteTools', () => {
     const t = tool('task_set_fields');
     const res = await t.execute(
       't1',
-      { path: 'todos', line: 0, status: null, due: null },
+      { path: 'todos', line: 1, status: null, due: null },
       noSignal, noUpdate, fakeCtx,
     );
     expect(detailsOf(res).error).toBeUndefined();
@@ -627,7 +627,7 @@ describe('createVaultWriteTools', () => {
     const t = tool('task_set_fields');
     const res = await t.execute(
       't1',
-      { path: 'todos', line: 0, status: 'done' },
+      { path: 'todos', line: 1, status: 'done' },
       noSignal, noUpdate, fakeCtx,
     );
     expect(detailsOf(res).error).toBe(true);
@@ -654,7 +654,7 @@ describe('createVaultWriteTools', () => {
     const t = tool('task_set_fields');
     const res = await t.execute(
       't1',
-      { path: 'nonexistent', line: 0, status: 'done' },
+      { path: 'nonexistent', line: 1, status: 'done' },
       noSignal, noUpdate, fakeCtx,
     );
     expect(detailsOf(res).error).toBe(true);
@@ -670,7 +670,7 @@ describe('createVaultWriteTools', () => {
     const t = tool('task_set_fields');
     await t.execute(
       't1',
-      { path: 'todos', line: 0, status: 'progress' },
+      { path: 'todos', line: 1, status: 'progress' },
       noSignal, noUpdate, fakeCtx,
     );
     const entries = await readAudit(vaultRoot);

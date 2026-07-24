@@ -6,7 +6,7 @@
  * ピュア Markdown 出力・normalizeVaultPath・.loamium/audit.log・[[リンク]] を
  * 自動継承する。エージェント専用の書き込み実装は新設しない (二重管理の排除)。
  *
- * - Template 作成 = templates/ 配下に規定 frontmatter を持つ**通常ノート**を書く。
+ * - Template 作成 = system/templates/ 配下に規定 frontmatter を持つ**通常ノート**を書く。
  * - DataView 作成 = ノート本文に ```dataview フェンスを書く。
  * どちらも新フォーマットではない。ブロック ID・独自記法・非 Markdown 構造は書かない。
  *
@@ -250,13 +250,13 @@ export function createVaultWriteTools(
         description:
           'ノート内の特定行のタスクに Dataview インラインフィールド (status / priority / due) を ' +
           '設定または削除する (ADR-0029)。チェックボックス文字 ([x] / [ ]) はこのツールでは変更しない。\n' +
-          '- line: 0-indexed 行番号 (task_query / dql_query の "line" フィールドと対応)\n' +
+          '- line: 1-indexed 行番号。query ツールの TASK 出力に付く L<n> をそのまま渡す\n' +
           '- status/priority/due: 設定する値。null を渡すとフィールドを削除する。省略 (undefined) は変更なし\n' +
           '- 行が存在しない / タスク行でない場合はエラー\n' +
           '- 書き込みは patchNote を経由するため audit.log に記録される (ADR-0016)',
         parameters: Type.Object({
           path: Type.String({ description: 'vault 相対パス (既存ノート)' }),
-          line: Type.Number({ description: '変更対象の 0-indexed 行番号 (task_query の line フィールド)' }),
+          line: Type.Number({ description: '変更対象の 1-indexed 行番号 (query の TASK 出力の L<n> と一致)' }),
           status: Type.Optional(
             Type.Union([Type.String(), Type.Null()], {
               description: '設定する status 値 (null でフィールド削除)',
@@ -286,11 +286,13 @@ export function createVaultWriteTools(
             });
           }
           const lines = content.split('\n');
-          const lineIdx = Math.trunc(params.line);
+          // line は 1-indexed (query の TASK 出力 L<n> / extract.ts と統一)。配列は 0-indexed。
+          const lineNo = Math.trunc(params.line);
+          const lineIdx = lineNo - 1;
           const rawLine: string | undefined = lines[lineIdx];
-          if (lineIdx < 0 || lineIdx >= lines.length || rawLine === undefined) {
+          if (lineNo < 1 || lineIdx >= lines.length || rawLine === undefined) {
             return textResult(
-              `行番号が範囲外です: ${String(lineIdx)} (行数: ${String(lines.length)})`,
+              `行番号が範囲外です: ${String(lineNo)} (1-indexed、行数: ${String(lines.length)})`,
               { error: true },
             );
           }
@@ -298,7 +300,7 @@ export function createVaultWriteTools(
           // タスク行かどうか (- [ ] / - [x] 形式) を確認する
           if (!/^\s*-\s+\[[^\]]\]/.test(oldLine)) {
             return textResult(
-              `指定行はタスク行ではありません (行 ${String(lineIdx)}): ${oldLine.slice(0, 80)}`,
+              `指定行はタスク行ではありません (行 ${String(lineNo)}): ${oldLine.slice(0, 80)}`,
               { error: true },
             );
           }
@@ -564,12 +566,14 @@ export function createVaultWriteTools(
         name: 'template_write',
         label: 'テンプレート作成/更新',
         description:
-          'templates/ 配下にテンプレートノートを作成する。frontmatter は通常の Markdown ' +
-          'YAML フロントマター (独自記法なし)。body はピュア Markdown。既定では既存テンプレートを' +
-          '上書きしない (overwrite:true を指定したときのみ既存を上書きする)。',
+          'system/templates/ 配下にテンプレートノートを作成する (テンプレートの正本の場所。' +
+          'templates_list / template_instantiate はここを読む)。frontmatter は通常の Markdown ' +
+          'YAML (独自記法なし)。body はピュア Markdown。日付は body に {{date:YYYY-MM-DD}} と書く ' +
+          '({{date}} だけでは展開されない)。name を "journal" にするとデイリージャーナル生成時に自動適用。' +
+          '既定では既存を上書きしない (overwrite:true 指定時のみ上書き)。詳細は help トピック "template"。',
         parameters: Type.Object({
-          name: Type.String({ description: 'テンプレート名 (例: "meeting")。templates/<name>.md に作成' }),
-          body: Type.String({ description: 'テンプレート本文 (ピュア Markdown)' }),
+          name: Type.String({ description: 'テンプレート名 (例: "meeting")。system/templates/<name>.md に作成。"journal" はデイリージャーナルに自動適用される特別名' }),
+          body: Type.String({ description: 'テンプレート本文 (ピュア Markdown)。日付は {{date:YYYY-MM-DD}} 等 (help "template" 参照)' }),
           frontmatter: Type.Optional(
             Type.Record(
               Type.String(),
@@ -584,9 +588,9 @@ export function createVaultWriteTools(
           ),
         }),
         async execute(_id, params): Promise<ToolResult> {
-          // templates/<name>.md を組み立てる。name 自体もパス検証を通す
-          // (`../` や `templates/..` 脱出、隠しセグメントを拒否)。
-          const resolved = resolveWritablePath(`templates/${params.name}`, isDenied);
+          // system/templates/<name>.md を組み立てる。name 自体もパス検証を通す
+          // (`../` 脱出、隠しセグメントを拒否)。テンプレートの正本は system/templates/ のみ。
+          const resolved = resolveWritablePath(`system/templates/${params.name}`, isDenied);
           if (!resolved.ok) return resolved.result;
           // 規定 frontmatter (type: template) を必ず付与し、呼び出し側指定をマージする。
           const fm: Record<string, string | number | boolean> = {
@@ -631,14 +635,14 @@ export function createVaultWriteTools(
         name: 'template_delete',
         label: 'テンプレート削除',
         description:
-          'templates/ 配下のテンプレートノート (templates/<name>.md) を削除する ' +
+          'system/templates/ 配下のテンプレートノート (system/templates/<name>.md) を削除する ' +
           '(DELETE /api/notes/{path} と同一のサービス層)。**この操作は不可逆です**。' +
           '存在しない name はエラーにせず「削除対象なし」を返す。機密領域 (deny) は拒否する。',
         parameters: Type.Object({
           name: Type.String({ description: '削除するテンプレート名' }),
         }),
         async execute(_id, params): Promise<ToolResult> {
-          const resolved = resolveWritablePath(`templates/${params.name}`, isDenied);
+          const resolved = resolveWritablePath(`system/templates/${params.name}`, isDenied);
           if (!resolved.ok) return resolved.result;
           const { deleted } = await deleteNoteFile(config, resolved.rel);
           if (!deleted) {

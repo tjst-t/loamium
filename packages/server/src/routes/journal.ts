@@ -11,8 +11,8 @@
  * read-only モードでは自動生成せず、テンプレート適用済みの仮想ジャーナルを返す (ファイルを書かない)。
  * 既存ジャーナルは上書きしない (冪等)。
  *
- * Sa10026-2-2: テンプレートは system/templates/journal.md を優先し、
- * 存在しない場合は templates/journal.md (旧パス後方互換) にフォールバックする。
+ * デイリージャーナルのテンプレートは system/templates/journal.md のみ
+ * (旧 templates/journal.md フォールバックは廃止)。無ければ空ファイルで生成する。
  */
 import { Hono } from 'hono';
 import {
@@ -22,7 +22,6 @@ import {
   journalAppendRequestSchema,
   journalDateToLocalDate,
   journalPath,
-  JOURNAL_TEMPLATE_PATH,
   SYSTEM_TEMPLATES_DIR,
   parseNote,
   todayJournalDate,
@@ -49,13 +48,11 @@ export function journalRoutes(config: ServerConfig): Hono<AppEnv> {
     let mtime: number | null = null;
     if (content === null) {
       // 遅延生成の本文を既定 journal テンプレートから解決する (S67ea41-1)。
-      // Sa10026-2-2: system/templates/journal.md を優先、fallback: templates/journal.md
+      // テンプレートの正本は system/templates/journal.md のみ (旧 templates/ フォールバックは廃止)。
       // テンプレートが無ければ従来どおり空ファイル(後方互換 — AC1)。
       // {{date:...}} は対象日基準で展開する(明日/過去日ジャーナルも対象日 — AC2)。
       const systemJournalTemplate = `${SYSTEM_TEMPLATES_DIR}/journal.md`;
-      const template =
-        (await readNote(config.vaultRoot, systemJournalTemplate)) ??
-        (await readNote(config.vaultRoot, JOURNAL_TEMPLATE_PATH));
+      const template = await readNote(config.vaultRoot, systemJournalTemplate);
       content =
         template !== null
           ? applyJournalTemplate(template, { date: journalDateToLocalDate(date), now: new Date() })

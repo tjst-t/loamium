@@ -84,7 +84,7 @@ export function createVaultReadTools(
     description:
       'Loamium DQL (LIST / TABLE / TASK) でノートをクエリする。フィルタ・ソート・タグ絞り込みが可能。',
     parameters: Type.Object({
-      dql: Type.String({ description: 'DQL クエリ文字列 (例: LIST FROM #tag, TABLE title WHERE folder = "project")' }),
+      dql: Type.String({ description: 'DQL クエリ文字列 (例: LIST FROM #project / TABLE file.name, tags WHERE file.folder = "projects" / TASK WHERE status = "todo")。組み込みフィールドは file.name / file.folder / file.path / file.mtime / tags / file.tasks / file.open_tasks。裸の title・folder は frontmatter 参照になる点に注意。詳細は help "dql"' }),
     }),
     async execute(_toolCallId, params): Promise<{ content: { type: 'text'; text: string }[]; details: ToolDetails }> {
       let result;
@@ -123,10 +123,14 @@ export function createVaultReadTools(
         if (tasks.length === 0) {
           return textResult('クエリに一致するタスクはありませんでした。', { count: 0 });
         }
+        // L<n> は 1-indexed 行番号。そのまま task_set_fields の `line` に渡せる。
         const lines = tasks.map(
-          (t) => `- [${t.checked ? 'x' : ' '}] ${t.text} ([[${t.path.replace(/\.md$/, '')}]])`,
+          (t) => `- [${t.checked ? 'x' : ' '}] L${String(t.line)} ${t.text} ([[${t.path.replace(/\.md$/, '')}]])`,
         );
-        return textResult(`タスク (${String(tasks.length)} 件):\n${lines.join('\n')}`, { count: tasks.length });
+        return textResult(
+          `タスク (${String(tasks.length)} 件) — L<n> は 1-indexed 行番号 (task_set_fields の line に渡せる):\n${lines.join('\n')}`,
+          { count: tasks.length },
+        );
       }
     },
   });

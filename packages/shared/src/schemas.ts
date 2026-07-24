@@ -562,8 +562,9 @@ export type HealthResponse = z.infer<typeof healthResponseSchema>;
  * - endpoint: GET で `?q=<query>` を付けて叩く検索 API の URL。
  * - apiKey  : 任意。指定時は `Authorization: Bearer <apiKey>` で送る ($ENV_VAR 参照可)。
  *
- * 未設定 (undefined) は許容 — web が有効でも web_search は「未設定」を明示する
- * (エラーにしない、AC-S5e0206-1-2)。
+ * 未設定 (undefined) は許容 — web が有効で webSearch 未設定のときは、web_search ツールが
+ * 組み込み既定プロバイダ (DuckDuckGo lite → 失敗時 Wikipedia) にフォールバックする
+ * (エラーにしない)。カスタム検索 API を使う場合のみ endpoint を設定する。
  */
 export const agentWebSearchSchema = z.object({
   endpoint: z.string().min(1, 'webSearch.endpoint must not be empty'),
@@ -605,7 +606,7 @@ export const agentConfigSchema = z.object({
   permissions: agentPermissionsSchema.optional(),
   /**
    * Web 検索プロバイダ設定 (ADR-0017)。web ケーパビリティ有効時に web_search が使う。
-   * 未指定は許容 (web_search は未設定を明示メッセージで返す)。
+   * 未指定は許容 (web_search は組み込み既定プロバイダ DuckDuckGo lite → Wikipedia を使う)。
    */
   webSearch: agentWebSearchSchema.optional(),
 });

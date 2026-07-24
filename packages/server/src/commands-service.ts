@@ -6,7 +6,7 @@
  * 純関数として置く。エージェント専用の独自実行ロジックは新設しない (二重管理の排除)。
  *
  * ここに集約する純関数:
- *   - listAllCommandFiles : GET /api/commands と同一の system/ 優先 + legacy fallback 列挙。
+ *   - listAllCommandFiles : GET /api/commands と同一の system/commands/ 列挙 (フォールバックなし)。
  *   - summaryFor          : 1 ファイル → CommandSummary (寛容: 壊れは valid:false)。
  *   - runCommand          : POST /api/commands/{name}/run と同一のステップ実行エンジン
  *                           (ADR-0021 fail-stop / 権限モード / 監査 / パス検証)。
@@ -51,21 +51,15 @@ import { firstFreePath } from './vault-paths.js';
 import { applyPropSet, applyNotePatch } from './routes/notes.js';
 import { runAgentJob } from './agent-job-runner.js';
 
-/** 旧パス (後方互換フォールバック) */
-const LEGACY_COMMANDS_DIR = 'commands';
-const LEGACY_COMMANDS_PREFIX = `${LEGACY_COMMANDS_DIR}/`;
 const SYSTEM_COMMANDS_PREFIX = `${SYSTEM_COMMANDS_DIR}/`;
 
 // ---- 列挙 / サマリ (GET /api/commands と同一経路) -------------------------------
 
-/** vault 相対パスから stem (拡張子なし) を取り出す。system/ / legacy/ 両方に対応。 */
+/** vault 相対パスから stem (拡張子なし) を取り出す。正本は system/commands/ のみ。 */
 export function stemFrom(rel: string): string {
-  let basename: string;
-  if (rel.startsWith(SYSTEM_COMMANDS_PREFIX)) {
-    basename = rel.slice(SYSTEM_COMMANDS_PREFIX.length);
-  } else {
-    basename = rel.slice(LEGACY_COMMANDS_PREFIX.length);
-  }
+  const basename = rel.startsWith(SYSTEM_COMMANDS_PREFIX)
+    ? rel.slice(SYSTEM_COMMANDS_PREFIX.length)
+    : rel.replace(/^.*\//, '');
   return basename.replace(/\.ya?ml$/i, '');
 }
 
@@ -105,26 +99,10 @@ async function listYamlFilesInDir(vaultRoot: string, dirPath: string): Promise<s
 }
 
 /**
- * system/commands/ を優先し、fallback: commands/ として全 YAML コマンドファイルを列挙する。
- * 同名コマンド (stem) は system/commands/ が shadowing する。
- * [AC-Sa10026-2-2]
+ * コマンド定義を列挙する。正本は system/commands/ のみ (旧 commands/ フォールバックは廃止)。
  */
 export async function listAllCommandFiles(vaultRoot: string): Promise<string[]> {
-  const systemFiles = await listYamlFilesInDir(vaultRoot, SYSTEM_COMMANDS_DIR);
-  const legacyFiles = await listYamlFilesInDir(vaultRoot, LEGACY_COMMANDS_DIR);
-
-  const systemStems = new Set(systemFiles.map(stemFrom));
-  const combined: string[] = [...systemFiles];
-
-  for (const f of legacyFiles) {
-    const stem = stemFrom(f);
-    if (!systemStems.has(stem)) {
-      combined.push(f); // system/ にない場合のみ追加
-    }
-  }
-
-  combined.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-  return combined;
+  return listYamlFilesInDir(vaultRoot, SYSTEM_COMMANDS_DIR);
 }
 
 /** 1 ファイルの内容から CommandSummary を組み立てる (寛容: 壊れは valid:false)。 */
@@ -182,7 +160,7 @@ export type RunCommandResult =
  * (POST /api/commands/{name}/run と同一エンジン, ADR-0021)。
  *
  * 制約継承 (REST と不変):
- *   - system/commands/ 優先 → commands/ fallback (拡張子 .yaml → .yml)。
+ *   - system/commands/ のみ (拡張子 .yaml → .yml)。旧 commands/ フォールバックは廃止。
  *   - 必須 param 不足 → missing 一覧を返し実行しない。
  *   - append-only で prop-set / note-patch / agent-run を含むコマンドは拒否。
  *   - 最初の失敗ステップで停止 (ロールバックなし)。
@@ -208,12 +186,10 @@ export async function runCommand(
   // 各書込ステップの解決・正規化後の実書込先を書き込み直前に判定し、deny なら true。
   const denied = (rel: string): boolean => isDenied !== undefined && isDenied(rel);
 
-  // 1. コマンドファイルを探す (system/commands/ 優先, fallback: commands/)。
+  // 1. コマンドファイルを探す (system/commands/ のみ。旧 commands/ フォールバックは廃止)。
   let systemBase: string;
-  let legacyBase: string;
   try {
     systemBase = normalizeVaultFilePath(`${SYSTEM_COMMANDS_DIR}/${name}`);
-    legacyBase = normalizeVaultFilePath(`${LEGACY_COMMANDS_DIR}/${name}`);
   } catch (err) {
     if (err instanceof VaultPathError) {
       return { status: 'invalid_name', message: `invalid command name: ${err.message}` };
@@ -223,17 +199,14 @@ export async function runCommand(
 
   let foundCommandPath: string | undefined;
   let foundContent: string | undefined;
-  for (const base of [systemBase, legacyBase]) {
-    for (const ext of ['.yaml', '.yml']) {
-      const candidate = `${base}${ext}`;
-      const c2 = await readNote(vaultRoot, candidate);
-      if (c2 !== null) {
-        foundCommandPath = candidate;
-        foundContent = c2;
-        break;
-      }
+  for (const ext of ['.yaml', '.yml']) {
+    const candidate = `${systemBase}${ext}`;
+    const c2 = await readNote(vaultRoot, candidate);
+    if (c2 !== null) {
+      foundCommandPath = candidate;
+      foundContent = c2;
+      break;
     }
-    if (foundCommandPath !== undefined) break;
   }
 
   if (foundCommandPath === undefined || foundContent === undefined) {
@@ -604,17 +577,12 @@ export async function runCommand(
         let templateContent: string | null = null;
 
         try {
+          // テンプレートの正本は system/templates/ のみ (旧 templates/ フォールバックは廃止)。
           const systemTemplatePath = normalizeVaultPath(
             `${SYSTEM_TEMPLATES_DIR}/${templateNameRaw}`,
           );
           templateContent = await readNote(vaultRoot, systemTemplatePath);
-          if (templateContent !== null) {
-            templatePath = systemTemplatePath;
-          } else {
-            const legacyTemplatePath = normalizeVaultPath(`templates/${templateNameRaw}`);
-            templateContent = await readNote(vaultRoot, legacyTemplatePath);
-            templatePath = legacyTemplatePath;
-          }
+          templatePath = systemTemplatePath;
         } catch (err) {
           if (err instanceof VaultPathError) {
             return {

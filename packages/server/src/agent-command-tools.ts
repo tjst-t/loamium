@@ -91,7 +91,7 @@ export function createCommandTools(
         name: 'commands_list',
         label: 'スマートコマンド一覧',
         description:
-          'vault に定義されたスマートコマンド (system/commands/*.yaml 優先, fallback: commands/*.yaml) の' +
+          'vault に定義されたスマートコマンド (system/commands/*.yaml) の' +
           '一覧を返す。各項目の id (run に使う識別子)・表示名・説明・必須 param を表示する。' +
           '壊れた定義も valid:false として一覧に含める。入力なし。',
         parameters: Type.Object({}),

@@ -7,13 +7,6 @@
 
 export const JOURNAL_DIR = 'journals';
 
-/**
- * 既定 journal テンプレートの vault 相対パス (S67ea41)。
- * templates/ 配下のピュア Markdown を正本とし、遅延生成時に適用する。
- * 存在しなければ従来どおり空ファイルで生成する(後方互換)。
- */
-export const JOURNAL_TEMPLATE_PATH = 'templates/journal.md';
-
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 export class JournalDateError extends Error {

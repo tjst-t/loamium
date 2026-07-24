@@ -102,9 +102,12 @@ export function createTemplateTools(
         description:
           '指定 name のテンプレートを解決し、変数を埋めて新規ノートを生成する ' +
           '(POST /api/templates/{name}/instantiate と同一解決エンジン)。' +
-          'vars は変数名→値マップ。date (YYYY-MM-DD) は {{date}} の基準日 (省略時は今日)。' +
-          '必須変数不足は missing 一覧を返す。保存先が衝突する場合は連番で回避する。' +
-          '結果ノートはピュア Markdown (テンプレート記法は残らない)。',
+          'vars は変数名→値マップ。date (YYYY-MM-DD) は {{date:...}} トークンの基準日 (省略時は今日)。' +
+          '本文/target の日付は {{date:YYYY-MM-DD}} と書く ({{date}} だけでは変数扱いで missing になる)。' +
+          '保存先はテンプレートの target。target 省略時はテンプレート名がファイル名になる。' +
+          '必須変数不足は missing 一覧を返す。衝突は連番で回避。結果ノートはピュア Markdown。' +
+          '変数記法の詳細は help トピック "template"。' +
+          ' (デイリージャーナルは instantiate ではなく templates/journal.md 自動適用。help "template" 参照)',
         parameters: Type.Object({
           name: Type.String({ description: 'テンプレート name (templates_list で確認)' }),
           vars: Type.Optional(
@@ -113,7 +116,7 @@ export function createTemplateTools(
             }),
           ),
           date: Type.Optional(
-            Type.String({ description: '{{date}} の基準日 (YYYY-MM-DD、省略時は今日)' }),
+            Type.String({ description: '{{date:...}} トークンの基準日 (YYYY-MM-DD、省略時は今日)' }),
           ),
         }),
         async execute(_id, params): Promise<ToolResult> {

@@ -63,8 +63,8 @@ describe('mapSeedPath', () => {
     expect(mapSeedPath('smart-folders/recent.yaml')).toBe('system/smart-folders/recent.yaml');
   });
 
-  it('templates/*.md → templates/', () => {
-    expect(mapSeedPath('templates/journal.md')).toBe('templates/journal.md');
+  it('templates/*.md → system/templates/', () => {
+    expect(mapSeedPath('templates/journal.md')).toBe('system/templates/journal.md');
   });
 
   it('index.md → samples/index.md', () => {
@@ -95,8 +95,8 @@ describe('seed()', () => {
     };
     await check('system/commands/todo-add.yaml');
     await check('system/commands/log-memo.yaml');
-    await check('templates/journal.md');
-    await check('templates/議事録.md');
+    await check('system/templates/journal.md');
+    await check('system/templates/議事録.md');
     await check('system/smart-folders/recent.yaml');
     await check('system/smart-folders/todos.yaml');
     await check('samples/index.md');
