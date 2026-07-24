@@ -7,6 +7,7 @@
  *   Git 差分を汚染しない (anacron 方式キャッチアップ対応)。
  */
 import { promises as fs } from 'node:fs';
+import { ensureDir } from './fs-utils.js';
 import path from 'node:path';
 import { agentJobSchema, type AgentJob, type AgentJobState } from '@loamium/shared';
 
@@ -68,7 +69,7 @@ export async function saveJobState(
   const file = path.join(vaultRoot, STATE_FILE);
   const dir = path.dirname(file);
   try {
-    await fs.mkdir(dir, { recursive: true });
+    await ensureDir(dir);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
   }

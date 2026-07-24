@@ -7,6 +7,7 @@
  * POST /api/agent/jobs/:name/run    ジョブ即時実行 → { ok, result, error, durationMs }
  */
 import { promises as fs } from 'node:fs';
+import { ensureDir } from '../fs-utils.js';
 import path from 'node:path';
 import { Hono } from 'hono';
 import type { ServerConfig } from '../config.js';
@@ -70,7 +71,7 @@ export function agentJobRoutes(config: ServerConfig, index: VaultIndex): Hono<Ap
     const file = path.join(config.vaultRoot, '.loamium', 'agent-jobs.json');
     const dir = path.dirname(file);
     try {
-      await fs.mkdir(dir, { recursive: true });
+      await ensureDir(dir);
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
     }

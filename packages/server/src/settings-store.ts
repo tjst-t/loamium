@@ -24,6 +24,7 @@
  * apiKey は平文保存しない ($ENV_VAR 参照名のみ保存・表示)。
  */
 import { promises as fs } from 'node:fs';
+import { ensureDir } from './fs-utils.js';
 import path from 'node:path';
 import { toLf } from '@loamium/shared';
 import {
@@ -114,7 +115,7 @@ export async function saveSettings(
     existed = false;
   }
 
-  await fs.mkdir(path.dirname(abs), { recursive: true });
+  await ensureDir(path.dirname(abs));
   const content = serializeAppSettings(settings);
   await fs.writeFile(abs, toLf(content), 'utf8');
   const st = await fs.stat(abs);
@@ -188,7 +189,7 @@ export async function saveAgentConnection(
   },
 ): Promise<void> {
   const file = agentJsonPath(vaultRoot);
-  await fs.mkdir(path.dirname(file), { recursive: true });
+  await ensureDir(path.dirname(file));
 
   // 既存ファイルを読んでマージ (permissions 等を保持)
   let existing: Record<string, unknown> = {};
@@ -299,7 +300,7 @@ export async function loadAgentPrivacyDeny(vaultRoot: string): Promise<string[]>
  */
 export async function saveAgentPrivacyDeny(vaultRoot: string, deny: string[]): Promise<void> {
   const file = agentPrivacyPath(vaultRoot);
-  await fs.mkdir(path.dirname(file), { recursive: true });
+  await ensureDir(path.dirname(file));
   await fs.writeFile(file, `${JSON.stringify({ deny }, null, 2)}\n`, 'utf8');
 }
 

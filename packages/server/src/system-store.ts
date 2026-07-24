@@ -14,6 +14,7 @@
  *   - [AC-Sa10026-1-3] vault 外脱出を resolveVaultFile + normalizeSystemPath で二重防御。
  */
 import { promises as fs } from 'node:fs';
+import { ensureDir } from './fs-utils.js';
 import path from 'node:path';
 import { toLf } from '@loamium/shared';
 import {
@@ -123,7 +124,7 @@ async function writeFileText(
   } catch {
     existed = false;
   }
-  await fs.mkdir(path.dirname(abs), { recursive: true });
+  await ensureDir(path.dirname(abs));
   await fs.writeFile(abs, toLf(content), 'utf8');
   const st = await fs.stat(abs);
   return { created: !existed, mtime: Math.trunc(st.mtimeMs) };

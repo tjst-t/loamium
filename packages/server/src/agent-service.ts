@@ -44,6 +44,7 @@
  *   - validateSessionId() を通さない sessionId はいかなる場合もパス結合しない。
  */
 import { promises as fs } from 'node:fs';
+import { ensureDir } from './fs-utils.js';
 import path from 'node:path';
 import {
   createAgentSession,
@@ -435,7 +436,7 @@ export async function createPiSession(
   }
 
   const dir = sessionDir(vaultRoot);
-  await fs.mkdir(dir, { recursive: true });
+  await ensureDir(dir);
 
   const sm = SessionManager.create(vaultRoot, dir);
 

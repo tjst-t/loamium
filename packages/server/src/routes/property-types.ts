@@ -13,7 +13,8 @@
  *   型情報は .loamium/ にのみ書き、ノート本文 (.md) には一切書かない (ピュア Markdown)。
  */
 import { Hono } from 'hono';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
+import { ensureDir } from '../fs-utils.js';
 import path from 'node:path';
 import {
   propertyTypeWriteRequestSchema,
@@ -58,7 +59,7 @@ export function propertyTypesRoutes(config: ServerConfig): Hono<AppEnv> {
     types[body.data.key] = def;
 
     // .loamium は使い捨て資源 (priority 6)。整形して人が読める JSON にする。
-    await mkdir(path.dirname(file), { recursive: true });
+    await ensureDir(path.dirname(file));
     await writeFile(file, `${JSON.stringify(types, null, 2)}\n`, 'utf8');
 
     const res: PropertyTypeWriteResponse = { key: body.data.key, types };

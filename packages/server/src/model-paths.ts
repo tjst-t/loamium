@@ -15,6 +15,7 @@
  * 一元化 = AC-S8a3f2e-1-4)。
  */
 import { promises as fs, type Dirent } from 'node:fs';
+import { ensureDir } from './fs-utils.js';
 import path from 'node:path';
 
 /** モデル種別。サブフォルダ名にそのまま使う。 */
@@ -100,11 +101,11 @@ export function modelFilePath(vaultRoot: string, kind: ModelKind, fileName: stri
 
 /**
  * 種別サブフォルダを初回アクセス時に作成し、その絶対パスを返す。
- * `fs.mkdir(..., { recursive: true })` は既存でもエラーにならない。
+ * ensureDir は既存でもエラーにならない (bun/Windows の EEXIST も握りつぶす)。
  */
 export async function ensureModelKindDir(vaultRoot: string, kind: ModelKind): Promise<string> {
   const dir = modelKindDir(vaultRoot, kind);
-  await fs.mkdir(dir, { recursive: true });
+  await ensureDir(dir);
   return dir;
 }
 

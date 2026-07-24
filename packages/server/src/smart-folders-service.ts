@@ -17,7 +17,8 @@
  *   - resolveSmartFolderNotes : GET /api/smart-folders/{id}/notes と同一の
  *                               query→executeQuery / pin→フォルダ解決ロジック。
  */
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
+import { ensureDir } from './fs-utils.js';
 import path from 'node:path';
 import { stringify as stringifyYaml } from 'yaml';
 import {
@@ -80,7 +81,7 @@ async function readLegacyConfig(vaultRoot: string): Promise<SmartViewConfig> {
  */
 async function writeLegacyConfig(vaultRoot: string, cfg: SmartViewConfig): Promise<void> {
   const file = legacyJsonPath(vaultRoot);
-  await mkdir(path.dirname(file), { recursive: true });
+  await ensureDir(path.dirname(file));
   const content = toLf(JSON.stringify(cfg, null, 2)) + '\n';
   await writeFile(file, content, 'utf8');
 }

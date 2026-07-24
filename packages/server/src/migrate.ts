@@ -18,6 +18,7 @@
  * [AC-Sa10026-2-3] 冪等・部分移行済み・二重実行に安全。
  */
 import { promises as fs } from 'node:fs';
+import { ensureDir } from './fs-utils.js';
 import path from 'node:path';
 import { stringify as stringifyYaml } from 'yaml';
 import { toLf, smartViewConfigSchema } from '@loamium/shared';
@@ -55,7 +56,7 @@ async function dirExists(absPath: string): Promise<boolean> {
 }
 
 async function writeUtf8Lf(absPath: string, content: string): Promise<void> {
-  await fs.mkdir(path.dirname(absPath), { recursive: true });
+  await ensureDir(path.dirname(absPath));
   await fs.writeFile(absPath, toLf(content), 'utf8');
 }
 

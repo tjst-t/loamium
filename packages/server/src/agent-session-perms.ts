@@ -12,6 +12,7 @@
  * このファイルは sessionId をパス結合しない (JSON オブジェクトのキーとしてのみ使う)。
  */
 import { promises as fs } from 'node:fs';
+import { ensureDir } from './fs-utils.js';
 import path from 'node:path';
 import { z } from 'zod';
 import { AGENT_CAPABILITIES, type Capability } from '@loamium/shared';
@@ -58,7 +59,7 @@ export async function saveSessionPerms(
   caps: Capability[],
 ): Promise<void> {
   const dir = path.join(vaultRoot, '.loamium');
-  await fs.mkdir(dir, { recursive: true });
+  await ensureDir(dir);
   const current = await readPermsFile(vaultRoot);
   current[sessionId] = caps;
   await fs.writeFile(permsFilePath(vaultRoot), `${JSON.stringify(current, null, 2)}\n`, 'utf8');
