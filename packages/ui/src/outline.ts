@@ -45,7 +45,6 @@ import {
   type TaskVocabRequired,
 } from '@loamium/shared';
 import { api } from './api.js';
-import { notePathFacet } from './live-preview.js';
 import { renumberChangesForRange } from './list-renumber.js';
 import { convertListToBullet, convertListToOrdered } from './list-convert-cmd.js';
 
@@ -891,7 +890,7 @@ async function openCheckboxFieldsPopover(
   setTimeout(() => document.addEventListener('mousedown', closeOnOutside), 0);
 }
 
-async function applyCheckboxFields(
+function applyCheckboxFields(
   view: EditorView,
   lineNo: number,
   lineText: string,
@@ -899,12 +898,8 @@ async function applyCheckboxFields(
   priority: string | null,
   due: string | null,
   pop: HTMLElement,
-): Promise<void> {
-  const notePath = view.state.facet(notePathFacet);
-  if (notePath.length === 0) { pop.remove(); return; }
-
+): void {
   let newLine = lineText;
-  // status
   const curFields = extractInlineFields(lineText);
   if (status !== curFields.status) {
     newLine = setInlineField(newLine, 'status', status ?? undefined);
@@ -915,24 +910,21 @@ async function applyCheckboxFields(
   if (due !== curFields.due) {
     newLine = setInlineField(newLine, 'due', due ?? undefined);
   }
-  if (newLine === lineText) { pop.remove(); return; }
-
   pop.remove();
-  try {
-    await api.patchNote(notePath, lineText, newLine);
-    // 成功時: ドキュメントの該当行を更新 (エディタのバッファも同期)
-    const state = view.state;
-    const line = state.doc.line(lineNo);
-    if (line.text === lineText) {
-      view.dispatch({
-        changes: { from: line.from, to: line.to, insert: newLine },
-        userEvent: 'input.update-task-fields',
-      });
-    }
-  } catch (err: unknown) {
-    // 409: ambiguous — ステータスバーには表示しない (シンプルに無視)
-    void err;
-  }
+  if (newLine === lineText) return;
+
+  // 開いているノートは CodeMirror バッファが唯一の正本。ここで api.patchNote を呼んで
+  // ディスクを直接書くと、エディタの既知 mtime とずれて「保存の競合」ダイアログが出る上、
+  // 変更が開いている画面へ即反映されない。そのためバッファの該当行を直接書き換え、
+  // 通常の自動保存フローで永続化する (開いているファイルを編集する)。
+  const state = view.state;
+  if (lineNo < 1 || lineNo > state.doc.lines) return;
+  const line = state.doc.line(lineNo);
+  if (line.text !== lineText) return; // 行が動いた/変わった → 安全に何もしない
+  view.dispatch({
+    changes: { from: line.from, to: line.to, insert: newLine },
+    userEvent: 'input.update-task-fields',
+  });
 }
 
 // ---- スラッシュメニュー /task 用 クイック設定ポップオーバー (Se3b7a2-7) --------

@@ -132,6 +132,44 @@ test('[MOCK][Se3b7a2-2] ポップオーバーにステータスオプション�
   await expect(page.getByTestId('status-opt-todo')).toBeVisible();
 });
 
+test('[MOCK][Bug] タスクフィールド適用は開いているバッファを編集し、ディスクへ直接 patch しない', async ({ page }) => {
+  await openWithTaskLine(page, '- [ ] タスクH [status:: todo]');
+  // vocab (progress を含む) と patch 検知を open の後に登録して優先させる
+  await page.route('**/api/settings/tasks', (route) => {
+    if (route.request().method() === 'GET') {
+      void route.fulfill(json({
+        vocab: {
+          statuses: [
+            { key: 'todo', label: 'TODO', color: '#64748b' },
+            { key: 'progress', label: 'Progress', color: '#2563eb' },
+          ],
+          priorities: [],
+        },
+      }));
+    } else {
+      void route.fallback();
+    }
+  });
+  let patchCalled = false;
+  await page.route('**/api/notes/**/patch', (route) => {
+    patchCalled = true;
+    void route.fulfill(json({ ok: true, path: JOURNAL_PATH, mtime: 3000 }));
+  });
+
+  await clickAnchorLine(page);
+  const trigger = page.getByTestId('checkbox-fields-trigger').first();
+  await trigger.waitFor({ timeout: 3000 });
+  await trigger.click({ force: true });
+  await expect(page.getByTestId('checkbox-fields-popover')).toBeVisible({ timeout: 3000 });
+  await page.getByTestId('status-opt-progress').dispatchEvent('click');
+  await page.getByTestId('checkbox-fields-apply').dispatchEvent('click');
+
+  // 開いているバッファが即時更新され、pill が Progress を表示する (エディタを編集する)
+  await expect(page.getByTestId('status-pill').first()).toContainText('Progress', { timeout: 3000 });
+  // out-of-band な /patch (ディスク直書き) は発生しない = 保存競合ダイアログの原因を断つ
+  expect(patchCalled).toBe(false);
+});
+
 test('[MOCK][Se3b7a2-2] ポップオーバーキャンセルで閉じる', async ({ page }) => {
   await openWithTaskLine(page, '- [ ] タスクF');
   await clickAnchorLine(page);
