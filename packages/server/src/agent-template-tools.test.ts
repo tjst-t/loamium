@@ -9,12 +9,18 @@
  *     - 未検出 → not-found テキスト。
  *     - 衝突 → firstFreePath で連番回避。
  *   ケーパビリティ帰属: templates_list は read、template_instantiate は template_write 再利用。
+ *
+ * [AC-S1bd397-2-agent] template_instantiate 経由の select+optionsQuery 厳格検証:
+ *   - vaultIndex を渡した場合: 候補外 → invalid_select_value 相当で拒否 / 候補内 → 成功。
+ *   - text+optionsQuery の var は候補外でも自由入力として受理。
+ *   - vaultIndex を渡さない場合: 後方互換で検証スキップ (任意の値を通す)。
  */
 import { describe, expect, it, beforeEach } from 'vitest';
 import { tmpdir } from 'node:os';
 import { mkdtemp, readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { createTemplateTools } from './agent-template-tools.js';
+import { VaultIndex } from './noteIndex.js';
 import type { ServerConfig } from './config.js';
 import type { Capability } from '@loamium/shared';
 
@@ -268,5 +274,128 @@ describe('createTemplateTools', () => {
     );
     expect(detailsOf(result).created).toBe(true);
     expect(await readVaultNote(vaultRoot, 'notes/ok.md')).toContain('# body');
+  });
+
+  // ---- [AC-S1bd397-2-agent] template_instantiate 経由の select+optionsQuery 厳格検証 ----
+
+  describe('[AC-S1bd397-2-agent] select+optionsQuery 厳格検証 — agent 経路 (template_instantiate)', () => {
+    let vaultRootQ: string;
+    let vaultIndex: VaultIndex;
+
+    beforeEach(async () => {
+      vaultRootQ = await mkdtemp(path.join(tmpdir(), 'loamium-agent-tpl-optionsquery-'));
+      vaultIndex = new VaultIndex(vaultRootQ);
+
+      // #project ノートを 2 件シード
+      await mkdir(path.join(vaultRootQ, 'projects'), { recursive: true });
+      await writeFile(
+        path.join(vaultRootQ, 'projects', 'loamium.md'),
+        '---\ntags: [project]\n---\n# loamium\n',
+        'utf8',
+      );
+      await writeFile(
+        path.join(vaultRootQ, 'projects', 'webapp.md'),
+        '---\ntags: [project]\n---\n# webapp\n',
+        'utf8',
+      );
+      await vaultIndex.build();
+
+      // select+optionsQuery を持つテンプレート (epic-optionsquery.md)
+      await mkdir(path.join(vaultRootQ, 'system', 'templates'), { recursive: true });
+      await writeFile(
+        path.join(vaultRootQ, 'system', 'templates', 'epic-optionsquery.md'),
+        [
+          '---',
+          'loamium-template:',
+          '  description: Epic テンプレート (agent optionsQuery テスト)',
+          '  target: "projects/{{プロジェクト名}}/epics/{{Epic名}}"',
+          '  vars:',
+          '    - name: プロジェクト名',
+          '      type: select',
+          '      required: true',
+          '      optionsQuery: "LIST FROM #project"',
+          '    - name: Epic名',
+          '      type: text',
+          '      required: true',
+          '---',
+          '# {{Epic名}}',
+          '',
+          'プロジェクト: {{プロジェクト名}}',
+        ].join('\n'),
+        'utf8',
+      );
+    });
+
+    function toolWithIndex(
+      name: string,
+      caps: Capability[] = ALL_CAPS,
+      isDenied: (relPath: string) => boolean = denyNone,
+    ) {
+      const config: ServerConfig = { vaultRoot: vaultRootQ, mode: 'full', maxUploadBytes: 1024 };
+      const tools = createTemplateTools(config, isDenied, caps, vaultIndex);
+      const t = tools.find((x) => x.name === name);
+      if (!t) throw new Error(`tool not generated: ${name}`);
+      return t;
+    }
+
+    it('[AC-S1bd397-2-agent-1] select+optionsQuery の候補外の値 → 候補外エラーテキストで拒否', async () => {
+      const result = await toolWithIndex('template_instantiate').execute(
+        'c',
+        { name: 'epic-optionsquery', vars: { プロジェクト名: '存在しないプロジェクト', Epic名: 'テストEpic' } },
+        undefined,
+        undefined,
+        fakeCtx,
+      );
+      expect(detailsOf(result).error).toBe(true);
+      // invalid_select_value ケース: 候補外エラーテキストを確認
+      expect(textOf(result)).toContain('候補外');
+      expect(textOf(result)).toContain('プロジェクト名');
+      // ノートは作られない
+      await expect(
+        readVaultNote(vaultRootQ, 'projects/存在しないプロジェクト/epics/テストEpic.md'),
+      ).rejects.toThrow();
+    });
+
+    it('[AC-S1bd397-2-agent-2] select+optionsQuery の候補内の値 → 成功 (ノート作成)', async () => {
+      const result = await toolWithIndex('template_instantiate').execute(
+        'c',
+        { name: 'epic-optionsquery', vars: { プロジェクト名: 'loamium', Epic名: 'DQL機能' } },
+        undefined,
+        undefined,
+        fakeCtx,
+      );
+      expect(detailsOf(result).created).toBe(true);
+      expect(detailsOf(result).path).toBe('projects/loamium/epics/DQL機能.md');
+    });
+
+    it('[AC-S1bd397-2-agent-3] text+optionsQuery の var は候補外でも自由入力として受理', async () => {
+      // Epic名は type:text なので optionsQuery があっても候補外 OK
+      const result = await toolWithIndex('template_instantiate').execute(
+        'c',
+        { name: 'epic-optionsquery', vars: { プロジェクト名: 'webapp', Epic名: '全く新しいEpic名' } },
+        undefined,
+        undefined,
+        fakeCtx,
+      );
+      expect(detailsOf(result).created).toBe(true);
+    });
+
+    it('[AC-S1bd397-2-agent-4] vaultIndex を渡さない場合は検証スキップ (後方互換: 任意の値を通す)', async () => {
+      // vaultIndex なし → instantiateTemplate に undefined を渡す → 候補解決不可 → 検証スキップ
+      const config: ServerConfig = { vaultRoot: vaultRootQ, mode: 'full', maxUploadBytes: 1024 };
+      const tools = createTemplateTools(config, denyNone, ALL_CAPS /* vaultIndex 省略 */);
+      const t = tools.find((x) => x.name === 'template_instantiate');
+      if (!t) throw new Error('tool not generated: template_instantiate');
+      const result = await t.execute(
+        'c',
+        { name: 'epic-optionsquery', vars: { プロジェクト名: '候補外でも通る', Epic名: 'テスト' } },
+        undefined,
+        undefined,
+        fakeCtx,
+      );
+      // vaultIndex なしで候補解決できないので検証スキップ → ok
+      expect(detailsOf(result).error).toBeUndefined();
+      expect(detailsOf(result).created).toBe(true);
+    });
   });
 });
