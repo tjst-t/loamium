@@ -550,10 +550,12 @@ a { color: var(--link); text-decoration: none; }
    cm-line スコープに閉じるため .cm-scroller のジオメトリは乱さない (block widget 横スクロール回避)。
    既存の左パディング 6px は維持する (padding は個別プロパティで上書き)。 */
 .editor-host .cm-line.cm-list-line {
-  /* 本文行の横 padding が 0 になったのに合わせ、ぶら下げは --hang のみ(旧: 6px + --hang)。
-     マーカー(1 行目)は他の本文行と同じ左端に、折り返し 2 行目以降は本文開始位置(--hang)へ。 */
-  padding-inline-start: var(--hang, 0ch);
-  text-indent: calc(-1 * var(--hang, 0ch));
+  /* ぶら下げインデント: 折り返し 2 行目以降を本文開始位置 (--hang) にそろえ、1 行目のマーカーは
+     行左端に置く。text-indent は使わない — CodeMirror の drawSelection / 矩形選択は text-indent を
+     座標計算に含めず、カーソルずれやマーカーのはみ出しを招くため (discuss.CodeMirror の推奨手法)。
+     代わりに border-inline-start(透明)で全行を --hang 分右へ寄せ (border-box まで届くアクティブ行
+     背景でハイライトされる)、下の ::before(負マージン)で 1 行目だけ左へ戻してマーカーを行左端に置く。 */
+  border-inline-start: var(--hang, 0ch) solid transparent;
   /* S6848dc-1 fix: スペースなしの長い連続トークン (URL・英字列など) が、リストマーカー widget +
      先頭スペース + break-spaces の折返し挙動により「マーカーだけ 1 行目・トークンは次行送り」に
      なる不具合を防ぐ。break-all で任意文字位置に折り返し、トークンをマーカー行から流し始める
@@ -561,6 +563,12 @@ a { color: var(--link); text-decoration: none; }
      実機計測: firstLineTokenWidth 8px→638px でマーカー行に収まることを確認。 */
   overflow-wrap: anywhere;
   word-break: break-all;
+}
+/* 1 行目 (マーカー行) だけを border 分だけ左へ戻し行左端にそろえる。折り返し行には ::before が
+   付かないので --hang のぶら下げ位置のまま残る。text-indent を使わない CM 安全なぶら下げ実装。 */
+.editor-host .cm-line.cm-list-line::before {
+  content: '';
+  margin-inline-start: calc(-1 * var(--hang, 0ch));
 }
 .editor-host .cm-activeLine { background: var(--editor-active-line); }
 .editor-host .cm-cursor { border-left-color: var(--accent); border-left-width: 1.5px; }
