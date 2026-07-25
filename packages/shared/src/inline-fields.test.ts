@@ -4,7 +4,29 @@
  * [AC-Se3b7a2-1-4]
  */
 import { describe, expect, it } from 'vitest';
-import { extractInlineFields, setInlineField } from './inline-fields.js';
+import { extractInlineFields, setInlineField, stripInlineFields } from './inline-fields.js';
+
+describe('stripInlineFields', () => {
+  it('末尾の [status:: ...] [priority:: ...] [due:: ...] を除去する', () => {
+    expect(
+      stripInlineFields('aaa [status:: todo] [priority:: highest] [due:: 2026-07-27]'),
+    ).toBe('aaa');
+  });
+
+  it('テキスト中間のフィールドを除去し、余分な空白を畳む', () => {
+    expect(stripInlineFields('aaa [status:: todo] aaa')).toBe('aaa aaa');
+  });
+
+  it('フィールドが無ければそのまま返す', () => {
+    expect(stripInlineFields('ふつうのタスク')).toBe('ふつうのタスク');
+  });
+
+  it('インラインコード内の [key:: value] は除去しない', () => {
+    expect(stripInlineFields('コード `[status:: x]` は残す [status:: done]')).toBe(
+      'コード `[status:: x]` は残す',
+    );
+  });
+});
 
 describe('extractInlineFields', () => {
   // ---- AC-Se3b7a2-1-4 (a): status + priority + due 付き行で全フィールド取得 ----

@@ -64,6 +64,7 @@ export {
 } from './extract.js';
 export {
   extractInlineFields,
+  stripInlineFields,
   setInlineField,
   type InlineFields,
 } from './inline-fields.js';

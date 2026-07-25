@@ -101,6 +101,36 @@ export function extractInlineFields(line: string): InlineFields {
   return { status, priority, due };
 }
 
+// ---- stripInlineFields ---------------------------------------------------------
+
+/**
+ * 行テキストから `[key:: value]` インラインフィールドをすべて除去した「表示用テキスト」を返す。
+ *
+ * - インラインコード (`...`) 内のフィールドは除去しない (extractInlineFields と同じ判定)。
+ * - 除去で生じた連続空白は 1 個に畳み、前後の余分な空白を落とす。
+ * - 元の行 (patch の照合に使う row.text 等) は変更せず、**描画時のみ** 使うこと。
+ *
+ * 用途: DataView の TASK 行など、status/priority/due をチップで表示する場面で、
+ * 生の `[status:: ...]` がテキストに二重表示されるのを防ぐ。
+ */
+export function stripInlineFields(line: string): string {
+  const scan = blankInlineCode(line);
+  INLINE_FIELD_RE.lastIndex = 0;
+  const ranges: Array<[number, number]> = [];
+  let m: RegExpExecArray | null;
+  while ((m = INLINE_FIELD_RE.exec(scan)) !== null) {
+    ranges.push([m.index, m.index + m[0].length]);
+  }
+  if (ranges.length === 0) return line;
+  let out = line;
+  // 後ろから削って index を保つ
+  for (let i = ranges.length - 1; i >= 0; i--) {
+    const [s, e] = ranges[i] ?? [0, 0];
+    out = out.slice(0, s) + out.slice(e);
+  }
+  return out.replace(/[ \t]{2,}/g, ' ').trim();
+}
+
 // ---- setInlineField -----------------------------------------------------------
 
 /**
