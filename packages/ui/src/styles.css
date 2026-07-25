@@ -831,12 +831,12 @@ kbd {
   color: var(--text);
 }
 .btn:hover { background: var(--bg-hover); }
-.btn.primary {
+.btn.primary, .btn.btn-primary {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
 }
-.btn.primary:hover { background: var(--accent-hover); }
+.btn.primary:hover, .btn.btn-primary:hover { background: var(--accent-hover); }
 .btn.danger {
   background: var(--danger);
   border-color: var(--danger);
@@ -6375,7 +6375,7 @@ button.callout-title { cursor: pointer; }
 .settings-field { margin-bottom: 16px; }
 .settings-field > label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; }
 .settings-field .hint { font-size: 11.5px; color: var(--text-muted); margin: 4px 0 0; }
-.settings-field input[type="text"], .settings-field select {
+.settings-field input[type="text"], .settings-field input[type="password"], .settings-field select {
   width: 100%; box-sizing: border-box; font: inherit; font-size: 13px;
   padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: 8px;
   background: var(--bg-app); color: var(--text);

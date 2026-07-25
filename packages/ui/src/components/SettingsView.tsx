@@ -91,10 +91,13 @@ function IconPrivacy(): JSX.Element {
 }
 
 function IconSync(): JSX.Element {
+  // 2 本の円環矢印 (refresh-cw 相当) — 同期をひと目で伝える
   return (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M13 8A5 5 0 103 8" />
-      <path d="M1 6l2 2 2-2M15 10l-2-2-2 2" />
+      <path d="M2.4 8a5.6 5.6 0 0 1 9.5-4L13.6 5.7" />
+      <path d="M13.6 2.1v3.6h-3.6" />
+      <path d="M13.6 8a5.6 5.6 0 0 1-9.5 4L2.4 10.3" />
+      <path d="M2.4 13.9v-3.6h3.6" />
     </svg>
   );
 }
