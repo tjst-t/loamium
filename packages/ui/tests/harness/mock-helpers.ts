@@ -78,6 +78,31 @@ export async function installCatchAll(page: Page): Promise<string[]> {
   await page.route('**/api/property-keys', (route) => {
     void route.fulfill(json({ keys: [] }));
   });
+  // GET /api/sync/status (Se29635-4 同期インジケータ) はヘッダ常設のため全ページで定常呼び出し。
+  // 既定は「git 不在 / リモート未設定」の無害な状態を返す。available:false のため
+  // インジケータはフォーカス pull / ブラー flush を発火しない (追加の unexpected 呼び出しが出ない)。
+  // 同期状態を検証するテストは後から自前の route で上書きする (Playwright は後勝ち)。
+  await page.route('**/api/sync/status', (route) => {
+    void route.fulfill(
+      json({
+        available: false,
+        remoteConfigured: false,
+        branch: null,
+        lastSyncAt: null,
+        lastError: null,
+        ahead: 0,
+        behind: 0,
+        dirty: false,
+        offline: false,
+        conflicted: false,
+        queued: 0,
+      }),
+    );
+  });
+  // GET /api/sync/conflicts も既定は空 (競合なし)。
+  await page.route('**/api/sync/conflicts', (route) => {
+    void route.fulfill(json({ conflicts: [] }));
+  });
   // GET /api/health (モード確認 — S8086d9-2 BookmarkStar)。
   // 既定は full モード・エージェント未設定。モードを変えるテストは後から自前の route で上書きする。
   await page.route('**/api/health', (route) => {
