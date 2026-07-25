@@ -101,6 +101,8 @@ describe('[AC-Se29635-1-1][AC-Se29635-1-3] StubGitRunner 経由の commit ルー
 
     // git status --porcelain → 変更ありを示す出力
     runner.results.push({ code: 0, stdout: 'M  file.md\n', stderr: '' });
+    // git check-ignore -q .loamium → code 0 (既に無視されている → .gitignore 追記なし)
+    runner.results.push({ code: 0, stdout: '', stderr: '' });
     // git add -A → 成功
     runner.results.push({ code: 0, stdout: '', stderr: '' });
     // git commit -m ... → 成功
@@ -110,15 +112,17 @@ describe('[AC-Se29635-1-1][AC-Se29635-1-3] StubGitRunner 経由の commit ルー
 
     expect(result).toBe(true);
 
-    // runner.run の呼び出し順を検証
+    // runner.run の呼び出し順を検証 (秘密混入防止のため add -A の前に check-ignore が入る)
     // calls[0] = git status --porcelain
     expect(runner.calls[0]).toEqual(['status', '--porcelain']);
-    // calls[1] = git add -A
-    expect(runner.calls[1]).toEqual(['add', '-A']);
-    // calls[2] = git commit -m <message>
-    expect(runner.calls[2]?.[0]).toBe('commit');
-    expect(runner.calls[2]?.[1]).toBe('-m');
-    expect(runner.calls[2]?.[2]).toBe('sync: test-device 2024-01-01T00:00:00.000Z');
+    // calls[1] = git check-ignore -q .loamium
+    expect(runner.calls[1]).toEqual(['check-ignore', '-q', '.loamium']);
+    // calls[2] = git add -A
+    expect(runner.calls[2]).toEqual(['add', '-A']);
+    // calls[3] = git commit -m <message>
+    expect(runner.calls[3]?.[0]).toBe('commit');
+    expect(runner.calls[3]?.[1]).toBe('-m');
+    expect(runner.calls[3]?.[2]).toBe('sync: test-device 2024-01-01T00:00:00.000Z');
   });
 
   it('commit: クリーンツリー → false を返し余計な commit コマンドを呼ばない [scenario-1 step 3]', async () => {
@@ -140,6 +144,7 @@ describe('[AC-Se29635-1-1][AC-Se29635-1-3] StubGitRunner 経由の commit ルー
     const { engine, audit } = makeEngine(runner);
 
     runner.results.push({ code: 0, stdout: 'M  file.md\n', stderr: '' }); // status
+    runner.results.push({ code: 0, stdout: '', stderr: '' }); // check-ignore → 無視済み (追記なし)
     runner.results.push({ code: 128, stdout: '', stderr: 'fatal: not a git repository' }); // add -A 失敗
 
     await expect(engine.commit('msg')).rejects.toThrow('git add -A failed');
@@ -273,7 +278,8 @@ describe('pull() / push() の基本動作', () => {
     expect(result.conflicts).toEqual([]);
     expect(audit.entries[0]?.op).toBe('sync.pull');
     expect(audit.entries[0]?.result).toBe('ok');
-    expect(runner.calls[0]).toEqual(['pull', '--rebase']);
+    // F-3: remoteName/branch を明示して pull する (Story 2 引き継ぎ decisions.json)
+    expect(runner.calls[0]).toEqual(['pull', '--rebase', 'origin', 'main']);
   });
 
   it('pull: 競合発生時は conflicts に競合ファイルを返す', async () => {
@@ -301,7 +307,8 @@ describe('pull() / push() の基本動作', () => {
     expect(result.pushed).toBe(true);
     expect(audit.entries[0]?.op).toBe('sync.push');
     expect(audit.entries[0]?.result).toBe('ok');
-    expect(runner.calls[0]).toEqual(['push']);
+    // F-3: remoteName/branch refspec を明示して push する (Story 2 引き継ぎ decisions.json)
+    expect(runner.calls[0]).toEqual(['push', 'origin', 'HEAD:main']);
   });
 });
 
@@ -351,5 +358,46 @@ describe('syncNow() 統合フロー', () => {
     expect(result.committed).toBe(false);
     expect(result.pulled).toBe(true);
     expect(result.pushed).toBe(true);
+  });
+});
+
+// ──────────────────────────────────────────────
+// PAT 認証注入 (#runWithAuth) — 秘密情報の扱い (ADR-0032)
+// ──────────────────────────────────────────────
+
+describe('PAT 認証注入 (push/pull の http.extraheader)', () => {
+  function engineWithToken(runner: StubGitRunner, token: string | null): SyncEngine {
+    const audit = makeAudit();
+    return new SyncEngine({
+      vaultRoot: VAULT_ROOT,
+      runner,
+      getConfig: () => ({ ...defaultConfig }),
+      getToken: () => token,
+      audit: audit.fn,
+    });
+  }
+
+  it('token あり: push に -c http.extraheader が前置され、平文トークンは引数に現れない', async () => {
+    const runner = new StubGitRunner();
+    const engine = engineWithToken(runner, 'ghp_secretValue123');
+    await engine.push();
+
+    const call = runner.calls[0] ?? [];
+    // -c http.extraheader=Authorization: Basic <base64> が push の前に付く
+    expect(call[0]).toBe('-c');
+    expect(call[1]).toMatch(/^http\.extraheader=Authorization: Basic /);
+    expect(call).toContain('push');
+    // 平文トークンはどの引数にも現れない (Base64 化されている)
+    expect(call.join(' ')).not.toContain('ghp_secretValue123');
+  });
+
+  it('token なし: -c 引数を付けず git credential helper に委譲する', async () => {
+    const runner = new StubGitRunner();
+    const engine = engineWithToken(runner, null);
+    await engine.push();
+
+    const call = runner.calls[0] ?? [];
+    expect(call[0]).toBe('push');
+    expect(call).not.toContain('-c');
   });
 });

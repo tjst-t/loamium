@@ -1585,3 +1585,86 @@ export const vaultSeedResponseSchema = z.object({
   skipped: z.number().int().nonnegative(),
 });
 export type VaultSeedResponse = z.infer<typeof vaultSeedResponseSchema>;
+
+// ---- 同期 API (Se29635-2) ----
+
+/**
+ * GET /api/sync/status のレスポンス。
+ * 同期エンジンの現在状態スナップショット。
+ */
+export const syncStatusResponseSchema = z.object({
+  available: z.boolean(),
+  remoteConfigured: z.boolean(),
+  branch: z.string().nullable(),
+  lastSyncAt: z.string().nullable(),
+  lastError: z.string().nullable(),
+  ahead: z.number().int().nonnegative(),
+  behind: z.number().int().nonnegative(),
+  dirty: z.boolean(),
+  offline: z.boolean(),
+  conflicted: z.boolean(),
+  queued: z.number().int().nonnegative(),
+});
+export type SyncStatusResponse = z.infer<typeof syncStatusResponseSchema>;
+
+/**
+ * GET /api/sync/config のレスポンス。
+ * トークン実値は含まない (tokenConfigured フラグのみ)。
+ */
+export const syncConfigResponseSchema = z.object({
+  enabled: z.boolean(),
+  remoteUrl: z.string().nullable(),
+  branch: z.string(),
+  remoteName: z.string(),
+  autoSync: z.boolean(),
+  debounceMs: z.number().int().positive(),
+  pullIntervalMs: z.number().int().positive(),
+  deviceName: z.string(),
+  tokenConfigured: z.boolean(),
+});
+export type SyncConfigResponse = z.infer<typeof syncConfigResponseSchema>;
+
+/**
+ * PUT /api/sync/config のリクエストボディ。
+ * 部分更新 (partial) — 省略フィールドは既存値を維持する。
+ */
+export const syncConfigWriteRequestSchema = z.object({
+  enabled: z.boolean().optional(),
+  remoteUrl: z.string().nullable().optional(),
+  branch: z.string().min(1).optional(),
+  remoteName: z.string().min(1).optional(),
+  autoSync: z.boolean().optional(),
+  debounceMs: z.number().int().positive().optional(),
+  pullIntervalMs: z.number().int().positive().optional(),
+  deviceName: z.string().min(1).optional(),
+});
+export type SyncConfigWriteRequest = z.infer<typeof syncConfigWriteRequestSchema>;
+
+/**
+ * POST /api/sync/pull のリクエストボディ。
+ */
+export const syncPullRequestSchema = z.object({
+  reason: z.string().min(1).optional().default('manual'),
+});
+export type SyncPullRequest = z.infer<typeof syncPullRequestSchema>;
+
+/**
+ * PUT /api/sync/credential のリクエストボディ。
+ */
+export const syncCredentialWriteRequestSchema = z.object({
+  token: z.string().min(1, 'token must not be empty'),
+});
+export type SyncCredentialWriteRequest = z.infer<typeof syncCredentialWriteRequestSchema>;
+
+/**
+ * POST /api/sync/now / /api/sync/pull / /api/sync/push のレスポンス。
+ */
+export const syncResultResponseSchema = z.object({
+  ok: z.boolean(),
+  pushed: z.boolean(),
+  pulled: z.boolean(),
+  committed: z.boolean(),
+  conflicts: z.array(z.string()),
+  queued: z.boolean(),
+  error: z.string().optional(),
+});

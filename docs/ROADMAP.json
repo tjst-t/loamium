@@ -9210,7 +9210,7 @@
       "stories": {
         "Se29635-1": {
           "title": "同期エンジン基盤(システム git シェルアウト + 不在明示エラー)",
-          "status": "in_progress",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "Loamium 運用者として、システム git 経由で vault を同期する基盤がほしい。なぜなら、専用同期サーバを作らず既存の git 資産で複数端末同期を実現するため(ADR-0032)。",
@@ -9238,7 +9238,7 @@
         },
         "Se29635-2": {
           "title": "リモート設定・認証委譲 + 手動同期 + 起動時 pull",
-          "status": "planned",
+          "status": "in_progress",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ユーザーとして、同期先リモートを設定し手動で同期したい。なぜなら、まず最小構成(手動+起動時pull)で同期を実証したいから。",

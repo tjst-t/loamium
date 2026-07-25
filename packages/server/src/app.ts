@@ -21,6 +21,7 @@ import { llmRoutes } from './routes/llm.js';
 import { vaultSeedRoutes } from './routes/vault-seed.js';
 import { optionsQueryRoutes } from './routes/options-query.js';
 import { eventsRoutes } from './routes/events.js';
+import { syncRoutes } from './routes/sync.js';
 import { auditMiddleware } from './audit.js';
 import { permissionMiddleware } from './permissions.js';
 import { indexSyncMiddleware } from './indexSync.js';
@@ -30,6 +31,7 @@ import { egressGuardStats } from './egress-guard.js';
 import type { VaultIndex } from './noteIndex.js';
 import { DqlQueryCache } from './dql-cache.js';
 import type { SSEBroadcaster } from './sse-broadcaster.js';
+import { createSyncService, type SyncService } from './sync-service.js';
 
 export { DqlQueryCache };
 
@@ -38,9 +40,12 @@ export function createApp(
   index: VaultIndex,
   dqlCache?: DqlQueryCache,
   sseBroadcaster?: SSEBroadcaster,
+  syncService?: SyncService,
 ): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
   const cache = dqlCache ?? new DqlQueryCache();
+  // 同期サービス: 外部から注入されなければファクトリで生成する (後方互換)
+  const sync = syncService ?? createSyncService(config);
 
   /**
    * グローバルエラーハンドラ — ルートで捕捉されなかった例外のバックストップ。
@@ -177,6 +182,8 @@ export function createApp(
   app.route('/', llmRoutes(config));
   // vault シード (POST /api/vault/seed — S7e2d5c-1): サンプルを vault へ投入
   app.route('/', vaultSeedRoutes(config));
+  // 同期 API (Se29635-2): git リモート設定・認証・手動同期
+  app.route('/', syncRoutes(config, sync));
 
   // 静的 UI 配信 — LOAMIUM_UI_DIST が設定されている本番モードのみ有効。
   // 開発モード(未設定)では Vite 開発サーバーが担当するため何もしない。

@@ -14,6 +14,8 @@
  * commit/pull/push ごとに audit コールバックへエントリを渡す。
  * HTTP ミドルウェアを通らない直接 git 操作の補填 (design-sync.md 参照)。
  */
+import { appendFile, readFile } from 'node:fs/promises';
+import path from 'node:path';
 import type { AuditEntry } from '@loamium/shared';
 import { GitUnavailableError, redactGitSecrets } from './git-runner.js';
 import type { GitRunner } from './git-runner.js';
@@ -110,6 +112,12 @@ export interface SyncEngineOpts {
   /** 設定スナップショットを返すゲッタ (Story 2 が SyncConfigStore に差し替える)。 */
   getConfig: () => SyncEngineConfig;
   /**
+   * PAT トークンを返すコールバック (Story 2 が SyncConfigStore.getToken に差し替える)。
+   * トークンがない場合は null を返す — git credential helper に委譲する。
+   * 省略時は常に null (後方互換: Story 1 のテストは渡さなくてよい)。
+   */
+  getToken?: () => string | null;
+  /**
    * 監査エントリを書き込むコールバック。
    * `writeAuditEntry(config, { ts, ...entry })` に相当する薄いラッパーを渡す。
    * HTTP ミドルウェアを通らない git 操作の補填として各操作で呼ぶ。
@@ -135,12 +143,14 @@ export class SyncEngine {
   readonly #vaultRoot: string;
   readonly #runner: GitRunner;
   readonly #getConfig: () => SyncEngineConfig;
+  readonly #getToken: () => string | null;
   readonly #audit: (entry: Omit<AuditEntry, 'ts'>) => Promise<void>;
 
   constructor(opts: SyncEngineOpts) {
     this.#vaultRoot = opts.vaultRoot;
     this.#runner = opts.runner;
     this.#getConfig = opts.getConfig;
+    this.#getToken = opts.getToken ?? (() => null);
     this.#audit = opts.audit;
   }
 
@@ -151,6 +161,27 @@ export class SyncEngine {
   /** git コマンドを vault ルートで実行する共通ラッパ。 */
   #run(args: string[]): ReturnType<GitRunner['run']> {
     return this.#runner.run(args, { cwd: this.#vaultRoot });
+  }
+
+  /**
+   * PAT トークンを per-command の http.extraheader として付与した git コマンドを実行する。
+   * push / pull など外部通信を伴うコマンドにのみ使う。
+   *
+   * PAT がない場合は extraheader を付けずに実行し、git credential helper に委譲する。
+   * トークンはログ/stderr に出ないよう redactGitSecrets でガードする。
+   * また `-c http.extraheader=...` 引数自体もログに出さないため、
+   * ラッパー内で処理し呼び出し元には漏れない。
+   */
+  #runWithAuth(args: string[]): ReturnType<GitRunner['run']> {
+    const token = this.#getToken();
+    if (!token) {
+      // PAT なし → git credential helper に委譲 (引数は渡さない)
+      return this.#runner.run(args, { cwd: this.#vaultRoot });
+    }
+    // Basic 認証: x-access-token:{PAT} を Base64 エンコード
+    const encoded = Buffer.from(`x-access-token:${token}`).toString('base64');
+    const authArgs = ['-c', `http.extraheader=Authorization: Basic ${encoded}`, ...args];
+    return this.#runner.run(authArgs, { cwd: this.#vaultRoot });
   }
 
   /** `git status --porcelain=v2 --branch` をパースして ahead/behind/dirty を返す。 */
@@ -273,9 +304,32 @@ export class SyncEngine {
   }
 
   /**
+   * `.loamium/` が vault の .gitignore で無視されていることを保証する (無ければ追記)。
+   *
+   * `git add -A` が `.loamium/` 配下 (audit.log / sync.json / **PAT を含む
+   * sync-credentials.json**) を誤ってステージし、秘密情報を commit/push するのを防ぐ
+   * (ADR-0032 / DESIGN_PRINCIPLES priority 2 データ安全性)。冪等。
+   */
+  async #ensureLoamiumIgnored(): Promise<void> {
+    // `git check-ignore -q .loamium` は無視されていれば code 0 を返す
+    const check = await this.#run(['check-ignore', '-q', '.loamium']);
+    if (check.code === 0) return;
+
+    const gitignorePath = path.join(this.#vaultRoot, '.gitignore');
+    let existing = '';
+    try {
+      existing = await readFile(gitignorePath, 'utf8');
+    } catch {
+      existing = ''; // 未作成 → 新規作成する
+    }
+    const needsLeadingNewline = existing.length > 0 && !existing.endsWith('\n');
+    await appendFile(gitignorePath, `${needsLeadingNewline ? '\n' : ''}.loamium/\n`, 'utf8');
+  }
+
+  /**
    * ワーキングツリーの変更を commit する。
    * - 変更なし (クリーンツリー) の場合は commit をスキップして `false` を返す。
-   * - 変更あり → `git add -A` → `git commit -m message` → `true` を返す。
+   * - 変更あり → `.loamium/` 無視を保証 → `git add -A` → `git commit -m message` → `true`。
    * - 監査: `sync.commit` を記録する。
    */
   async commit(message: string): Promise<boolean> {
@@ -290,6 +344,9 @@ export class SyncEngine {
       // クリーンツリー — 空 commit は作らない
       return false;
     }
+
+    // 秘密情報 (.loamium/ 配下) を誤ってステージしないよう、add -A の前に無視を保証する
+    await this.#ensureLoamiumIgnored();
 
     // git add -A
     const addResult = await this.#run(['add', '-A']);
@@ -337,7 +394,11 @@ export class SyncEngine {
   async pull(reason: string): Promise<SyncResult> {
     await this.ensureAvailable();
 
-    const pullResult = await this.#run(['pull', '--rebase']);
+    // F-3: config の remoteName / branch を明示指定して pull する
+    const config = this.#getConfig();
+    const pullResult = await this.#runWithAuth([
+      'pull', '--rebase', config.remoteName, config.branch,
+    ]);
     const ok = pullResult.code === 0;
     let conflicts: string[] = [];
 
@@ -379,7 +440,12 @@ export class SyncEngine {
   async push(): Promise<SyncResult> {
     await this.ensureAvailable();
 
-    const pushResult = await this.#run(['push']);
+    // F-3: config の remoteName / branch を明示して push する。
+    // `HEAD:<branch>` refspec により upstream 追跡設定の有無にかかわらず動作する。
+    const config = this.#getConfig();
+    const pushResult = await this.#runWithAuth([
+      'push', config.remoteName, `HEAD:${config.branch}`,
+    ]);
     const ok = pushResult.code === 0;
 
     await this.#audit({
@@ -399,6 +465,52 @@ export class SyncEngine {
       queued: false,
       ...(ok ? {} : { error: redactGitSecrets(pushResult.stderr) || `git push exited with code ${pushResult.code}` }),
     };
+  }
+
+  /**
+   * vault の git リポジトリにリモート設定を適用する。
+   *
+   * - `config.remoteUrl` が null の場合は何もしない。
+   * - リモートが存在しない場合は `git remote add` で追加する。
+   * - リモートが存在する場合は `git remote set-url` で URL を更新する。
+   * - URL (トークンなし) を `.git/config` に書くことは設計上許容されている。
+   *   トークンは per-command の extraheader で渡し、`.git/config` には書かない。
+   * - 設定保存時に呼ぶことで起動前に確定したリモートを保持する。
+   */
+  async configureRemote(): Promise<void> {
+    await this.ensureAvailable();
+
+    // 設定時に `.loamium/` 無視を先回りで保証する (秘密情報の混入防止・冪等)
+    await this.#ensureLoamiumIgnored();
+
+    const config = this.#getConfig();
+    if (!config.remoteUrl) {
+      return; // リモート URL 未設定 → 何もしない
+    }
+
+    // 既存リモートの確認
+    const listResult = await this.#run(['remote', 'get-url', config.remoteName]);
+    if (listResult.code === 0) {
+      // リモートが存在する → URL を更新
+      const setResult = await this.#run([
+        'remote', 'set-url', config.remoteName, config.remoteUrl,
+      ]);
+      if (setResult.code !== 0) {
+        throw new Error(
+          `git remote set-url failed (code ${setResult.code}): ${redactGitSecrets(setResult.stderr)}`,
+        );
+      }
+    } else {
+      // リモートが存在しない → 追加
+      const addResult = await this.#run([
+        'remote', 'add', config.remoteName, config.remoteUrl,
+      ]);
+      if (addResult.code !== 0) {
+        throw new Error(
+          `git remote add failed (code ${addResult.code}): ${redactGitSecrets(addResult.stderr)}`,
+        );
+      }
+    }
   }
 
   /**
@@ -446,7 +558,7 @@ export class SyncEngine {
           firstError = pullRes.error;
         }
       } catch (err) {
-        firstError = String(err);
+        firstError = redactGitSecrets(String(err));
       }
     }
 
@@ -459,7 +571,7 @@ export class SyncEngine {
           firstError = pushRes.error;
         }
       } catch (err) {
-        firstError = String(err);
+        firstError = redactGitSecrets(String(err));
       }
     }
 

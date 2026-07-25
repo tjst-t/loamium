@@ -8,6 +8,7 @@ import { startScheduler } from './agent-scheduler.js';
 import { installEgressGuard } from './egress-guard.js';
 import { DqlQueryCache } from './dql-cache.js';
 import { SSEBroadcaster } from './sse-broadcaster.js';
+import { createSyncService } from './sync-service.js';
 
 // オフライン acceptance ハーネス (S8a3f2e-5): 明示フラグ時のみ外部 egress を遮断する。
 // pi の fetch 差し替えより前に install するため、他の import より先に実行する。
@@ -60,7 +61,10 @@ index.setOnChange((path, op) => {
   });
 });
 
-const app = createApp(config, index, dqlCache, sseBroadcaster);
+// 同期サービス: createApp より先に生成し注入することでインスタンスを共有する
+const syncService = createSyncService(config);
+
+const app = createApp(config, index, dqlCache, sseBroadcaster, syncService);
 
 // API 外の変更 (外部エディタ・Git) にも追従する
 const watcher = startWatcher(config.vaultRoot, index);
@@ -77,6 +81,24 @@ const server = serve({ fetch: app.fetch, port, hostname }, (info) => {
   console.log(
     `loamium server listening on http://${info.address}:${info.port} (vault=${config.vaultRoot}, mode=${config.mode}, indexed=${index.size} notes)`,
   );
+
+  // 起動時 pull (AC-Se29635-2-3): sync が有効・リモートが設定済み・git が利用可能な場合のみ。
+  // 非致命的 — 失敗してもサーバー起動は続行する (ログのみ)。
+  // watcher が既に起動済みなので pull で降ったファイルはインデックスに自動追従する。
+  void (async () => {
+    const syncCfg = syncService.store.load();
+    if (!syncCfg.enabled || !syncCfg.remoteUrl) return;
+    const available = await syncService.engine.status().then((s) => s.available).catch(() => false);
+    if (!available) return;
+    // 手動で sync.json を書いた/リストアした端末では git remote が未設定なことがある。
+    // 起動時 pull の前にリモート設定を揃える (configureRemote は冪等・非致命的に握る)。
+    await syncService.engine.configureRemote().catch((err: unknown) => {
+      console.error('[loamium/sync] startup configureRemote failed (non-fatal):', String(err));
+    });
+    await syncService.engine.pull('startup').catch((err: unknown) => {
+      console.error('[loamium/sync] startup pull failed (non-fatal):', String(err));
+    });
+  })();
 });
 
 const shutdown = (): void => {
