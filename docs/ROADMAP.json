@@ -9993,6 +9993,11 @@
       "title": "複数競合ファイルの UI 表示",
       "detail": "Se29635-4: 現状はダイアログが先頭ファイルのみ表示 (全件は GET /api/sync/conflicts)。複数ファイルを順に解決できる UI。",
       "source": "Se29635-4 review #8"
+    },
+    {
+      "title": "ARCHITECTURE.md に Vault 同期節を追加",
+      "detail": "ADR-0032 affects: docs/ARCHITECTURE.md。同期エンジン(sync/)・REST・スケジューラ・競合の概説を追記。ADR-0032 と機能ガイドが正本なので優先度低。",
+      "source": "Se29635 done"
     }
   ]
 }
