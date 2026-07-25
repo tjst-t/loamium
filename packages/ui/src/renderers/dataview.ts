@@ -15,7 +15,12 @@
  *   チェックボックスクリック → patchNote。編集ボタン → インライン popover。
  */
 import type { ListQueryRow, QueryResponse, TableCellValue, TaskQueryRow, TaskVocabRequired } from '@loamium/shared';
-import { DEFAULT_TASK_VOCAB, setInlineField } from '@loamium/shared';
+import {
+  DEFAULT_TASK_VOCAB,
+  extractInlineFields,
+  setInlineField,
+  stripInlineFields,
+} from '@loamium/shared';
 import { api, ApiError, QueryApiError } from '../api.js';
 import { registerFenceRenderer, type RenderContext } from '../registries.js';
 
@@ -593,7 +598,10 @@ function renderTasks(rows: TaskQueryRow[], ctx: RenderContext, vocab: TaskVocabR
       taskEl.setAttribute('data-testid', 'dv-task');
       taskEl.setAttribute('data-path', entry.row.path);
       taskEl.setAttribute('data-line', String(entry.row.line));
-      taskEl.setAttribute('aria-label', entry.row.text);
+      // 表示テキストは status/priority/due のチップに出すので、生の [key:: value] は取り除く
+      // (row.text 自体は patch 照合に使うので変更しない)。
+      const taskDisplay = stripInlineFields(entry.row.text);
+      taskEl.setAttribute('aria-label', taskDisplay);
 
       // 展開スロット
       const toggleSlot = document.createElement('span');
@@ -626,7 +634,7 @@ function renderTasks(rows: TaskQueryRow[], ctx: RenderContext, vocab: TaskVocabR
       // テキスト
       const textEl = document.createElement('span');
       textEl.className = entry.row.checked ? 'task-text task-done' : 'task-text';
-      textEl.textContent = entry.row.text;
+      textEl.textContent = taskDisplay;
       taskEl.append(textEl);
 
       // ピル (フィールドあるときのみ)
@@ -672,7 +680,8 @@ function renderTasks(rows: TaskQueryRow[], ctx: RenderContext, vocab: TaskVocabR
           childEl.setAttribute('data-testid', 'dv-task-child');
           childEl.setAttribute('data-path', child.path);
           childEl.setAttribute('data-line', String(child.line));
-          childEl.setAttribute('aria-label', child.text);
+          const childDisplay = stripInlineFields(child.text);
+          childEl.setAttribute('aria-label', childDisplay);
 
           const childCb = document.createElement('span');
           childCb.className = 'task-checkbox';
@@ -685,7 +694,7 @@ function renderTasks(rows: TaskQueryRow[], ctx: RenderContext, vocab: TaskVocabR
 
           const childText = document.createElement('span');
           childText.className = child.checked ? 'task-text task-done' : 'task-text';
-          childText.textContent = child.text;
+          childText.textContent = childDisplay;
           childEl.append(childCb, childText);
 
           if (child.status !== null) childEl.append(makeStatusPill(child.status, vocab));
@@ -717,7 +726,7 @@ function renderTasks(rows: TaskQueryRow[], ctx: RenderContext, vocab: TaskVocabR
             const oldLine = buildOldLine(childRow);
             const newChecked = !childRow.checked;
             const newLine = buildNewLine(childRow, newChecked, childRow.status, childRow.priority, childRow.due);
-            void patchRowWithFeedback(childRow.path, oldLine, newLine, childEl, vocab);
+            void patchRowWithFeedback(childRow, childRow.path, oldLine, newLine, childEl, vocab);
           });
 
           // 子行編集ボタン
@@ -768,7 +777,7 @@ function renderTasks(rows: TaskQueryRow[], ctx: RenderContext, vocab: TaskVocabR
         const oldLine = buildOldLine(parentRow);
         const newChecked = !parentRow.checked;
         const newLine = buildNewLine(parentRow, newChecked, parentRow.status, parentRow.priority, parentRow.due);
-        void patchRowWithFeedback(parentRow.path, oldLine, newLine, taskEl, vocab);
+        void patchRowWithFeedback(parentRow, parentRow.path, oldLine, newLine, taskEl, vocab);
       });
 
       // 編集ボタン
@@ -813,18 +822,67 @@ function buildNewLine(
   return line;
 }
 
-/** patchNote を呼び、409 はインラインエラー表示。成功時は行の状態を更新。 */
+/**
+ * 行 (TASK) の表示を newLine から即時更新する (楽観更新)。
+ * patchNote 成功直後に呼ぶことで、vault イベント → 再クエリの往復 (遅い) を待たずに
+ * チェック状態・ステータス/優先度/期限チップを反映する。再クエリが来れば再描画で確定する。
+ *
+ * rowEl は checkbox クリックでは .dv-task / .dv-task-child、popover 適用では wrap のことがある。
+ * 対象タスク要素を特定し、その **直下** の要素だけ更新する (子タスクの行には触れない)。
+ */
+function applyRowOptimistic(rowEl: HTMLElement, newLine: string, vocab: TaskVocabRequired): void {
+  const taskEl: HTMLElement | null = rowEl.matches('.dv-task, .dv-task-child')
+    ? rowEl
+    : rowEl.querySelector('.dv-task');
+  if (taskEl === null) return;
+
+  const checked = /^\s*[-*+]\s+\[[xX]\]/.test(newLine);
+  const fields = extractInlineFields(newLine);
+
+  const cb = taskEl.querySelector(':scope > .task-checkbox');
+  if (cb !== null) {
+    cb.setAttribute('data-done', checked ? 'true' : 'false');
+    cb.setAttribute('aria-checked', checked ? 'true' : 'false');
+    cb.setAttribute('aria-label', checked ? '完了済み' : '完了にする');
+  }
+  const txt = taskEl.querySelector<HTMLElement>(':scope > .task-text');
+  if (txt !== null) txt.className = checked ? 'task-text task-done' : 'task-text';
+
+  // 既存チップ (直下のみ) を除去し、text の直後に新しい順序で挿入する
+  taskEl
+    .querySelectorAll(':scope > .status-pill, :scope > .dv-due, :scope > .dv-priority')
+    .forEach((el) => el.remove());
+  let after: Element | null = txt;
+  if (after !== null) {
+    if (fields.status !== null) { const p = makeStatusPill(fields.status, vocab); after.after(p); after = p; }
+    if (fields.due !== null) { const p = makeDueChip(fields.due); after.after(p); after = p; }
+    if (fields.priority !== null) { const p = makePriorityFlag(fields.priority, vocab); after.after(p); after = p; }
+  }
+}
+
+/** patchNote を呼び、成功時は行を即時更新 (楽観更新)、409 等はインラインエラー表示。 */
 async function patchRowWithFeedback(
+  row: TaskQueryRow,
   path: string,
   oldLine: string,
   newLine: string,
   rowEl: HTMLElement,
-  _vocab: TaskVocabRequired,
+  vocab: TaskVocabRequired,
 ): Promise<void> {
   // 既存の patch-error があれば除去
   rowEl.parentElement?.querySelector('.dv-patch-error')?.remove();
   try {
     await api.patchNote(path, oldLine, newLine);
+    // row を新状態へ同期する。これをしないと、連続変更で 2 回目以降の oldLine が古い row から
+    // 組まれ、既にディスク上で変わっている行と一致せず 409 (競合) になる。
+    row.checked = /^\s*[-*+]\s+\[[xX]\]/.test(newLine);
+    row.text = newLine.replace(/^\s*[-*+]\s+\[[^\]]\]\s+/, '');
+    const f = extractInlineFields(newLine);
+    row.status = f.status;
+    row.priority = f.priority;
+    row.due = f.due;
+    // 楽観更新: 再クエリを待たずに行の表示を反映する (遅延体感の解消)
+    applyRowOptimistic(rowEl, newLine, vocab);
   } catch (err: unknown) {
     const msg =
       err instanceof ApiError && err.status === 409
@@ -839,26 +897,90 @@ async function patchRowWithFeedback(
   }
 }
 
-/** popover のトグル (既に開いていれば閉じる) */
+/**
+ * 現在開いている TASK ポップオーバー (最大 1 個)。document.body に fixed 配置するため、
+ * DataView ウィジェット/エディタの overflow でクリップされない (下部が隠れる問題の解消)。
+ */
+let openDvPopover: { el: HTMLElement; anchor: Element; cleanup: () => void } | null = null;
+
+function closeDvPopover(): void {
+  if (openDvPopover === null) return;
+  openDvPopover.cleanup();
+  openDvPopover.el.remove();
+  openDvPopover = null;
+}
+
+/** fixed ポップオーバーを anchor 矩形の下 (入らなければ上) に配置し、画面内へクランプする。 */
+function positionDvPopover(pop: HTMLElement, anchorRect: DOMRect): void {
+  const margin = 8;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const { width, height } = pop.getBoundingClientRect();
+  let left = anchorRect.left;
+  if (left + width > vw - margin) left = vw - margin - width;
+  if (left < margin) left = margin;
+  let top = anchorRect.bottom + 4;
+  if (top + height > vh - margin) {
+    const above = anchorRect.top - 4 - height;
+    top = above >= margin ? above : Math.max(margin, vh - margin - height);
+  }
+  pop.style.left = `${String(Math.round(left))}px`;
+  pop.style.top = `${String(Math.round(top))}px`;
+}
+
+/** popover のトグル (既に開いていれば閉じる)。fixed 配置で body に付ける。 */
 function togglePopover(
-  wrapEl: HTMLElement,
+  container: HTMLElement,
   row: TaskQueryRow,
   vocab: TaskVocabRequired,
 ): void {
-  const existing = wrapEl.querySelector('.dv-task-popover');
-  if (existing !== null) { existing.remove(); return; }
+  // アンカー = タスク行要素 (親は wrap 内の .dv-task、子は container 自身)
+  const anchor: Element = container.matches('.dv-task-child')
+    ? container
+    : (container.querySelector('.dv-task') ?? container);
+
+  const wasSame = openDvPopover?.anchor === anchor;
+  closeDvPopover();
+  if (wasSame) return; // 同じ行の再クリック = トグルで閉じる
+
   const pop = buildDvPopover({
     row,
     vocab,
     onApply: async (status, priority, due) => {
       const oldLine = buildOldLine(row);
       const newLine = buildNewLine(row, row.checked, status, priority, due);
-      pop.remove();
-      await patchRowWithFeedback(row.path, oldLine, newLine, wrapEl, vocab);
+      closeDvPopover();
+      await patchRowWithFeedback(row, row.path, oldLine, newLine, container, vocab);
     },
-    onClose: () => { pop.remove(); },
+    onClose: () => { closeDvPopover(); },
   });
-  wrapEl.append(pop);
+  // 計測のため一旦不可視で body へ付ける → 位置決め → 表示
+  pop.style.visibility = 'hidden';
+  document.body.append(pop);
+  positionDvPopover(pop, anchor.getBoundingClientRect());
+  pop.style.visibility = '';
+
+  const onDocMouseDown = (e: MouseEvent): void => {
+    if (!pop.contains(e.target as Node)) closeDvPopover();
+  };
+  const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') closeDvPopover(); };
+  const onScrollResize = (): void => closeDvPopover();
+  // 開いた同一 mousedown での即閉じを避けるため次 tick で登録する
+  setTimeout(() => document.addEventListener('mousedown', onDocMouseDown), 0);
+  document.addEventListener('keydown', onKey);
+  window.addEventListener('scroll', onScrollResize, true);
+  window.addEventListener('resize', onScrollResize);
+
+  openDvPopover = {
+    el: pop,
+    anchor,
+    cleanup: () => {
+      document.removeEventListener('mousedown', onDocMouseDown);
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', onScrollResize, true);
+      window.removeEventListener('resize', onScrollResize);
+    },
+  };
 }
 
 /** 構文エラー表示 (prototype の dv-error — クエリ行 + キャレット + 位置情報)。 */

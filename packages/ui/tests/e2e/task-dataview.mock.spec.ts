@@ -60,7 +60,10 @@ const TASK_RESULTS = {
   ],
 };
 
-async function openWithTaskFence(page: Parameters<typeof installCatchAll>[0]) {
+async function openWithTaskFence(
+  page: Parameters<typeof installCatchAll>[0],
+  results: unknown = TASK_RESULTS,
+) {
   const unexpected = await installCatchAll(page);
   await page.route('**/api/notes', (route) => {
     void route.fulfill(
@@ -85,7 +88,7 @@ async function openWithTaskFence(page: Parameters<typeof installCatchAll>[0]) {
   // これにより fence が widget モードに切り替わり /api/query が呼ばれる。
   await expect(page.getByTestId('editor')).toContainText('アンカー行');
   await page.route('**/api/query', (route) => {
-    void route.fulfill(json(TASK_RESULTS));
+    void route.fulfill(json(results));
   });
   // アンカー行をクリックしてフェンスをレンダリング状態にする
   await page.locator('[data-testid="editor"] .cm-line', { hasText: 'アンカー行' }).first().click();
@@ -152,12 +155,20 @@ test('[MOCK][Se3b7a2-5] チェックボックスクリックで patchNote が呼
   const patchCalls: string[] = [];
   await page.route('**/api/notes/**/patch', (route) => {
     patchCalls.push(route.request().url());
-    void route.fulfill(json({ ok: true, path: 'projects/test.md', mtime: 2000 }));
+    // 実サーバと同じ NoteWriteResponse ({ path, created, mtime })。以前クライアントは
+    // { ok, path, mtime } を期待していたため、成功でも Zod 検証に失敗し「書き込みエラー」が
+    // 誤表示されていた (この応答形で dv-patch-error が出ないことを検証する)。
+    void route.fulfill(json({ path: 'projects/test.md', created: false, mtime: 2000 }));
   });
   await page.locator('[data-testid="dataview-widget"][data-query-type="task"]').waitFor({ timeout: 8000 });
   const cb = page.getByTestId('task-checkbox').first();
   await cb.click();
   await expect.poll(() => patchCalls.length, { timeout: 3000 }).toBeGreaterThan(0);
+  // 書き込み成功時にエラー (dv-patch-error) が出ないこと
+  await expect(page.getByTestId('dv-patch-error')).toHaveCount(0);
+  // 楽観更新: 再クエリ (vault イベント) はモックしていないので、data-done が反転すれば
+  // patchNote 成功直後の即時反映 (遅延解消) が効いている証拠。
+  await expect(cb).toHaveAttribute('data-done', 'true');
   void unexpected;
 });
 
@@ -176,7 +187,9 @@ test('[MOCK][Se3b7a2-5] dv-task-edit クリックでポップオーバーが開�
   await page.locator('[data-testid="dataview-widget"][data-query-type="task"]').waitFor({ timeout: 8000 });
   const editBtn = page.getByTestId('dv-task-edit').first();
   await editBtn.click();
-  await expect(page.getByTestId('dv-task-popover')).toBeVisible();
+  // fixed 配置で body 直下に付く (ウィジェットの overflow でクリップされない = 下部が隠れない)
+  const pop = page.locator('body > [data-testid="dv-task-popover"]');
+  await expect(pop).toBeVisible();
   await expect(page.getByTestId('dv-task-popover-cancel')).toBeVisible();
   await expect(page.getByTestId('dv-task-popover-apply')).toBeVisible();
 });
@@ -189,4 +202,70 @@ test('[MOCK][Se3b7a2-5] ポップオーバーキャンセルで閉じる', async
   await expect(pop).toBeVisible();
   await page.getByTestId('dv-task-popover-cancel').click();
   await expect(pop).not.toBeVisible();
+});
+
+test('[MOCK][Bug] TASK 行のテキストから生の [key:: value] を除去して表示する (チップと二重表示しない)', async ({ page }) => {
+  await openWithTaskFence(page, {
+    type: 'task',
+    results: [
+      {
+        path: 'projects/test.md',
+        title: 'テスト',
+        line: 3,
+        text: 'aaa [status:: todo] [priority:: highest] [due:: 2026-07-27]',
+        checked: false,
+        indent: 0,
+        status: 'todo',
+        priority: 'highest',
+        due: '2026-07-27',
+      },
+    ],
+  });
+  await page.locator('[data-testid="dataview-widget"][data-query-type="task"]').waitFor({ timeout: 8000 });
+  const taskText = page.locator('[data-testid="dv-task"] .task-text').first();
+  // 表示テキストはインラインフィールドを除去した 'aaa' のみ
+  await expect(taskText).toHaveText('aaa');
+  await expect(taskText).not.toContainText('[status::');
+  // フィールドはチップで表示される
+  await expect(page.getByTestId('status-pill')).toHaveCount(1);
+});
+
+test('[MOCK][Bug] 連続で状態を変えても 409 にならない (row を新状態へ同期する)', async ({ page }) => {
+  await openWithTaskFence(page, {
+    type: 'task',
+    results: [
+      {
+        path: 'projects/test.md',
+        title: 'テスト',
+        line: 3,
+        text: 't',
+        checked: false,
+        indent: 0,
+        status: null,
+        priority: null,
+        due: null,
+      },
+    ],
+  });
+  // 実サーバ同様、old が現在の行と一致しなければ 409 を返す patch モック。
+  // row を同期しないと 2 回目の oldLine が古く 409 (競合) になる。
+  let currentLine = '- [ ] t';
+  await page.route('**/api/notes/**/patch', (route) => {
+    const body = route.request().postDataJSON() as { old: string; new: string };
+    if (body.old !== currentLine) {
+      void route.fulfill(json({ error: 'old_not_found', message: 'conflict' }, 409));
+      return;
+    }
+    currentLine = body.new;
+    void route.fulfill(json({ path: 'projects/test.md', created: false, mtime: 2000 }));
+  });
+  await page.locator('[data-testid="dataview-widget"][data-query-type="task"]').waitFor({ timeout: 8000 });
+  const cb = page.getByTestId('task-checkbox').first();
+  // 1 回目 (未完了 → 完了)
+  await cb.click();
+  await expect(cb).toHaveAttribute('data-done', 'true');
+  // 2 回目 (完了 → 未完了)。row が同期されていれば oldLine は現在行と一致して成功する
+  await cb.click();
+  await expect(cb).toHaveAttribute('data-done', 'false');
+  await expect(page.getByTestId('dv-patch-error')).toHaveCount(0);
 });

@@ -727,9 +727,12 @@ export const api = {
     path: string,
     oldLine: string,
     newLine: string,
-  ): Promise<{ ok: boolean; path: string; mtime: number }> {
+  ): Promise<NoteWriteResponse> {
+    // サーバの patch レスポンスは NoteWriteResponse ({ path, created, mtime })。
+    // 以前は { ok, path, mtime } を期待していたため、書き込み成功でも `ok` 欠落で Zod 検証に
+    // 失敗し「書き込みエラー」が誤表示されていた (DataView の状態変更でエラー点滅の原因)。
     return request(
-      z.object({ ok: z.boolean(), path: z.string(), mtime: z.number() }),
+      noteWriteResponseSchema,
       `/api/notes/${encodeNotePath(path)}/patch`,
       {
         method: 'POST',

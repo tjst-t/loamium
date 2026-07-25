@@ -6862,8 +6862,11 @@ button.callout-title { cursor: pointer; }
 .dv-task-edit svg { width: 12px; height: 12px; }
 .dv-task-popover-wrap { position: relative; }
 
-/* ---- Dataview TASK ポップオーバー (Se3b7a2-5) ---- */
-.dv-task-popover { position: absolute; z-index: 50; left: 14px; top: calc(100% + 4px); width: 296px; background: var(--bg-editor); border: 1px solid var(--border-strong); border-radius: 14px; box-shadow: var(--shadow-lg, 0 4px 24px rgba(0,0,0,0.15)); overflow: hidden; }
+/* ---- Dataview TASK ポップオーバー (Se3b7a2-5) ----
+   document.body に fixed 配置し、left/top は JS (positionDvPopover) が設定する。
+   これで DataView ウィジェット/エディタの overflow にクリップされない (下部が隠れない)。
+   非常に背の高い場合に備え max-height + 縦スクロールを持たせる。 */
+.dv-task-popover { position: fixed; z-index: 200; width: 296px; max-height: calc(100vh - 24px); overflow-y: auto; overflow-x: hidden; background: var(--bg-editor); border: 1px solid var(--border-strong); border-radius: 14px; box-shadow: var(--shadow-lg, 0 4px 24px rgba(0,0,0,0.15)); }
 .dvp-section { padding: 12px 14px 10px; }
 .dvp-section + .dvp-section { border-top: 1px solid var(--border); }
 .dvp-section-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 8px; }
