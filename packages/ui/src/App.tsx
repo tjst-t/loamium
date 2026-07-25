@@ -47,6 +47,7 @@ import { makeTagClickHandler } from './tag-click.js';
 import { isCommandFile, isSystemSourceFile } from './commandEditorUtils.js';
 import { moveNote, moveFolder } from './folder-move.js';
 import { BookmarkStar } from './components/BookmarkStar.js';
+import { SyncStatusIndicator } from './components/SyncStatusIndicator.js';
 import { toggleFrontmatterFlag } from './frontmatter-flag.js';
 import { CommandEditor } from './components/CommandEditor.js';
 import { Editor, type EditorView } from './components/Editor.js';
@@ -2394,6 +2395,8 @@ export function App(): JSX.Element {
               }}
             />
           )}
+          {/* 同期ステータスインジケータ (Se29635-4) */}
+          <SyncStatusIndicator />
         </div>
 
         {route.kind === 'settings' ? (

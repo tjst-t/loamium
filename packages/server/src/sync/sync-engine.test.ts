@@ -287,13 +287,22 @@ describe('pull() / push() の基本動作', () => {
 
     // git pull --rebase → 失敗 (競合)
     runner.results.push({ code: 1, stdout: '', stderr: 'CONFLICT (content): Merge conflict in note.md' });
-    // git diff --name-only --diff-filter=U → 競合ファイル一覧
+    // resolveRebaseConflicts: diff --name-only --diff-filter=U → 競合ファイル一覧
     runner.results.push({ code: 0, stdout: 'note.md\n', stderr: '' });
+    // resolveRebaseConflicts: git show :1:note.md (base)
+    runner.results.push({ code: 0, stdout: 'original line\n', stderr: '' });
+    // resolveRebaseConflicts: git show :2:note.md (ours)
+    runner.results.push({ code: 0, stdout: 'ours changed line\n', stderr: '' });
+    // resolveRebaseConflicts: git show :3:note.md (theirs)
+    runner.results.push({ code: 0, stdout: 'theirs changed line\n', stderr: '' });
+    // diff3Merge(base, ours, theirs) → 同一行を両者が変更 → 競合 → rebase --abort
+    runner.results.push({ code: 0, stdout: '', stderr: '' }); // rebase --abort
 
     const result = await engine.pull('manual');
 
+    // 解決不能競合 → ok=false, conflicts にファイルパスが含まれる
     expect(result.ok).toBe(false);
-    expect(result.conflicts).toEqual(['note.md']);
+    expect(result.conflicts).toContain('note.md');
   });
 
   it('push: git push が成功した場合 ok:true pushed:true を返す', async () => {

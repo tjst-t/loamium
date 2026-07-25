@@ -107,6 +107,12 @@ import {
   type LocalModelDownloadStatusResponse,
   type LocalModelDeleteResponse,
   type TaskVocabRequired,
+  syncStatusResponseSchema,
+  syncResultResponseSchema,
+  syncConflictsResponseSchema,
+  type SyncStatusResponse,
+  type SyncConflictsResponse,
+  type SyncResultResponse,
 } from '@loamium/shared';
 
 // ---- エージェントジョブ型を再エクスポート (S2fe109) ----
@@ -782,5 +788,36 @@ export const api = {
 
   runAgentJob(name: string): Promise<AgentJobRunResponse> {
     return request(agentJobRunResponseSchema, `/api/agent/jobs/${encodeURIComponent(name)}/run`, { method: 'POST' });
+  },
+
+  // ---- 同期 (Se29635-4) ----------------------------------------
+
+  /** GET /api/sync/status — 同期状態を取得する。git 不在でも available:false で 200。 */
+  syncStatus(): Promise<SyncStatusResponse> {
+    return request(syncStatusResponseSchema, '/api/sync/status');
+  },
+
+  /** POST /api/sync/now — 手動同期 (commit→pull→push)。 */
+  syncNow(): Promise<SyncResultResponse> {
+    return request(syncResultResponseSchema, '/api/sync/now', { method: 'POST' });
+  },
+
+  /** POST /api/sync/pull — 手動 pull。body: { reason }。 */
+  syncPull(reason: string): Promise<SyncResultResponse> {
+    return request(syncResultResponseSchema, '/api/sync/pull', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ reason }),
+    });
+  },
+
+  /** POST /api/sync/flush — blur/beforeunload 時の debounce 即時実行 (best-effort)。 */
+  syncFlush(): Promise<SyncStatusResponse> {
+    return request(syncStatusResponseSchema, '/api/sync/flush', { method: 'POST' });
+  },
+
+  /** GET /api/sync/conflicts — 未解決競合ハンク一覧。空配列 = 競合なし。 */
+  syncConflicts(): Promise<SyncConflictsResponse> {
+    return request(syncConflictsResponseSchema, '/api/sync/conflicts');
   },
 };

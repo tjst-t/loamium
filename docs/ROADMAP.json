@@ -9294,7 +9294,7 @@
         },
         "Se29635-4": {
           "title": "競合解決(three-way 再利用)+ 同期状態表示 UI",
-          "status": "planned",
+          "status": "in_progress",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ユーザーとして、競合が自動でマージされ、状態が見えてほしい。なぜなら、編集喪失を防ぎ同期を信頼したいから。",
@@ -9983,6 +9983,16 @@
       "added_in": "session-2026-07-24",
       "reason": "ユーザー合意(2026-07-24): 当面は git 委譲で良いが最終形は専用同期サーバ。ADR-0032 の想定 supersede パス。",
       "status": "pending"
+    },
+    {
+      "title": "git 競合の収束する UI 内解決",
+      "detail": "Se29635-4: 現状は rebase --abort + read-only 表示 + エディタ編集→再同期。in-rebase 状態保持 or merge 戦略で UI から直接解決して収束させる。",
+      "source": "Se29635-4 review #4"
+    },
+    {
+      "title": "複数競合ファイルの UI 表示",
+      "detail": "Se29635-4: 現状はダイアログが先頭ファイルのみ表示 (全件は GET /api/sync/conflicts)。複数ファイルを順に解決できる UI。",
+      "source": "Se29635-4 review #8"
     }
   ]
 }

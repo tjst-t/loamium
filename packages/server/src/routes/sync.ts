@@ -21,6 +21,8 @@ import {
   syncPullRequestSchema,
   syncCredentialWriteRequestSchema,
 } from '@loamium/shared';
+// syncConflictsResponseSchema は型ガード目的ではなく shape の参照用 (ランタイム検証は不要)
+// シリアライズはエンジンの getLastConflicts() → FileConflict[] → response 変換で行う
 import { GitUnavailableError } from '../sync/git-runner.js';
 import type { SyncService } from '../sync-service.js';
 import type { ServerConfig } from '../config.js';
@@ -134,6 +136,17 @@ export function syncRoutes(config: ServerConfig, service: SyncService): Hono<App
       }
       return errorJson(c, 500, 'sync_flush_error', String(err));
     }
+  });
+
+  // [AC-Se29635-4-1] 最後に検出された未解決競合ハンク一覧
+  // pull --rebase 後の自動解決で残ったハンクを返す。解消後は空配列。
+  app.get('/api/sync/conflicts', (c) => {
+    const rawConflicts = engine.getLastConflicts();
+    const conflicts = rawConflicts.map((fc) => ({
+      file: fc.file,
+      hunks: fc.hunks.map((h) => ({ ours: h.ours, theirs: h.theirs })),
+    }));
+    return c.json({ conflicts });
   });
 
   // [AC-Se29635-2-2] PAT 保存 (0600, vault 外)

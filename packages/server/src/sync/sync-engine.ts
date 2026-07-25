@@ -19,6 +19,7 @@ import path from 'node:path';
 import type { AuditEntry } from '@loamium/shared';
 import { GitUnavailableError, redactGitSecrets } from './git-runner.js';
 import type { GitRunner } from './git-runner.js';
+import { resolveRebaseConflicts, type FileConflict } from './sync-conflict.js';
 
 // ──────────────────────────────────────────────
 // 設定型 (Story 2 が SyncConfigStore で置き換える)
@@ -175,6 +176,11 @@ export class SyncEngine {
   #lastError: string | null = null;
   /** リトライ可能なリモートエラーにより、commit がローカルにキューされている状態。 */
   #offline = false;
+  // ── Story 4 ランタイム状態 ──────────────────────
+  /** 最後に検出された未解決競合ファイル一覧 (GET /api/sync/conflicts 用)。 */
+  #lastConflicts: FileConflict[] = [];
+  /** 競合状態フラグ: 未解決ハンクがある間 true。 */
+  #conflicted = false;
 
   constructor(opts: SyncEngineOpts) {
     this.#vaultRoot = opts.vaultRoot;
@@ -327,7 +333,7 @@ export class SyncEngine {
     }
 
     try {
-      const { branch, ahead: aheadGit, behind, dirty, conflicted } = await this.#parseStatus();
+      const { branch, ahead: aheadGit, behind, dirty } = await this.#parseStatus();
       // Story 3: オフライン時は未 push commit 数をキュー件数として報告する。
       // `git status --porcelain=v2` の branch.ab はトラッキング設定がない場合に
       // 表示されないため、オフライン時は git rev-list で正確なカウントを補完する。
@@ -349,7 +355,8 @@ export class SyncEngine {
         behind,
         dirty,
         offline: this.#offline,
-        conflicted,
+        // Story 4: #conflicted はエンジンが管理する永続フラグ (rebase abort後も残す)
+        conflicted: this.#conflicted,
         queued,
       };
     } catch {
@@ -364,10 +371,18 @@ export class SyncEngine {
         behind: 0,
         dirty: false,
         offline: this.#offline,
-        conflicted: false,
+        conflicted: this.#conflicted,
         queued: 0,
       };
     }
+  }
+
+  /**
+   * 最後に検出された未解決競合ファイル一覧を返す (Story 4 / GET /api/sync/conflicts)。
+   * 競合が解消されるまで (次の成功した pull/sync) 保持する。
+   */
+  getLastConflicts(): FileConflict[] {
+    return this.#lastConflicts;
   }
 
   /**
@@ -469,15 +484,40 @@ export class SyncEngine {
     const ok = pullResult.code === 0;
     let conflicts: string[] = [];
 
-    if (!ok) {
-      // 競合ファイル一覧を取得 (rebase 競合 → U=unmerged)
-      const conflictResult = await this.#run(['diff', '--name-only', '--diff-filter=U']);
-      if (conflictResult.code === 0 && conflictResult.stdout.trim() !== '') {
-        conflicts = conflictResult.stdout
-          .trim()
-          .split('\n')
-          .map((l) => l.trim())
-          .filter(Boolean);
+    if (ok) {
+      // pull 成功 → 競合フラグをクリア
+      this.#conflicted = false;
+      this.#lastConflicts = [];
+    } else {
+      // Story 4: pull --rebase が非ゼロ終了 → diff3Merge で自動解決を試みる
+      const resolution = await resolveRebaseConflicts(this.#vaultRoot, this.#runner);
+
+      if (resolution.resolved) {
+        // 自動解決済み: 競合フラグをクリアして ok=true として扱う
+        this.#conflicted = false;
+        this.#lastConflicts = [];
+
+        await this.#audit({
+          op: 'sync.pull',
+          path: `(remote) reason=${reason} auto-merged`,
+          mode: 'full',
+          result: 'ok',
+          status: 0,
+        });
+
+        return {
+          ok: true,
+          pushed: false,
+          pulled: true,
+          committed: false,
+          conflicts: [],
+          queued: false,
+        };
+      } else {
+        // 解決不能ハンクあり: abort 済み (ローカル編集保護)、UI に渡す
+        this.#conflicted = true;
+        this.#lastConflicts = resolution.conflicts;
+        conflicts = resolution.conflicts.map((fc) => fc.file);
       }
     }
 

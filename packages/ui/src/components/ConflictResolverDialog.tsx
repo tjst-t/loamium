@@ -33,14 +33,22 @@ interface ConflictResolverDialogProps {
    * diff3Merge が返した merged テキスト。
    * 競合ハンクの位置には buildConflictPlaceholder 行が入っている。
    * 解決後はプレースホルダーを解決テキストで置換して保存する。
+   * readOnly の場合は不要 (既定 '')。
    */
-  merged: string;
+  merged?: string;
   /** 競合ハンク一覧 */
   conflicts: ConflictHunk[];
-  /** 全ハンク解決後に「マージ結果を保存」ボタンが押されたときのコールバック */
-  onSave: (resolvedText: string) => void;
-  /** キャンセル (後で解決) */
+  /** 全ハンク解決後に「マージ結果を保存」ボタンが押されたときのコールバック (readOnly では未使用) */
+  onSave?: (resolvedText: string) => void;
+  /** キャンセル (後で解決) / readOnly では「閉じる」 */
   onCancel: () => void;
+  /**
+   * 読み取り専用モード (Se29635-4)。git 同期由来の rebase 競合を人間に「渡す」用途。
+   * abort でローカル編集を保護済みのため、ここでの選択はファイルへ書き戻さない
+   * (abort ベースの解決は再生時に再競合し収束しないため、UI 内解決は後続 sprint)。
+   * ours/theirs を並べて表示し、ユーザーはエディタで編集して再同期する。
+   */
+  readOnly?: boolean;
 }
 
 /**
@@ -88,10 +96,11 @@ function applyResolutions(
 
 export function ConflictResolverDialog({
   path,
-  merged,
+  merged = '',
   conflicts,
   onSave,
   onCancel,
+  readOnly = false,
 }: ConflictResolverDialogProps): JSX.Element {
   const [resolutions, setResolutions] = useState<Resolution[]>(() =>
     conflicts.map(() => null),
@@ -109,7 +118,7 @@ export function ConflictResolverDialog({
   };
 
   const handleSave = (): void => {
-    if (!allResolved) return;
+    if (!allResolved || onSave === undefined) return;
     const resolved = applyResolutions(merged, conflicts, resolutions);
     onSave(resolved);
   };
@@ -131,10 +140,21 @@ export function ConflictResolverDialog({
           </div>
           <div className="cr-path">{path}</div>
           <div className="cr-subtitle">
-            <span data-testid="conflict-hunk-count">
-              {resolvedCount} / {conflicts.length} ハンク解決済み
-            </span>
+            {readOnly ? (
+              <span data-testid="conflict-hunk-count">{conflicts.length} 件の競合ハンク</span>
+            ) : (
+              <span data-testid="conflict-hunk-count">
+                {resolvedCount} / {conflicts.length} ハンク解決済み
+              </span>
+            )}
           </div>
+          {readOnly && (
+            <div className="cr-readonly-note" data-testid="conflict-readonly-note">
+              git 同期で競合しました。ローカル編集は保護されています(自動 abort 済み)。
+              下の「ローカル」「リモート」を確認し、エディタで該当ファイルを編集してから
+              再度同期して解決してください。
+            </div>
+          )}
         </div>
 
         {/* 競合ハンク一覧 */}
@@ -161,41 +181,47 @@ export function ConflictResolverDialog({
                   <div className={`cr-diff-col cr-diff-ours${chosen === 'ours' || chosen === 'both' ? ' cr-chosen' : ''}`}>
                     <div className="cr-diff-label">こちら (ローカル編集)</div>
                     <pre className="cr-diff-pre">{hunk.ours.join('\n') || '(内容なし)'}</pre>
-                    <button
-                      className="btn cr-choice-btn"
-                      data-testid="conflict-choose-ours"
-                      aria-pressed={chosen === 'ours'}
-                      onClick={() => resolve(idx, 'ours')}
-                    >
-                      こちらを使う
-                    </button>
+                    {!readOnly && (
+                      <button
+                        className="btn cr-choice-btn"
+                        data-testid="conflict-choose-ours"
+                        aria-pressed={chosen === 'ours'}
+                        onClick={() => resolve(idx, 'ours')}
+                      >
+                        こちらを使う
+                      </button>
+                    )}
                   </div>
 
                   <div className={`cr-diff-col cr-diff-theirs${chosen === 'theirs' || chosen === 'both' ? ' cr-chosen' : ''}`}>
                     <div className="cr-diff-label">リモート (外部変更)</div>
                     <pre className="cr-diff-pre">{hunk.theirs.join('\n') || '(内容なし)'}</pre>
-                    <button
-                      className="btn cr-choice-btn"
-                      data-testid="conflict-choose-theirs"
-                      aria-pressed={chosen === 'theirs'}
-                      onClick={() => resolve(idx, 'theirs')}
-                    >
-                      リモートを使う
-                    </button>
+                    {!readOnly && (
+                      <button
+                        className="btn cr-choice-btn"
+                        data-testid="conflict-choose-theirs"
+                        aria-pressed={chosen === 'theirs'}
+                        onClick={() => resolve(idx, 'theirs')}
+                      >
+                        リモートを使う
+                      </button>
+                    )}
                   </div>
                 </div>
 
                 {/* 両方保持ボタン */}
-                <div className="cr-both-row">
-                  <button
-                    className="btn cr-choice-btn cr-both-btn"
-                    data-testid="conflict-choose-both"
-                    aria-pressed={chosen === 'both'}
-                    onClick={() => resolve(idx, 'both')}
-                  >
-                    両方保持
-                  </button>
-                </div>
+                {!readOnly && (
+                  <div className="cr-both-row">
+                    <button
+                      className="btn cr-choice-btn cr-both-btn"
+                      data-testid="conflict-choose-both"
+                      aria-pressed={chosen === 'both'}
+                      onClick={() => resolve(idx, 'both')}
+                    >
+                      両方保持
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -208,16 +234,18 @@ export function ConflictResolverDialog({
             data-testid="conflict-cancel"
             onClick={onCancel}
           >
-            後で解決
+            {readOnly ? '閉じる' : '後で解決'}
           </button>
-          <button
-            className="btn primary"
-            data-testid="conflict-save-merge"
-            disabled={!allResolved}
-            onClick={handleSave}
-          >
-            マージ結果を保存
-          </button>
+          {!readOnly && (
+            <button
+              className="btn primary"
+              data-testid="conflict-save-merge"
+              disabled={!allResolved}
+              onClick={handleSave}
+            >
+              マージ結果を保存
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -108,6 +108,24 @@
       "topic": "scheduler 配線",
       "decision": "index.setOnChange を上書きせず内部で scheduler.onVaultChange を連鎖。scheduler.start() は無条件開始 (各tickでenabled/remote/git再確認しno-op)。同期処理は #inFlight mutex で直列化。",
       "rationale": "Sd5c9f4 の onChange を壊さない。runtime 有効化でも定期pull/再送が働く (Finding1)。git状態の競合防止 (Finding2/3)。"
+    },
+    {
+      "story": "Se29635-4",
+      "topic": "競合解決 (diff3 再利用)",
+      "decision": "pull --rebase 競合時は各ファイルの 3 ステージを git show で読み diff3Merge で自動マージ。全解決なら add+continue、未解決が1件でもあれば rebase --abort でローカル編集を保護しハンクを UI へ返す。想定外例外も finally 相当で必ず abort。",
+      "rationale": "ADR-0030 資産再利用。priority2 データ安全性 (迷ったらファイルを守る)。"
+    },
+    {
+      "story": "Se29635-4",
+      "topic": "rebase の ours/theirs 反転 (review #1 critical)",
+      "decision": "rebase 中は :2:=onto(リモート) / :3:=再生(ローカル) で merge と逆。diff3Merge には ours=:3:(ローカル) theirs=:2:(リモート) を渡すよう修正。UI ラベル「ローカル/リモート」と一致させ、ユーザーの選択が編集喪失に繋がらないようにした。",
+      "rationale": "review 指摘のデータ喪失バグ。correctness/data-safety のため即修正。"
+    },
+    {
+      "story": "Se29635-4",
+      "topic": "git 競合ダイアログは read-only (review #4)",
+      "decision": "ConflictResolverDialog に readOnly を追加し、git 同期競合では ours/theirs を表示するのみ(書き戻さない)。abort ベースでは UI 内で解決テキストを書き戻しても再生時に元のローカルコミットが再競合し収束しないため。ユーザーはエディタで編集して再同期して解決する。merged=\"\" のまま save すると空書き込みでファイルを消す危険もあったため撤去。",
+      "rationale": "壊れた/収束しない write-back を出荷しない方が安全。AC「解決不能ハンクのみ UI で人間に渡す」は表示で満たし、編集喪失は abort で防ぐ。収束する UI 内解決 (in-rebase 保持) は backlog。"
     }
   ],
   "review_decisions": [
@@ -160,6 +178,24 @@
         "F8 sync-auto Scenario2 の固定500ms sleep — 明示 syncNow 前の debounce レース回避用、green のため据置"
       ],
       "cap_hit": false
+    },
+    {
+      "story": "Se29635-4",
+      "cycle": 1,
+      "findings": 8,
+      "data_safety": "FAIL→fixed",
+      "applied": [
+        "#1 rebase ours/theirs ステージ反転を修正 (critical data-loss)",
+        "#2/#3 想定外例外時に必ず rebase --abort する try/catch ガード (mid-rebase 固着・部分書込を防止)",
+        "#4 onSave gap → git 競合ダイアログを readOnly 情報表示に変更 (空書込/無限ループ/選択破棄を回避)",
+        "#6 rebase ステージ番号のコメント修正"
+      ],
+      "deferred": [
+        "#5 rebase --continue の多コミット競合ラウンドで空ハンク情報 — 稀・安全側 (abort)、backlog",
+        "#8 複数競合ファイルは先頭のみダイアログ表示 (全件は #lastConflicts に保持、編集喪失なし) — backlog",
+        "収束する UI 内 git 競合解決 (in-rebase 状態保持) — 後続 sprint backlog"
+      ],
+      "cap_hit": false
     }
   ],
   "done_judgment": {},
@@ -167,6 +203,14 @@
     {
       "story": "Se29635-2",
       "note": "vault に .loamium/ の gitignore が必要 (audit.log が pull --rebase を邪魔する)。#ensureLoamiumIgnored で自動追記するようにしたが、機能ガイド(Story5)にも明記する。"
+    },
+    {
+      "story": "Se29635-4",
+      "note": "収束する UI 内 git 競合解決 (rebase を中断せず保持して git add+continue) は abort ベースでは不可。後続 sprint で in-rebase 解決 or merge 戦略を検討。現状は read-only 表示 + エディタ編集→再同期で解決 (データ安全)。"
+    },
+    {
+      "story": "Se29635-4",
+      "note": "複数ファイル競合時、ダイアログは先頭ファイルのみ表示 (全件は GET /api/sync/conflicts に含まれる)。複数ファイル UI は backlog。"
     }
   ]
 }

@@ -1668,3 +1668,26 @@ export const syncResultResponseSchema = z.object({
   queued: z.boolean(),
   error: z.string().optional(),
 });
+export type SyncResultResponse = z.infer<typeof syncResultResponseSchema>;
+
+/**
+ * GET /api/sync/conflicts のレスポンス。
+ * 解決不能な競合ハンク一覧。空配列 = 競合なし。
+ */
+export const syncConflictHunkSchema = z.object({
+  /** 競合ファイルのパス (vault 相対) */
+  file: z.string(),
+  /** ours/theirs のハンクペア */
+  hunks: z.array(
+    z.object({
+      ours: z.array(z.string()),
+      theirs: z.array(z.string()),
+    }),
+  ),
+});
+export type SyncConflictHunk = z.infer<typeof syncConflictHunkSchema>;
+
+export const syncConflictsResponseSchema = z.object({
+  conflicts: z.array(syncConflictHunkSchema),
+});
+export type SyncConflictsResponse = z.infer<typeof syncConflictsResponseSchema>;
