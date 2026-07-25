@@ -1,0 +1,39 @@
+{
+  "sprint": "Se29635",
+  "summary": { "pass": 14, "fail": 0, "skip": 0, "note": "14 AC すべて pass。status は verify-run.json の machine 判定 (全 command exit 0) から導出。" },
+  "machine_status_source": "verify-run.json (overall_machine_status=pass)",
+  "tests": [
+    { "story": "Se29635-1", "acceptance_criteria": ["AC-Se29635-1-1", "AC-Se29635-1-3"], "file": "packages/server/src/sync/sync-engine.test.ts + git-runner.test.ts", "status": "pass", "evidence": "28+ unit tests (StubGitRunner 決定的検証)、make test exit 0" },
+    { "story": "Se29635-1", "acceptance_criteria": ["AC-Se29635-1-2"], "file": "packages/server/src/sync/sync-engine.test.ts", "status": "pass", "evidence": "git 不在で syncNow→GitUnavailableError / status→available:false / import 非破壊" },
+    { "story": "Se29635-2", "acceptance_criteria": ["AC-Se29635-2-1", "AC-Se29635-2-3"], "file": "tests/acceptance/sync-remote.spec.ts", "status": "pass", "evidence": "実 git + file:// bare 往復、remote 差替、手動 now / pull / 起動時 pull + byte 一致 + index 追従 (9 tests)" },
+    { "story": "Se29635-2", "acceptance_criteria": ["AC-Se29635-2-2"], "file": "tests/acceptance/sync-remote.spec.ts", "status": "pass", "evidence": ".loamium/sync-credentials.json mode 0600、token が tracked files/.git/config に非出現、GET config で redact" },
+    { "story": "Se29635-3", "acceptance_criteria": ["AC-Se29635-3-1", "AC-Se29635-3-2"], "file": "tests/acceptance/sync-auto.spec.ts", "status": "pass", "evidence": "debounce auto-commit→push を bare で確認、reason=focus pull 取り込み (5 tests)" },
+    { "story": "Se29635-3", "acceptance_criteria": ["AC-Se29635-3-3"], "file": "tests/acceptance/sync-auto.spec.ts", "status": "pass", "evidence": "到達不能で offline=true/queued>=1/lastError、remote 復帰で flush → queued=0/bare 反映" },
+    { "story": "Se29635-4", "acceptance_criteria": ["AC-Se29635-4-1"], "file": "tests/acceptance/sync-conflict.spec.ts", "status": "pass", "evidence": "実 git 競合: 自動マージ / 未解決は abort でローカル編集保護 + GET conflicts ハンク返却 (3 tests)。rebase ステージ反転修正済み" },
+    { "story": "Se29635-4", "acceptance_criteria": ["AC-Se29635-4-2"], "file": "packages/ui/tests/e2e/sync-status.mock.spec.ts + sync-status.e2e.spec.ts", "status": "pass", "evidence": "全状態 (idle/unpushed/offline/conflict/git不在/未設定) + 全 data-testid + モバイル≤680px (mock 9)、実バックエンド round-trip (e2e 2)。make test-ui-mock exit 0" },
+    { "story": "Se29635-5", "acceptance_criteria": ["AC-Se29635-5-1"], "file": "tests/acceptance/sync-cli.spec.ts", "status": "pass", "evidence": "CLI sync status/now/config/pull/push subprocess 1:1 REST、sync_status(read)/sync_now(full のみ) 広告ゲート (13 tests)" },
+    { "story": "Se29635-5", "acceptance_criteria": ["AC-Se29635-5-2"], "file": "tests/acceptance/sync-cli.spec.ts", "status": "pass", "evidence": ".loamium/audit.log に op=sync.commit/pull/push の JSONL エントリ" },
+    { "story": "Se29635-5", "acceptance_criteria": ["AC-Se29635-5-3"], "file": "tests/acceptance/sync-cli.spec.ts", "status": "pass", "evidence": "samples/機能ガイド/Vault同期の使い方.md 存在 + samples/index.md リンク" }
+  ],
+  "diff_coverage": {
+    "surfaces": [
+      "REST: GET/PUT /api/sync/config, GET /api/sync/status, POST /api/sync/{now,pull,push,flush}, PUT /api/sync/credential, GET /api/sync/conflicts",
+      "CLI: loamium sync {status,now,config,pull,push}",
+      "Agent tools: sync_status (read), sync_now (write/full)",
+      "GUI: SyncStatusIndicator (sync-status/sync-now-button/sync-last-time/sync-unpushed-count/sync-badge-offline/sync-badge-conflict), ConflictResolverDialog readOnly",
+      "Library: packages/server/src/sync/* (GitRunner/SystemGitRunner/GitUnavailableError/SyncEngine/SyncConfigStore/SyncScheduler/resolveRebaseConflicts), getSyncService, shared sync schemas"
+    ],
+    "result": "全 user-observable surface に対応する pass テストあり (CLI 5 subcommand が REST 5 を駆動、credential→sync-remote、conflicts/flush→conflict/auto+mock、GUI→mock+e2e、agent tools→sync-cli gate + agent-tools.e2e)。untested surface なし。"
+  },
+  "done_judgment": {
+    "_note": "guards.json 未設定 (Go path 既定は当 TS リポジトリに非該当)。機械 grep 相当はモデルが sprint diff に対し実行済み。",
+    "Se29635-1": { "guard1_user_review_required_not_done": "pass", "guard2_nil_injection_mock": "n/a", "guard3_mock_mode_not_real_smoke": "pass", "guard4_priority_rule_9_exception_valid": "n/a", "guard5_call_path_grep": "pass", "guard6_deferred_comment_clean": "pass", "guard7_adr_conformance": "pass", "guard8_destructive_multi_version_test": "n/a", "overall": "ok" },
+    "Se29635-2": { "guard1_user_review_required_not_done": "pass", "guard2_nil_injection_mock": "n/a", "guard3_mock_mode_not_real_smoke": "pass", "guard4_priority_rule_9_exception_valid": "n/a", "guard5_call_path_grep": "pass", "guard6_deferred_comment_clean": "pass", "guard7_adr_conformance": "pass", "guard8_destructive_multi_version_test": "n/a (往復 byte 一致検証で Rule8 の精神を充足)", "overall": "ok" },
+    "Se29635-3": { "guard1_user_review_required_not_done": "pass", "guard2_nil_injection_mock": "n/a", "guard3_mock_mode_not_real_smoke": "pass", "guard4_priority_rule_9_exception_valid": "n/a", "guard5_call_path_grep": "pass", "guard6_deferred_comment_clean": "pass", "guard7_adr_conformance": "pass", "guard8_destructive_multi_version_test": "n/a", "overall": "ok" },
+    "Se29635-4": { "guard1_user_review_required_not_done": "pass", "guard2_nil_injection_mock": "n/a", "guard3_mock_mode_not_real_smoke": "pass", "guard4_priority_rule_9_exception_valid": "n/a", "guard5_call_path_grep": "pass", "guard6_deferred_comment_clean": "pass (後続sprintコメントは backlog 化済み)", "guard7_adr_conformance": "pass (rebase ステージ反転修正で data-safety 確保)", "guard8_destructive_multi_version_test": "n/a (競合で編集喪失なし検証で Rule8 の精神を充足)", "overall": "ok" },
+    "Se29635-5": { "guard1_user_review_required_not_done": "pass", "guard2_nil_injection_mock": "n/a", "guard3_mock_mode_not_real_smoke": "pass", "guard4_priority_rule_9_exception_valid": "n/a", "guard5_call_path_grep": "pass (agent tool→SyncEngine、CLI→REST の呼出経路実在)", "guard6_deferred_comment_clean": "pass", "guard7_adr_conformance": "pass (ADR-0016 監査済みエンジン経由 / ADR-0018 write は full のみ)", "guard8_destructive_multi_version_test": "n/a", "overall": "ok" }
+  },
+  "verifier_ran": true,
+  "sprint_review_runs": 1,
+  "guards_machine_run": false
+}

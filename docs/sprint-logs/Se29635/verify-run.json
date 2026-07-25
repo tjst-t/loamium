@@ -1,0 +1,10 @@
+{
+  "sprint": "Se29635",
+  "note": "Machine-derived verdict from real process exit codes (run-guards.py/run-verify.py hooks not installed in this skill; commands run directly and exit codes captured verbatim). test-discipline Rule 9.",
+  "commands": [
+    { "name": "lint", "command": "make lint", "exit_code": 0, "status": "pass", "evidence": "tsc --noEmit clean across server/shared/ui/cli + tests/tsconfig.json (docs/sprint-logs/Se29635/verify-lint.txt LINT_EXIT=0)" },
+    { "name": "test", "command": "make test", "exit_code": 0, "status": "pass", "evidence": "Test Files 127 passed; Tests 1871 passed (docs/sprint-logs/Se29635/verify-test.txt TEST_EXIT=0)" },
+    { "name": "ui-tests", "command": "make test-ui-mock", "exit_code": 0, "status": "pass", "evidence": "644 passed (docs/sprint-logs/Se29635/verify-ui-mock.txt UIMOCK_EXIT=0). First run caught a real cross-cutting regression (371 failed: header SyncStatusIndicator fired GET /api/sync/status on every page → installCatchAll unexpected-request assertions); fixed by adding default sync stubs to mock-helpers.ts; re-run green." }
+  ],
+  "overall_machine_status": "pass"
+}

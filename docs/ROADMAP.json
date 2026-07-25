@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "Se29635",
+    "current_sprint": null,
     "total": 60,
-    "done": 58,
-    "in_progress": 1,
+    "done": 59,
+    "in_progress": 0,
     "remaining": 1,
-    "percentage": 96.7
+    "percentage": 98.3
   },
   "execution_order": [
     "Sd63ad1",
@@ -9197,7 +9197,7 @@
       "title": "Vault 同期(git 委譲・任意リモート)",
       "description": "ADR-0032。専用同期サーバを作らずシステム git へのシェルアウトで複数端末同期。ハブは任意の git リモート。段階導入: 手動+起動時pull → 自動commit/push+フォーカスpull → 競合UI。",
       "milestone": true,
-      "status": "in_progress",
+      "status": "done",
       "detail_level": "detailed",
       "depends_on": [],
       "touched_adrs": [
@@ -9219,19 +9219,19 @@
               "id": "AC-Se29635-1-1",
               "description": "同期エンジンは差し替え可能な単一モジュールとしてシステム git にシェルアウトし、git を同梱しない",
               "test": "[AC-Se29635-1-1] in packages/server/src/sync/sync-engine.test.ts",
-              "status": "planned"
+              "status": "pass"
             },
             {
               "id": "AC-Se29635-1-2",
               "description": "git 不在時は握りつぶさず GitUnavailableError 相当の明示エラーで同期機能のみ無効化し、サーバ起動・他機能・テストは壊れない(ADR-0025 パターン踏襲)",
               "test": "[AC-Se29635-1-2] in packages/server/src/sync/sync-engine.test.ts",
-              "status": "planned"
+              "status": "pass"
             },
             {
               "id": "AC-Se29635-1-3",
               "description": "シェルアウト層をスタブ化した決定的ユニットテストがある",
               "test": "[AC-Se29635-1-3] in packages/server/src/sync/sync-engine.test.ts",
-              "status": "planned"
+              "status": "pass"
             }
           ],
           "tasks": {}
@@ -9247,19 +9247,19 @@
               "id": "AC-Se29635-2-1",
               "description": "ハブは任意の git リモート(GitHub/自宅/NAS bare)を設定で差し替えできる",
               "test": "[AC-Se29635-2-1] in tests/acceptance/sync-remote.spec.ts",
-              "status": "planned"
+              "status": "pass"
             },
             {
               "id": "AC-Se29635-2-2",
               "description": "認証は git credential 機構へ委譲。フォールバックの Fine-grained PAT は OS キーチェーンまたは .loamium 配下 0600 に保管し、vault 内(git 管理下)には絶対保存しない",
               "test": "[AC-Se29635-2-2] in tests/acceptance/sync-remote.spec.ts",
-              "status": "planned"
+              "status": "pass"
             },
             {
               "id": "AC-Se29635-2-3",
               "description": "手動「今すぐ同期」と起動時 pull が動作し、pull で降った変更を既存ファイルウォッチャーがインデックス追従する",
               "test": "[AC-Se29635-2-3] in tests/acceptance/sync-remote.spec.ts",
-              "status": "planned"
+              "status": "pass"
             }
           ],
           "tasks": {}
@@ -9275,19 +9275,19 @@
               "id": "AC-Se29635-3-1",
               "description": "編集停止 30〜60 秒のデバウンスで auto-commit → 即 push、アプリ終了/ブラー時にも実行する",
               "test": "[AC-Se29635-3-1] in tests/acceptance/sync-auto.spec.ts",
-              "status": "planned"
+              "status": "pass"
             },
             {
               "id": "AC-Se29635-3-2",
               "description": "pull は起動時・ウィンドウフォーカス時・定期(10〜15分)・push 拒否時に実行する",
               "test": "[AC-Se29635-3-2] in tests/acceptance/sync-auto.spec.ts",
-              "status": "planned"
+              "status": "pass"
             },
             {
               "id": "AC-Se29635-3-3",
               "description": "オフライン時は失敗を握りつぶさずキューし、オンライン復帰時にリトライする",
               "test": "[AC-Se29635-3-3] in tests/acceptance/sync-auto.spec.ts",
-              "status": "planned"
+              "status": "pass"
             }
           ],
           "tasks": {}
@@ -9303,13 +9303,13 @@
               "id": "AC-Se29635-4-1",
               "description": "non-fast-forward は pull --rebase → 再 push。解決不能な競合と dirty 編集バッファの衝突は ADR-0030 の 3-way 自動マージを再利用し、解決不能ハンクのみ UI で人間に渡す",
               "test": "[AC-Se29635-4-1] in packages/ui/tests/e2e/sync-status.e2e.spec.ts",
-              "status": "planned"
+              "status": "pass"
             },
             {
               "id": "AC-Se29635-4-2",
               "description": "状態表示(最終同期時刻・未 push 変更・オフライン・競合)を UI に持ち、モバイル(≤680px)でも崩れない",
               "test": "[AC-Se29635-4-2] in packages/ui/tests/e2e/sync-status.e2e.spec.ts",
-              "status": "planned"
+              "status": "pass"
             }
           ],
           "tasks": {}
@@ -9325,19 +9325,19 @@
               "id": "AC-Se29635-5-1",
               "description": "同期の実行・状態確認をエージェントツールと CLI(REST 1:1)で提供し、agent-help にトピックを追加する",
               "test": "[AC-Se29635-5-1] in tests/acceptance/sync-cli.spec.ts",
-              "status": "planned"
+              "status": "pass"
             },
             {
               "id": "AC-Se29635-5-2",
               "description": "git 直接操作はサービス層を通らない例外のため、同期操作(pull/push/merge の実行と結果)を .loamium/audit.log に記録する",
               "test": "[AC-Se29635-5-2] in tests/acceptance/sync-cli.spec.ts",
-              "status": "planned"
+              "status": "pass"
             },
             {
               "id": "AC-Se29635-5-3",
               "description": "機能ガイド(samples/機能ガイド/)に同期ガイドを追加し samples/index.md にリンクする",
               "test": "[AC-Se29635-5-3] in tests/acceptance/sync-cli.spec.ts",
-              "status": "planned"
+              "status": "pass"
             }
           ],
           "tasks": {}

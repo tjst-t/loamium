@@ -219,7 +219,13 @@
       "cap_hit": false
     }
   ],
-  "done_judgment": {},
+  "done_judgment": {
+    "verdict": "all stories done (overall: ok)",
+    "independent_verifier": "pass_with_warnings (must_fix_before_done: none)",
+    "machine_gate": "make lint=0, make test=0 (1871), make test-ui-mock=0 (644)",
+    "guards": "Guard1-8 全 Story ok (guard2/4/8 は当 TS リポジトリで n/a、Rule8 精神は往復byte一致/競合無喪失で充足)",
+    "note": "verify で cross-cutting 回帰 (header インジケータの GET /api/sync/status が全 mock spec の unexpected アサーションを破壊、371 failed) を machine gate が検出→mock ハーネス既定スタブで修正→644 pass。"
+  },
   "out_of_scope_findings": [
     {
       "story": "Se29635-2",
