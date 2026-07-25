@@ -9210,7 +9210,7 @@
       "stories": {
         "Se29635-1": {
           "title": "同期エンジン基盤(システム git シェルアウト + 不在明示エラー)",
-          "status": "planned",
+          "status": "in_progress",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "Loamium 運用者として、システム git 経由で vault を同期する基盤がほしい。なぜなら、専用同期サーバを作らず既存の git 資産で複数端末同期を実現するため(ADR-0032)。",

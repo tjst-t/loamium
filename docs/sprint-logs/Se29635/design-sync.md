@@ -66,7 +66,7 @@ export class SyncEngine {
 ```
 - `status()` は git 不在時に **throw しない** (`available:false`)。破壊的な `syncNow/pull/push` は `ensureAvailable()` で **GitUnavailableError**。
 - commit message 規約: `sync: {deviceName} {ISO8601}`。squash しない。
-- 監査: commit/pull/push/merge ごとに `audit({ op:'sync.pull'|'sync.push'|'sync.commit'|'sync.merge', path:'(remote)', mode:'read-write', result:'ok'|'error'|'denied', status })`。
+- 監査: commit/pull/push/merge ごとに `audit({ op:'sync.pull'|'sync.push'|'sync.commit'|'sync.merge', path:'(remote)', mode:'full', result:'ok'|'error'|'denied', status })`。注: `AuditEntry.mode` の許容値は `'full' | 'read-only' | 'append-only'`(`'read-write'` ではない)。Story1 で確認済み。
 
 ### `sync-scheduler.ts` (Story 3)
 - 編集停止 **debounce (既定 30s, テストは短縮可)** で auto-commit→即 push。アプリ終了/ブラー時にも flush。
