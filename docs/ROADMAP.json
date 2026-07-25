@@ -9266,7 +9266,7 @@
         },
         "Se29635-3": {
           "title": "自動 commit/push(デバウンス)+ フォーカス/定期 pull + オフラインキュー",
-          "status": "in_progress",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ユーザーとして、編集が自動で同期されてほしい。なぜなら、複数端末を意識せず使いたいから。",

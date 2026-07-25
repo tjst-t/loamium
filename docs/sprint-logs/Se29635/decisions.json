@@ -96,6 +96,18 @@
       "topic": "秘密混入防止 (review F-1)",
       "decision": "commit() は add -A の前に #ensureLoamiumIgnored() で .loamium/ が gitignore されていることを保証 (無ければ .gitignore に追記)。configureRemote/起動時にも先回り。PAT を含む sync-credentials.json を誤って commit/push しない。",
       "rationale": "review 指摘の data-safety バグ (add -A が .loamium/ を stage しうる)。correctness bug のため即修正。"
+    },
+    {
+      "story": "Se29635-3",
+      "topic": "オフラインキュー = git の未push commit",
+      "decision": "別ファイルにキューを持たず未push のローカル commit 自体をキューとする。queued=offline?ahead:0。ahead は rev-list --count HEAD ^origin/main、remote ref 不在時は HEAD 全数にフォールバック。retryIfPending で復帰時に再push。",
+      "rationale": "priority6 ファイル/gitが正。durable なキューを再発明しない。"
+    },
+    {
+      "story": "Se29635-3",
+      "topic": "scheduler 配線",
+      "decision": "index.setOnChange を上書きせず内部で scheduler.onVaultChange を連鎖。scheduler.start() は無条件開始 (各tickでenabled/remote/git再確認しno-op)。同期処理は #inFlight mutex で直列化。",
+      "rationale": "Sd5c9f4 の onChange を壊さない。runtime 有効化でも定期pull/再送が働く (Finding1)。git状態の競合防止 (Finding2/3)。"
     }
   ],
   "review_decisions": [
@@ -128,6 +140,24 @@
       ],
       "deferred": [
         "F-5 save() の Partial<SyncConfig> 型狭化 — 現状安全 (呼出は zod 検証済み data のみ) low"
+      ],
+      "cap_hit": false
+    },
+    {
+      "story": "Se29635-3",
+      "cycle": 1,
+      "findings": 8,
+      "applied": [
+        "F1 scheduler.start() 無条件化 (HIGH)",
+        "F4 countAheadRevs remote-ref 不在時フォールバック",
+        "F5 push-reject pull error の nullish 保険",
+        "F6 syncService TDZ 順序修正",
+        "F2 #inFlight 再入ガード",
+        "F3 pull 開始時に pending debounce キャンセル"
+      ],
+      "deferred": [
+        "F7 bad-remote エラーを retryable 扱い — テストの offline 再現に使用、本番の恒久誤設定は再送ノイズになるが軽微 (accept)",
+        "F8 sync-auto Scenario2 の固定500ms sleep — 明示 syncNow 前の debounce レース回避用、green のため据置"
       ],
       "cap_hit": false
     }
