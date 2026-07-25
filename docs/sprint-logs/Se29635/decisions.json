@@ -126,6 +126,18 @@
       "topic": "git 競合ダイアログは read-only (review #4)",
       "decision": "ConflictResolverDialog に readOnly を追加し、git 同期競合では ours/theirs を表示するのみ(書き戻さない)。abort ベースでは UI 内で解決テキストを書き戻しても再生時に元のローカルコミットが再競合し収束しないため。ユーザーはエディタで編集して再同期して解決する。merged=\"\" のまま save すると空書き込みでファイルを消す危険もあったため撤去。",
       "rationale": "壊れた/収束しない write-back を出荷しない方が安全。AC「解決不能ハンクのみ UI で人間に渡す」は表示で満たし、編集喪失は abort で防ぐ。収束する UI 内解決 (in-rebase 保持) は backlog。"
+    },
+    {
+      "story": "Se29635-5",
+      "topic": "共有エンジン",
+      "decision": "getSyncService(config) を vaultRoot 単位でメモ化し、REST/scheduler とエージェントツールが同一 SyncEngine を共有 (offline/lastSyncAt 等ランタイム状態の一貫性)。",
+      "rationale": "エージェント sync_now と REST status のズレ防止。"
+    },
+    {
+      "story": "Se29635-5",
+      "topic": "エージェント権限境界",
+      "decision": "sync_status=read ツール (全モード)、sync_now=write ツールで full モードのみ (read-only/append-only の clamp で除外)。config/credential はエージェントツール非公開。",
+      "rationale": "ADR-0016 監査済みエンジン経由 / ADR-0018 write は書込モードのみ・機密は非公開。"
     }
   ],
   "review_decisions": [
@@ -194,6 +206,15 @@
         "#5 rebase --continue の多コミット競合ラウンドで空ハンク情報 — 稀・安全側 (abort)、backlog",
         "#8 複数競合ファイルは先頭のみダイアログ表示 (全件は #lastConflicts に保持、編集喪失なし) — backlog",
         "収束する UI 内 git 競合解決 (in-rebase 状態保持) — 後続 sprint backlog"
+      ],
+      "cap_hit": false
+    },
+    {
+      "story": "Se29635-5",
+      "cycle": 1,
+      "self_review": true,
+      "fixed": [
+        "sub-agent が createVaultReadTools の戻り型を ReturnType<typeof defineTool>[] に広げ details:unknown に潰し agent-tools/privacy テストの型を破壊 → 推論に戻して修正 (sub-agent は誤って pre-existing と報告、実際は Story5 回帰)。全 typecheck clean を独立検証。"
       ],
       "cap_hit": false
     }
