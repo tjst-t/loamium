@@ -139,12 +139,42 @@ export interface SyncEngineOpts {
  * await engine.syncNow();                  // git 不在なら GitUnavailableError
  * ```
  */
+/**
+ * リトライ可能なリモートエラーのパターン (ネットワーク起因)。
+ * 認証失敗等の非リトライエラーはここに含めない。
+ */
+const RETRYABLE_PATTERNS = [
+  'could not read from remote',
+  'unable to access',
+  'could not resolve host',
+  'connection refused',
+  'does not appear to be a git repository',
+  'failed to connect',
+] as const;
+
+/**
+ * git の stderr がリトライ可能なリモートエラーを示すか判定する。
+ * ネットワーク/到達不能起因のエラーのみ true を返す。
+ */
+export function isRetryableRemoteError(stderr: string): boolean {
+  const lower = stderr.toLowerCase();
+  return RETRYABLE_PATTERNS.some((p) => lower.includes(p));
+}
+
 export class SyncEngine {
   readonly #vaultRoot: string;
   readonly #runner: GitRunner;
   readonly #getConfig: () => SyncEngineConfig;
   readonly #getToken: () => string | null;
   readonly #audit: (entry: Omit<AuditEntry, 'ts'>) => Promise<void>;
+
+  // ── Story 3 ランタイム状態 ──────────────────────
+  /** 最後に push/syncNow が成功した時刻 (ISO 8601)。 */
+  #lastSyncAt: string | null = null;
+  /** 最後に発生したエラーメッセージ (redact 済み)。 */
+  #lastError: string | null = null;
+  /** リトライ可能なリモートエラーにより、commit がローカルにキューされている状態。 */
+  #offline = false;
 
   constructor(opts: SyncEngineOpts) {
     this.#vaultRoot = opts.vaultRoot;
@@ -182,6 +212,32 @@ export class SyncEngine {
     const encoded = Buffer.from(`x-access-token:${token}`).toString('base64');
     const authArgs = ['-c', `http.extraheader=Authorization: Basic ${encoded}`, ...args];
     return this.#runner.run(authArgs, { cwd: this.#vaultRoot });
+  }
+
+  /**
+   * `git rev-list --count HEAD ^<remoteName>/<branch>` でローカルの未 push commit 数を返す。
+   *
+   * `git status --porcelain=v2` の `branch.ab` はトラッキング設定がない場合に
+   * 表示されない (`git push --set-upstream` 不使用時など)。このメソッドで補完する。
+   * リモート ref が存在しない場合 (初回 push 前・リモート到達不能後) は 0 を返す。
+   */
+  async #countAheadRevs(): Promise<number> {
+    const config = this.#getConfig();
+    const remoteRef = `${config.remoteName}/${config.branch}`;
+    // git rev-list --count HEAD ^origin/main: 未 push commit 数
+    const result = await this.#run(['rev-list', '--count', 'HEAD', `^${remoteRef}`]);
+    if (result.code !== 0) {
+      // リモート ref が存在しない (初回 push 前・fetch 未実施・リモート到達不能後):
+      // まだ一度も push できていない = ローカル全 commit が未 push とみなし、
+      // HEAD 到達可能な commit 総数を返す (offline 時に queued=0 と誤表示しないため。
+      // review Se29635-3 Finding 4)。
+      const all = await this.#run(['rev-list', '--count', 'HEAD']);
+      if (all.code !== 0) return 0; // リポジトリ未初期化等
+      const total = parseInt(all.stdout.trim(), 10);
+      return Number.isFinite(total) ? total : 0;
+    }
+    const n = parseInt(result.stdout.trim(), 10);
+    return Number.isFinite(n) ? n : 0;
   }
 
   /** `git status --porcelain=v2 --branch` をパースして ahead/behind/dirty を返す。 */
@@ -271,19 +327,30 @@ export class SyncEngine {
     }
 
     try {
-      const { branch, ahead, behind, dirty, conflicted } = await this.#parseStatus();
+      const { branch, ahead: aheadGit, behind, dirty, conflicted } = await this.#parseStatus();
+      // Story 3: オフライン時は未 push commit 数をキュー件数として報告する。
+      // `git status --porcelain=v2` の branch.ab はトラッキング設定がない場合に
+      // 表示されないため、オフライン時は git rev-list で正確なカウントを補完する。
+      let ahead = aheadGit;
+      let queued = 0;
+      if (this.#offline) {
+        const aheadRevs = await this.#countAheadRevs();
+        // rev-list が 0 かつ git status も 0 なら本当に 0 (まれに fetch 不足で 0 になる場合がある)
+        ahead = Math.max(aheadGit, aheadRevs);
+        queued = ahead;
+      }
       return {
         available: true,
         remoteConfigured: config.remoteUrl !== null,
         branch,
-        lastSyncAt: null,       // Story 2 で config ストアから読む
-        lastError: null,
+        lastSyncAt: this.#lastSyncAt,
+        lastError: this.#lastError,
         ahead,
         behind,
         dirty,
-        offline: false,         // Story 3 が実装
+        offline: this.#offline,
         conflicted,
-        queued: 0,              // Story 3 が実装
+        queued,
       };
     } catch {
       // git コマンド失敗でも throw しない
@@ -291,12 +358,12 @@ export class SyncEngine {
         available: true,
         remoteConfigured: config.remoteUrl !== null,
         branch: null,
-        lastSyncAt: null,
-        lastError: 'Failed to parse git status',
+        lastSyncAt: this.#lastSyncAt,
+        lastError: this.#lastError ?? 'Failed to parse git status',
         ahead: 0,
         behind: 0,
         dirty: false,
-        offline: false,
+        offline: this.#offline,
         conflicted: false,
         queued: 0,
       };
@@ -576,14 +643,186 @@ export class SyncEngine {
     }
 
     const ok = !firstError && conflicts.length === 0;
+    // Story 3: ランタイム状態を更新する
+    if (ok) {
+      this.#lastSyncAt = new Date().toISOString();
+      this.#offline = false;
+      this.#lastError = null;
+    } else if (firstError !== undefined) {
+      this.#lastError = firstError;
+      // リトライ可能なリモートエラー (ネットワーク起因) はオフラインとしてマークする
+      if (isRetryableRemoteError(firstError)) {
+        this.#offline = true;
+      }
+    }
+    const queued = this.#offline;
     return {
       ok,
       pushed,
       pulled,
       committed,
       conflicts,
-      queued: false,       // Story 3 が実装
+      queued,
       ...(firstError !== undefined ? { error: firstError } : {}),
     };
+  }
+
+  // ──────────────────────────────────────────
+  // Story 3: 自動同期 API
+  // ──────────────────────────────────────────
+
+  /**
+   * デバウンスターゲット: dirty なら commit → push する。
+   *
+   * - push が non-ff で失敗した場合は pull --rebase してリトライする (AC-3-2 push 拒否時 pull)。
+   * - リトライ可能なリモートエラーの場合は `#offline=true` をセットし、
+   *   ローカル commit (未 push) をキューとして保持する (AC-3-3 オフラインキュー)。
+   * - 成功時は `#lastSyncAt`, `#offline=false`, `#lastError=null` を更新する。
+   */
+  async autoSyncOnce(): Promise<SyncResult> {
+    await this.ensureAvailable();
+
+    const config = this.#getConfig();
+    const iso = new Date().toISOString();
+    const commitMsg = `sync: ${config.deviceName} ${iso}`;
+
+    let committed = false;
+    let pulled = false;
+    let pushed = false;
+    let conflicts: string[] = [];
+    let firstError: string | undefined;
+
+    // Step 1: dirty なら commit する (クリーンなら false を返す = スキップ)
+    try {
+      committed = await this.commit(commitMsg);
+    } catch (err) {
+      firstError = redactGitSecrets(String(err));
+    }
+
+    // Step 2: push を試みる
+    if (!firstError) {
+      try {
+        const pushRes = await this.push();
+        if (pushRes.ok) {
+          pushed = true;
+        } else {
+          // push 失敗 — non-ff か、ネットワーク起因かを判別する
+          const stderr = pushRes.error ?? '';
+          const isNonFf =
+            stderr.includes('rejected') ||
+            stderr.includes('non-fast-forward') ||
+            stderr.includes('[rejected]');
+
+          if (isNonFf) {
+            // push 拒否 → pull --rebase してからリトライする (AC-3-2)
+            const pullRes = await this.pull('push-reject');
+            pulled = pullRes.pulled;
+            conflicts = pullRes.conflicts;
+            if (pullRes.ok) {
+              // rebase 成功 → push リトライ
+              const retryPush = await this.push();
+              pushed = retryPush.pushed;
+              if (!retryPush.ok && retryPush.error) {
+                firstError = retryPush.error;
+              }
+            } else {
+              // pull 失敗 (error は pull() が必ず埋めるが、型上 optional のため保険)
+              firstError = pullRes.error ?? 'push-reject 後の pull --rebase に失敗';
+            }
+          } else if (isRetryableRemoteError(stderr)) {
+            // ネットワーク/到達不能 → オフラインとしてキューに積む (AC-3-3)
+            this.#offline = true;
+            this.#lastError = stderr;
+            return {
+              ok: false,
+              pushed: false,
+              pulled: false,
+              committed,
+              conflicts: [],
+              queued: true,
+              error: stderr,
+            };
+          } else {
+            // 非リトライエラー (認証失敗等)
+            firstError = stderr;
+          }
+        }
+      } catch (err) {
+        firstError = redactGitSecrets(String(err));
+      }
+    }
+
+    const ok = !firstError && conflicts.length === 0;
+    if (ok && pushed) {
+      this.#lastSyncAt = new Date().toISOString();
+      this.#offline = false;
+      this.#lastError = null;
+    } else if (firstError !== undefined) {
+      // リトライ可能なエラーならオフラインとしてマークする
+      if (isRetryableRemoteError(firstError)) {
+        this.#offline = true;
+      }
+      this.#lastError = firstError;
+    }
+
+    return {
+      ok,
+      pushed,
+      pulled,
+      committed,
+      conflicts,
+      queued: this.#offline,
+      ...(firstError !== undefined ? { error: firstError } : {}),
+    };
+  }
+
+  /**
+   * オフライン状態で未 push commit がある場合に push を再試行する。
+   *
+   * - `#offline=true` かつ ahead>0 でなければ null を返す (何もしない)。
+   * - 成功時は `#offline=false`, `#lastSyncAt` を更新し、結果を返す。
+   * - 失敗時もエラーを飲み込まず `#lastError` に残す。
+   */
+  async retryIfPending(): Promise<SyncResult | null> {
+    // git 不在は呼び出し元が別途保護する (ここでは graceful に null 返し)
+    const isAvail = await this.#runner.isAvailable();
+    if (!isAvail) return null;
+
+    if (!this.#offline) return null;
+
+    const { ahead } = await this.#parseStatus();
+    if (ahead === 0) {
+      // キューが空 → オフライン状態を解除して null を返す
+      this.#offline = false;
+      return null;
+    }
+
+    // push を再試行する
+    try {
+      const pushRes = await this.push();
+      if (pushRes.ok) {
+        this.#lastSyncAt = new Date().toISOString();
+        this.#offline = false;
+        this.#lastError = null;
+        return { ...pushRes, queued: false };
+      } else {
+        const stderr = pushRes.error ?? '';
+        this.#lastError = stderr;
+        // まだオフラインのままにしておく
+        return { ...pushRes, queued: true };
+      }
+    } catch (err) {
+      const msg = redactGitSecrets(String(err));
+      this.#lastError = msg;
+      return {
+        ok: false,
+        pushed: false,
+        pulled: false,
+        committed: false,
+        conflicts: [],
+        queued: true,
+        error: msg,
+      };
+    }
   }
 }

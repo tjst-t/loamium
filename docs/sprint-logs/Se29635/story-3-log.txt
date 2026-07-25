@@ -1,0 +1,116 @@
+Story Se29635-3 — 自動 commit/push(デバウンス)+ フォーカス/定期 pull + オフラインキュー
+実装ログ
+================================================================================
+
+## 実装サマリー
+
+AC-Se29635-3-1, AC-Se29635-3-2, AC-Se29635-3-3 をすべて実装・テストパス。
+
+## ファイル作成・変更
+
+### 新規作成
+- packages/server/src/sync/sync-scheduler.ts
+  SyncScheduler クラス: start() / stop() / flush() / onVaultChange()
+  - debounce → autoSyncOnce() (AC-3-1)
+  - 定期 pull インターバル + retryIfPending() (AC-3-2/3-3)
+  - #pulling フラグで pull 中の自己トリガーを防止
+
+- tests/acceptance/sync-auto.spec.ts
+  5 テスト (実 git + file:// bare、mock なし)
+  Scenario 1: デバウンス auto-commit/push + フォーカス pull
+  Scenario 2: オフラインキュー (offline=true/queued>=1/lastError 確認 + 復帰)
+  Scenario 3: POST /api/sync/flush 疎通
+
+### 変更
+- packages/server/src/sync/sync-engine.ts
+  + isRetryableRemoteError(): リトライ可能ネットワークエラーパターン判定
+  + #countAheadRevs(): git rev-list でトラッキング設定なし環境でも ahead を正確に計測
+  + #lastSyncAt / #lastError / #offline ランタイム状態フィールド
+  + autoSyncOnce(): デバウンスターゲット (commit → push → push失敗時 pull→リトライ)
+  + retryIfPending(): オフラインキュー再試行
+  + status(): ランタイム状態を反映 (lastSyncAt/lastError/offline/queued)
+  + syncNow(): 成功時に #lastSyncAt 更新、リトライ可能エラー時に #offline=true
+
+- packages/server/src/sync-service.ts
+  SyncService に scheduler フィールド追加。createSyncService() が SyncScheduler を構築して返す。
+
+- packages/server/src/routes/sync.ts
+  + POST /api/sync/flush エンドポイント追加 (scheduler.flush() → SyncStatus 返却)
+
+- packages/server/src/index.ts
+  + setOnChange 内に scheduler.onVaultChange(path, op) を連鎖 (既存コールバックを上書きせず)
+  + serve callback 内で syncService.scheduler.start()
+  + shutdown で await syncService.scheduler.stop() (アプリ終了時 flush)
+
+## パブリックサーフェス
+
+### SyncEngine (新規メソッド)
+- isRetryableRemoteError(stderr: string): boolean (エクスポート関数)
+- autoSyncOnce(): Promise<SyncResult>
+- retryIfPending(): Promise<SyncResult | null>
+- status(): SyncStatus — lastSyncAt / lastError / offline / queued がランタイム値を返す
+
+### SyncScheduler (新規クラス)
+- constructor(opts: { engine: SyncEngine; store: SyncConfigStore })
+- start(): void
+- stop(): Promise<void>
+- flush(): Promise<void>
+- onVaultChange(path: string, op: string): void
+
+### SyncService (拡張)
+- scheduler: SyncScheduler フィールド追加 (後方互換)
+
+### 新規 REST エンドポイント
+- POST /api/sync/flush — scheduler.flush() を実行し最新 SyncStatus を返す
+  body: なし / response: SyncStatus (200)
+
+## テスト結果
+
+vitest run packages/server/src/sync/ tests/acceptance/sync-remote.spec.ts tests/acceptance/sync-auto.spec.ts
+
+  Test Files  4 passed (4)
+       Tests  44 passed (44)
+    Duration  ~12s
+
+  内訳:
+  - packages/server/src/sync/git-runner.test.ts: 11 passed
+  - packages/server/src/sync/sync-engine.test.ts: 19 passed
+  - tests/acceptance/sync-remote.spec.ts: 9 passed (Story 2 回帰)
+  - tests/acceptance/sync-auto.spec.ts: 5 passed (Story 3 新規)
+
+## 型チェック
+
+npx tsc --noEmit -p packages/server/tsconfig.json: CLEAN (エラー 0)
+npx tsc --noEmit -p packages/shared/tsconfig.json: CLEAN (エラー 0)
+
+## タイミング安定化の対応
+
+固定 sleep の代わりにポーリング (pollUntil) を採用。
+debounceMs=300ms (テスト用短縮) + timeoutMs=10s のポーリングで安定。
+オフラインキューテスト: pollUntil で offline=true AND queued>=1 を同時確認。
+
+## 実装上の重要な発見
+
+1. git status --porcelain=v2 の branch.ab: git push --set-upstream なし (デフォルト push)
+   の場合はトラッキングブランチが設定されないため branch.ab が出力されず ahead=0 になる。
+   → #countAheadRevs() で git rev-list HEAD ^origin/main を fallback として実装。
+   → push 後も origin/main リモート ref は .git/refs/remotes/ に残るため
+     リモート URL 変更後も rev-list でカウントできる (実証済み)。
+
+2. syncNow() と autoSyncOnce() のリトライ可能エラー検出を両方で実装する必要あり。
+   テストが POST /api/sync/now を使用するため syncNow() にも isRetryableRemoteError チェックを追加。
+
+## スコープ外知見と懸念事項
+
+- out_of_scope_findings: なし
+- concerns:
+  - SyncScheduler の start() は server boot 後に呼ばれるが、設定変更 (PUT /api/sync/config) で
+    pullIntervalMs が変わっても既存インターバルは更新されない。設定変更後はサーバー再起動が必要。
+    Story 4/5 の UI 要件次第では動的更新の対応を追加すること。
+  - flush() で server.stop() が呼ばれると autoSyncOnce() が途中で abort される可能性。
+    Node.js プロセス終了まで 2000ms のタイムアウトがあるため大部分は完了するが保証はない。
+
+## エスカレーション
+
+なし。設計ドキュメント (design-sync.md) の仕様に完全準拠。
+Story3: 44 tests pass (30 unit + 9 + 5 acceptance), tsc clean. Review F1-F6 applied, F7/F8 deferred.

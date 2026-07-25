@@ -1,5 +1,5 @@
 /**
- * 同期 API ルート (ADR-0032 / Se29635-2)。
+ * 同期 API ルート (ADR-0032 / Se29635-2/3)。
  *
  * GET  /api/sync/status       — SyncStatus (git 不在でも available:false で 200)
  * GET  /api/sync/config       — 設定 (token は redact、tokenConfigured フラグのみ)
@@ -7,6 +7,7 @@
  * POST /api/sync/now          — syncNow() (commit→pull→push)
  * POST /api/sync/pull         — pull({reason})
  * POST /api/sync/push         — push()
+ * POST /api/sync/flush        — scheduler.flush() (debounce 即時実行 / ブラー時) [Story 3]
  * PUT  /api/sync/credential   — PAT 保存 (0600, vault 外)
  *
  * セキュリティ:
@@ -29,11 +30,11 @@ import { parseBody, setAudit, errorJson, type AppEnv } from '../http.js';
  * 同期 API ルートファクトリ。
  *
  * @param config - サーバー設定 (監査ログ・モード制御に使う)
- * @param service - `createSyncService` が返すエンジン + ストアのペア
+ * @param service - `createSyncService` が返すエンジン + ストア + スケジューラ
  */
 export function syncRoutes(config: ServerConfig, service: SyncService): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
-  const { engine, store } = service;
+  const { engine, store, scheduler } = service;
 
   // [AC-Se29635-2-3] 同期状態取得
   // git 不在でも throw しない (available:false を返す)
@@ -116,6 +117,22 @@ export function syncRoutes(config: ServerConfig, service: SyncService): Hono<App
         return errorJson(c, 503, 'git_unavailable', err.message);
       }
       return errorJson(c, 500, 'sync_error', String(err));
+    }
+  });
+
+  // [AC-Se29635-3-1] ウィンドウブラー / アプリ終了時に pending debounce を即時実行する
+  // body なし、レスポンスは最新の SyncStatus を返す (UI がすぐに表示を更新できる)
+  app.post('/api/sync/flush', async (c) => {
+    setAudit(c, 'sync.flush', '(scheduler)');
+    try {
+      await scheduler.flush();
+      const status = await engine.status();
+      return c.json(status);
+    } catch (err) {
+      if (err instanceof GitUnavailableError) {
+        return errorJson(c, 503, 'git_unavailable', err.message);
+      }
+      return errorJson(c, 500, 'sync_flush_error', String(err));
     }
   });
 

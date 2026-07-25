@@ -38,7 +38,12 @@ await index.build();
 const dqlCache = new DqlQueryCache();
 const sseBroadcaster = new SSEBroadcaster();
 
+// 同期サービス: setOnChange コールバックが参照するため先に生成する (TDZ 回避)
+const syncService = createSyncService(config);
+
 // ファイル変更 → キャッシュ無効化 → SSE 配信
+// Story 3: 同一コールバック内で SyncScheduler.onVaultChange を連鎖させる
+// (setOnChange はコールバック 1 本のため上書きせず追記で対応)
 index.setOnChange((path, op) => {
   let affectedIds = dqlCache.invalidate(path);
   // 新規ファイル (upsert) がどの SF の deps にも含まれていない場合:
@@ -59,10 +64,9 @@ index.setOnChange((path, op) => {
   sseBroadcaster.broadcast({ type: 'notes_changed', path, op }).catch((err: unknown) => {
     console.error('[loamium] SSE notes_changed broadcast error:', err);
   });
+  // AC-Se29635-3-1: vault 変更を sync スケジューラへ通知 (debounce auto-commit トリガー)
+  syncService.scheduler.onVaultChange(path, op);
 });
-
-// 同期サービス: createApp より先に生成し注入することでインスタンスを共有する
-const syncService = createSyncService(config);
 
 const app = createApp(config, index, dqlCache, sseBroadcaster, syncService);
 
@@ -81,6 +85,12 @@ const server = serve({ fetch: app.fetch, port, hostname }, (info) => {
   console.log(
     `loamium server listening on http://${info.address}:${info.port} (vault=${config.vaultRoot}, mode=${config.mode}, indexed=${index.size} notes)`,
   );
+
+  // AC-Se29635-3-2: SyncScheduler を無条件で開始する (定期 pull インターバル)。
+  // 起動時に sync 無効でも、後から PUT /api/sync/config で有効化した場合に定期 pull /
+  // オフライン再送が働くようにするため。スケジューラは各 tick で enabled/remote/git を
+  // 再確認して no-op するので、無条件開始で安全 (review Se29635-3 Finding 1)。
+  syncService.scheduler.start();
 
   // 起動時 pull (AC-Se29635-2-3): sync が有効・リモートが設定済み・git が利用可能な場合のみ。
   // 非致命的 — 失敗してもサーバー起動は続行する (ログのみ)。
@@ -102,11 +112,15 @@ const server = serve({ fetch: app.fetch, port, hostname }, (info) => {
 });
 
 const shutdown = (): void => {
+  // エージェントジョブスケジューラを停止する
   scheduler.stop();
-  void watcher.close().finally(() => {
-    server.close(() => process.exit(0));
-    // クローズ待ちで固まらないよう保険
-    setTimeout(() => process.exit(0), 2000).unref();
+  // AC-Se29635-3-1: アプリ終了時に pending auto-commit を flush してから停止する
+  void syncService.scheduler.stop().finally(() => {
+    void watcher.close().finally(() => {
+      server.close(() => process.exit(0));
+      // クローズ待ちで固まらないよう保険
+      setTimeout(() => process.exit(0), 2000).unref();
+    });
   });
 };
 process.on('SIGTERM', shutdown);
