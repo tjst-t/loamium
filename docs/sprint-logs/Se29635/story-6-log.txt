@@ -1,0 +1,57 @@
+Story Se29635-6 — 同期設定 GUI
+================================
+
+Implementation log: 2026-07-25
+
+## Files modified
+- packages/ui/src/router.ts: added 'sync' to SETTINGS_GROUPS (after 'privacy'); updated doc comment
+- packages/ui/src/api.ts: added syncConfig(), syncConfigSave(), syncCredentialSave() methods + schema imports
+- packages/ui/src/components/SettingsView.tsx: added SyncConfigResponse import, IconSync icon, sync state vars, loadSync/saveSync/saveSyncToken callbacks, currentStatus/currentError wiring, nav button [data-group="sync"], sync settings panel with all gui-spec testids
+- packages/ui/src/styles.css: added .sync-checkbox, .save-row, @media mobile tap-target rules
+- packages/ui/tests/harness/mock-helpers.ts: added default GET /api/sync/config mock (tokenConfigured:false)
+- packages/server/src/samples/機能ガイド/Vault同期の使い方.md: added GUI from 設定→同期 section
+
+## Files created
+- packages/ui/tests/e2e/settings-sync.mock.spec.ts (6 tests — all AC covered)
+- packages/ui/tests/e2e/settings-sync.e2e.spec.ts (1 test — real backend round-trip)
+
+## tsc check
+npx tsc --noEmit -p packages/ui/tsconfig.json → CLEAN (no errors)
+
+## Mock test results (settings-sync.mock.spec.ts + settings-view.mock.spec.ts + settings-nav-routing.mock.spec.ts)
+30/30 passed
+
+[AC-Se29635-6-1] ✓ prefill + PUT config with edited body
+[AC-Se29635-6-1] ✓ enabled/autoSync checkboxes reflected in PUT body
+[AC-Se29635-6-2] ✓ PUT /api/sync/credential called; raw token cleared from DOM
+[AC-Se29635-6-2] ✓ tokenConfigured:true → '設定済み'
+[AC-Se29635-6-2] ✓ tokenConfigured:false → '未設定'
+[AC-Se29635-6-3] ✓ mobile 375px: panel visible, save button height ≥36px
+
+Existing settings mocks: 22/22 passed (no regressions)
+Existing nav routing mocks: 2/2 passed (no regressions)
+
+## Full test-ui-mock
+make test-ui-mock (all *.mock.spec.ts): 650 passed, 0 failed (exit code 0, 13.7m)
+
+## data-testids delivered (gui-spec compliant)
+- settings-sync-enabled (checkbox)
+- settings-sync-remote-url (text input)
+- settings-sync-branch (text input)
+- settings-sync-auto (checkbox)
+- settings-sync-device (text input)
+- settings-sync-save (button)
+- settings-sync-token (password input)
+- settings-sync-token-save (button)
+- settings-sync-token-status (span)
+
+## Public surface added
+- router.ts: SETTINGS_GROUPS now includes 'sync'; /settings/sync URL round-trips
+- api.ts: syncConfig(), syncConfigSave(patch), syncCredentialSave(token)
+- SettingsView: 同期 nav item + full sync panel
+- 機能ガイド: GUI entry documented
+
+## AC status
+AC-Se29635-6-1: PASS (nav, prefill, PUT config)
+AC-Se29635-6-2: PASS (write-only PAT, no raw token in DOM, 設定済み/未設定 indicator)
+AC-Se29635-6-3: PASS (mobile layout, tap target ≥36px with 44px CSS rule in @media)

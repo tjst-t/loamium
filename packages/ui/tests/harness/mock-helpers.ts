@@ -103,6 +103,24 @@ export async function installCatchAll(page: Page): Promise<string[]> {
   await page.route('**/api/sync/conflicts', (route) => {
     void route.fulfill(json({ conflicts: [] }));
   });
+  // GET /api/sync/config (Se29635-6 同期設定 GUI)。既定はリモート未設定・トークン未設定。
+  await page.route('**/api/sync/config', (route) => {
+    if (route.request().method() === 'GET') {
+      void route.fulfill(json({
+        enabled: false,
+        remoteUrl: null,
+        branch: 'main',
+        remoteName: 'origin',
+        autoSync: false,
+        debounceMs: 5000,
+        pullIntervalMs: 300000,
+        deviceName: 'my-device',
+        tokenConfigured: false,
+      }));
+    } else {
+      void route.fallback();
+    }
+  });
   // GET /api/health (モード確認 — S8086d9-2 BookmarkStar)。
   // 既定は full モード・エージェント未設定。モードを変えるテストは後から自前の route で上書きする。
   await page.route('**/api/health', (route) => {

@@ -20,14 +20,15 @@
 export type SearchSort = 'updated' | 'score' | 'name';
 
 /**
- * 設定ハブのグループ ID (Sa10026-7 / Sa100c6-1)。URL セグメントとして `/settings/<group>` に載せる。
- * 【設定】general / agent / privacy と【コンテンツ】templates / smart-folders / commands /
+ * 設定ハブのグループ ID (Sa10026-7 / Sa100c6-1 / Se29635-6)。URL セグメントとして `/settings/<group>` に載せる。
+ * 【設定】general / agent / privacy / sync と【コンテンツ】templates / smart-folders / commands /
  * agent-jobs / tasks。null は設定メニュー (グループ未選択のトップ) を表す。
  */
 export const SETTINGS_GROUPS = [
   'general',
   'agent',
   'privacy',
+  'sync',
   'templates',
   'smart-folders',
   'commands',

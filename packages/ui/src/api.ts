@@ -110,9 +110,13 @@ import {
   syncStatusResponseSchema,
   syncResultResponseSchema,
   syncConflictsResponseSchema,
+  syncConfigResponseSchema,
+  syncConfigWriteRequestSchema,
   type SyncStatusResponse,
   type SyncConflictsResponse,
   type SyncResultResponse,
+  type SyncConfigResponse,
+  type SyncConfigWriteRequest,
 } from '@loamium/shared';
 
 // ---- エージェントジョブ型を再エクスポート (S2fe109) ----
@@ -819,5 +823,28 @@ export const api = {
   /** GET /api/sync/conflicts — 未解決競合ハンク一覧。空配列 = 競合なし。 */
   syncConflicts(): Promise<SyncConflictsResponse> {
     return request(syncConflictsResponseSchema, '/api/sync/conflicts');
+  },
+
+  /** GET /api/sync/config — 同期設定を取得する。 */
+  syncConfig(): Promise<SyncConfigResponse> {
+    return request(syncConfigResponseSchema, '/api/sync/config');
+  },
+
+  /** PUT /api/sync/config — 同期設定を部分更新する。 */
+  syncConfigSave(patch: SyncConfigWriteRequest): Promise<SyncConfigResponse> {
+    return request(
+      syncConfigResponseSchema,
+      '/api/sync/config',
+      { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(syncConfigWriteRequestSchema.parse(patch)) },
+    );
+  },
+
+  /** PUT /api/sync/credential — PAT を保存する (書き込み専用; レスポンスは ok のみ)。 */
+  syncCredentialSave(token: string): Promise<{ ok: boolean }> {
+    return request(
+      z.object({ ok: z.boolean() }),
+      '/api/sync/credential',
+      { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token }) },
+    );
   },
 };

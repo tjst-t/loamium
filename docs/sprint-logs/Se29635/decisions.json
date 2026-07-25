@@ -138,6 +138,12 @@
       "topic": "エージェント権限境界",
       "decision": "sync_status=read ツール (全モード)、sync_now=write ツールで full モードのみ (read-only/append-only の clamp で除外)。config/credential はエージェントツール非公開。",
       "rationale": "ADR-0016 監査済みエンジン経由 / ADR-0018 write は書込モードのみ・機密は非公開。"
+    },
+    {
+      "story": "Se29635-6",
+      "topic": "同期設定 GUI",
+      "decision": "統一設定 UI に独立ナビグループ sync (/settings/sync) を追加し、remote/branch/autoSync/device を PUT /api/sync/config、PAT を書込専用 PUT /api/sync/credential で保存。token は config-save スキーマに無く GUI/DOM に生値を残さない。",
+      "rationale:": "user 指摘: GUI に git 設定導線が無かった。AC-2-1 の GUI 完成形。ADR-0032 秘密非露出。"
     }
   ],
   "review_decisions": [
@@ -216,6 +222,20 @@
       "fixed": [
         "sub-agent が createVaultReadTools の戻り型を ReturnType<typeof defineTool>[] に広げ details:unknown に潰し agent-tools/privacy テストの型を破壊 → 推論に戻して修正 (sub-agent は誤って pre-existing と報告、実際は Story5 回帰)。全 typecheck clean を独立検証。"
       ],
+      "cap_hit": false
+    },
+    {
+      "story": "Se29635-6",
+      "cycle": 1,
+      "self_review": true,
+      "verified": [
+        "tsc ui/shared clean",
+        "settings mock 30/30 (isolated)",
+        "settings-sync e2e 1/1 (実バックエンド round-trip)",
+        "make test-ui-mock 650/650 (isolated)",
+        "token が config-save に載らない/DOM 非出現を確認"
+      ],
+      "note": "初回 full mock run で 641 failed → 原因は settings-sync e2e を mock gate と同時実行し tests/.harness-state.json を相互破壊した false alarm。分離再実行で 650 pass。",
       "cap_hit": false
     }
   ],

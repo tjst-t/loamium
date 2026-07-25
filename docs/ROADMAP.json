@@ -9341,6 +9341,34 @@
             }
           ],
           "tasks": {}
+        },
+        "Se29635-6": {
+          "title": "同期設定 GUI(統一設定に「同期」セクション追加)",
+          "status": "done",
+          "user_review_required": false,
+          "review_reason": null,
+          "user_story": "ユーザーとして、リモート URL・ブランチ・自動同期・PAT を GUI の設定画面から入力したい。なぜなら、CLI/REST を触らずにアプリ内で同期を設定・開始したいから。",
+          "acceptance_criteria": [
+            {
+              "id": "AC-Se29635-6-1",
+              "description": "統一設定 UI に「同期」セクションがあり、リモート URL / ブランチ / 自動同期トグル / デバイス名を GUI で編集・保存できる (PUT /api/sync/config)",
+              "test": "[AC-Se29635-6-1] in packages/ui/tests/e2e/settings-sync.mock.spec.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-Se29635-6-2",
+              "description": "PAT トークンは書き込み専用入力で保存でき (PUT /api/sync/credential)、画面に生トークンを表示せず tokenConfigured 状態のみ示す。git credential 委譲が既定・PAT はフォールバックである旨を明記する",
+              "test": "[AC-Se29635-6-2] in packages/ui/tests/e2e/settings-sync.mock.spec.ts",
+              "status": "pass"
+            },
+            {
+              "id": "AC-Se29635-6-3",
+              "description": "同期セクションはモバイル (≤680px) でも崩れずタップターゲット 44px 以上",
+              "test": "[AC-Se29635-6-3] in packages/ui/tests/e2e/settings-sync.mock.spec.ts",
+              "status": "pass"
+            }
+          ],
+          "tasks": {}
         }
       }
     },

@@ -36,6 +36,7 @@ import type {
   AgentModelsResponse,
   AgentBackend,
   LocalModelInfo,
+  SyncConfigResponse,
 } from '@loamium/shared';
 
 // ---- 型 ----
@@ -85,6 +86,15 @@ function IconPrivacy(): JSX.Element {
   return (
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
       <path d="M8 2l5 2v4c0 3-2.2 5-5 6-2.8-1-5-3-5-6V4z" />
+    </svg>
+  );
+}
+
+function IconSync(): JSX.Element {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M13 8A5 5 0 103 8" />
+      <path d="M1 6l2 2 2-2M15 10l-2-2-2 2" />
     </svg>
   );
 }
@@ -872,10 +882,25 @@ export function SettingsView({ mode, group, onSwitchGroup, onClose, onSaved }: S
   const [privacyStatus, setPrivacyStatus] = useState<SaveStatus>('idle');
   const [privacyError, setPrivacyError] = useState<string | null>(null);
 
+  // ---- 同期 (Se29635-6) ----
+  const [syncCfg, setSyncCfg] = useState<SyncConfigResponse | null>(null);
+  // フォーム下書き
+  const [syncEnabled, setSyncEnabled] = useState(false);
+  const [syncRemoteUrl, setSyncRemoteUrl] = useState('');
+  const [syncBranch, setSyncBranch] = useState('main');
+  const [syncAuto, setSyncAuto] = useState(false);
+  const [syncDevice, setSyncDevice] = useState('');
+  const [syncTokenInput, setSyncTokenInput] = useState('');
+  const [syncStatus, setSyncStatus] = useState<SaveStatus>('idle');
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncTokenStatus, setSyncTokenStatus] = useState<SaveStatus>('idle');
+  const [syncTokenError, setSyncTokenError] = useState<string | null>(null);
+
   // ---- 初期ロード ----
   const generalLoadedRef = useRef(false);
   const agentLoadedRef = useRef(false);
   const privacyLoadedRef = useRef(false);
+  const syncLoadedRef = useRef(false);
 
   const loadGeneral = useCallback(async (): Promise<void> => {
     if (generalLoadedRef.current) return;
@@ -942,6 +967,22 @@ export function SettingsView({ mode, group, onSwitchGroup, onClose, onSaved }: S
     }
   }, []);
 
+  const loadSync = useCallback(async (): Promise<void> => {
+    if (syncLoadedRef.current) return;
+    syncLoadedRef.current = true;
+    try {
+      const res = await api.syncConfig();
+      setSyncCfg(res);
+      setSyncEnabled(res.enabled);
+      setSyncRemoteUrl(res.remoteUrl ?? '');
+      setSyncBranch(res.branch);
+      setSyncAuto(res.autoSync);
+      setSyncDevice(res.deviceName);
+    } catch {
+      // graceful degradation: keep defaults
+    }
+  }, []);
+
   // タブ切替時のロード
   useEffect(() => {
     void loadGeneral();
@@ -951,8 +992,9 @@ export function SettingsView({ mode, group, onSwitchGroup, onClose, onSaved }: S
   useEffect(() => {
     if (activeGroup === 'agent') void loadAgent();
     if (activeGroup === 'privacy') void loadPrivacy();
+    if (activeGroup === 'sync') void loadSync();
     // コンテンツ系 (templates/smart-folders/commands) は各パネルが自分でロードする
-  }, [activeGroup, loadAgent, loadPrivacy]);
+  }, [activeGroup, loadAgent, loadPrivacy, loadSync]);
 
   // ナビ項目クリック: URL (/settings/<group>) を切り替える (App が履歴 push)。
   const switchGroup = useCallback((g: SettingsGroup): void => {
@@ -1256,13 +1298,59 @@ export function SettingsView({ mode, group, onSwitchGroup, onClose, onSaved }: S
     setDeny((prev) => prev.filter((e) => e !== entry));
   }, []);
 
+  // ---- 同期: 保存 / トークン保存 ----
+  const saveSync = useCallback(async (): Promise<void> => {
+    setSyncStatus('saving');
+    setSyncError(null);
+    try {
+      const res = await api.syncConfigSave({
+        enabled: syncEnabled,
+        remoteUrl: syncRemoteUrl.trim() === '' ? null : syncRemoteUrl.trim(),
+        branch: syncBranch.trim() !== '' ? syncBranch.trim() : undefined,
+        autoSync: syncAuto,
+        deviceName: syncDevice.trim() !== '' ? syncDevice.trim() : undefined,
+      });
+      setSyncCfg(res);
+      setSyncEnabled(res.enabled);
+      setSyncRemoteUrl(res.remoteUrl ?? '');
+      setSyncBranch(res.branch);
+      setSyncAuto(res.autoSync);
+      setSyncDevice(res.deviceName);
+      setSyncStatus('saved');
+      setTimeout(() => setSyncStatus('idle'), 2000);
+    } catch (err) {
+      setSyncStatus('error');
+      setSyncError(err instanceof Error ? err.message : String(err));
+    }
+  }, [syncEnabled, syncRemoteUrl, syncBranch, syncAuto, syncDevice]);
+
+  const saveSyncToken = useCallback(async (): Promise<void> => {
+    const token = syncTokenInput;
+    if (token.trim() === '') return;
+    setSyncTokenStatus('saving');
+    setSyncTokenError(null);
+    try {
+      await api.syncCredentialSave(token);
+      // トークンを入力欄から消去し、設定済み状態を反映する。生トークンを残さない。
+      setSyncTokenInput('');
+      setSyncCfg((prev) => prev !== null ? { ...prev, tokenConfigured: true } : prev);
+      setSyncTokenStatus('saved');
+      setTimeout(() => setSyncTokenStatus('idle'), 2000);
+    } catch (err) {
+      setSyncTokenStatus('error');
+      setSyncTokenError(err instanceof Error ? err.message : String(err));
+    }
+  }, [syncTokenInput]);
+
   const currentStatus = activeGroup === 'general' ? generalStatus
     : activeGroup === 'agent' ? agentStatus
     : activeGroup === 'privacy' ? privacyStatus
+    : activeGroup === 'sync' ? syncStatus
     : 'idle'; // コンテンツグループは各パネルが独自ステータスを持つ
   const currentError = activeGroup === 'general' ? generalError
     : activeGroup === 'agent' ? agentError
     : activeGroup === 'privacy' ? privacyError
+    : activeGroup === 'sync' ? syncError
     : null;
 
   // コンテンツグループ (master-detail) かどうか
@@ -1320,6 +1408,16 @@ export function SettingsView({ mode, group, onSwitchGroup, onClose, onSaved }: S
         >
           <IconPrivacy />
           プライバシー
+        </button>
+        <button
+          type="button"
+          className={`nav-item${activeGroup === 'sync' ? ' active' : ''}`}
+          data-testid="settings-nav-item"
+          data-group="sync"
+          onClick={() => switchGroup('sync')}
+        >
+          <IconSync />
+          同期
         </button>
 
         <div className="nav-sep" />
@@ -1413,6 +1511,7 @@ export function SettingsView({ mode, group, onSwitchGroup, onClose, onSaved }: S
           <h1 id="panelTitle">
             {activeGroup === 'general' ? '全体'
               : activeGroup === 'agent' ? 'エージェント'
+              : activeGroup === 'sync' ? '同期'
               : 'プライバシー'}
           </h1>
           <SaveStatusBadge status={currentStatus} error={currentError} />
@@ -1431,6 +1530,8 @@ export function SettingsView({ mode, group, onSwitchGroup, onClose, onSaved }: S
             ? <>アプリ全体設定 — <code>system/settings.yaml</code>(vault のファイル・agent 編集可)</>
             : activeGroup === 'agent'
             ? <>エージェント接続・権限 — <code>.loamium/agent-*.json</code>(型付き設定 API 経由・agent 編集不可)</>
+            : activeGroup === 'sync'
+            ? <>Vault 同期設定 — <code>.loamium/sync.json</code>(vault 管理外・git にコミットされない)</>
             : <>agent 機密領域 — <code>.loamium/agent-privacy.json</code>(agent 編集不可)</>}
         </p>
 
@@ -1871,6 +1972,169 @@ export function SettingsView({ mode, group, onSwitchGroup, onClose, onSaved }: S
             >
               保存
             </button>
+          </div>
+        </section>
+
+        {/* ============ 同期タブ (Se29635-6) ============ */}
+        <section
+          className={`settings-panel${activeGroup === 'sync' ? ' active' : ''}`}
+          data-testid="settings-panel"
+          data-group="sync"
+        >
+          <div className="field-group">
+            <h2>同期</h2>
+            {/* 同期を有効化 */}
+            <div className="settings-field">
+              <div className="toggle-row">
+                <label className="toggle-label" htmlFor="sync-enabled">
+                  <span>同期を有効化</span>
+                  <p className="hint">有効にすると保存時に自動コミット・push を行います</p>
+                </label>
+                <input
+                  type="checkbox"
+                  id="sync-enabled"
+                  data-testid="settings-sync-enabled"
+                  checked={syncEnabled}
+                  disabled={readonly}
+                  className="sync-checkbox"
+                  onChange={(e) => setSyncEnabled(e.target.checked)}
+                />
+              </div>
+            </div>
+            {/* リモート URL */}
+            <div className="settings-field">
+              <label htmlFor="sync-remote-url">リモート URL</label>
+              <input
+                type="text"
+                id="sync-remote-url"
+                data-testid="settings-sync-remote-url"
+                disabled={readonly}
+                value={syncRemoteUrl}
+                placeholder="git@github.com:you/vault.git / https://github.com/you/vault.git / file:///path/to/bare"
+                onChange={(e) => setSyncRemoteUrl(e.target.value)}
+              />
+              <p className="hint">GitHub プライベート・自宅 bare・NAS など任意の git リモート</p>
+            </div>
+            {/* ブランチ */}
+            <div className="settings-field">
+              <label htmlFor="sync-branch">ブランチ</label>
+              <input
+                type="text"
+                id="sync-branch"
+                data-testid="settings-sync-branch"
+                disabled={readonly}
+                value={syncBranch}
+                placeholder="main"
+                onChange={(e) => setSyncBranch(e.target.value)}
+              />
+            </div>
+            {/* 自動同期 */}
+            <div className="settings-field">
+              <div className="toggle-row">
+                <label className="toggle-label" htmlFor="sync-auto">
+                  <span>自動同期</span>
+                  <p className="hint">編集後一定時間でコミット・push / フォーカス時に pull</p>
+                </label>
+                <input
+                  type="checkbox"
+                  id="sync-auto"
+                  data-testid="settings-sync-auto"
+                  checked={syncAuto}
+                  disabled={readonly}
+                  className="sync-checkbox"
+                  onChange={(e) => setSyncAuto(e.target.checked)}
+                />
+              </div>
+            </div>
+            {/* デバイス名 */}
+            <div className="settings-field">
+              <label htmlFor="sync-device">デバイス名</label>
+              <input
+                type="text"
+                id="sync-device"
+                data-testid="settings-sync-device"
+                disabled={readonly}
+                value={syncDevice}
+                placeholder="my-laptop"
+                onChange={(e) => setSyncDevice(e.target.value)}
+              />
+              <p className="hint">コミットメッセージに使われます (デバイス間の区別用)</p>
+            </div>
+            {/* 保存ボタン */}
+            <div className="save-row">
+              <button
+                type="button"
+                className="btn btn-primary"
+                data-testid="settings-sync-save"
+                disabled={readonly || syncStatus === 'saving'}
+                onClick={() => void saveSync()}
+              >
+                保存
+              </button>
+              {syncStatus === 'saved' && (
+                <span className="settings-status" data-testid="settings-status" data-state="saved">
+                  <IconCheck />
+                  保存済み
+                </span>
+              )}
+              {syncStatus === 'error' && (
+                <span className="settings-status" data-testid="settings-status" data-state="error" style={{ color: 'var(--danger)' }}>
+                  {syncError ?? '保存に失敗しました'}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="field-group">
+            <h2>認証 (PAT)</h2>
+            <p className="hint" style={{ marginBottom: 12 }}>
+              認証は <strong>git credential 機構が既定</strong>です。macOS Keychain / Git Credential Manager 等が設定されていればトークン不要です。
+              PAT はフォールバック用で、<code>.loamium/sync-credentials.json</code> に 0600 で保存され vault (git 管理下) には保存されません。
+              remote は GitHub プライベート・自宅 bare・NAS など任意のリモートを使えます。
+            </p>
+            {/* PAT トークン — 書き込み専用 */}
+            <div className="settings-field">
+              <label htmlFor="sync-token">
+                PAT (Personal Access Token)
+                {' — '}
+                <span data-testid="settings-sync-token-status">
+                  {syncCfg?.tokenConfigured === true ? '設定済み' : '未設定'}
+                </span>
+              </label>
+              <input
+                type="password"
+                id="sync-token"
+                data-testid="settings-sync-token"
+                disabled={readonly}
+                value={syncTokenInput}
+                placeholder={syncCfg?.tokenConfigured === true ? '(変更する場合のみ入力)' : 'ghp_…'}
+                autoComplete="new-password"
+                onChange={(e) => setSyncTokenInput(e.target.value)}
+              />
+              <p className="hint">入力した値は保存ボタン押下後すぐに消えます。生トークンは画面に残りません。</p>
+            </div>
+            <div className="save-row">
+              <button
+                type="button"
+                className="btn btn-primary"
+                data-testid="settings-sync-token-save"
+                disabled={readonly || syncTokenStatus === 'saving' || syncTokenInput.trim() === ''}
+                onClick={() => void saveSyncToken()}
+              >
+                トークン保存
+              </button>
+              {syncTokenStatus === 'saved' && (
+                <span className="settings-status" data-testid="settings-status" data-state="saved">
+                  <IconCheck />
+                  保存済み
+                </span>
+              )}
+              {syncTokenStatus === 'error' && (
+                <span className="settings-status" data-testid="settings-status" data-state="error" style={{ color: 'var(--danger)' }}>
+                  {syncTokenError ?? '保存に失敗しました'}
+                </span>
+              )}
+            </div>
           </div>
         </section>
       </div>
