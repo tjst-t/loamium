@@ -58,6 +58,7 @@ export const AGENT_CAPABILITIES = [
   'command_run',
   'command_write',
   'vault_seed',
+  'sync_now',
   'web',
 ] as const;
 export type Capability = (typeof AGENT_CAPABILITIES)[number];
@@ -153,6 +154,7 @@ const CAPABILITY_TOOL_NAMES: Record<Capability, readonly string[]> = {
     'search',
     'smartfolder_notes',
     'smartfolders_list',
+    'sync_status',
     'tags',
     'templates_list',
   ],
@@ -188,6 +190,10 @@ const CAPABILITY_TOOL_NAMES: Record<Capability, readonly string[]> = {
   // vault_seed はサンプルファイルの vault 投入ツールを広告する (S7e2d5c-1)。
   // POST /api/vault/seed と同一の SeedService 経由。書き込み系のため full のみで許可。
   vault_seed: ['vault_seed'],
+  // sync_now は今すぐ同期 (commit→pull→push) を実行するツール。
+  // POST /api/sync/now と同一の SyncEngine.syncNow() を経由。書き込み系のため full のみで許可。
+  // sync_status (読み取り) は read ケーパビリティで広告する。
+  sync_now: ['sync_now'],
   web: ['web_fetch', 'web_search'],
 };
 

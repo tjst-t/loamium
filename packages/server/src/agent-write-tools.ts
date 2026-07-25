@@ -34,6 +34,7 @@ import type { ServerConfig } from './config.js';
 import type { VaultIndex } from './noteIndex.js';
 import { writeAuditEntry } from './audit.js';
 import { readNote } from './vault.js';
+import type { SyncEngine } from './sync/sync-engine.js';
 import {
   appendToJournal,
   appendToNote,
@@ -127,16 +128,18 @@ function serializeFrontmatter(fm: Record<string, string | number | boolean>): st
  * 書き込みツールを生成する (ADR-0016)。caps に含まれる書き込みケーパビリティに
  * 対応するツールだけを配列へ入れて返す (無効なら広告されない)。
  *
- * @param config    ServerConfig (vaultRoot / mode)。note-service と audit に渡す。
- * @param index     VaultIndex。note_move のリネーム後インデックス即時追従に渡す。
- * @param isDenied  ADR-0018 機密領域 deny 判定。
- * @param caps      実効ケーパビリティ (ADR-0015)。
+ * @param config      ServerConfig (vaultRoot / mode)。note-service と audit に渡す。
+ * @param index       VaultIndex。note_move のリネーム後インデックス即時追従に渡す。
+ * @param isDenied    ADR-0018 機密領域 deny 判定。
+ * @param caps        実効ケーパビリティ (ADR-0015)。
+ * @param syncEngine  Se29635-5: sync_now ツール生成に使う SyncEngine。省略時は生成しない。
  */
 export function createVaultWriteTools(
   config: ServerConfig,
   index: VaultIndex,
   isDenied: (relPath: string) => boolean,
   caps: readonly Capability[],
+  syncEngine?: SyncEngine,
 ) {
   const capSet = new Set<Capability>(caps);
   const tools: ReturnType<typeof defineTool>[] = [];
@@ -686,6 +689,52 @@ export function createVaultWriteTools(
     );
   }
 
+  // ---- sync_now (Se29635-5, ADR-0016, ADR-0018) --------------------------------
+  //
+  // 今すぐ同期 (commit→pull→push) を実行する書き込みツール。
+  // SyncEngine.syncNow() を経由 (REST /api/sync/now と同一)。
+  // sync_now ケーパビリティが有効かつ syncEngine が渡された場合のみ広告する。
+  // エンジンが既に監査ログを記録するため、ここでの audit 追加は不要 (ADR-0016)。
+
+  if (capSet.has('sync_now') && syncEngine !== undefined) {
+    const engine = syncEngine;
+    tools.push(
+      defineTool({
+        name: 'sync_now',
+        label: '今すぐ同期',
+        description:
+          'vault を今すぐリモートと同期する (commit→pull--rebase→push)。' +
+          'git が利用できない場合は error を返す。オフライン時はキューに積む。' +
+          '競合がある場合は conflicts フィールドにパス一覧が入る。詳細は help "sync"。',
+        parameters: Type.Object({}),
+        async execute(): Promise<ToolResult> {
+          try {
+            const result = await engine.syncNow();
+            const lines = [
+              `ok: ${String(result.ok)}`,
+              `committed: ${String(result.committed)}`,
+              `pulled: ${String(result.pulled)}`,
+              `pushed: ${String(result.pushed)}`,
+              `queued: ${String(result.queued)}`,
+            ];
+            if (result.conflicts.length > 0) {
+              lines.push(`conflicts: ${result.conflicts.join(', ')}`);
+            }
+            if (result.error !== undefined) {
+              lines.push(`error: ${result.error}`);
+            }
+            const summary = result.ok
+              ? `同期が完了しました。`
+              : `同期でエラーが発生しました。`;
+            return textResult(`${summary}\n${lines.join('\n')}`);
+          } catch (err) {
+            return textResult(`同期実行エラー: ${String(err)}`, { error: true });
+          }
+        },
+      }),
+    );
+  }
+
   return tools;
 }
 
@@ -699,6 +748,7 @@ export const VAULT_WRITE_TOOL_NAMES = [
   'note_edit',
   'note_move',
   'note_property',
+  'sync_now',
   'task_set_fields',
   'template_delete',
   'template_write',

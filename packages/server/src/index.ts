@@ -8,7 +8,7 @@ import { startScheduler } from './agent-scheduler.js';
 import { installEgressGuard } from './egress-guard.js';
 import { DqlQueryCache } from './dql-cache.js';
 import { SSEBroadcaster } from './sse-broadcaster.js';
-import { createSyncService } from './sync-service.js';
+import { getSyncService } from './sync-service.js';
 
 // オフライン acceptance ハーネス (S8a3f2e-5): 明示フラグ時のみ外部 egress を遮断する。
 // pi の fetch 差し替えより前に install するため、他の import より先に実行する。
@@ -39,7 +39,8 @@ const dqlCache = new DqlQueryCache();
 const sseBroadcaster = new SSEBroadcaster();
 
 // 同期サービス: setOnChange コールバックが参照するため先に生成する (TDZ 回避)
-const syncService = createSyncService(config);
+// getSyncService でキャッシュし、エージェントツールと同一インスタンスを共有する (Se29635-5)
+const syncService = getSyncService(config);
 
 // ファイル変更 → キャッシュ無効化 → SSE 配信
 // Story 3: 同一コールバック内で SyncScheduler.onVaultChange を連鎖させる

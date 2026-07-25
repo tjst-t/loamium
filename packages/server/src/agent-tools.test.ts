@@ -48,9 +48,13 @@ describe('createVaultReadTools', () => {
   //      — AC-3-1: advertisedTools === ['backlinks','query','read_note','search','tags']
   //      — このアサートは削除・弱体化しないこと (ADR-0012 の回帰防止)。
 
-  it('[AC-S53409d-3-1] 生成されるツール名は VAULT_READ_TOOL_NAMES と一致する (sorted)', () => {
+  it('[AC-S53409d-3-1] 生成されるツール名は VAULT_READ_TOOL_NAMES から sync_status を除いたセットと一致する (sorted)', () => {
+    // sync_status は SyncEngine が渡された場合のみ生成される (Se29635-5)。
+    // このテストは syncEngine なしで呼んでいるため sync_status は含まれない。
+    // VAULT_READ_TOOL_NAMES には sync_status も含まれる (能力セット定義 = 最大セット)。
+    const READ_TOOL_NAMES_WITHOUT_SYNC = VAULT_READ_TOOL_NAMES.filter((n) => n !== 'sync_status');
     const names = tools.map((t) => t.name).sort();
-    expect(names).toEqual([...VAULT_READ_TOOL_NAMES].sort());
+    expect(names).toEqual([...READ_TOOL_NAMES_WITHOUT_SYNC].sort());
     // カスタム read ツールは read_note に改名 (ADR-0012 collision 排除)。
     // help は ADR-0014 で追加された読み取り系ツール。
     expect(names).toEqual(['backlinks', 'help', 'query', 'read_note', 'search', 'tags']);

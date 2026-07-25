@@ -4,6 +4,10 @@
  * `createSyncService` は `SyncEngine` / `SyncConfigStore` / `SyncScheduler` を
  * 一か所で構築し、`app.ts` と `index.ts` が同一インスタンスを共有できるようにする。
  *
+ * `getSyncService` はモジュールレベルの Map でインスタンスをキャッシュし、
+ * vaultRoot ごとに 1 インスタンスだけを保持する (Se29635-5)。
+ * REST/scheduler とエージェントツールが同一エンジンを共有することで runtime 状態が一致する。
+ *
  * ## 依存関係
  * - `SystemGitRunner` — システム git にシェルアウト。
  * - `SyncConfigStore` — `.loamium/sync.json` / `sync-credentials.json` の読み書き。
@@ -17,6 +21,9 @@ import { SyncConfigStore } from './sync/sync-config.js';
 import { SyncScheduler } from './sync/sync-scheduler.js';
 import { writeAuditEntry } from './audit.js';
 import type { ServerConfig } from './config.js';
+
+/** vaultRoot → SyncService のモジュールキャッシュ (Se29635-5 shared single engine) */
+const _syncServiceCache = new Map<string, SyncService>();
 
 /** `createSyncService` が返すサービスオブジェクト。 */
 export interface SyncService {
@@ -47,4 +54,20 @@ export function createSyncService(config: ServerConfig): SyncService {
   });
   const scheduler = new SyncScheduler({ engine, store });
   return { engine, store, scheduler };
+}
+
+/**
+ * vaultRoot ごとにキャッシュされた SyncService を返す (Se29635-5)。
+ *
+ * REST ルート / スケジューラ / エージェントツールが同一エンジンインスタンスを共有し、
+ * offline/lastSyncAt/queued などの runtime 状態が一致することを保証する。
+ * `createSyncService` はコンストラクタのまま維持し、テストで直接呼ぶ際に使う。
+ */
+export function getSyncService(config: ServerConfig): SyncService {
+  const key = config.vaultRoot;
+  const cached = _syncServiceCache.get(key);
+  if (cached !== undefined) return cached;
+  const service = createSyncService(config);
+  _syncServiceCache.set(key, service);
+  return service;
 }

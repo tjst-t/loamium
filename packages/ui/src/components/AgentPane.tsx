@@ -70,6 +70,7 @@ const CAPABILITY_LABELS: Record<Capability, string> = {
   command_run: 'コマンド実行',
   command_write: 'コマンド編集',
   vault_seed: 'サンプル投入',
+  sync_now: '今すぐ同期',
   web: 'Web アクセス',
 };
 

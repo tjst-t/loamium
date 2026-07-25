@@ -46,7 +46,7 @@ function detailsOf(
   return {};
 }
 
-/** 全ケーパビリティ (write 系すべてを広告)。 */
+/** 全ケーパビリティ (write 系すべてを広告)。sync_now は syncEngine が必要なため除く。 */
 const ALL_WRITE_CAPS: Capability[] = [
   'journal_append',
   'note_create',
@@ -55,6 +55,11 @@ const ALL_WRITE_CAPS: Capability[] = [
   'template_write',
   'dataview_write',
 ];
+
+/** sync_now を除いた VAULT_WRITE_TOOL_NAMES (syncEngine なし時の期待値)。 */
+const WRITE_TOOL_NAMES_WITHOUT_SYNC = [...VAULT_WRITE_TOOL_NAMES].filter(
+  (n) => n !== 'sync_now',
+) as readonly string[];
 
 function makeConfig(vaultRoot: string): ServerConfig {
   return { vaultRoot, mode: 'full', maxUploadBytes: 1024 };
@@ -96,11 +101,13 @@ describe('createVaultWriteTools', () => {
 
   // ---- AC-S5bd678-2-2: 広告制御 ------------------------------------------------
 
-  it('[AC-S5bd678-2-2] 全 write caps で 11 ツールが生成される (sorted 一致 / Se3b7a2-6 / S6848dc-6)', () => {
+  it('[AC-S5bd678-2-2] syncEngine なしで全 write caps (sync_now 除く) で 11 ツールが生成される (sorted 一致 / Se3b7a2-6 / S6848dc-6 / Se29635-5)', () => {
+    // sync_now は syncEngine が渡されないと生成されない (Se29635-5)。
+    // VAULT_WRITE_TOOL_NAMES から sync_now を除いた集合と一致することを確認する。
     const names = createVaultWriteTools(config, index, noDeny, ALL_WRITE_CAPS)
       .map((t) => t.name)
       .sort();
-    expect(names).toEqual([...VAULT_WRITE_TOOL_NAMES].sort());
+    expect(names).toEqual([...WRITE_TOOL_NAMES_WITHOUT_SYNC].sort());
   });
 
   it('[AC-S5bd678-2-2] caps に含まれない書き込みツールは生成されない (広告されない)', () => {

@@ -76,7 +76,7 @@ describe('[AC-S5bd678-1-1] agentPermissionsSchema', () => {
 });
 
 describe('[AC-S5bd678-1-1] deriveToolNames', () => {
-  it('read → 読み取り群 + スマートフォルダ読み取り + commands/templates 一覧 (Sc4b9d1)', () => {
+  it('read → 読み取り群 + スマートフォルダ読み取り + commands/templates 一覧 + sync_status (Sc4b9d1 / Se29635-5)', () => {
     expect(deriveToolNames(['read'])).toEqual([
       'backlinks',
       'commands_list',
@@ -86,6 +86,7 @@ describe('[AC-S5bd678-1-1] deriveToolNames', () => {
       'search',
       'smartfolder_notes',
       'smartfolders_list',
+      'sync_status',
       'tags',
       'templates_list',
     ]);
@@ -164,7 +165,7 @@ describe('[AC-S5bd678-1-1] deriveToolNames', () => {
     expect(deriveToolNames([])).toEqual(['help']);
   });
 
-  it('複数ケーパビリティを重複排除・ソートして統合する (Se3b7a2-6: task_set_fields を含む)', () => {
+  it('複数ケーパビリティを重複排除・ソートして統合する (Se3b7a2-6: task_set_fields / Se29635-5: sync_status を含む)', () => {
     expect(deriveToolNames(['read', 'note_create', 'note_edit'])).toEqual([
       'backlinks',
       'commands_list',
@@ -179,13 +180,14 @@ describe('[AC-S5bd678-1-1] deriveToolNames', () => {
       'search',
       'smartfolder_notes',
       'smartfolders_list',
+      'sync_status',
       'tags',
       'task_set_fields',
       'templates_list',
     ]);
   });
 
-  it('[AC-S5e0206-1-1] full プリセットは全書き込みツール + read 群 + smartfolder + commands/templates + vault_seed + web (Se3b7a2-6: task_set_fields を含む)', () => {
+  it('[AC-S5e0206-1-1] full プリセットは全書き込みツール + read 群 + smartfolder + commands/templates + vault_seed + sync + web (Se3b7a2-6: task_set_fields を含む)', () => {
     expect(deriveToolNames(AGENT_PRESETS.full)).toEqual([
       'backlinks',
       'command_delete',
@@ -211,6 +213,8 @@ describe('[AC-S5bd678-1-1] deriveToolNames', () => {
       'smartfolder_notes',
       'smartfolder_write',
       'smartfolders_list',
+      'sync_now',
+      'sync_status',
       'tags',
       'task_set_fields',
       'template_delete',
@@ -248,7 +252,7 @@ describe('[AC-Sa10026-6-1] deriveToolNames が設定書込ツールを含まな�
     }
   });
 
-  it('[AC-Sa10026-6-2] full プリセットの advertised-toolset は固定 33 種のみ (settings 書込ツールが混入しない回帰 pin)', () => {
+  it('[AC-Sa10026-6-2] full プリセットの advertised-toolset は固定 35 種のみ (settings 書込ツールが混入しない回帰 pin)', () => {
     // このアサートを削除・弱体化しないこと (Sa10026-6 の回帰防止 pin)。
     // 設定書込ツールを CAPABILITY_TOOL_NAMES に追加した場合、このテストが失敗し
     // 自己昇格の危険を検出する。
@@ -263,6 +267,7 @@ describe('[AC-Sa10026-6-1] deriveToolNames が設定書込ツールを含まな�
     // S7e2d5c-1: vault_seed ケーパビリティ (vault_seed ツール) を追加し 30→31 種。
     // Se3b7a2-6: task_set_fields (note_edit へ畳む) を追加し 31→32 種。
     // S6848dc-6: note_convert_list (note_edit へ畳む) を追加し 32→33 種。
+    // Se29635-5: sync_status (read へ畳む) + sync_now (sync_now ケーパビリティ) を追加し 33→35 種。
     expect(deriveToolNames(AGENT_PRESETS.full)).toEqual([
       'backlinks',
       'command_delete',
@@ -288,6 +293,8 @@ describe('[AC-Sa10026-6-1] deriveToolNames が設定書込ツールを含まな�
       'smartfolder_notes',
       'smartfolder_write',
       'smartfolders_list',
+      'sync_now',
+      'sync_status',
       'tags',
       'task_set_fields',
       'template_delete',
@@ -298,8 +305,8 @@ describe('[AC-Sa10026-6-1] deriveToolNames が設定書込ツールを含まな�
       'web_fetch',
       'web_search',
     ]);
-    // ちょうど 33 種であること (設定書込ツール混入で増えたら失敗)
-    expect(deriveToolNames(AGENT_PRESETS.full)).toHaveLength(33);
+    // ちょうど 35 種であること (設定書込ツール混入で増えたら失敗)
+    expect(deriveToolNames(AGENT_PRESETS.full)).toHaveLength(35);
   });
 });
 

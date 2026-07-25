@@ -1,0 +1,94 @@
+Story Se29635-5: エージェントツール + CLI + agent-help + 機能ガイド + 監査
+=============================================================================
+
+Status: done
+Date: 2026-07-25
+
+## AC Checklist
+
+- [x] AC-Se29635-5-1: sync_status (read cap) + sync_now (sync_now cap) agent tools
+      - createVaultReadTools: optional syncEngine param → pushes sync_status tool
+      - createVaultWriteTools: optional syncEngine + sync_now cap guard → pushes sync_now tool
+      - agent-service.ts: getSyncService(config).engine wired at both wire sites (createPiSession/openPiSession)
+      - CLI: loamium sync status|now|config|pull|push subcommands (1:1 with REST)
+      - agent-help.ts: 'sync' help topic added (inputs/outputs/examples/constraints)
+- [x] AC-Se29635-5-2: Sync audit log verified by sync-cli.spec.ts
+      - SyncEngine.syncNow() already records audit entries (ADR-0016 service layer)
+      - tests/acceptance/sync-cli.spec.ts: real-git file:// remote test, audit.log JSONL assertion
+- [x] AC-Se29635-5-3: 機能ガイド created
+      - packages/server/src/samples/機能ガイド/Vault同期の使い方.md
+      - packages/server/src/samples/index.md: link added to 機能ガイド section
+
+## Files Changed
+
+packages/shared/src/agent-capabilities.ts
+  - Added 'sync_now' to AGENT_CAPABILITIES
+  - Added sync_status to read capability tool list
+  - Added sync_now: ['sync_now'] to CAPABILITY_TOOL_NAMES
+
+packages/server/src/sync-service.ts
+  - Added getSyncService() memoized accessor (keyed by vaultRoot)
+
+packages/server/src/index.ts
+  - Switched createSyncService → getSyncService
+
+packages/server/src/agent-tools.ts
+  - createVaultReadTools: added optional syncEngine? param; pushes sync_status when engine present
+  - VAULT_READ_TOOL_NAMES updated to include 'sync_status'
+
+packages/server/src/agent-write-tools.ts
+  - createVaultWriteTools: added optional syncEngine? param; pushes sync_now when cap+engine present
+  - VAULT_WRITE_TOOL_NAMES updated to include 'sync_now'
+
+packages/server/src/agent-service.ts
+  - Both wire sites (createPiSession/openPiSession): getSyncService(config).engine passed to tool factories
+
+packages/server/src/agent-help.ts
+  - Added 'sync' topic: sync_status tool (inputs/outputs), sync_now tool (inputs/outputs),
+    constraints (credentials NOT agent-settable, ADR-0018), usage examples
+
+packages/cli/src/main.ts
+  - Added syncCmd: 'sync status|now|config|pull|push' subcommands with --json support
+
+packages/ui/src/components/AgentPane.tsx
+  - Added sync_now: '今すぐ同期' to CAPABILITY_LABELS Record<Capability, string>
+
+packages/server/src/samples/機能ガイド/Vault同期の使い方.md (new)
+packages/server/src/samples/index.md (link added)
+
+tests/acceptance/sync-cli.spec.ts (new)
+  - Real git + bare file:// remote test
+  - Covers: sync status/now (exit 0), audit.log JSONL, sync config, pull, push, --json flag
+  - Capability gate unit tests: deriveToolNames, clampByMode
+
+## Tests Updated
+
+packages/shared/src/agent-capabilities.test.ts
+  - read → includes sync_status
+  - full preset includes sync_now + sync_status
+  - pin count 33 → 35
+  - multi-cap test updated
+
+packages/server/src/agent-write-tools.test.ts
+  - WRITE_TOOL_NAMES_WITHOUT_SYNC constant (excludes sync_now, requires syncEngine)
+  - Test compares against without-sync set
+
+packages/server/src/agent-tools.test.ts
+  - VAULT_READ_TOOL_NAMES pin test updated: filters out sync_status (conditional on syncEngine)
+  - Hardcoded array unchanged (still 6 tools without engine)
+
+packages/ui/tests/e2e/agent-tools.e2e.spec.ts
+  - advertisedTools pin updated to include 'sync_status' (read-only session)
+
+## Security / ADR Compliance
+
+- ADR-0016: sync_now goes through SyncEngine.syncNow() (audited service) — no direct git
+- ADR-0018: sync config/credentials are NOT agent tools (excluded from tool advertising)
+- ADR-0014: 'sync' help topic available in all permission sets
+- ADR-0015: sync_status in read cap; sync_now in new sync_now cap (full preset only)
+- ADR-0032: engine uses GitRunner shell-out; agent tools are read-through/write-through
+
+## Test Results
+
+vitest run: 67 files, 1186 tests — all passed
+tsc: 3 pre-existing errors in agent-privacy.test.ts and agent-tools.test.ts (result.details TS18046, pre-existing in story-4 base)

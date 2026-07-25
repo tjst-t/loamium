@@ -153,6 +153,8 @@ test.describe.serial('agent tools', () => {
     //   command_write cap — full のみ) も追加された。full 期待集合の pin は
     //   packages/shared agent-capabilities.test.ts (23 種) 側で固定する。read-only の
     //   このセッションには現れない = capability ゲートの実測。
+    // Se29635-5: sync_status は read ケーパビリティで広告される (read-only セッションでも使える)。
+    // sync_now は sync_now ケーパビリティ (full のみ) のため read-only セッションには現れない。
     expect(advertisedTools).toEqual([
       'backlinks',
       'commands_list',
@@ -162,6 +164,7 @@ test.describe.serial('agent tools', () => {
       'search',
       'smartfolder_notes',
       'smartfolders_list',
+      'sync_status',
       'tags',
       'templates_list',
     ]);

@@ -80,6 +80,7 @@ import { buildAgentSystemPrompt } from './agent-prompt.js';
 import { existsSync } from 'node:fs';
 import { resolveModelFilePath, InvalidModelFilenameError } from './model-paths.js';
 import { localLlmBaseUrl } from './routes/llm.js';
+import { getSyncService } from './sync-service.js';
 
 /**
  * pi-coding-agent 組み込みツール名 (ToolName = "read"|"bash"|"edit"|"write"|"grep"|"find"|"ls")。
@@ -444,9 +445,11 @@ export async function createPiSession(
   const { isDenied } = await loadAgentPrivacy(vaultRoot);
   // ADR-0012/0012: read ツール + (有効ケーパビリティに含まれる) 書き込みツールを連結する。
   // 書き込みツールは REST と同一の note-service を経由する (ADR-0016)。
+  // Se29635-5: getSyncService でキャッシュ済みエンジンを取得し sync ツールに渡す。
+  const syncEngine = getSyncService(serverConfig).engine;
   const customTools = [
-    ...createVaultReadTools(index, vaultRoot, isDenied),
-    ...createVaultWriteTools(serverConfig, index, isDenied, effectiveCaps),
+    ...createVaultReadTools(index, vaultRoot, isDenied, syncEngine),
+    ...createVaultWriteTools(serverConfig, index, isDenied, effectiveCaps, syncEngine),
     // ADR-0016 (agent-write-coverage): 添付ファイル file_write/file_move/file_delete。
     // file_write ケーパビリティが有効なときだけ広告 (REST と同一の file-service を経由)。
     ...createFileTools(serverConfig, index, isDenied, effectiveCaps),
@@ -544,9 +547,11 @@ export async function openPiSession(
   // ADR-0018: 同上 — 既存セッションを開くたびに最新の deny リストを反映する。
   const { isDenied } = await loadAgentPrivacy(vaultRoot);
   // ADR-0012/0012: read + 書き込みツール (復元した実効ケーパビリティ分のみ広告)。
+  // Se29635-5: getSyncService でキャッシュ済みエンジンを取得し sync ツールに渡す。
+  const syncEngine = getSyncService(serverConfig).engine;
   const customTools = [
-    ...createVaultReadTools(index, vaultRoot, isDenied),
-    ...createVaultWriteTools(serverConfig, index, isDenied, effectiveCaps),
+    ...createVaultReadTools(index, vaultRoot, isDenied, syncEngine),
+    ...createVaultWriteTools(serverConfig, index, isDenied, effectiveCaps, syncEngine),
     // ADR-0016 (agent-write-coverage): 復元した実効ケーパビリティに応じて添付ファイルツールを追加。
     ...createFileTools(serverConfig, index, isDenied, effectiveCaps),
     // ADR-0016 (Sc4b9d1-1): 復元した実効ケーパビリティに応じてスマートフォルダツールを追加。

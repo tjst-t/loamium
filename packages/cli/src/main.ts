@@ -66,6 +66,9 @@ import {
   agentJobListResponseSchema,
   agentJobRunResponseSchema,
   vaultSeedResponseSchema,
+  syncStatusResponseSchema,
+  syncConfigResponseSchema,
+  syncResultResponseSchema,
 } from '@loamium/shared';
 import {
   apiFetch,
@@ -1030,6 +1033,176 @@ function buildProgram(): Command {
     });
 
   program.addCommand(agentJobsCmd);
+
+  // ---- Vault 同期 (Se29635-5 / ADR-0032) ----
+  // loamium sync <sub> — REST と 1:1 対応 (DESIGN_PRINCIPLES architecture)
+  //   status  GET  /api/sync/status
+  //   now     POST /api/sync/now
+  //   config  GET|PUT /api/sync/config
+  //   pull    POST /api/sync/pull
+  //   push    POST /api/sync/push
+
+  const syncCmd = new Command('sync');
+  syncCmd
+    .description('Vault 同期を管理する (Se29635-5 / ADR-0032)')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} });
+
+  // loamium sync status (GET /api/sync/status)
+  syncCmd
+    .command('status')
+    .description('同期状態を確認する (GET /api/sync/status)')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, '/api/sync/status');
+      output(opts, result, () => {
+        const res = parseAs(result, syncStatusResponseSchema, 'sync status');
+        println(`available:        ${String(res.available)}`);
+        println(`remoteConfigured: ${String(res.remoteConfigured)}`);
+        println(`branch:           ${res.branch ?? '(none)'}`);
+        println(`lastSyncAt:       ${res.lastSyncAt ?? '(never)'}`);
+        println(`ahead:            ${String(res.ahead)}`);
+        println(`behind:           ${String(res.behind)}`);
+        println(`dirty:            ${String(res.dirty)}`);
+        println(`offline:          ${String(res.offline)}`);
+        println(`conflicted:       ${String(res.conflicted)}`);
+        println(`queued:           ${String(res.queued)}`);
+        if (res.lastError !== null) {
+          println(`lastError:        ${res.lastError}`);
+        }
+      });
+    });
+
+  // loamium sync now (POST /api/sync/now)
+  syncCmd
+    .command('now')
+    .description('今すぐ同期する commit→pull→push (POST /api/sync/now)')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, '/api/sync/now', { method: 'POST' });
+      output(opts, result, () => {
+        const res = parseAs(result, syncResultResponseSchema, 'sync now');
+        const verdict = res.ok ? 'ok' : 'error';
+        const parts: string[] = [verdict];
+        if (res.committed) parts.push('committed');
+        if (res.pulled) parts.push('pulled');
+        if (res.pushed) parts.push('pushed');
+        if (res.queued) parts.push('queued');
+        println(parts.join('\t'));
+        if (res.conflicts.length > 0) {
+          println(`conflicts: ${res.conflicts.join(', ')}`);
+        }
+        if (res.error !== undefined) {
+          println(`error: ${res.error}`);
+        }
+      });
+    });
+
+  // loamium sync config [--remote <url>] [--branch <b>] [--auto <on|off>]
+  // GET /api/sync/config (引数なし) または PUT /api/sync/config (引数あり)
+  syncCmd
+    .command('config')
+    .description(
+      '同期設定を取得・更新する (GET /api/sync/config または PUT /api/sync/config)\n' +
+      '  オプション指定なしで取得、1 つ以上のオプションを指定で更新。',
+    )
+    .option('--remote <url>', 'リモート URL を設定する (例: https://github.com/user/vault.git)')
+    .option('--branch <branch>', '同期ブランチを設定する (例: main)')
+    .option('--auto <on|off>', '自動同期の有効/無効 (on または off)')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (opts: JsonOpt & { remote?: string; branch?: string; auto?: string }) => {
+      const base = await resolveBaseUrl();
+      const isWrite = opts.remote !== undefined || opts.branch !== undefined || opts.auto !== undefined;
+      if (isWrite) {
+        // PUT — 部分更新
+        const body: Record<string, unknown> = {};
+        if (opts.remote !== undefined) body.remoteUrl = opts.remote;
+        if (opts.branch !== undefined) body.branch = opts.branch;
+        if (opts.auto !== undefined) {
+          if (opts.auto !== 'on' && opts.auto !== 'off') {
+            fail('usage', '--auto には "on" または "off" を指定してください', 2);
+          }
+          body.autoSync = opts.auto === 'on';
+        }
+        const result = await apiFetch(base, '/api/sync/config', putJson(body));
+        output(opts, result, () => {
+          const res = parseAs(result, syncConfigResponseSchema, 'sync config');
+          println(`remoteUrl:  ${res.remoteUrl ?? '(none)'}`);
+          println(`branch:     ${res.branch}`);
+          println(`autoSync:   ${String(res.autoSync)}`);
+          println(`deviceName: ${res.deviceName}`);
+          println(`token:      ${res.tokenConfigured ? '(configured)' : '(not set)'}`);
+        });
+      } else {
+        // GET
+        const result = await apiFetch(base, '/api/sync/config');
+        output(opts, result, () => {
+          const res = parseAs(result, syncConfigResponseSchema, 'sync config');
+          println(`enabled:          ${String(res.enabled)}`);
+          println(`remoteUrl:        ${res.remoteUrl ?? '(none)'}`);
+          println(`branch:           ${res.branch}`);
+          println(`remoteName:       ${res.remoteName}`);
+          println(`autoSync:         ${String(res.autoSync)}`);
+          println(`debounceMs:       ${String(res.debounceMs)}`);
+          println(`pullIntervalMs:   ${String(res.pullIntervalMs)}`);
+          println(`deviceName:       ${res.deviceName}`);
+          println(`tokenConfigured:  ${String(res.tokenConfigured)}`);
+        });
+      }
+    });
+
+  // loamium sync pull (POST /api/sync/pull)
+  syncCmd
+    .command('pull')
+    .description('リモートから pull する (POST /api/sync/pull)')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, '/api/sync/pull', postJson({ reason: 'manual' }));
+      output(opts, result, () => {
+        const res = parseAs(result, syncResultResponseSchema, 'sync pull');
+        const verdict = res.ok ? 'ok' : 'error';
+        println(res.pulled ? `${verdict}\tpulled` : `${verdict}\tnoop`);
+        if (res.conflicts.length > 0) {
+          println(`conflicts: ${res.conflicts.join(', ')}`);
+        }
+        if (res.error !== undefined) {
+          println(`error: ${res.error}`);
+        }
+      });
+    });
+
+  // loamium sync push (POST /api/sync/push)
+  syncCmd
+    .command('push')
+    .description('リモートへ push する (POST /api/sync/push)')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (opts: JsonOpt) => {
+      const base = await resolveBaseUrl();
+      const result = await apiFetch(base, '/api/sync/push', { method: 'POST' });
+      output(opts, result, () => {
+        const res = parseAs(result, syncResultResponseSchema, 'sync push');
+        const verdict = res.ok ? 'ok' : 'error';
+        println(res.pushed ? `${verdict}\tpushed` : `${verdict}\tnoop`);
+        if (res.error !== undefined) {
+          println(`error: ${res.error}`);
+        }
+      });
+    });
+
+  program.addCommand(syncCmd);
 
   // ---- エクスポート (ADR-0006 / Sa8ee62-1) ----
 

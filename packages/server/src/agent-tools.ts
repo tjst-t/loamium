@@ -23,6 +23,7 @@ import { readNote } from './vault.js';
 import { resolveHelpTopic, helpTopicNames } from './agent-help.js';
 import type { VaultIndex } from './noteIndex.js';
 import { createPrivacyFilteredIndex } from './agent-privacy.js';
+import type { SyncEngine } from './sync/sync-engine.js';
 
 // ---- 型エイリアス ---------------------------------------------------------------
 
@@ -37,7 +38,7 @@ function textResult(text: string, details: ToolDetails = {}) {
 // ---- ツールファクトリ ----------------------------------------------------------
 
 /**
- * 5 種の読み取り専用ツールを生成する。
+ * 読み取り専用ツールを生成する。
  * index と vaultRoot は各ツールのクロージャでキャプチャする。
  *
  * ADR-0018: isDenied は機密領域 deny 判定 (vault 相対パス → deny なら true)。
@@ -45,11 +46,15 @@ function textResult(text: string, details: ToolDetails = {}) {
  * read_note は isDenied で未発見扱いにし、search/query/backlinks/tags は
  * createPrivacyFilteredIndex を通した共通フィルタビュー経由に統一する
  * (強制点をツールに散らさず 1 箇所へ集約する)。
+ *
+ * syncEngine: Se29635-5 で追加。sync_status (読み取り) ツールを生成するために渡す。
+ * 省略時 (git 不在・テスト) は sync_status ツールを生成しない。
  */
 export function createVaultReadTools(
   index: VaultIndex,
   vaultRoot: string,
   isDenied: (relPath: string) => boolean = () => false,
+  syncEngine?: SyncEngine,
 ) {
   // ADR-0018: read_note 以外のツールが参照するのは deny 除外済みの共通ビュー。
   const view = createPrivacyFilteredIndex(index, isDenied);
@@ -241,8 +246,67 @@ export function createVaultReadTools(
     },
   });
 
-  return [searchTool, queryTool, readTool, backlinksTool, tagsTool, helpTool] as const;
+  // ---- sync_status (Se29635-5) -------------------------------------------------
+  //
+  // 同期状態を取得する読み取り専用ツール (ADR-0016: SyncEngine.status() を経由)。
+  // syncEngine が渡されていない場合 (テスト / git 不在) は生成しない。
+
+  const tools: ReturnType<typeof defineTool>[] = [
+    searchTool,
+    queryTool,
+    readTool,
+    backlinksTool,
+    tagsTool,
+    helpTool,
+  ];
+
+  if (syncEngine !== undefined) {
+    const engine = syncEngine;
+    const syncStatusTool = defineTool({
+      name: 'sync_status',
+      label: '同期状態確認',
+      description:
+        'Vault の同期状態 (git 利用可否 / リモート設定 / 最終同期時刻 / 未 push 件数 / オフライン / 競合) を取得する。' +
+        'git が利用できない場合は available:false を返す (エラーにしない)。詳細は help "sync"。',
+      parameters: Type.Object({}),
+      async execute(): Promise<{ content: { type: 'text'; text: string }[]; details: ToolDetails }> {
+        try {
+          const status = await engine.status();
+          const lines = [
+            `available: ${String(status.available)}`,
+            `remoteConfigured: ${String(status.remoteConfigured)}`,
+            `branch: ${status.branch ?? '(none)'}`,
+            `lastSyncAt: ${status.lastSyncAt ?? '(never)'}`,
+            `ahead: ${String(status.ahead)}`,
+            `behind: ${String(status.behind)}`,
+            `dirty: ${String(status.dirty)}`,
+            `offline: ${String(status.offline)}`,
+            `conflicted: ${String(status.conflicted)}`,
+            `queued: ${String(status.queued)}`,
+          ];
+          if (status.lastError !== null) {
+            lines.push(`lastError: ${status.lastError}`);
+          }
+          return textResult(lines.join('\n'));
+        } catch (err) {
+          return textResult(`同期状態の取得に失敗しました: ${String(err)}`, { error: true });
+        }
+      },
+    });
+    tools.push(syncStatusTool);
+  }
+
+  return tools;
 }
 
-/** ツール名の固定セット (ADR-0012 / ADR-0014 に記録されたツール境界)。sorted */
-export const VAULT_READ_TOOL_NAMES = ['backlinks', 'help', 'query', 'read_note', 'search', 'tags'] as const;
+/** ツール名の固定セット (ADR-0012 / ADR-0014 に記録されたツール境界)。sorted
+ * sync_status は syncEngine が渡された場合のみ生成される (Se29635-5)。 */
+export const VAULT_READ_TOOL_NAMES = [
+  'backlinks',
+  'help',
+  'query',
+  'read_note',
+  'search',
+  'sync_status',
+  'tags',
+] as const;

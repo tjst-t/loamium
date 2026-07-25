@@ -9294,7 +9294,7 @@
         },
         "Se29635-4": {
           "title": "競合解決(three-way 再利用)+ 同期状態表示 UI",
-          "status": "in_progress",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ユーザーとして、競合が自動でマージされ、状態が見えてほしい。なぜなら、編集喪失を防ぎ同期を信頼したいから。",
@@ -9316,7 +9316,7 @@
         },
         "Se29635-5": {
           "title": "エージェントツール + CLI + agent-help + 機能ガイド + 監査",
-          "status": "planned",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "エージェント利用者として、同期の実行・状態確認をツール/CLIからしたい。なぜなら、CLAUDE.md のエージェント操作ツール必須規約に沿うため。",
