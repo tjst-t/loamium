@@ -1,0 +1,52 @@
+{
+ "id": "ADR-0032",
+ "title": "Vault 同期はシステム git への委譲で実現する(Loamium は同期クライアントのみ実装、ハブは任意の git リモート、専用同期サーバは作らない)",
+ "status": "proposed",
+ "date": "2026-07-24",
+ "context": "複数端末(自宅サーバ / デスクトップ / ノート PC)で同一 vault を使いたいという要望。現状のマルチデバイス手段は (a) サーバ 1 台に Cloudflare Tunnel + Access で全端末からアクセス(端末ローカルに vault を持てない)、(b) ユーザーが手動で git push/pull(自動化されていない)の 2 つ。端末ごとにローカル vault を持ち自動同期させたい。選択肢として『サーバで動かす Loamium に同期サーバ機能を内蔵する』『専用同期サーバを作る』『同期を git に委譲する』を検討した。前提: vault は Git リポジトリ前提(VISION tech_constraints)、正本はピュア Markdown ファイル(priority 1)、マルチユーザーは out_of_scope(単一ユーザーのマルチデバイスは対象)、シンプルさ > 汎用性(priority 5)、インデックスは使い捨てでファイルが正(priority 6)、ネイティブ依存・攻撃面は最小化(ADR-0011/0025)、リモート変更と編集バッファの競合は 3-way 自動マージ(ADR-0030)。ターゲットユーザーは git / gh を日常的に使う開発者本人であり、全端末に git がインストール済みであることは実質的に既存前提である。",
+ "alternatives": [
+  {
+   "name": "同期を git に委譲する。Loamium は『自動 commit → pull --rebase → push』を回す同期クライアントのみ実装し、ハブは任意の git リモート(GitHub プライベートリポジトリ / 自宅 Loamium サーバの bare リポジトリ / NAS)を設定で差し替え可能にする(採用)",
+   "tradeoff": "履歴・差分転送・three-way マージ・オフサイトバックアップを git がそのまま提供し、『vault = Git リポジトリ』『ファイルが正』の既定路線の延長で実装できる。同期が壊れても vault は素の git リポジトリとして救出可能。GitHub をハブにすれば自宅サーバの公開すら不要。代償はリアルタイム性がないこと(push 通知が来ないため pull はポーリング/イベント駆動)と、git 履歴に自動 commit が積まれること。"
+  },
+  {
+   "name": "サーバで動かす Loamium に独自同期プロトコル(mtime/hash ベースの差分同期 API)を内蔵する",
+   "tradeoff": "git 非依存で一見シンプルだが、履歴・競合解決・部分失敗・再送をすべて自作することになり git の再発明になる。ハブが Loamium サーバに固定され、サーバ公開(Tunnel + Access)が同期の必須前提になる。不採用。"
+  },
+  {
+   "name": "専用同期サーバを別プロセス/別サービスとして作る",
+   "tradeoff": "マルチユーザー・大規模なら意味があるが、マルチユーザーは VISION out_of_scope。個人用途ではデプロイ・運用・認証がもう 1 系統増えるだけで見返りがない(priority 5 違反)。不採用。"
+  },
+  {
+   "name": "git 実装をアプリに同梱する(git バイナリ同梱 / nodegit(libgit2) / isomorphic-git)",
+   "tradeoff": "バイナリ同梱は配布サイズ +50MB 級かつ credential 設定はどのみちシステム依存。nodegit はネイティブ addon で ADR-0011/0025 が減らした攻撃面・ビルド問題を第三の依存で再導入。isomorphic-git は credential helper が使えず PAT 必須になり機能も細い。いずれも『認証を git credential 機構に委譲できる』というシステム git 最大の利点を壊す。不採用。"
+  }
+ ],
+ "decision": "Vault 同期は git プロトコルに委譲し、Loamium は同期クライアントのみを実装する(専用同期サーバは作らない)。(1) 同期エンジンはシステム git へのシェルアウトで実装し、git を同梱しない。git 不在は利用時に検出して明示エラー(GitUnavailableError 相当)で同期機能のみ無効化し、サーバ起動・他機能・テストは壊さない(ADR-0025 の遅延ロード/明示エラーのパターンを踏襲。テストはシェルアウト層をスタブ化して決定的に検証)。(2) ハブは任意の git リモートとし設定で差し替え可能(GitHub プライベートリポジトリを最小構成の推奨とし、自宅 Loamium サーバや NAS の bare リポジトリも可)。サーバで動く Loamium も特別扱いせず対等な同期クライアントの 1 台とする(星型)。(3) 認証は git credential 機構(gh / SSH キー / OS キーチェーンの credential helper)へ委譲し、Loamium は原則トークンを保持しない。credential 未設定の端末・ヘッドレスサーバ向けフォールバックとして Fine-grained PAT(vault リポジトリ 1 個限定・Contents Read/Write のみ)を受け付け、保管はデスクトップ = OS キーチェーン(safeStorage/keyring)、ヘッドレス = .loamium/ 配下パーミッション 0600 または環境変数とする。トークンの vault 内(git 管理下)保管は絶対禁止。(4) 同期タイミング: pull は起動時・ウィンドウフォーカス時・定期(10〜15 分)・push 拒否時。commit/push は編集停止 30〜60 秒のデバウンスで auto-commit → 即 push、アプリ終了/ブラー時にも実行。non-fast-forward は pull --rebase → 再 push。git が解決できない競合、および pull で降ってきた変更と dirty 編集バッファの衝突は ADR-0030 の 3-way 自動マージ機構を再利用し、解決不能ハンクのみ UI で人間に渡す。オフラインは失敗を握りつぶさずキューして復帰時にリトライ。手動『今すぐ同期』と状態表示(最終同期時刻・未 push・オフライン・競合)を UI に持つ。pull による変更は既存ファイルウォッチャー + インデックス再構築がそのまま追従する。",
+ "consequences": [
+  "+ 履歴・差分転送・マージ・バックアップを git から無償で得る。同期障害時も vault は素の git リポジトリとして手動 git 操作で救出できる(priority 6『ファイルが正』の同期版)",
+  "+ GitHub ハブ構成ならサーバ公開が不要になり、同期のためだけの Cloudflare Tunnel すら要らない。サーバ停止中も端末間同期は成立する",
+  "+ 認証実装をほぼ持たない: 『ターミナルで git push が通る端末なら Loamium 同期も通る』。攻撃面・秘密情報管理の増分が最小",
+  "+ ADR-0025(遅延検出・明示エラー・スタブテスト)と ADR-0030(3-way マージ)の既存パターン/資産を再利用する",
+  "- リアルタイム同期ではない(ポーリング + イベント駆動)。個人ノート用途では起動時 + フォーカス時 pull で実用十分と判断",
+  "- 自動 commit が git 履歴に積まれ履歴が冗長になる(コミットメッセージ規約 例: 'sync: {device} {timestamp}' で緩和。squash はしない = 履歴改変を避ける)",
+  "- 大きな添付ファイル(assets/)は git 履歴を肥大させ、GitHub には 100MB/ファイル制限がある。当面は割り切り、問題が顕在化したら Git LFS か添付の同期除外を別 ADR で検討",
+  "- ノート全文が GitHub(外部サービス)に置かれる。プライベートリポジトリ前提とし、外部に置きたくないユーザーには自前リモート(bare リポジトリ)の選択肢を維持する",
+  "同期エンジンは差し替え可能な単一モジュール(シェルアウト層を interface 化)に閉じる。システム git 前提で問題が出た場合は同一 interface の裏で同梱系実装へ移行できる余地を残す",
+  "git の作業ツリー直接操作は監査済みサービス層(ADR-0016)を経由しない例外となるため、同期操作自体(pull/push/merge の実行と結果)を監査ログ(.loamium/audit.log)に記録して補う",
+  "CLAUDE.md 規約に従い、同期の実行・状態確認はエージェントツール + CLI(REST 1:1)としても提供し、agent-help と機能ガイドを追加する",
+  ".loamium/(インデックス・モデル・トークン)は .gitignore 済みのため同期対象外 = 端末間で同期されるのはピュア Markdown と assets のみ"
+ ],
+ "reversibility_cost": "medium",
+ "affects": [
+  "packages/server (同期エンジン + シェルアウト層 + REST エンドポイント)",
+  "packages/cli (sync コマンド群、REST 1:1)",
+  "packages/ui (同期状態表示・手動同期・競合 UI)",
+  "packages/server/src/agent-help.ts (同期ツールの help)",
+  "docs/ARCHITECTURE.md (同期節の追加)",
+  "packages/server/src/samples/機能ガイド/ (同期ガイド)"
+ ],
+ "supersedes": null,
+ "superseded_by": null,
+ "notes": "ユーザーとの対話(2026-07-24)で方針合意済み、status は accepted 前のレビュー待ち。段階導入可: まず手動『今すぐ同期』+ 起動時 pull(エンジンと認証委譲の実証)→ 自動 commit/push とフォーカス駆動 pull → 競合 UI 統合の順。『まずは git 外だし前提で、問題が出たら内蔵同期を検討』が合意事項(その場合は本 ADR を supersede する)。モバイルは同期クライアントを積まず従来どおりトンネル経由の閲覧中心(VISION out_of_scope と整合)。Revisit if: 非開発者への配布を始める(git 前提が崩れる)/ 添付ファイル肥大が顕在化する(LFS 検討)/ リアルタイム性が必要になる。 【将来方針(ユーザー合意 2026-07-24)】専用同期サーバは『当面不要だが最終的には作りたい』到達点であり、git 委譲は中間解と位置づける。git 委譲で届かず専用サーバを正当化する動機: (1) リアルタイム同期(git はポーリング。公式 Obsidian Sync が非 git のデルタ同期で即時なのはこの理由)、(2) 自動 commit の履歴ノイズを原理的に解消、(3) 非開発者・モバイル等 git 前提が崩れる端末への拡大、(4) 大きな添付の自前ハンドリング。着手時は本 ADR を supersede する新 ADR を切る。"
+}
