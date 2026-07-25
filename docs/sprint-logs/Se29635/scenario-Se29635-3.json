@@ -1,0 +1,31 @@
+{
+  "story": "Se29635-3",
+  "story_type": "api",
+  "user_role": "単一ユーザー。編集が自動で同期されてほしい",
+  "entry_point": "http://<server>/api/* (実 system git + ローカル bare リモート、autoSync=on)",
+  "scenarios": [
+    {
+      "id": "scenario-1",
+      "linked_ac": ["AC-Se29635-3-1", "AC-Se29635-3-2"],
+      "description": "編集停止のデバウンスで auto-commit→push、pull は起動時/フォーカス/定期/push拒否時に走る",
+      "preconditions": ["temp vault (git init) + bare remote 設定", "autoSync=true、debounceMs をテスト用に短縮 (例 200ms)"],
+      "steps": [
+        {"n": 1, "action": "PUT /api/notes/notes/auto.md で編集し、debounce 経過を待つ", "expected": "デバウンス後に auto-commit が積まれ bare へ push される (bare tip に auto.md がある)"},
+        {"n": 2, "action": "別クローンから bare に別ファイルを push した後、POST /api/sync/pull {reason:'focus'} を送る (フォーカス pull 相当)", "expected": "200、reason=focus の pull が実行され新ファイルが vault に降りる"},
+        {"n": 3, "action": "GET /api/sync/status を確認", "expected": "lastSyncAt が更新され、ahead=0 (未 push 無し) を示す"}
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "scenario-2",
+      "linked_ac": ["AC-Se29635-3-3"],
+      "description": "オフライン時は失敗を握りつぶさずキューし、復帰時にリトライして解消する",
+      "preconditions": ["temp vault + remoteUrl を到達不能な file パス (存在しない bare) に一時設定"],
+      "steps": [
+        {"n": 1, "action": "編集して auto-sync を発火 (remote 到達不能)", "expected": "push が失敗するが握りつぶさず、GET /api/sync/status の queued>=1 / offline=true になる (エラーは lastError に残る)"},
+        {"n": 2, "action": "remoteUrl を正しい bare に戻し POST /api/sync/now (復帰) を実行", "expected": "キューが flush され push 成功、queued=0 / offline=false に戻り、bare tip に編集が反映される"}
+      ],
+      "cleanup": []
+    }
+  ]
+}

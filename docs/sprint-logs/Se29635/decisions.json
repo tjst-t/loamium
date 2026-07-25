@@ -1,0 +1,26 @@
+{
+  "sprint": "Se29635",
+  "mode": "auto",
+  "base_sha": "e67e2073c6984621a68fa0dc6aa4f0527626ec88",
+  "branch": "autopilot/main/Se29635",
+  "touched_adrs": ["ADR-0032", "ADR-0030", "ADR-0025", "ADR-0016", "ADR-0018"],
+  "planning_decisions": [
+    {"topic": "Sprint 詳細化", "decision": "Se29635 は detail_level=detailed で 5 Story 完備。elaboration 不要。rolling-wave precondition クリア。", "rationale": "coarse でも stories 空でもない。"},
+    {"topic": "Story 型分類", "decision": "Story1=library, Story2=api, Story3=api, Story4=gui, Story5=cli。", "rationale": "story-scenarios.md の『ユーザーがどう起動するか』基準。Story4 は UI+API 併存のため gui (UI が API を含意)。"},
+    {"topic": "実行波", "decision": "5 Story は engine→remote/manual→auto→conflict/UI→agent/CLI の厳密な直列依存。worktree 並列は使わず main tree で順次実装。", "rationale": "全 Story が sync/ 単一モジュールを共有 (worktree-old-base-pitfall メモリ)。DESIGN_PRINCIPLES p5 シンプルさ。"},
+    {"topic": "同期エンジン構造", "decision": "packages/server/src/sync/ に GitRunner(interface)+SystemGitRunner+GitUnavailableError / SyncEngine / SyncConfigStore / SyncScheduler / sync-conflict に分割。シェルアウト層を interface 化。", "rationale": "ADR-0032『差し替え可能な単一モジュール、シェルアウト層を interface 化』/ ADR-0025 の遅延検出・明示エラー・スタブテスト パターン踏襲。"},
+    {"topic": "設定・トークン保管", "decision": "設定は .loamium/sync.json、PAT は .loamium/sync-credentials.json を chmod 0600 か env LOAMIUM_SYNC_TOKEN。vault(git 管理下)/.git/config には絶対書かない。認証は既定で git credential 委譲、PAT は per-command の http.extraheader で渡し disk 非永続。", "rationale": "ADR-0032(3) トークン vault 内保管禁止・credential 委譲・0600 フォールバック。DESIGN_PRINCIPLES p2 データ安全性。"},
+    {"topic": "監査", "decision": "commit/pull/push/merge の実行と結果を writeAuditEntry で .loamium/audit.log に記録 (op=sync.*)。", "rationale": "ADR-0032/ADR-0016: git 直接操作はサービス層を通らない例外のため監査で補完。"},
+    {"topic": "競合解決", "decision": "git 自動解決不能な競合と dirty バッファ衝突は @loamium/shared の diff3Merge (ADR-0030) を再利用。新規マージ実装は作らない。", "rationale": "ADR-0032(4)/ADR-0030 資産再利用。二重管理排除。"},
+    {"topic": "エージェント統合", "decision": "sync_status(read)/sync_now(write) ツール + agent-help sync トピック + 機能ガイド + samples/index.md リンクを Story5 で同時実装。", "rationale": "CLAUDE.md エージェント操作ツール必須規約 / 機能ガイド更新義務 / ADR-0018 権限 (write ツールは write モードのみ広告)。"},
+    {"topic": "テスト real-mode", "decision": "Story2/3/5 の同期往復は実 system git + temp ローカル bare リポジトリを remote にして検証 (mock 禁止, test-discipline Rule7)。Story1 のみ ADR 指定どおりスタブ GitRunner で決定的検証。", "rationale": "ローカル bare は実 git プロトコルで外部サービス不要。往復バイト一致・競合で編集喪失なしを含める (Rule8 の精神)。"},
+    {"topic": "モバイル", "decision": "同期クライアントはモバイルに積まず、Story4 の状態表示 UI のみ ≤680px で崩れないことを担保 (閲覧中心)。", "rationale": "ADR-0032 notes / VISION out_of_scope (モバイルは閲覧中心) / CLAUDE.md モバイル規約。"}
+  ],
+  "guard_rationale": {
+    "guard8_rationale": "n/a — .claude/guards.json 未設定でありプロジェクトの guard8 data_paths 既定 (Go の internal/…, cmd/…) は当リポジトリに存在しない。ただし同期はデータ経路のため、往復バイト一致検証 (scenario-2 step4) と競合で編集喪失なし検証 (Story4) を acceptance に含め Rule8 の精神を TS で満たす。",
+    "guard7_note": "ADR-0032 に machine_check ブロックは無い。ADR conformance はモデルが確認: (a) git 同梱しない=SystemGitRunner がシステム git を spawn、(b) トークン vault 内非保存、(c) 同期操作 audit、(d) diff3 再利用。Story ごとの review で確認する。"
+  },
+  "implementation_decisions": [],
+  "review_decisions": [],
+  "done_judgment": {}
+}

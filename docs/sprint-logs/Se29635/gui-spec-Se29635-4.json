@@ -1,0 +1,36 @@
+{
+  "sprint": "Se29635",
+  "story": "Se29635-4",
+  "state_diagram": "stateDiagram-v2\n    [*] --> Idle: page load (status fetched)\n    Idle --> Syncing: user clicks Sync now / auto trigger\n    Syncing --> Synced: push+pull ok (lastSyncAt updated, unpushed=0)\n    Syncing --> Offline: network unreachable (queued>0)\n    Syncing --> Conflict: unresolvable hunks after pull --rebase\n    Offline --> Syncing: retry on reconnect / manual\n    Conflict --> Synced: user resolves hunks (ConflictResolverDialog)\n    Synced --> Idle",
+  "scenarios": {
+    "entry_point": "メイン画面上の同期ステータスインジケータ (トップバー/右サイドバー領域)。実バックエンド + ローカル bare リモート。",
+    "happy_path": "ユーザーが同期インジケータを見て『今すぐ同期』を押す → Syncing → Synced。最終同期時刻が更新され未 push バッジが消える。",
+    "data_states": {
+      "idle": "最終同期時刻と未 push 件数を表示。未 push=0 ならバッジ非表示。",
+      "syncing": "同期中スピナー/ラベル。",
+      "synced": "sync-last-time が更新、sync-unpushed-count=0。",
+      "offline": "sync-badge-offline を表示 (オフライン、キュー保持)。",
+      "conflict": "sync-badge-conflict を表示。解決不能ハンクは ConflictResolverDialog (S2df65d 再利用) で人間に渡す。"
+    },
+    "edge_cases": [
+      "git 不在: インジケータは『同期無効 (git 不在)』を表示し、押下しても他機能は壊れない",
+      "リモート未設定: 設定導線を促す表示",
+      "モバイル ≤680px: インジケータとボタンが崩れずタップターゲット 44px 以上"
+    ],
+    "success_feedback": "sync-last-time 更新 + 未 push バッジ消滅",
+    "failure_feedback": "sync-badge-offline / sync-badge-conflict + lastError 表示"
+  },
+  "endpoint_contracts": [
+    {"path": "/api/sync/status", "method": "GET", "registered": true, "request_fields": null,
+     "response_fields": {"available": "boolean", "remoteConfigured": "boolean", "branch": "string|null", "lastSyncAt": "string|null", "lastError": "string|null", "ahead": "number", "behind": "number", "dirty": "boolean", "offline": "boolean", "conflicted": "boolean", "queued": "number"}},
+    {"path": "/api/sync/now", "method": "POST", "registered": true, "request_fields": null,
+     "response_fields": {"ok": "boolean", "pushed": "boolean", "pulled": "boolean", "committed": "boolean", "conflicts": "string[]", "queued": "boolean"}},
+    {"path": "/api/sync/pull", "method": "POST", "registered": true, "request_fields": {"reason": "string"},
+     "response_fields": {"ok": "boolean", "pulled": "boolean", "conflicts": "string[]"}}
+  ],
+  "data_testids": ["sync-status", "sync-now-button", "sync-last-time", "sync-unpushed-count", "sync-badge-offline", "sync-badge-conflict"],
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/sync-status.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/sync-status.mock.spec.ts"
+  }
+}

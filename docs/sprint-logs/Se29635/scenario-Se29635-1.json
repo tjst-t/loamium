@@ -1,0 +1,32 @@
+{
+  "story": "Se29635-1",
+  "story_type": "library",
+  "user_role": "Loamium 運用者 / 同期エンジンを組み込む server コード",
+  "entry_point": "packages/server/src/sync/ の公開 API (SyncEngine, GitRunner, GitUnavailableError, SystemGitRunner)",
+  "scenarios": [
+    {
+      "id": "scenario-1",
+      "linked_ac": ["AC-Se29635-1-1", "AC-Se29635-1-3"],
+      "description": "スタブ GitRunner を注入した SyncEngine が、システム git へのシェルアウトを唯一の経路として commit/status を実行する",
+      "preconditions": ["diff3 と同様の純ロジック層。git バイナリは同梱しない"],
+      "steps": [
+        {"n": 1, "action": "テストが StubGitRunner (run() の呼び出し履歴を記録し、決められた GitResult を返す) を注入して SyncEngine を生成する", "expected": "SyncEngine が生成でき、以降 git 実行はすべて runner.run 経由 (child_process の直接呼び出しは無い)"},
+        {"n": 2, "action": "engine.commit('sync: dev ...') を呼ぶ (runner は status で変更ありを返す)", "expected": "runner.run が ['add','-A'] と ['commit', ...] の順で呼ばれ、commit が true を返す"},
+        {"n": 3, "action": "変更が無い状態 (status がクリーン) で engine.commit を呼ぶ", "expected": "commit は false を返し、余計な commit を積まない"}
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "scenario-2",
+      "linked_ac": ["AC-Se29635-1-2"],
+      "description": "git 不在時は握りつぶさず GitUnavailableError で同期のみ無効化し、他は壊れない",
+      "preconditions": ["StubGitRunner.isAvailable() が false を返す構成"],
+      "steps": [
+        {"n": 1, "action": "isAvailable=false の runner で engine.syncNow() を呼ぶ", "expected": "GitUnavailableError が throw される (握りつぶさない)"},
+        {"n": 2, "action": "同じ構成で engine.status() を呼ぶ", "expected": "throw せず available:false の SyncStatus を返す (他機能・起動を壊さないための graceful surface)"},
+        {"n": 3, "action": "sync ルートを登録した実サーバを起動し、無関係な GET /api/notes/... を叩く", "expected": "サーバは正常起動し 2xx を返す (同期不能でも他機能は無傷)"}
+      ],
+      "cleanup": []
+    }
+  ]
+}
