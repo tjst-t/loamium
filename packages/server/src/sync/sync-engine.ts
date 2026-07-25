@@ -15,6 +15,7 @@
  * HTTP ミドルウェアを通らない直接 git 操作の補填 (design-sync.md 参照)。
  */
 import { appendFile, readFile } from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
 import path from 'node:path';
 import type { AuditEntry } from '@loamium/shared';
 import { GitUnavailableError, redactGitSecrets } from './git-runner.js';
@@ -54,6 +55,8 @@ export interface SyncEngineConfig {
 export interface SyncStatus {
   /** git バイナリが利用可能かどうか。 */
   available: boolean;
+  /** vault ルート自身が git リポジトリのトップレベルか (親リポジトリのネストは false)。 */
+  vaultIsRepo: boolean;
   /** リモートが設定されているかどうか (remoteUrl !== null)。 */
   remoteConfigured: boolean;
   /** 現在のブランチ名。git 不在や未初期化では null。 */
@@ -182,12 +185,21 @@ export class SyncEngine {
   /** 競合状態フラグ: 未解決ハンクがある間 true。 */
   #conflicted = false;
 
+  /**
+   * git のリポジトリ探索が vault の親へ波及しないための環境変数。
+   * vault が git リポジトリでない場合に git が親ディレクトリ (例: Loamium 本体リポジトリ) を
+   * 発見してそこを誤操作するのを防ぐ (GIT_CEILING_DIRECTORIES は探索の上限で、
+   * 指定ディレクトリより上は探索しない)。vault 自身が repo なら通常どおり動く。
+   */
+  readonly #gitEnv: Record<string, string>;
+
   constructor(opts: SyncEngineOpts) {
     this.#vaultRoot = opts.vaultRoot;
     this.#runner = opts.runner;
     this.#getConfig = opts.getConfig;
     this.#getToken = opts.getToken ?? (() => null);
     this.#audit = opts.audit;
+    this.#gitEnv = { GIT_CEILING_DIRECTORIES: path.dirname(opts.vaultRoot) };
   }
 
   // ──────────────────────────────────────────
@@ -196,7 +208,26 @@ export class SyncEngine {
 
   /** git コマンドを vault ルートで実行する共通ラッパ。 */
   #run(args: string[]): ReturnType<GitRunner['run']> {
-    return this.#runner.run(args, { cwd: this.#vaultRoot });
+    return this.#runner.run(args, { cwd: this.#vaultRoot, env: this.#gitEnv });
+  }
+
+  /**
+   * vault ルートが「それ自身の git リポジトリのトップレベル」であることを検証する。
+   * - `git rev-parse --show-toplevel` の結果が vault ルート(実パス)と一致すればOK。
+   * - vault が git リポジトリでない、または親リポジトリの一部(ネスト)の場合は false。
+   * これにより、vault が repo でないときに親(例: Loamium 本体)を誤操作するのを防ぐ。
+   */
+  async #isVaultRepo(): Promise<boolean> {
+    const res = await this.#run(['rev-parse', '--show-toplevel']);
+    if (res.code !== 0) return false;
+    const top = res.stdout.trim();
+    if (top === '') return false;
+    try {
+      return realpathSync(top) === realpathSync(this.#vaultRoot);
+    } catch {
+      // realpath 失敗 (パス不在等) 時は文字列比較にフォールバック
+      return path.resolve(top) === path.resolve(this.#vaultRoot);
+    }
   }
 
   /**
@@ -212,12 +243,12 @@ export class SyncEngine {
     const token = this.#getToken();
     if (!token) {
       // PAT なし → git credential helper に委譲 (引数は渡さない)
-      return this.#runner.run(args, { cwd: this.#vaultRoot });
+      return this.#runner.run(args, { cwd: this.#vaultRoot, env: this.#gitEnv });
     }
     // Basic 認証: x-access-token:{PAT} を Base64 エンコード
     const encoded = Buffer.from(`x-access-token:${token}`).toString('base64');
     const authArgs = ['-c', `http.extraheader=Authorization: Basic ${encoded}`, ...args];
-    return this.#runner.run(authArgs, { cwd: this.#vaultRoot });
+    return this.#runner.run(authArgs, { cwd: this.#vaultRoot, env: this.#gitEnv });
   }
 
   /**
@@ -305,6 +336,9 @@ export class SyncEngine {
     if (!ok) {
       throw new GitUnavailableError('git is not available on this system; sync is disabled');
     }
+    // 注: vault が git リポジトリでない場合の親リポジトリ誤操作は #gitEnv の
+    // GIT_CEILING_DIRECTORIES が防ぐ (親探索を打ち切り、各 git 操作は "not a git repository"
+    // で安全に失敗する)。UI 向けの明示状態は status().vaultIsRepo が担う。
   }
 
   /**
@@ -319,10 +353,30 @@ export class SyncEngine {
     if (!isAvail) {
       return {
         available: false,
+        vaultIsRepo: false,
         remoteConfigured: false,
         branch: null,
         lastSyncAt: null,
         lastError: null,
+        ahead: 0,
+        behind: 0,
+        dirty: false,
+        offline: false,
+        conflicted: false,
+        queued: 0,
+      };
+    }
+
+    // vault が git リポジトリでない場合は、これ以上 git を叩かず (親リポジトリ誤操作防止)
+    // 明示的な理由付きで返す。UI はこの状態を「vault が git リポジトリでない」と表示する。
+    if (!(await this.#isVaultRepo())) {
+      return {
+        available: true,
+        vaultIsRepo: false,
+        remoteConfigured: config.remoteUrl !== null,
+        branch: null,
+        lastSyncAt: this.#lastSyncAt,
+        lastError: 'vault が git リポジトリではありません (vault ルートで git init が必要です)',
         ahead: 0,
         behind: 0,
         dirty: false,
@@ -347,6 +401,7 @@ export class SyncEngine {
       }
       return {
         available: true,
+        vaultIsRepo: true,
         remoteConfigured: config.remoteUrl !== null,
         branch,
         lastSyncAt: this.#lastSyncAt,
@@ -363,6 +418,7 @@ export class SyncEngine {
       // git コマンド失敗でも throw しない
       return {
         available: true,
+        vaultIsRepo: true,
         remoteConfigured: config.remoteUrl !== null,
         branch: null,
         lastSyncAt: this.#lastSyncAt,

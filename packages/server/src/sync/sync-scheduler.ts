@@ -150,7 +150,7 @@ export class SyncScheduler {
 
     // git 利用可否を確認 (不在なら no-op)
     const status = await this.#engine.status();
-    if (!status.available) return;
+    if (!status.available || !status.vaultIsRepo) return;
 
     // 別の同期処理が実行中なら次ティックに委ねる (git 状態の競合防止, Finding 2)
     if (this.#inFlight) return;
@@ -186,7 +186,7 @@ export class SyncScheduler {
 
     // git 利用可否を確認 (不在なら no-op)
     const status = await this.#engine.status();
-    if (!status.available) return;
+    if (!status.available || !status.vaultIsRepo) return;
 
     // 同時実行中なら保留 (完了後に drain される)
     if (this.#inFlight) {

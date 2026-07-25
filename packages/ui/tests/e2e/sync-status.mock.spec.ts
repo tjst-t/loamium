@@ -15,6 +15,7 @@ import { installCatchAll, json } from '../harness/mock-helpers.js';
 // 共通: sync/status モック応答ファクトリ
 function syncStatus(overrides: Partial<{
   available: boolean;
+  vaultIsRepo: boolean;
   remoteConfigured: boolean;
   branch: string | null;
   lastSyncAt: string | null;
@@ -28,6 +29,7 @@ function syncStatus(overrides: Partial<{
 }> = {}) {
   return {
     available: true,
+    vaultIsRepo: true,
     remoteConfigured: true,
     branch: 'main',
     lastSyncAt: null,
@@ -199,6 +201,15 @@ test('[MOCK][AC-Se29635-4-2] git-unavailable: 同期無効表示で button が d
   await expect(page.getByTestId('sync-status')).toBeVisible();
   await expect(page.getByTestId('sync-now-button')).toBeDisabled();
   await expect(page.getByTestId('sync-status')).toContainText('同期無効');
+});
+
+test('[MOCK][AC-Se29635-4-2] vault が git リポジトリでない場合は「git 未初期化」表示で button が disabled', async ({ page }) => {
+  await openApp(page, {
+    statusBody: syncStatus({ available: true, vaultIsRepo: false, remoteConfigured: true }),
+  });
+  await expect(page.getByTestId('sync-status')).toBeVisible();
+  await expect(page.getByTestId('sync-now-button')).toBeDisabled();
+  await expect(page.getByTestId('sync-status')).toContainText('git 未初期化');
 });
 
 test('[MOCK][AC-Se29635-4-2] no-remote: リモート未設定表示で button が disabled', async ({ page }) => {

@@ -99,8 +99,10 @@ const server = serve({ fetch: app.fetch, port, hostname }, (info) => {
   void (async () => {
     const syncCfg = syncService.store.load();
     if (!syncCfg.enabled || !syncCfg.remoteUrl) return;
-    const available = await syncService.engine.status().then((s) => s.available).catch(() => false);
-    if (!available) return;
+    const st = await syncService.engine.status().catch(() => null);
+    // git 不在、または vault が git リポジトリでない (= 親リポジトリ誤操作の恐れ) 場合は
+    // 起動時 pull / configureRemote を行わない。
+    if (st === null || !st.available || !st.vaultIsRepo) return;
     // 手動で sync.json を書いた/リストアした端末では git remote が未設定なことがある。
     // 起動時 pull の前にリモート設定を揃える (configureRemote は冪等・非致命的に握る)。
     await syncService.engine.configureRemote().catch((err: unknown) => {

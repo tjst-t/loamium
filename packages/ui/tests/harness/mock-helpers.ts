@@ -86,6 +86,7 @@ export async function installCatchAll(page: Page): Promise<string[]> {
     void route.fulfill(
       json({
         available: false,
+        vaultIsRepo: false,
         remoteConfigured: false,
         branch: null,
         lastSyncAt: null,

@@ -32,9 +32,21 @@ class StubGitRunner implements GitRunner {
   results: GitResult[] = [];
   /** isAvailable() が返す値 */
   available: boolean = true;
+  /**
+   * `rev-parse --show-toplevel` が返すパス (既定は VAULT_ROOT = vault 自身が repo)。
+   * null にすると "not a git repository" を模擬する (親リポジトリ誤操作防止の検証用)。
+   */
+  toplevel: string | null = VAULT_ROOT;
 
   async run(args: string[], _opts?: GitRunOpts): Promise<GitResult> {
     this.calls.push([...args]);
+    // rev-parse --show-toplevel は #isVaultRepo() の定常呼び出し。
+    // results キューを消費せず toplevel を返す (他テストのスクリプト整合を保つため)。
+    if (args.length === 2 && args[0] === 'rev-parse' && args[1] === '--show-toplevel') {
+      return this.toplevel === null
+        ? { code: 128, stdout: '', stderr: 'fatal: not a git repository' }
+        : { code: 0, stdout: `${this.toplevel}\n`, stderr: '' };
+    }
     const scripted = this.results.shift();
     // キューが尽きたらデフォルト (code=0, stdout='', stderr='')
     return scripted ?? { code: 0, stdout: '', stderr: '' };
@@ -408,5 +420,52 @@ describe('PAT 認証注入 (push/pull の http.extraheader)', () => {
     const call = runner.calls[0] ?? [];
     expect(call[0]).toBe('push');
     expect(call).not.toContain('-c');
+  });
+});
+
+// ──────────────────────────────────────────────
+// vault が git リポジトリでない場合 (親リポジトリ誤操作の防止)
+// ──────────────────────────────────────────────
+
+describe('vault が git リポジトリでない場合', () => {
+  it('status() は vaultIsRepo:false を返し、以降 git status を叩かない', async () => {
+    const runner = new StubGitRunner();
+    runner.toplevel = null; // rev-parse --show-toplevel が失敗 = not a repo
+    const { engine } = makeEngine(runner);
+
+    const s = await engine.status();
+
+    expect(s.available).toBe(true); // git バイナリはある
+    expect(s.vaultIsRepo).toBe(false); // vault は repo でない
+    expect(s.lastError).toContain('git リポジトリ');
+    // rev-parse のみで、git status --porcelain は呼ばれていない (親リポジトリを触らない)
+    expect(runner.calls.some((c) => c[0] === 'status')).toBe(false);
+    expect(runner.calls.some((c) => c[0] === 'rev-parse' && c[1] === '--show-toplevel')).toBe(true);
+  });
+
+  it('vault が repo のとき status() は vaultIsRepo:true を返す', async () => {
+    const runner = new StubGitRunner();
+    // toplevel は既定 (VAULT_ROOT) = repo
+    runner.results.push({ code: 0, stdout: '# branch.head main\n', stderr: '' }); // git status
+    const { engine } = makeEngine(runner);
+
+    const s = await engine.status();
+    expect(s.available).toBe(true);
+    expect(s.vaultIsRepo).toBe(true);
+  });
+
+  it('全 git 実行に GIT_CEILING_DIRECTORIES(親ディレクトリ)が渡る', async () => {
+    const runner = new StubGitRunner();
+    const captured: Array<Record<string, string> | undefined> = [];
+    const origRun = runner.run.bind(runner);
+    runner.run = async (args, opts) => {
+      captured.push(opts?.env);
+      return origRun(args, opts);
+    };
+    const { engine } = makeEngine(runner);
+    await engine.status();
+    // rev-parse 呼び出しに ceiling env が付いている
+    expect(captured.length).toBeGreaterThan(0);
+    expect(captured[0]?.['GIT_CEILING_DIRECTORIES']).toBe('/tmp');
   });
 });

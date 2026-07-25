@@ -164,6 +164,19 @@ export function SyncStatusIndicator({ className }: SyncStatusIndicatorProps): JS
     );
   }
 
+  if (!status.vaultIsRepo) {
+    return (
+      <div className={`sync-status sync-status-no-repo${className ? ` ${className}` : ''}`} data-testid="sync-status">
+        <span className="sync-label-text" title="vault が git リポジトリではありません。vault ルートで git init してください">
+          vault が git 未初期化
+        </span>
+        <button className="sync-now-button" data-testid="sync-now-button" disabled title="vault ルートで git init が必要です">
+          同期
+        </button>
+      </div>
+    );
+  }
+
   if (!status.remoteConfigured) {
     return (
       <div className={`sync-status sync-status-no-remote${className ? ` ${className}` : ''}`} data-testid="sync-status">

@@ -1594,6 +1594,8 @@ export type VaultSeedResponse = z.infer<typeof vaultSeedResponseSchema>;
  */
 export const syncStatusResponseSchema = z.object({
   available: z.boolean(),
+  /** vault ルート自身が git リポジトリのトップレベルか (親リポジトリのネストは false)。 */
+  vaultIsRepo: z.boolean(),
   remoteConfigured: z.boolean(),
   branch: z.string().nullable(),
   lastSyncAt: z.string().nullable(),

@@ -5,6 +5,9 @@ Loamium の Vault 同期は、ローカル Markdown ファイルをリモート 
 
 ## 前提
 
+- **Vault のルート自身が git リポジトリであること** (`git init` 済み)。未初期化だと同期は無効化され、
+  ステータスに「vault が git 未初期化」と表示されます。vault が repo でない、または別リポジトリの中に
+  ネストしている場合、エンジンは git 操作を一切行いません (親リポジトリの誤操作を防ぐため)。
 - システムに `git` (2.x 以上) がインストールされていること
 - リモートリポジトリ (GitHub private / self-hosted bare / NAS 上の bare repo) が用意されていること
 - Vault のルートに `.loamium/` を除外する `.gitignore` があること (エンジンが自動追加します)
