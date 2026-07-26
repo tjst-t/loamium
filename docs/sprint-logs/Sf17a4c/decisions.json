@@ -2,20 +2,77 @@
   "sprint": "Sf17a4c",
   "mode": "auto",
   "design_source": "docs/DESIGN/adr/ADR-0034-safe-initial-vault-remote-link.json (accepted) + ADR-0034-research-initial-sync-survey.md",
-  "touched_adrs": ["ADR-0034", "ADR-0032", "ADR-0030", "ADR-0016"],
+  "touched_adrs": [
+    "ADR-0034",
+    "ADR-0032",
+    "ADR-0030",
+    "ADR-0016"
+  ],
   "planning_decisions": [
-    {"topic": "モジュール配置", "decision": "packages/server/src/sync/link.ts に初回リンク状態機械を新設。既存 SyncEngine/GitRunner(Se29635)の上に載せ、全 git 実行に GIT_CEILING_DIRECTORIES=<vault親> を付与(親リポジトリ誤操作防止, ADR-0032 追補)。監査は writeAuditEntry で sync.link.* を記録。", "rationale": "Se29635 資産再利用・二重管理回避。"},
-    {"topic": "衝突自動マージ再利用", "decision": "3-way 合成は @loamium/shared の diff3Merge(ADR-0030)を再利用。keep-both/採用は git stage(:2:/:3:)から書き出し。", "rationale": "ADR-0030 資産・ピュア Markdown 絶対。"},
-    {"topic": "keep-both 命名", "decision": "<名前>.remote.<拡張子>(英語 remote・スペース無し、同名衝突は連番 -2/-3)。", "rationale": "ユーザー確定 2026-07-26。"},
-    {"topic": "衝突 UI", "decision": "決め方ラジオ(ファイルごと/全部まとめて)+ セグメント型スイッチ(両方保持/3-way/ローカル採用/リモート採用)。ドロップダウン不使用。3-way は既存 ConflictResolverDialog 再利用。衝突0件は自動完了+完了ダイアログ。", "rationale": "ユーザー確定 2026-07-26。"},
-    {"topic": "NFC/大文字小文字スキャン", "decision": "v1 スコープ(Linux↔Windows 運用のため)。checkout 前に隔離。", "rationale": "ユーザー確定 2026-07-26。"},
-    {"topic": "テスト real-mode", "decision": "リンク往復は実 system git + temp bare/クローンで検証(mock 禁止, test-discipline Rule7)。両側データありの add/add・byte 一致・keep-both を含める。", "rationale": "データ喪失ゼロを実機で担保。"},
-    {"topic": "破壊禁止", "decision": "reset --hard でリモートに倒さない。-X ours/theirs を既定にしない。採用系で外した側も backup ref から復元可。", "rationale": "priority2 データ安全性 / ADR-0034。"}
+    {
+      "topic": "モジュール配置",
+      "decision": "packages/server/src/sync/link.ts に初回リンク状態機械を新設。既存 SyncEngine/GitRunner(Se29635)の上に載せ、全 git 実行に GIT_CEILING_DIRECTORIES=<vault親> を付与(親リポジトリ誤操作防止, ADR-0032 追補)。監査は writeAuditEntry で sync.link.* を記録。",
+      "rationale": "Se29635 資産再利用・二重管理回避。"
+    },
+    {
+      "topic": "衝突自動マージ再利用",
+      "decision": "3-way 合成は @loamium/shared の diff3Merge(ADR-0030)を再利用。keep-both/採用は git stage(:2:/:3:)から書き出し。",
+      "rationale": "ADR-0030 資産・ピュア Markdown 絶対。"
+    },
+    {
+      "topic": "keep-both 命名",
+      "decision": "<名前>.remote.<拡張子>(英語 remote・スペース無し、同名衝突は連番 -2/-3)。",
+      "rationale": "ユーザー確定 2026-07-26。"
+    },
+    {
+      "topic": "衝突 UI",
+      "decision": "決め方ラジオ(ファイルごと/全部まとめて)+ セグメント型スイッチ(両方保持/3-way/ローカル採用/リモート採用)。ドロップダウン不使用。3-way は既存 ConflictResolverDialog 再利用。衝突0件は自動完了+完了ダイアログ。",
+      "rationale": "ユーザー確定 2026-07-26。"
+    },
+    {
+      "topic": "NFC/大文字小文字スキャン",
+      "decision": "v1 スコープ(Linux↔Windows 運用のため)。checkout 前に隔離。",
+      "rationale": "ユーザー確定 2026-07-26。"
+    },
+    {
+      "topic": "テスト real-mode",
+      "decision": "リンク往復は実 system git + temp bare/クローンで検証(mock 禁止, test-discipline Rule7)。両側データありの add/add・byte 一致・keep-both を含める。",
+      "rationale": "データ喪失ゼロを実機で担保。"
+    },
+    {
+      "topic": "破壊禁止",
+      "decision": "reset --hard でリモートに倒さない。-X ours/theirs を既定にしない。採用系で外した側も backup ref から復元可。",
+      "rationale": "priority2 データ安全性 / ADR-0034。"
+    }
   ],
   "guard_rationale": {
     "guard8_rationale": "n/a — guards.json 未設定(Go 用 data_paths は当リポジトリに非該当)。同期はデータ経路のため、両側 add/add でのデータ喪失ゼロ検証(byte 一致)を acceptance に含め Rule8 の精神を満たす。"
   },
-  "implementation_decisions": [],
-  "review_decisions": [],
+  "implementation_decisions": [
+    {
+      "story": "Sf17a4c-2",
+      "topic": "衝突解決の安全既定",
+      "decision": "未指定/不正な解決は keep-both にフォールバック。merge は git rebase でなく git merge を使い :2:=local/:3:=remote。reset --hard/-X ours,theirs 不使用。",
+      "rationale": "データ喪失ゼロ(ADR-0034 / priority2)。"
+    }
+  ],
+  "review_decisions": [
+    {
+      "story": "Sf17a4c-2",
+      "cycle": 1,
+      "data_safety": "CONDITIONAL FAIL→fixed",
+      "applied": [
+        "F-1: action=merge の mergedText 欠落/空を keep-both に安全フォールバック(空ファイル上書き=データ喪失を防止)+ 型を discriminated union 化 + 回帰テスト追加",
+        "F-2: backup ref 作成失敗を致命的にしマージに入らず中止(ADR『必ず作成』遵守)",
+        "F-3: unmerged 列挙失敗を衝突0と誤認せず merge --abort して失敗を返す",
+        "F-6: 空ローカル adopt の reset --hard 直前に backup ref を取得(常に復元可)"
+      ],
+      "deferred": [
+        "F-5: バイナリファイルは #gitShow の utf8 往復で破損しうる。ピュア Markdown 前提だが assets/ のバイナリは要 GitRunner の Buffer stdout 対応 → backlog"
+      ],
+      "stage_mapping": "confirmed correct (:2:=local, :3:=remote for git merge)",
+      "cap_hit": false
+    }
+  ],
   "done_judgment": {}
 }

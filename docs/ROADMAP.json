@@ -9497,7 +9497,7 @@
       "stories": {
         "Sf17a4c-1": {
           "title": "初回リンク基盤 — auto-init + リモート3判別 + 空/片側分岐 + backup ref",
-          "status": "in_progress",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ユーザーとして、git を知らなくても vault をリモートにリンクしたい。なぜなら、git init や履歴の準備を自分でやらずに同期を始めたいから(ADR-0034)。",
@@ -9525,7 +9525,7 @@
         },
         "Sf17a4c-2": {
           "title": "両側データありの安全マージ — merge-tree プレビュー + keep-both/採用/3-way 適用",
-          "status": "planned",
+          "status": "in_progress",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ユーザーとして、ローカルにもリモートにも既にデータがある状態からでも、データを失わずリンクしたい。なぜなら、pull で消えるのは論外でマージしてから push したいから。",
@@ -10190,6 +10190,11 @@
       "title": "初回同期(vault↔remote link)の安全な自動化 — ADR-0034",
       "detail": "Se29635 追補。auto git-init、ls-remote で空/非空/到達不能を判別、両側データありは merge-tree でプレビュー→確認→merge --allow-unrelated-histories→add/add は keep-both(名前 (リモート 時刻).md)→push。事前 backup ref、mid-merge 検出/復元、>100MB/NFC/大文字小文字/gitattributes eol=lf のエッジガード、『同期をセットアップ』ウィザード。ADR-0034 承認後に Sprint 化。",
       "source": "user design feedback 2026-07-26 / ADR-0034"
+    },
+    {
+      "title": "同期エンジンのバイナリファイル対応 (Buffer stdout)",
+      "detail": "Sf17a4c-2 review F-5。GitRunner が stdout を utf8 文字列で返すため、keep-both/採用でバイナリ(画像/PDF等 assets/)が往復で破損しうる。GitRunner を Buffer stdout 対応に。ピュア Markdown 前提では稀。",
+      "source": "Sf17a4c-2 review F-5"
     }
   ]
 }

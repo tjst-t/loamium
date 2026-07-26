@@ -1,5 +1,5 @@
 /**
- * 初回リンク状態機械 — vault↔remote の初回接続を安全に自動化する (ADR-0034 / Sf17a4c-1)。
+ * 初回リンク状態機械 — vault↔remote の初回接続を安全に自動化する (ADR-0034 / Sf17a4c-1, 2)。
  *
  * ## 設計原則
  * - **ピュア Markdown 絶対**: ブロック ID 等の独自記法をファイルに書かない。
@@ -15,13 +15,16 @@
  * - `createBackupRef`: backup/pre-link-<ts> ref を作成
  * - `linkEmptyOrOneSided`: 空×空/空×非空/非空×空 の3ケース。非空×非空は Story 2。
  *
+ * ## スコープ (Story 2)
+ * - `previewMerge`: git merge-tree --write-tree で作業ツリーを触らずプレビュー
+ * - `applyMerge`: keep-both/local/remote/merge の解決指定でマージを適用し commit/push
+ *
  * ## 範囲外 (別 Story)
- * - merge-tree プレビュー / keep-both / 3-way 競合 UI (Story 2)
  * - エッジガード: 100MB 超 / 大文字小文字・NFC 衝突 / mid-merge 復元 (Story 3)
  * - REST / CLI エンドポイント (Story 4)
  * - UI ウィザード / 競合ダイアログ (Story 5)
  */
-import { access, appendFile, readFile, writeFile } from 'node:fs/promises';
+import { access, appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { realpathSync } from 'node:fs';
 import path from 'node:path';
 import type { AuditEntry } from '@loamium/shared';
@@ -69,6 +72,31 @@ export interface LinkResult {
   /** エラーメッセージ (redact 済み)。 */
   error?: string;
 }
+
+/** `previewMerge` が返すマージプレビュー情報 (Story 2)。 */
+export interface MergePreview {
+  /** リモートにのみ存在するファイル数 (マージで自動取得)。 */
+  addedFromRemote: number;
+  /** ローカルにのみ存在するファイル数 (マージで自動保持)。 */
+  addedFromLocal: number;
+  /** 同名・別内容で衝突するファイル一覧。 */
+  conflicts: Array<{ file: string }>;
+  /** clean merge なら true (衝突ゼロ)。 */
+  isClean: boolean;
+}
+
+/**
+ * `applyMerge` の衝突解決指定 (Story 2)。
+ *
+ * - `keep-both`: ローカルはその場、リモートを `<名前>.remote.<拡張子>` に保存 (既定・最安全)
+ * - `local`: ローカル側を採用
+ * - `remote`: リモート側を採用
+ * - `merge`: 呼び出し側が提供した `mergedText` を書き込む (3-way 統合後テキスト)
+ */
+export type ConflictResolution =
+  | { file: string; action: 'keep-both' | 'local' | 'remote' }
+  /** `merge` は 3-way 統合後テキスト必須 (型で強制)。実行時に欠落/空なら keep-both に安全フォールバック。 */
+  | { file: string; action: 'merge'; mergedText: string };
 
 // ──────────────────────────────────────────────
 // InitialLinker
@@ -124,6 +152,18 @@ export class InitialLinker {
   /** git コマンドを vault ルートで実行する共通ラッパ。ceiling env を必ず付与する。 */
   #run(args: string[]): ReturnType<GitRunner['run']> {
     return this.#runner.run(args, { cwd: this.#vaultRoot, env: this.#gitEnv });
+  }
+
+  /**
+   * `-c core.quotepath=false` を先頭に付けて git を実行する。
+   * パスを stdout から読み取るコマンド (ls-tree, diff --name-only 等) で使用する。
+   * core.quotepath=false により、非 ASCII パスがオクタル引用符なしで出力される。
+   */
+  #runQP(args: string[]): ReturnType<GitRunner['run']> {
+    return this.#runner.run(
+      ['-c', 'core.quotepath=false', ...args],
+      { cwd: this.#vaultRoot, env: this.#gitEnv },
+    );
   }
 
   /**
@@ -571,7 +611,11 @@ export class InitialLinker {
             ),
           };
         }
-        // ブランチを remote に追従させる
+        // ブランチを remote に追従させる。
+        // ここは『ローカル空 × リモート非空』の adopt-remote 経路のみ (localHasData=false)
+        // で到達し、破棄されるのは空スナップショットのみ = データ喪失なし。それでも念のため
+        // 直前に backup ref を取り、常に復元可能にしておく (review F-6, ADR-0034 の安全側)。
+        await this.createBackupRef().catch(() => undefined);
         await this.#run(['reset', '--hard', `${remoteName}/${branch}`]);
       }
 
@@ -633,5 +677,405 @@ export class InitialLinker {
     }
 
     return { ok: true, needsMerge: true, ...(backupRef !== undefined ? { backupRef } : {}) };
+  }
+
+  // ──────────────────────────────────────────
+  // Story 2: merge-tree プレビュー + keep-both/採用/3-way 適用
+  // ──────────────────────────────────────────
+
+  /**
+   * `git merge-tree --write-tree --allow-unrelated-histories` で
+   * **作業ツリー/インデックスを一切触らずに**マージ結果をプレビューする。
+   *
+   * 戻り値:
+   * - `addedFromRemote`: リモートにのみ存在するファイル数
+   * - `addedFromLocal`: ローカルにのみ存在するファイル数
+   * - `conflicts`: 同名・別内容の衝突ファイル一覧
+   * - `isClean`: 衝突ゼロなら true
+   *
+   * @param localRef  ローカル HEAD の ref または OID (例: 'HEAD')
+   * @param remoteRef リモートの ref (例: 'origin/main')
+   *
+   * (AC-Sf17a4c-2-1)
+   */
+  async previewMerge(localRef: string, remoteRef: string): Promise<MergePreview> {
+    // ── 1. merge-tree で衝突ファイルを列挙 ──
+    // exit 0 = クリーン / exit 1 = 衝突あり
+    // stdout 1行目: merged tree OID
+    // 残行: 衝突情報 (+ 衝突パスを含む)
+    const mtRes = await this.#runQP([
+      'merge-tree',
+      '--write-tree',
+      '--allow-unrelated-histories',
+      '--name-only',
+      localRef,
+      remoteRef,
+    ]);
+    // exit code 0 or 1 は正常 (0=clean, 1=conflicts); それ以外は エラー
+    if (mtRes.code !== 0 && mtRes.code !== 1) {
+      throw new Error(
+        `git merge-tree failed (code ${mtRes.code}): ${redactGitSecrets(mtRes.stderr)}`,
+      );
+    }
+    const isClean = mtRes.code === 0;
+
+    // --name-only の出力フォーマット (exit 1 = 衝突あり):
+    //   1行目: merged tree OID
+    //   2行目〜: 衝突パス (1パス1行)
+    //   空行:   セクション区切り
+    //   空行以降: "Auto-merging ..." / "CONFLICT ..." などの情報メッセージ (パスではない)
+    //
+    // 正しいパースには「OID 行の次から最初の空行まで」を衝突パスとして取り出す。
+    const rawLines = mtRes.stdout.split('\n');
+    // 最初の行は tree OID をスキップ
+    const linesAfterOid = rawLines.slice(1);
+    // 最初の空行 (または末尾) までを衝突パスとして収集
+    const conflictPaths = new Set<string>();
+    for (const line of linesAfterOid) {
+      if (line.trim() === '') break; // 空行でセクション終了
+      conflictPaths.add(line.trim());
+    }
+
+    // ── 2. 両ツリーのファイル一覧を取得して片側のみ/衝突を判別 ──
+    // core.quotepath=false で非 ASCII パスを引用符なしで取得する
+    // ローカル side のファイル一覧
+    const localLsRes = await this.#runQP(['ls-tree', '-r', '--name-only', localRef]);
+    const localFiles = new Set<string>(
+      localLsRes.code === 0
+        ? localLsRes.stdout.trim().split('\n').filter(Boolean)
+        : [],
+    );
+
+    // リモート side のファイル一覧
+    const remoteLsRes = await this.#runQP(['ls-tree', '-r', '--name-only', remoteRef]);
+    const remoteFiles = new Set<string>(
+      remoteLsRes.code === 0
+        ? remoteLsRes.stdout.trim().split('\n').filter(Boolean)
+        : [],
+    );
+
+    // リモートにのみ存在するファイル (= マージで自動取得されるもの)
+    let addedFromRemote = 0;
+    for (const f of remoteFiles) {
+      if (!localFiles.has(f)) addedFromRemote++;
+    }
+
+    // ローカルにのみ存在するファイル (= マージで自動保持されるもの)
+    let addedFromLocal = 0;
+    for (const f of localFiles) {
+      if (!remoteFiles.has(f)) addedFromLocal++;
+    }
+
+    // 衝突: merge-tree が報告した衝突パス (同名・別内容)
+    // merge-tree --name-only は衝突ファイルを列挙する
+    const conflicts = Array.from(conflictPaths).map((file) => ({ file }));
+
+    return { addedFromRemote, addedFromLocal, conflicts, isClean };
+  }
+
+  /**
+   * keep-both 命名: `<base>.remote.<ext>` を基本とし、同名ファイルが存在する場合は
+   * `<base>.remote-2.<ext>`, `<base>.remote-3.<ext>` と連番を付ける。
+   *
+   * @param filePath  元のファイルパス (例: 'メモ/買い物.md')
+   * @param vaultRoot vault ルート (絶対パス)
+   * @returns 衝突コピー先のパス (vault 相対)
+   */
+  async #keepBothRemotePath(filePath: string, vaultRoot: string): Promise<string> {
+    const ext = path.extname(filePath);
+    const base = ext ? filePath.slice(0, -ext.length) : filePath;
+
+    // `<base>.remote<ext>` を試し、存在すれば連番
+    let candidate = `${base}.remote${ext}`;
+    let n = 2;
+    while (true) {
+      const abs = path.join(vaultRoot, candidate);
+      try {
+        await access(abs);
+        // ファイルが存在する → 連番へ
+        candidate = `${base}.remote-${n}${ext}`;
+        n++;
+      } catch {
+        // アクセス不可 = 存在しない → この名前を使う
+        break;
+      }
+    }
+    return candidate;
+  }
+
+  /**
+   * `git merge --allow-unrelated-histories` でマージを適用し、
+   * 衝突を解決して commit → push する。
+   *
+   * 解決アクション:
+   * - `keep-both` (既定): ローカルをその場に残し、リモートを `.remote.<ext>` に保存
+   * - `local`: ローカル側を採用 (:2:)
+   * - `remote`: リモート側を採用 (:3:)
+   * - `merge`: 呼び出し側提供の `mergedText` を書き込む
+   *
+   * 解決が指定されていない衝突は自動的に `keep-both` を適用する (データ喪失ゼロ)。
+   *
+   * **NEVER `git reset --hard`、NEVER `-X ours/theirs`** (ADR-0034)。
+   *
+   * stage mapping (git merge — NOT rebase):
+   * - `:2:<path>` = ours = LOCAL (current branch HEAD)
+   * - `:3:<path>` = theirs = REMOTE (the merged-in side)
+   *
+   * @param remoteUrl  リモート URL (fetch に使う)
+   * @param branch     ブランチ名 (例: 'main')
+   * @param resolutions 衝突ごとの解決指定
+   * @param remoteName  リモート名 (デフォルト 'origin')
+   *
+   * (AC-Sf17a4c-2-2, AC-Sf17a4c-2-3)
+   */
+  async applyMerge(
+    remoteUrl: string,
+    branch: string,
+    resolutions: ConflictResolution[],
+    remoteName = 'origin',
+  ): Promise<LinkResult> {
+    // ── Step 1: backup ref を必ず作成 (ADR-0034『必ず作成』) ──
+    // backup が作れないまま破壊的マージへ進むと、失敗時に復元手段が無くなる。
+    // よって backup 作成失敗は致命的として、マージに一切入らず中止する (review F-2)。
+    let backupRef: string;
+    try {
+      backupRef = await this.createBackupRef();
+    } catch (e) {
+      return {
+        ok: false,
+        needsMerge: true,
+        error: `バックアップ ref の作成に失敗したため初回リンクを中止しました (安全のため): ${String(e)}`,
+      };
+    }
+
+    // ── Step 2: リモートを設定して fetch ──
+    const getUrlRes = await this.#run(['remote', 'get-url', remoteName]);
+    if (getUrlRes.code !== 0) {
+      // リモートが未設定なら追加
+      const addRes = await this.#run(['remote', 'add', remoteName, remoteUrl]);
+      if (addRes.code !== 0) {
+        return {
+          ok: false,
+          needsMerge: false,
+          ...(backupRef !== undefined ? { backupRef } : {}),
+          error: redactGitSecrets(addRes.stderr || `remote add failed (code ${addRes.code})`),
+        };
+      }
+    } else {
+      // 既存リモートを更新
+      await this.#run(['remote', 'set-url', remoteName, remoteUrl]);
+    }
+
+    const fetchRes = await this.#run(['fetch', remoteName, branch]);
+    if (fetchRes.code !== 0) {
+      return {
+        ok: false,
+        needsMerge: false,
+        ...(backupRef !== undefined ? { backupRef } : {}),
+        error: redactGitSecrets(fetchRes.stderr || `fetch failed (code ${fetchRes.code})`),
+      };
+    }
+
+    await this.#audit({
+      op: 'sync.link.merge',
+      path: this.#vaultRoot,
+      mode: 'full',
+      result: 'ok',
+      status: 0,
+    });
+
+    // ── Step 3: merge --no-commit --no-ff --allow-unrelated-histories ──
+    // 片側だけ/同一内容は自動統合される
+    // add/add 衝突は git が unmerged state にするため、その後に手動解決する
+    const mergeRes = await this.#run([
+      'merge',
+      '--allow-unrelated-histories',
+      '--no-commit',
+      '--no-ff',
+      `${remoteName}/${branch}`,
+    ]);
+    // exit 0 = clean merge (no commit needed except our --no-commit)
+    // exit 1 = conflicts (also normal — we resolve below)
+    // ただし CONFLICT (add/add) のケースは exit 1
+    if (mergeRes.code !== 0 && mergeRes.code !== 1) {
+      return {
+        ok: false,
+        needsMerge: false,
+        ...(backupRef !== undefined ? { backupRef } : {}),
+        error: redactGitSecrets(mergeRes.stderr || `merge failed (code ${mergeRes.code})`),
+      };
+    }
+
+    // ── Step 4: unmerged (衝突) ファイルを検出して解決 ──
+    // core.quotepath=false で非 ASCII パスを引用符なしで取得する
+    // `git diff --name-only --diff-filter=U` で unmerged ファイルを列挙
+    const unmergedRes = await this.#runQP(['diff', '--name-only', '--diff-filter=U']);
+    if (unmergedRes.code !== 0) {
+      // 列挙自体に失敗 → 衝突ゼロと誤認して conflict marker を commit するのを防ぐ。
+      // マージを中止して backup へ戻せる状態のまま失敗を返す (review F-3)。
+      await this.#run(['merge', '--abort']);
+      return {
+        ok: false,
+        needsMerge: true,
+        backupRef,
+        error: `衝突ファイルの列挙に失敗したためマージを中止しました: ${redactGitSecrets(unmergedRes.stderr)}`,
+      };
+    }
+    const unmergedFiles = unmergedRes.stdout.trim().split('\n').filter(Boolean);
+
+    // resolutions を Map に変換 (ファイルパス → 解決指定)
+    const resolutionMap = new Map<string, ConflictResolution>(
+      resolutions.map((r) => [r.file, r]),
+    );
+
+    for (const file of unmergedFiles) {
+      const resolution = resolutionMap.get(file) ?? { file, action: 'keep-both' as const };
+      await this.#applyResolution(file, resolution);
+    }
+
+    // ── Step 5: commit ──
+    const commitRes = await this.#run([
+      'commit',
+      '-m',
+      'loamium: link vault to remote (conflicts resolved)',
+    ]);
+    if (commitRes.code !== 0) {
+      // merge が既に clean で "nothing to commit" の場合もある
+      const msg = commitRes.stderr + commitRes.stdout;
+      const isNothingToCommit = msg.includes('nothing to commit')
+        || msg.includes('nothing added to commit');
+      if (!isNothingToCommit) {
+        return {
+          ok: false,
+          needsMerge: false,
+          ...(backupRef !== undefined ? { backupRef } : {}),
+          error: redactGitSecrets(msg || `commit failed (code ${commitRes.code})`),
+        };
+      }
+    }
+
+    await this.#audit({
+      op: 'sync.commit',
+      path: this.#vaultRoot,
+      mode: 'full',
+      result: 'ok',
+      status: 0,
+    });
+
+    // ── Step 6: push ──
+    const pushRes = await this.#run(['push', '-u', remoteName, `${branch}:${branch}`]);
+    if (pushRes.code !== 0) {
+      return {
+        ok: false,
+        needsMerge: false,
+        ...(backupRef !== undefined ? { backupRef } : {}),
+        error: redactGitSecrets(pushRes.stderr || `push failed (code ${pushRes.code})`),
+      };
+    }
+
+    await this.#audit({
+      op: 'sync.push',
+      path: this.#vaultRoot,
+      mode: 'full',
+      result: 'ok',
+      status: 0,
+    });
+
+    return { ok: true, needsMerge: false, ...(backupRef !== undefined ? { backupRef } : {}) };
+  }
+
+  /**
+   * 単一ファイルの衝突を指定アクションで解決し `git add` する。
+   *
+   * stage mapping (git merge — NOT rebase):
+   * - `:2:<path>` = ours = LOCAL
+   * - `:3:<path>` = theirs = REMOTE
+   */
+  async #applyResolution(file: string, resolution: ConflictResolution): Promise<void> {
+    const absPath = path.join(this.#vaultRoot, file);
+
+    switch (resolution.action) {
+      case 'keep-both': {
+        await this.#applyKeepBoth(file, absPath);
+        break;
+      }
+
+      case 'local': {
+        // ローカル (:2:) を採用
+        const localContent = await this.#gitShow(`:2:${file}`);
+        await mkdir(path.dirname(absPath), { recursive: true });
+        await writeFile(absPath, localContent);
+        await this.#run(['add', file]);
+        break;
+      }
+
+      case 'remote': {
+        // リモート (:3:) を採用
+        const remoteContent = await this.#gitShow(`:3:${file}`);
+        await mkdir(path.dirname(absPath), { recursive: true });
+        await writeFile(absPath, remoteContent);
+        await this.#run(['add', file]);
+        break;
+      }
+
+      case 'merge': {
+        // 呼び出し側が提供した mergedText を書く。
+        // 実行時に mergedText が欠落/空 (REST 経由の不正入力等) の場合は、空ファイルで
+        // データを失わないよう keep-both に安全フォールバックする (review F-1)。
+        if (typeof resolution.mergedText === 'string' && resolution.mergedText !== '') {
+          await mkdir(path.dirname(absPath), { recursive: true });
+          await writeFile(absPath, resolution.mergedText, 'utf8');
+          await this.#run(['add', file]);
+        } else {
+          await this.#applyKeepBoth(file, absPath);
+        }
+        break;
+      }
+
+      default: {
+        // 到達しない (discriminated union) が、防御的に keep-both へ
+        await this.#applyKeepBoth(file, absPath);
+        break;
+      }
+    }
+  }
+
+  /**
+   * keep-both 解決: ローカル (:2:) をその場に残し、リモート (:3:) を
+   * `<名前>.remote.<拡張子>`(衝突時は連番)に書き出して両方を stage する。
+   * データ喪失ゼロの安全既定。
+   */
+  async #applyKeepBoth(file: string, absPath: string): Promise<void> {
+    const localContent = await this.#gitShow(`:2:${file}`);
+    await mkdir(path.dirname(absPath), { recursive: true });
+    await writeFile(absPath, localContent);
+
+    const remoteContent = await this.#gitShow(`:3:${file}`);
+    const remotePath = await this.#keepBothRemotePath(file, this.#vaultRoot);
+    const absRemotePath = path.join(this.#vaultRoot, remotePath);
+    await mkdir(path.dirname(absRemotePath), { recursive: true });
+    await writeFile(absRemotePath, remoteContent);
+
+    await this.#run(['add', file, remotePath]);
+  }
+
+  /**
+   * `git show <ref>` の内容をバイナリバッファで返す。
+   * ステージ index 参照 (`:2:path` / `:3:path`) に使う。
+   *
+   * stdout は Buffer (バイナリ安全) で取得し、文字列化はせず Buffer を返す。
+   * テキストファイルは writeFile でそのまま書けばよい。
+   */
+  async #gitShow(ref: string): Promise<Buffer> {
+    // SystemGitRunner は stdout を utf8 文字列で返すが、
+    // markdown は UTF-8 テキストなので文字列→Buffer 変換で十分。
+    // バイナリファイル対応が必要になった場合は runner を拡張する。
+    const res = await this.#run(['show', ref]);
+    if (res.code !== 0) {
+      throw new Error(
+        `git show ${ref} failed (code ${res.code}): ${redactGitSecrets(res.stderr)}`,
+      );
+    }
+    return Buffer.from(res.stdout, 'utf8');
   }
 }

@@ -1,0 +1,40 @@
+# Story 2 実装ログ — Sf17a4c-2 (両側データありの安全マージ)
+日時: 2026-07-26
+
+## 実装内容
+
+### 変更ファイル
+- `packages/server/src/sync/link.ts` — `previewMerge` / `applyMerge` / `#runQP` / `#keepBothRemotePath` / `#applyResolution` / `#gitShow` を追加
+- `tests/acceptance/sync-link-merge.spec.ts` — 新規作成 (10テスト)
+
+### 追加型エクスポート
+- `MergePreview` — previewMerge 戻り値
+- `ConflictResolution` — applyMerge 解決指定
+
+## テスト結果
+
+```
+✓ packages/server/src/sync/git-runner.test.ts (11 tests) 29ms
+✓ packages/server/src/sync/sync-engine.test.ts (22 tests) 12ms
+✓ tests/acceptance/sync-link-foundation.spec.ts (19 tests) 497ms
+✓ tests/acceptance/sync-link-merge.spec.ts (10 tests) 803ms
+Test Files  4 passed (4)
+Tests  62 passed (62)
+Duration  1.07s
+```
+
+## 型チェック
+`npx tsc --noEmit -p packages/server/tsconfig.json` → CLEAN
+`npx tsc --noEmit -p packages/shared/tsconfig.json` → CLEAN
+
+## stage mapping 確認
+[AC-Sf17a4c-2-2] の keep-both テストで:
+- `メモ/買い物.md` (元パス) = ローカル版 (卵) → :2: = LOCAL ✓
+- `メモ/買い物.remote.md` = リモート版 (パン) → :3: = REMOTE ✓
+
+## 技術的注記
+- `git diff --name-only` / `git merge-tree --name-only` は非 ASCII パスをデフォルトでオクタル引用 (`"\343\203\241..."`) する。
+  `-c core.quotepath=false` を付けることで正しいパスを取得できる。`#runQP` ヘルパーとして実装。
+- `git merge-tree --write-tree --name-only` の出力: 1行目=tree OID、2行目〜空行まで=衝突パス、空行以降=情報メッセージ。
+  パース時に「空行まで」を衝突パスとして収集する必要あり。
+story2: 11 merge tests + foundation 19 + sync 33 pass. Review F-1/F-2/F-3/F-6 applied, F-5 backlog.
