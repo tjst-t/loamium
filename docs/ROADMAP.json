@@ -10026,6 +10026,11 @@
       "title": "ARCHITECTURE.md に Vault 同期節を追加",
       "detail": "ADR-0032 affects: docs/ARCHITECTURE.md。同期エンジン(sync/)・REST・スケジューラ・競合の概説を追記。ADR-0032 と機能ガイドが正本なので優先度低。",
       "source": "Se29635 done"
+    },
+    {
+      "title": "初回同期(vault↔remote link)の安全な自動化 — ADR-0034",
+      "detail": "Se29635 追補。auto git-init、ls-remote で空/非空/到達不能を判別、両側データありは merge-tree でプレビュー→確認→merge --allow-unrelated-histories→add/add は keep-both(名前 (リモート 時刻).md)→push。事前 backup ref、mid-merge 検出/復元、>100MB/NFC/大文字小文字/gitattributes eol=lf のエッジガード、『同期をセットアップ』ウィザード。ADR-0034 承認後に Sprint 化。",
+      "source": "user design feedback 2026-07-26 / ADR-0034"
     }
   ]
 }

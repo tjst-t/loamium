@@ -1,0 +1,49 @@
+{
+  "id": "ADR-0034",
+  "title": "初回同期(vault↔remote link)を安全に自動化する — Loamium が git init を持ち、両側にデータがある場合は『真マージ + 両方保持 + 事前バックアップ』で決してデータを失わない",
+  "status": "proposed",
+  "date": "2026-07-26",
+  "context": "ADR-0032 で vault 同期をシステム git 委譲に決めたが、実装(Se29635)は『vault は既にリモートのクローン』を暗黙前提にしており、初回に vault とリモートをリンクする状態機械が欠けていた。実運用では (a) git init はユーザーでなく Loamium が面倒を見るべき、(b) 同期開始時にローカル vault にもリモートにも既にデータがある場合、素朴な pull はローカルを破壊し、素朴な push は non-fast-forward で失敗する。両者を安全にマージしてから push する必要があり、特に『同一パス・別内容で共通祖先が無い』(add/add)衝突が難しい。先行事例調査(2026-07-26)の要点: Obsidian Git は既存 vault↔既存 remote のリンクを自動化せず、ユーザーが CLI で `git pull --allow-unrelated-histories` を叩く必要がある(『refusing to merge unrelated histories』が典型失敗)。成熟した file-sync(Syncthing / Dropbox / iCloud / Obsidian Sync)は例外なく『keep-both / conflict-copy(サフィックス付き別ファイル)で決して上書きしない』を既定とする。git の `-X ours/theirs` はバイナリを丸ごと片側に倒す silent data-loss なので既定にしてはならない。`git merge-tree --write-tree --allow-unrelated-histories` は作業ツリー/インデックスを触らずマージ木を計算でき(exit 0=clean / 1=conflict)、事前プレビュー(dry-run)に最適。`git ls-remote --exit-code` でリモートを『非空 / 空 / 到達不能(auth 失敗)』の3状態に確実に判別できる。ADR-0030(3-way 自動マージ + 競合 UI)の資産を再利用できる。",
+  "alternatives": [
+    {
+      "name": "案A(採用): 真マージ + 両方保持 + 事前バックアップ。Loamium が git init を自動実行。ls-remote でリモート状態を判別し、両側にデータがある場合のみ merge-tree でプレビュー→ユーザー確認→`merge --allow-unrelated-histories`→add/add は keep-both(ローカルはその場、リモートは `名前 (リモート <時刻>).md` の別ファイル)→commit→push。マージ前に必ず backup ref を切る",
+      "tradeoff": "データ喪失ゼロ。ユーザーの『マージしたい』意図に忠実で、成熟 file-sync の keep-both UX を git 上で再現。代償は差分ファイルが多いと conflict-copy が増え、後始末(不要コピー削除・手マージ)がユーザーに残ること。プレビューで件数を提示し心構えを作る"
+    },
+    {
+      "name": "案B: リモートを base にローカルをオーバーレイ(clone→上書き→commit)。差分は原則ローカル勝ち",
+      "tradeoff": "衝突が減り実装は楽だが『マージ』ではなく、差分ファイルのリモート版が作業ツリーから消える(git 履歴には残るが一般ユーザーには実質喪失)。ユーザー要望(真マージ)に反するため不採用"
+    },
+    {
+      "name": "ユーザーに git init / リンクを手作業でやらせる(現状)",
+      "tradeoff": "実装ゼロだが、CLI エラー(unrelated histories 等)に素人がぶつかりデータ喪失事故を招く。VISION『開発者本人向け』でも UX として不十分。不採用(まさに今回の起点)"
+    },
+    {
+      "name": "クローン専用(空ローカルのみ許可)。ローカルにデータがある vault は同期不可にする",
+      "tradeoff": "最も安全だが、既存 vault を持つユーザー(大多数)を締め出す。不採用"
+    }
+  ],
+  "decision": "初回リンクを、通常の継続同期とは別の明示的な状態機械として新設する。(1) **auto-init**: 同期有効化時に vault ルートが git リポジトリでなければ Loamium が `git init`(+ `.gitignore` に `.loamium/` 追記、`.gitattributes` に `* text=auto eol=lf`)を行い、既存データを『link 前スナップショット』として1コミットに固める(常に復元可能)。vault が別リポジトリの中にネストしている場合は拒否(ADR-0032 追補の GIT_CEILING_DIRECTORIES + vaultIsRepo ガード)。(2) **リモート判別**: `git remote add/set-url` 後、`git ls-remote --exit-code origin` で『非空 / 空 / 到達不能(auth 失敗を含む)』を判別し、到達不能を『空』と誤認しない。(3) **分岐**: [ローカル空×リモート空]=init+remote のみ / [ローカル空×リモート非空]=fetch→checkout でリモート採用 / [ローカル非空×リモート空]=commit→push でリモート種付け / [ローカル非空×リモート非空(最難関)]= 下記マージ儀式。(4) **マージ儀式(両側データあり)**: `backup/pre-link-<ts>` ref を必ず作成 → `git merge-tree --write-tree --allow-unrelated-histories` で**作業ツリーを触らず**プレビューを計算し、UI に平易な件数(リモートから X 件追加 / ローカルから Y 件 / 衝突 Z 件)を提示 → ユーザー確認後、`git merge --allow-unrelated-histories --no-commit` を実行し、add/add 衝突は既定 **keep-both**(:2:=ローカルをその場、:3:=リモートを `名前 (リモート <時刻>).拡張子` に書き出し両方 add)で解消。ユーザーが望めば衝突ファイルは ADR-0030 の 3-way 競合 UI(ConflictResolverDialog)で個別解決も可能 → commit → push。**`reset --hard` でリモートに倒さない。`-X ours/theirs` を既定にしない**。(5) **クラッシュ安全**: 起動時に `.git/MERGE_HEAD`/`REBASE_HEAD` を検出したら『再開 / 取り消し(backup へ復元)』をワンクリック提示。merge-tree ベースのプレビューは作業ツリーを汚さないので中断に強い。(6) **エッジガード(初回コミット前)**: >100MB ファイルを検出したら GitHub 制限を警告し gitignore か LFS を促す。NFC/大文字小文字で衝突するパスを事前スキャンして checkout 前に隔離(macOS NFD 対策、Loamium は既に NFC 正規化)。既に追跡済みだが今 ignore 対象のファイルは `git rm --cached`。(7) **UX**: 『同期をセットアップ』ウィザードでこの一連を1回だけ明示提示(バックアップした旨・3つの判別結果・keep-both 既定を平易な言葉で)。以降は既存の自動同期(Se29635-3)に委ねる。",
+  "consequences": [
+    "+ ローカル/リモート双方にデータがある状態からでも、データ喪失ゼロで安全にリンクできる。これは Obsidian Git 含め既存 git-backed ノートツールが未解決の領域で、明確な差別化",
+    "+ git init/リンクをアプリが持つことで、ユーザーは git を知らなくても同期を開始できる(VISION の『簡単に扱える』)",
+    "+ merge-tree による dry-run で『実行前に何が起きるか』を平易な件数で提示でき、破壊的変更前に必ず人間の確認を挟める",
+    "+ ADR-0030(3-way 競合 UI)と Se29635(エンジン/監査/UI)資産を再利用。keep-both は Syncthing/Dropbox 系の既知 UX に一致し学習コスト低",
+    "- 両側データありで差分が多いと conflict-copy が大量に生成され、ユーザーの後始末が増える(件数プレビューで緩和するが根治はしない)",
+    "- 初回リンクの状態機械・プレビュー・ウィザード・エッジガードで実装量が増える(Se29635 の追補 Sprint が必要)",
+    "- 大きな添付/バイナリ・NFC/大文字小文字・LFS 等のエッジは緩和策を入れても完全自動化は困難で、警告 + ユーザー判断に頼る部分が残る",
+    "初回リンクは『別リポジトリのネスト拒否』『vault=git トップレベル検証』(ADR-0032 追補)の上に載る"
+  ],
+  "reversibility_cost": "medium",
+  "affects": [
+    "packages/server/src/sync (初回リンク状態機械: probe/init/merge-tree preview/keep-both resolve/backup ref)",
+    "packages/server/src/routes/sync.ts (link 開始・プレビュー・確認の REST)",
+    "packages/shared (link プレビュー/計画のスキーマ)",
+    "packages/ui (『同期をセットアップ』ウィザード + 既存 ConflictResolverDialog 再利用)",
+    "packages/cli (loamium sync link 相当)",
+    "packages/server/src/samples/機能ガイド/Vault同期の使い方.md",
+    "docs/DESIGN/adr/ADR-0032 (initial-link を本 ADR で補完)"
+  ],
+  "supersedes": null,
+  "superseded_by": null,
+  "notes": "ユーザー方針確定(2026-07-26): マージ既定=案A(真マージ+両方保持)、安全策=ref バックアップ + 既存競合 UI(物理コピーは当面見送り)。ADR-0032 を supersede せず初回リンク部分を補完する。実装は Se29635 の追補 Sprint として計画する。将来: 添付肥大が顕在化したら Git LFS/同期除外を別 ADR で(ADR-0032 の既存 revisit 条件と整合)。調査で thin だった点(Direct Git Sync の conflict-copy 命名、Unison の初回挙動)は実装時に再確認。keep-both のファイル名は Obsidian Sync の『(Conflicted copy ...)』/Syncthing の『.sync-conflict-...』に倣い衝突を全端末に伝播させる。"
+}
