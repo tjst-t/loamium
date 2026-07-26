@@ -1,0 +1,10 @@
+{
+  "sprint": "Sf17a4c",
+  "note": "Machine-derived verdict from real process exit codes (run-*.py hooks absent; commands run directly). test-discipline Rule 9.",
+  "commands": [
+    { "name": "lint", "command": "make lint", "exit_code": 0, "status": "pass", "evidence": "tsc --noEmit clean across server/shared/ui/cli + tests/tsconfig.json (verify-lint.txt LINT_EXIT=0)" },
+    { "name": "test", "command": "make test", "exit_code": 0, "status": "pass", "evidence": "Test Files 132 passed; Tests 1935 passed (verify-test.txt TEST_EXIT=0)" },
+    { "name": "ui-tests", "command": "make test-ui-mock", "exit_code": 0, "status": "pass", "evidence": "655 passed (verify-ui-mock.txt UIMOCK_EXIT=0, isolated run)" }
+  ],
+  "overall_machine_status": "pass"
+}

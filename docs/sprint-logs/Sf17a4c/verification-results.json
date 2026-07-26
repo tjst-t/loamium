@@ -1,0 +1,25 @@
+{
+  "sprint": "Sf17a4c",
+  "summary": { "pass": 14, "fail": 0, "skip": 0, "note": "14 AC すべて pass。status は verify-run.json の machine 判定(全 command exit 0)から導出。独立検証 PASS。" },
+  "machine_status_source": "verify-run.json (overall_machine_status=pass)",
+  "tests": [
+    { "story": "Sf17a4c-1", "acceptance_criteria": ["AC-Sf17a4c-1-1","AC-Sf17a4c-1-2","AC-Sf17a4c-1-3"], "file": "tests/acceptance/sync-link-foundation.spec.ts", "status": "pass", "evidence": "19 実git テスト: auto-init/ネスト拒否/ls-remote 3判別/空・片側分岐/backup ref" },
+    { "story": "Sf17a4c-2", "acceptance_criteria": ["AC-Sf17a4c-2-1","AC-Sf17a4c-2-2","AC-Sf17a4c-2-3"], "file": "tests/acceptance/sync-link-merge.spec.ts", "status": "pass", "evidence": "11 実git テスト: merge-tree プレビュー(非汚染)/keep-both/local/remote/merge/往復byte一致。stage :2:=local/:3:=remote 確認" },
+    { "story": "Sf17a4c-3", "acceptance_criteria": ["AC-Sf17a4c-3-1","AC-Sf17a4c-3-2","AC-Sf17a4c-3-3"], "file": "tests/acceptance/sync-link-guards.spec.ts", "status": "pass", "evidence": "15 実git テスト: 100MB検出/大文字小文字・NFC衝突検出+隔離(非削除)/mid-merge検出+restore(backup限定)" },
+    { "story": "Sf17a4c-4", "acceptance_criteria": ["AC-Sf17a4c-4-1","AC-Sf17a4c-4-2"], "file": "tests/acceptance/sync-link-cli.spec.ts", "status": "pass", "evidence": "13 実git+実HTTP+CLI subprocess: REST link preview/apply/status + CLI 1:1 + sync.link.* 監査" },
+    { "story": "Sf17a4c-5", "acceptance_criteria": ["AC-Sf17a4c-5-1","AC-Sf17a4c-5-2","AC-Sf17a4c-5-3"], "file": "packages/ui/tests/e2e/sync-setup.mock.spec.ts + sync-setup.e2e.spec.ts", "status": "pass", "evidence": "ウィザード(衝突0自動完了+完了ダイアログ)/競合ダイアログ(決め方ラジオ+セグメントスイッチ、非dropdown)/モバイル44px/実バックエンドround-trip。help+ガイド初回リンク節。make test-ui-mock exit 0" }
+  ],
+  "diff_coverage": {
+    "surfaces": ["REST: POST /api/sync/link/{preview,apply} + GET /api/sync/link/status", "CLI: loamium sync link", "GUI: SyncSetupWizard + LinkConflictDialog (全 data-testid)", "Library: InitialLinker(link.ts)全メソッド + shared link スキーマ"],
+    "result": "全 surface に pass テストあり(REST/CLI→sync-link-cli、library→foundation/merge/guards、GUI→mock+e2e)。untested surface なし。link はユーザー主導の一回きり setup のためエージェントツール化はしない(sync_status/sync_now で継続同期はカバー済み、help に link 記載)。"
+  },
+  "done_judgment": {
+    "_note": "guards.json 未設定(Go 用 data_paths 非該当)。機械 grep 相当はモデル+独立検証で実施。",
+    "Sf17a4c-1": { "guard1_user_review_required_not_done":"pass","guard2_nil_injection_mock":"n/a","guard3_mock_mode_not_real_smoke":"pass","guard4_priority_rule_9_exception_valid":"n/a","guard5_call_path_grep":"pass","guard6_deferred_comment_clean":"pass","guard7_adr_conformance":"pass","guard8_destructive_multi_version_test":"n/a","overall":"ok" },
+    "Sf17a4c-2": { "guard1_user_review_required_not_done":"pass","guard2_nil_injection_mock":"n/a","guard3_mock_mode_not_real_smoke":"pass","guard4_priority_rule_9_exception_valid":"n/a","guard5_call_path_grep":"pass","guard6_deferred_comment_clean":"pass","guard7_adr_conformance":"pass (data-safety review + 独立検証 PASS)","guard8_destructive_multi_version_test":"n/a (両側 add/add byte一致でデータ喪失ゼロ検証)","overall":"ok" },
+    "Sf17a4c-3": { "guard1_user_review_required_not_done":"pass","guard2_nil_injection_mock":"n/a","guard3_mock_mode_not_real_smoke":"pass","guard4_priority_rule_9_exception_valid":"n/a","guard5_call_path_grep":"pass","guard6_deferred_comment_clean":"pass","guard7_adr_conformance":"pass","guard8_destructive_multi_version_test":"n/a","overall":"ok" },
+    "Sf17a4c-4": { "guard1_user_review_required_not_done":"pass","guard2_nil_injection_mock":"n/a","guard3_mock_mode_not_real_smoke":"pass","guard4_priority_rule_9_exception_valid":"n/a","guard5_call_path_grep":"pass (REST→linker、CLI→REST の呼出経路実在)","guard6_deferred_comment_clean":"pass","guard7_adr_conformance":"pass (ADR-0016 監査)","guard8_destructive_multi_version_test":"n/a","overall":"ok" },
+    "Sf17a4c-5": { "guard1_user_review_required_not_done":"pass","guard2_nil_injection_mock":"n/a","guard3_mock_mode_not_real_smoke":"pass","guard4_priority_rule_9_exception_valid":"n/a","guard5_call_path_grep":"pass","guard6_deferred_comment_clean":"pass","guard7_adr_conformance":"pass","guard8_destructive_multi_version_test":"n/a","overall":"ok" }
+  },
+  "verifier_ran": true, "sprint_review_runs": 1, "guards_machine_run": false
+}

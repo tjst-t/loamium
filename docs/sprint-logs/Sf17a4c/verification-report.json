@@ -1,0 +1,11 @@
+{
+  "sprint": "Sf17a4c",
+  "verifier": "independent read-only session (--auto)",
+  "verdict": "pass",
+  "data_safety": "pass",
+  "parent_repo_safety": "pass",
+  "ac_findings": "14/14 satisfied with real-entry-point tests (real git / real HTTP / CLI subprocess / real-browser)",
+  "forbidden_degradation": [],
+  "must_fix_before_done": [],
+  "notes": "keep-both/backup-fatal/stage-mapping(:2:=local,:3:=remote via git merge)/merge-tree non-mutating/no reset--hard-to-remote/no -X ours,theirs all confirmed. GIT_CEILING_DIRECTORIES on all git calls; nested-vault rejected. F-5(binary utf8) truthfully deferred to backlog, no AC requires it."
+}

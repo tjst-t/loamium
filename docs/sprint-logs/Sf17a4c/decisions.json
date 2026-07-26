@@ -74,5 +74,10 @@
       "cap_hit": false
     }
   ],
-  "done_judgment": {}
+  "done_judgment": {
+    "verdict": "all stories done (overall ok)",
+    "independent_verifier": "PASS (data-safety pass, parent-repo pass, 14/14 AC, no must-fix)",
+    "machine_gate": "make lint=0 / make test=0 (1935) / make test-ui-mock=0 (655)",
+    "guards": "1-8 全 Story ok (2/4/8 は当 TS リポジトリで n/a)"
+  }
 }

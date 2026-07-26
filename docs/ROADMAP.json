@@ -2,12 +2,12 @@
   "project": "Loamium",
   "description": "ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集とエージェント統合(REST API / CLI / Skill)を両立する。",
   "progress": {
-    "current_sprint": "Sf17a4c",
+    "current_sprint": null,
     "total": 61,
-    "done": 59,
-    "in_progress": 1,
-    "remaining": 2,
-    "percentage": 96.7
+    "done": 60,
+    "in_progress": 0,
+    "remaining": 1,
+    "percentage": 98.4
   },
   "execution_order": [
     "Sd63ad1",
@@ -9483,7 +9483,7 @@
       "title": "初回同期(vault↔remote link)の安全な自動化 (ADR-0034)",
       "description": "ADR-0034。Loamium が git init を持ち、初回リンクを状態機械化。ls-remote で 空/非空/到達不能 を判別し、両側データありは merge-tree プレビュー→対話式競合ダイアログ(両方保持/3-way/採用、決め方ラジオ+セグメントスイッチ)→push。事前 backup ref、mid-merge 復元、100MB/大文字小文字/NFC ガード。データ喪失ゼロ。",
       "milestone": true,
-      "status": "in_progress",
+      "status": "done",
       "detail_level": "detailed",
       "depends_on": [
         "Se29635"
@@ -9506,19 +9506,19 @@
               "id": "AC-Sf17a4c-1-1",
               "description": "sync 有効化/リンク時に vault ルートが git リポジトリでなければ Loamium が git init する(.gitignore に .loamium/、.gitattributes に `* text=auto eol=lf` を用意し、既存データを『link前スナップショット』として1コミットに固める)。別リポジトリのネストは拒否(ADR-0032 ガード)",
               "test": "[AC-Sf17a4c-1-1] (sprint plan で test を確定)",
-              "status": "planned"
+              "status": "pass"
             },
             {
               "id": "AC-Sf17a4c-1-2",
               "description": "git ls-remote --exit-code でリモートを『非空 / 空 / 到達不能(auth失敗含む)』の3状態に確実判別し、到達不能を空と誤認しない",
               "test": "[AC-Sf17a4c-1-2] (sprint plan で test を確定)",
-              "status": "planned"
+              "status": "pass"
             },
             {
               "id": "AC-Sf17a4c-1-3",
               "description": "[ローカル空×リモート空]=init+remoteのみ / [空×非空]=fetch→checkout でリモート採用 / [非空×空]=commit→push でリモート種付け が正しく動作。マージを伴う前に backup/pre-link-<時刻> ref を必ず作成する",
               "test": "[AC-Sf17a4c-1-3] (sprint plan で test を確定)",
-              "status": "planned"
+              "status": "pass"
             }
           ],
           "tasks": {}
@@ -9534,19 +9534,19 @@
               "id": "AC-Sf17a4c-2-1",
               "description": "git merge-tree --write-tree --allow-unrelated-histories で作業ツリー/インデックスを触らずマージをプレビューし、件数(リモートから追加 X / ローカルから Y / 衝突 Z)を算出する",
               "test": "[AC-Sf17a4c-2-1] (sprint plan で test を確定)",
-              "status": "planned"
+              "status": "pass"
             },
             {
               "id": "AC-Sf17a4c-2-2",
               "description": "merge --allow-unrelated-histories で片側のみ/同一内容は自動統合。add/add 衝突は解決指定に従い適用: 両方保持=keep-both(ローカルその場・リモートを `<名前>.remote.<拡張子>` 連番)/ ローカル採用 / リモート採用 / 3-way合成(diff3Merge 再利用)。reset --hard と -X ours,theirs は既定不使用。どの経路でもデータ喪失ゼロ",
               "test": "[AC-Sf17a4c-2-2] (sprint plan で test を確定)",
-              "status": "planned"
+              "status": "pass"
             },
             {
               "id": "AC-Sf17a4c-2-3",
               "description": "解決後に commit→push し、実 git + ローカル bare での往復でデータ喪失ゼロ(両側の内容が保持される)ことを検証する",
               "test": "[AC-Sf17a4c-2-3] (sprint plan で test を確定)",
-              "status": "planned"
+              "status": "pass"
             }
           ],
           "tasks": {}
@@ -9562,19 +9562,19 @@
               "id": "AC-Sf17a4c-3-1",
               "description": "初回コミット前に >100MB のファイルを検出し、GitHub 制限を警告して gitignore か Git LFS を案内する",
               "test": "[AC-Sf17a4c-3-1] (sprint plan で test を確定)",
-              "status": "planned"
+              "status": "pass"
             },
             {
               "id": "AC-Sf17a4c-3-2",
               "description": "大文字小文字違い(Note.md↔note.md)および NFC/NFD 違いで衝突する同名パスを事前スキャンして検出し、checkout でぶつかる前に隔離する。既に追跡済みだが現 ignore 対象のファイルは git rm --cached する",
               "test": "[AC-Sf17a4c-3-2] (sprint plan で test を確定)",
-              "status": "planned"
+              "status": "pass"
             },
             {
               "id": "AC-Sf17a4c-3-3",
               "description": "起動時に mid-merge 状態(.git/MERGE_HEAD 等)を検出したら『再開 / 取り消し(backup ref へ復元)』を提示する(サイレントに壊れたまま放置しない)",
               "test": "[AC-Sf17a4c-3-3] (sprint plan で test を確定)",
-              "status": "planned"
+              "status": "pass"
             }
           ],
           "tasks": {}
@@ -9590,20 +9590,20 @@
               "id": "AC-Sf17a4c-4-1",
               "description": "link の probe(3判別+件数)/preview/apply(解決指定を受けて実行) を REST で提供し、req/res は shared zod スキーマで検証、同期操作を .loamium/audit.log に記録する",
               "test": "[AC-Sf17a4c-4-1] (sprint plan で test を確定)",
-              "status": "planned"
+              "status": "pass"
             },
             {
               "id": "AC-Sf17a4c-4-2",
               "description": "CLI loamium sync link(REST と 1:1)で初回リンクを実行でき、衝突時の既定操作をフラグで指定できる",
               "test": "[AC-Sf17a4c-4-2] (sprint plan で test を確定)",
-              "status": "planned"
+              "status": "pass"
             }
           ],
           "tasks": {}
         },
         "Sf17a4c-5": {
           "title": "UI — 同期セットアップウィザード + 初回リンク競合ダイアログ + 完了ダイアログ",
-          "status": "in_progress",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ユーザーとして、GUI から迷わず同期をセットアップしたい。なぜなら、URL を入れるだけで、衝突があっても分かりやすく解決して同期を始めたいから。",
@@ -9612,19 +9612,19 @@
               "id": "AC-Sf17a4c-5-1",
               "description": "設定/インジケータから『同期をセットアップ』ウィザードで remote URL(+認証)を入力→probe→衝突0件なら確認を挟まず自動完了し、完了ダイアログでサマリ(リモートからX/ローカルからY)を出す",
               "test": "[AC-Sf17a4c-5-1] (sprint plan で test を確定)",
-              "status": "planned"
+              "status": "pass"
             },
             {
               "id": "AC-Sf17a4c-5-2",
               "description": "衝突ありは『初回リンク競合ダイアログ』を表示: 上部に決め方ラジオ[ファイルごと/全部まとめて]、選択肢はセグメント型スイッチ[両方保持|3-way|ローカル採用|リモート採用](既定=両方保持、ドロップダウン不使用)。3-way は既存 ConflictResolverDialog を再利用。解決→適用→完了ダイアログ。モバイル≤680px で崩れない",
               "test": "[AC-Sf17a4c-5-2] (sprint plan で test を確定)",
-              "status": "planned"
+              "status": "pass"
             },
             {
               "id": "AC-Sf17a4c-5-3",
               "description": "agent-help に初回リンクの使い方を追加し、機能ガイド(Vault同期の使い方.md)に初回リンク(auto-init/衝突ダイアログ/keep-both)の節を追記する",
               "test": "[AC-Sf17a4c-5-3] (sprint plan で test を確定)",
-              "status": "planned"
+              "status": "pass"
             }
           ],
           "tasks": {}
