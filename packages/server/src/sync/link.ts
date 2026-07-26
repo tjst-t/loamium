@@ -1,5 +1,5 @@
 /**
- * 初回リンク状態機械 — vault↔remote の初回接続を安全に自動化する (ADR-0034 / Sf17a4c-1, 2)。
+ * 初回リンク状態機械 — vault↔remote の初回接続を安全に自動化する (ADR-0034 / Sf17a4c-1, 2, 3)。
  *
  * ## 設計原則
  * - **ピュア Markdown 絶対**: ブロック ID 等の独自記法をファイルに書かない。
@@ -19,12 +19,20 @@
  * - `previewMerge`: git merge-tree --write-tree で作業ツリーを触らずプレビュー
  * - `applyMerge`: keep-both/local/remote/merge の解決指定でマージを適用し commit/push
  *
+ * ## スコープ (Story 3)
+ * - `scanLargeFiles`: >100MB ファイルを検出して警告
+ * - `scanNameCollisions`: 大文字小文字・NFC/NFD 衝突パスを事前検出
+ * - `quarantineCollisions`: 衝突パスを .remote 扱いで隔離 (削除しない)
+ * - `removeNowIgnoredTracked`: 追跡済みで現在 ignore 対象のファイルを git rm --cached
+ * - `detectMidMerge`: .git/MERGE_HEAD 等の mid-merge 状態を検出
+ * - `abortMidMerge`: git merge/rebase --abort でクリーン状態に戻す
+ * - `restoreFromBackup`: backup/pre-link-* ref への git reset --hard (唯一許可)
+ *
  * ## 範囲外 (別 Story)
- * - エッジガード: 100MB 超 / 大文字小文字・NFC 衝突 / mid-merge 復元 (Story 3)
  * - REST / CLI エンドポイント (Story 4)
  * - UI ウィザード / 競合ダイアログ (Story 5)
  */
-import { access, appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { access, appendFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { realpathSync } from 'node:fs';
 import path from 'node:path';
 import type { AuditEntry } from '@loamium/shared';
@@ -83,6 +91,59 @@ export interface MergePreview {
   conflicts: Array<{ file: string }>;
   /** clean merge なら true (衝突ゼロ)。 */
   isClean: boolean;
+  /**
+   * Story 3: 100MB 超ファイルの警告 (Story 4/5 が UI に提示する)。
+   * 省略時は警告なし (後方互換)。
+   */
+  warnings?: LargeFileWarning[];
+  /**
+   * Story 3: 大文字小文字・NFC/NFD 衝突グループ (Story 4/5 が UI に提示する)。
+   * 省略時は衝突なし (後方互換)。
+   */
+  nameCollisions?: NameCollisionGroup[];
+}
+
+/** Story 3: `scanLargeFiles` が返すファイル情報。 */
+export interface LargeFileEntry {
+  /** vault 相対パス。 */
+  path: string;
+  /** バイト数。 */
+  size: number;
+}
+
+/** Story 3: `previewMerge` が `warnings` に詰める GitHub 100MB 制限超過情報。 */
+export interface LargeFileWarning {
+  /** vault 相対パス。 */
+  path: string;
+  /** バイト数。 */
+  size: number;
+  /** 案内メッセージ。 */
+  guidance: string;
+}
+
+/** Story 3: `scanNameCollisions` / `quarantineCollisions` で使う衝突グループ。 */
+export interface NameCollisionGroup {
+  /**
+   * 衝突の種別。
+   * - `'case'`: 大文字小文字の差異による衝突 (`note.md` ↔ `Note.md`)
+   * - `'unicode'`: NFC/NFD 正規化後に同一になる衝突
+   */
+  kind: 'case' | 'unicode';
+  /** 衝突しているパスの一覧 (2件以上)。 */
+  paths: string[];
+}
+
+/** Story 3: `detectMidMerge` の戻り値。 */
+export interface MidMergeState {
+  /** mid-merge / mid-rebase 状態ならば true。 */
+  inProgress: boolean;
+  /**
+   * 状態の種別。
+   * - `'merge'`: `.git/MERGE_HEAD` が存在する
+   * - `'rebase'`: `.git/rebase-merge` または `.git/rebase-apply` が存在する
+   * - `null`: mid-merge でない
+   */
+  kind: 'merge' | 'rebase' | null;
 }
 
 /**
@@ -770,7 +831,29 @@ export class InitialLinker {
     // merge-tree --name-only は衝突ファイルを列挙する
     const conflicts = Array.from(conflictPaths).map((file) => ({ file }));
 
-    return { addedFromRemote, addedFromLocal, conflicts, isClean };
+    // ── Story 3: エッジガード情報を付加 ──
+    // 100MB 超ファイルを警告として付加 (Story 4/5 が UI に提示する)
+    const largeFiles = await this.scanLargeFiles();
+    const warnings: LargeFileWarning[] = largeFiles.map((f) => ({
+      path: f.path,
+      size: f.size,
+      guidance:
+        `ファイル "${f.path}" (${(f.size / (1024 * 1024)).toFixed(1)} MB) は ` +
+        `GitHub の 100MB ハード制限を超えています。` +
+        `.gitignore に追記して追跡対象から除外するか、Git LFS の利用を検討してください。`,
+    }));
+
+    // 大文字小文字・NFC/NFD 衝突を検出 (remoteRef 指定で union 検査)
+    const nameCollisions = await this.scanNameCollisions(remoteRef);
+
+    return {
+      addedFromRemote,
+      addedFromLocal,
+      conflicts,
+      isClean,
+      ...(warnings.length > 0 ? { warnings } : {}),
+      ...(nameCollisions.length > 0 ? { nameCollisions } : {}),
+    };
   }
 
   /**
@@ -874,6 +957,15 @@ export class InitialLinker {
         ...(backupRef !== undefined ? { backupRef } : {}),
         error: redactGitSecrets(fetchRes.stderr || `fetch failed (code ${fetchRes.code})`),
       };
+    }
+
+    // ── Step 2b: Story 3 エッジガード (checkout/merge 前に実行) ──
+    // (a) 追跡済みで現 .gitignore 対象のファイルを git rm --cached (以後の衝突防止)
+    await this.removeNowIgnoredTracked().catch(() => undefined);
+    // (b) 大文字小文字・NFC 衝突を隔離 (case-insensitive FS でのサイレント上書き防止)
+    const collisions = await this.scanNameCollisions(`${remoteName}/${branch}`);
+    if (collisions.length > 0) {
+      await this.quarantineCollisions(collisions).catch(() => undefined);
     }
 
     await this.#audit({
@@ -1077,5 +1169,403 @@ export class InitialLinker {
       );
     }
     return Buffer.from(res.stdout, 'utf8');
+  }
+
+  // ──────────────────────────────────────────
+  // Story 3: エッジガード + クラッシュ安全
+  // ──────────────────────────────────────────
+
+  /**
+   * vault 作業ツリー内の >limitBytes ファイルを列挙する (Story 3 / AC-Sf17a4c-3-1)。
+   *
+   * `.gitignore` を尊重するため `git ls-files -o -c --exclude-standard` で
+   * 追跡済み + 未追跡(ignore 対象外) のパス一覧を取得し、stat でサイズを確認する。
+   * Git の 100MB ハード制限 (デフォルト limitBytes) を超えるファイルのみを返す。
+   *
+   * @param limitBytes - 警告閾値 (デフォルト 100MB = GitHub ハード制限)
+   * @returns 超過ファイルの vault 相対パスとバイト数の一覧
+   */
+  async scanLargeFiles(limitBytes = 100 * 1024 * 1024): Promise<LargeFileEntry[]> {
+    const { stat } = await import('node:fs/promises');
+
+    // 追跡済みファイル + 未追跡・ignore 対象外のファイルを列挙
+    // core.quotepath=false で非 ASCII パスを引用符なしで取得する
+    const lsRes = await this.#runQP([
+      'ls-files',
+      '-c',          // cached (tracked)
+      '-o',          // others (untracked, non-ignored)
+      '--exclude-standard',
+    ]);
+
+    if (lsRes.code !== 0) {
+      // git ls-files が使えない環境 (git init 前) では空を返す
+      return [];
+    }
+
+    const filePaths = lsRes.stdout.trim().split('\n').filter(Boolean);
+    const result: LargeFileEntry[] = [];
+
+    for (const relPath of filePaths) {
+      const absPath = path.join(this.#vaultRoot, relPath);
+      try {
+        const s = await stat(absPath);
+        if (s.isFile() && s.size > limitBytes) {
+          result.push({ path: relPath, size: s.size });
+        }
+      } catch {
+        // ファイルが削除されていたなど — スキップ
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * 大文字小文字・NFC/NFD 衝突するパスを事前スキャンして検出する (Story 3 / AC-Sf17a4c-3-2)。
+   *
+   * (a) case 衝突: `toLowerCase()` 後が同一になるパスのグループ
+   * (b) unicode 衝突: NFC 正規化後が同一になるパスのグループ
+   *     (バイト列は異なるが正規化後は同じ — NFD → NFC の吸収)
+   *
+   * `remoteRef` を渡すと、ローカルのパス集合とリモートツリーのパス集合の union に対して
+   * 衝突を検出する (checkout 時に case-insensitive FS が上書きする状況を事前に防ぐ)。
+   *
+   * @param remoteRef - リモートの ref (例: 'origin/main')。省略するとローカルのみ検査。
+   * @returns 衝突グループの一覧
+   */
+  async scanNameCollisions(remoteRef?: string): Promise<NameCollisionGroup[]> {
+    // ── ローカルのパス集合を取得 ──
+    // 追跡済みファイル (HEAD が無い場合は未追跡非無視ファイルも)
+    const localTrackedRes = await this.#runQP(['ls-files', '-c']);
+    const localPaths = new Set<string>(
+      localTrackedRes.code === 0
+        ? localTrackedRes.stdout.trim().split('\n').filter(Boolean)
+        : [],
+    );
+
+    // HEAD がない場合 (git init 直後・未コミット) は未追跡ファイルも含める
+    const headRes = await this.#run(['rev-parse', 'HEAD']);
+    if (headRes.code !== 0) {
+      const untrackedRes = await this.#runQP(['ls-files', '-o', '--exclude-standard']);
+      if (untrackedRes.code === 0) {
+        for (const p of untrackedRes.stdout.trim().split('\n').filter(Boolean)) {
+          localPaths.add(p);
+        }
+      }
+    }
+
+    // ── リモートのパス集合を取得 (remoteRef 指定時) ──
+    const remotePaths = new Set<string>();
+    if (remoteRef) {
+      const remoteLsRes = await this.#runQP(['ls-tree', '-r', '--name-only', remoteRef]);
+      if (remoteLsRes.code === 0) {
+        for (const p of remoteLsRes.stdout.trim().split('\n').filter(Boolean)) {
+          remotePaths.add(p);
+        }
+      }
+    }
+
+    // ── union を作って衝突検出 ──
+    // 衝突検出では「ローカルのみ」「リモートのみ」「双方」すべてを考慮する。
+    // ただし同一 ref からのパスの内部衝突も検出する (例: ローカル自体に case 衝突がある)。
+    const allPaths = Array.from(new Set([...localPaths, ...remotePaths]));
+
+    // (a) case 衝突: toLowerCase() 後をキーとしてグルーピング
+    const caseMap = new Map<string, string[]>();
+    for (const p of allPaths) {
+      const key = p.toLowerCase();
+      const group = caseMap.get(key) ?? [];
+      group.push(p);
+      caseMap.set(key, group);
+    }
+
+    // (b) unicode 衝突: NFC 正規化後をキーとしてグルーピング
+    // NFC 後が同一だがバイト列が異なるパス (NFD vs NFC) を検出する
+    const nfcMap = new Map<string, string[]>();
+    for (const p of allPaths) {
+      const key = p.normalize('NFC');
+      const group = nfcMap.get(key) ?? [];
+      group.push(p);
+      nfcMap.set(key, group);
+    }
+
+    const result: NameCollisionGroup[] = [];
+
+    // (a) case 衝突グループ: toLowerCase() 後が同一のパスが2件以上存在するグループ
+    // 「note.md」と「Note.md」のように大文字小文字のみ異なるパスを検出する。
+    // case-insensitive FS (Windows, macOS デフォルト) でサイレント上書きが発生する。
+    for (const [, group] of caseMap) {
+      // 2件以上かつ、バイト列として全員が同一でない (≠ 同一ファイルの重複エントリ)
+      const uniquePaths = Array.from(new Set(group));
+      if (uniquePaths.length >= 2) {
+        result.push({ kind: 'case', paths: uniquePaths });
+      }
+    }
+
+    // (b) unicode 衝突グループ: NFC 正規化後が同一だがバイト列は異なるパスが2件以上
+    // 「NFD の ä」と「NFC の ä」のように正規化形式が違うだけのパスを検出する。
+    // case 衝突グループと重複する場合も含む (両方の種別として報告)。
+    for (const [nfcKey, group] of nfcMap) {
+      // バイト列が全員 NFC 後と一致する場合は「変換不要」→ 検出しない
+      const uniquePaths = Array.from(new Set(group));
+      if (uniquePaths.length >= 2) {
+        // 全員が既に NFC 表現である場合は「同一パス」→ スキップ
+        // (例: ['note.md', 'note.md'] は同一なので報告しない)
+        const notAllNFC = uniquePaths.some((p) => p !== nfcKey);
+        if (notAllNFC) {
+          result.push({ kind: 'unicode', paths: uniquePaths });
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * `scanNameCollisions` が返す衝突グループを隔離する (Story 3 / AC-Sf17a4c-3-2)。
+   *
+   * 各グループ内で「最初のパス」をそのまま残し、残りを `.remote`-style の安全な名前に
+   * rename する。ファイルは**削除しない**。rename 後に git add する。
+   * 監査ログに記録する。
+   *
+   * @param collisions - `scanNameCollisions` の戻り値
+   * @returns 隔離されたパスのペア { original, quarantined } の一覧
+   */
+  async quarantineCollisions(
+    collisions: NameCollisionGroup[],
+  ): Promise<Array<{ original: string; quarantined: string }>> {
+    const quarantined: Array<{ original: string; quarantined: string }> = [];
+
+    for (const group of collisions) {
+      // グループ内の最初のパスを正規として残し、残りを隔離する
+      const [, ...others] = group.paths;
+      for (const originalPath of others) {
+        const absOriginal = path.join(this.#vaultRoot, originalPath);
+        // .remote 命名: keep-both と同じパターンを再利用
+        const safePath = await this.#keepBothRemotePath(originalPath, this.#vaultRoot);
+        const absSafe = path.join(this.#vaultRoot, safePath);
+
+        try {
+          await mkdir(path.dirname(absSafe), { recursive: true });
+          // fs.rename でディスク上のファイルを移動してから git に通知する。
+          // git mv は内部で fs.rename を行うが、対象が大文字小文字のみ異なる場合に
+          // case-insensitive FS では同一ファイルと見なされ失敗することがある。
+          // そのため先に fs.rename でディスクを更新し、その後 git rm/add で追跡を更新する。
+          await rename(absOriginal, absSafe);
+
+          // 追跡状態を更新: 元パスを git rm --cached → 新パスを git add
+          await this.#run(['rm', '--cached', '--', originalPath]).catch(() => undefined);
+          await this.#run(['add', '--', safePath]).catch(() => undefined);
+
+          quarantined.push({ original: originalPath, quarantined: safePath });
+
+          await this.#audit({
+            op: 'sync.link.quarantine',
+            path: `${originalPath} → ${safePath}`,
+            mode: 'full',
+            result: 'ok',
+            status: 0,
+          });
+        } catch (e) {
+          // rename 失敗はログのみ — クラッシュしない
+          await this.#audit({
+            op: 'sync.link.quarantine',
+            path: `${originalPath} → ${safePath}`,
+            mode: 'full',
+            result: 'error',
+            status: 1,
+          });
+        }
+      }
+    }
+
+    return quarantined;
+  }
+
+  /**
+   * 追跡済みだが現在 `.gitignore` の対象になっているファイルを
+   * `git rm --cached` する (ディスク上は保持) (Story 3 / AC-Sf17a4c-3-2)。
+   *
+   * 典型例: `.obsidian/workspace.json` を後から `.gitignore` に追記したが
+   *         既に追跡済みのため git が差分として拾い続けるケース。
+   *
+   * @returns `git rm --cached` したファイルのパス一覧
+   */
+  async removeNowIgnoredTracked(): Promise<string[]> {
+    // 追跡済みファイルを列挙
+    const trackedRes = await this.#runQP(['ls-files', '-c']);
+    if (trackedRes.code !== 0) return [];
+
+    const tracked = trackedRes.stdout.trim().split('\n').filter(Boolean);
+    if (tracked.length === 0) return [];
+
+    // SystemGitRunner は stdin をサポートしないため、
+    // 1件ずつ check-ignore を呼ぶ方式を採用する
+    const ignoredPaths: string[] = [];
+    for (const filePath of tracked) {
+      // --no-index: 追跡済みファイルでも .gitignore のルールに照合する
+      // (通常の check-ignore は tracked ファイルをスキップする)
+      // exit 0: ignore 対象 / exit 1: ignore 対象外 / exit 128: エラー
+      const res = await this.#runQP(['check-ignore', '--no-index', '-q', '--', filePath]);
+      if (res.code === 0) {
+        ignoredPaths.push(filePath);
+      }
+    }
+
+    if (ignoredPaths.length === 0) return [];
+
+    // git rm --cached (ディスク上は保持)
+    const rmRes = await this.#runQP(['rm', '--cached', '--', ...ignoredPaths]);
+    if (rmRes.code !== 0) {
+      // 部分的な失敗は無視して成功分を返す
+      return [];
+    }
+
+    await this.#audit({
+      op: 'sync.link.rm-cached',
+      path: ignoredPaths.join(', '),
+      mode: 'full',
+      result: 'ok',
+      status: 0,
+    });
+
+    return ignoredPaths;
+  }
+
+  /**
+   * vault が mid-merge / mid-rebase 状態かを検出する (Story 3 / AC-Sf17a4c-3-3)。
+   *
+   * - `.git/MERGE_HEAD` が存在 → `{ inProgress: true, kind: 'merge' }`
+   * - `.git/rebase-merge` または `.git/rebase-apply` が存在 → `{ inProgress: true, kind: 'rebase' }`
+   * - それ以外 → `{ inProgress: false, kind: null }`
+   *
+   * git dir の絶対パスは `git rev-parse --git-dir` で取得する (`.git` ファイルに
+   * なっている場合 (submodule 等) も正しく解決される)。
+   */
+  async detectMidMerge(): Promise<MidMergeState> {
+    const gitDirRes = await this.#run(['rev-parse', '--git-dir']);
+    if (gitDirRes.code !== 0) {
+      // git リポジトリでない → mid-merge でない
+      return { inProgress: false, kind: null };
+    }
+
+    // git rev-parse --git-dir は相対パスを返すことがある → 絶対パスに変換
+    const rawGitDir = gitDirRes.stdout.trim();
+    const gitDir = path.isAbsolute(rawGitDir)
+      ? rawGitDir
+      : path.join(this.#vaultRoot, rawGitDir);
+
+    const { stat } = await import('node:fs/promises');
+
+    // MERGE_HEAD の存在確認
+    try {
+      await stat(path.join(gitDir, 'MERGE_HEAD'));
+      return { inProgress: true, kind: 'merge' };
+    } catch {
+      // 存在しない → 次のチェックへ
+    }
+
+    // rebase-merge の存在確認
+    try {
+      await stat(path.join(gitDir, 'rebase-merge'));
+      return { inProgress: true, kind: 'rebase' };
+    } catch {
+      // 存在しない → 次のチェックへ
+    }
+
+    // rebase-apply の存在確認
+    try {
+      await stat(path.join(gitDir, 'rebase-apply'));
+      return { inProgress: true, kind: 'rebase' };
+    } catch {
+      // 存在しない
+    }
+
+    return { inProgress: false, kind: null };
+  }
+
+  /**
+   * mid-merge / mid-rebase を中止してクリーン状態に戻す (Story 3 / AC-Sf17a4c-3-3)。
+   *
+   * - merge 中: `git merge --abort`
+   * - rebase 中: `git rebase --abort`
+   *
+   * @throws {Error} abort に失敗した場合
+   */
+  async abortMidMerge(): Promise<void> {
+    const state = await this.detectMidMerge();
+    if (!state.inProgress) {
+      throw new Error('mid-merge 状態ではありません。abort の実行は不要です。');
+    }
+
+    if (state.kind === 'merge') {
+      const res = await this.#run(['merge', '--abort']);
+      if (res.code !== 0) {
+        throw new Error(
+          `git merge --abort failed (code ${res.code}): ${redactGitSecrets(res.stderr)}`,
+        );
+      }
+    } else if (state.kind === 'rebase') {
+      const res = await this.#run(['rebase', '--abort']);
+      if (res.code !== 0) {
+        throw new Error(
+          `git rebase --abort failed (code ${res.code}): ${redactGitSecrets(res.stderr)}`,
+        );
+      }
+    }
+
+    await this.#audit({
+      op: 'sync.link.abort',
+      path: this.#vaultRoot,
+      mode: 'full',
+      result: 'ok',
+      status: 0,
+    });
+  }
+
+  /**
+   * `backup/pre-link-*` ref へ `git reset --hard` する (Story 3 / AC-Sf17a4c-3-3)。
+   *
+   * **これは InitialLinker 内で唯一許可される `reset --hard` 呼び出し**。
+   * ユーザーが明示的に「リンク前状態に戻す」を選択した場合のみ実行する。
+   *
+   * セーフガード: `backupRef` が `backup/pre-link-` で始まらない場合は拒否する。
+   * これにより、リモート ref や任意コミットへの誤 reset を防ぐ。
+   *
+   * @param backupRef - `backup/pre-link-*` 形式の ref 名
+   * @throws {Error} ref 名が不正、または reset 失敗の場合
+   */
+  async restoreFromBackup(backupRef: string): Promise<void> {
+    // セーフガード: backup/pre-link-* のみ許可
+    if (!backupRef.startsWith('backup/pre-link-')) {
+      throw new Error(
+        `restoreFromBackup は backup/pre-link-* ref のみ受け付けます。` +
+        `渡された ref: "${backupRef}" は不正です (リモートや任意コミットへの誤操作を防ぐ)。`,
+      );
+    }
+
+    // ref が実際に存在するか確認
+    const verifyRes = await this.#run(['rev-parse', '--verify', backupRef]);
+    if (verifyRes.code !== 0) {
+      throw new Error(
+        `backup ref が存在しません: "${backupRef}". ` +
+        `createBackupRef で事前に作成されていることを確認してください。`,
+      );
+    }
+
+    const resetRes = await this.#run(['reset', '--hard', backupRef]);
+    if (resetRes.code !== 0) {
+      throw new Error(
+        `git reset --hard ${backupRef} failed (code ${resetRes.code}): ${redactGitSecrets(resetRes.stderr)}`,
+      );
+    }
+
+    await this.#audit({
+      op: 'sync.link.restore',
+      path: `${this.#vaultRoot} → ${backupRef}`,
+      mode: 'full',
+      result: 'ok',
+      status: 0,
+    });
   }
 }

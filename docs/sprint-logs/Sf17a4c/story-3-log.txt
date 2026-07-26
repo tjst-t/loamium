@@ -1,0 +1,295 @@
+
+ RUN  v3.2.6 /home/ubuntu/ghq/github.com/tjst-t/loamium
+
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+Cloning into '.'...
+warning: You appear to have cloned an empty repository.
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+To file:///tmp/loamium-bare-1785034863753-jd264ou23fp
+ * [new branch]      main -> main
+Cloning into '.'...
+warning: You appear to have cloned an empty repository.
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+To file:///tmp/loamium-bare-1785034863788-epy75rs7l25
+ * [new branch]      main -> main
+From file:///tmp/loamium-bare-1785034863753-jd264ou23fp
+ * branch            main       -> FETCH_HEAD
+ * [new branch]      main       -> origin/main
+From file:///tmp/loamium-bare-1785034863788-epy75rs7l25
+ * branch            main       -> FETCH_HEAD
+ * [new branch]      main       -> origin/main
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+Cloning into '.'...
+warning: You appear to have cloned an empty repository.
+Cloning into '.'...
+warning: You appear to have cloned an empty repository.
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+To file:///tmp/loamium-bare-1785034863877-lgpx16i029q
+ * [new branch]      main -> main
+Cloning into '.'...
+warning: You appear to have cloned an empty repository.
+To file:///tmp/loamium-bare-1785034863878-mxodlbuzbum
+ * [new branch]      main -> main
+To file:///tmp/loamium-bare-1785034863907-ghcedmo00m8
+ * [new branch]      main -> main
+From file:///tmp/loamium-bare-1785034863907-ghcedmo00m8
+ * branch            main       -> FETCH_HEAD
+ * [new branch]      main       -> origin/main
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+Cloning into '.'...
+warning: You appear to have cloned an empty repository.
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+To file:///tmp/loamium-bare-1785034863993-b4ej01o340r
+ * [new branch]      main -> main
+Cloning into '.'...
+warning: You appear to have cloned an empty repository.
+Cloning into '.'...
+warning: You appear to have cloned an empty repository.
+From file:///tmp/loamium-bare-1785034863993-b4ej01o340r
+ * branch            main       -> FETCH_HEAD
+ * [new branch]      main       -> origin/main
+To file:///tmp/loamium-bare-1785034864022-zxl9zg9220m
+ * [new branch]      main -> main
+To file:///tmp/loamium-bare-1785034864025-jujg86ks3d
+ * [new branch]      main -> main
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+Cloning into '.'...
+warning: You appear to have cloned an empty repository.
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+Cloning into '.'...
+warning: You appear to have cloned an empty repository.
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+To file:///tmp/loamium-bare-1785034864129-nlw10o8ohd
+ * [new branch]      main -> main
+Cloning into '.'...
+warning: You appear to have cloned an empty repository.
+To file:///tmp/loamium-bare-1785034864145-x136g9n9eoc
+ * [new branch]      main -> main
+From file:///tmp/loamium-bare-1785034864145-x136g9n9eoc
+ * branch            main       -> FETCH_HEAD
+ * [new branch]      main       -> origin/main
+To file:///tmp/loamium-bare-1785034864164-kdg1ghq3kv
+ * [new branch]      main -> main
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+ ✓ tests/acceptance/sync-link-foundation.spec.ts (19 tests) 486ms
+Cloning into '.'...
+warning: You appear to have cloned an empty repository.
+To file:///tmp/loamium-bare-1785034864236-nmvnh4v4p9
+ * [new branch]      main -> main
+From file:///tmp/loamium-bare-1785034864236-nmvnh4v4p9
+ * branch            main       -> FETCH_HEAD
+ * [new branch]      main       -> origin/main
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+Cloning into '.'...
+warning: You appear to have cloned an empty repository.
+fatal: There is no merge to abort (MERGE_HEAD missing).
+To file:///tmp/loamium-bare-1785034864287-75oiicpf05i
+ * [new branch]      main -> main
+ ✓ tests/acceptance/sync-link-guards.spec.ts (15 tests) 611ms
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+ ✓ packages/server/src/sync/git-runner.test.ts (11 tests) 37ms
+Cloning into '.'...
+warning: You appear to have cloned an empty repository.
+To file:///tmp/loamium-bare-1785034864428-i4x4ryrh16l
+ * [new branch]      main -> main
+Cloning into '.'...
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+Cloning into '.'...
+warning: You appear to have cloned an empty repository.
+To file:///tmp/loamium-bare-1785034864633-1kjv1bpbooy
+ * [new branch]      main -> main
+ ✓ tests/acceptance/sync-link-merge.spec.ts (11 tests) 1018ms
+ ✓ packages/server/src/sync/sync-engine.test.ts (22 tests) 12ms
+
+ Test Files  5 passed (5)
+      Tests  78 passed (78)
+   Start at  03:01:03
+   Duration  1.30s (transform 304ms, setup 0ms, collect 571ms, tests 2.16s, environment 1ms, prepare 222ms)
+
+JUNIT report written to /home/ubuntu/ghq/github.com/tjst-t/loamium/reports/junit.xml
