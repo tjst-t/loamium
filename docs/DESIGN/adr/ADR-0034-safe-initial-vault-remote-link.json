@@ -1,7 +1,7 @@
 {
   "id": "ADR-0034",
   "title": "初回同期(vault↔remote link)を安全に自動化する — Loamium が git init を持ち、両側にデータがある場合は『真マージ + 両方保持 + 事前バックアップ』で決してデータを失わない",
-  "status": "proposed",
+  "status": "accepted",
   "date": "2026-07-26",
   "context": "ADR-0032 で vault 同期をシステム git 委譲に決めたが、実装(Se29635)は『vault は既にリモートのクローン』を暗黙前提にしており、初回に vault とリモートをリンクする状態機械が欠けていた。実運用では (a) git init はユーザーでなく Loamium が面倒を見るべき、(b) 同期開始時にローカル vault にもリモートにも既にデータがある場合、素朴な pull はローカルを破壊し、素朴な push は non-fast-forward で失敗する。両者を安全にマージしてから push する必要があり、特に『同一パス・別内容で共通祖先が無い』(add/add)衝突が難しい。先行事例調査(2026-07-26)の要点: Obsidian Git は既存 vault↔既存 remote のリンクを自動化せず、ユーザーが CLI で `git pull --allow-unrelated-histories` を叩く必要がある(『refusing to merge unrelated histories』が典型失敗)。成熟した file-sync(Syncthing / Dropbox / iCloud / Obsidian Sync)は例外なく『keep-both / conflict-copy(サフィックス付き別ファイル)で決して上書きしない』を既定とする。git の `-X ours/theirs` はバイナリを丸ごと片側に倒す silent data-loss なので既定にしてはならない。`git merge-tree --write-tree --allow-unrelated-histories` は作業ツリー/インデックスを触らずマージ木を計算でき(exit 0=clean / 1=conflict)、事前プレビュー(dry-run)に最適。`git ls-remote --exit-code` でリモートを『非空 / 空 / 到達不能(auth 失敗)』の3状態に確実に判別できる。ADR-0030(3-way 自動マージ + 競合 UI)の資産を再利用できる。",
   "alternatives": [
