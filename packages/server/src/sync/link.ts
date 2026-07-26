@@ -32,9 +32,12 @@
  * - REST / CLI エンドポイント (Story 4)
  * - UI ウィザード / 競合ダイアログ (Story 5)
  */
-import { access, appendFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { access, appendFile, readFile, rename, writeFile } from 'node:fs/promises';
 import { realpathSync } from 'node:fs';
 import path from 'node:path';
+// mkdir は共通の ensureDir 経由にする。bun on Windows (OneDrive 等) は既存ディレクトリへの
+// fs.mkdir(recursive) で EEXIST を投げるため、raw mkdir は使わない (fs-utils.ensureDir が吸収)。
+import { ensureDir } from '../fs-utils.js';
 import type { AuditEntry } from '@loamium/shared';
 import type { GitRunner } from './git-runner.js';
 import { redactGitSecrets } from './git-runner.js';
@@ -1149,7 +1152,7 @@ export class InitialLinker {
       case 'local': {
         // ローカル (:2:) を採用
         const localContent = await this.#gitShow(`:2:${file}`);
-        await mkdir(path.dirname(absPath), { recursive: true });
+        await ensureDir(path.dirname(absPath));
         await writeFile(absPath, localContent);
         await this.#run(['add', file]);
         break;
@@ -1158,7 +1161,7 @@ export class InitialLinker {
       case 'remote': {
         // リモート (:3:) を採用
         const remoteContent = await this.#gitShow(`:3:${file}`);
-        await mkdir(path.dirname(absPath), { recursive: true });
+        await ensureDir(path.dirname(absPath));
         await writeFile(absPath, remoteContent);
         await this.#run(['add', file]);
         break;
@@ -1169,7 +1172,7 @@ export class InitialLinker {
         // 実行時に mergedText が欠落/空 (REST 経由の不正入力等) の場合は、空ファイルで
         // データを失わないよう keep-both に安全フォールバックする (review F-1)。
         if (typeof resolution.mergedText === 'string' && resolution.mergedText !== '') {
-          await mkdir(path.dirname(absPath), { recursive: true });
+          await ensureDir(path.dirname(absPath));
           await writeFile(absPath, resolution.mergedText, 'utf8');
           await this.#run(['add', file]);
         } else {
@@ -1193,13 +1196,13 @@ export class InitialLinker {
    */
   async #applyKeepBoth(file: string, absPath: string): Promise<void> {
     const localContent = await this.#gitShow(`:2:${file}`);
-    await mkdir(path.dirname(absPath), { recursive: true });
+    await ensureDir(path.dirname(absPath));
     await writeFile(absPath, localContent);
 
     const remoteContent = await this.#gitShow(`:3:${file}`);
     const remotePath = await this.#keepBothRemotePath(file, this.#vaultRoot);
     const absRemotePath = path.join(this.#vaultRoot, remotePath);
-    await mkdir(path.dirname(absRemotePath), { recursive: true });
+    await ensureDir(path.dirname(absRemotePath));
     await writeFile(absRemotePath, remoteContent);
 
     await this.#run(['add', file, remotePath]);
@@ -1400,7 +1403,7 @@ export class InitialLinker {
         const absSafe = path.join(this.#vaultRoot, safePath);
 
         try {
-          await mkdir(path.dirname(absSafe), { recursive: true });
+          await ensureDir(path.dirname(absSafe));
           // fs.rename でディスク上のファイルを移動してから git に通知する。
           // git mv は内部で fs.rename を行うが、対象が大文字小文字のみ異なる場合に
           // case-insensitive FS では同一ファイルと見なされ失敗することがある。
