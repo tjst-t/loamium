@@ -69,6 +69,8 @@ import {
   syncStatusResponseSchema,
   syncConfigResponseSchema,
   syncResultResponseSchema,
+  syncLinkPreviewResponseSchema,
+  syncLinkApplyResponseSchema,
 } from '@loamium/shared';
 import {
   apiFetch,
@@ -1200,6 +1202,144 @@ function buildProgram(): Command {
           println(`error: ${res.error}`);
         }
       });
+    });
+
+  // [AC-Sf17a4c-4-2] loamium sync link — 初回リンク (REST と 1:1 / ADR-0034 / Sf17a4c-4)
+  //
+  // --preview のみ: プレビューを表示して終了 (push しない)
+  // 既定: preview → apply を続けて実行 (--on-conflict で全衝突の既定操作を指定)
+  //
+  // CLI は対話不可のため `merge` アクションは提供しない。
+  // `--on-conflict` は keep-both / local / remote の3択 (既定: keep-both)。
+  syncCmd
+    .command('link')
+    .description(
+      [
+        '初回 vault↔リモートリンクを実行する (POST /api/sync/link/preview + apply / ADR-0034)',
+        '',
+        '  --preview のみ指定するとプレビュー (件数/衝突) を表示して終了します (push なし)。',
+        '  既定では preview → apply を連続して実行し、衝突は --on-conflict の操作で一括解決します。',
+        '  3-way マージは CLI では未サポートです (UI で行ってください)。',
+      ].join('\n'),
+    )
+    .requiredOption('--remote <url>', 'リモート URL (例: https://github.com/user/vault.git または file:///...)')
+    .option('--branch <branch>', '同期ブランチ (既定: main)', 'main')
+    .option(
+      '--on-conflict <action>',
+      '衝突時の既定操作: keep-both | local | remote (既定: keep-both)',
+      'keep-both',
+    )
+    .option('--preview', 'プレビューのみ表示して終了する (push しない)')
+    .option('--json', 'API レスポンスの生 JSON をそのまま出力する')
+    .exitOverride()
+    .configureOutput({ writeErr: () => {} })
+    .action(async (
+      opts: JsonOpt & {
+        remote: string;
+        branch: string;
+        onConflict: string;
+        preview?: boolean;
+      },
+    ) => {
+      // --on-conflict の値を検証
+      const validConflictActions = ['keep-both', 'local', 'remote'] as const;
+      type ConflictAction = typeof validConflictActions[number];
+      if (!validConflictActions.includes(opts.onConflict as ConflictAction)) {
+        fail('usage', `--on-conflict には keep-both / local / remote のいずれかを指定してください: "${opts.onConflict}"`, 2);
+      }
+      const conflictAction = opts.onConflict as ConflictAction;
+
+      const base = await resolveBaseUrl();
+
+      // Step 1: preview を取得
+      const previewResult = await apiFetch(
+        base,
+        '/api/sync/link/preview',
+        postJson({ remoteUrl: opts.remote, branch: opts.branch }),
+      );
+
+      if (opts.json === true && opts.preview === true) {
+        printRaw(previewResult);
+        return;
+      }
+
+      const preview = parseAs(previewResult, syncLinkPreviewResponseSchema, 'sync link preview');
+
+      // --preview フラグ: 件数を表示して終了
+      if (opts.preview === true) {
+        println(`plan:              ${preview.plan}`);
+        println(`remoteState:       ${preview.remoteState}`);
+        println(`local.hasData:     ${String(preview.local.hasData)}`);
+        println(`local.fileCount:   ${String(preview.local.fileCount)}`);
+        if (preview.counts !== undefined) {
+          println(`addedFromRemote:   ${String(preview.counts.addedFromRemote)}`);
+          println(`addedFromLocal:    ${String(preview.counts.addedFromLocal)}`);
+          println(`conflicts:         ${String(preview.counts.conflicts)}`);
+        }
+        if (preview.conflicts !== undefined && preview.conflicts.length > 0) {
+          println(`conflictFiles:`);
+          for (const c of preview.conflicts) {
+            println(`  ${c.file}`);
+          }
+        }
+        if (preview.warnings.length > 0) {
+          println(`warnings:`);
+          for (const w of preview.warnings) {
+            println(`  ${w.path}: ${w.guidance}`);
+          }
+        }
+        if (preview.nameCollisions.length > 0) {
+          println(`nameCollisions:`);
+          for (const g of preview.nameCollisions) {
+            println(`  [${g.kind}] ${g.paths.join(', ')}`);
+          }
+        }
+        return;
+      }
+
+      // Step 2: apply — 衝突ファイルに --on-conflict アクションを適用
+      const conflictFiles = preview.conflicts ?? [];
+      const resolutions = conflictFiles.map((cf) => ({
+        file: cf.file,
+        action: conflictAction,
+      }));
+
+      const applyResult = await apiFetch(
+        base,
+        '/api/sync/link/apply',
+        postJson({ remoteUrl: opts.remote, branch: opts.branch, resolutions }),
+      );
+
+      if (opts.json === true) {
+        printRaw(applyResult);
+        return;
+      }
+
+      const apply = parseAs(applyResult, syncLinkApplyResponseSchema, 'sync link apply');
+
+      // サマリを人間可読に表示
+      const verdict = apply.ok ? 'ok' : 'error';
+      println(`${verdict}`);
+      println(`plan:              ${apply.summary.plan}`);
+      println(`pushed:            ${String(apply.summary.pushed)}`);
+      if (apply.summary.addedFromRemote > 0) {
+        println(`addedFromRemote:   ${String(apply.summary.addedFromRemote)}`);
+      }
+      if (apply.summary.addedFromLocal > 0) {
+        println(`addedFromLocal:    ${String(apply.summary.addedFromLocal)}`);
+      }
+      if (apply.summary.conflictsResolved > 0) {
+        println(`conflictsResolved: ${String(apply.summary.conflictsResolved)} (action: ${conflictAction})`);
+      }
+      if (apply.backupRef !== undefined) {
+        println(`backupRef:         ${apply.backupRef}`);
+      }
+      if (apply.error !== undefined) {
+        println(`error:             ${apply.error}`);
+      }
+      if (!apply.ok) {
+        fail('sync_link_failed', apply.error ?? 'link apply failed', 1);
+      }
     });
 
   program.addCommand(syncCmd);

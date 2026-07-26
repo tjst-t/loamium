@@ -19,6 +19,7 @@ import { SystemGitRunner } from './sync/git-runner.js';
 import { SyncEngine } from './sync/sync-engine.js';
 import { SyncConfigStore } from './sync/sync-config.js';
 import { SyncScheduler } from './sync/sync-scheduler.js';
+import { InitialLinker, type InitialLinkerOpts } from './sync/link.js';
 import { writeAuditEntry } from './audit.js';
 import type { ServerConfig } from './config.js';
 
@@ -31,6 +32,8 @@ export interface SyncService {
   store: SyncConfigStore;
   /** Story 3: debounce / 定期 pull / flush を管理するスケジューラ。 */
   scheduler: SyncScheduler;
+  /** Story 4 (Sf17a4c-4): 初回リンク状態機械。REST / CLI が共有する単一インスタンス。 */
+  linker: InitialLinker;
 }
 
 /**
@@ -44,16 +47,28 @@ export interface SyncService {
 export function createSyncService(config: ServerConfig): SyncService {
   const runner = new SystemGitRunner();
   const store = new SyncConfigStore(config.vaultRoot);
+
+  /** 共通監査コールバック — `ts` を補完して writeAuditEntry に渡す。 */
+  function auditCallback(
+    entry: Parameters<InitialLinkerOpts['audit']>[0],
+  ): Promise<void> {
+    return writeAuditEntry(config, { ...entry, ts: new Date().toISOString() });
+  }
+
   const engine = new SyncEngine({
     vaultRoot: config.vaultRoot,
     runner,
     getConfig: () => store.load(),
     getToken: () => store.getToken(),
-    audit: (entry) =>
-      writeAuditEntry(config, { ...entry, ts: new Date().toISOString() }),
+    audit: auditCallback,
+  });
+  const linker = new InitialLinker({
+    vaultRoot: config.vaultRoot,
+    runner,
+    audit: auditCallback,
   });
   const scheduler = new SyncScheduler({ engine, store });
-  return { engine, store, scheduler };
+  return { engine, store, scheduler, linker };
 }
 
 /**

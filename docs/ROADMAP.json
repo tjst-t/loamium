@@ -9553,7 +9553,7 @@
         },
         "Sf17a4c-3": {
           "title": "エッジガード + クラッシュ安全 — 100MB / 大文字小文字・NFC / mid-merge 復元",
-          "status": "in_progress",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ユーザーとして、初回リンクで思わぬ事故(巨大ファイルの push 拒否・別端末でのファイル消失・中断で壊れる)を避けたい。なぜなら、Linux↔Windows で安心して同期したいから。",
@@ -9581,7 +9581,7 @@
         },
         "Sf17a4c-4": {
           "title": "REST + CLI — link の probe/preview/apply エンドポイント + 監査",
-          "status": "planned",
+          "status": "in_progress",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "エージェント/CLI 利用者として、初回リンクをツール/CLI からも実行したい。なぜなら、CLAUDE.md のエージェント操作ツール必須規約と REST 1:1 に沿うため。",

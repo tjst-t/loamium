@@ -274,6 +274,7 @@ describe('[AC-Sf17a4c-3-2] quarantineCollisions: 衝突パスを隔離し両側�
     // テストでは「ローカルファイル集合内の衝突グループ」を渡す
     // (ローカルが1件の場合、グループが2件にならないため、人工的に衝突グループを作る)
     const fakeCollision = caseGroups[0];
+    if (fakeCollision === undefined) throw new Error('大文字小文字の衝突グループが検出されているはず');
     // fakeCollision に実際に存在するパスが含まれていることを前提に…
     // ローカルに存在するパスを確認
     const existingPaths = await Promise.all(

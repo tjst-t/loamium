@@ -1693,3 +1693,96 @@ export const syncConflictsResponseSchema = z.object({
   conflicts: z.array(syncConflictHunkSchema),
 });
 export type SyncConflictsResponse = z.infer<typeof syncConflictsResponseSchema>;
+
+// ──────────────────────────────────────────────────────────────────
+// 初回リンク (ADR-0034 / Sf17a4c-4)
+// POST /api/sync/link/preview, /api/sync/link/apply, GET /api/sync/link/status
+// ──────────────────────────────────────────────────────────────────
+
+/** POST /api/sync/link/preview のリクエストボディ。 */
+export const syncLinkPreviewRequestSchema = z.object({
+  remoteUrl: z.string().min(1, 'remoteUrl must not be empty'),
+  branch: z.string().min(1).optional(),
+});
+export type SyncLinkPreviewRequest = z.infer<typeof syncLinkPreviewRequestSchema>;
+
+/** 100MB 超ファイルの警告 (GitHub ハード制限)。 */
+export const syncLinkLargeFileWarningSchema = z.object({
+  path: z.string(),
+  size: z.number().int().nonnegative(),
+  guidance: z.string(),
+});
+export type SyncLinkLargeFileWarning = z.infer<typeof syncLinkLargeFileWarningSchema>;
+
+/** 大文字小文字・NFC/NFD 衝突グループ。 */
+export const syncLinkNameCollisionGroupSchema = z.object({
+  kind: z.enum(['case', 'unicode']),
+  paths: z.array(z.string()),
+});
+export type SyncLinkNameCollisionGroup = z.infer<typeof syncLinkNameCollisionGroupSchema>;
+
+/**
+ * POST /api/sync/link/preview のレスポンス。
+ * `plan`: 'noop' | 'adopt-remote' | 'seed-remote' | 'merge'
+ */
+export const syncLinkPreviewResponseSchema = z.object({
+  remoteState: z.enum(['empty', 'non-empty', 'unreachable']),
+  local: z.object({
+    hasData: z.boolean(),
+    fileCount: z.number().int().nonnegative(),
+  }),
+  plan: z.enum(['noop', 'adopt-remote', 'seed-remote', 'merge']),
+  counts: z.object({
+    addedFromRemote: z.number().int().nonnegative(),
+    addedFromLocal: z.number().int().nonnegative(),
+    conflicts: z.number().int().nonnegative(),
+  }).optional(),
+  conflicts: z.array(z.object({ file: z.string() })).optional(),
+  warnings: z.array(syncLinkLargeFileWarningSchema),
+  nameCollisions: z.array(syncLinkNameCollisionGroupSchema),
+});
+export type SyncLinkPreviewResponse = z.infer<typeof syncLinkPreviewResponseSchema>;
+
+/**
+ * 衝突解決指定 (REST API 境界)。
+ * `merge` アクションでは mergedText は optional — 欠落時はエンジンが keep-both に安全フォールバック。
+ */
+export const syncLinkConflictResolutionSchema = z.object({
+  file: z.string().min(1),
+  action: z.enum(['keep-both', 'local', 'remote', 'merge']),
+  mergedText: z.string().optional(),
+});
+export type SyncLinkConflictResolution = z.infer<typeof syncLinkConflictResolutionSchema>;
+
+/** POST /api/sync/link/apply のリクエストボディ。 */
+export const syncLinkApplyRequestSchema = z.object({
+  remoteUrl: z.string().min(1, 'remoteUrl must not be empty'),
+  branch: z.string().min(1).optional(),
+  resolutions: z.array(syncLinkConflictResolutionSchema),
+});
+export type SyncLinkApplyRequest = z.infer<typeof syncLinkApplyRequestSchema>;
+
+/** POST /api/sync/link/apply のレスポンス。 */
+export const syncLinkApplyResponseSchema = z.object({
+  ok: z.boolean(),
+  pushed: z.boolean(),
+  backupRef: z.string().optional(),
+  summary: z.object({
+    plan: z.enum(['noop', 'adopt-remote', 'seed-remote', 'merge']),
+    pushed: z.boolean(),
+    addedFromRemote: z.number().int().nonnegative(),
+    addedFromLocal: z.number().int().nonnegative(),
+    conflictsResolved: z.number().int().nonnegative(),
+  }),
+  error: z.string().optional(),
+});
+export type SyncLinkApplyResponse = z.infer<typeof syncLinkApplyResponseSchema>;
+
+/** GET /api/sync/link/status のレスポンス (クラッシュ安全再開用)。 */
+export const syncLinkStatusResponseSchema = z.object({
+  midMerge: z.object({
+    inProgress: z.boolean(),
+    kind: z.enum(['merge', 'rebase']).nullable(),
+  }),
+});
+export type SyncLinkStatusResponse = z.infer<typeof syncLinkStatusResponseSchema>;

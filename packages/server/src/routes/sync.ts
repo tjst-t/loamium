@@ -20,10 +20,13 @@ import {
   syncConfigWriteRequestSchema,
   syncPullRequestSchema,
   syncCredentialWriteRequestSchema,
+  syncLinkPreviewRequestSchema,
+  syncLinkApplyRequestSchema,
 } from '@loamium/shared';
 // syncConflictsResponseSchema は型ガード目的ではなく shape の参照用 (ランタイム検証は不要)
 // シリアライズはエンジンの getLastConflicts() → FileConflict[] → response 変換で行う
 import { GitUnavailableError } from '../sync/git-runner.js';
+import type { ConflictResolution } from '../sync/link.js';
 import type { SyncService } from '../sync-service.js';
 import type { ServerConfig } from '../config.js';
 import { parseBody, setAudit, errorJson, type AppEnv } from '../http.js';
@@ -36,7 +39,7 @@ import { parseBody, setAudit, errorJson, type AppEnv } from '../http.js';
  */
 export function syncRoutes(config: ServerConfig, service: SyncService): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
-  const { engine, store, scheduler } = service;
+  const { engine, store, scheduler, linker } = service;
 
   // [AC-Se29635-2-3] 同期状態取得
   // git 不在でも throw しない (available:false を返す)
@@ -161,6 +164,86 @@ export function syncRoutes(config: ServerConfig, service: SyncService): Hono<App
       return c.json({ ok: true });
     } catch (err) {
       return errorJson(c, 500, 'sync_credential_write_error', String(err));
+    }
+  });
+
+  // ──────────────────────────────────────────────
+  // 初回リンク (ADR-0034 / Sf17a4c-4)
+  // ──────────────────────────────────────────────
+
+  // [AC-Sf17a4c-4-1] GET /api/sync/link/status — mid-merge 状態確認 (クラッシュ安全再開用)
+  app.get('/api/sync/link/status', async (c) => {
+    try {
+      const midMerge = await linker.detectMidMerge();
+      return c.json({ midMerge });
+    } catch (err) {
+      return errorJson(c, 500, 'sync_link_status_error', String(err));
+    }
+  });
+
+  // [AC-Sf17a4c-4-1] POST /api/sync/link/preview — プレビュー (push なし / 作業ツリー変更なし)
+  app.post('/api/sync/link/preview', async (c) => {
+    setAudit(c, 'sync.link.preview', '(link-preview)');
+    const bodyResult = await parseBody(c, syncLinkPreviewRequestSchema);
+    if (!bodyResult.ok) return bodyResult.response;
+
+    const { remoteUrl, branch } = bodyResult.data;
+    try {
+      const preview = await linker.linkPreview(remoteUrl, branch ?? 'main');
+      const response = {
+        remoteState: preview.remoteState,
+        local: preview.local,
+        plan: preview.plan,
+        ...(preview.counts !== undefined ? { counts: preview.counts } : {}),
+        ...(preview.conflicts !== undefined ? { conflicts: preview.conflicts } : {}),
+        warnings: preview.warnings,
+        nameCollisions: preview.nameCollisions,
+      };
+      return c.json(response);
+    } catch (err) {
+      if (err instanceof GitUnavailableError) {
+        return errorJson(c, 503, 'git_unavailable', err.message);
+      }
+      return errorJson(c, 500, 'sync_link_preview_error', String(err));
+    }
+  });
+
+  // [AC-Sf17a4c-4-1] POST /api/sync/link/apply — 適用 (解決指定を受けて実行)
+  app.post('/api/sync/link/apply', async (c) => {
+    setAudit(c, 'sync.link.apply', '(link-apply)');
+    const bodyResult = await parseBody(c, syncLinkApplyRequestSchema);
+    if (!bodyResult.ok) return bodyResult.response;
+
+    const { remoteUrl, branch, resolutions: rawResolutions } = bodyResult.data;
+
+    // REST スキーマ → engine の ConflictResolution へ変換
+    // `merge` アクションで mergedText がない場合は keep-both にフォールバック
+    const resolutions: ConflictResolution[] = rawResolutions.map((r) => {
+      if (r.action === 'merge' && typeof r.mergedText === 'string' && r.mergedText !== '') {
+        return { file: r.file, action: 'merge' as const, mergedText: r.mergedText };
+      }
+      if (r.action === 'local' || r.action === 'remote') {
+        return { file: r.file, action: r.action };
+      }
+      // keep-both or merge-without-text
+      return { file: r.file, action: 'keep-both' as const };
+    });
+
+    try {
+      const result = await linker.linkApply(remoteUrl, resolutions, branch ?? 'main');
+      const response = {
+        ok: result.ok,
+        pushed: result.pushed,
+        ...(result.backupRef !== undefined ? { backupRef: result.backupRef } : {}),
+        summary: result.summary,
+        ...(result.error !== undefined ? { error: result.error } : {}),
+      };
+      return c.json(response);
+    } catch (err) {
+      if (err instanceof GitUnavailableError) {
+        return errorJson(c, 503, 'git_unavailable', err.message);
+      }
+      return errorJson(c, 500, 'sync_link_apply_error', String(err));
     }
   });
 

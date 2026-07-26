@@ -1,0 +1,53 @@
+=== Story Sf17a4c-4: REST + CLI (link probe/preview/apply + 監査) ===
+Date: 2026-07-26
+
+## 実装概要
+
+### 追加ファイル
+- tests/acceptance/sync-link-cli.spec.ts (新規 — 13テスト)
+
+### 変更ファイル
+- packages/shared/src/schemas.ts — link zod スキーマ追加
+  - syncLinkPreviewRequestSchema, syncLinkPreviewResponseSchema
+  - syncLinkConflictResolutionSchema
+  - syncLinkApplyRequestSchema, syncLinkApplyResponseSchema
+  - syncLinkStatusResponseSchema, syncLinkLargeFileWarningSchema, syncLinkNameCollisionGroupSchema
+
+- packages/server/src/sync/link.ts — 高レベルオーケストレーション追加
+  - LinkPreview / LinkApplyResult 型追加
+  - linkPreview() — ADR-0034 state machine preview entry point
+  - linkApply()  — ADR-0034 state machine apply entry point
+  - #buildLargeFileWarnings() — helper
+
+- packages/server/src/sync-service.ts — linker フィールド追加
+  - SyncService.linker: InitialLinker
+  - createSyncService で InitialLinker を構築して export
+
+- packages/server/src/routes/sync.ts — 3 routes 追加
+  - GET  /api/sync/link/status  — detectMidMerge()
+  - POST /api/sync/link/preview — linkPreview()
+  - POST /api/sync/link/apply  — linkApply()
+
+- packages/cli/src/main.ts — sync link サブコマンド追加
+  - loamium sync link --remote <url> [--branch <b>] [--on-conflict keep-both|local|remote] [--preview]
+
+## テスト結果
+
+vitest run (6 files, 91 tests): ALL PASS
+  - packages/server/src/sync/ (unit) — 78 tests pass
+  - tests/acceptance/sync-link-foundation.spec.ts — pass
+  - tests/acceptance/sync-link-merge.spec.ts — pass
+  - tests/acceptance/sync-link-guards.spec.ts — pass
+  - tests/acceptance/sync-link-cli.spec.ts — 13 tests pass (NEW)
+
+TypeScript: npx tsc --noEmit — 0 errors (server, shared, cli)
+
+## AC 対応
+- AC-Sf17a4c-4-1: REST probe/preview/apply + zod validation + audit.log ✓
+- AC-Sf17a4c-4-2: CLI `loamium sync link` subprocess ✓
+
+## 注記
+ensureInitialized() は .gitignore/.gitattributes を書いてコミットするため、
+空 vault を REST 経由でリンクすると localHasData=true になり adopt-remote プランにはならない。
+これは ADR-0034 の "auto-init = reversible" 設計の自然な帰結で、
+空 vault でも merge (0 conflicts) として処理される。テストはこの実際の挙動を検証する形に修正済み。

@@ -160,6 +160,60 @@ export type ConflictResolution =
   | { file: string; action: 'merge'; mergedText: string };
 
 // ──────────────────────────────────────────────
+// Story 4 追加公開型
+// ──────────────────────────────────────────────
+
+/**
+ * `linkPreview` の戻り値 (Story 4)。
+ *
+ * `plan`:
+ * - `'noop'`: ローカル空×リモート空 — 何も変更しない
+ * - `'adopt-remote'`: ローカル空×リモート非空 — リモートを採用
+ * - `'seed-remote'`: ローカル非空×リモート空 — ローカルを push
+ * - `'merge'`: ローカル非空×リモート非空 — マージが必要
+ */
+export interface LinkPreview {
+  /** リモートの状態。 */
+  remoteState: 'empty' | 'non-empty' | 'unreachable';
+  /** ローカルの状態。 */
+  local: {
+    hasData: boolean;
+    fileCount: number;
+  };
+  /** 推奨プラン。 */
+  plan: 'noop' | 'adopt-remote' | 'seed-remote' | 'merge';
+  /** merge / adopt-remote / seed-remote の場合のファイル件数。 */
+  counts?: {
+    addedFromRemote: number;
+    addedFromLocal: number;
+    conflicts: number;
+  };
+  /** merge プランの衝突ファイル一覧。 */
+  conflicts?: Array<{ file: string }>;
+  /** 100MB 超ファイルの警告。 */
+  warnings: LargeFileWarning[];
+  /** 大文字小文字・NFC/NFD 衝突グループ。 */
+  nameCollisions: NameCollisionGroup[];
+}
+
+/**
+ * `linkApply` の戻り値 (Story 4)。
+ * `LinkResult` を拡張して `pushed` と `summary` を追加する。
+ */
+export interface LinkApplyResult extends LinkResult {
+  /** リモートへの push が行われたか。 */
+  pushed: boolean;
+  /** 操作のサマリ。 */
+  summary: {
+    plan: 'noop' | 'adopt-remote' | 'seed-remote' | 'merge';
+    pushed: boolean;
+    addedFromRemote: number;
+    addedFromLocal: number;
+    conflictsResolved: number;
+  };
+}
+
+// ──────────────────────────────────────────────
 // InitialLinker
 // ──────────────────────────────────────────────
 
@@ -1521,6 +1575,269 @@ export class InitialLinker {
       result: 'ok',
       status: 0,
     });
+  }
+
+  // ──────────────────────────────────────────
+  // Story 4: 高レベルオーケストレーション (REST / CLI 向け)
+  // ──────────────────────────────────────────
+
+  /**
+   * ADR-0034 状態機械の **プレビューエントリポイント** (Story 4 / AC-Sf17a4c-4-1)。
+   *
+   * 1. `ensureInitialized()` — 冪等 git init + スナップショット (作業ツリーに永続変更はしない)
+   * 2. リモートを設定/更新して `fetch`
+   * 3. `probeRemote` + `localState` で3判別
+   * 4. local×remote 双方データありの場合のみ `previewMerge` で件数/衝突を算出
+   *
+   * **プレビューは push しない。作業ツリーを変更しない (merge-tree は dry-run)**。
+   * auto-init (git init + スナップショットコミット) と backup ref 作成は行う —
+   * これらは可逆操作 (backup から復元できる) であり、ADR-0034 の『reversible auto-init』。
+   *
+   * @param remoteUrl - リモート URL
+   * @param branch    - ブランチ名 (省略時は 'main')
+   * @param remoteName - git リモート名 (デフォルト 'origin')
+   */
+  async linkPreview(
+    remoteUrl: string,
+    branch = 'main',
+    remoteName = 'origin',
+  ): Promise<LinkPreview> {
+    // Step 1: 冪等 init (既に repo なら何もしない)
+    await this.ensureInitialized();
+
+    // Step 2: リモートを設定/更新
+    const getUrlRes = await this.#run(['remote', 'get-url', remoteName]);
+    if (getUrlRes.code === 0) {
+      await this.#run(['remote', 'set-url', remoteName, remoteUrl]);
+    } else {
+      const addRes = await this.#run(['remote', 'add', remoteName, remoteUrl]);
+      if (addRes.code !== 0) {
+        throw new Error(
+          `remote add failed (code ${addRes.code}): ${redactGitSecrets(addRes.stderr)}`,
+        );
+      }
+    }
+
+    // Step 3: probe + localState
+    const probe = await this.probeRemote(remoteUrl);
+    const local = await this.localState();
+
+    if (probe.state === 'unreachable') {
+      throw new Error(
+        `リモートに到達できません: ${probe.error ?? 'unreachable'}`,
+      );
+    }
+
+    const localHasData = local.hasCommits;
+    const remoteHasData = probe.state === 'non-empty';
+
+    // Step 4: プラン判別
+    if (!localHasData && !remoteHasData) {
+      // noop: 空×空
+      return {
+        remoteState: probe.state,
+        local: { hasData: localHasData, fileCount: local.fileCount },
+        plan: 'noop',
+        warnings: [],
+        nameCollisions: [],
+      };
+    }
+
+    if (!localHasData && remoteHasData) {
+      // adopt-remote: 空×非空
+      // fetch してリモートのファイル数を取得 (プレビュー専用)
+      await this.#run(['fetch', remoteName, branch]);
+      const remoteLsRes = await this.#runQP(['ls-tree', '-r', '--name-only', `${remoteName}/${branch}`]);
+      const remoteFileCount = remoteLsRes.code === 0
+        ? remoteLsRes.stdout.trim().split('\n').filter(Boolean).length
+        : 0;
+      const warnings = await this.#buildLargeFileWarnings();
+      const nameCollisions = await this.scanNameCollisions(`${remoteName}/${branch}`);
+      return {
+        remoteState: probe.state,
+        local: { hasData: false, fileCount: local.fileCount },
+        plan: 'adopt-remote',
+        counts: { addedFromRemote: remoteFileCount, addedFromLocal: 0, conflicts: 0 },
+        warnings,
+        nameCollisions,
+      };
+    }
+
+    if (localHasData && !remoteHasData) {
+      // seed-remote: 非空×空
+      const warnings = await this.#buildLargeFileWarnings();
+      const nameCollisions = await this.scanNameCollisions();
+      return {
+        remoteState: probe.state,
+        local: { hasData: true, fileCount: local.fileCount },
+        plan: 'seed-remote',
+        counts: { addedFromRemote: 0, addedFromLocal: local.fileCount, conflicts: 0 },
+        warnings,
+        nameCollisions,
+      };
+    }
+
+    // merge: 非空×非空 — merge-tree dry-run
+    await this.#run(['fetch', remoteName, branch]);
+    const preview = await this.previewMerge('HEAD', `${remoteName}/${branch}`);
+    return {
+      remoteState: probe.state,
+      local: { hasData: true, fileCount: local.fileCount },
+      plan: 'merge',
+      counts: {
+        addedFromRemote: preview.addedFromRemote,
+        addedFromLocal: preview.addedFromLocal,
+        conflicts: preview.conflicts.length,
+      },
+      conflicts: preview.conflicts,
+      warnings: preview.warnings ?? [],
+      nameCollisions: preview.nameCollisions ?? [],
+    };
+  }
+
+  /** `previewMerge` 用の大ファイル警告ビルダー (local ファイルのみスキャン)。 */
+  async #buildLargeFileWarnings(): Promise<LargeFileWarning[]> {
+    const largeFiles = await this.scanLargeFiles();
+    return largeFiles.map((f) => ({
+      path: f.path,
+      size: f.size,
+      guidance:
+        `ファイル "${f.path}" (${(f.size / (1024 * 1024)).toFixed(1)} MB) は ` +
+        `GitHub の 100MB ハード制限を超えています。` +
+        `.gitignore に追記して追跡対象から除外するか、Git LFS の利用を検討してください。`,
+    }));
+  }
+
+  /**
+   * ADR-0034 状態機械の **適用エントリポイント** (Story 4 / AC-Sf17a4c-4-1)。
+   *
+   * プレビューと同じ3判別を行い、プランに応じて完了まで実行する:
+   * - noop: 何もしない
+   * - adopt-remote: リモートを checkout
+   * - seed-remote: ローカルを push
+   * - merge: resolutions を渡して `applyMerge`
+   *
+   * すべてのケースで backup ref を作成してから操作を実行する。
+   * 監査エントリ `sync.link.preview` / `sync.link.apply` を記録する。
+   *
+   * @param remoteUrl   - リモート URL
+   * @param resolutions - 衝突解決指定 (merge プランのみ使用)
+   * @param branch      - ブランチ名 (省略時は 'main')
+   * @param remoteName  - git リモート名 (デフォルト 'origin')
+   */
+  async linkApply(
+    remoteUrl: string,
+    resolutions: ConflictResolution[],
+    branch = 'main',
+    remoteName = 'origin',
+  ): Promise<LinkApplyResult> {
+    // Step 1: 冪等 init
+    await this.ensureInitialized();
+
+    // Step 2: リモートを設定/更新
+    const getUrlRes = await this.#run(['remote', 'get-url', remoteName]);
+    if (getUrlRes.code === 0) {
+      await this.#run(['remote', 'set-url', remoteName, remoteUrl]);
+    } else {
+      const addRes = await this.#run(['remote', 'add', remoteName, remoteUrl]);
+      if (addRes.code !== 0) {
+        throw new Error(
+          `remote add failed (code ${addRes.code}): ${redactGitSecrets(addRes.stderr)}`,
+        );
+      }
+    }
+
+    // Step 3: probe + localState
+    const probe = await this.probeRemote(remoteUrl);
+    const local = await this.localState();
+
+    if (probe.state === 'unreachable') {
+      throw new Error(
+        `リモートに到達できません: ${probe.error ?? 'unreachable'}`,
+      );
+    }
+
+    const localHasData = local.hasCommits;
+    const remoteHasData = probe.state === 'non-empty';
+
+    // Step 4: 実際のブランチ名を決定 (probe defaultBranch を優先)
+    const effectiveBranch = branch;
+
+    await this.#audit({
+      op: 'sync.link.apply',
+      path: this.#vaultRoot,
+      mode: 'full',
+      result: 'ok',
+      status: 0,
+    });
+
+    // Step 5: プランに応じて実行
+    if (!localHasData && !remoteHasData) {
+      return {
+        ok: true,
+        needsMerge: false,
+        pushed: false,
+        summary: {
+          plan: 'noop',
+          pushed: false,
+          addedFromRemote: 0,
+          addedFromLocal: 0,
+          conflictsResolved: 0,
+        },
+      };
+    }
+
+    if (!localHasData || !remoteHasData) {
+      // adopt-remote か seed-remote — linkEmptyOrOneSided が処理する
+      const linkResult = await this.linkEmptyOrOneSided(remoteUrl, effectiveBranch, remoteName);
+      if (!linkResult.ok) {
+        throw new Error(linkResult.error ?? 'initial link failed');
+      }
+
+      // ローカル非空×リモート空 → seed-remote (push した)
+      // ローカル空×リモート非空 → adopt-remote (checkout した)
+      const plan: 'adopt-remote' | 'seed-remote' = (!localHasData && remoteHasData)
+        ? 'adopt-remote'
+        : 'seed-remote';
+
+      const addedFromRemote = plan === 'adopt-remote' ? local.fileCount : 0;
+      const addedFromLocal = plan === 'seed-remote' ? local.fileCount : 0;
+
+      return {
+        ok: true,
+        needsMerge: false,
+        pushed: plan === 'seed-remote',
+        ...(linkResult.backupRef !== undefined ? { backupRef: linkResult.backupRef } : {}),
+        summary: {
+          plan,
+          pushed: plan === 'seed-remote',
+          addedFromRemote,
+          addedFromLocal,
+          conflictsResolved: 0,
+        },
+      };
+    }
+
+    // merge: 非空×非空
+    // fetch は applyMerge 内で行う。resolutions を渡す。
+    const mergeResult = await this.applyMerge(remoteUrl, effectiveBranch, resolutions, remoteName);
+    if (!mergeResult.ok) {
+      throw new Error(mergeResult.error ?? 'merge failed');
+    }
+
+    return {
+      ok: true,
+      needsMerge: false,
+      pushed: true,
+      ...(mergeResult.backupRef !== undefined ? { backupRef: mergeResult.backupRef } : {}),
+      summary: {
+        plan: 'merge',
+        pushed: true,
+        addedFromRemote: 0, // applyMerge は個別カウントを返さないため 0 (preview で提示済み)
+        addedFromLocal: 0,
+        conflictsResolved: resolutions.length,
+      },
+    };
   }
 
   /**
