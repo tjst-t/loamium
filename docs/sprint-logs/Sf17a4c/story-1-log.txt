@@ -1,0 +1,53 @@
+Story Sf17a4c-1 — 初回リンク基盤
+===================================
+Date: 2026-07-26
+
+## Files created/modified
+- packages/server/src/sync/link.ts  [NEW]
+  InitialLinker class (probeRemote / localState / ensureInitialized / createBackupRef / linkEmptyOrOneSided)
+- packages/server/src/sync/index.ts  [MODIFIED]
+  link.ts の型・クラスを re-export に追加
+- tests/acceptance/sync-link-foundation.spec.ts  [NEW]
+  AC-Sf17a4c-1-1 / 1-2 / 1-3 の acceptance tests (実 git + file:// bare, no mocks)
+
+## TypeScript type check
+- packages/server/tsconfig.json: CLEAN (0 errors)
+- packages/shared/tsconfig.json:  CLEAN (0 errors)
+
+## Vitest results
+
+### New tests (sync-link-foundation.spec.ts)
+Test Files  1 passed (1)
+Tests       19 passed (19)
+Duration    634ms
+
+### Existing sync unit tests (packages/server/src/sync/)
+Test Files  2 passed (2)
+Tests       33 passed (33)
+Duration    475ms
+
+## AC coverage
+[AC-Sf17a4c-1-1] PASS — 5 tests
+  - ensureInitialized() で vault が git repo になり HEAD が存在する
+  - .gitignore に .loamium/ が含まれる
+  - .gitattributes に eol=lf が含まれる
+  - ノートが1つのコミットに含まれる
+  - 冪等: 2回目は何もしない
+  - ネストケース: 親 git 内 vault → throw (親 HEAD 無変更)
+
+[AC-Sf17a4c-1-2] PASS — 3 tests
+  - 空 bare → empty
+  - 非空 bare → non-empty (defaultBranch=main)
+  - 到達不能 URL → unreachable (空と誤認しない)
+
+[AC-Sf17a4c-1-3] PASS — 11 tests
+  - [ローカル非空×リモート空] push → bare に my-note.md が存在, backup ref 作成済み
+  - [ローカル空×リモート非空] checkout → vault に remote-note.md が出現
+  - [ローカル非空×リモート非空] → needsMerge=true, マージ未実施, backup ref 作成済み
+  - [ローカル空×リモート空] → ok=true, bare は空のまま
+
+## Out-of-scope findings
+なし
+
+## Escalations
+なし

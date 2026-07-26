@@ -17,3 +17,13 @@ export { SyncEngine } from './sync-engine.js';
 // sync-config (Story 2)
 export type { SyncConfig } from './sync-config.js';
 export { SyncConfigStore } from './sync-config.js';
+
+// link — 初回リンク状態機械 (Sf17a4c-1)
+export type {
+  RemoteState,
+  ProbeResult,
+  LocalState,
+  LinkResult,
+  InitialLinkerOpts,
+} from './link.js';
+export { InitialLinker } from './link.js';
