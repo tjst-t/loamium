@@ -26,6 +26,7 @@ Backend: Hono / Frontend: React + CodeMirror 6 (lezer-markdown) / 検索: Fuse.j
 - REST API と CLI コマンドは 1:1 対応。リクエスト/レスポンスは zod スキーマで検証し、型は `packages/shared` で共有
 - Markdown パース・リンク解決・ジャーナル日付処理には必ずユニットテストを書く
 - 書き込み系 API は監査ログ(`.loamium/audit.log`)に記録する
+- **生のファイル API 禁止 / 書き込み配線は共通ヘルパー経由**: サーバーの書き込みで `fs.mkdir(recursive)` を直接呼ばない。必ず `packages/server/src/fs-utils.ts` の `ensureDir()`(または `vault.ts` の書き込みユーティリティ)を経由する。理由: パッケージ済みサーバー(`loamium-server.exe` = bun --compile)は **bun on Windows** で既存ディレクトリへの `mkdir(recursive)` が **EEXIST を投げる**(Node/tsx・bun-linux では再現しない)。OneDrive 配下 vault の Windows 版で `Error: EEXIST … mkdir '…'` として顕在化する。ディレクトリ作成に限らず、書き込み経路は既存の共通ヘルパーに統一し、経路ごとに独自実装しない(二重管理の排除)。新規サーバーコードを足したら `grep 'mkdir(' <新規ファイル>` で生 mkdir が残っていないか確認する。ユニットテスト `fs-utils.test.ts` が EEXIST 握りつぶしを固定。
 - **モバイルレスポンシブ規約**: 以降に追加するすべての UI 機能はモバイルを考慮したレスポンシブデザインとする。タップターゲットは 44px 以上 (`@media (max-width: 680px)` で適用)。モバイルは**閲覧中心** (VISION out_of_scope: フル編集体験は対象外)。新規 CSS クラス追加時は `@media (max-width: 680px)` での表示を必ず確認すること。ブレークポイント: ≤680px = モバイル (サイドバーオーバーレイ) / 681–960px = タブレット (左サイドバーのみ) / ≥961px = デスクトップ (3 ペイン)。
 - **エージェント操作ツール必須**: 新機能(REST エンドポイント・スマートフォルダ / コマンド / テンプレート等の主要機能)を追加するときは、エージェントがその機能を操作できるツールも必ず実装し、help 知識ベース(`packages/server/src/agent-help.ts`)に使い方(ツール名・入出力・使用例・制約)を追加する。エージェント統合を後付けにしない
   - ツールは既存の監査済みサービス層を経由する(ADR-0016)。REST と重複する独自の実行・解決・直列化ロジックを新設しない(二重管理の排除)。エージェント専用の直接ファイル操作・独自フォーマットは禁止(「ピュア Markdown 絶対」と整合)
