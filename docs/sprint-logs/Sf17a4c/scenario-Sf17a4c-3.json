@@ -1,0 +1,33 @@
+{
+  "story": "Sf17a4c-3",
+  "story_type": "api",
+  "user_role": "単一ユーザー(Linux↔Windows)。初回リンクで事故を避けたい",
+  "entry_point": "http://<server>/api/sync/link/*(実 git)",
+  "scenarios": [
+    {
+      "id": "scenario-1", "linked_ac": ["AC-Sf17a4c-3-1"],
+      "description": ">100MB ファイルを初回コミット前に警告",
+      "preconditions": ["vault に 100MB 超のダミーファイルを配置"],
+      "steps": [
+        {"n": 1, "action": "link probe/preview", "expected": "該当ファイルを『GitHub 100MB 制限超過』として警告し、gitignore か LFS を案内する(黙って commit しない)"}
+      ], "cleanup": []
+    },
+    {
+      "id": "scenario-2", "linked_ac": ["AC-Sf17a4c-3-2"],
+      "description": "大文字小文字・NFC 衝突パスを事前検出・隔離",
+      "preconditions": ["ローカル `note.md`、リモート `Note.md`(大文字小文字のみ違い)を用意"],
+      "steps": [
+        {"n": 1, "action": "link preview/apply", "expected": "checkout でぶつかる前に大文字小文字衝突を検出し隔離(片方を .remote 扱い等)。Windows でサイレント上書きしない。NFC/NFD 違いの同名も検出"},
+        {"n": 2, "action": "既に追跡済みだが現 .gitignore 対象のファイルがある状態でリンク", "expected": "git rm --cached され、以後の衝突を防ぐ"}
+      ], "cleanup": []
+    },
+    {
+      "id": "scenario-3", "linked_ac": ["AC-Sf17a4c-3-3"],
+      "description": "mid-merge 残留を起動時に検出し復元/再開を提示",
+      "preconditions": ["リンク途中で中断し .git/MERGE_HEAD が残った状態を作る"],
+      "steps": [
+        {"n": 1, "action": "サーバ再起動 → link status を確認", "expected": "mid-merge を検出して『再開 / 取り消し(backup ref へ復元)』を提示する。取り消しでリンク前状態に戻せる(データ喪失なし)"}
+      ], "cleanup": []
+    }
+  ]
+}

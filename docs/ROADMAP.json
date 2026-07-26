@@ -9497,7 +9497,7 @@
       "stories": {
         "Sf17a4c-1": {
           "title": "初回リンク基盤 — auto-init + リモート3判別 + 空/片側分岐 + backup ref",
-          "status": "planned",
+          "status": "in_progress",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ユーザーとして、git を知らなくても vault をリモートにリンクしたい。なぜなら、git init や履歴の準備を自分でやらずに同期を始めたいから(ADR-0034)。",

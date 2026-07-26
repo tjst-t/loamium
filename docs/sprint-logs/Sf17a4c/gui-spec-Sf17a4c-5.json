@@ -1,0 +1,27 @@
+{
+  "sprint": "Sf17a4c",
+  "story": "Sf17a4c-5",
+  "state_diagram": "stateDiagram-v2\n    [*] --> Wizard: 同期をセットアップ\n    Wizard --> Probing: remote URL 入力→リンク開始\n    Probing --> Done: 衝突0件 (自動完了)\n    Probing --> Conflict: 衝突あり\n    Conflict --> Done: 解決→適用\n    Done --> [*]: 完了ダイアログ",
+  "scenarios": {
+    "entry_point": "設定→同期 or 同期インジケータの『同期をセットアップ』。実バックエンド + ローカル bare。",
+    "happy_path": "remote URL 入力→リンク→衝突0なら自動完了し完了ダイアログ。衝突ありは競合ダイアログで解決してから完了。",
+    "data_states": {
+      "wizard": "remote URL(+認証)入力",
+      "probing": "リンク処理中",
+      "conflict": "初回リンク競合ダイアログ(決め方ラジオ + セグメントスイッチ)",
+      "done": "完了ダイアログ(リモートからX/ローカルからY のサマリ)"
+    },
+    "edge_cases": ["リモート未到達→エラー表示", "モバイル ≤680px", "衝突多数でも一覧+一括適用で解決可"],
+    "success_feedback": "完了ダイアログ + 以降は自動同期",
+    "failure_feedback": "到達不能/認証失敗のエラー表示"
+  },
+  "endpoint_contracts": [
+    {"path": "/api/sync/link/preview", "method": "POST", "registered": false, "request_fields": {"remoteUrl": "string"}, "response_fields": {"local": "object", "remote": "object", "counts": "object", "conflicts": "{file:string}[]", "warnings": "string[]"}},
+    {"path": "/api/sync/link/apply", "method": "POST", "registered": false, "request_fields": {"remoteUrl": "string", "resolutions": "{file:string, action:'keep-both'|'local'|'remote'|'merge', mergedText?:string}[]"}, "response_fields": {"ok": "boolean", "pushed": "boolean", "summary": "object"}}
+  ],
+  "data_testids": ["sync-setup-wizard", "sync-setup-remote-url", "sync-setup-start", "link-conflict-dialog", "link-conflict-mode-perfile", "link-conflict-mode-all", "link-conflict-row", "link-conflict-switch", "link-conflict-apply-all", "link-conflict-confirm", "link-done-dialog", "link-done-summary"],
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/sync-setup.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/sync-setup.mock.spec.ts"
+  }
+}

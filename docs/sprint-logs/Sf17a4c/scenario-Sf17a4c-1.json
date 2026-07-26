@@ -1,0 +1,28 @@
+{
+  "story": "Sf17a4c-1",
+  "story_type": "api",
+  "user_role": "単一ユーザー。git を知らずに vault をリモートにリンクする",
+  "entry_point": "http://<server>/api/sync/link/* (実 system git + temp bare リモート)。内部モジュール packages/server/src/sync/link.ts",
+  "scenarios": [
+    {
+      "id": "scenario-1", "linked_ac": ["AC-Sf17a4c-1-1"],
+      "description": "非 git vault をリンク開始すると Loamium が git init し、既存データを1スナップショットに固める",
+      "preconditions": ["temp vault(非 git・ノート数本あり)"],
+      "steps": [
+        {"n": 1, "action": "link 開始(probe/apply)を呼ぶ", "expected": "vault が git 化され .gitignore に .loamium/・.gitattributes に text=auto eol=lf が入り、既存ノートが1コミットに入る(HEAD が存在)"},
+        {"n": 2, "action": "vault が別リポジトリの中(親が git)だった場合にリンクを試す", "expected": "拒否され親リポジトリを一切操作しない(ADR-0032 ガード)"}
+      ], "cleanup": []
+    },
+    {
+      "id": "scenario-2", "linked_ac": ["AC-Sf17a4c-1-2", "AC-Sf17a4c-1-3"],
+      "description": "リモート状態を3判別し、空/片側ケースを正しく分岐する",
+      "preconditions": ["temp vault", "空 bare / 非空 bare / 到達不能 URL を用意"],
+      "steps": [
+        {"n": 1, "action": "空 bare を probe", "expected": "empty と判別。[ローカル非空×空]で commit→push しリモートに種付け(bare tip にノートが入る)"},
+        {"n": 2, "action": "非空 bare を空ローカルへ probe→apply", "expected": "non-empty と判別。fetch→checkout でリモート内容を採用(vault にリモートのファイルが出現)"},
+        {"n": 3, "action": "到達不能 URL を probe", "expected": "unreachable と判別し『空』と誤認しない(明示エラー)"},
+        {"n": 4, "action": "マージを伴う apply の直前", "expected": "backup/pre-link-<時刻> ref が作成されている"}
+      ], "cleanup": []
+    }
+  ]
+}

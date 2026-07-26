@@ -1,0 +1,18 @@
+{
+  "story": "Sf17a4c-4",
+  "story_type": "cli",
+  "user_role": "エージェント/CLI 利用者。初回リンクをツール/CLI から実行したい",
+  "entry_point": "loamium CLI(packages/cli/bin/loamium.js)+ REST /api/sync/link/*",
+  "scenarios": [
+    {
+      "id": "scenario-1", "linked_ac": ["AC-Sf17a4c-4-1", "AC-Sf17a4c-4-2"],
+      "description": "CLI で初回リンクを実行でき、REST と 1:1、監査に残る",
+      "preconditions": ["実サーバ(LOAMIUM_URL)+ temp vault(非 git)+ bare リモート"],
+      "steps": [
+        {"n": 1, "action": "user runs `loamium sync link --remote file:///.../hub.git`(衝突既定 --on-conflict keep-both)", "expected": "exit 0。auto-init→probe→(衝突あれば指定解決)→push。stdout に件数サマリ。bare にローカル内容が反映"},
+        {"n": 2, "action": "REST GET/POST /api/sync/link/preview を直接叩く", "expected": "CLI と同一の probe/preview 結果(1:1)。req/res は shared zod で検証"},
+        {"n": 3, "action": ".loamium/audit.log を読む", "expected": "op が sync.link.* / sync.commit / sync.push 等で記録されている"}
+      ], "cleanup": []
+    }
+  ]
+}
