@@ -258,5 +258,14 @@ export async function installCatchAll(page: Page): Promise<string[]> {
       void route.fallback();
     }
   });
+  // GET /api/sync/link/status (Sf17a4c-5 SyncSetupWizard が開いたとき呼ぶ)。
+  // 既定は mid-merge なし (通常起動状態)。ウィザードテストは後から自前の route で上書きする。
+  await page.route('**/api/sync/link/status', (route) => {
+    if (route.request().method() === 'GET') {
+      void route.fulfill(json({ midMerge: { inProgress: false, kind: null } }));
+    } else {
+      void route.fallback();
+    }
+  });
   return unexpected;
 }

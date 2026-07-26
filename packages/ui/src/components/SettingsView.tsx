@@ -26,6 +26,7 @@ import { SmartFoldersPanel } from './SmartFoldersPanel.js';
 import { CommandsPanel } from './CommandsPanel.js';
 import { AgentJobsPanel } from './AgentJobsPanel.js';
 import { TaskVocabPanel } from './TaskVocabPanel.js';
+import { SyncSetupWizard } from './SyncSetupWizard.js';
 import type { SettingsGroup } from '../router.js';
 import type {
   AppSettings,
@@ -898,6 +899,7 @@ export function SettingsView({ mode, group, onSwitchGroup, onClose, onSaved }: S
   const [syncError, setSyncError] = useState<string | null>(null);
   const [syncTokenStatus, setSyncTokenStatus] = useState<SaveStatus>('idle');
   const [syncTokenError, setSyncTokenError] = useState<string | null>(null);
+  const [syncSetupOpen, setSyncSetupOpen] = useState(false);
 
   // ---- 初期ロード ----
   const generalLoadedRef = useRef(false);
@@ -1986,6 +1988,22 @@ export function SettingsView({ mode, group, onSwitchGroup, onClose, onSaved }: S
         >
           <div className="field-group">
             <h2>同期</h2>
+            {/* 初回リンク: セットアップウィザード (Sf17a4c-5) */}
+            <div className="settings-field">
+              <p className="hint">
+                Vault とリモートをまだリンクしていない場合は「同期をセットアップ」から始められます。
+                既にリンク済みの場合は以下の設定で調整できます。
+              </p>
+              <button
+                type="button"
+                className="btn btn-primary"
+                data-testid="sync-open-wizard"
+                disabled={readonly}
+                onClick={() => setSyncSetupOpen(true)}
+              >
+                同期をセットアップ
+              </button>
+            </div>
             {/* 同期を有効化 */}
             <div className="settings-field">
               <div className="toggle-row">
@@ -2142,6 +2160,11 @@ export function SettingsView({ mode, group, onSwitchGroup, onClose, onSaved }: S
         </section>
       </div>
       )} {/* end ternary isContentGroup */}
+
+      {/* 同期セットアップウィザード (Sf17a4c-5) */}
+      {syncSetupOpen && (
+        <SyncSetupWizard onClose={() => setSyncSetupOpen(false)} />
+      )}
     </div>
   );
 }

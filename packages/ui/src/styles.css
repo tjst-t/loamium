@@ -7251,3 +7251,290 @@ button.callout-title { cursor: pointer; }
     padding: 0 8px;
   }
 }
+
+/* ---- 同期セットアップウィザード + 初回リンク競合ダイアログ (Sf17a4c-5) ---- */
+
+/* オーバーレイ (モーダルの背景幕) */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(20, 20, 40, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+/* パネル共通 */
+.dialog-panel {
+  background: var(--bg-editor);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.28);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  width: 100%;
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+}
+
+.dialog-title {
+  font-size: 15.5px;
+  font-weight: 700;
+  margin: 0 0 6px;
+  color: var(--text);
+}
+
+.dialog-subtitle {
+  margin: 0 0 14px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* ---- セットアップウィザード ---- */
+.sync-setup-panel {
+  max-width: 520px;
+  padding: 22px 22px 0;
+}
+
+.sync-setup-url-input {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.sync-setup-error {
+  color: var(--danger);
+  font-size: 13px;
+  margin: 8px 0 0;
+}
+
+.sync-setup-warnings {
+  background: var(--warn-soft);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  margin: 10px 0 0;
+}
+
+.sync-setup-mid-merge-banner {
+  background: var(--accent-soft);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+/* ---- 完了ダイアログ ---- */
+.sync-setup-done-panel {
+  max-width: 420px;
+  padding: 22px 22px 0;
+}
+
+.sync-setup-done-summary {
+  margin: 16px 0 8px;
+}
+
+.done-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  padding: 6px 0;
+}
+
+.done-summary-icon {
+  font-size: 18px;
+  color: var(--accent);
+  width: 22px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* ---- 初回リンク競合ダイアログ ---- */
+.link-conflict-panel {
+  max-width: 680px;
+  padding: 22px 22px 0;
+}
+
+.link-conflict-mode-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 14px 0 12px;
+}
+
+.link-conflict-mode-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.link-conflict-radio-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  cursor: pointer;
+  min-height: 28px;
+}
+
+.link-conflict-all-switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  background: var(--bg-hover);
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+/* ファイル一覧 */
+.link-conflict-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0 14px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.link-conflict-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  background: var(--bg-sidebar);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.link-conflict-file-name {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 80px;
+}
+
+.link-conflict-merged-badge {
+  font-family: inherit;
+  font-size: 11.5px;
+  color: var(--ok);
+}
+
+.link-conflict-action-badge {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 4px 10px;
+  background: var(--bg-hover);
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+/* セグメント型スイッチ */
+.link-conflict-seg-toggle {
+  display: inline-flex;
+  background: var(--bg-hover);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+}
+
+.link-conflict-seg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-height: 44px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: background 0.1s, color 0.1s;
+  flex-shrink: 0;
+}
+
+.link-conflict-seg-btn:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.link-conflict-seg-btn.selected,
+.link-conflict-seg-btn[aria-pressed="true"] {
+  background: var(--bg-editor);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgba(20,20,35,0.10);
+}
+
+.link-conflict-seg-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* モバイル ≤680px */
+@media (max-width: 680px) {
+  .link-conflict-panel {
+    max-width: 100%;
+    padding: 16px 14px 0;
+  }
+
+  .link-conflict-mode-row {
+    gap: 10px;
+  }
+
+  .link-conflict-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .link-conflict-seg-toggle {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .link-conflict-seg-btn {
+    flex: 1 1 auto;
+    min-height: 44px;
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+
+  .sync-setup-panel,
+  .sync-setup-done-panel {
+    max-width: 100%;
+    padding: 14px 12px 0;
+  }
+
+  .dialog-footer {
+    flex-direction: column-reverse;
+    padding: 12px 14px;
+  }
+
+  .dialog-footer .btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+}

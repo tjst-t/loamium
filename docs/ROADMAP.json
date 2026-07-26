@@ -9581,7 +9581,7 @@
         },
         "Sf17a4c-4": {
           "title": "REST + CLI — link の probe/preview/apply エンドポイント + 監査",
-          "status": "in_progress",
+          "status": "done",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "エージェント/CLI 利用者として、初回リンクをツール/CLI からも実行したい。なぜなら、CLAUDE.md のエージェント操作ツール必須規約と REST 1:1 に沿うため。",
@@ -9603,7 +9603,7 @@
         },
         "Sf17a4c-5": {
           "title": "UI — 同期セットアップウィザード + 初回リンク競合ダイアログ + 完了ダイアログ",
-          "status": "planned",
+          "status": "in_progress",
           "user_review_required": false,
           "review_reason": null,
           "user_story": "ユーザーとして、GUI から迷わず同期をセットアップしたい。なぜなら、URL を入れるだけで、衝突があっても分かりやすく解決して同期を始めたいから。",

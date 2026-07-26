@@ -169,3 +169,67 @@ sync_status {}
 | `loamium sync config --auto on\|off` | 自動同期の有効/無効 |
 | `loamium sync pull` | リモートから pull |
 | `loamium sync push` | リモートへ push |
+| `loamium sync link --remote <url> --preview` | 初回リンクのプレビュー (dry-run、push しない) |
+| `loamium sync link --remote <url>` | 初回リンクを実行 (衝突は既定 keep-both) |
+| `loamium sync link --remote <url> --on-conflict <action>` | 衝突の既定操作を指定して適用 (keep-both\|local\|remote) |
+
+---
+
+## 初回リンク (既存 Vault と既存リモートの安全なリンク)
+
+既にローカル Vault にノートがあり、かつリモートリポジトリにもデータがある場合、素朴な `git pull` は
+「unrelated histories」エラーになります。Loamium の初回リンクはこの問題を安全に解決します。
+
+### auto-init
+
+同期セットアップ時に Vault が git 未初期化なら、Loamium が自動で `git init` を行います。
+既存ファイルは「link 前スナップショット」として 1 コミットにまとめます。Vault が
+別リポジトリ内にネストしている場合はリンクを拒否します (誤操作防止)。
+
+### GUI から始める
+
+**設定 → 同期 → 同期をセットアップ** をクリックするだけです。
+
+1. リモート URL を入力して「リンク開始」をクリック
+2. 衝突がなければ自動でマージ・push が完了し、**完了ダイアログ** に結果サマリが表示されます
+3. 衝突がある場合は **初回リンク競合ダイアログ** が表示されます
+
+### 初回リンク競合ダイアログ
+
+衝突ファイルごと、または全件まとめて解決方法を選べます。
+
+| 選択肢 | 動作 |
+| --- | --- |
+| 両方保持 (既定) | ローカルはそのまま、リモートを `<名前>.remote.<拡張子>` として保存 |
+| 3-way で統合 | ConflictResolverDialog で 2 つのバージョンを手動マージ |
+| ローカル採用 | ローカルのファイルを採用 (リモートは backup ref から復元可) |
+| リモート採用 | リモートのファイルを採用 (ローカルは backup ref から復元可) |
+
+> [!important] バックアップ ref
+> リンク前に必ず `backup/pre-link-<timestamp>` ref が作成されます。
+> どの選択肢を選んでも `git checkout backup/pre-link-<ts> -- <file>` で復元できます。
+
+### keep-both のファイル名規約
+
+`<名前>.remote.<拡張子>` が既存の場合は `<名前>.remote-2.<拡張子>` と連番が付きます。
+コピーも通常の追跡ファイルとして全端末に伝播します。不要になったら削除して再同期してください。
+
+### CLI から始める
+
+```bash
+# プレビュー (作業ツリーを変更しない dry-run)
+loamium sync link --remote https://github.com/you/vault.git --preview
+# → plan: merge, addedFromRemote: 5, addedFromLocal: 3, conflicts: 2
+
+# 衝突を keep-both (既定) で適用
+loamium sync link --remote https://github.com/you/vault.git
+
+# 衝突をリモート採用で適用
+loamium sync link --remote https://github.com/you/vault.git --on-conflict remote
+```
+
+### クラッシュ安全
+
+リンク処理中に Loamium がクラッシュ・強制終了した場合、次回起動時に
+「前回のリンク処理が途中です」バナーが **同期をセットアップ** ダイアログ内に表示されます。
+`git merge --abort` 相当の取り消しはコマンドラインで行えます。

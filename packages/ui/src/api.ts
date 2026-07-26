@@ -112,15 +112,27 @@ import {
   syncConflictsResponseSchema,
   syncConfigResponseSchema,
   syncConfigWriteRequestSchema,
+  syncLinkPreviewRequestSchema,
+  syncLinkPreviewResponseSchema,
+  syncLinkApplyRequestSchema,
+  syncLinkApplyResponseSchema,
+  syncLinkStatusResponseSchema,
   type SyncStatusResponse,
   type SyncConflictsResponse,
   type SyncResultResponse,
   type SyncConfigResponse,
   type SyncConfigWriteRequest,
+  type SyncLinkPreviewResponse,
+  type SyncLinkApplyResponse,
+  type SyncLinkStatusResponse,
+  type SyncLinkConflictResolution,
 } from '@loamium/shared';
 
 // ---- エージェントジョブ型を再エクスポート (S2fe109) ----
 export type { AgentJob, AgentJobState, AgentJobWithState, AgentJobListResponse, AgentJobRunResponse };
+
+// ---- sync link 型を再エクスポート (Sf17a4c-5) ----
+export type { SyncLinkPreviewResponse, SyncLinkApplyResponse, SyncLinkStatusResponse, SyncLinkConflictResolution };
 
 export class ApiError extends Error {
   readonly status: number;
@@ -846,5 +858,36 @@ export const api = {
       '/api/sync/credential',
       { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token }) },
     );
+  },
+
+  /** POST /api/sync/link/preview — 初回リンクの dry-run プレビュー (Sf17a4c-5)。作業ツリー変更なし。 */
+  syncLinkPreview(remoteUrl: string, branch?: string): Promise<SyncLinkPreviewResponse> {
+    return request(
+      syncLinkPreviewResponseSchema,
+      '/api/sync/link/preview',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(syncLinkPreviewRequestSchema.parse({ remoteUrl, branch })),
+      },
+    );
+  },
+
+  /** POST /api/sync/link/apply — 初回リンクを実行する。resolutions で衝突解決を指定 (Sf17a4c-5)。 */
+  syncLinkApply(remoteUrl: string, resolutions: SyncLinkConflictResolution[], branch?: string): Promise<SyncLinkApplyResponse> {
+    return request(
+      syncLinkApplyResponseSchema,
+      '/api/sync/link/apply',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(syncLinkApplyRequestSchema.parse({ remoteUrl, branch, resolutions })),
+      },
+    );
+  },
+
+  /** GET /api/sync/link/status — mid-merge 状態を確認する (クラッシュ安全再開用, Sf17a4c-5)。 */
+  syncLinkStatus(): Promise<SyncLinkStatusResponse> {
+    return request(syncLinkStatusResponseSchema, '/api/sync/link/status');
   },
 };
