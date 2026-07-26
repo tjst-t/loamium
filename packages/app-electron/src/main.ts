@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, nativeTheme, protocol, shell } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, nativeTheme, protocol, shell } from 'electron';
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, appendFileSync } from 'node:fs';
@@ -277,6 +277,101 @@ function setupMenu(): void {
   });
 }
 
+// ── image / editable context menu ──────────────────────────────────────────────
+// Electron はデフォルトで右クリックメニューを出さない。Web 版はブラウザ標準メニューに
+// 頼れるが、Electron では自前で用意する必要がある。画像の「コピー / リンクをコピー /
+// 保存」と、編集領域・選択テキスト・外部リンク向けの標準項目を提供する。
+// ツリー等の React 製メニュー (ContextMenu.tsx) は DOM 側で contextmenu を preventDefault
+// するため webContents の 'context-menu' は発火しない。加えて本ハンドラは画像/編集可能/
+// 選択/外部リンクのときだけ popup するので二重表示にはならない。
+
+const PAGE_ORIGIN = 'loamium://loamium/';
+
+/** 内部画像 (loamium://loamium/api/files/...) は Hono へ、外部 URL はそのまま fetch する。 */
+function toFetchUrl(srcURL: string): string {
+  return srcURL.startsWith(PAGE_ORIGIN)
+    ? `http://127.0.0.1:${PORT}/${srcURL.slice(PAGE_ORIGIN.length)}`
+    : srcURL;
+}
+
+/** 保存ダイアログの初期ファイル名を srcURL から導出する。 */
+function fileNameFromUrl(srcURL: string): string {
+  try {
+    const last = new URL(srcURL).pathname.split('/').filter(Boolean).pop();
+    const base = last ? decodeURIComponent(last) : '';
+    if (base.length > 0) return base;
+  } catch { /* fall through */ }
+  return 'image.png';
+}
+
+async function saveImageFromUrl(srcURL: string): Promise<void> {
+  const { canceled, filePath } = await dialog.showSaveDialog(mainWindow!, {
+    title: '画像を保存',
+    defaultPath: fileNameFromUrl(srcURL),
+  });
+  if (canceled || !filePath) return;
+  try {
+    const res = await fetch(toFetchUrl(srcURL));
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    writeFileSync(filePath, Buffer.from(await res.arrayBuffer()));
+    log(`[ctxmenu] saved image → ${filePath}`);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    log(`[ctxmenu] save image failed: ${msg}`);
+    void dialog.showMessageBox(mainWindow!, {
+      type: 'error',
+      title: '画像を保存できませんでした',
+      message: '画像を保存できませんでした',
+      detail: msg,
+    });
+  }
+}
+
+function setupContextMenu(win: BrowserWindow): void {
+  win.webContents.on('context-menu', (_event, params) => {
+    const template: Electron.MenuItemConstructorOptions[] = [];
+    const sep = (): void => {
+      if (template.length > 0) template.push({ type: 'separator' });
+    };
+
+    const isImage = params.mediaType === 'image' && params.srcURL.length > 0;
+    if (isImage) {
+      template.push(
+        { label: '画像をコピー', click: () => win.webContents.copyImageAt(params.x, params.y) },
+        { label: '画像リンクをコピー', click: () => clipboard.writeText(params.srcURL) },
+        { label: '画像を保存...', click: () => void saveImageFromUrl(params.srcURL) },
+      );
+    }
+
+    // 外部リンク (http/https) は「開く / アドレスをコピー」を出す。内部リンク (loamium://,
+    // wikilink) はアプリ側のナビゲーションに任せるため対象外。
+    if (/^https?:\/\//.test(params.linkURL)) {
+      sep();
+      template.push(
+        { label: 'リンクを開く', click: () => void shell.openExternal(params.linkURL) },
+        { label: 'リンクアドレスをコピー', click: () => clipboard.writeText(params.linkURL) },
+      );
+    }
+
+    if (params.isEditable) {
+      sep();
+      template.push(
+        { label: '切り取り', role: 'cut', enabled: params.editFlags.canCut },
+        { label: 'コピー', role: 'copy', enabled: params.editFlags.canCopy },
+        { label: '貼り付け', role: 'paste', enabled: params.editFlags.canPaste },
+        { type: 'separator' },
+        { label: 'すべて選択', role: 'selectAll' },
+      );
+    } else if (params.selectionText.length > 0) {
+      sep();
+      template.push({ label: 'コピー', role: 'copy' });
+    }
+
+    if (template.length === 0) return;
+    Menu.buildFromTemplate(template).popup({ window: win });
+  });
+}
+
 // ── loading screen (HTML entities = ASCII-only, no encoding issues) ────────────
 // を=&#12434; 起=&#36215; 動=&#21205; 中=&#20013;
 const LOADING_HTML =
@@ -320,6 +415,15 @@ app.whenReady().then(async () => {
       sandbox: true,
       preload: findPreloadPath(),
     },
+  });
+
+  setupContextMenu(mainWindow);
+
+  // 本文・callout 内リンクの window.open('_blank') / target=_blank を OS 既定ブラウザで
+  // 開く (新規 Electron ウィンドウを作らない)。内部 loamium:// ナビゲーションは deny のまま。
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^(https?|mailto):/i.test(url)) void shell.openExternal(url);
+    return { action: 'deny' };
   });
 
   // Keep overlay color in sync with OS dark/light mode

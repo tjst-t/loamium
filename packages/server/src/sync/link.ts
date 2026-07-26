@@ -84,14 +84,24 @@ export interface LinkResult {
   error?: string;
 }
 
+/**
+ * 衝突ファイル1件。`ours`/`theirs` は当該ファイルのローカル/リモート内容 (テキスト)。
+ * 3-way 統合 UI が両版を並べて表示・統合するのに使う。バイナリ・取得失敗時は省略する。
+ */
+export interface ConflictFile {
+  file: string;
+  ours?: string;
+  theirs?: string;
+}
+
 /** `previewMerge` が返すマージプレビュー情報 (Story 2)。 */
 export interface MergePreview {
   /** リモートにのみ存在するファイル数 (マージで自動取得)。 */
   addedFromRemote: number;
   /** ローカルにのみ存在するファイル数 (マージで自動保持)。 */
   addedFromLocal: number;
-  /** 同名・別内容で衝突するファイル一覧。 */
-  conflicts: Array<{ file: string }>;
+  /** 同名・別内容で衝突するファイル一覧 (各ファイルの ours/theirs 内容付き)。 */
+  conflicts: ConflictFile[];
   /** clean merge なら true (衝突ゼロ)。 */
   isClean: boolean;
   /**
@@ -191,8 +201,8 @@ export interface LinkPreview {
     addedFromLocal: number;
     conflicts: number;
   };
-  /** merge プランの衝突ファイル一覧。 */
-  conflicts?: Array<{ file: string }>;
+  /** merge プランの衝突ファイル一覧 (ours/theirs 内容付き)。 */
+  conflicts?: ConflictFile[];
   /** 100MB 超ファイルの警告。 */
   warnings: LargeFileWarning[];
   /** 大文字小文字・NFC/NFD 衝突グループ。 */
@@ -885,8 +895,19 @@ export class InitialLinker {
     }
 
     // 衝突: merge-tree が報告した衝突パス (同名・別内容)
-    // merge-tree --name-only は衝突ファイルを列挙する
-    const conflicts = Array.from(conflictPaths).map((file) => ({ file }));
+    // merge-tree --name-only は衝突ファイルを列挙する。
+    // 各ファイルの ours(localRef)/theirs(remoteRef) 内容も取得し、3-way 統合 UI が
+    // 両版を並べて統合できるようにする (バイナリ・取得失敗時は内容を省略 = keep-both のみ)。
+    const conflicts: ConflictFile[] = [];
+    for (const file of conflictPaths) {
+      const ours = await this.#showBlob(localRef, file);
+      const theirs = await this.#showBlob(remoteRef, file);
+      conflicts.push({
+        file,
+        ...(ours !== null ? { ours } : {}),
+        ...(theirs !== null ? { theirs } : {}),
+      });
+    }
 
     // ── Story 3: エッジガード情報を付加 ──
     // 100MB 超ファイルを警告として付加 (Story 4/5 が UI に提示する)
@@ -911,6 +932,22 @@ export class InitialLinker {
       ...(warnings.length > 0 ? { warnings } : {}),
       ...(nameCollisions.length > 0 ? { nameCollisions } : {}),
     };
+  }
+
+  /**
+   * `git show <ref>:<file>` でブロブ内容をテキストとして返す (3-way 統合 UI 用)。
+   * - 取得失敗 (存在しない / code≠0) は null。
+   * - NUL バイトを含む (= バイナリ) は null。テキスト統合の対象外。
+   * - 512KB 超は UI 統合に適さないため null。
+   * null の場合、UI はその衝突を keep-both/local/remote のみで扱う。
+   */
+  async #showBlob(ref: string, filePath: string): Promise<string | null> {
+    const res = await this.#run(['show', `${ref}:${filePath}`]);
+    if (res.code !== 0) return null;
+    const content = res.stdout;
+    if (content.includes(' ')) return null; // バイナリ
+    if (content.length > 512 * 1024) return null; // 過大
+    return content;
   }
 
   /**

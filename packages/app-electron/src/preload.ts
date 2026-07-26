@@ -28,6 +28,21 @@ window.addEventListener('DOMContentLoaded', () => {
     .panel.collapsed .panel-header {
       padding-top: calc(env(titlebar-area-height, 46px) + 6px);
     }
+
+    /* 右パネルが折りたたみ (.panel.collapsed=40px) / 非表示 (≤960px で display:none) に
+       なると、右パネルが担っていた「window controls を避ける余白」が消え、editor-header
+       の右端がネイティブの最小化/最大化/閉じるボタンの真下に入り込む。最右の子である
+       同期ボタン (SyncStatusIndicator) がその下に隠れて押せなくなるため、controls 幅ぶんの
+       右余白を editor-header 側で確保する。controls 幅 = 100vw - env(titlebar-area-width)
+       (WCO 未使用時は env=100vw にフォールバックし余白 0 = 無影響)。 */
+    .app:has(.panel.collapsed) .editor-header {
+      padding-right: max(20px, calc(100vw - env(titlebar-area-width, 100vw) + 8px));
+    }
+    @media (max-width: 960px) {
+      .editor-header {
+        padding-right: max(20px, calc(100vw - env(titlebar-area-width, 100vw) + 8px));
+      }
+    }
   `;
   document.head.appendChild(style);
 

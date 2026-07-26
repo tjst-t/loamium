@@ -19,6 +19,7 @@
 import { useState, useEffect, useCallback, type JSX } from 'react';
 import { api, type SyncLinkPreviewResponse, type SyncLinkConflictResolution } from '../api.js';
 import { LinkConflictDialog } from './LinkConflictDialog.js';
+import { SYNC_CONFIG_CHANGED_EVENT } from './SyncStatusIndicator.js';
 
 type WizardStep = 'idle' | 'probing' | 'conflict' | 'applying' | 'done' | 'error';
 
@@ -31,9 +32,11 @@ interface DoneSummary {
 export interface SyncSetupWizardProps {
   /** ウィザードを閉じるコールバック */
   onClose: () => void;
+  /** リンク適用が成功した直後に呼ばれる (設定画面が設定を再読込 / gating を更新する) */
+  onApplied?: () => void;
 }
 
-export function SyncSetupWizard({ onClose }: SyncSetupWizardProps): JSX.Element {
+export function SyncSetupWizard({ onClose, onApplied }: SyncSetupWizardProps): JSX.Element {
   const [remoteUrl, setRemoteUrl] = useState('');
   const [branch, setBranch] = useState('main');
   const [step, setStep] = useState<WizardStep>('idle');
@@ -79,6 +82,9 @@ export function SyncSetupWizard({ onClose }: SyncSetupWizardProps): JSX.Element 
         conflictsResolved: result.summary.conflictsResolved,
       });
       setStep('done');
+      // サイドバー同期インジケータを即時再取得させ (リロード不要)、設定画面へ反映を促す。
+      window.dispatchEvent(new Event(SYNC_CONFIG_CHANGED_EVENT));
+      onApplied?.();
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : String(err));
       setStep('error');
@@ -171,12 +177,11 @@ export function SyncSetupWizard({ onClose }: SyncSetupWizardProps): JSX.Element 
     );
   }
 
-  // 衝突ダイアログを表示
+  // 衝突ダイアログを表示 (各ファイルの ours/theirs 内容も渡す → 3-way 統合が機能する)
   if (step === 'conflict' && preview !== null) {
-    const conflictFiles = (preview.conflicts ?? []).map((c) => c.file);
     return (
       <LinkConflictDialog
-        conflicts={conflictFiles}
+        conflicts={preview.conflicts ?? []}
         onConfirm={(resolutions) => void handleConflictConfirm(resolutions)}
         onCancel={handleConflictCancel}
       />

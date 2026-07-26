@@ -17,13 +17,29 @@
  * モバイル: @media (max-width: 680px) で縦積み。タップターゲット ≥44px。
  */
 
-import { useState, useCallback, type JSX } from 'react';
+import { useState, useCallback, useMemo, type JSX } from 'react';
 import type { SyncLinkConflictResolution } from '../api.js';
 import { ConflictResolverDialog } from './ConflictResolverDialog.js';
-import type { ConflictHunk } from '@loamium/shared';
+import { diff3Merge, type ConflictHunk } from '@loamium/shared';
 
 /** 操作アクション (REST 境界と一致) */
 type LinkAction = 'keep-both' | 'merge' | 'local' | 'remote';
+
+/** 衝突ファイル1件 (サーバ preview が返す ours/theirs 内容付き)。 */
+export interface ConflictFileInfo {
+  file: string;
+  /** ローカル内容 (テキスト)。バイナリ・取得失敗時は undefined。 */
+  ours?: string | undefined;
+  /** リモート内容 (テキスト)。バイナリ・取得失敗時は undefined。 */
+  theirs?: string | undefined;
+}
+
+/** ours/theirs を1ファイルに結合する (両方保持: ローカル → リモート)。 */
+function combineBoth(ours: string, theirs: string): string {
+  const parts = [ours, theirs].map((s) => s.trim()).filter((s) => s.length > 0);
+  const joined = parts.join('\n\n');
+  return joined.length > 0 && !joined.endsWith('\n') ? joined + '\n' : joined;
+}
 
 const ACTIONS: { key: LinkAction; label: string }[] = [
   { key: 'keep-both', label: '両方保持' },
@@ -38,6 +54,8 @@ type FileActions = Record<string, LinkAction>;
 interface ThreeWayState {
   file: string;
   conflicts: ConflictHunk[];
+  /** diff3Merge が返したプレースホルダ入り merged テキスト。 */
+  merged: string;
 }
 
 /** セグメント型スイッチ (4ボタン排他選択) */
@@ -45,11 +63,14 @@ function SegmentedSwitch({
   value,
   onChange,
   disabled,
+  mergeAvailable = true,
   label,
 }: {
   value: LinkAction;
   onChange: (a: LinkAction) => void;
   disabled?: boolean;
+  /** false のとき「3-way統合」ボタンを無効化する (内容が取れないバイナリ等)。 */
+  mergeAvailable?: boolean;
   label?: string;
 }): JSX.Element {
   return (
@@ -66,7 +87,8 @@ function SegmentedSwitch({
           data-testid="link-conflict-switch"
           data-action={a.key}
           aria-pressed={value === a.key}
-          disabled={disabled}
+          disabled={disabled || (a.key === 'merge' && !mergeAvailable)}
+          title={a.key === 'merge' && !mergeAvailable ? 'このファイルはテキストとして統合できません' : undefined}
           onClick={() => onChange(a.key)}
         >
           {a.label}
@@ -77,8 +99,8 @@ function SegmentedSwitch({
 }
 
 export interface LinkConflictDialogProps {
-  /** 衝突ファイルパス一覧 */
-  conflicts: string[];
+  /** 衝突ファイル一覧 (ours/theirs 内容付き) */
+  conflicts: ConflictFileInfo[];
   /** 確定: resolutions を返してウィザードに渡す */
   onConfirm: (resolutions: SyncLinkConflictResolution[]) => void;
   /** キャンセル */
@@ -90,6 +112,19 @@ export function LinkConflictDialog({
   onConfirm,
   onCancel,
 }: LinkConflictDialogProps): JSX.Element {
+  const conflictByFile = useMemo(() => {
+    const m = new Map<string, ConflictFileInfo>();
+    for (const c of conflicts) m.set(c.file, c);
+    return m;
+  }, [conflicts]);
+  /** ファイルの ours/theirs いずれかがテキストとして取得できれば統合可能。 */
+  const mergeAvailableFor = useCallback(
+    (file: string): boolean => {
+      const c = conflictByFile.get(file);
+      return c !== undefined && (c.ours !== undefined || c.theirs !== undefined);
+    },
+    [conflictByFile],
+  );
   // 決め方: per-file or all
   const [mode, setMode] = useState<'perfile' | 'all'>('perfile');
   // 全部まとめて決める用のアクション
@@ -97,7 +132,7 @@ export function LinkConflictDialog({
   // ファイルごとのアクション (初期値: 全て keep-both)
   const [fileActions, setFileActions] = useState<FileActions>(() => {
     const init: FileActions = {};
-    for (const f of conflicts) init[f] = 'keep-both';
+    for (const c of conflicts) init[c.file] = 'keep-both';
     return init;
   });
   // 3-way 統合で生成した mergedText (ファイルパス→テキスト)
@@ -107,23 +142,44 @@ export function LinkConflictDialog({
 
   const setFileAction = useCallback((file: string, action: LinkAction): void => {
     if (action === 'merge') {
-      // 3-way: ConflictResolverDialog を開く (初回リンクなので base=空, 衝突はプレースホルダ)
-      setThreeWayState({ file, conflicts: [] });
+      // 実内容から 3-way を構築する。初回リンクは共通祖先が無いため base='' で
+      // diff3Merge を呼ぶと「ファイル全体が1件の競合ハンク (ours/theirs)」になる。
+      const c = conflictByFile.get(file);
+      const ours = c?.ours ?? '';
+      const theirs = c?.theirs ?? '';
+      const result = diff3Merge('', ours, theirs);
+      if (result.conflicts.length === 0) {
+        // 正規化で一致 → そのまま統合済みとして採用 (ダイアログは出さない)
+        setFileActions((prev) => ({ ...prev, [file]: 'merge' }));
+        setMergedTexts((prev) => ({ ...prev, [file]: result.merged }));
+      } else {
+        setThreeWayState({ file, conflicts: result.conflicts, merged: result.merged });
+      }
     } else {
       setFileActions((prev) => ({ ...prev, [file]: action }));
     }
-  }, []);
+  }, [conflictByFile]);
 
   const handleAllAction = useCallback((action: LinkAction): void => {
     if (action === 'merge') {
-      // 全件一括 3-way は実用性が低いためスキップ (ファイルごとモードで個別指定を促す)
+      // 全件一括 3-way: 各ファイルを「両方保持 (1ファイルに結合)」で自動統合する
+      // (データ喪失ゼロ)。内容が取れないファイルは mergedText 無し → サーバが keep-both。
+      const texts: Record<string, string> = {};
+      for (const c of conflicts) {
+        if (c.ours !== undefined || c.theirs !== undefined) {
+          texts[c.file] = combineBoth(c.ours ?? '', c.theirs ?? '');
+        }
+      }
+      setMergedTexts(texts);
+      setAllAction('merge');
       return;
     }
     setAllAction(action);
-  }, []);
+  }, [conflicts]);
 
   const handleConfirm = useCallback((): void => {
-    const resolutions: SyncLinkConflictResolution[] = conflicts.map((file) => {
+    const resolutions: SyncLinkConflictResolution[] = conflicts.map((c) => {
+      const file = c.file;
       const action = mode === 'all' ? allAction : (fileActions[file] ?? 'keep-both');
       if (action === 'merge') {
         return { file, action: 'merge', mergedText: mergedTexts[file] };
@@ -153,7 +209,7 @@ export function LinkConflictDialog({
       <ConflictResolverDialog
         path={threeWayState.file}
         conflicts={threeWayState.conflicts}
-        merged=""
+        merged={threeWayState.merged}
         onSave={handleThreeWaySave}
         onCancel={handleThreeWayCancel}
       />
@@ -213,7 +269,8 @@ export function LinkConflictDialog({
 
         {/* ファイル一覧 */}
         <div className="link-conflict-file-list">
-          {conflicts.map((file) => {
+          {conflicts.map((c) => {
+            const file = c.file;
             const action = fileActions[file] ?? 'keep-both';
             const isMerged = action === 'merge' && mergedTexts[file] !== undefined;
             return (
@@ -231,6 +288,7 @@ export function LinkConflictDialog({
                   <SegmentedSwitch
                     value={action}
                     onChange={(a) => setFileAction(file, a)}
+                    mergeAvailable={mergeAvailableFor(file)}
                     label={`${file} の解決方法`}
                   />
                 ) : (

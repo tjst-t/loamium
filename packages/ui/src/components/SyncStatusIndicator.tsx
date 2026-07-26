@@ -28,6 +28,13 @@ import { api } from '../api.js';
 // ポーリング間隔 (ms)
 const POLL_INTERVAL_MS = 30_000;
 
+/**
+ * リモート同期設定が変わったことを知らせる window イベント名。
+ * 設定画面の保存 / セットアップウィザード完了時に発火し、サイドバーの本インジケータが
+ * 30 秒ポーリングを待たず即座に再取得する (リロード不要でサイドバーへ反映)。
+ */
+export const SYNC_CONFIG_CHANGED_EVENT = 'loamium:sync-config-changed';
+
 /** 最終同期時刻を「N 分前」などの相対表示に変換する。 */
 function formatRelativeTime(isoStr: string): string {
   try {
@@ -78,6 +85,13 @@ export function SyncStatusIndicator({ className }: SyncStatusIndicatorProps): JS
         pollTimerRef.current = null;
       }
     };
+  }, [fetchStatus]);
+
+  // 設定画面の保存 / ウィザード完了 → 即時再取得 (リロード不要でサイドバーへ反映)
+  useEffect(() => {
+    const onConfigChanged = (): void => { void fetchStatus(); };
+    window.addEventListener(SYNC_CONFIG_CHANGED_EVENT, onConfigChanged);
+    return () => { window.removeEventListener(SYNC_CONFIG_CHANGED_EVENT, onConfigChanged); };
   }, [fetchStatus]);
 
   // ウィンドウフォーカス → pull (AC-Se29635-3-2 UI トリガー)

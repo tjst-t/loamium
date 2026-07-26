@@ -67,7 +67,7 @@ export function registerCalloutRenderer(): void {
     match: (line) => CALLOUT_OPEN_RE.test(line),
     // 連続する > 行が本文。次の > [!type] 行は新しい callout の開始
     matchWhile: (line) => QUOTE_LINE_RE.test(line) && !CALLOUT_OPEN_RE.test(line),
-    render(lines) {
+    render(lines, ctx) {
       const m = CALLOUT_OPEN_RE.exec(lines[0] ?? '');
       const type = normalizeCalloutType(m?.[1] ?? 'note');
       const foldable = (m?.[2] ?? '') !== '';
@@ -82,7 +82,9 @@ export function registerCalloutRenderer(): void {
 
       const body = document.createElement('div');
       body.className = 'callout-body';
-      renderMarkdownInto(body, calloutBodyOf(lines), {});
+      // env を渡すと callout 内の内部リンク [表示名](note.md) も openNote で遷移できる
+      // (外部 http リンク・裸 URL は env 無しでも window.open で開く)。
+      renderMarkdownInto(body, calloutBodyOf(lines), { env: ctx.env });
 
       if (foldable) {
         box.setAttribute('data-folded', String(startFolded));

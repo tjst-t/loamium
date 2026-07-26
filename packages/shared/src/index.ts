@@ -101,7 +101,14 @@ export {
   todayJournalDate,
   JournalDateError,
 } from './journal.js';
-export { toLf, appendText, countOccurrences } from './text.js';
+export {
+  toLf,
+  appendText,
+  countOccurrences,
+  BARE_URL_PATTERN,
+  trimUrlTail,
+  isExternalHref,
+} from './text.js';
 export {
   renumberLines,
   renumberOrderedLists,

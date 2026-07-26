@@ -1737,7 +1737,16 @@ export const syncLinkPreviewResponseSchema = z.object({
     addedFromLocal: z.number().int().nonnegative(),
     conflicts: z.number().int().nonnegative(),
   }).optional(),
-  conflicts: z.array(z.object({ file: z.string() })).optional(),
+  conflicts: z
+    .array(
+      z.object({
+        file: z.string(),
+        // 3-way 統合 UI 用の両版テキスト (バイナリ・取得失敗時は省略)。
+        ours: z.string().optional(),
+        theirs: z.string().optional(),
+      }),
+    )
+    .optional(),
   warnings: z.array(syncLinkLargeFileWarningSchema),
   nameCollisions: z.array(syncLinkNameCollisionGroupSchema),
 });

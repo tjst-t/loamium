@@ -27,6 +27,7 @@ import { CommandsPanel } from './CommandsPanel.js';
 import { AgentJobsPanel } from './AgentJobsPanel.js';
 import { TaskVocabPanel } from './TaskVocabPanel.js';
 import { SyncSetupWizard } from './SyncSetupWizard.js';
+import { SYNC_CONFIG_CHANGED_EVENT } from './SyncStatusIndicator.js';
 import type { SettingsGroup } from '../router.js';
 import type {
   AppSettings,
@@ -1322,6 +1323,8 @@ export function SettingsView({ mode, group, onSwitchGroup, onClose, onSaved }: S
       setSyncAuto(res.autoSync);
       setSyncDevice(res.deviceName);
       setSyncStatus('saved');
+      // サイドバー同期インジケータを即時再取得 (リロード不要でリモート設定を反映)
+      window.dispatchEvent(new Event(SYNC_CONFIG_CHANGED_EVENT));
       setTimeout(() => setSyncStatus('idle'), 2000);
     } catch (err) {
       setSyncStatus('error');
@@ -2004,6 +2007,10 @@ export function SettingsView({ mode, group, onSwitchGroup, onClose, onSaved }: S
                 同期をセットアップ
               </button>
             </div>
+            {/* リンク済みのときだけ詳細フォームを表示 (#3-4 gating)。未リンク時は
+                ウィザード導線のみに絞り、設定の二重入力を避ける。 */}
+            {syncCfg !== null && syncCfg.remoteUrl !== null && syncCfg.remoteUrl !== '' ? (
+            <>
             {/* 同期を有効化 */}
             <div className="settings-field">
               <div className="toggle-row">
@@ -2104,6 +2111,16 @@ export function SettingsView({ mode, group, onSwitchGroup, onClose, onSaved }: S
                 </span>
               )}
             </div>
+            </>
+            ) : (
+              <div className="settings-field" data-testid="sync-not-linked-hint">
+                <p className="hint">
+                  まだリモートとリンクしていません。上の「同期をセットアップ」から
+                  リンクすると、ここに詳細設定 (ブランチ・自動同期・デバイス名など) が
+                  表示されます。
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="field-group">
@@ -2163,7 +2180,14 @@ export function SettingsView({ mode, group, onSwitchGroup, onClose, onSaved }: S
 
       {/* 同期セットアップウィザード (Sf17a4c-5) */}
       {syncSetupOpen && (
-        <SyncSetupWizard onClose={() => setSyncSetupOpen(false)} />
+        <SyncSetupWizard
+          onClose={() => setSyncSetupOpen(false)}
+          onApplied={() => {
+            // リンク成功 → 設定を再読込して詳細フォームを出す (#3-4) / フォーム値を更新
+            syncLoadedRef.current = false;
+            void loadSync();
+          }}
+        />
       )}
     </div>
   );

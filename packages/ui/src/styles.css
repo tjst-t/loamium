@@ -426,6 +426,11 @@ a { color: var(--link); text-decoration: none; }
   display: flex;
   align-items: center;
   gap: 10px;
+  /* 折り返し許可: 極端に狭い幅で固定幅クラスタ (ナビ + 同期ボタン等) が溢れても
+     .workspace{overflow:hidden} でクリップされず 2 行目に回り、同期ボタンが必ず到達
+     可能になる。1 行に収まる通常幅では折り返さないため既存レイアウトは不変。 */
+  flex-wrap: wrap;
+  row-gap: 6px;
   padding: 10px 20px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-editor);
@@ -1415,6 +1420,16 @@ code {
   cursor: pointer;
 }
 .wikilink:hover { text-decoration: underline; background: var(--accent-soft); }
+
+/* Markdown リンク [表示名](url) / 裸 URL の自動リンク (mini-md / live-preview 共有)。
+   callout・引用・埋め込みカード・テーブル・検索プレビュー・本文いずれでもクリック可能。 */
+.md-link {
+  color: var(--link);
+  cursor: pointer;
+  text-decoration: none;
+  border-radius: 3px;
+}
+.md-link:hover { text-decoration: underline; }
 
 .fence-widget {
   margin: 6px 0;

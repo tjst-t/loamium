@@ -32,9 +32,11 @@ function journalResponse(): Record<string, unknown> {
   };
 }
 
+// リンク済み (remoteUrl あり) を既定にする。詳細フォームはリンク後のみ表示されるため
+// (未リンク時はウィザード導線のみ)、フォーム操作を検証するテストはリンク済み状態を使う。
 const BASE_SYNC_CONFIG = {
   enabled: false,
-  remoteUrl: null,
+  remoteUrl: 'https://github.com/example/vault.git',
   branch: 'main',
   remoteName: 'origin',
   autoSync: false,
@@ -181,6 +183,33 @@ test('[AC-Se29635-6-1] 同期セクションの enabled/autoSync トグルが PU
 });
 
 // ============================================================
+// [Sf17a4c 修正] 未リンク時は詳細フォームを出さずウィザード導線のみ (#3-4 gating)
+// ============================================================
+
+test('[Sf17a4c] 未リンク (remoteUrl なし) では詳細設定フォームを出さずウィザード導線のみ表示する', async ({ page }) => {
+  await boot(page);
+
+  // 未リンク config (remoteUrl: null) をモック
+  await page.route('**/api/sync/config', (route) => {
+    if (route.request().method() === 'GET') {
+      void route.fulfill(json({ ...BASE_SYNC_CONFIG, remoteUrl: null }));
+    } else {
+      void route.fallback();
+    }
+  });
+
+  await openSyncSettings(page);
+
+  // ウィザード導線と「未リンク」ヒントは見える
+  await expect(page.getByTestId('sync-open-wizard')).toBeVisible();
+  await expect(page.getByTestId('sync-not-linked-hint')).toBeVisible();
+
+  // 詳細フォーム (リモート URL 入力・保存ボタン) は出ない
+  await expect(page.getByTestId('settings-sync-remote-url')).toHaveCount(0);
+  await expect(page.getByTestId('settings-sync-save')).toHaveCount(0);
+});
+
+// ============================================================
 // [AC-Se29635-6-2] PAT — 書き込み専用・生トークン非表示
 // ============================================================
 
@@ -257,6 +286,15 @@ test('[AC-Se29635-6-3] モバイル(375px)でも同期セクションが表示�
   await page.setViewportSize({ width: 375, height: 800 });
 
   await boot(page);
+
+  // 詳細フォームはリンク済みのときだけ表示される → リンク済み config をモックする
+  await page.route('**/api/sync/config', (route) => {
+    if (route.request().method() === 'GET') {
+      void route.fulfill(json(BASE_SYNC_CONFIG));
+    } else {
+      void route.fallback();
+    }
+  });
 
   // モバイルでは設定ナビへのリンクは /settings/sync を直接開く
   await page.goto(`${readHarnessState().uiUrl}/settings/sync`);

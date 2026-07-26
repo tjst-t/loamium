@@ -44,6 +44,20 @@ export const SHIKI_LANGS = [
   'md',
 ];
 
+/**
+ * ハイライトできないときの退避表示: 生のコードを `<pre><code>` で描画する。
+ * innerHTML は使わず textContent で組む (vault の内容をスクリプト実行させない)。
+ */
+function renderPlainCode(el: HTMLElement, source: string): void {
+  el.replaceChildren();
+  el.classList.add('code-block');
+  const pre = document.createElement('pre');
+  const codeEl = document.createElement('code');
+  codeEl.textContent = source;
+  pre.append(codeEl);
+  el.append(pre);
+}
+
 export function registerShikiRenderer(): void {
   registerFenceRenderer({
     lang: SHIKI_LANGS,
@@ -51,13 +65,24 @@ export function registerShikiRenderer(): void {
     mode: 'replace',
     info: 'shiki: github-light',
     async render(code, el, ctx) {
-      const { codeToHtml } = await import('shiki');
-      const html = await codeToHtml(code.replace(/\n$/, ''), {
-        lang: ctx.lang ?? 'text',
-        theme: 'github-light',
-      });
-      el.innerHTML = html;
-      el.classList.add('code-block');
+      const source = code.replace(/\n$/, '');
+      try {
+        // shiki 本体・言語文法はいずれも dynamic import。github-light テーマで整形する。
+        const { codeToHtml } = await import('shiki');
+        const html = await codeToHtml(source, {
+          lang: ctx.lang ?? 'text',
+          theme: 'github-light',
+        });
+        // 成功時のみ差し替える (途中失敗で壊れた表示を残さない)。
+        el.innerHTML = html;
+        el.classList.add('code-block');
+      } catch (err) {
+        // ハイライト読み込み失敗 (言語文法 shellscript-*.js 等の dynamic import 失敗 —
+        // dev サーバーの stale chunk / オフライン等) でも、コード内容は必ず表示する。
+        // シンタックスハイライトは装飾に過ぎないため、エラーカードにはせず生コードへ退避する。
+        console.warn('[loamium] shiki ハイライト失敗 → 生コード表示に退避:', err);
+        renderPlainCode(el, source);
+      }
     },
   });
 }

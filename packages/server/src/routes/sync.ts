@@ -231,6 +231,17 @@ export function syncRoutes(config: ServerConfig, service: SyncService): Hono<App
 
     try {
       const result = await linker.linkApply(remoteUrl, resolutions, branch ?? 'main');
+      // [Sf17a4c 修正] リンク成功時は sync.json にも反映する。従来 Wizard 経路 (link) は
+      // git remote だけを設定し sync.json を更新しなかったため、設定画面・サイドバーが読む
+      // ソース (remoteUrl) が空のままで「未設定」表示になり、あらためて設定画面での入力が
+      // 必要だった。設定画面 (PUT /config) と同じ sync.json に収束させる。
+      if (result.ok) {
+        await store
+          .save({ remoteUrl, branch: branch ?? 'main', enabled: true })
+          .catch((err: unknown) => {
+            console.error('[loamium/sync] link.apply persist config failed:', String(err));
+          });
+      }
       const response = {
         ok: result.ok,
         pushed: result.pushed,

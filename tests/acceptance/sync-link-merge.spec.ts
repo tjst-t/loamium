@@ -152,6 +152,11 @@ describe('[AC-Sf17a4c-2-1] previewMerge: 作業ツリーを触らずマージ件
     const conflictFiles = preview.conflicts.map((c) => c.file);
     expect(conflictFiles).toContain('メモ/買い物.md');
 
+    // 3-way 統合 UI 用に ours(local)/theirs(remote) のテキスト内容が付く
+    const shopping = preview.conflicts.find((c) => c.file === 'メモ/買い物.md');
+    expect(shopping?.ours).toContain('卵'); // ローカル内容
+    expect(shopping?.theirs).toContain('パン'); // リモート内容
+
     // isClean は false (衝突があるから)
     expect(preview.isClean).toBe(false);
   });

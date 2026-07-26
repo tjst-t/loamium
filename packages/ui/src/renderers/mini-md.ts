@@ -11,10 +11,12 @@
  * - コードフェンス → pre > code
  * - 引用 (>)
  * - 段落 / 空行
- * - インライン: `code` / **bold** / ==highlight== / [[wikilink]] / ![](画像)
+ * - インライン: `code` / **bold** / ==highlight== / [[wikilink]] / ![](画像) /
+ *   [表示名](url) (Markdown リンク) / 裸 URL の自動リンク
  * - embed 行 (![[...]]) は onEmbedLine コールバックに委譲 (embed レンダラーが
  *   再帰カードを供給する。未指定ならソース文字列のまま)
  */
+import { isExternalHref, trimUrlTail } from '@loamium/shared';
 import type { RenderEnv } from '../registries.js';
 
 export interface MiniMdOptions {
@@ -33,9 +35,53 @@ const ORDERED_RE = /^\s*\d+[.)]\s+(.*)$/;
 const FENCE_RE = /^\s{0,3}(```|~~~)/;
 const QUOTE_RE = /^>\s?(.*)$/;
 
-/** インライン記法のスキャン順 (先勝ち)。 */
+/**
+ * インライン記法のスキャン順 (先勝ち)。
+ * 6 = Markdown リンク [表示名](url)。画像 ![..](..) と衝突しないよう直前 `!` を否定。
+ * 7 = 裸 URL (http/https)。末尾の句読点は {@link trimUrlTail} で後処理する。
+ */
 const INLINE_RE =
-  /(`[^`\n]+`)|(\*\*[^*\n]+\*\*)|(==[^\s=](?:[^=\n]|=(?!=))*==)|(\[\[[^[\]\n|]+(?:\|[^[\]\n]+)?\]\])|(!\[[^\]\n]*\]\([^()\s\n]+\))/g;
+  /(`[^`\n]+`)|(\*\*[^*\n]+\*\*)|(==[^\s=](?:[^=\n]|=(?!=))*==)|(\[\[[^[\]\n|]+(?:\|[^[\]\n]+)?\]\])|(!\[[^\]\n]*\]\([^()\s\n]+\))|((?<!!)\[[^\]\n]+\]\([^()\s\n]+\))|(https?:\/\/[^\s<>]+)/g;
+
+/**
+ * クリック可能なリンクアンカーを parent に追加する。
+ * - 外部 (http/https/mailto): 本物の <a href target=_blank>。Electron の右クリック
+ *   「リンクを開く」も real href から効く。
+ * - 内部 (相対パス等): env.openNote へ委譲 (href には任意スキームを入れない = 安全)。
+ * 遷移は mousedown で行い click 伝播を止める: callout 等の BlockRuleWidget ラッパは
+ * click でカーソル移動 → ソース表示に戻すため、そのままだとリンクが機能しない。
+ */
+function appendLink(parent: HTMLElement, href: string, label: string, opts: MiniMdOptions): void {
+  const a = document.createElement('a');
+  a.className = 'md-link';
+  a.textContent = label;
+  const external = isExternalHref(href);
+  if (external) {
+    a.href = href;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.title = href;
+  } else {
+    a.classList.add('internal');
+    a.setAttribute('role', 'link');
+  }
+  a.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (external) {
+      window.open(href, '_blank', 'noopener,noreferrer');
+    } else {
+      opts.env?.openNote(href);
+    }
+  });
+  // BlockRuleWidget ラッパの click(→カーソル移動) を止める。
+  a.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  parent.append(a);
+}
 
 /** インライン記法を解釈して parent に追加する。 */
 export function appendInlineMarkdown(parent: HTMLElement, text: string, opts: MiniMdOptions): void {
@@ -79,6 +125,19 @@ export function appendInlineMarkdown(parent: HTMLElement, text: string, opts: Mi
       } else {
         parent.append(token);
       }
+    } else if (m[6] !== undefined) {
+      // [表示名](url) — Markdown リンク
+      const lm = /^\[([^\]\n]+)\]\(([^()\s\n]+)\)$/.exec(token);
+      if (lm !== null) {
+        appendLink(parent, lm[2] ?? '', lm[1] ?? '', opts);
+      } else {
+        parent.append(token);
+      }
+    } else if (m[7] !== undefined) {
+      // 裸 URL の自動リンク。末尾の句読点は URL 外としてテキストに戻す。
+      const url = trimUrlTail(token);
+      appendLink(parent, url, url, opts);
+      if (url.length < token.length) parent.append(token.slice(url.length));
     } else {
       parent.append(token);
     }

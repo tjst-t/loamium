@@ -27,6 +27,9 @@ import {
   matchInlineTags,
   parsePropertiesModel,
   resolveLinkTarget,
+  isExternalHref,
+  trimUrlTail,
+  BARE_URL_PATTERN,
   type PropertyKeyCount,
   type PropertyTypeDef,
 } from '@loamium/shared';
@@ -781,6 +784,62 @@ class WikilinkWidget extends WidgetType {
   }
 }
 
+/**
+ * Markdown リンク `[表示名](url)` と裸 URL の自動リンクを、クリック可能なアンカーへ
+ * 置換する widget。外部 (http/https/mailto) は新規タブ (Electron は shell.openExternal)、
+ * 内部相対リンクは env.openNote へ委譲する。WikilinkWidget と同じく mousedown で遷移し
+ * カーソル移動を抑止する (click ではウィジェットがソースに差し替わり届かないため)。
+ */
+class LinkWidget extends WidgetType {
+  constructor(
+    /** 元ソース (eq 用の identity)。裸 URL のときは URL 文字列そのもの */
+    readonly src: string,
+    readonly href: string,
+    readonly label: string,
+    readonly env: WikilinkEnv | null,
+  ) {
+    super();
+  }
+
+  override eq(other: LinkWidget): boolean {
+    return other.src === this.src && other.href === this.href && other.label === this.label;
+  }
+
+  override toDOM(): HTMLElement {
+    const a = document.createElement('a');
+    a.className = 'md-link';
+    a.setAttribute('data-testid', 'md-link');
+    a.textContent = this.label;
+    a.title = this.href;
+    const external = isExternalHref(this.href);
+    if (external) {
+      a.href = this.href;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+    } else {
+      a.classList.add('internal');
+      a.setAttribute('role', 'link');
+    }
+    a.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (external) {
+        window.open(this.href, '_blank', 'noopener,noreferrer');
+      } else if (this.env !== null) {
+        this.env.openNote(this.href);
+      }
+    });
+    // 実遷移は mousedown で済ませているため、click の既定動作 (target=_blank の
+    // ナビゲーション) を抑止して二重オープンを防ぐ。
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    return a;
+  }
+}
+
 class InlineRuleWidget extends WidgetType {
   constructor(
     readonly matchedText: string,
@@ -846,6 +905,9 @@ class BodyTagWidget extends WidgetType {
 }
 
 const WIKILINK_RE = /\[\[([^[\]|]+)(?:\|([^[\]]+))?\]\]/g;
+
+/** 裸 URL 自動リンク走査用 (shared パターンを g 付きで)。末尾句読点は trimUrlTail で除去。 */
+const BARE_URL_RE = new RegExp(BARE_URL_PATTERN, 'g');
 
 /**
  * インライン ![[target]] wiki 埋め込み (S6848dc-2 review)。
@@ -967,13 +1029,35 @@ function buildInlineDecorations(view: EditorView): DecorationSet {
           }
           case 'Autolink':
           case 'URL':
+            // 単独の裸 URL / <url> はここで claim しない: 後段の行スキャン
+            // (BARE_URL_RE) がクリック可能な LinkWidget へ置換する。Link/Image の
+            // destination として現れる URL は、その Link/Image 側で範囲ごと claim
+            // 済みなので行スキャンが overlaps で自動的に避ける。
+            return;
+          case 'Link': {
+            // 本物の Markdown リンク [表示名](url) は URL 子ノードを持つ。
+            // 一方 [[wikilink]] の内側 [x] も Link と誤解釈されるが URL 子は無い
+            // → その場合は従来どおり claim のみで wikilink 処理 (行スキャン) に委ねる。
+            const urlNode = node.node.getChild('URL');
+            if (urlNode === null) {
+              claimed.push({ from: node.from, to: node.to });
+              return;
+            }
             codeClaims.push({ from: node.from, to: node.to });
             claimed.push({ from: node.from, to: node.to });
-            return;
-          case 'Link':
-            // [[wikilink]] の内側は Link と誤解釈されるため codeClaims には入れない
-            claimed.push({ from: node.from, to: node.to });
-            return;
+            if (active.has(lineNo)) return false; // カーソル行はソース表示
+            const href = doc.sliceString(urlNode.from, urlNode.to).trim();
+            if (href.length === 0) return false;
+            const src = doc.sliceString(node.from, node.to);
+            const labelMatch = /^\[([^\]]*)\]/.exec(src);
+            const label = (labelMatch?.[1] ?? '').trim() || href;
+            decos.push(
+              Decoration.replace({
+                widget: new LinkWidget(src, href, label, wikilinkEnv),
+              }).range(node.from, node.to),
+            );
+            return false;
+          }
           default:
             return;
         }
@@ -1051,6 +1135,26 @@ function buildInlineDecorations(view: EditorView): DecorationSet {
               resolved,
               wikilinkEnv,
             ),
+          }).range(from, to),
+        );
+        claimed.push({ from, to });
+      }
+
+      // ---- 裸 URL の自動リンク (MD 記法でなくてもクリック可能に) ----
+      // Link/Image の destination や inline code に含まれる URL は既に claimed/codeClaims
+      // に入っているため overlaps で自動的に避ける。inline ルールより前に走査して claim する。
+      BARE_URL_RE.lastIndex = 0;
+      let um: RegExpExecArray | null;
+      while ((um = BARE_URL_RE.exec(line.text)) !== null) {
+        if (um[0].length === 0) break; // 無限ループ防止
+        const url = trimUrlTail(um[0]);
+        if (url.length === 0) continue;
+        const from = line.from + um.index;
+        const to = from + url.length;
+        if (overlaps(claimed, from, to) || overlaps(codeClaims, from, to)) continue;
+        decos.push(
+          Decoration.replace({
+            widget: new LinkWidget(url, url, url, wikilinkEnv),
           }).range(from, to),
         );
         claimed.push({ from, to });

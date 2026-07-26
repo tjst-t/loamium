@@ -181,11 +181,24 @@ describe('[AC-Sf17a4c-4-1] POST /api/sync/link/preview と /apply — merge プ�
     tmpDirs.push(verifyDir);
     git(`clone ${bareUrl} .`, verifyDir);
     git('checkout main', verifyDir);
-    const { existsSync } = await import('node:fs');
+    const { existsSync, readFileSync } = await import('node:fs');
     expect(existsSync(path.join(verifyDir, 'local-note.md'))).toBe(true);
     expect(existsSync(path.join(verifyDir, 'remote-note.md'))).toBe(true);
     // keep-both: shared.md とその .remote コピーが両方存在する
     expect(existsSync(path.join(verifyDir, 'shared.md'))).toBe(true);
+
+    // 修正 (Sf17a4c): apply 成功後は .loamium/sync.json にリモート設定が永続化され、
+    // 設定画面・サイドバー (= sync.json を読む) に反映される (要リロード不要の前提)。
+    const syncJsonPath = path.join(vault, '.loamium', 'sync.json');
+    expect(existsSync(syncJsonPath)).toBe(true);
+    const persisted = JSON.parse(readFileSync(syncJsonPath, 'utf8')) as {
+      remoteUrl: string | null;
+      branch: string;
+      enabled: boolean;
+    };
+    expect(persisted.remoteUrl).toBe(bareUrl);
+    expect(persisted.branch).toBe('main');
+    expect(persisted.enabled).toBe(true);
   });
 
   it('.loamium/audit.log に sync.link.* エントリが記録される', async () => {
