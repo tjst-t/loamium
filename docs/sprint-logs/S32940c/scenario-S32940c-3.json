@@ -1,0 +1,54 @@
+{
+  "story": "S32940c-3",
+  "story_type": "mixed",
+  "user_role": "ノートを読む/整理する本人 / エージェント",
+  "entry_point": "http://<server>/api/notes/{path}/properties (実 HTTP) + loamium CLI ($PATH のビルド済みバイナリ)",
+  "scenarios": [
+    {
+      "id": "scenario-1-api-roundtrip",
+      "linked_ac": ["AC-S32940c-3-1", "AC-S32940c-3-2"],
+      "description": "プロパティを付与/削除しても本文が壊れない(API 経由)",
+      "preconditions": ["frontmatter 付きノート note.md(本文に見出し・リスト・コードフェンスを含む)"],
+      "steps": [
+        {"n": 1, "action": "POST /api/notes/note.md/properties に {set:{bookmark:true}}", "expected": "200。GET /api/notes/note.md の frontmatter.bookmark===true、本文(frontmatter 以外)はバイト一致で保持"},
+        {"n": 2, "action": "POST /api/notes/note.md/properties に {unset:['bookmark']}", "expected": "200。bookmark キーが消える。他の既存プロパティは保持"},
+        {"n": 3, "action": "frontmatter が bookmark 1 キーのみのノートで {unset:['bookmark']}", "expected": "200。frontmatter ブロックごと除去され、本文が先頭から始まる"},
+        {"n": 4, "action": "round-trip 不能な複雑 frontmatter(アンカー/複数行)のノートで {set:{bookmark:true}}", "expected": "4xx。ファイルは一切変更されない(priority 2)"}
+      ],
+      "cleanup": ["note.md を元状態へ戻す"]
+    },
+    {
+      "id": "scenario-2-api-permission",
+      "linked_ac": ["AC-S32940c-3-3"],
+      "description": "監査ログと権限",
+      "preconditions": ["full モードと read-only モードそれぞれで検証"],
+      "steps": [
+        {"n": 1, "action": "full モードで {set:{bookmark:true}}", "expected": "200。.loamium/audit.log に op=note.property.write の行が追記される"},
+        {"n": 2, "action": "read-only モードで {set:{bookmark:true}}", "expected": "403。ファイル・監査結果とも書込は発生しない"}
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "scenario-3-cli",
+      "linked_ac": ["AC-S32940c-3-4"],
+      "description": "CLI prop set/unset が API と 1:1 対応",
+      "preconditions": ["make build 済み、サーバ起動中、note.md 存在"],
+      "steps": [
+        {"n": 1, "action": "`loamium prop set note.md bookmark true`", "expected": "終了コード 0。note.md の frontmatter に bookmark: true"},
+        {"n": 2, "action": "`loamium prop unset note.md bookmark`", "expected": "終了コード 0。bookmark キーが消える"}
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "scenario-4-e2e-bookmark-query",
+      "linked_ac": ["AC-S32940c-3-5"],
+      "description": "ブックマークが LIST WHERE bookmark に反映される(結合)",
+      "preconditions": ["note.md 存在、S32940c-1(DQL 拡張)と S32940c-2 が実装済み"],
+      "steps": [
+        {"n": 1, "action": "`loamium prop set note.md bookmark true` の後 POST /api/query {\"query\":\"LIST WHERE bookmark\"}", "expected": "200。結果に note.md が含まれる"},
+        {"n": 2, "action": "`loamium prop unset note.md bookmark` の後、同じクエリを実行", "expected": "200。結果に note.md が含まれない"}
+      ],
+      "cleanup": []
+    }
+  ]
+}

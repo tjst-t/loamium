@@ -1,0 +1,48 @@
+Story S9e64e7-4: 機能ガイドに smart command マニュアルを追加
+================================================================
+
+## 実装
+
+### 修正ファイル
+- packages/ui/src/App.tsx
+  empty-state の smart-folder-guide の直後に smart-command-guide セクションを追加。
+  data-testid="smart-command-guide" / h3 テキスト: "スマートコマンドの使い方"
+  3 つの ul 項目:
+    1. 定義を書く (commands/ フォルダ + loamium-command: frontmatter)
+    2. コマンドパレットで実行 (Ctrl+K → '>' → フォーム → 実行)
+    3. 定義エディタで編集 (補完 Ctrl+Space / kind / {{param}})
+
+### 新規ファイル
+- packages/ui/tests/e2e/command-guide.mock.spec.ts
+  mock テスト 3 本 (AC-S9e64e7-4-1/-2):
+  1. [AC-S9e64e7-4-2] 空状態に smart-command-guide が visible、"スマートコマンドの使い方" を含む
+  2. [AC-S9e64e7-4-1] 3 項目 (commands/・コマンドパレット・定義エディタ) の文言を確認
+  3. [AC-S9e64e7-4-2] regression: smart-folder-guide は不変
+
+## テスト結果
+
+実行コマンド:
+  npx playwright test --config=packages/ui/playwright.config.ts \
+    command-guide.mock.spec.ts command-editor-completion.mock.spec.ts \
+    command-editor.mock.spec.ts --project=mock
+
+結果: 33/33 passed
+- command-guide.mock.spec.ts: 3 tests PASS (S9e64e7-4 新規)
+- command-editor-completion.mock.spec.ts: 14 tests PASS (S9e64e7-3 回帰なし)
+- command-editor.mock.spec.ts: 16 tests PASS (S9e64e7-1/-2 回帰なし)
+
+smart-folder-guide 既存テスト:
+  npx playwright test smart-folder-editor.mock.spec.ts -g "空状態に smart-folder-guide" → 1 PASS
+
+## TypeScript / lint
+
+make lint: PASS (全 workspace)
+
+## 実装の方針
+
+- 既存の smart-folder-guide (<div data-testid="smart-folder-guide">) の直後に配置。
+  空状態のガイドとして一貫したレイアウト (同一親 div 内)。
+- テキストは "入力しやすさ" と "discoverable" を重視して、
+  コマンドを使い始めるための最小限の 3 ステップ (作る・実行する・編集する) に絞った。
+- 補完のヒント (Ctrl+Space / kind: / {{param}}) も含め、
+  定義エディタの主な機能を 1 項目に集約した。

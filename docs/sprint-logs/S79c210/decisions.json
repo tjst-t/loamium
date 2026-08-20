@@ -1,0 +1,96 @@
+{
+  "sprint": "S79c210",
+  "title": "レビュー修正 — サイドバーツリー/テーブル描画/ターミナルLAN/ルート表示",
+  "mode": "auto --with-verifier",
+  "branch": "autopilot/main/S79c210",
+  "planning_decisions": [
+    {
+      "id": "PD-1",
+      "topic": "verifier サブエージェント spawn ツールの不在",
+      "decision": "Agent(サブエージェント spawn)ツールがこの環境で利用不可(ToolSearch には EnterWorktree / Task* のみで、read-only Claude セッションを同期起動する Agent/Task-run ツールが存在しない)。sprint-auto/verifier-agent の要求どおり独立 verifier を spawn できないため、機械検証(hooks/run-verify.py)+ 6/8 ガード + セルフ code-review で代替し、verification-report.json は overall=not_spawned として記録する。親 autopilot が opus の read-only verifier を補完実行する前提(タスク指示に明記された fallback)。",
+      "rationale": "タスク指示: 『Agent(サブエージェント spawn)ツールが使えない場合は、その旨を decisions.json に明記して done を完了してよい』。"
+    },
+    {
+      "id": "PD-2",
+      "topic": "並列 worktree 実行の不採用",
+      "decision": "サブエージェント spawn 不可のため、4 Story を main セッションで直列実装する。Story 間の結合(App.tsx が全 Story に跨る)を考えると直列のほうが競合が無く安全。",
+      "rationale": "DESIGN_PRINCIPLES priority 5 シンプルさ。"
+    }
+  ],
+  "implementation_decisions": [
+    {
+      "id": "ID-1-tree",
+      "story": "S79c210-1",
+      "topic": "サイドバーのフォルダツリー復帰",
+      "decision": "Sf1a90a-3 の直近フラット一覧(RecentFiles)を撤去し、buildTree(tree.ts)ベースのフォルダツリー(新 FileTree.tsx)へ戻す。ツリーは notes(.md)のみで構築(buildTree(notes, [], extraFolders))し、非ノート asset は buildTree の files 引数に渡さないことでサイドバーから除外(AC-1-2)。asset は /files ページ(sidebar-show-all 導線)に集約。展開/折りたたみは FileTree のローカル state(既定は全展開、折りたたみ集合を保持)。ルーティング(/n/{path}・戻る/進む)は既存の openNotePath 経由で不変。",
+      "rationale": "roadmap S79c210-1: 直近N件フラット化は誤解釈。asset だけ /files。VISION/DESIGN ui_ux: フォルダ構造を辿れる。"
+    },
+    {
+      "id": "ID-1-emptyfolder",
+      "story": "S79c210-1",
+      "topic": "空フォルダ(フォルダ内フォルダ)作成をピュア Markdown で表現",
+      "decision": "空フォルダは vault にファイルとして書き込まない(.gitkeep 等の副産物ファイルを作らない)。UI 状態 extraFolders(既存 tree.ts が対応済みの合成フォルダ)として保持し、その中に最初のノートが作られた時点で vault 上に実体化する。これによりピュア Markdown 正本(priority 1)と forbidden『独自記法/メタデータの本文埋め込み』を一切侵さない。",
+      "rationale": "DESIGN_PRINCIPLES priority 1 ピュア Markdown 絶対 / forbidden: ブロックID・独自記法をファイルに書かない。tree.ts の extraFolders は Sa704c3 時点で同じ意図で用意済み。"
+    },
+    {
+      "id": "ID-1-contextmenu",
+      "story": "S79c210-1",
+      "topic": "フォルダのコンテキストメニュー",
+      "decision": "ContextMenu を additive 拡張し、isFolder 時に『このフォルダに新規ノート』(context-new-note 流用)と『このフォルダに新規フォルダ』(新 testid context-new-folder)を出す。ルート用に sidebar-new-folder ボタンを復帰(TESTIDS 契約に存在)。",
+      "rationale": "roadmap AC-1-3 ネスト作成。TESTIDS に sidebar-new-folder / context-new-note は既存。context-new-folder は additive 追記。"
+    },
+    {
+      "id": "ID-1-recenttest",
+      "story": "S79c210-1",
+      "topic": "sidebar-recent.e2e.spec.ts([AC-Sf1a90a-3-1])の扱い",
+      "decision": "Sf1a90a-3 のフラット直近一覧は本 Story で設計的に置換されるため、その E2E([AC-Sf1a90a-3-1] 直近10件フラット)は前提が消滅する。テストの無効化ではなく、サイドバー=フォルダツリーの新契約に沿って sidebar-tree.e2e.spec.ts へ置換する。sidebar-show-all → /files の導線検証は新テストへ引き継ぐ。ROADMAP 上 AC-Sf1a90a-3-1 は done 履歴として残すが、UI 挙動は本 Story が上書きする旨を明記。",
+      "rationale": "roadmap 明記『Sf1a90a-3 のフラット直近一覧はストーリー1で置換される』。test-discipline: 挙動が設計変更された箇所の旧テスト置換であり、アサーション弱体化・握りつぶしではない。"
+    },
+    {
+      "id": "ID-2-table",
+      "story": "S79c210-2",
+      "topic": "GFM テーブルのライブプレビュー",
+      "decision": "live-preview.ts の blockDecoField(構文木走査)に Table ノード検出を追加する。@codemirror/lang-markdown の markdownLanguage は既に GFM Table を Table/TableHeader/TableDelimiter/TableRow/TableCell として構文木に出す(検証済み)ため、FencedCode と同様に構文木から Table ノードを拾い、カーソル非接触時に HTML <table> widget へ block 置換、カーソル接触行はソース表示。行ベースの block レジストリ(match/matchWhile)は2行先読み(ヘッダ+区切り行)が必要な GFM テーブル検出に不向きなため、roadmap 指定どおり lezer-markdown の Table ノードを使う。描画は表示層のみ・正本は | 記法のまま(priority 1)。",
+      "rationale": "roadmap S79c210-2-1『lezer-markdown の Table ノード利用』。3レジストリの block 層(blockDecoField)に載せる形で整合。"
+    },
+    {
+      "id": "ID-3-origins",
+      "story": "S79c210-3",
+      "topic": "LOAMIUM_TERMINAL_ALLOWED_ORIGINS",
+      "decision": "TerminalConfig に allowedOrigins: string[] を追加(LOAMIUM_TERMINAL_ALLOWED_ORIGINS のカンマ区切りを URL.origin へ正規化)。isAllowedOrigin(origin, host, allowedOrigins) を拡張し、ループバック + same-origin + 許可リスト一致を許可、それ以外は従来どおり 1008 拒否。README / ARCHITECTURE に CSWSH 保護低下の警告付きで記載。",
+      "rationale": "roadmap AC-3-1。DESIGN_PRINCIPLES priority 2 データ安全性: 既定は従来どおり厳格、明示オプトインの列挙のみ緩和。"
+    },
+    {
+      "id": "ID-3-uimsg",
+      "story": "S79c210-3",
+      "topic": "WS close 1008 と正常 exit の UI 区別",
+      "decision": "TerminalPane の ws.onclose(evt.code) を見て、1008(policy 拒否)のときは disconnected とは別の origin-denied 状態にし『このオリジンは許可されていません。localhost で開くか LOAMIUM_TERMINAL_ALLOWED_ORIGINS に追加してください』を表示。正常 exit(1000/プロセス終了)は従来どおり『セッションが終了しました』。data-terminal-status に 'origin-denied' を additive 追加。",
+      "rationale": "roadmap AC-3-2。milestone review: 1008 を『セッション終了・子プロセス停止』と誤表示していたのが真因。"
+    },
+    {
+      "id": "ID-3-test-tier",
+      "story": "S79c210-3",
+      "topic": "AC-3-2 のテスト層",
+      "decision": "AC-3-1(許可/拒否)は実 WS の受け入れテスト tests/acceptance/terminal.spec.ts([AC-S79c210-3-1])で検証。AC-3-2(UI 文言の区別)は、実ブラウザは常に same-origin(loopback=許可)を送るため 1008 を実発生させられない。よって WS モック(page.routeWebSocket で close code 1008 / 1000 を出し分け)で origin-denied 文言と正常終了文言の区別を検証する terminal-origin.mock.spec.ts([AC-S79c210-3-2])を作る。happy-path(connected→正常切断)の実ブラウザ経路は既存 claude-sidebar.e2e が担保。ROADMAP の AC-3-2 test ポインタを .mock.spec.ts に更新。",
+      "rationale": "test-discipline Rule 2/4: GUI のエラー/エッジは mock、AC 本経路は実バックエンド。1008 は実ブラウザで forge 不能な cross-origin 由来のため mock が唯一の実際的手段。アサーション弱体化ではない(実 WS close code を UI が読む経路を検証)。"
+    },
+    {
+      "id": "ID-4-breadcrumb",
+      "story": "S79c210-4",
+      "topic": "パンくずの /n/ 除去",
+      "decision": "route-display のノート表示から生の /n/ トークン(<span class=route-token>/n/</span>)を撤去し、代わりにノートアイコン(HomeVaultIcon 相当)+ フォルダ階層 + ノート名で構成。URL(/n/{path})自体は router.ts のまま維持。/files・/search は意味の読める route 名なのでそのまま(AC は /n/ に限定)。",
+      "rationale": "roadmap AC-4-1『/n/ を露出せず、フォルダ階層+ノート名(またはノートアイコン)』。URL は維持。"
+    }
+  ],
+  "adr_conformance": {
+    "note": "docs/DESIGN/ ディレクトリは本プロジェクトに存在しない(design skill 未使用)。Guard 7 は n/a。"
+  },
+  "done_judgment": {
+    "summary": "全 4 Story とも 6/8 ガードは pass または n/a、overall=ok。詳細は verification-results.json.done_judgment を参照。",
+    "S79c210-1": "ok",
+    "S79c210-2": "ok",
+    "S79c210-3": "ok",
+    "S79c210-4": "ok",
+    "verifier_agent": "not_spawned (PD-1: Agent サブエージェント spawn ツール不在。機械検証 overall=pass + 6/8 ガード + セルフ review で代替。verification-report.json 参照)"
+  }
+}

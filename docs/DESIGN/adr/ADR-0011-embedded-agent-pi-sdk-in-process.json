@@ -1,0 +1,42 @@
+{
+  "id": "ADR-0011",
+  "title": "内蔵エージェントは pi SDK をサーバー内蔵 (in-process) で実装し、PTY ターミナル機構を廃止する",
+  "status": "accepted",
+  "date": "2026-07-10",
+  "context": "右パネルの Claude タブは node-pty + WebSocket で claude CLI を生やす PTY ブリッジであり、エージェント機能はすべて外部 CLI 側にある。これを廃止し、OpenAI / Anthropic API 互換エンドポイント (ローカル LLM 含む) に接続できるエージェントを Loamium 自身に内蔵したい。用途は vault 内の情報収集・まとめ。実装基盤の選定は、ツールの権限制御・監査ログとの接続方法、UI へのストリーミング方式、セッション永続化を決める load-bearing な判断である。pi (earendil-works/pi, MIT) は createAgentSession() による SDK 組み込み、noTools:'all' + customTools によるカスタムツール限定モード、baseUrl 指定での OpenAI/Anthropic 互換アダプタ、JSONL セッション永続化を公式サポートする。ただし Node >= 22.19 を要求する (Loamium は Node 20 — 2026-04 に EOL 済みのため、どのみち更新が妥当)。",
+  "alternatives": [
+    {
+      "name": "pi SDK をサーバー内蔵 (in-process)",
+      "tradeoff": "ツール・権限モード・監査ログの配線が最短で、セッション管理も内蔵品を使える。代償は Node 22 化と、0.x で API 変化が速い pi への直接依存。"
+    },
+    {
+      "name": "pi をサブプロセス (headless RPC) で起動",
+      "tradeoff": "バージョン・障害は分離できるが、カスタムツールを extension として外出しする必要があり、『bash を渡さない』の強制と監査がプロセス境界越しになる。"
+    },
+    {
+      "name": "自前の薄いループ (pi-ai 単体 / Vercel AI SDK)",
+      "tradeoff": "依存最小・zod ネイティブだが、セッション永続化・コンパクション・リトライを再発明することになる。"
+    },
+    {
+      "name": "現行の PTY ターミナル方式を維持",
+      "tradeoff": "実装ゼロだが、接続先モデルを選べず、ツール境界も Loamium 側で制御できない。ユーザー要望により廃止が確定。"
+    }
+  ],
+  "decision": "@earendil-works/pi-coding-agent の createAgentSession() を Hono サーバー内に組み込み (前提として Node 22 LTS へ更新)、UI へは SSE でイベントを中継するチャットペインを右パネルに置く。node-pty / WebSocket /api/terminal / TerminalPane の既存ターミナル機構は完全に削除する。",
+  "consequences": [
+    "+ エージェントのツールがサーバー内部のサービス層を直接呼べ、権限モード・監査ログ・パス正規化を既存コードで強制できる",
+    "+ 接続先 (OpenAI 互換 / Anthropic 互換 / ローカル LLM) を baseUrl とモデル設定で自由に選べる",
+    "+ セッションは pi の JSONL 形式で .loamium/agent-sessions/ に永続化 (gitignore、消しても vault は無傷 — 『インデックスは使い捨て』と同格)",
+    "+ node-pty / xterm.js 依存と CSWSH 対策コードを削除でき、攻撃面が減る",
+    "- Node 22 LTS への更新が必要 (CLAUDE.md の Tech Stack 記述も更新)",
+    "- pi は 0.x でリリースが速く、追従コストをサーバーが直接負う (バージョン固定 + 明示的な更新運用)",
+    "- pi のツールスキーマは TypeBox であり、zod 標準の本プロジェクトでは境界部で二重定義になる (ツール定義箇所に限定して許容)",
+    "- チャット UI (ストリーミング表示・[[リンク]] クリック遷移) は React で自作 (pi-web-ui は死んでいるため計画に含めない)",
+    "エンドポイント URL・モデル名・API キーは .loamium/ 配下の設定 + 環境変数で管理し、キーの平文保存は避ける ($ENV_VAR 参照)"
+  ],
+  "reversibility_cost": "medium",
+  "affects": ["server", "ui", "shared"],
+  "supersedes": null,
+  "superseded_by": null,
+  "notes": "pi が破綻・方針転換した場合の退避先は案C (自前ループ)。ツール定義とチャット UI は基盤に依らず資産として残る設計を保つこと。SSE か WebSocket かの詳細・チャット UI の見た目は sprint ローカル判断でよい — 本 ADR が固めるのは『pi SDK in-process + ターミナル機構の廃止』のみ。"
+}

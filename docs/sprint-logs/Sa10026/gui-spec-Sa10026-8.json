@@ -1,0 +1,79 @@
+{
+  "story_id": "Sa10026-8",
+  "story_title": "新規ノート作成のパス対応統一(既定フォルダ prefill + フォルダ補完)",
+  "state_diagram": "stateDiagram-v2\n    [*] --> Closed\n    Closed --> Open : 新規ノート(+)クリック / コマンド\n    Open --> Prefilled : settings.yaml.defaultFolder あり → 入力に '<folder>/' を prefill\n    Open --> Empty : defaultFolder 未設定 → 空入力\n    Prefilled --> Suggesting : 入力/フォーカス → 既存フォルダ候補を表示\n    Empty --> Suggesting\n    Suggesting --> PathChosen : 候補クリック → '<folder>/' を挿入\n    PathChosen --> Suggesting\n    Suggesting --> Cleared : prefill を消す → 任意パス入力\n    Suggesting --> Creating : Enter / 作成\n    Cleared --> Creating\n    Creating --> Created : POST 作成成功 → ノートを開く + モーダル閉じる\n    Creating --> InvalidPath : 不正パス(.. 脱出 / 空 name)→ インラインエラー\n    InvalidPath --> Suggesting\n    Created --> [*]\n    Closed --> [*]",
+  "endpoint_contracts": [
+    {
+      "endpoint": "GET /api/notes",
+      "note": "フォルダ補完候補の導出元(既存ノートの folder から。smart-newfile と同じ deriveFolderCandidates を共有)。",
+      "response_shape": "{ notes: [{ path, title, tags, folder }] }"
+    },
+    {
+      "endpoint": "GET /api/settings/app",
+      "note": "defaultFolder を取得し、モーダル起動時の prefill 値に使う(Sa10026-3 / -5)。",
+      "response_shape": "{ defaultFolder: 'notes' | '' , ... }"
+    },
+    {
+      "endpoint": "PUT /api/notes/{path}",
+      "note": "作成。パスは shared のパス正規化(NFC・.. 脱出検証・.md 補完)を経由。smart-newfile と同一の作成経路。",
+      "response_shape": "{ ok:true, mtime, created:true }"
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "prefill_from_default_folder",
+      "description": "defaultFolder=notes のとき、新規ノートモーダルは 'notes/' を prefill する。",
+      "steps": [
+        "GET /api/settings/app が { defaultFolder:'notes' } を返す",
+        "sidebar-new-note(+)をクリック",
+        "new-note-dialog が visible(role=dialog)",
+        "new-note-path input の値が 'notes/'",
+        "'読書メモ' と続けて入力 → 'notes/読書メモ'",
+        "作成 → PUT /api/notes/notes/読書メモ.md が呼ばれ、作成したノートが開く"
+      ]
+    },
+    {
+      "name": "clear_prefill_create_anywhere",
+      "description": "prefill を消せば任意の場所に作成できる。",
+      "steps": [
+        "new-note-dialog を開く(prefill 'notes/')",
+        "input をクリアして 'projects/新企画' を入力",
+        "作成 → PUT /api/notes/projects/新企画.md",
+        "ノートが開く"
+      ]
+    },
+    {
+      "name": "folder_completion_dropdown",
+      "description": "入力中、既存フォルダがドロップダウンで補完される(smart-newfile と共通)。",
+      "steps": [
+        "new-note-dialog を開く",
+        "input にフォーカス → new-note-path-dropdown が visible",
+        "new-note-path-option[data-path='projects'] が visible",
+        "'proj' と入力 → projects 候補が絞り込まれる",
+        "new-note-path-option[data-path='projects'] をクリック → input が 'projects/'"
+      ]
+    },
+    {
+      "name": "no_default_folder_empty",
+      "description": "defaultFolder 未設定なら空入力(旧 vault ルート挙動を包含)。",
+      "steps": [
+        "GET /api/settings/app が { defaultFolder:'' } を返す",
+        "new-note-dialog を開く",
+        "new-note-path input が空",
+        "'メモ' と入力 → 作成 → PUT /api/notes/メモ.md(vault 直下)"
+      ]
+    },
+    {
+      "name": "unified_with_smart_newfile",
+      "description": "スマートフォルダの新規作成(smart-newfile)と同一コンポーネント・作成ロジックであることの回帰確認。",
+      "steps": [
+        "smart-newfile と new-note が同じパス入力/補完/作成コードを共有する(実装上の統一)",
+        "両経路で同じ不正パス検証(.. 脱出・空 name)が効く"
+      ]
+    }
+  ],
+  "test_files": {
+    "mock": "packages/ui/tests/e2e/new-note-unified.mock.spec.ts",
+    "e2e": "packages/ui/tests/e2e/new-note-unified.e2e.spec.ts"
+  }
+}

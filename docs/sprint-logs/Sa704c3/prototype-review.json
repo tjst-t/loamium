@@ -1,0 +1,18 @@
+{
+  "sprint_range": ["Sa704c3", "S9ab6c3", "S6fbf45"],
+  "screens": [
+    { "file": "prototype/journal.html", "story": "Sa704c3-2", "feedback_rounds": 0, "approved": false },
+    { "file": "prototype/editor.html", "story": "S9ab6c3-2", "feedback_rounds": 0, "approved": false },
+    { "file": "prototype/editor-outline.html", "story": "S9ab6c3-1", "feedback_rounds": 0, "approved": false },
+    { "file": "prototype/wikilink-autocomplete.html", "story": "S6fbf45-1", "feedback_rounds": 0, "approved": false },
+    { "file": "prototype/tree-rename.html", "story": "S6fbf45-3", "feedback_rounds": 0, "approved": false },
+    { "file": "prototype/editor-empty.html", "story": "Sa704c3-1", "feedback_rounds": 0, "approved": false }
+  ],
+  "design_decisions": [
+    "CodeMirror の行モデル(.cm-line + 折りたたみガター列)を HTML で再現し、実装時の DOM 構造の参考にする",
+    "繰り返し要素は共通 data-testid + data-* 属性方式(tree-item + data-path 等)。契約は prototype/TESTIDS.md",
+    "ライト基調 + アクセント紫 1 色(#6e56cf)。壊れリンクのみ赤 + 破線(DESIGN_PRINCIPLES ui_ux 準拠)",
+    "3 レジストリ(fence/inline/block)を widget の data-lang / fence バーで可視化"
+  ],
+  "note": "ユーザー不在の完全自律実行(ユーザーが『全 Sprint を最後まで autopilot で実装しきって』と事前承認)のため、インタラクティブなプロトタイプレビューは実施できず未承認のまま実装リファレンスとして使用。マイルストーン M2 のレビューで prototype/ と実装 UI を合わせて確認してください。"
+}

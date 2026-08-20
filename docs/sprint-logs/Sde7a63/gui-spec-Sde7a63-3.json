@@ -1,0 +1,163 @@
+{
+  "story_id": "Sde7a63-3",
+  "story_title": "スマートコマンド実行 — フォーム → run → 遷移 (GET /api/commands + POST run)",
+  "state_diagram": "stateDiagram-v2\n    [*] --> PaletteOpen : Ctrl-K\n    PaletteOpen --> SmartCommandsLoaded : GET /api/commands 成功\n    PaletteOpen --> SmartCommandsFailed : GET /api/commands 失敗\n    SmartCommandsFailed --> SmartCommandsLoaded : リトライ(パレット再表示)\n    SmartCommandsLoaded --> ValidSelected : valid:true コマンドを選択\n    SmartCommandsLoaded --> InvalidHovered : valid:false コマンドにマウスオーバー\n    InvalidHovered --> SmartCommandsLoaded : マウスアウト\n    ValidSelected --> NoParams : params が空配列\n    ValidSelected --> ParamForm : params が 1 件以上\n    NoParams --> Running : Enter/クリック → POST /api/commands/{name}/run\n    ParamForm --> Validating : 実行ボタン押下 / Enter\n    Validating --> MissingError : required param が空\n    Validating --> Running : 全 required param が入力済み\n    MissingError --> ParamForm : エラー表示継続(入力修正待ち)\n    Running --> Success : results 全 ok + openPath あり\n    Running --> SuccessNoOpen : results 全 ok + openPath なし\n    Running --> PartialFailure : 途中のステップが ok:false\n    Success --> Navigated : openPath へ遷移 + palette 閉じる\n    SuccessNoOpen --> PaletteClosed : palette 閉じる\n    PartialFailure --> FailureDisplay : param-form-result(失敗ステップ + 完了済みステップ表示)\n    FailureDisplay --> PaletteOpen : Esc / 再試行\n    Navigated --> [*]\n    PaletteClosed --> [*]",
+  "scenarios": [
+    {
+      "name": "happy_path_smart_commands_loaded",
+      "description": "パレット表示時に GET /api/commands が呼ばれ、valid:true のコマンドがコマンドセクションに source=smart で表示される。valid:false は非選択可能として表示される。",
+      "steps": [
+        "Ctrl-K でパレットを開く",
+        "GET /api/commands が呼ばれる",
+        "command-item[data-source='smart'][data-command-id='create-todo'] が visible",
+        "command-item[data-source='smart'][data-command-id='invalid-cmd'] が data-disabled='true' で visible",
+        "command-item[data-disabled='true'] は aria-disabled='true' / pointer-events:none",
+        "command-item[data-disabled='true'] にツールチップ/サブテキストで error 理由が表示される"
+      ]
+    },
+    {
+      "name": "happy_path_command_with_params_opens_form",
+      "description": "params を持つコマンド 'create-todo' を選択するとパラメータフォームモーダルが開く。",
+      "steps": [
+        "Ctrl-K → '> todo' と入力",
+        "command-item[data-command-id='create-todo'] が visible",
+        "Enter または クリック",
+        "param-form-modal が表示される (role=dialog)",
+        "param-form-modal 内に param-field[data-name='タスク概要'][data-type='text'][data-required='true'] が visible",
+        "param-field[data-name='期限'][data-type='date'][data-required='false'] が visible",
+        "param-field[data-name='タスク詳細'][data-type='text'][data-required='false'] が visible",
+        "param-field[data-name='タスク概要'] の input に autofocus"
+      ]
+    },
+    {
+      "name": "happy_path_form_submit_success",
+      "description": "フォームを埋めて実行すると POST /api/commands/create-todo/run が呼ばれ、openPath へ遷移する。",
+      "steps": [
+        "param-form-modal を開く",
+        "param-field[data-name='タスク概要'] input に '新機能実装' を入力",
+        "param-form-submit (実行ボタン) をクリック",
+        "POST /api/commands/create-todo/run { params: { 'タスク概要': '新機能実装' } } が呼ばれる",
+        "200 レスポンス: { results: [{ kind:'journal-append', ok:true, path:'journals/2026-07-11.md' }], openPath:'journals/2026-07-11.md' }",
+        "param-form-modal が閉じる",
+        "command-palette が閉じる",
+        "journals/2026-07-11.md が開く(onOpenNote コールバック)"
+      ]
+    },
+    {
+      "name": "happy_path_required_validation",
+      "description": "required param が空の状態で実行すると 400 missing_params がモーダル内にインラインエラーとして表示される。",
+      "steps": [
+        "param-form-modal を開く",
+        "param-field[data-name='タスク概要'] を空のまま",
+        "param-form-submit をクリック",
+        "POST は呼ばれない(クライアント側バリデーション)",
+        "param-field[data-name='タスク概要'] にエラー表示 'タスク概要は必須です'",
+        "param-field[data-name='タスク概要'] input が aria-invalid='true'"
+      ]
+    },
+    {
+      "name": "happy_path_partial_failure_display",
+      "description": "ステップ途中で失敗した場合、完了済みステップと失敗ステップを param-form-result エリアに表示する。",
+      "steps": [
+        "POST /api/commands/create-todo/run が { results: [{ kind:'journal-append', ok:false, error:'journal not found' }], openPath: undefined } を返す",
+        "param-form-result が visible",
+        "param-form-result 内に step-result[data-kind='journal-append'][data-ok='false'] が表示",
+        "step-result 内にエラーメッセージ 'journal not found' が表示"
+      ]
+    },
+    {
+      "name": "happy_path_e2e_create_todo_flow",
+      "description": "E2E: Ctrl-K → '>' → 'todo' → フォーム入力 → run → ジャーナルの Todo セクションに追記が確認できる。",
+      "steps": [
+        "make serve で実サーバーを起動",
+        "Ctrl-K → '> todo' と入力",
+        "command-item[data-command-id='create-todo'] を選択",
+        "param-field[data-name='タスク概要'] に '新機能実装チェック' を入力",
+        "param-form-submit をクリック",
+        "journals/YYYY-MM-DD.md が開く",
+        "ノート本文に '- [ ] 新機能実装チェック' が追記されている"
+      ]
+    },
+    {
+      "name": "edge_valid_false_not_selectable",
+      "description": "valid:false コマンドは ↑↓ ナビゲーションの選択対象外。",
+      "steps": [
+        "ArrowDown を繰り返して全候補を移動",
+        "command-item[data-disabled='true'] はスキップされる",
+        "disabled コマンドには aria-selected='true' が付かない"
+      ]
+    },
+    {
+      "name": "edge_param_form_esc",
+      "description": "パラメータフォームで Esc を押すとフォームが閉じ、パレットに戻る(パレットは閉じない)。",
+      "steps": [
+        "param-form-modal が open",
+        "Esc を押す",
+        "param-form-modal が非表示",
+        "command-palette が引き続き visible",
+        "search-input が再フォーカスされる"
+      ]
+    }
+  ],
+  "testid_contract": [
+    "command-palette (継続)",
+    "command-item[data-command-id][data-source='smart'] (スマートコマンド)",
+    "command-item[data-disabled='true'] (valid:false コマンド — aria-disabled='true' + pointer-events:none)",
+    "command-item-error-reason (valid:false コマンドのエラー理由テキスト。command-item 内の子要素)",
+    "param-form-modal (role=dialog。パラメータ入力モーダル全体)",
+    "param-form-modal-backdrop",
+    "param-form-title (コマンドタイトル + 説明)",
+    "param-field[data-name][data-type][data-required] (各パラメータ行コンテナ)",
+    "param-field-input[data-name] (type=text/date の入力欄。type=text かつ multiline の場合は textarea)",
+    "param-field-error[data-name] (必須未入力のインラインエラー)",
+    "param-form-submit (実行ボタン。必須未入力時は aria-disabled='true')",
+    "param-form-cancel",
+    "param-form-result (run 実行後の結果表示エリア。成功/失敗両用)",
+    "step-result[data-kind][data-ok] (ステップ 1 件の結果行)"
+  ],
+  "endpoint_contracts": [
+    {
+      "path": "/api/commands",
+      "method": "GET",
+      "registered": true,
+      "request_fields": null,
+      "response_fields": {
+        "commands": "[{ name, path, description?, params: [{ name, type, required, default?, label?, description? }], valid:true } | { name, path, valid:false, error }]"
+      },
+      "notes": "Sd22b1f-1 で実装済み。commandSummarySchema (packages/shared/src/schemas.ts) 準拠。valid:false エントリも返す(寛容 read)。"
+    },
+    {
+      "path": "/api/commands/{name}/run",
+      "method": "POST",
+      "registered": true,
+      "request_fields": {
+        "params": "Record<string,string>"
+      },
+      "response_fields": {
+        "results": "[{ kind:string, ok:boolean, path?:string, error?:string }]",
+        "openPath": "string | undefined"
+      },
+      "error_responses": {
+        "400_missing_params": "{ error:'missing_params', message:string, missing:string[] }",
+        "400_invalid_command": "{ error:'invalid_command', message:string }",
+        "403": "read-only / append-only 拒否",
+        "404_not_found": "{ error:'not_found', message:string }"
+      },
+      "notes": "Sd22b1f-2 で実装済み。commandRunResponseSchema 準拠。"
+    }
+  ],
+  "test_files": {
+    "mock": "packages/ui/tests/e2e/command-palette.mock.spec.ts",
+    "e2e": "packages/ui/tests/e2e/smart-command-run.e2e.spec.ts"
+  },
+  "prototype_paths": [
+    "prototype/command-palette.html"
+  ],
+  "files_expected": [
+    "packages/ui/src/components/SearchPalette.tsx (Sde7a63-1/-2 の拡張に GET /api/commands の呼び出しとスマートコマンドのエントリ化を追加)",
+    "packages/ui/src/components/ParamFormModal.tsx (新規。パラメータフォームモーダル。TemplateModal と同型の実装パターン)",
+    "packages/ui/src/commandRegistry.ts (Sde7a63-1 で作成。SmartCommandEntry 型追加)",
+    "packages/ui/src/api.ts (listCommands メソッド追加)"
+  ],
+  "planning_notes": "Sde7a63-1 (レジストリ) と Sde7a63-2 ('>' モード) 完了後に着手。ParamFormModal は TemplateModal (S89a350-3) と同型の実装パターンを踏む。type=text は通常 input (1行)、type=text の param に description/multiline が指定されている場合は textarea を使う(バックエンドの commandParamSchema.type は 'text'|'date'|'select')。E2E テストは smart-command-run.e2e.spec.ts として分離し、create-todo コマンドの完全フローをカバーする。"
+}

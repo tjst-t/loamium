@@ -1,0 +1,18 @@
+{
+  "sprint": "S6fbf45",
+  "compromises": [
+    {
+      "id": "C1",
+      "type": "undocumented_design_decision",
+      "severity": "low",
+      "story": "S6fbf45-3",
+      "source": "independent verifier (verification-report.json, category: compromises)",
+      "overlooked_by_autopilot": true,
+      "description": "rename ハンドラのインデックス再構築失敗時の続行 (console.error のみで 200) と、RenameLinkNote のリンク件数がインデックスベースで rename 本体の FS 走査と完全同期しない点が decisions.json に未記録だった",
+      "diff_summary": "packages/server/src/routes/notes.ts:243-249 / packages/ui/src/App.tsx RenameLinkNote",
+      "rationale": "挙動自体は priority 6 (ファイルが正・インデックスは自己修復) に沿い機能的問題なし。記録漏れが問題",
+      "recommended_action": "decisions.json に I16 追加 + I13 補足 (verifier 推奨どおり)",
+      "resolution": "resolved-in-sprint: decisions.json I16 を追加し I13 に補足を追記 (本 verify フェーズ内で適用済み)"
+    }
+  ]
+}

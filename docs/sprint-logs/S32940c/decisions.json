@@ -1,0 +1,92 @@
+{
+  "sprint": "S32940c",
+  "touched_adrs": [
+    "ADR-0001",
+    "ADR-0002",
+    "ADR-0003",
+    "ADR-0004"
+  ],
+  "decisions": [
+    {
+      "timestamp": "2026-07-07T14:53:41Z",
+      "category": "planning",
+      "title": "スマートフォルダ機能を 2 Sprint に分割(基盤 α → UI β)",
+      "detail": "バックエンド契約(DQL 拡張・定義/解決 API・プロパティ書込 API・CLI)を S32940c、UI(ビュー切替・スター)を S8086d9 に分け、β を α に依存させた。GUI E2E は実サーバを要するため、API を先に固めてから UI に進む。",
+      "reference": "DESIGN_PRINCIPLES priority 3(REST API を先に、UI/CLI はそれを叩く)/ architecture",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-07T14:53:41Z",
+      "category": "planning",
+      "title": "クエリは既存 DQL を再利用し LIMIT + タスク有無フィールドを加算",
+      "detail": "新クエリ言語を作らず dql.ts を拡張。LIMIT n 句と file.open_tasks/file.tasks を追加し、ノート内 dataview フェンスと共有。加算のみで後方互換。",
+      "reference": "ADR-0001 / priority 4(Obsidian 互換)/ priority 5(シンプルさ)",
+      "adr_ref": "ADR-0001",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-07T14:53:41Z",
+      "category": "planning",
+      "title": "定義は .loamium/smart-folders.json を git 追跡(gitignore を .loamium/* + 再包含に変更)",
+      "detail": "定義は再構築不能なユーザー設定のため git 追跡。ディレクトリ除外だと再包含できないため .gitignore を `.loamium/*` + `!/.loamium/smart-folders.json` にする。他の .loamium/* は使い捨てのまま。",
+      "reference": "ADR-0002 / priority 6(.loamium は使い捨て)への明示的例外",
+      "adr_ref": "ADR-0002",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-07T14:53:41Z",
+      "category": "planning",
+      "title": "スマートビュー要素は pin | query の判別ユニオン(pins は不採用)",
+      "detail": "1 枚指名は pin(葉)、集約はすべて query。手動複数リスト pins はブックマークが property+query に移ったため採用しない。ユーザー確認済み。",
+      "reference": "ADR-0003 / ADR-0004 / priority 5",
+      "adr_ref": "ADR-0003",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-07T14:53:41Z",
+      "category": "planning",
+      "title": "ブックマークは frontmatter bookmark プロパティ + 汎用プロパティ書込 API",
+      "detail": "bookmark 所属はノート frontmatter に載せ LIST WHERE bookmark で解決(DQL 変更不要)。書込は汎用 POST /api/notes/{path}/properties(round-trip 安全)。スター UI は β で bookmark 専用ボタンのみ実装(汎用トグル UI は後回し、ユーザー確認済み)。",
+      "reference": "ADR-0004 / priority 1(ピュア Markdown)/ priority 2(データ安全性)/ priority 5",
+      "adr_ref": "ADR-0004",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-07T14:53:41Z",
+      "category": "planning",
+      "title": "ビュー切替はサイドバーローカル状態(localStorage)、ルート化しない",
+      "detail": "物理/スマートの切替は中央ペインを変えない UI 状態のため localStorage に永続。URL ルートやタブは増やさない。",
+      "reference": "DESIGN_PRINCIPLES ui_ux(タブを増やす UI は採らない / ナビゲーションはルーティング)",
+      "adr_ref": "none",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-07T15:22:27Z",
+      "category": "process",
+      "title": "α の Story は逐次単一ウェーブ(base tree)で実行",
+      "detail": "S32940c-1/2/3 は packages/shared/schemas.ts と packages/cli/main.ts を共有し相互独立でないため、並列 worktree ではなく sprint branch 上で 1 Story ずつ逐次実装する(sprint-run のウェーブ規則=重複 Story は後続ウェーブに一致)。deps は base に導入済みで worktree 再インストールを回避。各 Story は sonnet leaf サブエージェントに委譲。",
+      "reference": "sprint-run.md ウェーブ規則 / DESIGN_PRINCIPLES priority 2(データ安全)",
+      "adr_ref": "none",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-07T15:36:02Z",
+      "category": "infra",
+      "title": "node-pty を遅延ロード化(サーバー起動をネイティブモジュール非依存に)",
+      "detail": "terminal.ts が node-pty を静的 import していたため、ネイティブ pty.node がロードできない環境ではサーバーが起動できず全 acceptance/e2e が動かなかった。ターミナルは既定無効のオプトイン機能なので、実際に pty を spawn する瞬間まで createRequire で遅延ロードするよう変更。ターミナル無効(テスト既定)では node-pty に一切触れない。23/24 acceptance ファイルが green 化。",
+      "reference": "DESIGN_PRINCIPLES priority 2(任意機能がコアを壊さない)",
+      "adr_ref": "none",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-07T15:36:02Z",
+      "category": "env_limitation",
+      "title": "terminal.spec.ts はこのサンドボックスで実行不可(GLIBC 不整合)",
+      "detail": "node-pty のネイティブ pty.node は GLIBC_2.42 を要求し、システム libc と不整合でロード不可。ターミナル機能を実際に spawn する tests/acceptance/terminal.spec.ts(7 tests)はこの環境では pass できない。これは環境制約でありスマートフォルダ実装とは無関係(main でも同様に失敗する)。smart-folder の検証(α/β)は terminal に依存しない。verify では terminal.spec.ts を既知の環境 skip として扱い、偽 pass にはしない。",
+      "reference": "test-discipline(偽装しない)",
+      "adr_ref": "none",
+      "drift_flag": "none"
+    }
+  ]
+}

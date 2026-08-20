@@ -1,0 +1,41 @@
+{
+  "$file": "gui-spec-S9e5ca4-1.json",
+  "sprint": "S9e5ca4",
+  "story": "S9e5ca4-1",
+  "story_type": "gui",
+  "visual_reference": "prototype/embed-preview.html (+ prototype/TESTIDS.md Sprint 7-11 追加分)",
+  "state_diagram": "stateDiagram-v2\n    [*] --> Source: ノートを開く (カーソル行の ![[...]] はソース表示)\n    Source --> Card: カーソルが embed 行を離れる → 読み取り専用カード (embed-card, data-target)\n    Card --> SectionCard: ![[note#見出し]] は該当セクションのみ + section-chip (data-section)\n    Card --> Opened: ヘッダ (embed-card-open) クリック → 元ノートを開く\n    Card --> ErrorCard: 解決不能ターゲット (壊れ embed) → embed-error\n    Card --> CycleError: A→B→A 再帰 → embed-error (循環検出、UI はフリーズしない)\n    Card --> DepthError: 深さ 5 超過 → embed-error (深さ制限)\n    Card --> Source: カーソルを embed 行へ置く → ソース記法が見える",
+  "scenarios": {
+    "entry_point": "ブラウザで UI を開き、![[ターゲット]] を単独行に含むノートを開く (ライブプレビューは常時有効)",
+    "happy_path": "![[note]] 行がカーソル外で読み取り専用の埋め込みカード (embed-card) になり、ヘッダに元ノート名、本文に元ノートの内容が描画される。ヘッダクリックで元ノートに移動する。![[note#見出し]] は該当見出しセクションのみが本文に出て、ヘッダに # 見出し チップが付く",
+    "data_states": {
+      "loading": "本文取得中はカード内に読み込み表示 (直後に内容へ差し替わる)",
+      "error": "ターゲットが解決できない / GET /api/notes が 404 → embed-error のエラーカード (壊れリンク同様の扱い)",
+      "cycle": "A→B→A の循環はチェーン表示付きの embed-error で打ち切り。エディタは操作可能なまま (クラッシュ・フリーズしない)",
+      "depth": "埋め込みチェーンが最大深さ 5 を超えたら embed-error で打ち切り"
+    },
+    "edge_cases": [
+      "カーソルが embed 行にあるときはソース記法 ![[...]] が見える (Obsidian Live Preview 準拠)",
+      "ネスト: 埋め込まれたノート本文の中の ![[...]] 行も再帰的にカード化される (チェーンを伝搬)",
+      "見出しが元ノートに存在しない場合はエラーカード",
+      "コードフェンス内の ![[...]] はカード化しない",
+      "本文中 (行の途中) の ![[x]] はブロック化しない (単独行のみ)"
+    ],
+    "success_feedback": "embed-card が描画され、ヘッダクリックでパンくずが元ノートに切り替わる",
+    "failure_feedback": "embed-error カード (data-target 付き)。アプリ全体は壊れない"
+  },
+  "endpoint_contracts": [
+    {
+      "path": "/api/notes/{path}",
+      "method": "GET",
+      "registered": true,
+      "request_fields": {},
+      "response_fields": { "path": "string", "content": "string", "frontmatter": "object|null", "body": "string", "mtime": "number" }
+    }
+  ],
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/embed.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/embed.mock.spec.ts"
+  },
+  "linked_ac": ["AC-S9e5ca4-1-1", "AC-S9e5ca4-1-2", "AC-S9e5ca4-1-3"]
+}

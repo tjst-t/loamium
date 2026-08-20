@@ -1,0 +1,168 @@
+{
+  "sprint": "S6fbf45",
+  "date": "2026-07-03",
+  "machine_verdict_source": "docs/sprint-logs/S6fbf45/verify-run.json (overall_machine_status: pass — test 189/189, ui-tests 57/57, lint exit 0)",
+  "summary": { "total": 246, "pass": 246, "fail": 0, "skip": 0 },
+  "tests": [
+    {
+      "name": "[AC-S6fbf45-1-1] [[ 入力で既存ノート名の候補が出て部分一致で絞り込まれ、選択で [[ノート名]] が挿入される",
+      "file": "packages/ui/tests/e2e/wikilink.e2e.spec.ts",
+      "story": "S6fbf45-1",
+      "acceptance_criteria": ["AC-S6fbf45-1-1"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: wikilink.e2e.spec.ts.[AC-S6fbf45-1-1] status=pass。実ブラウザ→Vite→実サーバー→一時 vault。[[ 入力で wikilink-autocomplete が開き、'Code' の部分一致で候補が 1 件に絞られ (不一致候補の消滅も assert)、Enter で [[CodeMirror 6 調査]] が挿入され、Ctrl+S 後にジャーナル実ファイルへピュア Markdown として書かれることを readFile で assert"
+    },
+    {
+      "name": "[AC-S6fbf45-1-2] 存在しないノートへのリンクは壊れリンク表示 (赤+破線) になり、クリックで新規ノートが作成される",
+      "file": "packages/ui/tests/e2e/wikilink.e2e.spec.ts",
+      "story": "S6fbf45-1",
+      "acceptance_criteria": ["AC-S6fbf45-1-2"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: wikilink.e2e.spec.ts.[AC-S6fbf45-1-2] status=pass。wikilink-broken testid + getComputedStyle で underline dashed + rgb(214,69,69) (--danger) を assert。クリックで vault に実ファイル生成 (stat)、エディタ遷移 (breadcrumb)、ツリー反映、再訪時に解決済み表示へ変わることまで assert"
+    },
+    {
+      "name": "[AC-S6fbf45-1-3] [[リンク]] のクリック (または Cmd/Ctrl+クリック) でそのノートに移動できる",
+      "file": "packages/ui/tests/e2e/wikilink.e2e.spec.ts",
+      "story": "S6fbf45-1",
+      "acceptance_criteria": ["AC-S6fbf45-1-3"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: wikilink.e2e.spec.ts.[AC-S6fbf45-1-3] status=pass。プレーンクリックと ControlOrMeta+クリックの両方で対象ノートへ遷移 (breadcrumb + エディタ本文)。エイリアス表示リンクでも遷移。ナビゲーションでソースファイルがバイト不変であることを readFile で assert"
+    },
+    {
+      "name": "S6fbf45-1 mock (オートコンプリート/壊れリンクのエッジ・エラー 8 ケース)",
+      "file": "packages/ui/tests/e2e/wikilink.mock.spec.ts",
+      "story": "S6fbf45-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "evidence": "verify-run.json ui-tests junit: wikilink.mock 8/8 pass。候補ゼロ時の create-only 項目、作成 PUT 失敗の app-error、一覧取得失敗時の壊れ扱い回避、曖昧 basename の決定的解決、フェンス/インラインコード内の非装飾、非 .md ターゲットの作成拒否 (レビュー R1)",
+      "error": null
+    },
+    {
+      "name": "[AC-S6fbf45-2-1] ノートを開くと参照元 + コンテキスト行が表示され、クリックで参照元に移動できる。保存でも更新される",
+      "file": "packages/ui/tests/e2e/backlinks-panel.e2e.spec.ts",
+      "story": "S6fbf45-2",
+      "acceptance_criteria": ["AC-S6fbf45-2-1"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: backlinks-panel.e2e.spec.ts.[AC-S6fbf45-2-1] status=pass。実サーバーの GET /api/backlinks に接続。参照元 2 ノート (plain / #見出し|エイリアス形式) のコンテキスト行と件数バッジ、クリックで参照元へ遷移 + パネルが遷移先の内容に切替、外部 (API) 追加後の保存トリガー再取得 (2→3 件) まで assert"
+    },
+    {
+      "name": "S6fbf45-2 mock (パネルのエッジ・エラー 5 ケース)",
+      "file": "packages/ui/tests/e2e/backlinks-panel.mock.spec.ts",
+      "story": "S6fbf45-2",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "evidence": "verify-run.json ui-tests junit: backlinks-panel.mock 5/5 pass。mark 強調・0 件 empty state・API 失敗のパネル内エラー (エディタ非阻害)・保存での再取得・開閉トグル",
+      "error": null
+    },
+    {
+      "name": "[AC-S6fbf45-3-1] POST /api/notes/{path}/rename が vault 内の全 [[旧名]] を書き換える (受け入れ 8 + CLI 3 ケース)",
+      "file": "tests/acceptance/rename.spec.ts",
+      "story": "S6fbf45-3",
+      "acceptance_criteria": ["AC-S6fbf45-3-1"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json test junit: rename.spec.ts 11/11 pass。実サーバー + 実 HTTP + 実 CLI サブプロセス。plain/#見出し/|表示名/![[embed]]/フルパス形式の追従、コードフェンス・インラインコード不変、自己リンク追従、バックリンクインデックス追従、監査ログ note.rename、曖昧 basename の非書き換え、409/404/400/403 の安全性 (拒否時ファイル完全不変)、同名 no-op、CLI rename (--json / conflict exit 1)"
+    },
+    {
+      "name": "[AC-S6fbf45-3-2] ツリーからのリネームでリンク追従が動き、監査ログに記録される",
+      "file": "packages/ui/tests/e2e/rename.e2e.spec.ts",
+      "story": "S6fbf45-3",
+      "acceptance_criteria": ["AC-S6fbf45-3-2"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: rename.e2e.spec.ts.[AC-S6fbf45-3-2] status=pass。右クリック→context-rename→rename-dialog→rename-link-note (1 ノート 2 件表示)→rename-confirm。ツリー更新・開いていた参照元バッファの追従・ディスク上の書き換え (フェンス内不変をバイト一致で assert)・旧ファイル消滅・.loamium/audit.log の note.rename result=ok・リネーム後リンクのクリック遷移まで assert"
+    },
+    {
+      "name": "S6fbf45-3 mock (UI リネームのエッジ・エラー 4 ケース)",
+      "file": "packages/ui/tests/e2e/rename.mock.spec.ts",
+      "story": "S6fbf45-3",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "evidence": "verify-run.json ui-tests junit: rename.mock 4/4 pass。rename-link-note の件数表示、件数取得失敗時のフォールバック文言 + リネーム続行、409 の app-error + ツリー不変、POST /rename が呼ばれ GET+PUT+DELETE 合成が使われないことの証明",
+      "error": null
+    },
+    {
+      "name": "shared ユニット (rewriteLinks 8 / preferredLinkTarget 3)",
+      "file": "packages/shared/src/extract.test.ts, packages/shared/src/links.test.ts",
+      "story": "S6fbf45-3",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "evidence": "verify-run.json test junit: rewriteLinks 8/8, preferredLinkTarget 3/3 pass。CLAUDE.md『リンク解決には必ずユニットテスト』準拠 (heading/alias/embed/#^block 保存、フェンス/インラインコード/frontmatter 不変、NFC/NFD、同一行複数リンクのオフセット)",
+      "error": null
+    },
+    {
+      "name": "既存回帰 (Sd63ad1〜S9ab6c3 の全テスト)",
+      "file": "make test + make test-ui 全体",
+      "story": "S6fbf45",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "evidence": "verify-run.json: test 189/189 (既存 167 + 新規 22)、ui-tests 57/57 (既存 35 + 新規 21、preview.e2e の data-target 期待値は S9ab6c3 decisions I8 予定どおり解決済みパスへ更新 + wikilink.mock 追加 1)、lint exit 0。skip 0",
+      "error": null
+    }
+  ],
+  "diff_coverage": {
+    "$comment": "Rule 6 — 本 Sprint の diff が追加したユーザー可観測サーフェスと担保テスト",
+    "surfaces": [
+      { "type": "api", "identifier": "POST /api/notes/{path}/rename", "introduced_in_files": ["packages/server/src/routes/notes.ts"], "resolution": "covered", "test": "tests/acceptance/rename.spec.ts (実 HTTP、8 ケース)" },
+      { "type": "cli", "identifier": "loamium rename <path> <new-path> (--json 含む)", "introduced_in_files": ["packages/cli/src/main.ts"], "resolution": "covered", "test": "tests/acceptance/rename.spec.ts CLI 3 ケース (実 bin サブプロセス) + skill.spec.ts コマンド整合 11 コマンド" },
+      { "type": "gui", "identifier": "wikilink-autocomplete / -option / -create ([[ 候補ポップアップ)", "introduced_in_files": ["packages/ui/src/wikilink.ts"], "resolution": "covered", "test": "wikilink.e2e AC-1-1 + wikilink.mock (絞り込み/ゼロ件/作成失敗)" },
+      { "type": "gui", "identifier": "wikilink-broken (赤+破線、クリックで新規作成)", "introduced_in_files": ["packages/ui/src/live-preview.ts"], "resolution": "covered", "test": "wikilink.e2e AC-1-2 + wikilink.mock (作成失敗/非 .md 拒否/一覧未ロード時の中立表示)" },
+      { "type": "gui", "identifier": "wikilink クリック/Cmd+クリック遷移 (data-target=解決済みパス)", "introduced_in_files": ["packages/ui/src/live-preview.ts"], "resolution": "covered", "test": "wikilink.e2e AC-1-3 + rename.e2e (リネーム後遷移) + preview.e2e (解決済み data-target)" },
+      { "type": "gui", "identifier": "backlink-count / backlink-item / backlink-empty / backlink-error (パネル実データ)", "introduced_in_files": ["packages/ui/src/components/BacklinkPanel.tsx"], "resolution": "covered", "test": "backlinks-panel.e2e AC-2-1 + backlinks-panel.mock 5 ケース" },
+      { "type": "gui", "identifier": "rename-link-note (リネームダイアログのリンク更新数表示)", "introduced_in_files": ["packages/ui/src/App.tsx", "packages/ui/src/components/dialogs.tsx"], "resolution": "covered", "test": "rename.e2e AC-3-2 + rename.mock (件数/取得失敗フォールバック)" },
+      { "type": "gui", "identifier": "ツリーリネームの rename API 化 (GET+PUT+DELETE 合成の置換)", "introduced_in_files": ["packages/ui/src/App.tsx"], "resolution": "covered", "test": "rename.e2e AC-3-2 + rename.mock (POST /rename のみ発行を assert)" },
+      { "type": "library", "identifier": "shared 新規エクスポート rewriteLinks / preferredLinkTarget / rename スキーマ", "introduced_in_files": ["packages/shared/src/extract.ts", "packages/shared/src/links.ts", "packages/shared/src/schemas.ts"], "resolution": "covered", "test": "extract.test.ts / links.test.ts ユニット + rename.spec.ts / wikilink.e2e が公開 API 経由で実利用" }
+    ]
+  },
+  "done_judgment": [
+    {
+      "story_id": "S6fbf45-1",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      },
+      "notes": "guard1: user_review_required=false。guard2: nil-guard パターン 0 件。guard3: e2e はネットワークモック 0 件 (grep clean)、実サーバー+実 vault。guard5: [[→候補→挿入→保存→実ファイル、壊れリンク→PUT 作成→実ファイル生成の経路を e2e が実 round-trip で証明。guard6: 先送りコメント 0 件。guard7: docs/DESIGN/ 不在。guard8: data path (Go 定義) 非該当。"
+    },
+    {
+      "story_id": "S6fbf45-2",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      },
+      "notes": "guard5: パネル→GET /api/backlinks→S31ba00 実インデックスの結合を e2e が実サーバーで証明 (grep: api.getBacklinks → /api/backlinks → index.backlinks)。他ガードは S6fbf45-1 と同条件で clean。"
+    },
+    {
+      "story_id": "S6fbf45-3",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      },
+      "notes": "guard3: 受け入れテストは実サーバーのサブプロセス + 実 CLI bin (MOCK/DRY_RUN/fake 0 件)。guard5: UI→POST /rename→rewriteLinks→実ファイル→監査ログ→インデックス追従の全経路を rename.e2e + rename.spec.ts が実 round-trip で証明。破壊的操作の安全性 (409/404/400/403 でファイル不変、曖昧リンク非書き換え) を受け入れテストで固定。"
+    }
+  ]
+}

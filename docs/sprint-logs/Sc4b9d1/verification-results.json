@@ -1,0 +1,64 @@
+{
+  "sprint": "Sc4b9d1",
+  "run_at": "2026-07-16",
+  "server_command": "make lint / make test / playwright e2e pin",
+  "machine_verdict": "pass",
+  "summary": "エージェント完全統合 全 5 Story 実装・検証済み。スマートフォルダ/コマンド/テンプレート操作ツール群を既存監査済みサービス層(純関数切り出し)経由で追加、help 拡充、CLAUDE.md 規約化。make lint 緑、make test 1409 pass、agent-tools e2e pin 3 pass。独立検証者が当初 ADR-0018 deny 未適用(command_run/template_instantiate の書込先に機密 deny が効かない)を高重要度で発見 → fix(2123897) で agent 経路にのみ deny 強制(REST 不変)+回帰テスト追加 → 再検証で解消。",
+  "tests": [
+    {
+      "name": "[Sc4b9d1-1] smartfolder tools list/notes/write/delete + deny + パス検証",
+      "file": "packages/server/src/agent-smartfolder-tools.test.ts",
+      "story": "Sc4b9d1-1",
+      "status": "pass"
+    },
+    {
+      "name": "[Sc4b9d1-2] command tools list/run + fail-stop/append-only/deny",
+      "file": "packages/server/src/agent-command-tools.test.ts",
+      "story": "Sc4b9d1-2",
+      "status": "pass"
+    },
+    {
+      "name": "[Sc4b9d1-3] template tools list/instantiate + pure-md/missing-vars/deny",
+      "file": "packages/server/src/agent-template-tools.test.ts",
+      "story": "Sc4b9d1-3",
+      "status": "pass"
+    },
+    {
+      "name": "[Sc4b9d1-4] help topics smartfolder/command/template 反映",
+      "file": "packages/server/src/agent-tools.test.ts",
+      "story": "Sc4b9d1-4",
+      "status": "pass"
+    },
+    {
+      "name": "[REST 不変] commands/templates/smart-folders acceptance",
+      "file": "tests/acceptance/*.spec.ts",
+      "story": "Sc4b9d1-1,2,3",
+      "status": "pass"
+    },
+    {
+      "name": "[pin] agent-tools advertised-toolset (full=21, read-only=10)",
+      "file": "packages/ui/tests/e2e/agent-tools.e2e.spec.ts",
+      "story": "Sc4b9d1-1,2,3",
+      "status": "pass"
+    }
+  ],
+  "verifier_findings_resolved": [
+    {
+      "finding": "ADR-0018 deny が command_run 書込ステップ先・template_instantiate 保存先に未適用 (createCommandTools/createTemplateTools が isDenied 未受領)",
+      "severity": "high",
+      "ac": "AC-Sc4b9d1-2-3 / AC-Sc4b9d1-3-3",
+      "resolution": "fix 2123897: runCommand/instantiateTemplate にオプショナル isDenied 追加。agent 経路(create/open)のみ deny 強制、解決後の書込先で判定・fail-stop・ファイル未生成。REST 不変。deny 拒否の回帰テスト 5 本追加。",
+      "caught_by": "independent_verifier",
+      "overlooked_by_implementer": true
+    }
+  ],
+  "preexisting_failures": {
+    "note": "UI 実サーバー e2e の create-todo 系 6 失敗 + smart-folder drag&drop flake 1 は既存破損(S5a66e4 verify で base 再現確認済み・backlog bug 化済み)。本スプリント無関係。"
+  },
+  "done_judgment": {
+    "guard4_priority_rule9": "N/A",
+    "guard5_call_path": "pass — agent-service create/open 双方で createSmartFolder/Command/TemplateTools を isDenied 付きで連結、tools→service 純関数→REST パリティ",
+    "guard6_deferred_comment": "pass",
+    "overall": "done"
+  }
+}

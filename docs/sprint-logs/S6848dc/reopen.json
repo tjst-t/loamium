@@ -1,0 +1,42 @@
+{
+  "sprint_id": "S6848dc",
+  "reopened_at": "2026-07-22T02:05:00Z",
+  "triggered_by": "milestone_review",
+  "milestone": "S6848dc",
+  "reason": "実機レビューで 3 件の不具合を確認(いずれも実機で再現・修正・再確認済み)。#1 と #3 は本スプリントのストーリー AC の実質未達、#2 は既存不具合。",
+  "affected_acceptance_criteria": ["AC-S6848dc-1-1", "AC-S6848dc-2-1"],
+  "findings": [
+    {
+      "id": "R-S6848dc-1",
+      "story": "S6848dc-1",
+      "symptom": "リスト項目がスペースなしの長い連続トークン(URL・英字列)のみのとき、マーカーだけ 1 行目に残りトークンが次の行から表示される(ユーザー: 禁則の暴発に見える)。",
+      "root_cause": "リストマーカー widget + 先頭スペース + break-spaces の折返しで 1 行目にトークンが 1 文字しか乗らず次行送りになる。#1 のぶら下げが可視化した(text-indent:0 でも再現するブラウザ折返し挙動)。overflow-wrap:anywhere では直らない。",
+      "fix": ".cm-list-line に word-break:break-all を追加。実機計測で firstLineTokenWidth 8px→638px、トークンがマーカー行から表示されることを確認。",
+      "attribution": "本スプリント #1 のぶら下げが可視化(部分的に既存のブラウザ挙動)。",
+      "verified": "real-app (palmux screenshot)"
+    },
+    {
+      "id": "R-S6848dc-2",
+      "story": "S6848dc-2",
+      "symptom": "リスト内(および段落内)の画像がまだ表示されない。ユーザー記法 ![[image.png]](Obsidian wiki 埋め込み)が赤い未解決リンクになる。",
+      "root_cause": "インライン ![[image]] は Image ノードに URL が無く live-preview の Image handler が早期 return→ 行走査の WIKILINK_RE が内側 [[image.png]] を broken wikilink として描画。#2 のテストは ![](path) のみ検証し、ユーザーが使う ![[...]] 記法を見ていなかった(テストギャップ=実機で失敗した真因)。",
+      "fix": "live-preview.ts に WIKILINK_RE より前のインライン ![[...]] 埋め込みスキャンを追加し、画像拡張子は renderImageEmbed で描画・範囲を claim。段落/箇条書き/番号/ネストで画像描画を確認。wiki-embed-image.mock.spec.ts でユーザー記法をテスト。",
+      "attribution": "本スプリント #2 の AC/テストが ![](path) 記法に限定され実質未達。![[...]] インライン描画は pre-existing 未対応。",
+      "verified": "real-app (palmux screenshot) + mock e2e"
+    },
+    {
+      "id": "R-S6848dc-3",
+      "story": "(既存不具合・本スプリント非改変領域)",
+      "symptom": "ある行で文字を入力し数秒後、カーソルがドキュメント先頭へ飛ぶ(画面が最下部へ行くことも)。",
+      "root_cause": "autosave の自己エコー: 保存→ファイル書込→chokidar→SSE notes_changed 自己受信→非dirty→setOpenDoc が常に resetToken を更新し CodeMirror を全リセット(カーソル先頭)。main にも存在する既存経路(Sd5c9f4/Sfa11c0 Story6 由来)。私の #5 採番 listener は無関係(平文段落でも再現、Playwright 実測で確認)。",
+      "fix": "App.tsx handleSseNotesChanged の非dirty再読込に自己エコー抑制ガードを追加(取得内容==エディタ現在値なら再読込せずカーソル/スクロールを保持。真の外部変更のみ再読込)。Playwright 実測でカーソルが typed 行に留まることを確認。",
+      "attribution": "既存不具合(main と同一)。本スプリント起因ではないが実機バグのため修正。",
+      "verified": "real-app (Playwright cursor measurement)"
+    }
+  ],
+  "added_tasks": [
+    { "story": "S6848dc-1", "task_id": "S6848dc-1-fix-1", "description": "長トークン折返し: .cm-list-line に word-break:break-all(実機計測で確認)" },
+    { "story": "S6848dc-2", "task_id": "S6848dc-2-fix-1", "description": "インライン ![[image]] wiki 埋め込みを画像描画 + 記法テスト追加" },
+    { "story": "S6848dc-2", "task_id": "S6848dc-2-fix-2", "description": "(既存不具合)SSE 自己エコー再読込のカーソル飛びを抑制(App.tsx)" }
+  ]
+}

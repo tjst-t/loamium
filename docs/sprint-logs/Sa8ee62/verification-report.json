@@ -1,0 +1,16 @@
+{
+  "sprint": "Sa8ee62",
+  "verifier_model": "independent (sonnet)",
+  "overall": "pass",
+  "note": "verifier verdict was 'warn' due to an audit-integrity defect (note.export logged 'ok' before htmlToPdf); FIXED in this sprint (audit moved to after successful generation) — re-verified. Timeout concern also addressed (explicit 20s bound on launch/setContent).",
+  "adr_conformance": {"adr": "ADR-0006", "single_pipeline": true, "no_vault_writeback": true, "audited": true},
+  "ac_failures": [],
+  "untraced_acs": [],
+  "forbidden_findings": [],
+  "chromium_hygiene": {"always_closed": true, "no_sandbox": true, "html_skips_chromium": true},
+  "resolved": [
+    "AUDIT DEFECT (was warn): note.export audit written before htmlToPdf → fixed, now written only after artifact succeeds (notes.ts).",
+    "TIMEOUT CONCERN: PDF render had only playwright defaults → added explicit 20s timeout on launch + setContent (export.ts)."
+  ],
+  "summary": "ADR-0006 core contract (single server pipeline shared by REST+CLI, no vault writeback, headless Chromium PDF) correctly implemented; Chromium hygiene sound. The one genuine defect found by the verifier (audit-before-generation) was fixed and re-verified. Deferred render features documented as compromises."
+}

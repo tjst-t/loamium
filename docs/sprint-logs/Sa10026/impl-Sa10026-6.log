@@ -1,0 +1,70 @@
+Sa10026-6: 設定書込 API を agent ツール allowlist から除外 (自己昇格防止)
+
+実装日: 2026-07-14
+担当: agent-a605c4355d866f95e
+
+== 調査結果 ==
+
+現状 agent が設定書込に到達できるルートは存在しない (ルートなし)。
+
+理由:
+1. CAPABILITY_TOOL_NAMES (agent-capabilities.ts) には settings 系ケーパビリティが存在しない。
+   deriveToolNames は全ケーパビリティ (full) を受け取っても settings 書込ツールを返さない (構造的除外)。
+2. normalizeVaultPath が .loamium/* の hidden segment を VaultPathError で拒否する。
+   note_create / note_edit ツールは note-service.ts 経由で同一ルートを使うため、
+   .loamium/agent.json / agent-privacy.json への書き込みは到達不可。
+3. /api/settings/* は HTTP REST ルートのみ。agent ツールレジストリとは独立した別経路。
+
+== 実装内容 ==
+
+Ta10026-6-1: 除外の構造的保証 + 境界テスト
+
+packages/shared/src/agent-capabilities.ts
+  - SETTINGS_EXCLUDED_TOOL_NAMES 定数を追加 (設定書込 API に相当するツール名候補のリスト)
+  - コメントに ADR-0026 / Sa10026-6 の設計制約を明記
+  - export から index.ts を通じて shared パッケージ公開
+
+packages/shared/src/index.ts
+  - SETTINGS_EXCLUDED_TOOL_NAMES を export に追加
+
+packages/shared/src/agent-capabilities.test.ts
+  - [AC-Sa10026-6-1] 全プリセット (full/read-only/notes-rw) で設定書込ツールが含まれないことを確認
+  - [AC-Sa10026-6-2] full プリセットの advertised-toolset が固定 13 種であることを pin
+
+packages/server/src/agent-tools.test.ts
+  - [AC-Sa10026-6-1] read_note が .loamium/agent-privacy.json を拒否することを確認
+  - [AC-Sa10026-6-1] VAULT_READ_TOOL_NAMES に settings 書込系ツール名が含まれないことを pin
+
+tests/acceptance/agent-settings-boundary.spec.ts (新規)
+  - [AC-Sa10026-6-1] notes API が .loamium/* へのアクセスをすべて拒否することを実 HTTP で確認
+    PUT / POST append / POST patch / GET → 400/404
+  - [AC-Sa10026-6-1] 設定書込 API (/api/settings/*) は HTTP ルートとして生きていることを確認
+    (HTTP ルートが動作することで「除外は agent ツール側のみ」という設計意図を明確にする)
+
+Ta10026-6-2: advertised-toolset pin 更新
+
+packages/ui/tests/e2e/agent-tools.e2e.spec.ts
+  - [AC-S53409d-3-1] の既存 pin テストに [AC-Sa10026-6-2] 自己昇格防止のコメントを追記
+  - 実 LLM リクエストの tools フィールドが設定書込ツールを含まないことを記述
+
+== テスト結果 ==
+
+make lint: PASS (全 workspace 型エラーなし)
+make test: PASS (79 test files / 1216 tests all green)
+
+新規テスト内訳:
+  agent-capabilities.test.ts: +4 テスト (AC-Sa10026-6-1/6-2)
+  agent-tools.test.ts: +2 テスト (AC-Sa10026-6-1)
+  agent-settings-boundary.spec.ts: +10 テスト (AC-Sa10026-6-1)
+
+== vitest.config.ts / tsconfig.json ==
+
+最終差分に含まれない (変更なし)。
+
+== out-of-scope findings ==
+
+- notes API は .loamium/* を GET でも拒否する (hidden path 存在隠蔽)。
+  既存の HiddenVaultPathError / VaultPathError の境界が機能していることを確認。
+- system/ 配下 (system/settings.yaml 等) は agent ツールの note_create / note_edit で書き込み可能。
+  ADR-0026 / ADR-0010 の設計通り (system/ は agent 編集可の設定領域)。
+  agent 接続・権限・deny-list は .loamium/ 側に保存され、こちらは agent 編集不可。

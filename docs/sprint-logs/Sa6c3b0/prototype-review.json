@@ -1,0 +1,34 @@
+{
+  "sprint_range": ["Sa6c3b0", "Sd5c9f4", "Se3b7a2", "Sb6f1d3", "S2e8a4c"],
+  "reviewed_at": "2026-07-19",
+  "approved": true,
+  "feedback_rounds": 4,
+  "screens": [
+    {"file": "prototype/mobile-responsive.html", "story": "Sa6c3b0-1/2/3/4/6", "approved": true},
+    {"file": "prototype/mobile-responsive-open.html", "story": "Sa6c3b0-1/6", "approved": true},
+    {"file": "prototype/mobile-agent.html", "story": "Sa6c3b0-6", "approved": true},
+    {"file": "prototype/todo-popover.html", "story": "Se3b7a2-2", "approved": true},
+    {"file": "prototype/todo-dataview.html", "story": "Se3b7a2-4/5", "approved": true},
+    {"file": "prototype/settings-tasks.html", "story": "Se3b7a2-8", "approved": true},
+    {"file": "prototype/slash-menu.html", "story": "S763a98-1/Se3b7a2-7", "approved": true},
+    {"file": "prototype/heading-fold.html", "story": "Sb6f1d3-1/2", "approved": true},
+    {"file": "prototype/ui-fixes.html", "story": "S2e8a4c-1..7", "approved": true}
+  ],
+  "design_decisions": [
+    "モバイルは閲覧中心(VISION out_of_scope)。サイドバーオーバーレイに『ノート/スマート』切替を追加。Agent はボトムバー[ノート/検索/Agent]+フルスクリーンシート(新スコープ Sa6c3b0-6)。",
+    "TODO: チェックボックス `- [ ]`/`- [x]` は完了のみ。status/priority/due は任意の Dataview インラインフィールド(必要時のみ)。単純タスクはピルなし。ADR-0029 として確定。",
+    "status/priority の語彙は system/settings.yaml の tasks: で定義(コード埋め込みなし)。GUI 管理画面 settings-tasks.html を新設(Se3b7a2-8)。",
+    "TODO UI は Todoist/Things 風(丸チェックボックス・優先度フラグ・相対期日チップ・クイック編集ポップオーバー)。",
+    "Dataview: 親タスクはデフォルト折りたたみ(▶ 展開)。丸チェックボックスは全行縦整列(トグル用固定幅スロット dv-toggle-slot)。",
+    "スラッシュ /task で status/priority/due を自然に入力(全既定『なし』)+ 自然言語トークン変換(明日/!高)。新スコープ Se3b7a2-7。",
+    "見出し fold は階層的(H1 を畳むと配下 H2/H3 も)。各見出し独立トグル。ビュー状態のみ(ファイル不変)。",
+    "Journal ヘッダはカレンダーアイコン→月グリッドを直接ポップアップ(2ステップ廃止、S2e8a4c-1)。",
+    "スマートコマンドパネルはサイドバーから完全撤去(設定メニュー管理 + Ctrl-K 実行、S2e8a4c-5 スコープ変更)。"
+  ],
+  "fixes_during_review": [
+    "Dataview レイアウト崩れ: 行 `<button>` に内側 `<button>` をネスト → 不正 HTML でパーサが外側を閉じ flex が壊れていた。11 行を `<div role=button>` に変換して修正。",
+    "status 二重記録の削除: `- [/] ... [status:: progress]` のチェックボックス文字とインラインフィールドの重複 → ADR-0029 で status はインラインフィールドのみに統一。",
+    "子あり/なし行で丸チェックボックスがずれていた → dv-toggle-slot(固定幅)で縦整列。"
+  ],
+  "implementation_note": "プロトタイプのレビュー用注釈ボックス(.proto-note / .proto-chip / .proto-label-banner / .proto-page および画面固有の .fix-note / .desktop-note 等の解説要素)は実装に持ち込まない。実装は data-testid・レイアウト・要素構造のみ再現する(ユーザー指示 2026-07-19)。"
+}

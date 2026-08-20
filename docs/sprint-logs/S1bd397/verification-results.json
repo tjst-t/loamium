@@ -1,0 +1,43 @@
+{
+ "sprint": "S1bd397",
+ "verified_by": "autopilot main-loop (independent machine runs, Node 22)",
+ "machine_status": {
+  "make_lint": "pass (exit 0)",
+  "make_test": "pass (118 files / 1772 tests) — options-query(18), schemas-optionsquery(11), strict-select-validation(8: tpl3+cmd5), agent-tools(25) all green",
+  "make_test_ui": "exit non-zero: 811 passed / 9 failed / 2 skipped. dynamic-options 12/12 pass. sidebar-tree.mock:88 regression FIXED. All 9 failures machine-proven pre-existing (fail on base): list-hang.mock(121,128,155), list-image.mock(128), wiki-embed-image.mock(165), dataview.e2e:68, editor.e2e:176, journal.e2e:47, smart-folder-editor:262. 0 S1bd397-introduced failures."
+ },
+ "regression_analysis": {
+  "introduced_regressions_found": 1,
+  "introduced_regressions_fixed": 1,
+  "detail": "wave4 UI が App.tsx サイドバーをモバイル対応改変した際に sidebar-new-folder ボタンを削除し sidebar-new-note を二重化 → sidebar-tree.mock:88 が 30s timeout。isMobileViewport 除去+構造復元で修正、モバイル導線はオーバーレイ経由に統一。修正後 sidebar-tree.mock 3/3 pass。",
+  "net_new_failures": 0
+ },
+ "env_note": "この VM が Node 22→20 に劣化しており(undici markAsUncloneable で server/agent テストが偽陽性 fail)、~/.local/node22 に Node 22 を導入 + npx playwright install chromium で復旧してから検証。make は /nix/store の gnumake。",
+ "stories_done_judgment": {
+  "S1bd397-1": {
+   "status": "done",
+   "guard2_forbidden_degradation": "pass (no skip/any/ts-ignore)",
+   "adr": "ADR-0031/0001/0016 準拠",
+   "ac": "pass (unit 18+11)"
+  },
+  "S1bd397-2": {
+   "status": "done",
+   "ac": "pass (strict-select 8: REST/CLI/agent 同一・tpl+cmd 対称)",
+   "adr": "ADR-0016 単一経路"
+  },
+  "S1bd397-3": {
+   "status": "done",
+   "ac": "pass (依存/循環 unit)"
+  },
+  "S1bd397-4": {
+   "status": "needs_user_review",
+   "reason": "GUI・user_review_required:true。dynamic-options e2e4+mock8 pass だが実機のユーザー承認待ち",
+   "ac": "pass"
+  },
+  "S1bd397-5": {
+   "status": "done",
+   "ac": "pass (agent-help topic + 機能ガイド、agent-tools 25 green・advertised-toolset pin 非影響)",
+   "adr": "ADR-0014/0015/0016"
+  }
+ }
+}

@@ -1,0 +1,43 @@
+{
+  "sprint_range": ["S5a66e4", "S8a3f2e", "Sc4b9d1"],
+  "reviewed_at": "2026-07-16",
+  "screens": [
+    {
+      "file": "prototype/settings-llm-backend.html",
+      "story": "S8a3f2e-4",
+      "state": "external backend selected",
+      "feedback_rounds": 4,
+      "approved": true
+    },
+    {
+      "file": "prototype/settings-llm-backend-local.html",
+      "story": "S8a3f2e-4",
+      "state": "local backend, models present (unified list selector)",
+      "feedback_rounds": 4,
+      "approved": true
+    },
+    {
+      "file": "prototype/settings-llm-backend-empty.html",
+      "story": "S8a3f2e-4",
+      "state": "local backend, 0 models (list layout, empty message)",
+      "feedback_rounds": 4,
+      "approved": true
+    },
+    {
+      "file": "prototype/command-editor-agent-run.html",
+      "story": "S5a66e4-5",
+      "state": "agent-run completion + scaffold insertion",
+      "feedback_rounds": 1,
+      "approved": true
+    }
+  ],
+  "design_decisions": [
+    "バックエンド選択は自動フォールバックせずユーザーの明示選択 — ADR-0025 amendment(2026-07-16)",
+    "モデル置き場は .loamium/models/llm/(LLM)と .loamium/models/asr/(音声認識・将来 Whisper)の種別サブフォルダ — ADR-0025 amendment",
+    "モデル選択 UI はドロップダウンを廃し『取得済みモデル一覧のラジオ』に一本化",
+    "モデルなし時も一覧レイアウトに統一(取得済み 0 件 + 空メッセージ + リロード)",
+    "『再取得』→『リロード』(フォルダからの再読み込みの意)",
+    "冗長な説明 hint を削除して UI を簡潔化"
+  ],
+  "adr_amendments": ["ADR-0025"]
+}

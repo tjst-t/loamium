@@ -1,0 +1,53 @@
+{
+  "id": "ADR-0031",
+  "title": "テンプレート変数・スマートコマンドのパラメータに DQL 由来の動的選択肢を追加する — 入力ウィジェットと直交する optionsQuery フィールドで統一し、第二のクエリ機構は作らない",
+  "status": "accepted",
+  "date": "2026-07-23",
+  "context": "現状、テンプレート変数 TemplateVar(packages/shared/src/schemas.ts、type: text|select|date|tags)とスマートコマンドのパラメータ CommandParam(packages/shared/src/loamium-command.ts、type: string|text|date|select|note|boolean|number)は、どちらも選択肢を静的な options: string[] にしか持てない。Epic テンプレート(target: projects/{{プロジェクト名}}/epics/{{Epic名}})のように既存ノート集合から選ばせたい場面で、プロジェクト名を手入力せざるを得ず、表記揺れ・入力ミスが起きやすい。2026-07-22 の草案『テンプレート変数に動的選択肢(ノート参照)を追加する提案』は、テンプレート変数へ動的選択肢を足す 4 案(A: type:query に labelField/valueField、B: type:ref に from/field、C: type:text へ dynamic フラグ、D: 本文インライン {{query: ...}} 静的展開)を挙げ、C を第一候補・D を第二候補とした。前提となる既存判断: 正本は常にピュア Markdown 文字列 1 本(DESIGN_PRINCIPLES priority 1)、DQL は既存エンジン(packages/shared/src/dql.ts の parseQuery/executeQuery=純関数、POST /api/query で公開、ノート内 dataview フェンス・スマートフォルダで共用)を再利用し第二のクエリ機構を作らない(ADR-0001)、スマートコマンド DSL は制御フローを持たず宣言的なまま加算拡張する(ADR-0022)、REST/CLI/agent は監査済みサービス層を共有し重複する解決ロジックを新設しない(ADR-0016)、機能追加時は agent ツールと agent-help・機能ガイドを同時に更新する(CLAUDE.md)。加えて、既に『vault から動的に候補を引く』型として templates の tags(全タグ一覧)と commands の note(全ノートピッカー)が存在し、これらは本課題の先例になっている。そしてこの課題はテンプレートだけでなくスマートコマンドのパラメータにも同型で存在する(ユーザー指摘)。",
+  "alternatives": [
+    {
+      "name": "入力ウィジェット(type)と直交する optionsQuery(DQL 文字列)フィールドを TemplateVar/CommandParam 双方へ加算し、既存 select/text/note の候補源を DQL に差し替える(採用)",
+      "tradeoff": "新しい type を増やさず、select+optionsQuery=厳格ドロップダウン / text+optionsQuery=自由入力を許すオートコンプリート(草案 C 相当)/ note+optionsQuery=タグ・フォルダで絞ったノートピッカー(Epic の本命)を 1 フィールドで表現できる。既存の tags(全タグ)/ note(全ノート)を『無制約な vault 由来ピッカー』、optionsQuery を『DQL で制約したもの』と位置づけられ一貫。DQL を再利用するので ADR-0001/0022/0016 と整合。代償は、type と optionsQuery の 2 軸になり有意な組合せをドキュメント化する必要があること、および厳格 select の候補membership を実行時に検証すると『クエリ無効/0 件』という新しい失敗経路が増えること。"
+    },
+    {
+      "name": "草案 A: type: query という新型(labelField/valueField 付き)",
+      "tradeoff": "DQL を使う方向は正しいが、tags/note に続く『第 3 の vault 由来型』を増やし命名が不整合になる。ウィジェットがドロップダウン固定になり、自由入力(新規プロジェクト名)や note ピッカーとの合成ができない。labelField/valueField(TABLE 列選択)は有用だが型ごと導入するのは過剰。採用案の直交フィールドへ吸収し、列選択は加算的な後追い拡張に回す。単独では不採用。"
+    },
+    {
+      "name": "草案 B: type: ref(from/field で絞り込み)",
+      "tradeoff": "from/field という DQL の劣化ミニ DSL を新設する。これは『第二のクエリ機構を作らない』という ADR-0001 の趣旨に正面から反し、DQL とふるまい・意味論が乖離する(dataview フェンス/スマートフォルダとの一貫性を崩す)。不採用。"
+    },
+    {
+      "name": "草案 C: type: text に dynamic フラグ",
+      "tradeoff": "DQL 文字列を候補源にする方向は正しく後方互換も高いが、text 専用の特別扱いで、select の厳格化や note の絞り込みには効かない。採用案は text/select/note すべてに効く上位互換であり、C はその一部として吸収される。単独では不採用。"
+    },
+    {
+      "name": "草案 D: 本文インライン {{query: ...}} を instantiate 時に静的展開",
+      "tradeoff": "Loamium は既にライブな dataview フェンスを持ち、テンプレート本文にそのまま書けば生成ノート側で再評価される(ピュア Markdown・常に最新)。instantiate 時に結果を焼き込む静的スナップショットは元データ変更に追随せず陳腐化する footgun で、ライブフェンスと二重になる。生成物に固定要素を埋め込みたいという別ユースケースには価値があるが、本 ADR のスコープ外・非推奨とし、当面はライブフェンスで代替する。真に固定スナップショットが要る需要が出たら別 ADR。"
+    }
+  ],
+  "decision": "(1) TemplateVar と CommandParam の双方に、任意の optionsQuery: string(DQL 文字列)フィールドを加算する。存在するとき、その変数/パラメータの選択候補は静的 options ではなく、既存 DQL エンジン(dql.ts の parseQuery/executeQuery、POST /api/query と同じ純関数経路)を実行して得る。新しいクエリ言語・第二の解決機構は作らない(ADR-0001)。 (2) optionsQuery は入力ウィジェット type と直交する。組合せの意味論は、select+optionsQuery=候補を DQL で生成する厳格ドロップダウン、text+optionsQuery=候補をサジェストしつつ自由入力も許すオートコンプリート(草案 C の新規プロジェクト名入力を満たす)、(commands の)note+optionsQuery=タグ/フォルダで絞ったノートピッカー(Epic の本命)。type を増やさず既存 select/text/note/tags の候補源を差し替えるだけとし、既存の tags(全タグ)/ note(全ノート)はこの一般化の無制約な特殊形と位置づける。 (3) テンプレートとスマートコマンドで同一フィールド名・同一解決経路にする。候補解決は shared/server の単一ヘルパに集約し、REST(templates instantiate / commands run のダイアログ)・CLI・agent が同じ結果を得る(ADR-0016。二重管理を作らない)。 (4) 候補の値/表示は、v1 では DQL LIST を主対象とし、候補の値=ノートタイトル(Epic の {{プロジェクト名}} はこれでパスに展開できる)、表示ラベル=同じとする。path を値にする valueField や TABLE の列選択(labelField/valueField)は加算的な後追い拡張とし v1 では持たない。 (5) optionsQuery 文字列自体は、宣言順で既に解決済みの変数を resolveTemplate で差し込んでから実行してよい(例: LIST file.name FROM #epic WHERE project = \"{{プロジェクト名}}\")。これにより依存ドロップダウンが書ける。解決は宣言順・循環禁止とし、上流の値が変わったら下流クエリを再実行する。まずは非依存クエリを先行実装し、依存は後追いスライスにできる。 (6) 厳格な select+optionsQuery は、送信値が候補集合に含まれるかをサーバ側で同じ解決経路を使って検証する(REST/CLI/agent で同一制約を強制)。text+optionsQuery は自由入力なので検証しない。agent は候補を既存の DQL/notes クエリツールで自ら発見でき、template_instantiate / command_run は従来どおり値を直接渡す(ADR-0016)。 (7) 正本はピュア Markdown を維持する。optionsQuery はテンプレート/コマンドの定義(system/ 配下の frontmatter/YAML=設定)にのみ存在し、生成ノートやステップには解決後のプレーンな値だけが入る。ブロック ID・独自記法は一切書き込まない(priority 1)。",
+  "consequences": [
+    "+ Epic テンプレートのような『既存ノート集合から選ぶ』入力が、表記揺れ・手入力なしで実現する。テンプレートとスマートコマンドで同じ書き方・同じ挙動になる(ユーザー指摘の統一)。",
+    "+ 新しいクエリ言語・第二のクエリ機構を作らず既存 DQL を再利用する(ADR-0001)。ノート内 dataview フェンス・スマートフォルダと同じ意味論で候補が引ける。",
+    "+ type を増やさない加算拡張で後方互換(optionsQuery 省略=現状のまま)。tags/note の『vault 由来候補』先例と一貫し、note+optionsQuery で絞り込みピッカーまで合成できる(ADR-0022 の宣言的加算に整合)。",
+    "+ 候補解決を単一ヘルパに集約するので REST/CLI/agent/UI が同じ候補を得る(ADR-0016)。agent は既存 DQL ツールで候補を発見でき、agent 専用の追加機構は不要。",
+    "- type と optionsQuery の 2 軸になり、意味のある組合せ(select/text/note × query)を機能ガイド・定義エディタ補完で明示する必要がある。表示名≠id の教訓(ADR-0022)同様、契約バグ混入に注意する。",
+    "- 厳格 select の membership 検証を入れると、instantiate/run 時に DQL 実行が絡み『クエリ無効/0 件』という新しい失敗経路が増える。0 件時は厳格 select は空+ヒント表示、text は自由入力にフォールバックする挙動を定義しユニットテストで担保する。",
+    "- 依存クエリ(下流が上流変数を参照)はダイアログを宣言順・反応的に解決する実装が要り、循環ガードが必要。非依存クエリを先行させ依存は後追いにできる。",
+    "- 候補が大量のときのため top-N(既定 50 件程度)+ クライアント側絞り込みを課す。silent に打ち切らずヒントを表示する(no silent caps)。",
+    "- 草案 D(本文の静的クエリ)を採らないため、生成ノートに動的一覧が欲しい場合はライブ dataview フェンスをテンプレート本文へ書く(常に最新・ピュア Markdown)。",
+    "- CLAUDE.md の義務: agent-help(agent-help.ts のテンプレート/コマンド トピック)と機能ガイド(samples/機能ガイド/テンプレート系・スマートコマンドの使い方.md)を optionsQuery の書式・組合せ・制約付きで更新する。agent-tools の広告トグルを変えるなら agent-tools e2e を回す。"
+  ],
+  "reversibility_cost": "medium",
+  "affects": [
+    "packages/shared (TemplateVar / CommandParam スキーマ + 候補解決ヘルパ)",
+    "packages/server (候補解決エンドポイント=POST /api/query 再利用 / instantiate・command run の厳格 select 検証 / agent ツール + agent-help)",
+    "packages/ui (TemplateModal / コマンドの TestRunParamForm・パレット param フォームのオートコンプリート・ドロップダウン)",
+    "packages/cli (command run の param 受け渡し)",
+    "packages/server/src/samples/機能ガイド"
+  ],
+  "supersedes": null,
+  "superseded_by": null,
+  "notes": "由来は 2026-07-22 の草案『テンプレート変数に動的選択肢(ノート参照)を追加する提案』。草案は C 第一候補・D 第二候補だったが、本 ADR は (a) B(from/field)を ADR-0001 違反として却下、(b) A の type:query を新型ではなく入力ウィジェットと直交する optionsQuery フィールドへ吸収、(c) C を text/select/note すべてに効く optionsQuery の一部として一般化、(d) D をライブ dataview フェンスで代替し非推奨、(e) テンプレートに限らずスマートコマンドのパラメータへ統一(ユーザー指摘)——の 5 点で草案の推奨から更新している。フィールド名は options(静的)との対比で optionsQuery を採用(草案の dynamic / query から改称)。テンプレートには現状 note 型が無いため Epic ケースは select+optionsQuery(値=タイトル)で足りる。将来 commands と型を揃えるため templates に note 型を足すのは任意の収斂。value=path / TABLE 列選択(labelField/valueField)は加算的な後追い。ユーザーレビューで承認済み(2026-07-23)。実装時は非依存クエリ→厳格 select 検証→依存クエリ→UI オートコンプリートの加算スライス順を想定。"
+}

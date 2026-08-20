@@ -1,0 +1,16 @@
+{
+  "sprint": "Sbd061c",
+  "compromises": [
+    {
+      "id": "C1",
+      "type": "tracking_inconsistency",
+      "severity": "low",
+      "source": "verifier (verification-report.json V7, overlooked_by_autopilot: true)",
+      "overlooked_by_autopilot": true,
+      "rationale": "検証フェーズのコミット (98fbf90) 時点で Story=done なのに sprint status=in_progress・AC status=pending のままだった。これは sprint done フェーズ (Phase 3 finalize) が AC=pass / sprint=done を書く手順であるための順序アーティファクトであり、実装・テスト品質の妥協ではない。",
+      "diff_summary": "docs/ROADMAP.json — sprint status と AC status の更新タイミング",
+      "recommended_action": "sprint done で AC-Sbd061c-1-{1,2,3} を pass、sprint を done、progress を更新する (verifier の recommended_action と同一)",
+      "resolution": "resolved — sprint done フェーズで verifier の推奨どおり ROADMAP.json を更新済み (本ファイルと同一コミット)。機能・テストへの影響なしのため done_judgment は ok を維持 (decisions.json R3 参照)"
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "sprint": "S53409d",
+  "story": "S53409d-2",
+  "state_diagram": "stateDiagram-v2\n    [*] --> Unconfigured: 起動 (agent 設定なし)\n    [*] --> Ready: 起動 (設定あり・直近セッション復元)\n    Ready --> Streaming: 送信 (SSE 開始) — 送信ボタン→中断ボタン\n    Streaming --> Streaming: text_delta 受信 (逐次描画)\n    Streaming --> Ready: 完了 (done)\n    Streaming --> Ready: ユーザーが中断 (abort、部分応答は残る)\n    Streaming --> ErrorShown: SSE エラー / 認証失敗 (エラーバブル)\n    ErrorShown --> Streaming: 再送信\n    Ready --> Ready: 新規セッション開始 (履歴クリア)",
+  "scenarios": {
+    "entry_point": "右パネルの seg-toggle『エージェント』タブ (旧 Claude タブ位置)。ノートを見ながら対話できる",
+    "happy_path": "ユーザーがタブを開く → 直近セッションが復元される → 質問を入力し Enter 送信 → SSE でトークンが逐次描画 → 完了後に追い質問できる",
+    "data_states": {
+      "empty": "設定済み + セッションなし: 空のメッセージ一覧と入力欄 (プレースホルダで用途を示す)",
+      "loading": "Streaming 中: 送信ボタンが中断ボタンに切替、入力欄は無効、アシスタントバブルに逐次描画",
+      "error": "未設定: .loamium/agent.json の設定手順ガイド (サンプル JSON 付き)。実行時エラー: チャット内エラーバブル (再送信可能)"
+    },
+    "edge_cases": [
+      "入力が空のとき送信ボタンは無効",
+      "Enter 送信 / Shift+Enter 改行",
+      "ストリーミング中の中断 → 部分応答は残し Ready に戻る",
+      "リロード・ペイン再訪で直近セッションを復元 (JSONL 永続化)",
+      "接続設定はセッション作成時に遅延読込 (サーバー再起動なしで設定変更が反映される)"
+    ],
+    "success_feedback": "アシスタントバブルの逐次描画がそのままフィードバック。完了で入力欄が再度有効化",
+    "failure_feedback": "チャット内エラーバブル (人間可読メッセージ)。サーバーは落ちない。再送信で復帰"
+  },
+  "endpoint_contracts": [
+    {
+      "path": "/api/health",
+      "method": "GET",
+      "registered": true,
+      "request_fields": null,
+      "response_fields": { "status": "string", "mode": "string", "agent": "{ enabled: boolean, reason: 'not_configured' | 'invalid_config' | null }" },
+      "note": "terminal キーは削除 (S53409d-1)。agent フラグを追加 — 実装タスク S53409d-2-1"
+    },
+    {
+      "path": "/api/agent/sessions",
+      "method": "GET",
+      "registered": false,
+      "request_fields": null,
+      "response_fields": { "sessions": "{ id: string, title: string | null, updatedAt: number }[]" }
+    },
+    {
+      "path": "/api/agent/sessions",
+      "method": "POST",
+      "registered": false,
+      "request_fields": {},
+      "response_fields": { "id": "string" }
+    },
+    {
+      "path": "/api/agent/sessions/{id}",
+      "method": "GET",
+      "registered": false,
+      "request_fields": null,
+      "response_fields": { "id": "string", "messages": "{ role: 'user' | 'assistant', content: string, tools: { name: string, argsSummary: string, status: 'running' | 'done' }[] }[]" }
+    },
+    {
+      "path": "/api/agent/sessions/{id}/messages",
+      "method": "POST",
+      "registered": false,
+      "request_fields": { "content": "string" },
+      "response_fields": { "(SSE)": "data: {type:'text_delta',text} | {type:'tool_start',toolCallId,name,argsSummary} | {type:'tool_end',toolCallId,name} | {type:'error',message} | {type:'done'}" },
+      "note": "text/event-stream。中断はクライアント切断 + POST abort の両対応"
+    },
+    {
+      "path": "/api/agent/sessions/{id}/abort",
+      "method": "POST",
+      "registered": false,
+      "request_fields": {},
+      "response_fields": { "ok": "boolean" }
+    }
+  ],
+  "data_testids": [
+    "right-tab-agent",
+    "agent-pane",
+    "agent-setup-guide",
+    "agent-messages",
+    "agent-msg-user",
+    "agent-msg-assistant",
+    "agent-error",
+    "agent-input",
+    "agent-send",
+    "agent-abort",
+    "agent-new-session"
+  ],
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/agent-chat.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/agent-chat.mock.spec.ts"
+  }
+}

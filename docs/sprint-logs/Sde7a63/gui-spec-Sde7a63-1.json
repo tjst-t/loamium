@@ -1,0 +1,130 @@
+{
+  "story_id": "Sde7a63-1",
+  "story_title": "コマンドレジストリ + 組み込みコマンド(パレット コマンドセクション追加)",
+  "state_diagram": "stateDiagram-v2\n    [*] --> Closed : アプリ起動\n    Closed --> Open : Ctrl-K / sidebar-search クリック\n    Open --> Closed : Esc / backdrop クリック\n    Open --> NormalQuery : テキスト入力(先頭が '>' でない)\n    NormalQuery --> NormalQuery : 文字を追加/削除(先頭 '>' 以外)\n    NormalQuery --> Closed : Esc\n    NormalQuery --> NoteOpened : search-result-note Enter/クリック\n    NoteOpened --> Closed : 遷移完了\n    NormalQuery --> NoteAtLineOpened : search-result-fulltext Enter/クリック\n    NoteAtLineOpened --> Closed : 遷移完了\n    NormalQuery --> CommandRun : command-item Enter/クリック(params なし組み込み)\n    CommandRun --> Closed : 実行完了\n    Open --> CommandRun : command-item Enter/クリック(params なし)\n    Closed --> Open : 再 Ctrl-K(入力全選択・再フォーカス)",
+  "scenarios": [
+    {
+      "name": "happy_path_builtin_command_new_note",
+      "description": "Ctrl-K を開き、空クエリでコマンドセクションに組み込みコマンドが表示される。'新規ノート作成' をクリックで実行(新規ノートダイアログを開く)。",
+      "steps": [
+        "Ctrl-K を押す",
+        "command-palette が表示される (role=dialog aria-label='コマンドパレット')",
+        "search-input にフォーカスが当たる",
+        "palette-section-commands が表示される",
+        "command-item[data-command-id='new-note'] が visible",
+        "command-item[data-command-id='new-note'] data-source='builtin'",
+        "command-item[data-command-id='new-note'] をクリック",
+        "command-palette が閉じる",
+        "新規ノートダイアログ(new-note-dialog) が開く"
+      ]
+    },
+    {
+      "name": "happy_path_command_section_visible_alongside_notes",
+      "description": "'議事録' で検索すると ノート / 全文 / コマンド の 3 セクションがすべて表示される。",
+      "steps": [
+        "Ctrl-K を押す",
+        "search-input に '議事録' と入力",
+        "palette-section-notes が表示される",
+        "palette-section-fulltext が表示される(全文ヒットがある場合)",
+        "palette-section-commands が表示される",
+        "command-item が 1 件以上 visible"
+      ]
+    },
+    {
+      "name": "happy_path_keyboard_nav_crosses_sections",
+      "description": "↑↓ でノートセクション → 全文セクション → コマンドセクションをまたいで移動できる。",
+      "steps": [
+        "Ctrl-K を押し '議' と入力",
+        "ArrowDown を押すたびに aria-selected='true' が次の候補へ移動",
+        "ノート候補を過ぎて全文候補、さらにコマンド候補まで連続して移動できる",
+        "Enter でフォーカス中の候補が実行される"
+      ]
+    },
+    {
+      "name": "happy_path_today_journal_builtin",
+      "description": "'今日のジャーナルを開く' コマンドを実行するとジャーナルへ遷移する。",
+      "steps": [
+        "Ctrl-K を押す",
+        "search-input に 'ジャーナル' と入力",
+        "command-item[data-command-id='open-today-journal'] が表示される",
+        "Enter で実行",
+        "command-palette が閉じる",
+        "今日のジャーナルノートが開く"
+      ]
+    },
+    {
+      "name": "edge_empty_query_shows_commands",
+      "description": "クエリが空でもコマンドセクションは表示される(ノート/全文は非表示)。",
+      "steps": [
+        "Ctrl-K を押す(入力空)",
+        "palette-section-notes が非表示 (noteMatches.length === 0)",
+        "palette-section-fulltext が非表示",
+        "palette-section-commands が表示される",
+        "組み込みコマンド 5 件が visible"
+      ]
+    },
+    {
+      "name": "edge_ime_guard",
+      "description": "IME 変換中の Enter/Esc はコマンド実行しない。",
+      "steps": [
+        "Ctrl-K を押す",
+        "compositionstart を発火(日本語入力開始)",
+        "変換中に Enter を押す",
+        "command-palette が閉じない(IME 変換確定のみ)",
+        "compositionend 後 Enter を押すと選択候補が実行される"
+      ]
+    },
+    {
+      "name": "edge_ctrl_k_refocus",
+      "description": "パレット表示中に再度 Ctrl-K を押すと入力欄が全選択・再フォーカスされる。",
+      "steps": [
+        "Ctrl-K を押してパレットを開く",
+        "ArrowDown で候補を移動",
+        "Ctrl-K を再度押す",
+        "search-input が select() される"
+      ]
+    }
+  ],
+  "testid_contract": [
+    "command-palette (role=dialog aria-label='コマンドパレット')",
+    "command-palette-backdrop",
+    "search-input (placeholder が '検索またはコマンドを入力…' に変更)",
+    "palette-section-notes (既存 search-section-notes と別名。新名 palette-section-notes を採用)",
+    "palette-section-fulltext (既存 search-section-fulltext の別名)",
+    "palette-section-commands",
+    "command-item[data-command-id][data-source='builtin'|'smart']",
+    "command-item.selected (aria-selected='true')",
+    "search-result-note (既存踏襲)",
+    "search-result-fulltext (既存踏襲)",
+    "search-open-advanced (既存踏襲)"
+  ],
+  "testid_notes": "既存 search-palette / search-palette-backdrop / search-input / search-result-note / search-result-fulltext / search-section-notes / search-section-fulltext / search-open-advanced はすべて後方互換で保持(additive 拡張)。palette-section-commands / command-item が新規追加。",
+  "endpoint_contracts": [
+    {
+      "path": "/api/notes",
+      "method": "GET",
+      "registered": true,
+      "notes": "ノートセクション候補ソース(既存・変更なし)"
+    },
+    {
+      "path": "/api/search",
+      "method": "GET",
+      "registered": true,
+      "notes": "全文セクション候補ソース(既存・変更なし)"
+    }
+  ],
+  "test_files": {
+    "mock": "packages/ui/tests/e2e/command-palette.mock.spec.ts",
+    "e2e": "packages/ui/tests/e2e/command-palette.e2e.spec.ts"
+  },
+  "prototype_paths": [
+    "prototype/command-palette.html"
+  ],
+  "files_expected": [
+    "packages/ui/src/components/SearchPalette.tsx (拡張。CommandPalette に rename しない — additive 拡張)",
+    "packages/ui/src/commandRegistry.ts (新規。CommandEntry 型定義 + registerCommand/getCommands/clearRegistry)",
+    "packages/ui/src/builtinCommands.ts (新規。組み込みコマンド 5 件の静的登録)",
+    "packages/ui/src/api.ts (listCommands メソッド追加)"
+  ],
+  "planning_notes": "SearchPalette.tsx は rename せず additive 拡張。PaletteItem 型に kind='command' を追加し、items 配列の末尾にコマンド候補を結合する。コマンドレジストリは registries.ts のパターンを踏襲した Map ベースの singleton。組み込みコマンドはモジュールロード時に登録。Sde7a63-2/-3 はこのレジストリに依存するため、本 Story を最初に完了させる。"
+}

@@ -1,0 +1,39 @@
+{
+  "$file": "scenario-Sf53ad6-1.json",
+  "sprint": "Sf53ad6",
+  "story": "Sf53ad6-1",
+  "story_type": "api+cli",
+  "entry_points": ["api", "cli"],
+  "scenarios": [
+    {
+      "id": "Sf53ad6-1-api",
+      "entry_point": "api",
+      "title": "エージェントが任意ファイルを vault へアップロードする",
+      "linked_ac": ["AC-Sf53ad6-1-1", "AC-Sf53ad6-1-2"],
+      "steps": [
+        { "action": "実サーバーへ POST /api/files/assets/pixel.png (raw body)", "expected": "201 {path, created:true, size, mtime}。ディスクのバイト列一致・GET で配信される" },
+        { "action": "同パスへ再 POST (overwrite なし)", "expected": "409 conflict、ファイル不変" },
+        { "action": "?overwrite=true で再 POST", "expected": "200 created:false、上書きされる" },
+        { "action": "GET /api/files", "expected": "非 .md 一覧 (path/size/mtime)" },
+        { "action": ".loamium/audit.log を読む", "expected": "file.write が ok / error (409) で記録されている" },
+        { "action": "LOAMIUM_MODE=read-only / append-only で POST", "expected": "403 forbidden、denied が監査ログに残り、ファイルは作られない" },
+        { "action": "traversal (..%2F) / .loamium 配下 / .md / 上限超過 (LOAMIUM_MAX_UPLOAD=1kb で 2KB) を POST", "expected": "400 invalid_path / 400 invalid_path / 400 use_notes_api (notes API へ誘導) / 413 too_large。いずれもファイルは作られない" }
+      ],
+      "test_file": "tests/acceptance/files-upload.spec.ts"
+    },
+    {
+      "id": "Sf53ad6-1-cli",
+      "entry_point": "cli",
+      "title": "loamium upload でローカルファイルを vault に置く (REST 1:1)",
+      "linked_ac": ["AC-Sf53ad6-1-3"],
+      "steps": [
+        { "action": "実 bin subprocess で `loamium upload ./screenshot.png`", "expected": "exit 0、assets/screenshot.png に保存、バイト列一致" },
+        { "action": "`loamium upload ./screenshot.png docs/img/添付.png --json`", "expected": "指定パスへ保存、stdout は API レスポンス生 JSON" },
+        { "action": "既存パスへ再実行 / --overwrite 付き", "expected": "conflict (exit 1) / 上書き成功" },
+        { "action": "存在しないローカルファイル / ../escape.png / notes/memo.md", "expected": "local_file_not_found / invalid_path / use_notes_api (すべて exit 1・stderr 1 行 JSON)" },
+        { "action": "`loamium files` / `loamium file <path>`", "expected": "一覧・バイト列取得が 1:1 で動く (往復検証)" }
+      ],
+      "test_file": "tests/acceptance/cli-upload.spec.ts"
+    }
+  ]
+}

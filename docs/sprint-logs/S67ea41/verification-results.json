@@ -1,0 +1,56 @@
+{
+  "sprint": "S67ea41",
+  "verified_at": "2026-07-06",
+  "machine_verdict_source": "docs/sprint-logs/S67ea41/verify-run.json",
+  "overall_machine_status": "pass",
+  "test_counts": {
+    "test": { "total": 516, "failed": 0, "baseline": 500, "delta": "+16 (9 unit + 7 acceptance)" },
+    "lint": { "status": "pass" },
+    "ui-tests": { "total": 255, "failed": 0, "baseline": 255, "delta": "0 (GUI 変更なし)" }
+  },
+  "acceptance_criteria": [
+    {
+      "id": "S67ea41-1-AC1",
+      "status": "pass",
+      "tests": [
+        "tests/acceptance/journal-template.spec.ts::[AC-S67ea41-1-1] 既定テンプレートを適用した本文で遅延生成する",
+        "tests/acceptance/journal-template.spec.ts::[AC-S67ea41-1-1] テンプレート無しは従来どおり空ファイル (後方互換)",
+        "packages/shared/src/template-note.test.ts::[AC-S67ea41-1-1] buildBodyTemplate が loamium-template ブロックを除去する"
+      ],
+      "evidence": "GET /api/journal?date=2026-07-06 で created=true、content に '# 2026-07-06 (07/06)'、frontmatter={tags:['journal']}、loamium-template と {{ が非残存。テンプレ未 seed の別 vault では content='' の空ファイル。machine verify test run exit=0、当該ケース status=pass。"
+    },
+    {
+      "id": "S67ea41-1-AC2",
+      "status": "pass",
+      "tests": [
+        "tests/acceptance/journal-template.spec.ts::[AC-S67ea41-1-2] 対象日 (未来日/過去日) 基準で展開する",
+        "tests/acceptance/journal-template.spec.ts::[AC-S67ea41-1-2] read-only は書き込まずテンプレ適用済み仮想ジャーナルを返す",
+        "packages/shared/src/template-note.test.ts::[AC-S67ea41-1-2] applyJournalTemplate が対象日基準で {{date:...}} を展開する"
+      ],
+      "evidence": "未来日 2030-12-31 / 過去日 2019-01-02 とも対象日で {{date:...}} 展開(now でなく date 基準)。read-only モードで created=false・mtime=null・content はテンプレ適用済み・journals/2026-08-15.md はディスク不在。unit で default の対象日解決と空文字フォールバックにより {{}} 非残存を固定。全ケース machine status=pass。"
+    },
+    {
+      "id": "S67ea41-1-AC3",
+      "status": "pass",
+      "tests": [
+        "tests/acceptance/journal-template.spec.ts::[AC-S67ea41-1-3] 既存ジャーナルは上書きしない (冪等)"
+      ],
+      "evidence": "手書き済み journals/2026-06-01.md は created=false・内容不変で返り、ディスクも不変。新規生成後の 2 回目アクセスは created=false・content 不変。machine status=pass。"
+    }
+  ],
+  "done_judgment": {
+    "S67ea41-1": {
+      "guard1_user_review_required_not_done": "pass",
+      "guard2_nil_injection_mock": "n/a",
+      "guard3_mock_mode_not_real_smoke": "n/a",
+      "guard4_priority_rule_9_exception_valid": "n/a",
+      "guard5_call_path_grep": "pass",
+      "guard6_deferred_comment_clean": "pass",
+      "guard7_adr_conformance": "n/a",
+      "guard8_destructive_multiversion": "n/a",
+      "result": "done"
+    }
+  },
+  "clean_text_check": "pass (全変更ファイルで NUL 混入なし、: any / as any / @ts-ignore / 空 catch ゼロ)",
+  "independent_verifier": "本環境で別セッション spawn 不可。self-report のみ。親 opus の read-only verifier が補完する前提。"
+}

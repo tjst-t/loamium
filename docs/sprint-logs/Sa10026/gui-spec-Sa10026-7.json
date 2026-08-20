@@ -1,0 +1,116 @@
+{
+  "story_id": "Sa10026-7",
+  "story_title": "統一設定画面(左ナビ集約 + 既存管理UIへの導線)",
+  "state_diagram": "stateDiagram-v2\n    [*] --> Closed\n    Closed --> GeneralTab : sidebar-settings クリック → GET /api/settings/app\n    GeneralTab --> AgentTab : 左ナビ 'エージェント' → GET /api/settings/agent/connection + permissions\n    GeneralTab --> PrivacyTab : 左ナビ 'プライバシー' → GET /api/settings/privacy\n    AgentTab --> GeneralTab\n    PrivacyTab --> GeneralTab\n    GeneralTab --> Editing : フィールド変更\n    AgentTab --> Editing : フィールド変更\n    PrivacyTab --> Editing : deny エントリ追加/削除\n    Editing --> Saving : 保存 → PUT /api/settings/{group}\n    Saving --> Saved : 200 (監査ログ記録)\n    Saving --> SaveError : 400 zod / 403 mode\n    Saved --> GeneralTab\n    SaveError --> Editing\n    GeneralTab --> ReadOnlyMode : LOAMIUM_MODE=read-only/append-only\n    ReadOnlyMode --> Closed : 書込 UI は disabled\n    GeneralTab --> LinkedManager : per-item 導線リンク(スマートフォルダ等)へ遷移\n    LinkedManager --> [*]\n    Closed --> [*]",
+  "endpoint_contracts": [
+    {
+      "endpoint": "GET/PUT /api/settings/app",
+      "note": "アプリ全体設定 (system/settings.yaml)。agent 編集可の system/ 側。",
+      "response_shape": "{ theme, defaultFolder, journalTemplate, showSystemFolder, ... }"
+    },
+    {
+      "endpoint": "GET/PUT /api/settings/agent/connection",
+      "note": "agent 接続 (.loamium/agent-connection.json 相当)。apiKey は平文でなく $ENV_VAR 参照名を保存/表示。agent 編集不可(設定API/GUI のみ)。",
+      "response_shape": "{ baseUrl, apiType, model, apiKeyEnv: '$ANTHROPIC_API_KEY' }"
+    },
+    {
+      "endpoint": "POST /api/settings/agent/connection/test",
+      "note": "接続テスト。現在の baseUrl + apiKey($ENV 解決)+ model で実 API を1回呼び、到達可否を返す。GUI は APIキー欄の右の settings-conn-test ボタンから呼び、結果を settings-conn-result に表示。キー実値はレスポンスに含めない。",
+      "response_shape": "{ ok: boolean, model?: string, latencyMs?: number, error?: string }"
+    },
+    {
+      "endpoint": "GET /api/settings/agent/models",
+      "note": "モデル一覧。接続先 API のモデル一覧エンドポイントを叩いて候補を返す。GUI は '一覧取得' ボタンで呼び datalist(settings-model-options)を更新。取得失敗時も model 欄は直接入力可のまま。",
+      "response_shape": "{ models: [{ id: string }], source: 'api' | 'fallback' }"
+    },
+    {
+      "endpoint": "GET/PUT /api/settings/agent/permissions",
+      "note": "agent 権限/capability (.loamium/agent-*.json)。agent ツール allowlist から除外(Sa10026-6)。自己昇格防止。",
+      "response_shape": "{ mode: 'full|append-only|read-only', capabilities: { write, web, ... } }"
+    },
+    {
+      "endpoint": "GET/PUT /api/settings/privacy",
+      "note": "privacy deny-list (.loamium/agent-privacy.json)。agent 編集不可。書込は監査ログ。",
+      "response_shape": "{ deny: ['private/**', 'secrets/**'] }"
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "open_settings_general",
+      "description": "サイドバーの設定ボタンで統一設定画面が開き、全体タブが表示される。",
+      "steps": [
+        "sidebar-settings をクリック",
+        "settings-view[data-testid='settings-view'] が visible (role=dialog または route)",
+        "settings-nav に nav-item[data-group='general'] / [data-group='agent'] / [data-group='privacy'] が visible",
+        "GET /api/settings/app が呼ばれ、settings-panel[data-group='general'] にフィールドが描画される",
+        "per-item 導線: settings-link[data-target='smart-folders'] / [data-target='templates'] / [data-target='commands'] が visible"
+      ]
+    },
+    {
+      "name": "agent_tab_apikey_env_display",
+      "description": "エージェントタブで apiKey は平文でなく $ENV_VAR 参照として表示される。",
+      "steps": [
+        "nav-item[data-group='agent'] をクリック",
+        "GET /api/settings/agent/connection + /permissions が呼ばれる",
+        "settings-field[data-name='apiKeyEnv'] の値が '$ANTHROPIC_API_KEY'(参照名)で表示され、平文キーは表示されない",
+        "settings-field[data-name='baseUrl'] / [data-name='model'] が編集可能"
+      ]
+    },
+    {
+      "name": "connection_test_success",
+      "description": "APIキー欄右の接続テストボタンで実 API を1回呼び、成否が表示される。",
+      "steps": [
+        "nav-item[data-group='agent'] をクリック",
+        "settings-conn-test をクリック",
+        "POST /api/settings/agent/connection/test が現在の baseUrl/apiKeyEnv/model で呼ばれる",
+        "settings-conn-result[data-state='testing'] が一時表示",
+        "200 { ok:true, model:'claude-sonnet-4-6', latencyMs:210 } → settings-conn-result[data-state='ok'] に成功メッセージ",
+        "失敗時: { ok:false, error:'401 unauthorized' } → settings-conn-result[data-state='error'] にエラー表示"
+      ]
+    },
+    {
+      "name": "model_list_from_api_with_direct_input",
+      "description": "一覧取得で API からモデル候補を取得し datalist に反映。直接入力も可能。",
+      "steps": [
+        "settings-model-refresh('一覧取得') をクリック",
+        "GET /api/settings/agent/models が呼ばれる",
+        "200 { models:[{id:'claude-opus-4-8'},{id:'claude-sonnet-4-6'},{id:'claude-haiku-4-5'}] }",
+        "settings-model-options(datalist)に3件の option が反映される",
+        "settings-field[data-name='model'] は list に無い ID をキーボードで直接入力しても受理される"
+      ]
+    },
+    {
+      "name": "save_persists_and_audits",
+      "description": "全体設定を変更して保存すると PUT /api/settings/app が呼ばれ保存される(監査ログ記録)。",
+      "steps": [
+        "settings-field[data-name='defaultFolder'] を 'notes' に変更",
+        "settings-save[data-group='general'] をクリック",
+        "PUT /api/settings/app が呼ばれる",
+        "200 → settings-status が 'saved'"
+      ]
+    },
+    {
+      "name": "privacy_deny_edit",
+      "description": "プライバシータブで deny-list エントリを追加/削除できる。",
+      "steps": [
+        "nav-item[data-group='privacy'] をクリック",
+        "deny-entry[data-value='private/**'] が visible",
+        "deny-add で 'secrets/**' を追加 → PUT /api/settings/privacy",
+        "deny-entry[data-value='secrets/**'] が visible"
+      ]
+    },
+    {
+      "name": "read_only_mode_disables_writes",
+      "description": "LOAMIUM_MODE=read-only/append-only では書込 UI が無効化される。",
+      "steps": [
+        "GET /api/health が mode='read-only' を返す",
+        "settings-view の全 settings-save が disabled",
+        "settings-field は readonly、mode バナー 'read-only モード: 設定は変更できません' が visible"
+      ]
+    }
+  ],
+  "test_files": {
+    "mock": "packages/ui/tests/e2e/settings-view.mock.spec.ts",
+    "e2e": "packages/ui/tests/e2e/settings-view.e2e.spec.ts"
+  }
+}

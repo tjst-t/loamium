@@ -1,0 +1,138 @@
+{
+  "story_id": "S11493d-3",
+  "story_title": "Outgoing links セクション + 既存バックリンクの統合",
+  "state_diagram": "stateDiagram-v2\n    [*] --> NoNote : ノート未選択\n    NoNote --> LoadingMeta : ノートを開く\n    LoadingMeta --> OutgoingReady : GET /api/notes/{path}/meta 成功\n    LoadingMeta --> MetaError : GET /api/notes/{path}/meta 失敗\n    NoNote --> LoadingBacklinks : ノートを開く (並行)\n    LoadingBacklinks --> BacklinksReady : GET /api/backlinks 成功\n    LoadingBacklinks --> BacklinksError : GET /api/backlinks 失敗\n    OutgoingReady --> NavigateNote : 解決済みリンク outgoing-link クリック\n    OutgoingReady --> SectionCollapsed : info-section-toggle[outgoing] クリック\n    SectionCollapsed --> OutgoingReady : info-section-toggle[outgoing] 再クリック\n    BacklinksReady --> NavigateNote : backlink-item クリック\n    BacklinksReady --> SectionCollapsed2 : info-section-toggle[backlinks] クリック\n    SectionCollapsed2 --> BacklinksReady : info-section-toggle[backlinks] 再クリック\n    NavigateNote --> [*] : ノート遷移完了",
+  "scenarios": [
+    {
+      "name": "happy_path_outgoing_resolved",
+      "description": "解決済みアウトゴーイングリンクが表示され、クリックで対象ノートへ遷移する。",
+      "steps": [
+        "[[project-x]] を含むノートを開く",
+        "info-section-body[data-section='outgoing'] に outgoing-link が表示される",
+        "outgoing-link[data-target='project-x'][data-resolved='true'] をクリック",
+        "対象ノート (project-x.md) が開く"
+      ]
+    },
+    {
+      "name": "happy_path_outgoing_unresolved",
+      "description": "未解決リンクが点線スタイル + '未解決' バッジで区別される。",
+      "steps": [
+        "[[まだ無いノート]] を含むノートを開く",
+        "outgoing-link[data-target='まだ無いノート'][data-resolved='false'] が表示される",
+        "unresolved-badge ('未解決') が表示される",
+        "クリックしても遷移しない (新規作成の導線はスコープ外)"
+      ]
+    },
+    {
+      "name": "happy_path_backlinks_section",
+      "description": "既存のバックリンク表示がインフォパネル内の Backlinks セクションとして統合される。",
+      "steps": [
+        "ノートを開く",
+        "info-section-toggle[data-section='backlinks'] が表示される",
+        "info-section-body[data-section='backlinks'] に backlink-item が表示される",
+        "backlink-item をクリックすると参照元ノートが開く"
+      ]
+    },
+    {
+      "name": "happy_path_badge_count",
+      "description": "バックリンク件数バッジが right-tab-info 内に正しく表示される。",
+      "steps": [
+        "バックリンクが 2 件あるノートを開く",
+        "backlink-count の数字が '2' になる",
+        "right-tab-info 内に backlink-count が表示される"
+      ]
+    },
+    {
+      "name": "edge_no_outgoing_links",
+      "description": "アウトゴーイングリンクがないノートでは outgoing セクションに empty state が表示される。",
+      "steps": [
+        "[[リンク]] がないノートを開く",
+        "info-section-body[data-section='outgoing'] に '[[リンク]] なし' メッセージが表示される"
+      ]
+    },
+    {
+      "name": "edge_no_backlinks",
+      "description": "バックリンクが 0 件のノートでは backlink-empty が表示され、バッジは非表示になる。",
+      "steps": [
+        "バックリンクが 0 件のノートを開く",
+        "backlink-empty が表示される",
+        "backlink-count が display:none になる"
+      ]
+    },
+    {
+      "name": "edge_backlinks_error",
+      "description": "バックリンク API が失敗した場合、backlinks セクション内にエラーが表示される。",
+      "steps": [
+        "GET /api/backlinks が 500 を返すようにモックする",
+        "info-section-body[data-section='backlinks'] 内に backlink-error が表示される"
+      ]
+    },
+    {
+      "name": "edge_claude_tab_unchanged",
+      "description": "Claude タブと xterm セッションは従来どおり変更されない。",
+      "steps": [
+        "right-tab-claude をクリック",
+        "claude-panel が表示される",
+        "terminal (xterm) セッションが維持される",
+        "right-tab-info をクリックして戻っても xterm セッションは維持される"
+      ]
+    },
+    {
+      "name": "edge_duplicate_links",
+      "description": "同一ノートへの複数 [[リンク]] は重複除去して 1 件で表示する。",
+      "steps": [
+        "同じ [[target]] を 3 回含むノートを開く",
+        "outgoing セクションに outgoing-link は 1 件のみ表示される"
+      ]
+    }
+  ],
+  "endpoint_contracts": [
+    {
+      "path": "/api/notes/{path}/meta",
+      "method": "GET",
+      "registered": false,
+      "request_fields": null,
+      "response_fields": {
+        "outgoingLinks": "[{target: string, resolvedPath: string|null, raw: string}]"
+      },
+      "notes": "S11493d-1 で実装。outgoing セクションは outgoingLinks を使う。重複除去は UI 側で target ベースに行う"
+    },
+    {
+      "path": "/api/backlinks",
+      "method": "GET",
+      "registered": true,
+      "request_fields": null,
+      "response_fields": {
+        "backlinks": "[{source: string, links: [{line: number, raw: string, context: string}]}]"
+      },
+      "notes": "既存エンドポイント。クエリパラメータ: ?path=<vault-relative-path>"
+    }
+  ],
+  "testid_contract": [
+    "info-section-toggle[data-section='outgoing']",
+    "info-section-body[data-section='outgoing']",
+    "outgoing-link[data-target][data-resolved='true|false']",
+    "info-section-toggle[data-section='backlinks']",
+    "info-section-body[data-section='backlinks']",
+    "backlink-item[data-source]",
+    "backlink-empty",
+    "backlink-error",
+    "backlink-count (right-tab-info 内。0件時 display:none)",
+    "right-tab-claude (変更なし)",
+    "claude-panel (変更なし)"
+  ],
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/info-panel.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/info-panel.mock.spec.ts"
+  },
+  "prototype_paths": [
+    "prototype/info-panel.html",
+    "prototype/info-panel-empty.html"
+  ],
+  "files_expected": [
+    "packages/ui/src/components/RightSidebar.tsx",
+    "packages/ui/src/components/InfoPanel.tsx",
+    "packages/ui/src/api.ts"
+  ],
+  "planning_notes": "S11493d-3 は S11493d-2 完了後に実行する。S11493d-2 で RightSidebar.tsx の大枠が確定した後、Outgoing / Backlinks セクションを追加する。既存 backlink-item / backlink-empty / backlink-error testid は変更なし (additive のみ)。outgoing-link の未解決判定: data-resolved='false' の場合はクリック無効 (pointer-events:none は CSS で)、または onClick で何もしない。重複除去は meta.outgoingLinks の target ごとに distinct。"
+}

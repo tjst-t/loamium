@@ -1,0 +1,45 @@
+{
+  "sprint": "Sfa11c0",
+  "title": "UI/エージェント修正まとめ 2",
+  "decisions": [
+    {
+      "id": "D-Sfa11c0-1",
+      "topic": "Story1 エディタ表示領域の全幅化 vs 中央寄せ",
+      "decision": "cm-scroller に min-width:100% を付与し常に全幅化。スクロールバーを右端へ移し、右サイドバー折りたたみ時の余白と『中央に浮くスクロールバー』を解消した。",
+      "rationale": "ユーザー報告『右サイドバーを隠しているなら表示領域全体を使うべき / 余白があるのに中央にスクロールバーがあるのが謎』の文字通りの解決。d05f5d7 で入れた中央寄せ(固定幅820px)は実質無効化される。",
+      "tradeoff": "広いモニタで行長が伸びる。中央寄せ読取幅を残す案(全幅scroller + cm-content中央寄せ)はガター⇔テキスト間ギャップを生むため見送り。レイアウトの好みはユーザー目視判断が必要 → 要レビュー項目。",
+      "vision_ref": "閲覧中心の快適なノート表示(VISION)"
+    },
+    {
+      "id": "D-Sfa11c0-2",
+      "topic": "Story8 メッセージ編集のやり直し方式",
+      "decision": "別セッション複製ではなく、同一セッション内で pi SDK の SessionManager.branch()/resetLeaf() を使いリーフポインタを巻き戻すブランチ方式を採用。POST /api/agent/sessions/{id}/truncate を新設。",
+      "rationale": "同一セッションIDのまま整合が保て、既存の送信フローを完全再利用できる。ChatGPT/Claude と同じ編集=分岐モデル。ADR-0016(監査済みサービス層経由)に準拠。",
+      "tradeoff": "append-only ツリーのため切り詰めた以降のエントリは物理削除されず非活性ブランチとして disk に残る(会話上は残らない)。実サーバーでの再ロード挙動は要確認。"
+    },
+    {
+      "id": "D-Sfa11c0-3",
+      "topic": "Story7 現在文書コンテキストの注入方式",
+      "decision": "agentSendMessageRequest に currentNotePath を追加し、サーバーが normalizeVaultPath 検証後、ユーザーメッセージ先頭に [現在開いているノート: <path>] をターンコンテキストとして前置する。base システムプロンプトには入れない。",
+      "rationale": "ADR-0014(常時=base / 詳細=help)に沿い base を肥大化させない。ADR-0018 に沿い無効/機密パスは注入拒否。エージェントのカスタムツール定義は変えず advertised-toolset ピンに影響しない。"
+    },
+    {
+      "id": "D-Sfa11c0-4",
+      "topic": "Story5 既定権限設定の格納",
+      "decision": "新規 API を作らず、既存の統一設定(ADR-0010, appSettingsSchema)に agentDefaultPreset(read-only/notes-rw/full)を追加。SettingsView から保存し、AgentPane がマウント時に解決。",
+      "rationale": "二重管理排除。既存の型付き設定API・監査ログ・移植可能設定の枠組みをそのまま利用。未設定は read-only にフォールバックしサーバー既定と一致。deny/自己昇格防止/LOAMIUM_MODE クランプは設定に関わらず常時有効。"
+    },
+    {
+      "id": "D-Sfa11c0-5",
+      "topic": "プロトタイプ工程の省略",
+      "decision": "静的HTMLプロトタイプのセレモニーを省略し、直接実装してマイルストーンで視覚レビューする方針をユーザー確認の上で採用(『作成して即実行』)。",
+      "rationale": "8項目は既存UIへの修正・小追加で期待挙動が明確なため。視覚判断はこのマイルストーンの refine で行う。"
+    },
+    {
+      "id": "D-Sfa11c0-6",
+      "topic": "実装の逐次実行(worktree並列の回避)",
+      "decision": "AgentPane.tsx を複数ストーリー(3,4,5,6,7,8)が、App.tsx を 6/7 が共有するため、worktree 並列ではなく逐次サブエージェントで実装した。",
+      "rationale": "共有ファイルで worktree 並列は古い base 分岐によるマージ欠落・衝突を招く既知の落とし穴を回避するため。"
+    }
+  ]
+}

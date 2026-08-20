@@ -1,0 +1,164 @@
+{
+  "$schema_note": "VERIFICATION_REPORT_SCHEMA",
+  "sprint": "S9ab6c3",
+  "verifier": "independent read-only session",
+  "base_sha": "273884af4275b32604cbcd2aa871b421b3ffea2e",
+  "head_sha": "1f0ee45ae0b79a1eb7e4d7a509170c4b4ebb495e",
+  "overall": "warn",
+  "findings": [
+    {
+      "id": "V1",
+      "category": "execution_log",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "summary": "全 3 run の __VERIFY_EXIT_CODE__ トレーラーが exit 0 を確認。verification-results.json の pass 宣言を全件バック。",
+      "evidence": "verify-run-test.log 末尾: __VERIFY_EXIT_CODE__:test:0 (167/167 passed) / verify-run-lint.log 末尾: __VERIFY_EXIT_CODE__:lint:0 / verify-run-ui-tests.log 末尾: __VERIFY_EXIT_CODE__:ui-tests:0 (35/35 passed). verify-run.json overall_machine_status=pass",
+      "overlooked_by_autopilot": false
+    },
+    {
+      "id": "V2",
+      "category": "ac_code",
+      "story": "S9ab6c3-1",
+      "ac": "AC-S9ab6c3-1-1",
+      "verdict": "pass",
+      "summary": "リスト行 Tab/Shift+Tab インデント: 実装・到達経路・テストの三点が揃っている。",
+      "evidence": "実装: outline.ts:70 changeListIndent(view, 1|-1) が ListItem ノードをlezer構文木で判定し、subtreeEndLine() でサブツリー全行に INDENT_UNIT='    '(4sp)を挿入/削除。到達経路: Editor.tsx:78 outlineExtension() → outlineKeymap (Prec.high). テスト: outline.e2e.spec.ts:55 実API PUT → 実サーバー → 実vault file。Disk検証: expect(disk).toContain('- 親タスク A\\n    - 親タスク B\\n        - 子タスク B1...') + expect(disk).toBe(NOTE_CONTENT) after Shift+Tab。blockid混入なし確認 (not.toMatch(/\\^[a-zA-Z0-9]{4,}|id::/)). machine: outline.e2e.spec.ts.[AC-S9ab6c3-1-1] pass",
+      "overlooked_by_autopilot": false
+    },
+    {
+      "id": "V3",
+      "category": "ac_code",
+      "story": "S9ab6c3-1",
+      "ac": "AC-S9ab6c3-1-2",
+      "verdict": "pass",
+      "summary": "見出し・段落での Tab no-op: listItemStartingAt が null を返すとき changeListIndent は false を返しキーを消費しない。",
+      "evidence": "実装: outline.ts:75 listItemStartingAt() が null のとき changeListIndent は false 返却 (ブラウザ既定に委ねる)。Prec.high で登録済み (outline.ts:114)。テスト: outline.e2e.spec.ts:98-113 — 見出し行・段落行それぞれ Tab → save-status data-state=saved のまま + readFile(vault, NOTE_PATH) === NOTE_CONTENT を assert. machine: outline.e2e.spec.ts.[AC-S9ab6c3-1-2] pass",
+      "overlooked_by_autopilot": false
+    },
+    {
+      "id": "V4",
+      "category": "ac_code",
+      "story": "S9ab6c3-1",
+      "ac": "AC-S9ab6c3-1-3",
+      "verdict": "pass",
+      "summary": "子付きリスト行の折りたたみ/展開: outlineFoldGutter + outlineFolding の実装が正しく到達経路に乗っており、テストが fold-pill テキストとファイル不変を実 vault で検証。",
+      "evidence": "実装: outline.ts:124 foldableListRange() が subtreeEndLine > line.number のときのみ non-null。FoldToggleMarker.toDOM() が data-testid=fold-toggle data-line/data-folded を付与。codeFolding の placeholderDOM が data-testid=fold-pill '… N 行' を生成。到達経路: outlineExtension() → [outlineFolding, outlineFoldGutter, ...]. テスト: outline.e2e.spec.ts:116-146 — data-line=6 に toggle あり / data-line=5 に toggle なし + fold後 子タスク非表示 + fold-pill '… 2 行' テキスト + data-folded=true + noteOnDisk() === NOTE_CONTENT (fold は表示層のみ). machine: outline.e2e.spec.ts.[AC-S9ab6c3-1-3] pass",
+      "overlooked_by_autopilot": false
+    },
+    {
+      "id": "V5",
+      "category": "ac_code",
+      "story": "S9ab6c3-1",
+      "ac": "AC-S9ab6c3-1-4",
+      "verdict": "pass",
+      "summary": "チェックボックストグル: TaskCheckboxWidget がクリック時に view.dispatch で [ ]→[x] を書き込み、通常の onChange→自動保存→PUT /api/notes 経路でファイルに載る。",
+      "evidence": "実装: outline.ts:249-258 — btn.onclick が pos+1 位置の文字を 'x'/'  ' で書き換える dispatch。view.composing 非チェックだが TaskCheckboxWidget は onmousedown で e.preventDefault() し IME 中は checkbox 操作が起きない設計。到達経路: checkboxPlugin (ViewPlugin) → outlineExtension() → Editor.tsx:78. テスト: outline.e2e.spec.ts:148-176 — checkbox クリック → .checked class → save-status=saved → readFile で '- [x] 未完了タスク' を確認 + 解除方向・後片付け後 noteOnDisk() === NOTE_CONTENT。machine: outline.e2e.spec.ts.[AC-S9ab6c3-1-4] pass",
+      "overlooked_by_autopilot": false
+    },
+    {
+      "id": "V6",
+      "category": "ac_code",
+      "story": "S9ab6c3-2",
+      "ac": "AC-S9ab6c3-2-1",
+      "verdict": "pass",
+      "summary": "見出し/強調/インラインコード/[[リンク]] のライブプレビュー装飾: inlinePreviewPlugin が active lines を除外しマーク類を非表示、WikilinkWidget が data-target 付きピルを生成。ファイル不変を e2e が実 vault で assert。",
+      "evidence": "実装: live-preview.ts — HeaderMark (line 323) / EmphasisMark (line 329) / InlineCode (line 336) の marks を Decoration.replace({}) で非表示。WIKILINK_RE (line 271) で [[x|alias]] を WikilinkWidget (data-testid=wikilink, data-target) に置換。active lines は activeLines(state) で除外。到達経路: livePreviewExtension() → [blockDecoField, inlinePreviewPlugin] → Editor.tsx:79. テスト: preview.e2e.spec.ts:61-103 — heading非#, para非**, wikilink data-target=Hydra設計メモ.md ×2, カーソル行でソース可視, 非カーソル行は装飾維持, readFile(vault, NOTE_PATH) === NOTE_CONTENT。machine: preview.e2e.spec.ts.[AC-S9ab6c3-2-1] pass",
+      "overlooked_by_autopilot": false
+    },
+    {
+      "id": "V7",
+      "category": "ac_code",
+      "story": "S9ab6c3-2",
+      "ac": "AC-S9ab6c3-2-2",
+      "verdict": "pass",
+      "summary": "mermaid/KaTeX/Shiki の実レンダラーが 3 レジストリ経由で動作し、すべて npm バンドル (CDN なし) で実描画。e2e が SVG/katex/pre.shiki を実ブラウザで確認。",
+      "evidence": "実装: renderers/mermaid.ts — import('mermaid') dynamic, CDN なし。renderers/katex.ts — static import katex from 'katex', CDN なし。renderers/shiki.ts — import('shiki') dynamic, CDN なし。registerBuiltinRenderers() を main.tsx:8 でエディタ生成前に呼ぶ。live-preview.ts がbuildBlockDecorations() で getFenceRenderer(lang) + getBlockRules() を消費、buildInlineDecorations() で getInlineRules() を消費。到達経路: main.tsx → registerBuiltinRenderers() → registries.ts. CDN scan: git diff 273884a..HEAD | grep 'cdn\\|unpkg\\|jsdelivr\\|https://' → 0件。テスト: preview.e2e.spec.ts:106-143 — fence-widget[data-lang=mermaid] > svg (含テキスト'開始'), math-inline > .katex, math-block > .katex, fence-widget[data-lang=bash] > pre.shiki, fence clickでソース復帰、readFile(vault) === NOTE_CONTENT。machine: preview.e2e.spec.ts.[AC-S9ab6c3-2-2] pass",
+      "overlooked_by_autopilot": false
+    },
+    {
+      "id": "V8",
+      "category": "ac_code",
+      "story": "S9ab6c3-2",
+      "ac": "AC-S9ab6c3-2-3",
+      "verdict": "pass",
+      "summary": "3 レジストリの API が正しく実装され、単体テストが getFenceRenderer / getInlineRules / getBlockRules の lookup 経路で新規登録の即時反映を確認。",
+      "evidence": "実装: registries.ts — fenceRenderers:Map<string,FenceRenderer>, inlineRules:InlineRule[], blockRules:BlockRule[] を独立保持。registerFenceRenderer() が lang:string[] に対してもループで全識別子を登録 (line 59)。BlockRule.matchEnd は optional additive 追加 (I6)。テスト: registry.spec.ts — 5 件 (AC-S9ab6c3-2-3タグ付き): 未登録→undefined, 登録後→同じ lookup が resolver を返す, lang[]登録, InlineRule登録, BlockRule+matchEnd登録, registerBuiltinRenderers()でmermaid/bash/ts/mathが揃う。machine: packages/ui/tests/unit/registry.spec.ts 5/5 pass (test run)",
+      "overlooked_by_autopilot": false
+    },
+    {
+      "id": "V9",
+      "category": "forbidden_scan",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "summary": "CDN 依存禁止: diff に cdn/unpkg/jsdelivr/https:// インポートは 0 件。mermaid/katex/shiki はすべて npm バンドル同梱。",
+      "evidence": "git diff 273884a..HEAD -- packages/ui/src/ | grep 'cdn\\|unpkg\\|jsdelivr\\|https://' → 出力なし。decisions.json I7: 'npm 依存としてバンドル (CDN 不使用)'",
+      "overlooked_by_autopilot": false
+    },
+    {
+      "id": "V10",
+      "category": "forbidden_scan",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "summary": "e2e スペックのネットワークモック分離: page.route は *.mock.spec.ts のみに存在し、*.e2e.spec.ts は実サーバーを使用。",
+      "evidence": "git diff 273884a..HEAD -- packages/ui/tests/e2e/ | grep 'page\\.route' の出力: 191 (outline.mock.spec.ts), 232, 237, 277, 302 (outline.mock.spec.ts), 492 (preview.mock.spec.ts), 520, 525。outline.e2e.spec.ts と preview.e2e.spec.ts を直読みして page.route 呼び出しが無いことを確認。MSW/setupServer/fetch.mockImplementation/vi.mock/jest.mock も e2e ファイルには存在しない。",
+      "overlooked_by_autopilot": false
+    },
+    {
+      "id": "V11",
+      "category": "forbidden_scan",
+      "story": "S9ab6c3-2",
+      "ac": "AC-S9ab6c3-2-1",
+      "verdict": "warn",
+      "summary": "InlineRuleWidget.toDOM() の catch {} がレンダラー例外を無言で握りつぶしている (ログなし)。production UI のフォールバック実装であり、テスト通過のための意図的なエラー隠蔽ではないが、DESIGN_PRINCIPLES forbidden「エラー握りつぶし」の文言と表面上一致するため記録する。",
+      "evidence": "live-preview.ts:260-268 (git diff line 2685): try { return this.make(); } catch { const span = document.createElement('span'); span.textContent = this.matchedText; return span; } — エラーオブジェクトをバインドせず console.warn 等もなし。フォールバック挙動 (ソーステキスト表示) は意味ある回復だが、diagnose 不能。decisions.json に known limitation として記載なし。DESIGN_PRINCIPLES forbidden の文言は「テストの無効化・アサーション弱体化・エラー握りつぶしで検証を通すこと」(テストコード文脈) なので本件は厳密には対象外だが、不明瞭なため warn 扱い。",
+      "overlooked_by_autopilot": false
+    },
+    {
+      "id": "V12",
+      "category": "forbidden_scan",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "summary": "型安全性: @ts-ignore / new any の新規導入なし。",
+      "evidence": "git diff 273884a..HEAD -- packages/ui/src/ | grep 'ts-ignore\\|@ts-ignore\\|any\\b' → 出力なし。TypeScript strict モード、DESIGN_PRINCIPLES coding_conventions 準拠。",
+      "overlooked_by_autopilot": false
+    },
+    {
+      "id": "V13",
+      "category": "forbidden_scan",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "summary": "ROADMAP.json の AC テキストは変更されていない。status フィールドのみの変更 (task done 化) は許容範囲。",
+      "evidence": "git diff 273884a..HEAD -- docs/ROADMAP.json | grep -E '^\\+.*\"(id|description)\".*\"AC-S9ab6c3' → 出力なし。ROADMAP.json で S9ab6c3 の AC 全 7 件の description テキストが base SHA 時点と一致することを直読みで確認 (AC status は全件 pending のまま — sprint done 処理前)。",
+      "overlooked_by_autopilot": false
+    },
+    {
+      "id": "V14",
+      "category": "adr_conformance",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "summary": "docs/DESIGN/ 不在 (N/A)。decisions.json の rationale は DESIGN_PRINCIPLES / VISION と矛盾しない。",
+      "evidence": "docs/DESIGN/ ディレクトリ不存在。decisions.json I7 (CDN不使用) → VISION/DESIGN_PRINCIPLES のオフライン動作要件と整合。I1 (4スペースインデント) → priority 4 Obsidian互換。I3 (IME guard) → DESIGN_PRINCIPLES ui_ux「IME第一級」準拠。I8 (wikilink click を S6fbf45 へ) → test-discipline Rule 6、スコープ外機能を追加しない。R3 (タブ字下げ制限) → priority 5 シンプルさ。いずれも DESIGN_PRINCIPLES に違反する判断はなし。",
+      "overlooked_by_autopilot": false
+    },
+    {
+      "id": "V15",
+      "category": "compromises",
+      "story": "S9ab6c3-1",
+      "ac": null,
+      "verdict": "warn",
+      "summary": "decisions.json R3 はタブ字下げ制限を記録しているが、InlineRuleWidget の silent catch と Shiki の固定言語リスト (SHIKI_LANGS 30件、unlisted は source display) が known limitation として未記録。機能上の問題ではないが compromises.json / decisions.json に補足が望ましい。",
+      "evidence": "decisions.json R3: 'タブ文字で字下げされたリスト行の Shift+Tab は no-op のまま' — 記録あり。live-preview.ts:260-268 の catch {} フォールバック — decisions.json に記載なし。renderers/shiki.ts:11-45 SHIKI_LANGS 固定リスト (未知言語はソース表示へフォールバック) — decisions.json に記載なし。どちらも設計上 intentional な振る舞いだが、引き継ぎドキュメントとして不完全。",
+      "overlooked_by_autopilot": false
+    }
+  ],
+  "stories": {
+    "S9ab6c3-1": "pass",
+    "S9ab6c3-2": "warn"
+  }
+}

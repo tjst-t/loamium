@@ -1,0 +1,113 @@
+name: Build Electron Desktop App
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  # ── Step 1: Cross-compile the Hono server binary for Windows on Linux ────────
+  build-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: npm ci
+
+      # @loamium/shared はビルド不要 (exports が src/index.ts を直接指す)。
+      # bun は shared の TS ソースをそのままバンドルする。
+      #
+      # node-llama-cpp (ADR-0025 のネイティブ addon) は **external** にする。
+      # bun --compile はエンジン層 (local-llm-engine.ts) の動的 import('node-llama-cpp')
+      # まで辿り、そこから参照される OS 別プレビルド (@node-llama-cpp/win-x64 等) を
+      # ビルド時解決しようとして失敗する (該当 OS 以外は npm ci で入らない)。
+      # external 指定でバンドルから除外し、実行時 import に委ねる。単一ファイル bun
+      # バイナリにネイティブ addon は元来同梱できないため、パッケージ済み exe では
+      # ローカル LLM は利用不可 = LocalLlmUnavailableError で graceful degradation
+      # (CLAUDE.md「利用不可は握りつぶさず明示エラー」/ ADR-0025 と整合)。
+      - name: Cross-compile server for Windows x64
+        run: |
+          bun build \
+            --compile \
+            --target=bun-windows-x64 \
+            --external "node-llama-cpp" \
+            --external "@node-llama-cpp/*" \
+            --outfile=packages/app-electron/resources/loamium-server.exe \
+            packages/server/src/index.ts
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: loamium-server-exe
+          path: packages/app-electron/resources/loamium-server.exe
+
+  # ── Step 2: Build NSIS installer on Windows (no Wine needed) ────────────────
+  build-electron:
+    runs-on: windows-latest
+    needs: build-server
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download server binary
+        uses: actions/download-artifact@v4
+        with:
+          name: loamium-server-exe
+          path: packages/app-electron/resources/
+
+      # タグ (例 v1.2.3) からバージョンを解決する。
+      # workflow_dispatch (タグ無し) では app-electron の既存 version をそのまま使う。
+      - name: Resolve version from tag
+        id: version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF_NAME}"          # 例 v1.2.3
+            VERSION="${TAG#v}"                 # electron-builder 用 (先頭 v を除去)
+          else
+            VERSION="$(node -p "require('./packages/app-electron/package.json').version")"
+            TAG="v${VERSION}"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          # electron-builder は package.json の version を成果物名に使うため焼き込む
+          # (共通スクリプトで全 package.json を揃える)
+          node scripts/apply-version.mjs "${VERSION}"
+
+      # 注: @loamium/shared はビルド不要 (exports が src/index.ts を直接指す)。
+      # UI ビルドは shared を TS ソースのまま参照するため、事前ビルドは不要。
+      - name: Build UI
+        # ロゴ右のバージョン表示にタグ由来の値を埋め込む
+        env:
+          LOAMIUM_VERSION: ${{ steps.version.outputs.tag }}
+        run: npm run build -w @loamium/ui
+
+      - name: Build Electron main + preload
+        run: npm run build -w loamium-app-electron
+
+      - name: Package with electron-builder (NSIS + zip)
+        run: npx electron-builder --win nsis zip --x64
+        working-directory: packages/app-electron
+
+      - name: Upload artifacts to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            packages/app-electron/dist/*.exe
+            packages/app-electron/dist/*.zip

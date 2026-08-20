@@ -1,0 +1,60 @@
+{
+  "milestone_summary": {
+    "stopped_at": "S2e8a4c (end of roadmap — 100%)",
+    "batch": ["S7e2d5c", "Sa6c3b0", "Sd5c9f4", "Se3b7a2", "Sb6f1d3", "S2e8a4c"],
+    "compromises": [],
+    "compromises_note": "禁止カテゴリ (test_skipped / test_assertion_weakened / error_swallowed / type_safety_relaxed) は本バッチで 0 件。各スプリントで diff の禁止パターンスキャンを実施し、すべて clean。verifier サブエージェントは本run では未使用のため overlooked_by_autopilot は全件 false。",
+    "code_quality_notes": [
+      {
+        "severity": "low",
+        "story": "Sb6f1d3-2",
+        "description": "TOC クリック時の unfold 連携が Editor.tsx の window.__loamiumEditorView__ / window.__loamiumUnfoldAtCursor__ グローバルを経由 (型付き・any 不使用・動作正常・テスト green)。",
+        "recommended_action": "onViewReady + App の editorViewRef 経由に置換し window グローバル汚染を除去 (refine 時)。"
+      },
+      {
+        "severity": "low",
+        "story": "S2e8a4c-5",
+        "description": "サイドバーのスマートコマンドパネル描画は削除済み (DOM に出ない=AC 達成・テスト済み) だが、SmartView.tsx に SmartCommandsSection 関数定義と空の .sidebar-commands-section CSS 規則が dead code として残存。",
+        "recommended_action": "未使用の関数/Props/空 CSS を削除 (refine 時)。"
+      }
+    ],
+    "blockers_encountered": [],
+    "scope_changes": [
+      {
+        "story": "Se3b7a2 (data model)",
+        "change": "プロトタイプレビューでタスクのデータモデルを変更 (ADR-0029 新規)。alt-checkbox 1文字 status 案を撤回し、チェックボックス=完了のみ / status・priority・due は任意の Dataview インラインフィールド / 語彙は system/settings.yaml で定義。",
+        "trigger": "user_feedback (プロトタイプレビュー)",
+        "approved_by_user": true
+      },
+      {
+        "story": "Sa6c3b0-6 (新規)",
+        "change": "モバイル Agent 導線 (ボトムバー + フルスクリーンシート) を新ストーリーとして追加。",
+        "trigger": "user_feedback",
+        "approved_by_user": true
+      },
+      {
+        "story": "Se3b7a2-7 / Se3b7a2-8 (新規)",
+        "change": "スラッシュ /task 自然入力 (Se3b7a2-7) とタスク語彙設定 UI+型付き設定 API (Se3b7a2-8) を追加。",
+        "trigger": "user_feedback",
+        "approved_by_user": true
+      },
+      {
+        "story": "S2e8a4c-1 / S2e8a4c-5 (改訂)",
+        "change": "Journal カレンダーを月グリッド直接ポップアップに変更 (S2e8a4c-1)。スマートコマンドパネルを『smart 表示時のみ非表示』から『サイドバーから完全撤去』へスコープ変更 (S2e8a4c-5)。",
+        "trigger": "user_feedback",
+        "approved_by_user": true
+      }
+    ],
+    "verification_caveats": [
+      {
+        "story": "Sa6c3b0-4",
+        "caveat": "PWA Lighthouse スコア 90+ は実機/HTTPS 本番ビルドでの計測が必要。manifest/SW/installability の構造は実装・テスト済みだが、スコア数値は本環境では未計測。"
+      }
+    ],
+    "user_review_items": [
+      "Sd5c9f4-4: SSE 自動更新の視覚的動作 (ファイル保存→サイドバー自動更新) の目視確認",
+      "Se3b7a2-2/4/5: エディタ TODO ポップオーバー / Dataview の視覚確認",
+      "Sa6c3b0-1/3/4/6: モバイルレイアウト・Agent シート・PWA の実機/実ブラウザ確認"
+    ]
+  }
+}

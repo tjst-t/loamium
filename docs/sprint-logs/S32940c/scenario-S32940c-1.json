@@ -1,0 +1,43 @@
+{
+  "story": "S32940c-1",
+  "story_type": "mixed",
+  "user_role": "ノートを整理する本人 / エージェント",
+  "entry_point": "POST /api/query (実 HTTP) + @loamium/shared dql.ts の公開関数 parseQuery/executeQuery (library)",
+  "scenarios": [
+    {
+      "id": "scenario-1-api-limit",
+      "linked_ac": ["AC-S32940c-1-1", "AC-S32940c-1-4"],
+      "description": "LIMIT で最近更新 N 件に絞る(API 経由)",
+      "preconditions": ["vault に mtime の異なるノートが 6 件以上ある"],
+      "steps": [
+        {"n": 1, "action": "POST /api/query に {\"query\":\"LIST SORT file.mtime DESC LIMIT 5\"}", "expected": "200。結果は SORT(mtime 降順)後の先頭 5 件のみ。件数がちょうど 5"},
+        {"n": 2, "action": "POST /api/query に LIMIT を外した同一クエリ", "expected": "200。全件返る(LIMIT ありは部分集合)"}
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "scenario-2-api-open-tasks",
+      "linked_ac": ["AC-S32940c-1-2"],
+      "description": "未完了 TODO を含むノートだけを集める(API 経由)",
+      "preconditions": ["未完了タスク `- [ ]` を持つノート A、完了のみ `- [x]` のノート B、タスク無しノート C が存在"],
+      "steps": [
+        {"n": 1, "action": "POST /api/query に {\"query\":\"LIST WHERE file.open_tasks\"}", "expected": "200。結果に A を含み、B と C を含まない"},
+        {"n": 2, "action": "POST /api/query に {\"query\":\"LIST WHERE file.tasks\"}", "expected": "200。結果に A と B を含み、C を含まない"}
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "scenario-3-library-boundaries",
+      "linked_ac": ["AC-S32940c-1-3", "AC-S32940c-1-5"],
+      "description": "パーサ/評価器の境界(library の公開 API を消費者として呼ぶ)",
+      "preconditions": ["packages/shared をビルド済み"],
+      "steps": [
+        {"n": 1, "action": "parseQuery('LIST SORT file.mtime DESC LIMIT abc') を呼ぶ", "expected": "DqlParseError が throw され、line/column/length を持つ(非整数 LIMIT 拒否)"},
+        {"n": 2, "action": "parseQuery('LIST LIMIT -1') を呼ぶ", "expected": "DqlParseError(負値拒否)"},
+        {"n": 3, "action": "executeQuery(parseQuery('LIST'), notes) を LIMIT 無しで呼ぶ", "expected": "既存挙動どおり全件返る(後方互換)"},
+        {"n": 4, "action": "executeQuery(parseQuery('LIST WHERE file.open_tasks'), notes) をタスク0件ノートのみで呼ぶ", "expected": "空配列(未完了0件は除外される)"}
+      ],
+      "cleanup": []
+    }
+  ]
+}

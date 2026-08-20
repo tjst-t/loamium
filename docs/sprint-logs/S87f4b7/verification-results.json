@@ -1,0 +1,39 @@
+{
+  "sprint": "S87f4b7",
+  "title": "プロパティUI再設計 + 意味型(D方式)",
+  "verified_at": "2026-07-06",
+  "machine_verdict": {
+    "source": "hooks/run-verify.py -> docs/sprint-logs/S87f4b7/verify-run.json",
+    "overall": "pass",
+    "runs": {
+      "test": { "status": "pass", "junit": { "total": 432, "passed": 432, "failed": 0 } },
+      "lint": { "status": "pass" },
+      "ui-tests": { "status": "pass", "total": 220 }
+    },
+    "note": "初回 run で tests/acceptance/terminal.spec.ts の [AC-S79c210-3-1] が 1 件 fail(既知の並列 audit-log timing flaky)。単独再実行で 13/13 pass を確認(テスト無変更)。再 run で make test は 432/432 pass、overall=pass。"
+  },
+  "acceptance_criteria": [
+    { "id": "S87f4b7-1-AC1", "status": "pass", "evidence": "[AC-S87f4b7-1-1] props-layout.e2e: frontmatter ありノートで data-open=false、properties-toggle のみ表示、密行は hidden(サマリ非表示)。props-layout.mock でも確認。" },
+    { "id": "S87f4b7-1-AC2", "status": "pass", "evidence": "[AC-S87f4b7-1-2] props-layout.e2e: トグルで data-open=true へ展開、status=select/rating=star の密行、高さは畳み時 < 展開時、再クリックで畳む。畳み時高さ < 32px を検証。" },
+    { "id": "S87f4b7-1-AC3", "status": "pass", "evidence": "[AC-S87f4b7-1-3] props-layout.e2e: frontmatter 無しノートにスラッシュ生成 → 型ピッカーで number 追加(実ファイル ページ数:336)、other.md へ切替→戻ると開き状態が保持。" },
+    { "id": "S87f4b7-2-AC1", "status": "pass", "evidence": "[AC-S87f4b7-2-1] tests/acceptance/property-types.spec.ts: GET /api/property-types 実 HTTP、resolvePropertyType でヒューリスティック解決 + JSON定義上書き(source=json)。shared property-types.test.ts 14 件。" },
+    { "id": "S87f4b7-2-AC2", "status": "pass", "evidence": "[AC-S87f4b7-2-2] props-types.e2e: star/select/progress/checkbox/date/url/note-link/number/text/tags の描画、star クリック増減・select 選択肢+色・progress 数値編集。実ファイルで rating:4/再読したい:false/優先度:高/progress:55 の標準 YAML スカラーを検証。クリーンテキスト。" },
+    { "id": "S87f4b7-2-AC3", "status": "pass", "evidence": "[AC-S87f4b7-2-3] property-types.spec.ts: 壊れ JSON→200 {}→ヒューリスティック fallback、一部壊れは妥当分のみ採用。ノート .md はバイト単位で型情報なし。props-types.mock でも壊れ定義の fallback を実ブラウザ確認。" },
+    { "id": "S87f4b7-3-AC1", "status": "pass", "evidence": "[AC-S87f4b7-3-1] type-picker.e2e: properties-add で property-type-picker 表示、filter 's' で select/star 残り date 消滅、'star' で 1 件、無一致で empty、Esc で閉じる。" },
+    { "id": "S87f4b7-3-AC2", "status": "pass", "evidence": "[AC-S87f4b7-3-2] type-picker.e2e: 内蔵(builtin)+ JSON定義(json, JSON定義バッジ)混在、優先度 選択→キー事前入力→値→実ファイル 優先度:高(標準 YAML)。type-picker.mock でキーボードナビも確認。" }
+  ],
+  "done_judgment": {
+    "guards_evaluated": 8,
+    "failed": 0,
+    "detail": "decisions.json の done_judgment を参照。全 Story done 可。"
+  },
+  "stories": {
+    "S87f4b7-1": "done",
+    "S87f4b7-2": "done",
+    "S87f4b7-3": "done"
+  },
+  "verifier": {
+    "independent_verifier": "not_run",
+    "reason": "本環境ではサブエージェント spawn 不可。verification-report.json に明記。親 autopilot が opus read-only verifier を補完実行する前提。"
+  }
+}

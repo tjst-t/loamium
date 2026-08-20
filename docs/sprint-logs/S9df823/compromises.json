@@ -1,0 +1,21 @@
+{
+  "sprint": "S9df823",
+  "compromises": [],
+  "notes": [
+    "verifier(独立・opus・read-only、親 autopilot が補完実行)= overall pass / fail 0 / warn 0 / overlooked 0。412/207 pass を独立再実行で再現、YAML round-trip 保証・アンカー/ネスト値の verbatim 保持・クオート処理を確認。",
+    "実装サブエージェントが利用上限で verify 最終化前に中断。親 autopilot がフル make test/test-ui/lint(全 pass)+ run-verify.py の機械判定 + 6/8 ガード(先送りコメント/禁止パターン/NUL スキャン clean)で最終化し、独立 verifier で裏取りした。",
+    "実機デモ(docs/sprint-logs/S9df823/demo/01-properties.png)で frontmatter が Obsidian Properties 風ブロック(tags チップ・型アイコン・値編集・プロパティ追加)として描画され、生 YAML が本文から消えることを確認。"
+  ],
+  "user_review_items": [
+    {
+      "id": "frontmatter-complex-values",
+      "sprint": "S9df823",
+      "summary": "ネストしたオブジェクト・YAML アンカー/エイリアス・block scalar 等の複雑な値は WYSIWYG 編集の対象外(complex 扱いで原文 verbatim 保持・読み取り専用表示にし、編集は『ソースを編集』へ誘導)。スカラー・文字列・フラット配列は WYSIWYG 編集可。",
+      "recommended_action": "個人用途のメタデータ(tags/status/priority/日付等)は WYSIWYG で足りる想定。複雑値の GUI 編集が必要になれば拡張。"
+    }
+  ],
+  "blockers_encountered": [
+    "実装サブエージェントが Anthropic 利用上限に到達し verify フェーズ最終化前に停止(subagent_tokens=0)。親が引き継いで完了。"
+  ],
+  "scope_changes": []
+}

@@ -1,0 +1,58 @@
+# impl-Sebf6b0-34.log — Sebf6b0-3 + Sebf6b0-4
+
+## Date: 2026-07-08
+
+## Story Sebf6b0-3 — スマートビューからのファイル作成
+
+### AC-3-1
+- Added `smart-view-newfile` button next to `smart-view-add` in `smart-view-header`, shown only when `sidebarView === 'smart' && smartViewMode === 'full'`
+- Click opens `smart-newfile-menu` (testid) with `smart-newfile-blank` and `smart-newfile-template` items
+
+### AC-3-2
+- `smart-newfile-blank` opens `smart-newfile-dialog` with `smart-newfile-path` input
+- Input autocompletes from existing folders (candidates `smart-newfile-path-option[data-path]`)
+- Folders derived from `api.listNotes()` notes' folder fields (same approach as SmartFolderForm)
+- On create (`smart-newfile-create`): calls `api.putNote(path,'',0)` then opens new note
+- `smart-newfile-cancel` closes dialog
+
+### AC-3-3
+- `smart-newfile-template` button calls reused `openSmartNewFileTemplate()` which uses `setPickerOpen(true)` + `refreshTemplates()` (same as physical view's openTemplatePicker)
+
+## Story Sebf6b0-4 — フォーム タグ補完 + 機能ガイド
+
+### AC-4-1
+- `sf-form-preset-tag` upgraded from plain input to combobox
+- Loads tags via `api.getTags()` on focus (lazy)
+- Filters with `filterTagSuggestions` (from @loamium/shared)
+- Candidates: `sf-form-preset-tag-option` buttons; clicking fills input and closes dropdown
+- Free text still allowed
+
+### AC-4-2
+- Added `smart-folder-guide` div (testid) to empty-state section (~line 1497-1519)
+- Explains: smart view toggle, creating smart folders (query presets / pinning), bookmark star
+- Styled consistently with `empty-hint` section
+
+## Tests
+
+### mock (smart-folder-editor.mock.spec.ts) — 5 new tests:
+- [AC-Sebf6b0-3-1] smart-view-newfile visible in full mode, click shows menu with blank/template
+- [AC-Sebf6b0-3-1] read-only hides smart-view-newfile
+- [AC-Sebf6b0-3-3] smart-newfile-template triggers template-picker
+- [AC-Sebf6b0-4-1] tag preset combobox: type → candidates appear, click fills input + DQL
+- [AC-Sebf6b0-4-2] empty state shows smart-folder-guide
+
+### e2e (smart-folder-editor.e2e.spec.ts) — 1 new test:
+- [AC-Sebf6b0-3-2] open blank dialog, autocomplete folder, create → new note opens at /n/{path}
+
+## Results
+- 42 smart-folder-editor tests: 42 passed
+- 195 mock project tests: 195 passed
+- 8 smart-view + bookmark-star e2e regression: 8 passed
+- make lint: PASS
+
+## Files Changed
+- packages/ui/src/App.tsx
+- packages/ui/src/components/SmartFolderForm.tsx
+- packages/ui/tests/e2e/smart-folder-editor.mock.spec.ts
+- packages/ui/tests/e2e/smart-folder-editor.e2e.spec.ts
+- docs/sprint-logs/Sebf6b0/impl-Sebf6b0-34.log

@@ -1,0 +1,41 @@
+npm test
+
+> loamium@0.1.0 test
+> vitest run
+
+
+ RUN  v3.2.6 /home/ubuntu/ghq/github.com/tjst-t/loamium
+
+ ✓ tests/acceptance/audit-permissions.spec.ts (9 tests) 1338ms
+ ✓ tests/acceptance/watch.spec.ts (5 tests) 1677ms
+   ✓ [AC-S31ba00-3-1] external file changes are reflected in search and backlinks > picks up an external deletion (gone from search and backlinks)  318ms
+ ✓ tests/acceptance/notes-crud.spec.ts (21 tests) 764ms
+ ✓ tests/acceptance/journal.spec.ts (7 tests) 609ms
+ ✓ tests/acceptance/search.spec.ts (11 tests) 530ms
+ ✓ tests/acceptance/backlinks.spec.ts (7 tests) 541ms
+ ✓ packages/shared/src/extract.test.ts (27 tests) 15ms
+ ✓ packages/shared/src/markdown.test.ts (8 tests) 9ms
+ ✓ tests/acceptance/skill.spec.ts (12 tests) 11ms
+ ✓ packages/shared/src/path.test.ts (11 tests) 4ms
+ ✓ packages/shared/src/journal.test.ts (12 tests) 4ms
+ ✓ packages/shared/src/links.test.ts (10 tests) 4ms
+ ✓ packages/ui/tests/unit/registry.spec.ts (5 tests) 7ms
+ ✓ packages/shared/src/text.test.ts (6 tests) 3ms
+ ✓ tests/acceptance/cli.spec.ts (16 tests) 11787ms
+   ✓ [AC-S0c9a48-1-1] loamium の 10 サブコマンドが API と 1:1 で動作する > write → read → append → patch のノート往復 (ファイルにも反映される)  2340ms
+   ✓ [AC-S0c9a48-1-1] loamium の 10 サブコマンドが API と 1:1 で動作する > journal が今日の YYYY-MM-DD.md を自動生成し、journal-append が追記する (日付指定込み)  1486ms
+   ✓ [AC-S0c9a48-1-1] loamium の 10 サブコマンドが API と 1:1 で動作する > search / backlinks / list / tags がインデックス系 API と 1:1 で動作する  1988ms
+   ✓ [AC-S0c9a48-1-1] loamium の 10 サブコマンドが API と 1:1 で動作する > --json フラグで API レスポンスの生 JSON をそのまま stdout に出す (全系統)  1405ms
+   ✓ [AC-S0c9a48-1-2] 成功は exit 0 + stdout、失敗は非 0 + stderr に機械可読エラー > patch の old 不在 / 曖昧一致はサーバーの機械可読コードを透過する  774ms
+   ✓ [AC-S0c9a48-1-2] 成功は exit 0 + stdout、失敗は非 0 + stderr に機械可読エラー > vault 外パス (../ / 絶対パス) は invalid_path で拒否される  347ms
+   ✓ [AC-S0c9a48-1-2] 成功は exit 0 + stdout、失敗は非 0 + stderr に機械可読エラー > read-only モードのサーバーへの write は権限拒否 (forbidden) で非 0 終了する  593ms
+   ✓ [AC-S0c9a48-1-2] 成功は exit 0 + stdout、失敗は非 0 + stderr に機械可読エラー > 使い方エラー (引数不足・不明コマンド・不明フラグ) は exit 2 + {error: "usage"}  533ms
+
+ Test Files  15 passed (15)
+      Tests  167 passed (167)
+   Start at  19:32:28
+   Duration  12.01s (transform 290ms, setup 0ms, collect 627ms, tests 17.31s, environment 2ms, prepare 812ms)
+
+JUNIT report written to /home/ubuntu/ghq/github.com/tjst-t/loamium/reports/junit.xml
+
+__VERIFY_EXIT_CODE__:test:0

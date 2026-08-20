@@ -1,0 +1,29 @@
+{
+  "id": "ADR-0005",
+  "title": "pin はノートに加えて物理フォルダも対象にできる(ADR-0003 の pin 定義の拡張)",
+  "status": "accepted",
+  "date": "2026-07-08",
+  "context": "ADR-0003 は smart view の要素を pin(単一ノートの葉)/ query(DQL フォルダ)の 2 種と定義した。ユーザーは『使う物理フォルダをそのまま pin したい』(クエリを書かずにフォルダへ素早くアクセスしたい)。フォルダ pin を加算的に足したいが、既存の note-pin と pin|query の 2 種構造は壊したくない。",
+  "alternatives": [
+    {"name": "pin.path がフォルダも許容し、解決時に配下ノートを列挙・展開フォルダとして描画(採用)", "tradeoff": "スキーマ変更最小(pin.path のまま)、後方互換。pin の描画が path の実在種別で分岐する"},
+    {"name": "新 kind 'folder' を追加", "tradeoff": "明示的だが union が 3 種に増え、query/pin と概念が重複する"},
+    {"name": "フォルダは query(LIST FROM \"folder\")で表現し pin は据え置き", "tradeoff": "既存機能で足りるが、ユーザーはフォルダを直接選びたい(クエリを書きたくない)ため UX が劣る"}
+  ],
+  "decision": "pin.path はノートまたは物理フォルダのパスを指せる。解決(GET /api/smart-folders/{id}/notes)は、path がノートなら単一 NoteMeta、フォルダなら配下(サブフォルダ含む)ノートを列挙して返す。UI はフォルダ pin を展開可能なフォルダ、ノート pin を葉として描画する。作成時に path が実在(ノート or フォルダ)しなければ弾く。SmartViewItem スキーマは pin.path 文字列のまま(種別はサーバ/UI が実在性で判定)。",
+  "consequences": [
+    "+ 使うフォルダを 1 クリックで pin でき、クエリ記述が不要",
+    "+ スキーマ変更は最小(pin.path のまま)。既存の note-pin は不変で後方互換",
+    "+ 解決はインデックスからフォルダ配下を列挙(executeQuery の FROM \"folder\" 相当を再利用可)",
+    "- pin の描画・解決が path の実在種別(ノート/フォルダ)で分岐する",
+    "- 空フォルダ pin は配下 0 件。存在検証はクライアント(notes + 派生フォルダ)で行い、真に空のフォルダはサーバ isVaultDirectory で補強し得る"
+  ],
+  "reversibility_cost": "low",
+  "affects": [
+    "packages/server/src/routes/smart-folders.ts (pin resolve)",
+    "packages/ui SmartView / SmartFolderForm",
+    "ADR-0003 (pin 定義を拡張)"
+  ],
+  "supersedes": null,
+  "superseded_by": null,
+  "notes": "ADR-0003 の pin|query 2 種構造は不変。本 ADR は pin の対象を『単一ノートの葉』からノート/フォルダへ広げる拡張であり、ADR-0003 を superseded にはしない。"
+}

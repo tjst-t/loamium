@@ -1,0 +1,17 @@
+{
+  "milestone_summary": {
+    "stopped_at": "milestone_S8086d9",
+    "compromises": [],
+    "compromises_note": "両 Sprint の独立 verifier は forbidden-degradation(test_skipped / assertion_weakened / error_swallowed / type_safety_relaxed)をゼロと確認。妥協なし。",
+    "blockers_encountered": [
+      {
+        "type": "environment",
+        "severity": "medium",
+        "summary": "node-pty ネイティブモジュールが GLIBC_2.42 不整合でこのサンドボックスにロード不可。ターミナル機能の実機テスト(terminal.spec.ts 7 件 + claude-sidebar/search-slim e2e 5 件)は実行できない。",
+        "impact": "スマートフォルダ/ブックマーク実装とは無関係(main でも同環境なら失敗)。緩和として node-pty を遅延ロード化し、サーバー起動と他の全テストは正常化(acceptance 23/24 ファイル + UI 269 e2e/mock pass)。",
+        "resolution": "別環境(GLIBC 2.42+ or 正しい prebuilt)でターミナル e2e を実施する。コード変更は不要。"
+      }
+    ],
+    "scope_changes": []
+  }
+}

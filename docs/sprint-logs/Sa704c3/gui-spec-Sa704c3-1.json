@@ -1,0 +1,60 @@
+{
+  "$file": "gui-spec-Sa704c3-1.json",
+  "sprint": "Sa704c3",
+  "story": "Sa704c3-1",
+  "story_type": "gui",
+  "state_diagram": "stateDiagram-v2\n    [*] --> LoadingTree: app load\n    LoadingTree --> TreePopulated: GET /api/notes success\n    LoadingTree --> TreeEmpty: GET /api/notes success (0 notes)\n    LoadingTree --> TreeError: GET /api/notes failure\n    TreeEmpty --> NewNoteDialog: sidebar-new-note click\n    TreePopulated --> NoteOpen: tree-item click (GET /api/notes/{path})\n    TreePopulated --> ContextMenu: tree-item right-click\n    ContextMenu --> NoteOpen: context-open\n    ContextMenu --> NewNoteDialog: context-new-note\n    ContextMenu --> RenameDialog: context-rename\n    ContextMenu --> DeleteDialog: context-delete\n    NewNoteDialog --> NoteOpen: new-note-confirm (PUT new note)\n    RenameDialog --> NoteOpen: rename-confirm (PUT new + DELETE old)\n    DeleteDialog --> EditorEmpty: delete-confirm (DELETE, 開いていたノートの場合)\n    NoteOpen --> Dirty: user types (save-status data-state=dirty)\n    Dirty --> Saved: Cmd/Ctrl+S or debounce auto-save (PUT with baseMtime, save-status data-state=saved)\n    Dirty --> ConflictDialog: PUT returns 409 (mtime mismatch)\n    ConflictDialog --> Saved: conflict-overwrite (PUT without baseMtime)\n    ConflictDialog --> NoteOpen: conflict-reload (GET reload)\n    EditorEmpty --> NoteOpen: empty-open-journal / tree-item click",
+  "scenarios": {
+    "entry_point": "ブラウザで UI ルート URL (Vite dev server) を開く。左サイドバーに vault のファイルツリーが常時表示される",
+    "happy_path": "ユーザーがツリーのフォルダを開閉し、ノート行をクリックすると CodeMirror エディタに Markdown ソースが開く。編集すると save-status が dirty になり、Cmd/Ctrl+S または 1.5s デバウンスの自動保存で PUT され saved に戻る。再読み込みしても内容が保持され、ファイルはピュア Markdown のまま。右クリックメニューから新規作成・リネーム・削除ができる",
+    "data_states": {
+      "empty": "vault にノートが無いとき tree-empty を表示。ノート未オープン時は editor-empty-state(今日のジャーナルを開始 / 新規ノート作成ボタン)",
+      "loading": "ツリー・ノート読み込み中は既存表示を維持(スピナーは設けない — ローカル API で応答は速い)",
+      "error": "GET /api/notes 失敗時はツリーにエラーメッセージ、ノート読込失敗・保存失敗はエディタヘッダ付近にエラー表示"
+    },
+    "edge_cases": [
+      "日本語ファイル名(NFC 正規化はサーバー側)・スペースを含むパスの URL エンコード",
+      "ノート名の重複作成は PUT が上書きになるため、新規作成ダイアログで既存パスと衝突する場合は確認する",
+      "リネーム先が既存ノートと衝突する場合は確認なしに上書きしない",
+      "拡張子 .md はダイアログでは入力させず自動付与",
+      "外部プロセスがファイルを変更した後の保存は 409 → 競合ダイアログ(上書き / 再読込)",
+      "IME 変換中(composition 中)は自動保存のデバウンスを妨げない(CodeMirror 6 は IME ネイティブ対応)"
+    ],
+    "success_feedback": "保存成功で save-status が data-state=saved(『保存済み』)。作成・リネーム・削除はツリーが即時更新される",
+    "failure_feedback": "保存 409 は conflict-dialog。その他 API エラーはヘッダ付近にエラーテキスト表示"
+  },
+  "endpoint_contracts": [
+    {
+      "path": "/api/notes",
+      "method": "GET",
+      "registered": true,
+      "request_fields": null,
+      "response_fields": { "notes": "NoteMeta[] {path, title, tags, folder}" }
+    },
+    {
+      "path": "/api/notes/{path}",
+      "method": "GET",
+      "registered": true,
+      "request_fields": null,
+      "response_fields": { "path": "string", "content": "string", "frontmatter": "object|null", "body": "string", "mtime": "number (ms epoch — this Sprint で追加)" }
+    },
+    {
+      "path": "/api/notes/{path}",
+      "method": "PUT",
+      "registered": true,
+      "request_fields": { "content": "string (required)", "baseMtime": "number (optional — this Sprint で追加。不一致なら 409 conflict)" },
+      "response_fields": { "path": "string", "created": "boolean", "mtime": "number (this Sprint で追加)" }
+    },
+    {
+      "path": "/api/notes/{path}",
+      "method": "DELETE",
+      "registered": true,
+      "request_fields": null,
+      "response_fields": { "path": "string", "deleted": "boolean" }
+    }
+  ],
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/editor.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/editor.mock.spec.ts"
+  }
+}

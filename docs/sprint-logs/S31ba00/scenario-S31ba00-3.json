@@ -1,0 +1,21 @@
+{
+  "story": "S31ba00-3",
+  "story_type": "api",
+  "user_role": "vault 所有者が外部エディタ・Git で vault を直接変更し、API の検索・バックリンクで最新状態を観測する",
+  "entry_point": "http://localhost:{PORT}/api + vault ディレクトリへの直接ファイル操作 (API を経由しない)",
+  "scenarios": [
+    {
+      "id": "scenario-1",
+      "linked_ac": ["AC-S31ba00-3-1"],
+      "description": "API を経由せずファイルを追加・変更・削除しても検索・バックリンクに反映される。.loamium/ は監視されない",
+      "preconditions": ["サーバー起動済み。vault に notes/target.md が存在する"],
+      "steps": [
+        { "n": 1, "action": "外部エディタ相当: fs で vault に notes/external.md (固有語 + [[target]] リンク入り) を直接作成する", "expected": "GET /api/search で固有語がヒットし、GET /api/backlinks?path=notes/target.md に notes/external.md が現れる (ポーリングで数秒以内)" },
+        { "n": 2, "action": "fs で notes/external.md の本文を別の固有語に書き換える", "expected": "GET /api/search で新しい語がヒットし、古い語はヒットしなくなる" },
+        { "n": 3, "action": "fs で notes/external.md を削除する", "expected": "GET /api/search から消え、GET /api/backlinks?path=notes/target.md からも消える" },
+        { "n": 4, "action": "fs で .loamium/cache.md に固有語を書き込む", "expected": "GET /api/search でヒットしない (.loamium/ は監視・インデックス対象外)" }
+      ],
+      "cleanup": ["一時 vault ディレクトリ削除"]
+    }
+  ]
+}

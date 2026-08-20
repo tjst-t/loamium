@@ -1,0 +1,47 @@
+[
+  {
+    "decision": "S11493d-1 は non-GUI (API + CLI 専用) と分類する",
+    "rationale": "GET /api/notes/{path}/meta エンドポイントと CLI loamium note-meta コマンドは、UI コンポーネントに触れない。AC はすべて HTTP レスポンス・ JSON 出力・ユニットテストで検証可能。GUI Story としての分類は UI が meta API を消費する S11493d-2/-3 が担う。",
+    "reference": "DESIGN_PRINCIPLES: priority 3 (REST/CLI 1:1 原則)"
+  },
+  {
+    "decision": "実行ウェーブを [S11493d-1] → [S11493d-2] → [S11493d-3] → [S11493d-4] の 4 ウェーブとする",
+    "rationale": "S11493d-1 はサーバー/shared/CLI のみに触れ、UI ファイルに無依存。S11493d-2 と S11493d-3 はどちらも RightSidebar.tsx を大幅に書き換えるため同一ウェーブに置けない (worktree マージ競合)。S11493d-4 は infopanel Tags セクション (S11493d-2 の成果物) に依存するためウェーブ 4 に置く。",
+    "reference": "DESIGN_PRINCIPLES: priority 2 (データ安全性 > 開発速度)"
+  },
+  {
+    "decision": "Properties セクションは frontmatter の tags キーを表示しない",
+    "rationale": "タグの集約 (frontmatter tags + 本文 #tag) は Tags セクションが一元担当する。Properties で tags を重複表示すると一貫性が崩れ、ユーザーがタグをどちらで操作すれば良いか混乱する。TESTIDS.md の 'タグは Tags セクションに一本化' という設計メモに準拠。",
+    "reference": "prototype/TESTIDS.md (インフォパネル設計メモ), DESIGN_PRINCIPLES: priority 5 (シンプルさ)"
+  },
+  {
+    "decision": "バックリンク件数バッジ (backlink-count) は right-tab-info ボタン内に存続させ、バックリンク数が 0 件の場合は display:none とする",
+    "rationale": "既存の契約 (prototype/TESTIDS.md: 旧 right-tab-backlinks → right-tab-info へ置換) を引き継ぐ。バッジの存在位置・0 件時非表示ルールは prototype/info-panel-empty.html が明示している。",
+    "reference": "prototype/TESTIDS.md (インフォパネル: backlink-count 継続)"
+  },
+  {
+    "decision": "折りたたみ実装は <details>/<summary> を使用する (JS 不要)",
+    "rationale": "prototype/info-panel.html が <details open> で実装しており、CSS の [open] / :not([open]) でシェブロン回転を実現している。React での状態管理より軽量で、SSR でも機能する。TESTIDS.md の設計メモにも明示。",
+    "reference": "prototype/info-panel.html, prototype/TESTIDS.md (設計メモ: 折りたたみ実装)"
+  },
+  {
+    "decision": "S11493d-4 で CodeMirror インライン #tag の tag-click 配線が困難な場合は decisions.json に記録し、その AC (AC-S11493d-4-3) は対象外として実装者が記録する",
+    "rationale": "body-tag (S45fa45) は既存の onOpenTag → openSearch 経路で既に動作している。S11493d-4 の目的は未配線の renderers (properties.ts / dataview.ts / table.ts) と新規 Info Panel Tags への統一。CodeMirror 内 #tag は別レジストリ経路であり、実装制約がある場合は AC-S11493d-4-3 の免責を認める (TESTIDS.md AC-S11493d-4-3 記載の条件に一致)。",
+    "reference": "prototype/TESTIDS.md (AC-S11493d-4-3 の注記), DESIGN_PRINCIPLES: priority 5 (シンプルさ)"
+  },
+  {
+    "decision": "wordCount はコードフェンス内・frontmatter を除いた本文テキストを対象に空白・句読点で分割する。日本語は 1 文字 = 1 語とみなす",
+    "rationale": "コードフェンス内はプログラムの文脈であり自然言語の語数カウントと異なる。extractLinks/extractTags と同様に scannableLines を再利用してフェンス外のみを走査する。日本語では単語境界が不明瞭なため 1 文字 = 1 語の簡易カウントを採用し、decisions.json に記録する (シンプルさ優先)。",
+    "reference": "DESIGN_PRINCIPLES: priority 5 (シンプルさ), CLAUDE.md (コードフェンス内除外)"
+  },
+  {
+    "decision": "共有タグクリックハンドラは packages/ui/src/tag-click.ts として抽出し、openSearch({q:'',tag,folder:'',sort:'updated'}) を単一関数に集約する",
+    "rationale": "renderers は DOM ベースのモジュールであり React context を直接参照できない。純関数 (tag: string, openSearch: (p: SearchParams) => void) => void として型付けし、App.tsx から各 renderer のオプションへコールバックとして渡す。これにより renderer が UI ルーティングに直接依存することを避けられる (priority 3)。",
+    "reference": "DESIGN_PRINCIPLES: priority 3 (API/CLI 安定), priority 5 (シンプルさ)"
+  },
+  {
+    "decision": "GFM Markdown table (table.ts) のセル内 #tag テキストはタグチップとして描画しない (S11493d-4 の配線対象外)",
+    "rationale": "table.ts の renderCellBody は appendInlineMarkdown を使って GFM インライン記法 (太字・コード・[[リンク]] 等) を描画する。セル内テキストとして書かれた '#tag' はプレーンテキストのまま表示される。タグチップとして扱うには GFM テーブルの semantics を超えた専用パースが必要であり、ピュア Markdown の正本を維持する priority 1 に反する副作用も生じる。 'table-cell tags' という要件は dataview.ts の TABLE クエリ結果の array セル (dv-tag チップ) を指すと解釈し、そちらで対応済み。GFM テーブルは対象外とする。",
+    "reference": "DESIGN_PRINCIPLES: priority 1 (ピュア Markdown), S11493d-4 (AC-S11493d-4-3 の免責条件)"
+  }
+]

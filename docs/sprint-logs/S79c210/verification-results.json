@@ -1,0 +1,93 @@
+{
+  "sprint": "S79c210",
+  "verified_at": "2026-07-05",
+  "machine_verdict": {
+    "source": "hooks/run-verify.py (.claude/verify.json)",
+    "overall": "pass",
+    "test": { "status": "pass", "total": 373, "passed": 373, "failed": 0 },
+    "lint": { "status": "pass" },
+    "ui_tests": { "status": "pass", "total": 165, "passed": 165, "failed": 0 }
+  },
+  "baseline_deltas": {
+    "backend_tests": "352 -> 373 (+21: terminal AC-3-1 x2, config.test x6, terminal.test x7, ui table.spec x6)",
+    "ui_tests": "152 -> 165 (+13 net: +15 new [sidebar-tree mock3/e2e3, table mock2/e2e2, terminal-origin mock2, breadcrumb mock1/e2e1, +1 upload split] -1 removed sidebar-recent.e2e; upload/files-page tests adapted to /files, not weakened)"
+  },
+  "ac_traceability": [
+    { "ac": "AC-S79c210-1-1", "tests": ["packages/ui/tests/e2e/sidebar-tree.e2e.spec.ts", "packages/ui/tests/e2e/sidebar-tree.mock.spec.ts"], "status": "pass" },
+    { "ac": "AC-S79c210-1-2", "tests": ["packages/ui/tests/e2e/sidebar-tree.e2e.spec.ts", "packages/ui/tests/e2e/sidebar-tree.mock.spec.ts"], "status": "pass" },
+    { "ac": "AC-S79c210-1-3", "tests": ["packages/ui/tests/e2e/sidebar-tree.e2e.spec.ts", "packages/ui/tests/e2e/sidebar-tree.mock.spec.ts"], "status": "pass" },
+    { "ac": "AC-S79c210-2-1", "tests": ["packages/ui/tests/e2e/table-render.e2e.spec.ts", "packages/ui/tests/e2e/table-render.mock.spec.ts", "packages/ui/tests/unit/table.spec.ts"], "status": "pass" },
+    { "ac": "AC-S79c210-2-2", "tests": ["packages/ui/tests/e2e/table-render.e2e.spec.ts"], "status": "pass" },
+    { "ac": "AC-S79c210-3-1", "tests": ["tests/acceptance/terminal.spec.ts", "packages/server/src/terminal.test.ts", "packages/server/src/config.test.ts"], "status": "pass" },
+    { "ac": "AC-S79c210-3-2", "tests": ["packages/ui/tests/e2e/terminal-origin.mock.spec.ts"], "status": "pass", "note": "実ブラウザは同一オリジン(loopback=許可)しか送れず 1008 を forge 不能なため WS モックで close code 区別を検証。AC 本経路(許可/拒否)は tests/acceptance/terminal.spec.ts が本番モードの実 WS で担保。" },
+    { "ac": "AC-S79c210-4-1", "tests": ["packages/ui/tests/e2e/breadcrumb.e2e.spec.ts", "packages/ui/tests/e2e/breadcrumb.mock.spec.ts"], "status": "pass" }
+  ],
+  "done_judgment": [
+    {
+      "story_id": "S79c210-1",
+      "guard1_user_review_required_not_done": "pass",
+      "guard2_nil_injection_mock": "n/a (TypeScript project — Go nil-guard pattern inapplicable)",
+      "guard3_mock_mode_not_real_smoke": "n/a (no tests/acceptance/devvm; priority_rule 9 not applicable)",
+      "guard4_priority_rule_9_exception_valid": "n/a",
+      "guard5_call_path_grep": "n/a (Go/Temporal-specific)",
+      "guard6_deferred_comment_clean": "pass (git diff scan found no TODO/Sprint-deferral comments)",
+      "guard7_adr_conformance": "n/a (docs/DESIGN not present)",
+      "guard8_destructive_multi_version_test": "n/a (no Go data-path)",
+      "overall": "ok"
+    },
+    {
+      "story_id": "S79c210-2",
+      "guard1_user_review_required_not_done": "pass",
+      "guard2_nil_injection_mock": "n/a",
+      "guard3_mock_mode_not_real_smoke": "n/a",
+      "guard4_priority_rule_9_exception_valid": "n/a",
+      "guard5_call_path_grep": "n/a",
+      "guard6_deferred_comment_clean": "pass",
+      "guard7_adr_conformance": "n/a",
+      "guard8_destructive_multi_version_test": "n/a",
+      "overall": "ok"
+    },
+    {
+      "story_id": "S79c210-3",
+      "guard1_user_review_required_not_done": "pass",
+      "guard2_nil_injection_mock": "n/a",
+      "guard3_mock_mode_not_real_smoke": "pass (AC-3-1 real WS + real server, no MOCK=/--fake-/DRY_RUN; AC-3-2 mock is a UI error-path, not a priority_rule 9 smoke)",
+      "guard4_priority_rule_9_exception_valid": "n/a",
+      "guard5_call_path_grep": "n/a",
+      "guard6_deferred_comment_clean": "pass",
+      "guard7_adr_conformance": "n/a",
+      "guard8_destructive_multi_version_test": "n/a",
+      "overall": "ok"
+    },
+    {
+      "story_id": "S79c210-4",
+      "guard1_user_review_required_not_done": "pass",
+      "guard2_nil_injection_mock": "n/a",
+      "guard3_mock_mode_not_real_smoke": "n/a",
+      "guard4_priority_rule_9_exception_valid": "n/a",
+      "guard5_call_path_grep": "n/a",
+      "guard6_deferred_comment_clean": "pass",
+      "guard7_adr_conformance": "n/a",
+      "guard8_destructive_multi_version_test": "n/a",
+      "overall": "ok"
+    }
+  ],
+  "self_review": {
+    "reviewer": "main session (self-review — no independent Agent spawn tool available)",
+    "findings": [
+      "テーブルの block 装飾はカーソル非接触時のみ置換し、カーソル行はソース表示に戻ることを実ブラウザ/モックで確認。inline レジストリと重ならないよう claimedLines で行を請求。",
+      "空フォルダは vault にファイルを書かず extraFolders(UI 状態)で表現し、最初のノートで実体化 — ピュア Markdown 正本(priority 1)・forbidden(独自メタデータ)を侵さない。",
+      "isAllowedOrigin は既定(空リスト)で従来の loopback+same-origin のみ許可を維持。許可は URL.origin 単位の完全一致で、ポート違い・パース不能値は拒否(データ安全性 priority 2)。",
+      "サイドバー撤去に伴い失われかけた添付リネーム UI を /files の file-rename-btn に集約し、機能欠落(regression)を回避。既存の rename-file ダイアログ/リンク追従を再利用。"
+    ]
+  },
+  "compromises": [
+    {
+      "id": "C-1",
+      "topic": "AC-S79c210-3-2 の E2E をブラウザ実 1008 で行えない",
+      "detail": "実ブラウザは常に same-origin(loopback=許可)を送るため、CSWSH 1008 拒否を実ブラウザで発生させられない。UI 文言の区別は WS モック(close 1008/1000)で検証し、許可/拒否の実挙動は tests/acceptance/terminal.spec.ts が本番モードの実 WS で担保。ROADMAP の AC-3-2 test ポインタを .mock.spec.ts に更新。",
+      "severity": "low"
+    }
+  ],
+  "needs_user_review": []
+}

@@ -1,0 +1,174 @@
+{
+  "$comment": "sprint verify --with-verifier の記録。status は verify-run.json (機械判定) からコピー、evidence のみ本セッションが執筆 (test-discipline Rule 9)。",
+  "sprint": "Sb7f458",
+  "run_at": "2026-07-04",
+  "server_command": "make serve (LOAMIUM_TERMINAL=1 LOAMIUM_TERMINAL_CMD=/bin/bash), UI ハーネス global-setup",
+  "machine_verdict": {
+    "source": "docs/sprint-logs/Sb7f458/verify-run.json",
+    "overall_machine_status": "pass",
+    "runs": [
+      {
+        "name": "test",
+        "exit_code": 0,
+        "junit": {
+          "tests": 334,
+          "failed": 0,
+          "skipped": 0
+        }
+      },
+      {
+        "name": "lint",
+        "exit_code": 0
+      },
+      {
+        "name": "ui-tests",
+        "exit_code": 0,
+        "junit": {
+          "tests": 121,
+          "failed": 0,
+          "skipped": 0
+        }
+      }
+    ],
+    "regression_note": "既存スイートを壊していない: test 323 → 334 (+11: terminal.spec.ts、うち 1 件は verifier 指摘の CSWSH 拒否テスト)、test-ui 111 → 121 (+10)、fail/skip 0。既存 health テスト 1 件は additive 契約に期待値更新。"
+  },
+  "summary": {
+    "total": 455,
+    "pass": 455,
+    "fail": 0,
+    "skip": 0
+  },
+  "tests": [
+    {
+      "name": "[AC-Sb7f458-1-1] terminal is opt-in: LOAMIUM_TERMINAL=1 + LOAMIUM_MODE=full only",
+      "file": "tests/acceptance/terminal.spec.ts",
+      "story": "Sb7f458-1",
+      "acceptance_criteria": [
+        "AC-Sb7f458-1-1"
+      ],
+      "status": "pass",
+      "error": null,
+      "evidence": "実サーバー + 実 WS クライアント (ws)。未設定 → 403 拒否 + health {enabled:false, reason:'terminal_env_not_set'}、read-only+TERMINAL=1 → 403 + reason:'mode_not_full'、append-only+TERMINAL=1 → 403、full+TERMINAL=1 → WS open + health {enabled:true, cmd:'/bin/bash'}。非 WS GET も 403 {forbidden, message に 'LOAMIUM_TERMINAL=1'}。4 tests 全 pass (verify-run.json test.junit)。 追加: cross-origin (Origin=evil.example) 接続は pty を起動せず 1008 で即閉・audit denied、same-origin/loopback は許可 (CSWSH 対策、verifier 指摘 I10)。"
+    },
+    {
+      "name": "[AC-Sb7f458-1-2] pty session: real-shell interaction, resize, child cleanup, audit",
+      "file": "tests/acceptance/terminal.spec.ts",
+      "story": "Sb7f458-1",
+      "acceptance_criteria": [
+        "AC-Sb7f458-1-2"
+      ],
+      "status": "pass",
+      "error": null,
+      "evidence": "実 /bin/bash pty。echo terminal-ok-$((6*7)) → 'terminal-ok-42' が出力に出る (入力エコーではなく評価結果)、pwd → vault パス (cwd=vault)、resize(120,40)+stty size → '40 120'、resize(80,24) → '24 80'。切断で子プロセス (PID 追跡) が SIGTERM→SIGKILL で消滅、exit 7 で {type:'exit', exitCode:7}。audit.log に terminal.session_start / session_end (start===end に収束)、入力コマンド文字列 (echo/marker) は含まれない。無効サーバーの拒否は result:'denied' status:403 で記録。6 tests 全 pass。"
+    },
+    {
+      "name": "[AC-Sb7f458-2-1] ターミナルタブで実シェルと対話でき、リサイズ追従、タブ切替でセッション維持",
+      "file": "packages/ui/tests/e2e/terminal.e2e.spec.ts",
+      "story": "Sb7f458-2",
+      "acceptance_criteria": [
+        "AC-Sb7f458-2-1"
+      ],
+      "status": "pass",
+      "error": null,
+      "evidence": "実ブラウザ (Playwright) + 実 Vite + 実サーバー + 実 /bin/bash (page.route 等のモック不使用)。tab-terminal クリックで xterm 表示、echo ui-e2e-42 が見える、pwd で vault basename、setViewportSize で列数が縮小 (fit→resize→pty)、tab-editor↔tab-terminal 往復で keep-alive/still-here 出力が残りセッション継続。3 e2e tests 全 pass。"
+    },
+    {
+      "name": "[AC-Sb7f458-2-2] 無効時は理由と有効化手順、切断時は再接続ボタン",
+      "file": "packages/ui/tests/e2e/terminal.e2e.spec.ts",
+      "story": "Sb7f458-2",
+      "acceptance_criteria": [
+        "AC-Sb7f458-2-2"
+      ],
+      "status": "pass",
+      "error": null,
+      "evidence": "無効状態は LOAMIUM_TERMINAL 未設定の第 2 実サーバー + 第 2 Vite を spec 内で起動し実観測 (health モック不使用): terminal-disabled に '無効になっています' + 'LOAMIUM_TERMINAL=1' + 'LOAMIUM_MODE=full' + 'LOAMIUM_TERMINAL 未設定'、terminal は非表示・WS 接続を試みない。切断は shell exit → terminal-reconnect-bar 表示 → terminal-reconnect で新セッション (reborn-25 出力)。mock 層 (terminal.mock.spec.ts 5 tests) が health 失敗の再試行・mode_not_full 表示・サーバー切断→再接続 (routeWebSocket)・タブ aria-selected 同期を補完。2 e2e + 5 mock 全 pass。"
+    }
+  ],
+  "user_observable_additions": [
+    {
+      "surface": "WS /api/terminal (WebSocket ルート — node-pty ブリッジ)",
+      "covered_by": "tests/acceptance/terminal.spec.ts (実 ws クライアント) + terminal.e2e.spec.ts (実ブラウザ)"
+    },
+    {
+      "surface": "GET /api/health の terminal 拡張 {enabled, reason, cmd?}",
+      "covered_by": "terminal.spec.ts (health アサーション) + notes-crud.spec.ts (既定無効) + terminal.mock/e2e"
+    },
+    {
+      "surface": "GUI: workspace-tabs / tab-editor / tab-terminal / terminal / terminal-disabled / terminal-reconnect-bar / terminal-reconnect",
+      "covered_by": "terminal.e2e.spec.ts + terminal.mock.spec.ts (実ブラウザ / routeWebSocket)"
+    },
+    {
+      "surface": "shared 公開 API: terminalClientMessageSchema / terminalServerMessageSchema / terminalDisabledReasonSchema / healthResponseSchema (拡張)",
+      "covered_by": "上記 WS 往復・health テストで経路検証 (client→input/resize、server→output/exit を JSON で送受)"
+    },
+    {
+      "surface": "UI api.getHealth()",
+      "covered_by": "TerminalPane 経由で terminal.e2e / terminal.mock が実行 (機能フラグ検出)"
+    },
+    {
+      "surface": "env: LOAMIUM_TERMINAL / LOAMIUM_TERMINAL_CMD",
+      "covered_by": "terminal.spec.ts の各モード起動で分岐を実証"
+    },
+    {
+      "surface": "WS Origin 検証 (isAllowedOrigin) — cross-site WebSocket hijacking 拒否",
+      "covered_by": "terminal.spec.ts 'rejects a cross-origin browser connection (CSWSH)' (実 ws + foreign Origin ヘッダ)"
+    }
+  ],
+  "diff_coverage": {
+    "scanned": "git diff main...HEAD",
+    "additions_enumerated": 7,
+    "all_covered": true,
+    "note": "列挙した user-observable surface はすべて上記 tests のいずれかで実経路検証済み。resolution=covered。"
+  },
+  "forbidden_degradation_scan": {
+    "test_skipped": 0,
+    "assertion_weakened": 0,
+    "error_swallowed": 0,
+    "type_safety_relaxed": 0,
+    "acceptance_criteria_modified": 0,
+    "note": "git diff main...HEAD を grep。it.skip/xit/xtest ゼロ (ヒットは onExit / waitForExit メソッド名の誤検出)。新規 catch{} は terminal.ts の p.kill ESRCH 無視 3 箇所 — 既存検証の弱体化ではなく新規防御コード (kill 対象が先に exit する競合の正常系、JSDoc 済)。notes-crud の health toEqual は additive 契約への正当な期待値更新 (厳密比較のまま、弱体化せず)。any/@ts-ignore ゼロ。ROADMAP.json の変更は status フィールドのみ (AC 文言不変)。"
+  },
+  "done_judgment": [
+    {
+      "story_id": "Sb7f458-1",
+      "guard1_user_review_required_not_done": "pass",
+      "guard2_nil_injection_mock": "n/a",
+      "guard3_mock_mode_not_real_smoke": "pass",
+      "guard4_priority_rule_9_exception_valid": "n/a",
+      "guard5_call_path_grep": "pass",
+      "guard6_deferred_comment_clean": "pass",
+      "guard7_adr_conformance": "n/a",
+      "guard8_destructive_multi_version_test": "n/a",
+      "overall": "ok"
+    },
+    {
+      "story_id": "Sb7f458-2",
+      "guard1_user_review_required_not_done": "pass",
+      "guard2_nil_injection_mock": "n/a",
+      "guard3_mock_mode_not_real_smoke": "pass",
+      "guard4_priority_rule_9_exception_valid": "n/a",
+      "guard5_call_path_grep": "pass",
+      "guard6_deferred_comment_clean": "pass",
+      "guard7_adr_conformance": "n/a",
+      "guard8_destructive_multi_version_test": "n/a",
+      "overall": "ok"
+    }
+  ],
+  "done_judgment_notes": {
+    "guard1": "両 Story とも ROADMAP の user_review_required=false。",
+    "guard2": "nil-injection mock は Go 固有 anti-pattern。本 Sprint は TypeScript のため n/a。",
+    "guard3": "実機 smoke に相当する E2E は実サーバー + 実 /bin/bash で実行。MOCK=true / --fake-* / DRY_RUN=1 / InMemoryStore 一切なし。",
+    "guard4": "priority_rule 9 例外条項は主張していない。",
+    "guard5": "AC の WS↔pty 結合は terminal.ts で spawn(config.terminal.cmd) (node-pty) と upgradeWebSocket が同一ハンドラに存在し、受け入れテストで実対話 (echo→42) を確認。呼出経路はコード上に実在。",
+    "guard6": "git diff の新規追加行に 'TODO Phase N' / 'Sprint N で実装' 等の先送りコメントなし。",
+    "guard7": "docs/DESIGN/ (ADR) は本プロジェクトに存在しない。n/a。",
+    "guard8": "data path は Go リポジトリ固有ディレクトリ (internal/server 等) を指す。本 TypeScript プロジェクトに該当なし。vault ファイル破壊はなく (pty はコマンド実行のみ、正本 .md への書込経路を新設しない)、guard8 は n/a。"
+  },
+  "verifier_reconciliation": {
+    "report": "docs/sprint-logs/Sb7f458/verification-report.json",
+    "verifier_overall": "warn (initial)",
+    "overlooked_findings": 2,
+    "resolution": "両 warn (CSWSH Origin 未検証 / resize 条件付きアサーション) を本 Sprint 内で修正 (decisions I10/I11)。immediate-stop カテゴリ (AC 改変 / ADR fail) の指摘は無し。修正後 machine verify overall=pass。両 Story の done_judgment.overall は ok を維持 (overlooked warn は解消済み)。",
+    "note": "verification-report.json は独立 verifier の生出力 (trust source) として原文保持。findings は修正前の状態を記録。"
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "sprint": "Sbd061c",
+  "mode": "auto (autopilot, --with-verifier)",
+  "base_sha": "4a593128bf40af3fbc46b70776a836f5af279847",
+  "planning_decisions": [
+    {
+      "id": "P1",
+      "decision": "Story は 1 本 (Sbd061c-1) のためシーケンシャル実行。worktree 並列・実装サブエージェントは使わない",
+      "rationale": "単一 Story で並列化の余地が無い。過去 Sprint (S9ab6c3 P1 / S6fbf45 P1) と同じく本セッションにサブエージェント起動ツールが無く、変更が packages/ui/src に集中するため単線実行が最短・最安全 (DESIGN_PRINCIPLES priority 5: シンプルさ)。"
+    },
+    {
+      "id": "P2",
+      "decision": "ユーザーストーリー・AC は ROADMAP のまま採用 (書き換え・分割不要)",
+      "rationale": "「{役割}として、{やりたいこと}。なぜなら {理由}」形式を満たし、1 Story = 1 ユーザー体験 (検索パレット) で粒度も適切。AC 3 本はいずれもユーザー可観測。"
+    },
+    {
+      "id": "P3",
+      "decision": "GUI spec は autonomous mode で導出 (gui-spec-Sbd061c-1.json)。ビジュアルの正は prototype/search-palette.html + TESTIDS.md の search-palette 系 7 testid 契約",
+      "rationale": "エントリポイント (Cmd/Ctrl+K・sidebar-search)・状態遷移・testid はプロトタイプから一意に導出できる。サーバー変更なし (既存 GET /api/search・GET /api/notes) は Sprint description の明示制約。"
+    }
+  ],
+  "implementation_decisions": [
+    {
+      "id": "I1",
+      "decision": "ノート名セクションはパレット表示時に GET /api/notes を再取得し、クライアント側で NFC 正規化 + 大文字小文字不区別の部分一致フィルタ (タイトル / パス)。全文セクションは 200ms デバウンスで GET /api/search",
+      "rationale": "prototype の注記どおり 2 API を役割分担 (「/api/notes(ノート名)+ /api/search(全文)」)。開くたびの再取得でエージェントが外部作成したノートも即ヒットする (VISION: エージェント統合)。ノート名は 1 回の取得後ローカルフィルタなので打鍵ごとの API 連打にならず、全文のみデバウンス — AC-2 の「インクリメンタル + デバウンス」を最小構成で満たす (priority 5)。部分一致の実装は S6fbf45 I7 のオートコンプリートと同じ規約 (NFC・不区別・タイトル優先)。"
+    },
+    {
+      "id": "I2",
+      "decision": "全文セクションは line === null の結果 (タイトルのみ一致) を表示しない",
+      "rationale": "prototype の全文セクションは全件が snippet + L行番号付き。line null はノート名セクションと重複する情報で、Enter の挙動 (該当行へ移動) も定義できないため除外が最も単純で一貫する。判断は decisions に記録 (priority 5)。"
+    },
+    {
+      "id": "I3",
+      "decision": "IME: input の compositionstart〜compositionend 間は全文検索を確定しない。compositionend で最終テキストを検索する。ノート名のローカルフィルタは変換中も追従する",
+      "rationale": "DESIGN_PRINCIPLES ui_ux「日本語入力(IME)での編集を第一級で考慮」。変換途中の未確定文字列で /api/search を連打しない。ローカルフィルタは副作用が無いため変換中も見せてよい (インクリメンタル性を損なわない)。"
+    },
+    {
+      "id": "I4",
+      "decision": "全文ヒットの該当行へのカーソル移動は Editor に seek プロパティ ({line, token}) を追加して実現。行番号は 1 始まり、doc.lines を超える場合は最終行へクランプ。EditorView.scrollIntoView(y:'center') + focus",
+      "rationale": "Editor は resetToken 方式の既存設計 (App が状態を持ち Editor は宣言的に追従) に合わせる。命令的 ref API より既存パターンと一貫 (priority 5)。クランプは検索インデックスとファイルのずれ (外部編集直後) でもクラッシュ・範囲外例外を出さないため (priority 2/6: インデックスよりファイルが正)。",
+      "touched_adrs": []
+    },
+    {
+      "id": "I5",
+      "decision": "Cmd/Ctrl+K はダイアログ (new-note/rename/delete/conflict) 表示中は発火しない。パレット表示中の再押下は入力を全選択して再フォーカス (閉じない)。Esc と外側クリックのみで閉じる",
+      "rationale": "prototype の実装 (Ctrl+K は開く、Esc/外側クリックで閉じる) に一致させる。ダイアログ中の抑止は既存 F2 ガード (modalOpenRef) と同じ規約。"
+    },
+    {
+      "id": "I6",
+      "decision": "空結果は data-testid=search-empty、GET /api/search 失敗は data-testid=search-error をパレット内に表示し、TESTIDS.md に追記する。検索失敗時もノート名セクション (ローカル) は表示し続ける",
+      "rationale": "契約 7 testid はプロトタイプどおり全て実装した上で、empty/error は backlink-empty / backlink-error (S6fbf45) と同じ追加規約。エラーがパレット外 (app-error) に漏れず、エディタを阻害しない。"
+    },
+    {
+      "id": "I7",
+      "decision": "候補選択は notes → fulltext の連結リストを単一インデックスで管理。開いた直後は先頭候補を選択。Enter は選択候補が無ければ no-op。選択确定後にパレットを閉じ、選択ノートを openNotePath (全文ヒットは + seek) で開く",
+      "rationale": "prototype の palette-footer (↑↓ 移動 / Enter 開く) と selected クラス + aria-selected 契約の最小実装。"
+    }
+  ],
+  "review_decisions": [
+    {
+      "id": "R1",
+      "decision": "setOpenDoc で seek を毎回リセットする",
+      "rationale": "Editor 再マウント時 (ノート削除→別ノートを開く等) に古い seek が seekAppliedRef=0 の新インスタンスで再適用され、無関係なノートで該当行へカーソルが飛ぶバグをレビューで検出。openNoteAtLine は setOpenDoc の後に setSeek するため全文ヒットの動作は不変。"
+    },
+    {
+      "id": "R2",
+      "decision": "SearchPalette のエラーを searchError / notesError に分離",
+      "rationale": "GET /api/notes 失敗の表示が、後続の GET /api/search 成功 (setError(null)) で消され、ノート名セクションの欠落が黙殺されるバグをレビューで検出。表示は searchError ?? notesError。"
+    },
+    {
+      "id": "R3",
+      "decision": "verifier finding V7 (warn/overlooked) は compromises.json に記録した上で即時解消し、done_judgment.overall は ok を維持する",
+      "rationale": "V7 の内容は「sprint status / AC status が未更新」だが、これらの更新は sprint verify Phase 3 / sprint done の正規手順であり、verifier は done フェーズ前に走るため必然的に観測される順序アーティファクト。verifier 自身が『機能的問題ではなく ROADMAP 追跡の不整合のみ。実装・テスト品質に影響しない』と明記し、recommended_action は done フェーズの正規ミューテーションと同一。よって needs_user_review への降格は品質問題の誤報告になる。推奨アクションは done フェーズで全て適用済み。ac_failures=0 / forbidden_warnings=0 / adr_conflicts=0。"
+    }
+  ],
+  "done_judgment": [
+    {
+      "story_id": "Sbd061c-1",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      },
+      "notes": "guard1: user_review_required=false (review_reason=null)。guard2: nil-guard パターン 0 件。guard3: e2e はネットワークモック 0 件 (page.route/MSW/vi.mock grep clean)、実サーバー + 実 vault。MOCK=true/DRY_RUN/fake 0 件。guard4: priority_rule 9 例外の主張なし → n/a。guard5: パレット→GET /api/search→S31ba00 実 Fuse インデックス、GET /api/notes→実 listNotes の結合を e2e が実 round-trip (シード PUT→検索ヒット→該当行カーソル) で証明。guard6: 先送りコメント 0 件 (diff grep clean)。guard7: docs/DESIGN/ 不在 → n/a。guard8: data path (Go 定義ディレクトリ) 非該当 → n/a。"
+    }
+  ]
+}

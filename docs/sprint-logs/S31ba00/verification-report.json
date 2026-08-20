@@ -1,0 +1,95 @@
+{
+  "sprint": "S31ba00",
+  "verified_at": "2026-07-03T16:21:38Z",
+  "verifier_model": "claude-opus-4-8 (read-only, separate session)",
+  "overall": "pass",
+  "findings": [
+    {
+      "category": "execution_log_reconciliation",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "verify-run.json is machine-authored (hooks/run-verify.py): status is derived from real process exit codes and JUnit XML parsing (lines 125-131: status='fail' if exit_code!=0 OR junit.failed>0 OR junit.errored>0), NOT from model self-report. Raw log trailers confirm reality: verify-run-test.log ends '__VERIFY_EXIT_CODE__:test:0' and verify-run-lint.log ends '__VERIFY_EXIT_CODE__:lint:0'. JUnit: 126 total / 126 passed / 0 failed / 0 errored / 0 skipped. verification-results.json machine_verdict cites verify-run.json as source and every S31ba00 AC test carries status:pass with matching machine_status. No pass is unbacked. Independent re-read of the log tails reproduced exit 0 for both commands.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "S31ba00-1",
+      "ac": "AC-S31ba00-1-1",
+      "verdict": "pass",
+      "detail": "GET /api/search implemented in packages/server/src/routes/search.ts:24-31, delegating to VaultIndex.search() (noteIndex.ts:145-158) which runs Fuse.js (imported line 11, FUSE_OPTIONS lines 34-45) and returns {path, snippet, line} via snippetFor() (lines 164-186) that picks the query-exact line first. Reachable through the real HTTP entry point: search.spec.ts spawns the real server (tsx subprocess, temp vault) and asserts user-observable round-trip — body.results contains 'projects/hydra.md', snippet contains '監査ログ', and line===3 (not a synthetic intermediate). Also covers write-through (PUT then search finds it), empty-result, and 400 on missing/empty q.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "S31ba00-1",
+      "ac": "AC-S31ba00-1-2",
+      "verdict": "pass",
+      "detail": "GET /api/notes list with tag/folder filters in search.ts:33-41 -> VaultIndex.listNotes() (noteIndex.ts:189-216). Tag recognition covers BOTH inline #tag and frontmatter tags via extractTags() (extract.ts:114-140) which merges frontmatterTags() (extract.ts:82-102, array + comma/space-separated string forms) with body #tags scanned by scannableLines() that excludes fenced/inline code. GET /api/tags in search.ts:43-46 -> tags() (noteIndex.ts:219-235). search.spec.ts asserts real HTTP round-trips: tag=dev returns both the inline-#dev note and the frontmatter-tags:[dev] note; tag=fake (inside a code fence) returns []; folder filter; combined tag+folder; and /api/tags count for 'dev' ===2. Assertions are on observed response bodies.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "S31ba00-2",
+      "ac": "AC-S31ba00-2-1",
+      "verdict": "pass",
+      "detail": "GET /api/backlinks in search.ts:48-62 validates path via normalizeVaultPath (vault-escape rejection) then calls VaultIndex.backlinks() (noteIndex.ts:241-261), which resolves every note's links through resolveLinkTarget and returns {source, links[{raw, heading, line, context}]}. backlinks.spec.ts drives the real server: asserts sources include the two linking notes and exclude the non-linker, and that link objects carry raw='[[hydra]]', line=3, and exact context text — user-observable, not intermediate. Empty-list and 400 (missing path / '../escape.md' traversal) cases covered.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "S31ba00-2",
+      "ac": "AC-S31ba00-2-2",
+      "verdict": "pass",
+      "detail": "Link resolution (#heading / NFC-NFD / extension-omission) implemented in packages/shared/src/links.ts:25-56 (NFC normalize, strip leading '/', append .md if absent, case-insensitive comparableKey, path-qualified vs basename match, deterministic shortest-path tie-break) fed by extractLinks() (extract.ts:146-177) which strips #heading and |alias and NFC-normalizes target. 'ブロック ID は生成されない' is structurally guaranteed: grep for writeFile/appendFile across packages/server/src + packages/shared/src shows NO write in any index/link path (only notes/journal write routes exist, unchanged this sprint) — the index is read-only over the vault. backlinks.spec.ts test 'never writes block IDs or any markup' asserts byte-identity: files.get(rel) === original SOURCES string, plus negative regex for ^blockid / id:: / ((uuid)) over ALL vault files after a backlinks call. NFD-input-resolves-to-NFC-target and 3-links-to-same-note tests pass over real HTTP.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "S31ba00-3",
+      "ac": "AC-S31ba00-3-1",
+      "verdict": "pass",
+      "detail": "chokidar wiring confirmed by grep: packages/server/package.json declares chokidar ^5.0.0; watcher.ts:12 imports chokidar, :26 chokidar.watch(rootAbs) with add/change->refresh and unlink->remove (lines 52-54), .loamium/.git excluded via ignored() dot-segment predicate (lines 29-33); index.ts:21 calls startWatcher after build(). watch.spec.ts exercises the NON-API path: it writes/rm files directly with node:fs (writeFile/rm), never the write API, then polls the real /api/search and /api/backlinks HTTP endpoints. Asserts add (new file searchable + becomes a backlink), modify (new content found AND stale content 'aardvarkfirst' no longer returns the note — a real negative), delete (gone from search + backlinks), NFD-named file indexed under NFC path, and .loamium/cache.md NOT indexed (synchronized via a canary note so the exclusion assertion isn't racing a not-yet-processed event).",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "forbidden_categories",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "Full diff scan of 03f1e13..HEAD over added ('+') lines found: no test skips (.skip/.only/xit/xdescribe — none), no weakened assertions (no toBeTruthy substitution; all asserts are toBe/toEqual/toContain/toMatchObject on observed values), no new any/as any/@ts-ignore (grep clean), and AC descriptions in ROADMAP are byte-identical to base (jq -S diff of every story's acceptance_criteria = empty; only status pending->in_progress). The only '+catch' hits are the three catch blocks in noteIndex.ts (walk readdir->skip subtree; resolveVaultFile->refuse vault-escape read; readFile->removeFile). Judged independently: these are legitimate control-flow fallbacks for a disposable index (priority 6: file is truth), not verification-defeating error swallowing; the two error-prone WRITE-adjacent paths (indexSync.ts:23, watcher.ts:43,57) log to stderr rather than silently swallowing. The watch.spec search-term change (decisions.json 2026-07-03T16:08) altered test DATA (distant-edit-distance words to defeat Fuse threshold 0.2 false-positive), not an assertion — confirmed the negative assertion 'stale not.toContain' remains intact.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "adr_conformance",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "docs/DESIGN/ does not exist (ls confirms absent) — no ADRs to contradict; guard7 'n/a' is correct. Checked implementation against docs/DESIGN_PRINCIPLES.json forbidden list: (a) no block-ID/id::/((uuid)) writes — no writeFile anywhere in the index path and byte-identity test enforces it; (b) no non-Obsidian syntax introduced — extract/links only READ Obsidian [[wikilink]]/#tag forms; (c) no vault-root escape — /api/backlinks routes through normalizeVaultPath and refreshFile re-validates absPathHint containment (noteIndex.ts:98-108); (d) no test disabling / assertion weakening / error swallowing (see forbidden finding); (e) AC not deleted/loosened. No conflicts.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "compromises_completeness",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "Implementer wrote no compromises.json and claimed zero compromises. Independent diff review confirms the claim: no skipped/weakened tests, no relaxed types, no loosened AC, no silent error swallowing. decisions.json transparently records the two judgment calls (write-through-via-audit-middleware; watch-test search-word selection) and the mid-sprint NFD-filename bug found+fixed by in-session code-review — none of these degrade an AC or hide a limitation, so none rise to a recordable compromise. Every done_judgment guard in verification-results.json (guards 1-8, all pass/n-a) is consistent with the code I read. Nothing in the diff should have been recorded as a compromise but was not.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    }
+  ],
+  "summary": {
+    "ac_failures": 0,
+    "forbidden_warnings": 0,
+    "adr_conflicts": 0,
+    "overlooked_count": 0
+  }
+}

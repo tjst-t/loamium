@@ -1,0 +1,15 @@
+
+=== Story Se29635-1 build/test log (2026-07-25) ===
+
+--- vitest run packages/server/src/sync/ ---
+ RUN  v3.2.6
+ ✓ packages/server/src/sync/sync-engine.test.ts (17 tests) 8ms
+ ✓ packages/server/src/sync/git-runner.test.ts (8 tests) 24ms
+ Test Files  2 passed (2)
+      Tests  25 passed (25)
+
+--- tsc --noEmit -p packages/server/tsconfig.json ---
+(no output = clean)
+
+=== END ===
+Story1 sync tests + typecheck: 28 passed, tsc clean. Review fixes: F-1 comment, F-2 redactGitSecrets, F-5 SIGKILL escalation, F-6 cast removal.

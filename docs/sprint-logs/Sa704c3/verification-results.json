@@ -1,0 +1,198 @@
+{
+  "$file": "verification-results.json",
+  "$comment": "全 status は docs/sprint-logs/Sa704c3/verify-run.json (hooks/run-verify.py の機械判定) から複製。evidence のみモデルが記載 (test-discipline Rule 9)。",
+  "sprint": "Sa704c3",
+  "run_at": "2026-07-03T18:15:00+09:00",
+  "server_command": "packages/ui/tests/harness/global-setup.ts (実サーバー PORT=0 + Vite、一時 vault)",
+  "machine_verdict": {
+    "source": "docs/sprint-logs/Sa704c3/verify-run.json",
+    "overall_machine_status": "pass",
+    "runs": [
+      { "name": "test", "exit_code": 0, "junit": { "total": 162, "passed": 162, "failed": 0, "skipped": 0 } },
+      { "name": "lint", "exit_code": 0 },
+      { "name": "ui-tests", "exit_code": 0, "junit": { "total": 20, "passed": 20, "failed": 0, "skipped": 0 } }
+    ]
+  },
+  "summary": {
+    "total": 182,
+    "pass": 182,
+    "fail": 0,
+    "skip": 0
+  },
+  "tests": [
+    {
+      "name": "[AC-Sa704c3-1-1] ファイルツリーに vault のフォルダ構造が表示され、クリックでノートが CodeMirror エディタに開く",
+      "file": "packages/ui/tests/e2e/editor.e2e.spec.ts",
+      "story": "Sa704c3-1",
+      "acceptance_criteria": ["AC-Sa704c3-1-1"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: editor.e2e.spec.ts.[AC-Sa704c3-1-1] ... status=pass (実ブラウザ→Vite→実サーバー→一時 vault。フォルダ開閉・クリックで本文表示・active 状態を検証)"
+    },
+    {
+      "name": "[AC-Sa704c3-1-2] Cmd/Ctrl+S と自動保存で編集が保存され、再読み込み後も保持される (ファイルはピュア Markdown のまま)",
+      "file": "packages/ui/tests/e2e/editor.e2e.spec.ts",
+      "story": "Sa704c3-1",
+      "acceptance_criteria": ["AC-Sa704c3-1-2"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: status=pass。Ctrl+S とデバウンス自動保存の両方をリロード後の UI 表示で確認し、vault の実ファイルに ^blockid / id:: / CR が無いことを assert"
+    },
+    {
+      "name": "[AC-Sa704c3-1-2] 別プロセスの変更と競合したら警告ダイアログを出す (mtime 楽観的検出)",
+      "file": "packages/ui/tests/e2e/editor.e2e.spec.ts",
+      "story": "Sa704c3-1",
+      "acceptance_criteria": ["AC-Sa704c3-1-2"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: status=pass。外部 PUT で mtime を進めた後の保存が conflict-dialog を出し、再読込/上書きの両パスを実サーバーで検証"
+    },
+    {
+      "name": "[AC-Sa704c3-1-3] ツリーから新規ノート作成・リネーム・削除ができる",
+      "file": "packages/ui/tests/e2e/editor.e2e.spec.ts",
+      "story": "Sa704c3-1",
+      "acceptance_criteria": ["AC-Sa704c3-1-3"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: status=pass。作成→編集→リネーム (内容維持)→削除→empty state、リロード後の永続性まで UI 経由で検証"
+    },
+    {
+      "name": "[AC-Sa704c3-1-3] コンテキストメニューの「同じフォルダに新規ノート」と新規フォルダ作成",
+      "file": "packages/ui/tests/e2e/editor.e2e.spec.ts",
+      "story": "Sa704c3-1",
+      "acceptance_criteria": ["AC-Sa704c3-1-3"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: status=pass。フォルダ右クリック新規・一時フォルダ→ノート作成での永続化・UI 経由の後片付け削除"
+    },
+    {
+      "name": "[AC-Sa704c3-2-1] アプリ起動時に今日のジャーナル (なければ自動生成) がエディタに開く",
+      "file": "packages/ui/tests/e2e/journal.e2e.spec.ts",
+      "story": "Sa704c3-2",
+      "acceptance_criteria": ["AC-Sa704c3-2-1"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: status=pass。起動→無操作で今日の journals/YYYY-MM-DD.md が開き、書いて保存→リロードで復元、実ファイルはピュア Markdown"
+    },
+    {
+      "name": "[AC-Sa704c3-2-2] サイドバーの日付ナビゲーションで過去のジャーナルへ移動できる",
+      "file": "packages/ui/tests/e2e/journal.e2e.spec.ts",
+      "story": "Sa704c3-2",
+      "acceptance_criteria": ["AC-Sa704c3-2-2"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: status=pass。journal-prev で昨日 (フィクスチャ本文表示)、journal-next で今日、一覧ポップアップから 3 日前、journal-today で復帰"
+    },
+    {
+      "name": "[MOCK] editor.mock.spec.ts 9 tests (empty/エラー/保存失敗/409 上書き/409 再読込/特殊文字/パネル開閉/create-only/キャンセル+F2)",
+      "file": "packages/ui/tests/e2e/editor.mock.spec.ts",
+      "story": "Sa704c3-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: editor.mock 9 件全て status=pass。PUT ボディ (content/baseMtime) の assert・未モック API 呼び出しゼロ検証込み"
+    },
+    {
+      "name": "[MOCK] journal.mock.spec.ts 4 tests (起動着地/失敗→再試行/日付パラメータ・月境界/一覧フィルタ&順序)",
+      "file": "packages/ui/tests/e2e/journal.mock.spec.ts",
+      "story": "Sa704c3-2",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: journal.mock 4 件全て status=pass"
+    },
+    {
+      "name": "PUT /api/notes/{path} — mtime 楽観的競合検出 (3 tests: stale 409 / 一致成功 / 消失時再作成)",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": "Sa704c3-1",
+      "acceptance_criteria": ["AC-Sa704c3-1-2"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json test junit: 3 件 status=pass (実 HTTP。409 時にファイルが v2 のまま無傷であることを実ファイルで assert)"
+    },
+    {
+      "name": "port サブコマンドを持たない portman (lease 版) でも解決される (Sa704c3)",
+      "file": "tests/acceptance/cli.spec.ts",
+      "story": "Sa704c3-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json test junit: status=pass (フェイク lease-only portman で実 CLI サブプロセスが実サーバーへ到達)"
+    },
+    {
+      "name": "shiftJournalDate / journalDayOfWeek (shared 単体 5 tests — 月/年境界・うるう年・無効日付)",
+      "file": "packages/shared/src/journal.test.ts",
+      "story": "Sa704c3-2",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json test junit: 5 件 status=pass (CLAUDE.md: ジャーナル日付処理は必ずユニットテスト)"
+    },
+    {
+      "name": "既存回帰 (Sd63ad1/S31ba00/S0c9a48 の全受け入れ + shared 単体)",
+      "file": "tests/acceptance/*.spec.ts, packages/*/src/*.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json test junit: total=162 passed=162 failed=0 skipped=0 (既存 153 件 + 本 Sprint 追加 9 件)"
+    }
+  ],
+  "diff_coverage": {
+    "$comment": "Rule 6 — 本 Sprint の diff が追加したユーザー可観測サーフェスと担保テスト",
+    "surfaces": [
+      { "type": "api", "identifier": "GET /api/notes/{path} レスポンス +mtime", "introduced_in_files": ["packages/server/src/routes/notes.ts", "packages/shared/src/schemas.ts"], "resolution": "covered", "test": "notes-crud.spec.ts: creates a note ... (note.mtime === 実ファイル mtime を assert)" },
+      { "type": "api", "identifier": "PUT /api/notes/{path} リクエスト +baseMtime / 409 conflict", "introduced_in_files": ["packages/server/src/routes/notes.ts"], "resolution": "covered", "test": "notes-crud.spec.ts mtime 競合 3 件 + editor.e2e 競合テスト" },
+      { "type": "api", "identifier": "PUT/append/patch レスポンス +mtime", "introduced_in_files": ["packages/server/src/routes/notes.ts", "packages/server/src/vault.ts"], "resolution": "added_test", "test": "notes-crud.spec.ts: PUT putBody.mtime / append appendBody.mtime の assert (patch は同一 writeNote 経路)" },
+      { "type": "api", "identifier": "GET /api/journal レスポンス +mtime (read-only 仮想は null)", "introduced_in_files": ["packages/server/src/routes/journal.ts"], "resolution": "added_test", "test": "journal.spec.ts (mtime: number) / audit-permissions.spec.ts (read-only で mtime null)" },
+      { "type": "cli", "identifier": "portman lease フォールバック (URL 解決)", "introduced_in_files": ["packages/cli/src/url.ts"], "resolution": "added_test", "test": "cli.spec.ts: port サブコマンドを持たない portman (lease 版) でも解決される" },
+      { "type": "gui", "identifier": "ファイルツリー (tree-folder/tree-item/tree-empty/tree-error 開閉・選択)", "introduced_in_files": ["packages/ui/src/components/FileTree.tsx"], "resolution": "covered", "test": "editor.e2e AC-1-1 / editor.mock (empty・error・特殊文字)" },
+      { "type": "gui", "identifier": "CodeMirror エディタ + save-status (Ctrl+S / 自動保存)", "introduced_in_files": ["packages/ui/src/components/Editor.tsx", "packages/ui/src/App.tsx"], "resolution": "covered", "test": "editor.e2e AC-1-2 / editor.mock 保存失敗" },
+      { "type": "gui", "identifier": "コンテキストメニュー (context-open/new-note/rename/delete)", "introduced_in_files": ["packages/ui/src/components/ContextMenu.tsx"], "resolution": "covered", "test": "editor.e2e AC-1-3 ×2 / editor.mock キャンセル+context-open" },
+      { "type": "gui", "identifier": "ダイアログ群 (new-note/new-folder/rename/delete/conflict、confirm+cancel)", "introduced_in_files": ["packages/ui/src/components/dialogs.tsx"], "resolution": "added_test", "test": "editor.e2e AC-1-3 (confirm 系) / editor.mock キャンセル系+create-only 409+競合 2 パス" },
+      { "type": "gui", "identifier": "F2 リネームショートカット", "introduced_in_files": ["packages/ui/src/App.tsx"], "resolution": "added_test", "test": "editor.mock: ダイアログのキャンセルと context-open、F2" },
+      { "type": "gui", "identifier": "ジャーナルナビ (journal-prev/next/today/open-list/list-item)", "introduced_in_files": ["packages/ui/src/components/JournalNav.tsx"], "resolution": "covered", "test": "journal.e2e AC-2-1/AC-2-2 / journal.mock 4 件" },
+      { "type": "gui", "identifier": "エディタ empty state (empty-open-journal/empty-new-note)", "introduced_in_files": ["packages/ui/src/App.tsx"], "resolution": "covered", "test": "journal.mock 再試行 / editor.mock create-only (empty-new-note 経由)" },
+      { "type": "gui", "identifier": "バックリンクパネルのシェル (backlink-panel-toggle 開閉 / backlink-empty)", "introduced_in_files": ["packages/ui/src/components/BacklinkPanel.tsx"], "resolution": "added_test", "test": "editor.mock: バックリンクパネルはトグルで開閉できる" },
+      { "type": "gui", "identifier": "sidebar-settings (disabled プレースホルダ — 操作不能)", "introduced_in_files": ["packages/ui/src/App.tsx"], "resolution": "covered", "test": "disabled 属性で非インタラクティブ (decisions.json 記載。全 Sprint スコープ外のため機能なし)" },
+      { "type": "library", "identifier": "@loamium/shared exports: shiftJournalDate / journalDayOfWeek", "introduced_in_files": ["packages/shared/src/journal.ts"], "resolution": "covered", "test": "journal.test.ts 5 件 + UI (JournalNav) 経由の e2e" }
+    ]
+  },
+  "prototype_drift": {
+    "checked_files": ["prototype/journal.html", "prototype/editor-empty.html"],
+    "missing_testids": ["backlink-count", "backlink-item", "fold-toggle", "task-checkbox", "wikilink"],
+    "resolution": "intentional — いずれも S9ab6c3 / S6fbf45 の Story 要素 (TESTIDS.md『Sa704c3 で未実装の契約 testid』節と decisions.json『バックリンクパネルはシェルのみ実装』に記録済み)"
+  },
+  "done_judgment": [
+    {
+      "story_id": "Sa704c3-1",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      },
+      "notes": "guard1: user_review_required=false。guard2: TS プロジェクトのため Go の nil-guard パターンは非該当、依存を省略可能にする条件分岐なし。guard3: e2e はモックなし実サーバー (grep clean)。guard5: UI→API の呼出経路は e2e が実 HTTP round-trip で証明。guard6: diff に Phase/Sprint 先送りコメントなし (grep clean)。guard7: docs/DESIGN/ 不在 (ADR なし)。guard8: data path ディレクトリ (Go プロジェクト定義) 非該当。"
+    },
+    {
+      "story_id": "Sa704c3-2",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      },
+      "notes": "journal.e2e が起動→今日のジャーナル自動生成→編集→永続化を実サーバー+実ファイルで検証。"
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+Sprint Sf2f114-1 Run Log
+========================
+Date: 2026-07-12
+Story: テンプレート記法の強化 (ADR-0010)
+
+## Changes
+
+### packages/shared/src/template.ts
+- Added `DAY_OFFSET_RE` constant: /^([+-])(\d+)d$/ for day-offset matching
+- Added `applyDayOffset(base, offsetStr)` helper: applies ±N day offset to a Date
+- Extended `resolvePreset()`: detects `date:+Nd:FMT` / `date:-Nd:FMT` / `now:+Nd:FMT`
+  by checking for a second colon and validating offsetPart against DAY_OFFSET_RE.
+  Existing `date:FMT` / `now:FMT` (no second-colon offset) unchanged.
+- Extended `resolveTemplate()`: added priority-3 pipe-fallback handling before
+  the regular user-variable lookup.
+  `{{param|fallback}}`: undefined OR empty-string param → use fallback literal,
+  NOT added to missing. param with value → use value. Plain `{{param}}` unchanged.
+- Updated `templateVariableNames()`: strips `|fallback` suffix before tracking var names.
+
+### packages/shared/src/template.test.ts
+- Added describe block [AC-Sf2f114-1-1]: 6 cases for pipe-fallback
+  (missing→fallback, empty→fallback, present→value, 日本語+spaces fallback,
+   mixed tokens, backward-compat plain {{x}} verbatim+missing, plain empty-value)
+- Added describe block [AC-Sf2f114-1-2]: 8 cases for relative date offset
+  (+3d, -1d, +0d==base, month-boundary, now:+2d, existing date:FMT unchanged,
+   date with colon-in-format unchanged, unsupported unit (+3h) no-throw)
+
+## Test Results
+
+Command: npx vitest run packages/shared/src/
+Result:  Test Files  17 passed (17)
+         Tests  330 passed (330)  [was 316 before; +14 new tests]
+         Duration ~1.4s
+
+TypeScript: npx tsc --noEmit -p packages/shared → 0 errors
+
+## Precedence Rule
+
+Token parsing order in resolveTemplate:
+  1. Empty inner `{{}}` → verbatim
+  2. Preset check: starts with `date:` or `now:` → resolvePreset
+     (resolvePreset itself checks for `+Nd:FMT` / `-Nd:FMT` second-colon form)
+  3. Pipe `|` present → `{{varName|fallback}}` fallback form
+  4. Regular var lookup → verbatim + missing if absent
+
+## AC Status
+- AC-Sf2f114-1-1: GREEN (pipe fallback: missing/empty→fallback, present→value,
+                  日本語 fallback, NOT in missing, plain {{x}} unchanged)
+- AC-Sf2f114-1-2: GREEN (+3d/-1d/+0d==base, month-boundary, now:+2d, existing unchanged,
+                  unsupported unit no-crash)
+- AC-Sf2f114-1-3: GREEN (all 17 test files, 330 tests pass; template-note, journal, etc.)
+
+## Out-of-scope findings
+None.
+
+---
+
+## Test Fix Patch (2026-07-12 — post-run correction)
+
+### packages/shared/src/template.test.ts
+- F1 [AC-Sf2f114-1-2]: Renamed unsupported-offset test title from
+  "d 以外の単位 (+3h など) はサポート外で verbatim に残る" →
+  "d 以外の単位 (+3h) はサポート外 — クラッシュせず部分フォーマットになる".
+  Added explicit assertion: res.text === '+3h:2026-07-06' (base=2026-07-06).
+  Previous test only checked not.toThrow() but the token is NOT verbatim — it
+  falls through to formatDate which expands YYYY/MM/DD in '+3h:YYYY-MM-DD'.
+- F2 [AC-Sf2f114-1-1]: Added test asserting leading-space in fallback is preserved:
+  resolveTemplate('{{x| fallback}}', {vars:{}}).text === ' fallback'.
+- AC-1-3: Added explicit describe block [AC-Sf2f114-1-3] with 2 tests:
+  (1) {{date:YYYY-MM-DD}} === '2026-07-06' (byte-identical, missing=[])
+  (2) {{missing}} → verbatim '{{missing}}', missing=['missing']
+
+### Test Results (after patch)
+Command: npx vitest run packages/shared/src/
+Result:  Test Files  17 passed (17)
+         Tests  333 passed (333)  [was 330; +3 new tests]
+         Duration ~1.6s
+
+TypeScript: npx tsc --noEmit -p packages/shared → 0 errors

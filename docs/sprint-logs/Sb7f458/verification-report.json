@@ -1,0 +1,95 @@
+{
+  "sprint": "Sb7f458",
+  "verified_at": "2026-07-04T00:00:00Z",
+  "verifier_model": "claude-fable-5 (read-only separate session)",
+  "overall": "warn",
+  "findings": [
+    {
+      "category": "execution_log_reconciliation",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "verify-run.json is $machine_authored with 3 runs all exit_code 0: make test (junit 333/333 pass, 0 failed/errored/skipped), make lint, make test-ui (junit 121/121 pass). Every status:pass in verification-results.json maps to named junit cases present in the machine log ([AC-Sb7f458-1-1] x4, [AC-Sb7f458-1-2] x6, [AC-Sb7f458-2-1] x3, [AC-Sb7f458-2-2] x2 e2e + 5 mock). Counts in the self-report (333/121, 323→333, 111→121) match the machine log. No mismatches.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "category": "ac_verification",
+      "story": "Sb7f458-1",
+      "ac": "AC-Sb7f458-1-1",
+      "verdict": "pass",
+      "detail": "Guard is real and decided at startup: config.ts terminalConfigFromEnv returns enabled only when LOAMIUM_TERMINAL==='1' AND mode==='full'. terminal.ts registerTerminalRoute registers a plain (non-upgrade) 403 handler when disabled, so no WS handshake completes. tests/acceptance/terminal.spec.ts uses a real subprocess server + real ws client and asserts: unset env → 403 + health {enabled:false,reason:'terminal_env_not_set'}; read-only+TERMINAL=1 → 403 + reason:'mode_not_full'; append-only+TERMINAL=1 → 403; full+TERMINAL=1 → WS open + health {enabled:true,cmd}. Non-WS GET also 403 with enablement instructions. All 4 cases pass in the machine junit.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "category": "ac_verification",
+      "story": "Sb7f458-1",
+      "ac": "AC-Sb7f458-1-2",
+      "verdict": "pass",
+      "detail": "terminal.ts spawns node-pty with cwd=config.vaultRoot and cmd=config.terminal.cmd inside the upgradeWebSocket handler (guard5 call-path confirmed by direct read, not grep alone). Tests prove real bidirectional interaction (echo terminal-ok-$((6*7)) → evaluated '42', pwd → vault path), resize propagation via stty size (40 120 / 24 80), child-process death after client disconnect verified by PID tracking through the SIGTERM→SIGKILL escalation (interactive bash ignores SIGTERM, so the escalation path is genuinely exercised), exit-code relay (exit 7 → {type:'exit',exitCode:7}), and audit.log session_start/session_end with an explicit negative assertion that command content ('echo', marker string) never appears in the log. Resize input is zod-bounded (int 1..1000) so a malicious resize cannot crash the pty. All 6 cases pass.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "category": "ac_verification",
+      "story": "Sb7f458-2",
+      "ac": "AC-Sb7f458-2-1",
+      "verdict": "pass",
+      "detail": "App.tsx renders workspace-tabs with tab-terminal that mounts TerminalPane (kept mounted across tab switches via display toggle — session survives, verified by keep-alive test). E2E runs in a real browser against real Vite + real server + real /bin/bash (no page.route): echo ui-e2e-$((6*7)) → '42' visible in xterm DOM, pwd shows vault basename, viewport shrink → ResizeObserver → fit → resize message → pty (tput cols reflects it), tab round-trip preserves output and interactivity. 3 e2e cases pass in machine junit. Minor caveat filed separately about one conditional assertion in the resize test.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "category": "ac_verification",
+      "story": "Sb7f458-2",
+      "ac": "AC-Sb7f458-2-2",
+      "verdict": "pass",
+      "detail": "Disabled state verified against a genuinely separate real server started inside the spec with LOAMIUM_TERMINAL deleted from env (no health mock): terminal-disabled shows the reason ('LOAMIUM_TERMINAL 未設定'), the enablement instructions (LOAMIUM_TERMINAL=1, LOAMIUM_MODE=full), and the xterm pane stays hidden. Disconnect state: shell 'exit' → terminal-reconnect-bar visible → terminal-reconnect button opens a working new session (reborn-25 evaluated output). TerminalPane.tsx implements all three states plus a health_unreachable retry path (covered by mock layer). Both e2e cases + 5 mock cases pass.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "category": "forbidden_scan",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "Scanned git diff 2958ce9..HEAD additions. test_skipped: 0 (only regex hits are onExit/waitForExit identifiers). assertion_weakened: 0 — notes-crud.spec.ts health assertion remains strict toEqual, updated to include the new required terminal field (an expansion, not a relaxation). error_swallowed: 0 — empty catches in terminal.ts are documented ESRCH-on-already-dead-process races with session_end recorded via onExit; TerminalPane JSON-parse catches drop malformed frames without killing the session; audit write failure still logs to stderr (behavior preserved from pre-existing code, now via writeAuditEntry). type_safety_relaxed: 0 (no any/@ts-ignore/@ts-expect-error/eslint-disable in additions). acceptance_criteria_modified: 0 — ROADMAP.json diff touches only status fields; AC ids/descriptions/test refs byte-identical.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "category": "adr_conformance",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "docs/DESIGN/ does not exist; checked DESIGN_PRINCIPLES.json forbidden list. No block IDs, no custom syntax, no plugin API, no vault .md writes from the terminal feature (pty only executes user commands; the feature code writes nothing to notes). The pty inherently lets the user touch files outside the vault, but this is user-driven shell access explicitly sanctioned by the ROADMAP sprint description and SPEC §6 opt-in, gated by env+mode+localhost-bind — not the forbidden 'API/CLI reading/writing outside vault root' (which targets note APIs). Priority-2 data-safety posture is respected: default-off, full-mode-only, audit entries for start/end/denied, no command content logged.",
+      "overlooked_by_autopilot": false,
+      "recommended_action": "none"
+    },
+    {
+      "category": "security_gap_unrecorded",
+      "story": "Sb7f458-1",
+      "ac": null,
+      "verdict": "warn",
+      "detail": "WS /api/terminal performs no Origin-header validation and the server has no authentication (grep for origin/cors/auth/token across packages/server/src: zero hits). Browsers do not enforce same-origin policy on WebSocket handshakes, so while the terminal is enabled, ANY web page open in the vault owner's browser can connect to ws://127.0.0.1:<port>/api/terminal and execute arbitrary commands (cross-site WebSocket hijacking → local RCE). The 'triple guard' (env opt-in, full mode, 127.0.0.1 bind) does not mitigate this — the attack originates from the user's own browser, which can reach localhost. The dynamic portman port is only weak obscurity. Neither decisions.json (P5 claims the triple guard is sufficient) nor done_judgment mentions this trade-off, and no test covers a cross-origin connection attempt.",
+      "overlooked_by_autopilot": true,
+      "recommended_action": "Add an Origin allowlist check (UI dev-server origin / same-host) to the WS upgrade path — reject mismatched or absent Origin with 403 before spawning the pty — plus an acceptance test connecting with a foreign Origin header. At minimum, record the accepted risk in decisions.json before the sprint is marked done."
+    },
+    {
+      "category": "test_quality",
+      "story": "Sb7f458-2",
+      "ac": "AC-Sb7f458-2-1",
+      "verdict": "warn",
+      "detail": "In terminal.e2e.spec.ts the resize test's decisive assertion (colsAfter < cols-before-shrink) is wrapped in `if (beforeSize !== null)` — if the fragile innerText regex fails to parse the pre-shrink stty output, the test silently degrades to `colsAfter > 0` and still passes without actually proving resize follow-through at the UI layer. Low severity: the server-side resize propagation is fully asserted in the acceptance suite (stty size → '40 120'/'24 80'), and `tput cols` after shrink is still required to produce output. Not recorded in decisions.json.",
+      "overlooked_by_autopilot": true,
+      "recommended_action": "Make the pre-shrink size capture unconditional (fail the test if it cannot be parsed) so the shrink comparison always runs."
+    }
+  ],
+  "summary": {
+    "ac_failures": 0,
+    "forbidden_warnings": 0,
+    "adr_conflicts": 0,
+    "overlooked_count": 2
+  }
+}

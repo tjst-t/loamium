@@ -1,0 +1,77 @@
+{
+  "sprint": "S763a98",
+  "verified_at": "2026-07-04",
+  "machine_verdict_source": "docs/sprint-logs/S763a98/verify-run.json",
+  "overall_machine_status": "pass",
+  "test_runs": [
+    { "name": "test", "command": "make test", "exit_code": 0, "status": "pass", "total": 352, "passed": 352, "failed": 0 },
+    { "name": "lint", "command": "make lint", "exit_code": 0, "status": "pass" },
+    { "name": "ui-tests", "command": "make test-ui", "exit_code": 0, "status": "pass", "total": 152, "passed": 152, "failed": 0 }
+  ],
+  "regression_baseline": {
+    "unit_before": 352,
+    "unit_after": 352,
+    "ui_before": 143,
+    "ui_after": 152,
+    "ui_added": 9,
+    "note": "既存 352 unit / 143 ui は全て pass のまま。新規 slash-menu で mock 6 + e2e 3 = 9 件追加。"
+  },
+  "acceptance_criteria": [
+    {
+      "id": "AC-S763a98-1-1",
+      "description": "行頭または空白後で / を入力するとメニューが開き、入力で絞り込め、↑↓/Enter・クリックで選択できる(Esc で閉じる)",
+      "test": "[AC-S763a98-1-1] in packages/ui/tests/e2e/slash-menu.e2e.spec.ts",
+      "status": "pass",
+      "evidence": "実サーバー E2E: /table 未指定の / で 8 コマンド表示、'call' 絞り込みで callout 1 件+mark、Esc で消滅、↑↓ で選択移動、Enter で挿入。mock 側でも 8 件表示/絞り込み/empty/↑↓/Enter/クリックを検証。実装: detectSlashTrigger + slashMenuField + slashKeymap(Prec.highest)。"
+    },
+    {
+      "id": "AC-S763a98-1-2",
+      "description": "テーブル・callout・コードフェンス・mermaid・dataview・チェックボックス・見出し・日付などが挿入でき、挿入結果は標準 Markdown で、カーソルが編集開始位置に置かれる",
+      "test": "[AC-S763a98-1-2] in packages/ui/tests/e2e/slash-menu.e2e.spec.ts",
+      "status": "pass",
+      "evidence": "E2E: テーブル挿入後そのまま入力すると先頭セルに文字が入る(| セル見出し1 ...)= カーソルが編集開始位置。todo 挿入で - [ ] 行。保存後の実ファイルに標準 Markdown テーブル/区切り/タスク行が載り、^blockid・id:: が無いことを readFile で検証。全 8 コマンドは SLASH_COMMANDS で標準記法生成(callout=> [!note], code/mermaid/dataview=```フェンス, heading=##, date=todayJournalDate())。既存 3 レジストリ(callout/dataview/mermaid/shiki)が描画できる記法に一致。"
+    },
+    {
+      "id": "AC-S763a98-1-3",
+      "description": "コードフェンス内・インラインコード内では / メニューが発火しない",
+      "test": "[AC-S763a98-1-3] in packages/ui/tests/e2e/slash-menu.e2e.spec.ts",
+      "status": "pass",
+      "evidence": "E2E + mock: フェンス body 行頭 / とインラインコード内の空白直後 / のどちらでも slash-menu が 0 件。対照でコード外の行頭 / は開く(抑制が過剰でない)。実装: lezer 構文木 resolveInner で FencedCode/CodeText/CodeBlock/InlineCode/CodeMark を上方走査して抑制。"
+    }
+  ],
+  "forbidden_scan": {
+    "test_skipped": "none",
+    "test_assertion_weakened": "none",
+    "error_swallowed": "none (tooltip render は既存 InlineRuleWidget 同様の方針、slash は同期挿入で握りつぶし無し)",
+    "type_safety_relaxed": "none (any 不使用、unknown+絞り込み。@ts-ignore 無し)",
+    "acceptance_criteria_modified": "none (ROADMAP の AC 文言・test 参照を改変せず)"
+  },
+  "pure_markdown_check": "priority 1 遵守。挿入文字列は全て標準 Markdown。ブロック ID・id::・独自記法をファイルへ書かない(E2E で実ファイル検証済)。",
+  "done_judgment": {
+    "story_id": "S763a98-1",
+    "guard1_user_review_required_not_done": "pass",
+    "guard2_nil_injection_mock": "pass",
+    "guard3_mock_mode_not_real_smoke": "pass",
+    "guard4_priority_rule_9_exception_valid": "n/a",
+    "guard5_call_path_grep": "pass",
+    "guard6_deferred_comment_clean": "pass",
+    "guard7_adr_conformance": "n/a",
+    "guard8_destructive_multi_version_test": "n/a",
+    "overall": "ok",
+    "notes": {
+      "guard1": "Story user_review_required=false。",
+      "guard2": "Go 由来の nil-guard パターン。TS UI に該当なし。",
+      "guard3": "本プロジェクトに priority_rule 9(dev VM smoke)は無い。E2E は *.e2e.spec.ts が実サーバー+実 vault で走り MOCK/fake を含まない(test-discipline Rule 7 準拠)。mock は *.mock.spec.ts に分離。",
+      "guard4": "例外条項の主張なし。",
+      "guard5": "単一 UI 機能。slashMenuExtension() は Editor.tsx の buildExtensions に配線済(grep 確認)。",
+      "guard6": "新規差分に TODO/未実装/Phase/Sprint-later コメント無し(grep 確認)。",
+      "guard7": "docs/DESIGN/ 不在 → ADR 制約なし。",
+      "guard8": "Go data path 専用ガード。TS UI につき n/a。what-you-ship-is-what-you-test は mock+e2e で担保。"
+    }
+  },
+  "self_review": [
+    "コード/簡素化レビューを実施(セルフ)。tooltip は / 位置不変の間 同一 Tooltip を保ち update 再描画(毎打鍵の再生成を回避)。未使用引数を除去。",
+    "Prec.highest + 登録順で completionKeymap(Prec.highest)より先に ↑↓/Enter/Esc を処理。/ メニュー閉時は各ハンドラが false を返し既定/補完へ委譲(wikilink 補完の Esc/矢印を壊さない)。",
+    "IME: input.type.compose transaction では開かず、keymap は view.composing 中 false(outline.ts と同方針)。Playwright での IME 合成テストは高フレークのため未追加=既知の制約(実害は日本語 IME で / を素で打たない限り無い)。"
+  ]
+}

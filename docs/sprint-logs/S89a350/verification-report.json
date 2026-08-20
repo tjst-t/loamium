@@ -1,0 +1,104 @@
+{
+  "sprint": "S89a350",
+  "verified_at": "2026-07-06T00:00:00Z",
+  "verifier_model": "claude-opus-4-8 (read-only, separate session)",
+  "overall": "warn",
+  "findings": [
+    {
+      "id": "F1",
+      "category": "execution_log_cross_check",
+      "severity": "info",
+      "status": "pass",
+      "ac": null,
+      "detail": "verify-run.json + verify-run-*.log を ground truth として照合し、独立再実行で再現。make test exit 0 (junit 500/500, fail0 skip0) を自身のセッションで再実行し 500 passed を確認。make lint exit 0 (tsc --noEmit 全 workspace + tests/tsconfig)。make test-ui exit 0 (255 passed、今回 wikilink.mock/terminal の flaky 発生せず 1 発 green)。verification-results.json の総数 500+255=755、ベースライン増分 (test +39: shared 20 / templates 12 / cli-new 7、ui +9: template-create.mock 5 / e2e 4) は実ファイルのテスト本数と一致。自己申告 (500/255/lint 0) は機械 pass に完全裏付けされている。"
+    },
+    {
+      "id": "F2",
+      "category": "acceptance_criteria",
+      "severity": "info",
+      "status": "pass",
+      "ac": "AC-S89a350-1-1 / 1-2 / 1-3",
+      "detail": "packages/shared/src/template.ts の shared エンジンを精査。resolveTemplate は既知トークンの正規表現置換のみで任意 eval なし (TOKEN_RE + resolvePreset の date/now 判定のみ)。{{name}} 置換・未定義変数の missing[] を出現順+重複排除で返却 (Set+array)、空文字値は指定済み扱い。formatDate は YYYY/MM/DD/HH/mm/ss を 0 詰めし MM(月) と mm(分) を大小で区別。template.test.ts L72-78 が {{date:YYYY-MM-DD}} を実 journalPath/todayJournalDate と同一文字列であることを直接 assert。基準日時は date/now で注入可能 (date→now→new Date のフォールバック)。sanitizePathValue が NFC/制御文字/`/`\\`/`..`/先頭末尾ドット空白を除去し、L132-153 で悪意ある `../../../../etc/passwd` 値でも normalizeVaultPath を通過し vault 外へ脱出しないことを検証。20 ユニットテスト全 pass。網羅性十分。"
+    },
+    {
+      "id": "F3",
+      "category": "acceptance_criteria",
+      "severity": "info",
+      "status": "pass",
+      "ac": "AC-S89a350-2-1",
+      "detail": "GET /api/templates (routes/templates.ts) は listNoteFiles → templates/ prefix フィルタで一覧。parseConfig が loamium-template を寛容に解析し、frontmatter 無し=純粋雛形 (target=null/vars=[])、壊れた定義 (オブジェクトでない/型不一致) はフォールバックで target=null。summaryFor 内 throw は try/catch で 1 件スキップし一覧全体を落とさない。templates.spec.ts が実サーバー (サブプロセス+実 HTTP) で議事録/デイリー/雛形/broken の 4 種を投入し target/vars 正規化・純粋雛形・壊れフォールバック・templates/ 外除外を検証。実コード経路で到達・アサート済み。"
+    },
+    {
+      "id": "F4",
+      "category": "acceptance_criteria",
+      "severity": "info",
+      "status": "pass",
+      "ac": "AC-S89a350-2-2",
+      "detail": "POST /api/templates/*/instantiate は target を pathMode で、本文を verbatim で解決。buildBodyTemplate が loamium-template ブロックを frontmatter から verbatim 除去し結果ノートに残さない。firstFreePath が noteMtime で衝突検出し _2.._9999 の連番を付与。default 解決 (date 型 {{date:...}} 展開) → リクエスト値上書き。必須未入力+参照未定義を集約し missing_vars 400 を返し (ノート未作成)。展開後は二重に normalizeVaultPath を通す。**バイト検証あり**: templates.spec.ts L181-189/198-200/207-209 が実ファイルを readFile し raw に {{ / loamium-template が非残存、# 定例会議・カテゴリ・日付 default・参加者が解決済みであることを確認、_2 連番・date 上書き・404 も検証。ユーザー可観測な実 FS で担保。"
+    },
+    {
+      "id": "F5",
+      "category": "acceptance_criteria",
+      "severity": "info",
+      "status": "pass",
+      "ac": "AC-S89a350-2-3",
+      "detail": "CLI new (cli/src/main.ts) は POST /api/templates/{name}/instantiate と 1:1 (--template/--var k=v 複数/--date、--json で生レスポンス、templateInstantiateResponseSchema で zod 検証、型は @loamium/shared 共有)。cli-new.spec.ts が実バイナリをサブプロセス起動し stdout 解決パス・--json 生 JSON・--date 上書き・missing_vars(非0)・usage(exit2)・template_not_found・監査ログ (.loamium/audit.log の op=template.instantiate) を検証。生成ノートを readFile して {{ 非残存+default 解決をバイト確認。templates.spec.ts 側で setAudit('template.instantiate') の監査記録 (result=ok) と read-only モードの 403 (mutate 分類) も検証。"
+    },
+    {
+      "id": "F6",
+      "category": "acceptance_criteria",
+      "severity": "info",
+      "status": "pass",
+      "ac": "AC-S89a350-3-1 / 3-2 / 3-3",
+      "detail": "App.tsx が sidebar-new-note → new-note-menu (空のノート/テンプレートから) を実装し openTemplatePicker → TemplatePicker → TemplateModal を結線 (実ユーザー入口)。TemplateModal は property-types 流用ウィジェット (text/date/select radiogroup/tags)、onKeyDown で Escape 中断・Enter 作成 (IME isComposing ガード、tags 入力中 Enter はチップ優先)、select は ArrowLeft/Right 切替、初期 autoFocus。template-create.e2e.spec.ts (実ブラウザ→実 Vite→実サーバー→実 FS) が picker 一覧選択→vars モーダル、必須未入力の aria-disabled+template-var-error インライン、会議名入力→Enter 確定→エディタで開く、instantiate→解決先パス/route-display 反映、実ファイルの {{ / loamium-template 非残存バイト検証、衝突時 _2 連番の新パスに作成して開くを検証。mock spec が保存先ライブプレビュー・Esc→picker 復帰・select ←→・4xx インラインを補完。**軽微 (info)**: AC-3-2 の『Tab で項目移動』は明示アサートは無いが、標準フォーカス可能ウィジェット群で native に成立し Enter/Esc/Arrow は明示検証済み — キーボード完結性は実装・テストで担保。"
+    },
+    {
+      "id": "F7",
+      "category": "forbidden_scan",
+      "severity": "info",
+      "status": "pass",
+      "ac": null,
+      "detail": "diff 全体 (14727eb..HEAD) を走査: .only/.skip/xit/fit/test_skipped ゼロ、`: any`/<any>/as any/@ts-ignore/@ts-nocheck/ts-expect-error ゼロ、AC 文言改変ゼロ (ROADMAP の acceptance_criteria は不変、status のみ変化)。実装者申告の『sidebar-new-note メニュー化で既存 editor テスト 3 件の操作パスを更新 (アサーション不変)』を精査 — editor.e2e L95/ editor.mock L303,L339 は sidebar-new-note クリック後に new-note-menu-blank クリックを 1 行追加して同一 new-note-dialog へ到達するだけで、dialog/input/confirm/エラーの assert は完全不変。正当な操作パス更新でありアサーション弱体化ではない。error_swallowed なし。"
+    },
+    {
+      "id": "F8",
+      "category": "clean_text",
+      "severity": "info",
+      "status": "pass",
+      "ac": null,
+      "detail": "diff の追加行に NUL/C0/DEL 等の制御文字混入ゼロ (grep -P で 0 行)。変更ソース (template.ts/templates.ts/main.ts/App.tsx/TemplateModal.tsx/TemplatePicker.tsx/schemas.ts/新規テスト) に生 NUL なし。実装者申告どおり template.test.ts L108-110 の制御文字テストは String.fromCharCode(0/0x1f/0x7f) でソースに生の制御文字を書かず構築していることを確認。"
+    },
+    {
+      "id": "F9",
+      "category": "roadmap_integrity",
+      "severity": "info",
+      "status": "pass",
+      "ac": null,
+      "detail": "ROADMAP.json は base(14727eb) と head で sprint 数 24 保持、execution_order 完全一致、変更された sprint は S89a350 のみ (pending→done)。他 23 Sprint の AC/status に改変ゼロ。自分のスライスのみ変更する申告どおり。"
+    },
+    {
+      "id": "F10",
+      "category": "status_consistency",
+      "severity": "warn",
+      "status": "warn",
+      "ac": null,
+      "overlooked_by_autopilot": true,
+      "detail": "**ステータス不整合**: S89a350-3 は user_review_required:true (Guard 1: GUI キーボード操作 UX のレビュー要) で status=needs_user_review。スキーマ規約『needs_user_review の Story があれば sprint は partial』に照らすと、sprint 直下 status は partial であるべきだが head では \"done\" のまま記録されている。self の verification-results.json も『overall pass / done』相当で記録し、この不整合を開示していない (overlooked)。AC 実体 (S89a350-3-1/2/3) は実装・E2E で満たされているため機能的欠陥ではなく、記録上の status 不整合。親が sprint status を partial へ是正する予定。"
+    },
+    {
+      "id": "F11",
+      "category": "needs_user_review_validity",
+      "severity": "info",
+      "status": "pass",
+      "ac": null,
+      "detail": "S89a350-3 の user_review_required:true / review_reason『テンプレ選択と変数入力モーダルのキーボード操作 UX はユーザーレビューが要る』は Guard 1 (GUI UX) として妥当。UI の AC 自体は F6 のとおり実装・実ブラウザテストで到達・アサート済みで、needs_user_review は UX 主観面の確認待ちであり機能未達を隠すものではない。"
+    }
+  ],
+  "summary": {
+    "ac_failures": 0,
+    "forbidden_warnings": 0,
+    "adr_conflicts": 0,
+    "overlooked_count": 1,
+    "note": "9 本の AC (Story 3 本) は全て実コード経路でユーザー入口 (shared 公開 API / 実 HTTP / 実 CLI バイナリ / 実ブラウザ) から到達し、ユーザー可観測 (実ファイルのバイト検証で {{ / loamium-template 非残存、連番 _2、監査ログ、エディタで開く) にアサートされている。機械検証は ground truth ログと一致し、test 500/500・ui 255/255・lint 0 を独立再実行で再現 (今回 flaky 発生せず)。禁止カテゴリ (skip/only/any/@ts-ignore/AC 改変/error 握り潰し) ゼロ、editor テストのメニュー化はアサーション不変の操作パス更新、制御文字混入なし、ROADMAP は 24 Sprint 保持・自スライスのみ変更。唯一の warn は F10 のステータス不整合: S89a350-3=needs_user_review にもかかわらず sprint status=done のまま (規約上 partial であるべき) で self report に未開示 (overlooked)。AC 実体は満たされているため機能的には pass 相当だが、記録の是正 (done→partial) が必要なため overall=warn とする。"
+  }
+}

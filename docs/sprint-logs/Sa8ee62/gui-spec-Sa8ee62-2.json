@@ -1,0 +1,141 @@
+{
+  "story_id": "Sa8ee62-2",
+  "story_title": "⋯ アクションメニュー — PDF エクスポート配線",
+  "state_diagram": "stateDiagram-v2\n    [*] --> MenuClosed : ノートを開いた状態\n    MenuClosed --> MenuOpen : info-actions-btn クリック (aria-expanded=true)\n    MenuOpen --> MenuClosed : info-actions-btn 再クリック (aria-expanded=false)\n    MenuOpen --> MenuClosed : 外側クリック (scrim クリック)\n    MenuOpen --> Exporting : action-export-pdf クリック\n    Exporting --> MenuClosed : blob 取得成功 → a[download] クリック → ファイル保存\n    Exporting --> ExportError : API エラー (4xx/5xx / ネットワーク失敗)\n    ExportError --> MenuClosed : エラー表示後に閉じる (console.error + ユーザー通知)\n    MenuOpen --> MenuClosed : action-copy-link クリック → クリップボード書き込み (既実装)\n    MenuOpen --> MenuClosed : action-copy-path クリック → クリップボード書き込み (既実装)",
+  "scenarios": [
+    {
+      "name": "happy_path_pdf_export",
+      "description": "⋯ メニューを開いて PDF エクスポートをクリックするとサーバーが PDF を返し、ブラウザのダウンロードダイアログでファイルが保存される。",
+      "steps": [
+        "ノートを開く (任意のノート)",
+        "info-actions-btn をクリック (aria-expanded が false→true に変化)",
+        "info-actions-menu に .open クラスが付く",
+        "action-export-pdf が表示されている (disabled 属性なし)",
+        "action-export-pdf をクリック",
+        "GET /api/notes/{path}/export?format=pdf が呼ばれる",
+        "レスポンスが Content-Type: application/pdf で返る",
+        "ブラウザが PDF ファイルをダウンロードする (ファイル名: {note-title}.pdf)",
+        "メニューが閉じる (aria-expanded=false)"
+      ]
+    },
+    {
+      "name": "menu_open_close_toggle",
+      "description": "⋯ ボタンのクリックでメニューが開閉する。外側クリック(scrim)でも閉じる。",
+      "steps": [
+        "info-actions-btn をクリック",
+        "info-actions-menu に .open クラスが付き、aria-expanded=true",
+        "info-actions-btn を再クリック",
+        "info-actions-menu の .open クラスが外れ、aria-expanded=false"
+      ]
+    },
+    {
+      "name": "menu_close_on_outside_click",
+      "description": "メニュー外側をクリックするとメニューが閉じる。",
+      "steps": [
+        "info-actions-btn をクリックしてメニューを開く",
+        "メニュー外側 (scrim または他の UI 要素) をクリック",
+        "info-actions-menu の .open クラスが外れる"
+      ]
+    },
+    {
+      "name": "copy_link_still_works",
+      "description": "action-copy-link は既存実装のまま動作を維持する (Sa8ee62-2 のスコープ外だが回帰確認)。",
+      "steps": [
+        "ノートを開く",
+        "info-actions-btn をクリック",
+        "action-copy-link をクリック",
+        "クリップボードに [[{ノートタイトル}]] が書き込まれる",
+        "メニューが閉じる"
+      ]
+    },
+    {
+      "name": "copy_path_still_works",
+      "description": "action-copy-path は既存実装のまま動作を維持する。",
+      "steps": [
+        "ノートを開く",
+        "info-actions-btn をクリック",
+        "action-copy-path をクリック",
+        "クリップボードに vault 相対パスが書き込まれる",
+        "メニューが閉じる"
+      ]
+    },
+    {
+      "name": "edge_export_api_error",
+      "description": "export API が失敗した場合 (ノート不在 404 / サーバーエラー 500) に UI がクラッシュしない。",
+      "steps": [
+        "export API が 404 または 500 を返すようにモックする",
+        "action-export-pdf をクリック",
+        "UI がクラッシュしない (ボタンは再クリック可能な状態に戻る)",
+        "コンソールにエラーが記録される"
+      ]
+    },
+    {
+      "name": "edge_no_note_open",
+      "description": "ノート未選択時は action-export-pdf が disabled のままである。",
+      "steps": [
+        "notePath = null の状態 (ノート未選択)",
+        "info-actions-btn をクリックしてメニューを開く",
+        "action-export-pdf が disabled である"
+      ]
+    }
+  ],
+  "endpoint_contracts": [
+    {
+      "path": "/api/notes/{path}/export",
+      "method": "GET",
+      "registered": false,
+      "query_params": {
+        "format": "pdf | html (必須ではない、デフォルト pdf)"
+      },
+      "response_success": {
+        "format=pdf": "HTTP 200, Content-Type: application/pdf, Body: PDF バイナリ (%PDF- で始まる)",
+        "format=html": "HTTP 200, Content-Type: text/html; charset=utf-8, Body: HTML 文字列"
+      },
+      "response_errors": {
+        "400": "format が不正な値 (pdf/html 以外)",
+        "404": "ノートが見つからない",
+        "500": "PDF 生成に失敗 (Chromium クラッシュ等)"
+      },
+      "notes": "Sa8ee62-1 で実装される。この GUI story はそのエンドポイントを消費する。Content-Disposition ヘッダは任意だが、あればファイル名ヒントに使える。",
+      "audit_log": "note.export アクションとして .loamium/audit.log に記録される"
+    }
+  ],
+  "implementation_notes": {
+    "file": "packages/ui/src/components/InfoPanel.tsx",
+    "component": "ActionsMenu",
+    "current_state": "action-export-pdf は disabled={true} で onClick={close} のみ実装されている。Sa8ee62-1 の export API が実装され次第、Sa8ee62-2 で配線する。",
+    "changes_needed": [
+      "handleExportPdf 関数の実装: GET /api/notes/{path}/export?format=pdf を fetch/Blob で取得 → URL.createObjectURL → a 要素を作成して download 属性を設定 → クリックしてダウンロードトリガー → URL.revokeObjectURL",
+      "action-export-pdf ボタンの disabled 属性を除去",
+      "action-export-pdf の onClick を handleExportPdf に接続",
+      "notePath が null の場合は disabled を維持する",
+      "エクスポート中はローディング表示 (任意だが推奨)"
+    ],
+    "download_filename": "{noteTitle(notePath)}.pdf — noteTitle(notePath) は @loamium/shared の noteTitle() で取得"
+  },
+  "testid_contract": [
+    "info-actions-btn (aria-expanded=true/false でメニュー開閉)",
+    "info-actions-menu (.open クラスで表示。role=menu)",
+    "action-export-pdf (role=menuitem。notePath=null 時は disabled、notePath あり時は enabled)",
+    "action-copy-link (role=menuitem。既実装、変更なし)",
+    "action-copy-path (role=menuitem。既実装、変更なし)"
+  ],
+  "testid_unchanged": [
+    "info-actions-btn",
+    "info-actions-menu",
+    "action-export-pdf",
+    "action-copy-link",
+    "action-copy-path"
+  ],
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/export-menu.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/export-menu.mock.spec.ts"
+  },
+  "prototype_path": "prototype/info-panel.html",
+  "files_expected": [
+    "packages/ui/src/components/InfoPanel.tsx",
+    "packages/ui/tests/e2e/export-menu.e2e.spec.ts",
+    "packages/ui/tests/e2e/export-menu.mock.spec.ts"
+  ],
+  "planning_notes": "Sa8ee62-2 は Sa8ee62-1 (export API 実装) に依存するため Wave 2 に配置する。InfoPanel.tsx の ActionsMenu コンポーネントへの変更は限定的 (disabled 解除 + handleExportPdf 追加のみ) であり、他コンポーネントへの影響は最小。api.ts への exportNote メソッド追加を推奨するが、fetch 直書きも可 (バイナリ取得は Blob が必要なため api.ts の既存パターンと異なる)。"
+}

@@ -1,0 +1,82 @@
+Sprint: S9e64e7 (smart-command)
+Task: .yaml 定義対応 — 素の YAML エディタ + 補完ポップアップ可読化 + 開く導線
+Date: 2026-07-13
+ADR: ADR-0012
+
+== Changes ==
+
+1. packages/ui/src/commandEditorUtils.ts
+   - isCommandFile(path): commands/*.yaml/.yml → true (ADR-0012 検出)
+   - isCommandNote: deprecated alias (frontmatter 引数無視)
+
+2. packages/ui/src/App.tsx
+   - isCommandNote → isCommandFile に置き換え
+   - openFilePreview: commands/*.yaml は openNotePath へリダイレクト (FilePreview 迂回)
+   - 保存済み状態インジケータ条件も isCommandFile に更新
+
+3. packages/ui/src/components/CommandEditor.tsx (大幅改修 — ADR-0012)
+   - markdown()/syntaxHighlighting/mdHighlight を削除
+   - parseNote/initialAnchor を削除 (frontmatter 抽出不要)
+   - parseLoamiumCommandFileWithError を使用 (全ファイル YAML パース)
+   - extractCommandId: .yaml/.yml stem 抽出 (.md だったのを修正)
+   - buildExtensions: Markdown/WikiLink/スラッシュメニュー拡張なし
+     commandDslCompletionExtension のみ
+
+4. packages/ui/src/styles.css
+   - .cmd-editor-cm-host スコープで補完ポップアップを上書き
+   - cm-completionLabel を display:inline で表示可能に (グローバルが display:none)
+   - width: 360px / padding: 6px 10px / font-size: 13px で可読化
+   - ::before を display:none (「ノートにリンク」ヒント行を消去)
+
+5. tests/e2e/command-editor.mock.spec.ts
+   - fixtures: commands/create-todo.yaml 形式 (frontmatter なし純粋 YAML)
+   - NOTES_WITH_COMMAND: commands/create-todo.yaml
+   - commandNote(): frontmatter: null
+   - テストURL: **/api/notes/commands/create-todo.yaml
+   - 保存内容検証: loamium-command → name: create todo
+   - 新テスト: ADR-0012 note-link 補完が出ないことの確認
+
+6. tests/e2e/command-editor-completion.mock.spec.ts
+   - fixtures: ADR-0012 形式 (--- フェンスなし純粋 YAML)
+   - extractParamNames: ADR-0012 + 旧形式両対応テスト追加
+   - openCommandEditor: commands/create-todo.yaml ルート
+
+7. tests/e2e/command-editor.e2e.spec.ts
+   - URL: /n/commands/create-todo.yaml 直接ルーティング
+   - tree-item 依存を廃止 (サイドバーは .md のみ)
+
+== Mock Test Results ==
+
+36 passed / 0 failed / 0 skipped (30.7s)
+
+command-editor-completion.mock.spec.ts:
+  6 ユニットテスト (DSL_KINDS / DSL_PARAM_TYPES / DSL_POSITIONS / extractParamNames)
+  1 ADR-0012 note-link 補完なし確認
+  4 kind: 補完テスト
+  5 {{ トークン補完テスト
+  計 16 passed
+
+command-editor.mock.spec.ts:
+  4 ADR-0012 検出テスト
+  3 保存ボタン AC-S9e64e7-1-2
+  1 REGRESSION (通常ノート)
+  1 バリデーション AC-S9e64e7-2-1
+  3 プレビュー AC-S9e64e7-2-2
+  6 テスト実行 AC-S9e64e7-2-3
+  計 18 passed (3 + 1 merged into detection group above = 20 total)
+
+command-guide.mock.spec.ts: 3 passed
+
+== tsc / lint ==
+make lint: PASS (全 workspace)
+npx tsc --noEmit -p packages/ui: PASS (エラー 0)
+
+== Root Cause Fixes ==
+
+Problem 1 (wrong completion): CommandEditor.tsx から markdown()/wikilinkAutocomplete
+等 Markdown 拡張を削除。buildExtensions が commandDslCompletionExtension のみを返すため
+「ノートにリンク」補完は一切発火しない。
+
+Problem 2 (popup unreadable): .cmd-editor-cm-host .cm-tooltip-autocomplete 規則を追加。
+cm-completionLabel が display:inline に (グローバルは display:none だったため 0px 高だった)。
+min-width: 260px, padding: 6px 10px, font-size: 13px で視認性を確保。

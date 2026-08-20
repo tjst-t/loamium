@@ -1,0 +1,23 @@
+{
+  "story": "S0c9a48-2",
+  "story_type": "library",
+  "user_role": "Claude Code 利用者。自然言語で『これジャーナルにメモして』『〜について書いたノート探して』と頼み、エージェントが Skill 定義を読んで loamium CLI コマンドに変換する",
+  "entry_point": "skill/SKILL.md (claude-skills 形式。Claude Code がロードして参照するドキュメントが公開 API に相当)",
+  "scenarios": [
+    {
+      "id": "scenario-1",
+      "linked_ac": ["AC-S0c9a48-2-1"],
+      "description": "Skill 定義が claude-skills 形式として構造的に妥当で、journal-append / search 中心の自然言語→コマンド変換例とエラー対処が揃っている",
+      "preconditions": ["リポジトリに skill/SKILL.md が存在する"],
+      "steps": [
+        { "n": 1, "action": "skill/SKILL.md を読み込む", "expected": "YAML frontmatter (--- 区切り) があり、name と description が非空で定義されている (claude-skills 形式)" },
+        { "n": 2, "action": "frontmatter の description を確認する", "expected": "いつこの Skill を使うか (ジャーナルへのメモ・ノート検索などのトリガー) が記述されている" },
+        { "n": 3, "action": "本文の変換例を確認する", "expected": "journal-append と search それぞれに『自然言語の依頼 → loamium コマンド』の対応例が複数 (コードブロック内に loamium journal-append / loamium search の実行例) ある" },
+        { "n": 4, "action": "本文のコマンド網羅を確認する", "expected": "read / write / append / patch / journal / journal-append / search / backlinks / list / tags の全 10 コマンドの用例が記載されている" },
+        { "n": 5, "action": "エラー対処セクションを確認する", "expected": "サーバー未起動 (server_unreachable → make serve 案内) とノート不在 (not_found → search で探し直す等) の対処が記載されている" },
+        { "n": 6, "action": "記載されている loamium コマンド例の構文を確認する", "expected": "コードブロック内の loamium コマンドのサブコマンド名がすべて実在の 10 コマンド (+ --json/--old/--new/--tag/--folder フラグ) であり、実 CLI と食い違わない" }
+      ],
+      "cleanup": []
+    }
+  ]
+}

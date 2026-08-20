@@ -1,0 +1,129 @@
+{
+  "sprint": "S8086d9",
+  "run_at": "2026-07-07T17:03:23Z",
+  "server_command": "npx playwright test --config=packages/ui/playwright.config.ts (real Vite+server+Chromium via globalSetup)",
+  "summary": {
+    "total": 173,
+    "pass": 173,
+    "fail": 0,
+    "skip": 0,
+    "note": "165 mock + 8 new e2e (smart-view 5, bookmark-star 3) all pass. Full UI suite: 269 pass / 5 fail — the 5 failures are the terminal/Claude feature (claude-sidebar.e2e ×4, search-slim.e2e ×1) which spawns a real pty; node-pty native module can't load (GLIBC), a pre-existing sandbox limitation unrelated to S8086d9. make lint exit 0."
+  },
+  "env_exclusions": [
+    {
+      "file": "claude-sidebar.e2e.spec.ts + search-slim.e2e.spec.ts (Claude panel)",
+      "reason": "terminal spawns /bin/bash via node-pty; native module requires GLIBC_2.42 unavailable in sandbox. Unrelated to smart-folder/bookmark work.",
+      "tests": 5
+    }
+  ],
+  "tests": [
+    {
+      "name": "[AC-S8086d9-1-*] smart view toggle/render/icon/nav/regression",
+      "file": "packages/ui/tests/e2e/smart-view.e2e.spec.ts",
+      "story": "S8086d9-1",
+      "acceptance_criteria": [
+        "AC-S8086d9-1-1",
+        "AC-S8086d9-1-2",
+        "AC-S8086d9-1-3",
+        "AC-S8086d9-1-4",
+        "AC-S8086d9-1-5"
+      ],
+      "status": "pass"
+    },
+    {
+      "name": "[AC-S8086d9-1-*] smart view states/edge",
+      "file": "packages/ui/tests/e2e/smart-view.mock.spec.ts",
+      "story": "S8086d9-1",
+      "acceptance_criteria": [
+        "AC-S8086d9-1-3",
+        "AC-S8086d9-1-4"
+      ],
+      "status": "pass"
+    },
+    {
+      "name": "[AC-S8086d9-2-*] bookmark star",
+      "file": "packages/ui/tests/e2e/bookmark-star.e2e.spec.ts",
+      "story": "S8086d9-2",
+      "acceptance_criteria": [
+        "AC-S8086d9-2-1",
+        "AC-S8086d9-2-2",
+        "AC-S8086d9-2-3"
+      ],
+      "status": "pass"
+    },
+    {
+      "name": "[AC-S8086d9-2-*] bookmark star req/read-only/rollback",
+      "file": "packages/ui/tests/e2e/bookmark-star.mock.spec.ts",
+      "story": "S8086d9-2",
+      "acceptance_criteria": [
+        "AC-S8086d9-2-1",
+        "AC-S8086d9-2-2",
+        "AC-S8086d9-2-4"
+      ],
+      "status": "pass"
+    }
+  ],
+  "diff_coverage": {
+    "surfaces": [
+      {
+        "type": "gui",
+        "identifier": "sidebar view toggle + SmartView (smart-folder/smart-note/smart-pin/smart-folder-icon)",
+        "introduced_in_files": [
+          "packages/ui/src/App.tsx",
+          "packages/ui/src/components/SmartView.tsx"
+        ],
+        "resolution": "covered",
+        "test": "smart-view.{e2e,mock}.spec.ts"
+      },
+      {
+        "type": "gui",
+        "identifier": "bookmark-star",
+        "introduced_in_files": [
+          "packages/ui/src/components/BookmarkStar.tsx",
+          "packages/ui/src/App.tsx"
+        ],
+        "resolution": "covered",
+        "test": "bookmark-star.{e2e,mock}.spec.ts"
+      },
+      {
+        "type": "api_client",
+        "identifier": "api.listSmartFolders/resolveSmartFolder/setNoteProperties",
+        "introduced_in_files": [
+          "packages/ui/src/api.ts"
+        ],
+        "resolution": "covered",
+        "test": "smart-view + bookmark-star specs"
+      }
+    ]
+  },
+  "done_judgment": [
+    {
+      "story_id": "S8086d9-1",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "n/a",
+        "guard3_mock_mode_not_real_smoke": "n/a",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "pass",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    },
+    {
+      "story_id": "S8086d9-2",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "n/a",
+        "guard3_mock_mode_not_real_smoke": "n/a",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "pass",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    }
+  ]
+}

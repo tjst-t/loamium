@@ -1,0 +1,86 @@
+{
+  "sprint": "Sa10026",
+  "touched_adrs": [
+    "ADR-0010",
+    "ADR-0026",
+    "ADR-0002",
+    "ADR-0012",
+    "ADR-0015",
+    "ADR-0017",
+    "ADR-0018"
+  ],
+  "decisions": [
+    {
+      "timestamp": "2026-07-13T00:00:00Z",
+      "category": "planning",
+      "title": "ADR-0010 と ADR-0026 を 1 Sprint に束ねる",
+      "detail": "ユーザー指示。両 ADR は『system/=正本・移植 / .loamium/=使い捨て・端末依存』の境界原則で接続する。ADR-0010 が設定を system/ のファイル(settings.yaml 含む)として確立し、ADR-0026 がその上に統一設定UI+型付き設定APIを載せて system/ と .loamium/agent-*.json の両方を編集する。前者が後者の基盤(settings.yaml)を提供するため、同一 Sprint 内で -3(settings.yaml)→ -5/-7(設定API/UI)の依存で並べた。7 ストーリー(GUI 2)のやや大きめ Sprint だが依存は線形。",
+      "reference": "ADR-0010 decision(境界原則6), ADR-0026 context(統一UIで両立)",
+      "adr_ref": "ADR-0010, ADR-0026",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-13T00:00:00Z",
+      "category": "planning",
+      "title": "ADR-0010 移行範囲=全設定を一括移行(smart-folders + templates + commands)",
+      "detail": "ユーザー選択。.loamium/smart-folders.json(ADR-0002 例外)に加え templates/・commands/ も system/ 配下へ一回きり移行する。templates/commands は route の破壊的変更 + 後方互換の寛容 read を伴う。移行は冪等で破壊的多版テスト(Rule 8)を必須とした(ストーリー Sa10026-2)。代替(smart-folders + settings のみ先行)は不採用。",
+      "reference": "ADR-0010 decision(1)(2)(5), consequences(移行が必要)",
+      "adr_ref": "ADR-0010, ADR-0002",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-13T00:00:00Z",
+      "category": "planning",
+      "title": "ADR-0026 設定群=4群全部(全体/agent接続/agent権限/privacy)を今 Sprint で",
+      "detail": "ユーザー選択。統一設定UI+型付き設定APIで4群すべてを編集可能にし、agent 権限/privacy deny-list/apiKey の書込 API を agent ツール allowlist から明示除外する自己昇格防止境界(ストーリー Sa10026-6)も今回で完結させる。保存場所は現状維持(移行ゼロ)。代替(全体+agent接続のみ先行)は不採用。",
+      "reference": "ADR-0026 decision, consequences(allowlist 除外が必須), ADR-0012/0015/0018 の境界維持",
+      "adr_ref": "ADR-0026, ADR-0012, ADR-0015, ADR-0018",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-13T00:00:00Z",
+      "category": "planning",
+      "title": "system/ フォルダ名は小文字 system/ を既定とする",
+      "detail": "ADR-0010 notes の指定どおり小文字 system/ を既定採用。設定可能化は当面見送り(YAGNI)。",
+      "reference": "DESIGN_PRINCIPLES priority 5(シンプルさ > 汎用性), ADR-0010 notes",
+      "adr_ref": "ADR-0010",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-13T00:00:00Z",
+      "category": "planning",
+      "title": "apiKey は平文保存せず $ENV_VAR 参照のまま(GUI は参照名を表示)",
+      "detail": "既存方針(ADR-0011 系)を維持。統一設定UIでも apiKey 実値は保存せず $ENV_VAR 参照として表示・編集する(ストーリー Sa10026-7-3)。",
+      "reference": "DESIGN_PRINCIPLES priority 2(データ安全性 > 開発速度)",
+      "adr_ref": "ADR-0026",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-14T00:00:00Z",
+      "category": "design_change",
+      "title": "per-item 定義形式: smart-folders / commands は .md → .yaml、templates は .md 維持",
+      "detail": "プロトタイプレビューでユーザー指示。スマートフォルダ/コマンドは純設定なので素 YAML(title/order/icon/query、DQL は query 文字列)、テンプレートは本文があるため .md + frontmatter 維持。accepted ADR-0010 decision(2) と抵触するため ADR-0010 に amendment を追記して整合。ストーリー Sa10026-1/-2 と gui-spec-4 を更新。トレードオフ: smart-folders/commands の ```dql ライブプレビュー dogfooding は失われる。",
+      "reference": "ADR-0010 amendments[0], DESIGN_PRINCIPLES priority 5(シンプルさ)",
+      "adr_ref": "ADR-0010",
+      "drift_flag": "adr_contradicts"
+    },
+    {
+      "timestamp": "2026-07-14T00:00:00Z",
+      "category": "design_change",
+      "title": "統一設定UI エージェント: 並び baseUrl→APIキー→モデル + 接続テスト + モデル一覧 API",
+      "detail": "プロトタイプレビューでユーザー指示。エージェント接続フィールドを baseUrl→APIキー→モデルの順に。APIキー欄右に接続テストボタン(POST /api/settings/agent/connection/test で実 API を1回呼び成否表示)。モデルは datalist の編集可能ドロップダウンで、GET /api/settings/agent/models から候補取得(直接入力可)。ストーリー Sa10026-5 に AC-5-4 とタスク Sa10026-5-3 を追加、gui-spec-7 に endpoint/scenario 追記。",
+      "reference": "ADR-0026 decision(型付き設定API)",
+      "adr_ref": "ADR-0026",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-14T00:00:00Z",
+      "category": "scope_add",
+      "title": "新規ノート作成をパス対応に統一 + defaultFolder に prefill の役割を与える(新ストーリー Sa10026-8)",
+      "detail": "ユーザー提案。現状の new-note モーダル(ノート名だけ・vault ルート固定)を smart-newfile(Sebf6b0-3、パス入力+フォルダ補完)と同一コンポーネントに統一。settings.yaml.defaultFolder があればモーダルに '<folder>/' を prefill(消せば任意パス、既定のままならファイル名だけ)。既存フォルダはドロップダウン補完。これにより defaultFolder 設定に具体的な意味が付き、2つの新規作成モーダルの二重管理も解消。GUI ストーリー Sa10026-8 を追加(gui-spec-8 + prototype/new-note-modal.html)。",
+      "reference": "ADR-0010(settings.yaml), 既存 Sebf6b0-3 smart-newfile の再利用, DESIGN_PRINCIPLES priority 5(シンプルさ/機能統一)",
+      "adr_ref": "ADR-0010",
+      "drift_flag": "none"
+    }
+  ]
+}

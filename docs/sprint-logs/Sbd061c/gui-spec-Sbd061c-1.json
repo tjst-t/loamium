@@ -1,0 +1,48 @@
+{
+  "$file": "gui-spec-Sbd061c-1.json",
+  "sprint": "Sbd061c",
+  "story": "Sbd061c-1",
+  "story_type": "gui",
+  "state_diagram": "stateDiagram-v2\n    [*] --> Closed\n    Closed --> Open: Cmd/Ctrl+K または sidebar-search クリック (search-input に autofocus)\n    Open --> Closed: Esc / 外側クリック (search-palette-backdrop)\n    Open --> Results: 入力 → ノート名は即時フィルタ、全文は debounce 後 GET /api/search\n    Results --> Results: ↑↓ で選択移動 (aria-selected)\n    Results --> NoteOpened: search-result-note を Enter/クリック → ノートを開いて Closed\n    Results --> LineOpened: search-result-fulltext を Enter/クリック → ノートを開き data-line 行へカーソル移動して Closed\n    Open --> Empty: 一致 0 件 (search-empty)\n    Open --> Error: GET /api/search 失敗 (search-error、パレットは操作可能なまま)\n    Open --> Composing: IME 変換中 (compositionstart) は全文検索を発火しない\n    Composing --> Results: compositionend で確定テキストを検索",
+  "scenarios": {
+    "entry_point": "ブラウザで UI を開き、Cmd/Ctrl+K を押す (またはサイドバーヘッダの検索ボタン sidebar-search をクリック)",
+    "happy_path": "パレットが開き search-input にフォーカス。クエリを打つとノート名一致 (search-result-note) と全文ヒット (search-result-fulltext、スニペット + L行番号) が 2 セクションでインクリメンタルに出る。↑↓ で選択し Enter (またはクリック) で該当ノートが開き、全文ヒットは該当行にカーソルが移動する",
+    "data_states": {
+      "empty": "一致 0 件では search-empty を表示 (セクション見出しは出さない)",
+      "loading": "デバウンス中・取得中は直前の結果を維持 (フリッカー防止)",
+      "error": "GET /api/search 失敗時は search-error をパレット内に表示。ノート名一致 (ローカルフィルタ) は生き続け、エディタは阻害されない"
+    },
+    "edge_cases": [
+      "デバウンス: 高速連続入力では GET /api/search は最後の入力に対して 1 回だけ飛ぶ",
+      "IME 変換中 (composition) は全文検索を確定しない。compositionend で確定テキストを検索する",
+      "空クエリでは API を叩かず結果もセクションも出さない",
+      "line が null の全文ヒット (タイトルのみ一致) は全文セクションに出さない (ノート名セクションと重複するため)",
+      "パレットを開くたびに GET /api/notes を再取得する (エージェントが外部で作成したノートも対象になる)",
+      "Enter は選択中の候補が無ければ no-op。Esc は入力があっても即閉じる",
+      "全文ヒットの該当行が現在開いているノートの場合も、その行へカーソルが移動する"
+    ],
+    "success_feedback": "パレットが閉じ、エディタとパンくずが対象ノートに切り替わる。全文ヒットは該当行が可視域に入り、カーソル行 (cm-activeLine) がスニペットの行になる",
+    "failure_feedback": "search-error のパレット内表示。アプリ全体は壊れない"
+  },
+  "endpoint_contracts": [
+    {
+      "path": "/api/search",
+      "method": "GET",
+      "registered": true,
+      "request_fields": { "q": "string (query, 必須・非空)" },
+      "response_fields": { "query": "string", "results": "[{path, title, score, snippet, line: number|null}]" }
+    },
+    {
+      "path": "/api/notes",
+      "method": "GET",
+      "registered": true,
+      "request_fields": {},
+      "response_fields": { "notes": "[{path, title, tags, folder}]" }
+    }
+  ],
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/search-palette.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/search-palette.mock.spec.ts"
+  },
+  "linked_ac": ["AC-Sbd061c-1-1", "AC-Sbd061c-1-2", "AC-Sbd061c-1-3"]
+}

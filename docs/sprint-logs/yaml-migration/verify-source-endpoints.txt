@@ -1,0 +1,81 @@
+verify-source-endpoints — GET/PUT /api/commands/{id}/source
+==============================================================
+date: 2026-07-13
+
+## 修正概要
+
+### 根本原因
+notes API (`GET/PUT /api/notes/{path}`) が `normalizeVaultPath` を使い .md を強制するため、
+`commands/create-todo.yaml` を `commands/create-todo.yaml.md` として検索 → 404 になっていた。
+
+### 追加修正 (本フェーズで発見)
+ルーター (`packages/ui/src/router.ts`) の `parseLocation` が、
+URL `/n/commands/create-todo.yaml` を `commands/create-todo.yaml.md` に
+変換していた (.md を補完するロジックが .yaml/.yml も対象にしていた)。
+→ `hasExt = /\.[a-z0-9]+$/i.test(decoded)` で既に拡張子がある場合は .md を付与しないよう修正。
+
+## 変更ファイル
+
+- packages/shared/src/schemas.ts
+  commandSourceResponseSchema / commandSourceWriteRequestSchema / commandSourceWriteResponseSchema を追加
+
+- packages/server/src/routes/commands.ts
+  GET /api/commands/:id/source および PUT /api/commands/:id/source を追加
+  - GET: .yaml → .yml の順にファイルを探し content + mtime を返す
+  - PUT: append-only 403 / mtime 競合 409 / 新規作成 created:true
+
+- packages/ui/src/api.ts
+  getCommandSource(id) / putCommandSource(id, content, mtime?) を追加
+
+- packages/ui/src/App.tsx
+  loadNote: isCommandFile(path) → getCommandSource 経由で読込
+  saveNow: isCommandFile → CommandEditor が保存するため App は skip
+
+- packages/ui/src/components/CommandEditor.tsx
+  handleSave: api.putNote → api.putCommandSource (stem ベース)
+
+- packages/ui/src/router.ts
+  parseLocation: .yaml/.yml など既存拡張子があれば .md を付与しない
+
+- packages/ui/tests/unit/router.spec.ts
+  commands/*.yaml round-trip テスト 2件追加
+
+- packages/ui/tests/e2e/command-editor.mock.spec.ts
+  ルートを **/api/notes/commands/create-todo.yaml → **/api/commands/create-todo/source に変更
+
+- packages/ui/tests/e2e/command-editor-completion.mock.spec.ts
+  同上
+
+- tests/acceptance/command-source.spec.ts (新規)
+  11件の受け入れテスト (GET/PUT/権限モード)
+
+## テスト結果
+
+lint:   PASS (全 workspace)
+tsc:    PASS (全 package)
+
+vitest tests/acceptance/command-source.spec.ts:    11/11 PASS
+vitest tests/acceptance/commands.spec.ts:          53/53 PASS
+vitest tests/acceptance/command-run.spec.ts:       22/22 PASS
+vitest unit router.spec.ts:                        17/17 PASS
+
+playwright mock (command-editor.mock):             33/33 PASS
+playwright e2e  (command-editor.e2e):               4/4  PASS
+  AC-S9e64e7-1-1: commands/create-todo.yaml を開くと CommandEditor が表示される
+  AC-S9e64e7-1-2: 有効定義のとき save ボタンが有効で保存が成功する
+  AC-S9e64e7-1-3: testid が gui-spec の testid_contract に準拠している
+  AC-S9e64e7-2-3: dirty で test-run すると PUT 後に POST run が呼ばれジャーナルに todo が追記される
+
+## エンドポイント仕様
+
+GET /api/commands/{id}/source
+  → 200: {id, path, content, mtime}
+  → 404: {error:'not_found'} — ファイルなし
+  → 400: {error:'invalid_path'} — path traversal
+
+PUT /api/commands/{id}/source
+  body: {content: string, mtime?: number}
+  → 200: {id, path, created, mtime}
+  → 409: {error:'conflict'} — stale mtime
+  → 403: {error:'forbidden'} — read-only / append-only モード
+  → 400: {error:'invalid_path'}

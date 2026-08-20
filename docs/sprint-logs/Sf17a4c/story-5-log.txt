@@ -1,0 +1,96 @@
+Story Sf17a4c-5 — UI セットアップウィザード + 初回リンク競合ダイアログ + 完了ダイアログ
+実施日: 2026-07-26
+
+## 実施内容
+
+### api.ts
+- syncLinkPreview(remoteUrl, branch?): Promise<SyncLinkPreviewResponse> を追加
+- syncLinkApply(remoteUrl, resolutions, branch?): Promise<SyncLinkApplyResponse> を追加
+- syncLinkStatus(): Promise<SyncLinkStatusResponse> を追加
+- 全メソッド zod スキーマ検証付き (shared の syncLink*Schema を使用)
+
+### SyncSetupWizard.tsx (新規)
+- data-testid="sync-setup-wizard"
+- リモート URL 入力 (sync-setup-remote-url) + リンク開始ボタン (sync-setup-start)
+- ウィザード open 時に syncLinkStatus() を呼び mid-merge バナーを表示
+- preview → conflicts=0 → 自動 apply → 完了ダイアログ (link-done-dialog + link-done-summary)
+- preview → conflicts>0 → LinkConflictDialog → 解決 → apply → 完了ダイアログ
+- remoteState==='unreachable' → エラー表示 (続行しない)
+
+### LinkConflictDialog.tsx (新規)
+- data-testid="link-conflict-dialog"
+- 決め方ラジオ: link-conflict-mode-perfile / link-conflict-mode-all
+- セグメント型スイッチ (ドロップダウン不使用): link-conflict-switch + data-action 属性
+  - 両方保持(keep-both) | 3-way統合(merge) | ローカル採用(local) | リモート採用(remote)
+  - 既定 = keep-both
+- per-file モード: 各 link-conflict-row に独立スイッチ
+- all モード: link-conflict-apply-all 内の1スイッチで全件適用
+- 3-way: ConflictResolverDialog を再利用 (base=空、ユーザーが手動マージ)
+- link-conflict-confirm で resolutions 配列を返す
+- モバイル ≤680px: 縦積み、スイッチ高さ ≥44px
+
+### SettingsView.tsx (修正)
+- SyncSetupWizard をインポート
+- syncSetupOpen state 追加
+- 同期セクション先頭に「同期をセットアップ」ボタン (data-testid="sync-open-wizard") を追加
+- ページ末尾に {syncSetupOpen && <SyncSetupWizard />} を追加
+
+### styles.css (追加)
+- .dialog-overlay / .dialog-panel (モーダル共通)
+- .sync-setup-panel / .sync-setup-done-panel / .sync-setup-* (ウィザード・完了ダイアログ)
+- .link-conflict-panel / .link-conflict-* (競合ダイアログ)
+- .link-conflict-seg-toggle / .link-conflict-seg-btn (セグメントスイッチ; min-height: 44px)
+- @media (max-width: 680px) モバイルレスポンシブ
+
+### mock-helpers.ts (修正)
+- installCatchAll に GET /api/sync/link/status のデフォルトスタブを追加
+  (midMerge: {inProgress: false, kind: null})
+  ウィザード open 時のフェッチでアンスタブエラーが出ないようにする
+
+### agent-help.ts (修正)
+- sync トピックに「初回リンク」節を追加
+  - loamium sync link preview / apply コマンド説明
+  - keep-both ファイル名規約 (<名前>.remote.<拡張子>)
+  - GUI からのリンク方法
+  - backup ref による復元方法
+
+### 機能ガイド/Vault同期の使い方.md (修正)
+- CLI リファレンスに sync link コマンドを追加
+- 「初回リンク」節を新規追加:
+  - auto-init 説明
+  - GUI からのセットアップ手順
+  - 初回リンク競合ダイアログの選択肢一覧 (表形式)
+  - keep-both ファイル名規約と backup ref
+  - CLI からのリンク手順
+  - クラッシュ安全 (mid-merge バナー)
+
+## テスト結果
+
+### TypeScript
+- packages/ui: tsc --noEmit → 0 エラー
+- packages/server: tsc --noEmit → 0 エラー
+- packages/shared: tsc --noEmit → 0 エラー
+
+### Playwright mock (sync-setup.mock.spec.ts)
+- [AC-Sf17a4c-5-1] 衝突0件: 自動適用 → 完了ダイアログ → PASS
+- [AC-Sf17a4c-5-2] 衝突あり: 競合ダイアログ + ラジオ + スイッチ + all モード + apply → PASS
+- [AC-Sf17a4c-5-2] per-file: 各ファイルに異なるアクション設定 → PASS
+- [AC-Sf17a4c-5-2] mobile 375px: ダイアログ + スイッチ可視 + 高さ≥40px → PASS
+
+### Playwright mock (既存スペック、リグレッション確認)
+- settings-sync.mock.spec.ts: 6/6 PASS
+- sync-status.mock.spec.ts: 10/10 PASS
+
+### 合計 (3ファイル合算): 20 passed
+
+### make test-ui-mock (全 mock スペック): 実行中 (バックグラウンド)
+
+## e2e
+- sync-setup.e2e.spec.ts: 実バックエンド向け。ウィザード表示 + 実 preview API round-trip 検証。
+
+## 注意点・決断事項
+- SettingsView の「同期をセットアップ」ボタンのテストIDを sync-open-wizard に変更
+  (gui-spec の sync-setup-start はウィザード内のリンク開始ボタンとして使用; 重複防止)
+- 3-way で全件一括適用は実用性が低いため、all モードでは merge をスキップ (keep-both に無音フォールバック)
+  ユーザーはファイルごとモードで個別指定できる
+- mid-merge フェッチはウィザード open 時のみ (グローバル起動時には行わない → 他テスト汚染ゼロ)

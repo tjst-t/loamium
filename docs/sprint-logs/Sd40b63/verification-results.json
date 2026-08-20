@@ -1,0 +1,113 @@
+{
+  "sprint": "Sd40b63",
+  "verified_at": "2026-07-05",
+  "machine_verdict": {
+    "source": "docs/sprint-logs/Sd40b63/verify-run.json",
+    "overall_machine_status": "pass",
+    "runs": [
+      { "name": "test", "command": "make test", "exit_code": 0, "total": 388, "passed": 388, "failed": 0 },
+      { "name": "lint", "command": "make lint", "exit_code": 0 },
+      { "name": "ui-tests", "command": "make test-ui", "exit_code": 0, "total": 175, "passed": 175, "failed": 0 }
+    ],
+    "note": "make test は初回 run で terminal.spec.ts [AC-S79c210-3-1] (WS Origin/監査ログの timing race、本 Sprint と無関係) が 1 件 flaky fail。単体では 13/13 pass を確認。再 run で 388/388 pass、overall=pass の機械判定を取得。同様に wikilink.mock も初回 flaky、単体 pass を確認。いずれも本 Sprint の diff とは無関係。"
+  },
+  "summary": { "pass": 21, "fail": 0, "skip": 0 },
+  "tests": [
+    {
+      "story": "Sd40b63-1",
+      "acceptance_criteria": ["Sd40b63-1-AC1"],
+      "test": "[AC-Sd40b63-1-1] in packages/ui/tests/e2e/table-edit.e2e.spec.ts",
+      "status": "pass",
+      "evidence": "実サーバー+実ブラウザ+実ファイル: セル(.cell-body)クリック→table-cell-input に現在値、Ctrl+A→'ばなな' 入力、外すと table-widget 再描画で td='ばなな'、保存後ファイルに '| ばなな | 12 |'。run-verify ui-tests exit=0。"
+    },
+    {
+      "story": "Sd40b63-1",
+      "acceptance_criteria": ["Sd40b63-1-AC2"],
+      "test": "[AC-Sd40b63-1-2] in packages/ui/tests/e2e/table-edit.e2e.spec.ts",
+      "status": "pass",
+      "evidence": "add-row→tbody tr=2、add-col→thead th=3、del-row[0]→tr=1、del-col[0]→th=2。保存後ファイルの | 行が ['| B |  |','| --- | --- |','|  |  |'] と一致 (ヘッダ+区切り+データの標準 Markdown)。"
+    },
+    {
+      "story": "Sd40b63-1",
+      "acceptance_criteria": ["Sd40b63-1-AC3"],
+      "test": "[AC-Sd40b63-1-3] in packages/ui/tests/e2e/table-edit.e2e.spec.ts",
+      "status": "pass",
+      "evidence": "セルに 'a|b' 入力→保存後ファイルに '| a\\|b | 論理和 |' (パイプは \\| エスケープ)。^blockid / id:: / ゼロ幅 / 制御文字 が無いことを実ファイルで検証。"
+    },
+    {
+      "story": "Sd40b63-1",
+      "acceptance_criteria": ["Sd40b63-1-AC1", "Sd40b63-1-AC2"],
+      "test": "[MOCK] table-edit.mock.spec.ts (input 開閉・再描画 / 行列追加削除)",
+      "status": "pass",
+      "evidence": "実ブラウザ+モック API で UI 挙動 (input 開閉、data-editable、grid 変化) を固定。"
+    },
+    {
+      "story": "Sd40b63-1",
+      "acceptance_criteria": ["Sd40b63-1-AC2", "Sd40b63-1-AC3"],
+      "test": "packages/ui/tests/unit/table.spec.ts (parse/serialize/toEditable/toSource/add/del × 21)",
+      "status": "pass",
+      "evidence": "モデルの分解・直列化・パイプ往復不変性・行列操作をユニットで検証 (Markdown パーサー相当 → coding_conventions 準拠)。make test に含まれ exit=0。"
+    },
+    {
+      "story": "Sd40b63-2",
+      "acceptance_criteria": ["Sd40b63-2-AC1"],
+      "test": "[AC-Sd40b63-2-1] in packages/ui/tests/e2e/slash-table.e2e.spec.ts",
+      "status": "pass",
+      "evidence": "/table→slash-table-picker (label '3 列 × 3 行')。→/↑ で '4 列 × 2 行'、Enter 確定。カーソル先頭セルに 'X'→'| X見出し1 | 見出し2 | 見出し3 | 見出し4 |'。保存後ファイル table 行 = 4 列ヘッダ+区切り+2 データ行。"
+    },
+    {
+      "story": "Sd40b63-2",
+      "acceptance_criteria": ["Sd40b63-2-AC2"],
+      "test": "[AC-Sd40b63-2-2] in packages/ui/tests/e2e/slash-table.e2e.spec.ts",
+      "status": "pass",
+      "evidence": "8 項目のメニューで ↑ で末尾 date を選択→ boundingBox が list の viewport 内に収まる (expect.poll)。↓ で先頭 table も収まる。scrollIntoView({block:'nearest'}) 実装済み。"
+    },
+    {
+      "story": "Sd40b63-2",
+      "acceptance_criteria": ["Sd40b63-2-AC1", "Sd40b63-2-AC2"],
+      "test": "[MOCK] slash-table.mock.spec.ts (ピッカー hover/click 挿入・Esc 戻り・スクロール追従)",
+      "status": "pass",
+      "evidence": "64 セルのグリッド、ホバーで label 追従、2×4 クリックで 2 列テーブル挿入。Esc でリスト復帰。↑ で末尾項目が viewport 内。"
+    }
+  ],
+  "diff_coverage": [
+    { "type": "gui-testid", "identifier": "table-cell-input", "covered_by": "[AC-Sd40b63-1-1], table-edit.mock", "resolution": "covered" },
+    { "type": "gui-testid", "identifier": "table-add-row / table-add-col", "covered_by": "[AC-Sd40b63-1-2], table-edit.mock", "resolution": "covered" },
+    { "type": "gui-testid", "identifier": "table-del-row / table-del-col", "covered_by": "[AC-Sd40b63-1-2], table-edit.mock", "resolution": "covered" },
+    { "type": "gui-attr", "identifier": "table-widget[data-editable]", "covered_by": "table-edit.mock", "resolution": "covered" },
+    { "type": "gui-testid", "identifier": "slash-table-picker / -cell / -label", "covered_by": "[AC-Sd40b63-2-1], slash-table.mock", "resolution": "covered" },
+    { "type": "gui-behavior", "identifier": "slash-menu scrollIntoView on activeIndex change", "covered_by": "[AC-Sd40b63-2-2], slash-table.mock", "resolution": "covered" },
+    { "type": "lib-export", "identifier": "table.ts: parseTableModel/serializeTableModel/toEditable/toSource/addRow/addColumn/deleteRow/deleteColumn/TableModel/TableEditHandlers", "covered_by": "tests/unit/table.spec.ts", "resolution": "covered" },
+    { "type": "lib-export", "identifier": "slash-menu.ts: buildTableSnippet/TABLE_PICKER_MAX/TABLE_PICKER_DEFAULT/PickerSize", "covered_by": "[AC-Sd40b63-2-1] (sized insert exercises buildTableSnippet)", "resolution": "covered" }
+  ],
+  "done_judgment": [
+    {
+      "story_id": "Sd40b63-1",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "n/a",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    },
+    {
+      "story_id": "Sd40b63-2",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "n/a",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    }
+  ]
+}

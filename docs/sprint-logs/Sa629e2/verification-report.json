@@ -1,0 +1,119 @@
+{
+  "sprint": "Sa629e2",
+  "verified_at": "2026-07-05T00:00:00Z",
+  "verifier_model": "claude-opus-4-8 (read-only, separate session)",
+  "overall": "pass",
+  "findings": [
+    {
+      "id": "F1",
+      "category": "execution_log_cross_check",
+      "severity": "info",
+      "status": "pass",
+      "ac": null,
+      "detail": "verify-run.json + verify-run-*.log を ground truth として照合。3 run とも exit 0: test (__VERIFY_EXIT_CODE__:test:0, 391 passed / 33 files, JUNIT 出力)、lint (__VERIFY_EXIT_CODE__:lint:0, cli/server/shared/ui の tsc --noEmit + tests/tsconfig の lint:tests すべて pass)、ui-tests (__VERIFY_EXIT_CODE__:ui-tests:0, 191 passed / 2.9m)。自己申告 391/391・191/191・lint pass は機械 pass に完全に裏付けられている。overall_machine_status=pass。独立再実行で裏取り: make lint を別セッションで再実行し EXIT:0。make test を 2 回独立再実行、1 回目は 1 failed(tests/acceptance/terminal.spec.ts L355 = 既知の並列 flaky・本 Sprint 変更範囲外)、2 回目は 391/391 全 pass。実装者の『flaky に 2 回遭遇し 3 回目で全 pass』の申告は decisions.json verification_notes V1(terminal.spec)/V2(wikilink.mock)で経緯が記録され、当方の再実行で terminal.spec の flaky を実際に再現したことと整合する。ログ世代は単一(最終 pass のみ記録)だが、これは run-verify.py が最終 pass 世代で上書きする設計と一致し、虚偽の兆候はない。"
+    },
+    {
+      "id": "F2",
+      "category": "forbidden_scan",
+      "severity": "info",
+      "status": "pass",
+      "ac": null,
+      "detail": "diff 全体 (2c71b5f..HEAD) の禁止カテゴリ走査。既存テスト (table-edit / slash-table / search-page 等) は 1 件も変更されていない — git diff --name-only の test 変更は全て新規追加ファイルのみ (search-slim.e2e/mock, table-ux.e2e/mock, tests/acceptance/samples.spec.ts の 5 本)。よってアサーション弱体化・test.skip/only 挿入は構造的に不可能。追加行に対し test.skip/.only/xit/xdescribe/: any/as any/@ts-ignore/@ts-nocheck/eslint-disable/空 catch/TODO/FIXME を grep → 実コードのヒットなし (唯一のヒットは日本語コメント行で誤検出)。table.ts の空 catch は setSelectionRange の一部ブラウザ失敗を意図的に無視する箇所でコメント付き・挙動保証に無関係。compromises.json は [] で『既存テストは 1 件も変更していない』と申告、diff と一致。"
+    },
+    {
+      "id": "F3",
+      "category": "clean_text",
+      "severity": "info",
+      "status": "pass",
+      "ac": null,
+      "detail": "変更ソース (renderers/table.ts, live-preview.ts, SearchPage.tsx, RightSidebar.tsx, App.tsx, styles.css, 新規テスト 5 本) と samples/ 配下全 .md を NUL バイト走査 (grep -P '\\x00') → 混入なし。samples の PNG は正規の PNG マジックバイト (89 50 4e 47 ...) を acceptance テストが assert 済み。"
+    },
+    {
+      "id": "F4",
+      "category": "acceptance_criteria",
+      "severity": "info",
+      "status": "pass",
+      "ac": "Sa629e2-1-AC1",
+      "detail": "行/列追加コントロールがテーブル寸法内・ホバー表示。styles.css で .md-table-wrap.editable を CSS grid (grid-template-columns: max-content 14px / rows: 18px max-content 14px, width: max-content) 化し、add-col を grid-area 2/2 (テーブル高さ)、add-row を 3/1 (テーブル幅)、edit-source を 1/1〜1/3 (テーブル上) に配置。全コントロールは opacity:0、.editable:hover で 0.6〜0.7 に(ホバー時のみ表示の控えめ形)。table-ux.e2e [AC-Sa629e2-1-1] は実 Vite/実サーバー/実 vault で boundingBox を実測: addRow.width ≤ table.width+4 かつ < editor.width*0.8、addCol.height ≤ table.height+4、addCol.x < table 右端+24 を assert し、追加後にクリックで tbody 行数が 2 になることも確認。ユーザー可観測な寸法を実測しており妥当。"
+    },
+    {
+      "id": "F5",
+      "category": "acceptance_criteria",
+      "severity": "info",
+      "status": "pass",
+      "ac": "Sa629e2-1-AC2",
+      "detail": "セル 1 クリック編集。table.ts makeCell はハンドラを span ではなく td/th 全体の mousedown に付与し (パディング/空セルのクリックも編集化)、preventDefault+stopPropagation で CM のキャレット横取りを防いで beginEdit→input.focus() を同期実行。blur 再入 DOMException を避けるため finish/cancel で先に editing フラグを畳んでから removeChild する設計。table-ux.e2e [AC-Sa629e2-1-2] は td のパディング領域 (x=width-3) を 1 クリックし、input が visible かつ toBeFocused かつ value='りんご' を追加操作なしで assert、置換入力→保存→実ファイルに '| もも | 12 |' を確認。1 クリック→即入力を実測している。"
+    },
+    {
+      "id": "F6",
+      "category": "acceptance_criteria",
+      "severity": "info",
+      "status": "pass",
+      "ac": "Sa629e2-1-AC3",
+      "detail": "Tab/Shift+Tab/Enter のセル移動。table.ts の keydown ハンドラは e.stopPropagation() 済み・widget 内 input でのみ処理するため CM のインデント Tab を奪わない。moveTo は『コミットしてから移動』を実装 (setCell→変化があれば requestFocus 予約→finish→commitFinal、blur 再入で二重コミットは lastCommitted 比較で no-op)。最終セル Tab は addRow→requestFocus(新行,0)→structuralCommit。requestFocus は live-preview.ts で doc 位置を控え microtask+最大5フレーム再試行で再構築後の widget DOM に CustomEvent 配送。table-ux.e2e [AC-Sa629e2-1-3] は Tab で右・行末で次行先頭・Shift+Tab で左・Enter で下・最終セル Tab で行数 3 化+新行先頭 focus を全て input.value で assert し、保存後の実ファイルに '| A1改 | b1 |' '| a2 | B2改 |' '| a3 |  |' '| --- | --- |' を確認。ユーザー入口から到達・実観測している。"
+    },
+    {
+      "id": "F7",
+      "category": "acceptance_criteria",
+      "severity": "info",
+      "status": "pass",
+      "ac": "Sa629e2-1-AC4",
+      "detail": "『ソースを編集』ボタン実在・動作。table.ts で data-testid=table-edit-source ボタンを生成し、click で flushActive→editSource(serializeTableModel)。live-preview.ts の editSource は内容書き戻し+テーブル先頭行への selection 移動を 1 トランザクションで dispatch し view.focus()、activeLine がテーブルに触れることで widget が外れソース表示に切替。table-ux.e2e [AC-Sa629e2-1-4] は btn クリック後 table-widget count 0、editor に '| 名前 | 数 |' 表示、cm-activeLine がそのソース行、続けて End→' 個数 |' 入力→保存で実ファイルに '| 名前 | 数 | 個数 |' 反映かつ ^blockid / id:: が無いことを確認。"
+    },
+    {
+      "id": "F8",
+      "category": "acceptance_criteria",
+      "severity": "info",
+      "status": "pass",
+      "ac": "Sa629e2-2-AC1",
+      "detail": "samples/ の網羅性。samples/index.md + 機能ガイド/12 本 + データ/4 本 + assets/PNG が実在。dataview の使い方.md は LIST FROM #タグ / LIST FROM \"フォルダ\" SORT / WHERE (=, contains) / TABLE 列指定+SORT DESC/ASC / TASK FROM + WHERE !completed を各々『下の例は…が出ます』という書き方→結果の対応付き実例で解説し、対応構文まとめ表も含む(単なる列挙でなく実例+説明)。samples.spec [AC-Sa629e2-2-1] は連結テキストに ```dataview/LIST FROM #/TABLE .*FROM #/TASK FROM #/FROM \"samples\\//WHERE/SORT/『下の例は』、および | --- |(テーブル)![[(embed)> [!note](callout)==(highlight)$$(数式)```mermaid/```ts/- [ ](タスク)[[(wikilink)スラッシュメニュー/アップロード を assert、16 本の想定ファイル存在も個別 assert。AC 列挙機能を実ファイル内容で網羅確認している。"
+    },
+    {
+      "id": "F9",
+      "category": "acceptance_criteria",
+      "severity": "info",
+      "status": "pass",
+      "ac": "Sa629e2-2-AC2",
+      "detail": "make samples の no-clobber と dataview 実動作。Makefile samples ターゲットは DEST=LOAMIUM_VAULT|dev-vault へ cp -R --update=none (フォールバック cp -R -n) で既存を上書きしない。samples.spec [AC-Sa629e2-2-2] はユーザー入口である make samples を subprocess (spawn, LOAMIUM_VAULT=一時 vault) で実行 (exit 0)、no-clobber は sentinel を書いた index.md が再実行後も不変であることで実証、投入 vault で実サーバーを起動し全 ```dataview フェンスを正規表現抽出 (≥6 本) して POST /api/query→200+queryResponseSchema.parse+results.length>0 を全件、かつ LIST/TABLE/TASK 各タイプ ≥1 を assert。サンプル自身が実データとして機能する点をユーザー観測相当で検証している。"
+    },
+    {
+      "id": "F10",
+      "category": "acceptance_criteria",
+      "severity": "info",
+      "status": "pass",
+      "ac": "Sa629e2-3-AC1",
+      "detail": "条件の 1 行インライン化と Cmd+K 説明削除。SearchPage.tsx は旧 .search-form(grid 2 列)+.search-mode-note(『Cmd+K は…ジャンプ用…』)を削除し .search-bar(flex, flex-wrap, gap) 化、search-field-fulltext/tag/folder/sort と search-submit を同一バーに配置。search-slim.e2e [AC-Sa629e2-3-1] は search-page に 'Cmd+K' も 'ジャンプ用' も含まれないことを assert、5 要素の boundingBox 中心 y が先頭要素の行内に収まる(インライン)こと・form.height<60(1 行)を実測、Enter で /search?q=... URL 同期+実サーバー結果 2 件を確認。"
+    },
+    {
+      "id": "F11",
+      "category": "acceptance_criteria",
+      "severity": "info",
+      "status": "pass",
+      "ac": "Sa629e2-3-AC2",
+      "detail": "結果行の密度改善。search-result-item に data-path、タイトル/パス/スニペット/更新日時を詰めた行に再設計。search-slim.e2e [AC-Sa629e2-3-2] は N1 行にタイトル・パス・キーワード(スニペット)・'更新' が含まれること、box.height<60 を実測、密でもクリックで search-preview-pane が開き一覧 2 件が残ることを確認。従来機能維持も担保。"
+    },
+    {
+      "id": "F12",
+      "category": "acceptance_criteria",
+      "severity": "info",
+      "status": "pass",
+      "ac": "Sa629e2-3-AC3",
+      "detail": "/search で右サイドバー非表示・セッション維持。App.tsx は RightSidebar に hidden={route.kind==='search'} を渡し、RightSidebar.tsx は unmount せず style={display:'none'}(collapsed/通常両分岐に付与)。xterm セッションは維持される。search-slim.e2e [AC-Sa629e2-3-3] は実シェル(LOAMIUM_TERMINAL)で echo slim-e2e-42 を出力後、アプリ内遷移で /search へ→right-sidebar が toBeHidden かつ toBeAttached(DOM 残存=セッション維持)、ノートへ戻ると toBeVisible、以前の出力 slim-e2e-42 が残存し echo still-alive-25 で継続対話できることを実測。『表示層のみ・セッション破棄せず』をユーザー観測で厳密に検証している。"
+    },
+    {
+      "id": "F13",
+      "category": "compromise_completeness",
+      "severity": "info",
+      "status": "pass",
+      "ac": null,
+      "detail": "自己申告 (compromises.json=[], decisions.json, verification-results.json) と diff を突き合わせ。申告漏れ (overlooked_by_autopilot) は摘出されず。既知 flaky 2 件 (terminal.spec / wikilink.mock、いずれも本 Sprint 変更範囲外) は decisions.json V1/V2 に単独 pass 確認 + テスト無変更で明記され、当方が terminal.spec の flaky を独立再実行で再現、diff で両テストが未変更であることを確認済み。全 AC がユーザー入口から実コード経路で到達・実観測アサートされ、隠れた妥協は検出されない。"
+    }
+  ],
+  "summary": {
+    "ac_failures": 0,
+    "forbidden_warnings": 0,
+    "adr_conflicts": 0,
+    "overlooked_count": 0,
+    "note": "機械検証は ground truth ログと完全一致 (test 391/391, ui-tests 191/191, lint 0)、かつ独立再実行で lint EXIT:0・make test 391/391 (1 回目のみ既知 flaky terminal.spec が 1 件 fail→2 回目全 pass) を再現し実装者の flaky 申告の正直さを裏取り。Story 3 本 9 AC すべてユーザー可観測な入口 (実ブラウザ→実 Vite→実サーバー→実 vault、または make samples subprocess→/api/query) から実コード経路で到達し、寸法/フォーカス/ファイル内容/URL/xterm 出力残存を実観測アサートしている。既存テストは 1 件も変更されておらず (test 変更は新規 5 本のみ)、アサーション弱体化・skip・any 化・NUL 混入・ADR 逸脱は無し。ピュア Markdown 原則 (block id/独自記法/不可視文字なし) も E2E が実ファイルで担保。申告漏れなし。overall=pass。"
+  }
+}

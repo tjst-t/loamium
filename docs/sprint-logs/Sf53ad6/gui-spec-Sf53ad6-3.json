@@ -1,0 +1,33 @@
+{
+  "$file": "gui-spec-Sf53ad6-3.json",
+  "sprint": "Sf53ad6",
+  "story": "Sf53ad6-3",
+  "story_type": "gui",
+  "visual_reference": "prototype/file-preview.html + prototype/TESTIDS.md (file-embed / file-embed-open-full / file-embed-download)",
+  "state_diagram": "stateDiagram-v2\n    [*] --> Source: カーソル行の ![[file]] はソース表示\n    Source --> Pdf: .pdf → file-embed[data-kind=pdf] (iframe 内蔵ビューア)\n    Source --> Text: .txt/.log/.json/.csv/コード → file-embed[data-kind=text]\n    Text --> TextFull: 全体を開く → data-expanded\n    Source --> Card: 未対応拡張子 → file-embed[data-kind=card] (名前・サイズ・DL)\n    Source --> Transclusion: .md → embed-card (S9e5ca4 と同一)\n    Text --> TextError: 取得失敗 → ブロック内エラー (data-error)\n    Card --> CardMissing: 一覧に不在 → ファイルが見つかりません (data-error)",
+  "scenarios": {
+    "entry_point": "![[assets/file.pdf]] 等を含むノートを開き、カーソルを行の外へ置く",
+    "happy_path": "PDF はビューアブロック、テキストは読み取り専用ブロック (コードは Shiki)、.md は transclusion、その他はファイルカード",
+    "data_states": {
+      "truncated": "30 行超は先頭 30 行 + 「全体を開く(残り N 行)」",
+      "error": "テキスト取得失敗はブロック内エラー。添付一覧に無いカードは「見つかりません」"
+    },
+    "edge_cases": [
+      "basename 参照 (![[image.png]]) は添付一覧で実パス解決 (Obsidian 互換)",
+      "2MB 超のテキストは取得せず「新しいタブで開く」誘導",
+      "pdf.js は同梱しない (ブラウザ内蔵ビューア)",
+      "ダウンロードリンクはクリックしてもソース編集へ戻らない (stopPropagation)"
+    ],
+    "success_feedback": "file-embed[data-kind] と中身 (iframe / 行 / カード) の描画",
+    "failure_feedback": "data-error 付きのブロック内表示。エディタは操作可能なまま"
+  },
+  "endpoint_contracts": [
+    { "path": "/api/files/{path}", "method": "GET", "registered": true, "note": "S9e5ca4 で実装済 (配信)" },
+    { "path": "/api/files", "method": "GET", "registered": true, "note": "サイズ・存在判定に使用" }
+  ],
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/file-preview.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/file-preview.mock.spec.ts"
+  },
+  "linked_ac": ["AC-Sf53ad6-3-1", "AC-Sf53ad6-3-2", "AC-Sf53ad6-3-3"]
+}

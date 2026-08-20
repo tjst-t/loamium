@@ -1,0 +1,17 @@
+{
+  "sprint": "S11493d",
+  "verifier_model": "independent (sonnet)",
+  "overall": "pass",
+  "ac_failures": [],
+  "untraced_acs": [],
+  "forbidden_findings": [
+    {"category": "toBeTruthy (defensible pre-check)", "evidence": "info-panel.e2e.spec.ts outline data-line presence before Number(); note-meta.spec.ts stderr non-empty before JSON.parse — both followed by stronger assertions"},
+    {"category": "try/catch swallow (documented)", "evidence": "InfoPanel.tsx clipboard writeText failure ignored (test env) — intentional, commented"}
+  ],
+  "constraint_issues": [],
+  "compromise_gaps": [
+    "AC-S11493d-4-1 'テーブルセルのタグ' scoped to dataview dv-tag chips; GFM Markdown table #tag text intentionally NOT wired (pure-Markdown priority). Documented in decisions.json but is a scope narrowing vs literal AC wording."
+  ],
+  "regression_fix_present": true,
+  "summary": "全 12 AC が実コード経路 + タグ付きテストで裏付けられ、独立 verifier は pass。meta API は全7フィールドを NFC 正規化 + zod で返す。Properties は tags キー除外、未解決リンクは非クリック、tag-click は単一ファクトリで各所へ注入。⋯メニューCSS欠落によるターミナル縮小回帰は commit 12bc457 で修正済み。"
+}

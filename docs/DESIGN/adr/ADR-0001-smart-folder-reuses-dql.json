@@ -1,0 +1,40 @@
+{
+  "id": "ADR-0001",
+  "title": "スマートフォルダのクエリは既存 DQL エンジンを再利用・拡張する",
+  "status": "accepted",
+  "date": "2026-07-07",
+  "context": "スマートビューは「最近更新 N 件」「特定タグ」「journal 直近 N 件」「未完了 TODO を含むノート」といった動的なファイル集合を集める必要がある。Loamium には既に DQL(Dataview 風クエリ言語)エンジン(packages/shared/src/dql.ts: parseQuery / executeQuery、いずれも純関数)があり、POST /api/query で公開され、ノート内の ```dataview``` フェンスでも使われている。ここで独自の第二のクエリ機構を作ると、クエリ意味論が二重化し、ノート内フェンスとサイドバーで挙動が食い違うリスクが生じる。\n\n一方で DQL はテキスト DSL であり、サイドバーのポイント&クリック UI には直接は不向き。また現状の DQL は FROM / WHERE / SORT のみで、スマートフォルダに必須の LIMIT(件数制限)と『ノートが未完了タスクを持つか』のフィールドを欠く(QueryableNote は tasks を保持しているため後者は計算フィールドの追加で足りる)。",
+  "alternatives": [
+    {
+      "name": "DQL を再利用し、加算的に拡張する(採用)",
+      "tradeoff": "エンジン・契約が一本化しノートフェンスと同期。ただし LIMIT / タスク有無フィールドという共有契約への追加が必要(後方互換必須)"
+    },
+    {
+      "name": "スマートフォルダ専用の構造化クエリ JSON スキーマを新設",
+      "tradeoff": "フォーム往復編集は自然だが、DQL と別のクエリ契約を恒久保守することになり dataview フェンスと乖離する"
+    },
+    {
+      "name": "固定プリセット型のみ(recent / tag / journal / todo)で自由クエリ不可",
+      "tradeoff": "UI は最も単純だが、ユーザーが明示的に求めた『好き勝手にクエリで集める』を満たせない"
+    }
+  ],
+  "decision": "スマートフォルダのクエリは DQL 文字列として保存し、既存 dql.ts エンジン(executeQuery)で評価する。UI のプリセットは DQL を生成する糖衣に過ぎず、正本は常に DQL 文字列。DQL には加算的に LIMIT 句と『ノートの未完了タスク有無/件数』フィールドを足し、これらはノート内 ```dataview``` フェンスとも共有する。",
+  "consequences": [
+    "+ クエリ言語・エンジン・契約が一本化され、スマートフォルダと ```dataview``` フェンスが常に同じ意味論で動く",
+    "+ 実行はサーバの VaultIndex.queryNotes() + executeQuery() を使い回すだけ(純関数・テスト済み)。POST /api/query もそのまま流用できる",
+    "+ 追加する LIMIT とタスク有無フィールドはノート内 dataview の表現力も同時に底上げする",
+    "- DQL 拡張(LIMIT / タスク有無)はノートフェンスも使う共有契約に触れるため、後方互換を保ちユニットテストを必須とする(coding_conventions)",
+    "- 非エンジニア向けの作成体験には DQL の上にプリセット層(UI)を別途用意する必要がある。生 DQL 直書きは上級者向けフォールバック",
+    "拡張は Obsidian dataview 互換の精神を保つ(priority 4)。LIMIT は Obsidian と同綴り。タスク有無フィールドは互換を壊す独自構文を発明しない"
+  ],
+  "reversibility_cost": "low",
+  "affects": [
+    "packages/shared/src/dql.ts (DQL engine)",
+    "packages/server VaultIndex / routes (POST /api/query)",
+    "packages/ui renderers/dataview.ts (in-note fences)",
+    "Smart Folder feature"
+  ],
+  "supersedes": null,
+  "superseded_by": null,
+  "notes": "保存される正本(DQL 文字列 vs 構造化記述)の契約は data.json で固定する。プリセット→DQL のコンパイルは UI 内部で完結させ、再編集時は DQL 文字列から復元する(プリセットに戻せない場合は生 DQL 編集にフォールバック)。"
+}

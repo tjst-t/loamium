@@ -1,0 +1,160 @@
+{
+  "sprint": "S89a350",
+  "title": "汎用テンプレートシステム — 変数エンジン + 作成モーダル",
+  "mode": "auto --with-verifier",
+  "base_branch": "main",
+  "work_branch": "autopilot/main/S89a350",
+  "start_sha": "14727ebf7c61437ec49efdb99842e2b48ae605dd",
+  "environment_note": "本環境ではサブエージェント spawn 不可のため、実装・レビュー・独立 verifier をすべて main セッションで直列実行する。機械検証(run-verify.py)・6/8 ガード・セルフレビュー・クリーンテキスト検証は必ず実施する。独立 verifier(read-only 別セッション)は親が opus で補完実行する旨を明記して done を完了する。",
+  "planning_decisions": [
+    {
+      "id": "PL-1",
+      "topic": "ストーリー粒度",
+      "decision": "ROADMAP の 3 ストーリー(shared エンジン / server+CLI / UI)をそのまま採用。各層で 1 ユーザー可視挙動に対応し過負荷なし。",
+      "rationale": "DESIGN_PRINCIPLES priority 5 (シンプルさ)。分割・統合の必要なし。"
+    },
+    {
+      "id": "PL-2",
+      "topic": "実行ウェーブ",
+      "decision": "Story1 → Story2 → Story3 を直列実行。Story2 は Story1 のエンジンに依存、Story3 は Story2 の API に依存。",
+      "rationale": "sprint-run の依存ウェーブ。サブエージェント不可のため直列。"
+    }
+  ],
+  "implementation_decisions": [
+    {
+      "id": "IM-1",
+      "topic": "日付基準の注入 (AC-1-2 / prototype 日付フィールド連動)",
+      "decision": "resolveTemplate(text, ctx) の ctx に date(={{date:...}} の基準日) と now(={{now:...}} の基準時刻) を分離して注入可能にする。既定はいずれも new Date()。instantiate API body は { vars, date? } とし、date(YYYY-MM-DD) 指定時は {{date:...}} の基準日を上書きする。",
+      "rationale": "AC-1-2『基準日時は呼び出し側から注入可能(journal は対象日基準)』。prototype/modal.html の日付フィールドが {{date:...}} プレビューを駆動する挙動を、エンジンを汎用に保ったまま実現。S67ea41 の journal 遅延生成は date に対象日を渡すだけで再利用できる。"
+    },
+    {
+      "id": "IM-2",
+      "topic": "journalPath 互換 (AC-1-2)",
+      "decision": "date トークンはすべてサーバーローカル時刻の暦成分(getFullYear/getMonth+1/getDate/getHours/getMinutes/getSeconds)を 0 詰めで使う。formatDate('YYYY-MM-DD', d) が todayJournalDate(d) と一致することをユニットテストで固定。",
+      "rationale": "既存 journal.ts と同じローカルタイムゾーン規約(VISION 個人用・自宅サーバー)。AC-1-2 の『journalPath 同一文字列再現』。"
+    },
+    {
+      "id": "IM-3",
+      "topic": "パスサニタイズ + normalizeVaultPath (AC-1-3)",
+      "decision": "sanitizePathValue() で制御文字・パス区切り(/ \\)を除去、.. を . に潰し、先頭末尾のドット/空白を除去。target 解決時のみ pathMode:true で各変数値をサニタイズしてから展開し、最終 target は必ず normalizeVaultPath を通す。本文展開はサニタイズしない(値を verbatim にノート本文へ)。任意 eval は一切なし(トークン置換のみ)。",
+      "rationale": "CLAUDE.md『vault 内パスは必ず normalizeVaultPath 経由』/ DESIGN_PRINCIPLES priority 2 (データ安全性)/ priority 1 (本文はピュア Markdown)。"
+    },
+    {
+      "id": "IM-4",
+      "topic": "未定義変数と必須検証の責務分担 (AC-1-1 / AC-2-2)",
+      "decision": "エンジンの missing[] = テンプレート内で参照されているが vars マップに『キー自体が無い』変数名(重複排除・出現順)。空文字は『指定済み』扱いで空展開。必須(required)・空値の弾きは server がテンプレ定義の vars で実施(missingRequired)。未解決変数トークンは出力に verbatim 残すが、instantiate は missing/missingRequired があれば作成前に 4xx で中断するため結果ノートにトークンは残らない。",
+      "rationale": "AC-1-1『不足変数名の一覧を返す』はエンジンの責務。required は定義由来なので server 層。priority 1(結果はピュア Markdown・記法非残存)を作成前チェックで保証。"
+    },
+    {
+      "id": "IM-5",
+      "topic": "テンプレート定義の格納形式",
+      "decision": "テンプレートは vault 内可視 templates/ 配下の *.md。設定はフロントマターの単一キー loamium-template(target: 保存先パターン, vars: 変数定義配列)に格納。loamium-template 以外のフロントマターキー + 本文が『結果ノートのテンプレート本体』となり、instantiate 時に loamium-template ブロックを行範囲で verbatim 除去してから変数解決する。フロントマター無しファイルも target=null/vars=[] の純粋雛形として扱う。壊れた loamium-template(zod 不一致)は純粋雛形にフォールバック(クラッシュ/除外しない)。",
+      "rationale": "AC-2-1。行範囲除去で作者の他フロントマターを verbatim 保持しピュア Markdown を守る(priority 1)。zod フォールバックで堅牢性(AC-2-1『壊れた定義はスキップ/フォールバック』)。"
+    },
+    {
+      "id": "IM-6",
+      "topic": "変数値は文字列のみ / tags の扱い",
+      "decision": "変数値はすべて文字列(tags/参加者 は区切りを含む単一文字列として展開)。フロントマターへの YAML リスト展開は本スプリント範囲外(将来拡張)。結果は常に有効なピュア Markdown を保つ。",
+      "rationale": "priority 5(シンプルさ)。AC は本文/target の文字列解決のみ要求。リスト展開は over-engineering。backlog 候補に記録。"
+    },
+    {
+      "id": "IM-7",
+      "topic": "パス衝突の連番 (AC-2-2)",
+      "decision": "解決 target が既存なら .md 直前に _2, _3, ... を付与して最初の空きパスを採用。返す created は常に true。",
+      "rationale": "AC-2-2『パス衝突時は連番(_2 等)』。"
+    },
+    {
+      "id": "IM-8",
+      "topic": "REST/CLI 1:1 と権限分類",
+      "decision": "GET /api/templates(read)・POST /api/templates/{name}/instantiate(mutate: 既定分類で read-only/append-only は 403)。CLI は loamium new --template <name> --var k=v ... [--date YYYY-MM-DD] を instantiate と 1:1。zod は shared 共有。instantiate は監査ログ(template.instantiate)に記録。",
+      "rationale": "CLAUDE.md/priority 3(API/CLI 1:1・zod・型共有)、書き込みは監査ログ(CLAUDE.md)。"
+    },
+    {
+      "id": "IM-9",
+      "topic": "UI ウィジェット流用の解釈 (AC-3-1)",
+      "decision": "既存 property-types のウィジェットは CodeMirror 上の命令的 DOM 実装のため React モーダルへ直接 import できない。prototype/modal.html の tpl-* マークアップ(property-types と同一の見た目: text=input, select=色ドットピル, date=input[type=date], tags=チップ入力)を React で再現し、色決定など shared ロジック(SELECT_COLORS/selectColorFor 相当)は共有する。",
+      "rationale": "AC-3-1『既存 property-types(text/select/date/tags)を流用』の実務的解釈。prototype がビジュアルの正。priority 5。"
+    },
+    {
+      "id": "IM-10",
+      "topic": "確定後の遷移 (AC-3-3)",
+      "decision": "モーダル確定 → instantiate API → 返却された解決先パス(衝突時連番済み)を openNotePath で開き、ノート一覧を更新。",
+      "rationale": "AC-3-3。既存 App の openNotePath/refreshNotes を再利用。"
+    }
+  ],
+  "review_decisions": [
+    {
+      "id": "RV-1",
+      "topic": "セルフレビュー (サブエージェント不可のため main セッションで実施)",
+      "findings": "変数エンジン(境界・サニタイズ)、route(連番・normalizeVaultPath 二重防御・壊れ定義フォールバック)、CLI(--var 検証・1:1)、UI(キーボード完結・aria-disabled・ライブプレビュー)を確認。: any / as any / @ts-ignore ゼロ、空 catch ゼロ、Guard 6 先送りコメントゼロ。lint(tsc)全 workspace pass。"
+    },
+    {
+      "id": "RV-2",
+      "topic": "既存テストへの影響 (sidebar-new-note のメニュー化)",
+      "decision": "prototype/picker.html 準拠でサイドバー『新規ノート』ボタンを 2 択メニュー(空/テンプレート)化した結果、既存 editor.mock(2)/editor.e2e(1) の操作パスが 1 クリック分深くなった。3 件に new-note-menu-blank クリックを追加(アサーションは不変)。アサーション弱体化・削除ではなく操作パス更新。wikilink.mock の 1 件 fail は既知 flaky で無関係(単独再実行 8/8 pass、最終 full run-verify で ui-tests exit=0)。",
+      "rationale": "GUI のビジュアルの正は prototype。Rule 5 (テストは実 UI の入口を駆動) に沿った正当な更新。テスト無効化・弱体化なし。"
+    }
+  ],
+  "compromises": [
+    {
+      "type": "test_interaction_path_updated",
+      "severity": "low",
+      "rationale": "sidebar-new-note のメニュー化(prototype 準拠)に伴い既存 editor.mock/editor.e2e 3 件へ new-note-menu-blank クリックを追加。アサーション不変・機能後退なし。",
+      "diff_summary": "editor.mock.spec.ts (+2 clicks), editor.e2e.spec.ts (+1 click)",
+      "recommended_action": "milestone デモで新規ノートメニューの UX をユーザー確認"
+    }
+  ],
+  "known_flaky_encountered": [
+    {
+      "test": "packages/ui/tests/e2e/wikilink.mock.spec.ts",
+      "outcome": "full test-ui 初回で 1 件 transient fail → 単独再実行で 8/8 pass。sidebar-new-note 変更と無関係。最終 full run-verify で ui-tests exit=0 pass。テスト変更なし(指示準拠)。"
+    }
+  ],
+  "done_judgment": {
+    "S89a350-1": {
+      "guard1_user_review_required_not_done": "pass (user_review_required=false)",
+      "guard2_nil_injection_mock": "n/a (TS)",
+      "guard3_mock_mode_not_real_smoke": "n/a (no priority_rule 9 dev VM)",
+      "guard4_priority_rule_9_exception_valid": "n/a",
+      "guard5_call_path_grep": "n/a",
+      "guard6_deferred_comment_clean": "pass",
+      "guard7_adr_conformance": "n/a (no docs/DESIGN)",
+      "guard8_destructive_multi_version_test": "n/a (no Go data path)",
+      "guard8_rationale": "本プロジェクトは TS 個人用ノートアプリで internal/server 等の Go data path を持たない。",
+      "overall": "ok -> done"
+    },
+    "S89a350-2": {
+      "guard1_user_review_required_not_done": "pass (user_review_required=false)",
+      "guard2_nil_injection_mock": "n/a (TS)",
+      "guard3_mock_mode_not_real_smoke": "n/a",
+      "guard4_priority_rule_9_exception_valid": "n/a",
+      "guard5_call_path_grep": "n/a",
+      "guard6_deferred_comment_clean": "pass",
+      "guard7_adr_conformance": "n/a",
+      "guard8_destructive_multi_version_test": "n/a",
+      "guard8_rationale": "Go data path 無し。",
+      "overall": "ok -> done"
+    },
+    "S89a350-3": {
+      "guard1_user_review_required_not_done": "fail -> needs_user_review (user_review_required=true: GUI のキーボード操作 UX はユーザーレビュー要)",
+      "guard2_nil_injection_mock": "n/a (TS)",
+      "guard3_mock_mode_not_real_smoke": "n/a",
+      "guard4_priority_rule_9_exception_valid": "n/a",
+      "guard5_call_path_grep": "n/a",
+      "guard6_deferred_comment_clean": "pass",
+      "guard7_adr_conformance": "n/a",
+      "guard8_destructive_multi_version_test": "n/a",
+      "guard8_rationale": "Go data path 無し。",
+      "overall": "needs_user_review (Guard 1: AC は全て pass 済みだが user_review_required により done は milestone デモでの明示承認待ち)"
+    }
+  },
+  "verifier": {
+    "independent_verifier": "本環境ではサブエージェント spawn 不可のため独立 read-only verifier を起動できない。機械検証(run-verify.py: test/lint/ui-tests 全 pass)・6/8 ガード・セルフレビュー(RV-1/2)・クリーンテキスト検証(NUL/制御文字 0)を main セッションで実施済み。親が opus の read-only verifier を補完実行する。"
+  },
+  "backlog_candidates": [
+    {
+      "title": "テンプレート変数の YAML リスト展開",
+      "desc": "tags/複数値変数を結果ノートのフロントマターへ YAML リストとして展開する(現状は単一文字列)。"
+    }
+  ]
+}

@@ -1,0 +1,243 @@
+{
+  "$comment": "status は docs/sprint-logs/S9e5ca4/verify-run.json (hooks/run-verify.py の機械判定) からの転記。evidence のみ本セッションが記述 (test-discipline Rule 9)。",
+  "sprint": "S9e5ca4",
+  "run_at": "2026-07-04T02:20:00Z",
+  "server_command": "ハーネス自動起動 (packages/ui/tests/harness/global-setup.ts: 実サーバー + 実 Vite / tests/acceptance/helpers/server.ts: 実サーバー subprocess)",
+  "summary": {
+    "total": 308,
+    "pass": 308,
+    "fail": 0,
+    "skip": 0
+  },
+  "machine_verdict": {
+    "source": "docs/sprint-logs/S9e5ca4/verify-run.json",
+    "overall_machine_status": "pass",
+    "runs": [
+      { "name": "test", "exit_code": 0, "junit": { "tests": 223, "failed": 0, "skipped": 0 } },
+      { "name": "lint", "exit_code": 0 },
+      { "name": "ui-tests", "exit_code": 0, "junit": { "tests": 84, "failed": 0, "skipped": 0 } }
+    ]
+  },
+  "tests": [
+    {
+      "name": "[AC-S9e5ca4-1-1] ![[note]] が読み取り専用カードとして描画され、ヘッダクリックで元ノートに移動する",
+      "file": "packages/ui/tests/e2e/embed.e2e.spec.ts",
+      "story": "S9e5ca4-1",
+      "acceptance_criteria": ["AC-S9e5ca4-1-1"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests.cases: 'embed.e2e.spec.ts.[AC-S9e5ca4-1-1] ...' status=pass。実ブラウザ→実 Vite→実サーバー。カード描画 (embed-card data-target)・本文内容・本文クリックでソース復帰・ヘッダクリックでパンくず遷移まで検証"
+    },
+    {
+      "name": "[AC-S9e5ca4-1-2] ![[note#見出し]] でその見出しセクションのみが埋め込まれる",
+      "file": "packages/ui/tests/e2e/embed.e2e.spec.ts",
+      "story": "S9e5ca4-1",
+      "acceptance_criteria": ["AC-S9e5ca4-1-2"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests.cases: '[AC-S9e5ca4-1-2]' status=pass。data-section 属性 + section-chip + 該当セクションのみ表示 (他セクション非表示) を検証"
+    },
+    {
+      "name": "[AC-S9e5ca4-1-3] 循環埋め込み (A→B→A) と深さ超過は深さ制限で安全にエラーカードになる (UI はフリーズ・クラッシュしない)",
+      "file": "packages/ui/tests/e2e/embed.e2e.spec.ts",
+      "story": "S9e5ca4-1",
+      "acceptance_criteria": ["AC-S9e5ca4-1-3"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests.cases: '[AC-S9e5ca4-1-3]' status=pass。循環チェーン表示 (循環A → 循環B → 循環A) の embed-error、エラー後の編集→自動保存 (dirty→saved) で非フリーズを確認、深さ 6 チェーンで最大深さ 5 打ち切り + d2〜d5 は正常カード"
+    },
+    {
+      "name": "[AC-S9e5ca4-2-1] GET /api/files/{path} — 読み取り専用配信 (実 HTTP 8 件 + CLI subprocess 4 件)",
+      "file": "tests/acceptance/files.spec.ts",
+      "story": "S9e5ca4-2",
+      "acceptance_criteria": ["AC-S9e5ca4-2-1"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json test.junit cases 12 件 (files.spec.ts) 全て pass: PNG バイト一致 + image/png + nosniff / .md 配信 / percent-encoded traversal 400 invalid_path / .loamium・.git 404 (メッセージにパス情報を含まない) / 不存在・ディレクトリ 404 / PUT・POST・DELETE 404 でファイル不変 / read-only モードで 200 / CLI file の stdout バイト列・not_found exit 1・invalid_path exit 1"
+    },
+    {
+      "name": "[AC-S9e5ca4-2-2] ![[image.png]] と ![](path) がエディタ内で画像として表示される (/api/files 経由)",
+      "file": "packages/ui/tests/e2e/embed.e2e.spec.ts",
+      "story": "S9e5ca4-2",
+      "acceptance_criteria": ["AC-S9e5ca4-2-2"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests.cases: '[AC-S9e5ca4-2-2]' status=pass。両記法で embed-image が 2 件、img.src=/api/files/assets/pixel.png、naturalWidth=1 (実サーバーから実デコード)"
+    },
+    {
+      "name": "[AC-S9e5ca4-3-1] 5 タイプの callout が色付きボックスで描画され、未知タイプは note にフォールバック、[!note]- は閉状態で開閉できる",
+      "file": "packages/ui/tests/e2e/callout.e2e.spec.ts",
+      "story": "S9e5ca4-3",
+      "acceptance_criteria": ["AC-S9e5ca4-3-1"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests.cases: '[AC-S9e5ca4-3-1]' status=pass。note/info/tip/warning/danger の data-type と computed background 差・既定/カスタムタイトル・[!hoge]→note フォールバック・data-folded=true 初期表示と callout-fold クリック開閉 (aria-expanded)・カーソルでソース復帰"
+    },
+    {
+      "name": "[AC-S9e5ca4-4-1] ==text== がカーソル行以外でハイライトされ、カーソル行はソース表示、コードフェンス・インラインコード内は装飾されない",
+      "file": "packages/ui/tests/e2e/highlight.e2e.spec.ts",
+      "story": "S9e5ca4-4",
+      "acceptance_criteria": ["AC-S9e5ca4-4-1"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests.cases: '[AC-S9e5ca4-4-1]' status=pass。highlight testid 1 件のみ (フェンス・インラインコードは対象外)・computed background・カーソル行でソース == 表示・離れると再装飾"
+    },
+    {
+      "name": "mock テスト群 (embed 5 / callout 4 / highlight 3): 壊れ embed・取得 500・見出し不在・画像 404・未対応拡張子・callout エッジ・highlight エッジ",
+      "file": "packages/ui/tests/e2e/{embed,callout,highlight}.mock.spec.ts",
+      "story": "S9e5ca4-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests.junit 84/84 pass (mock 12 件を含む)。エラー・エッジは mock 層、AC 本検証は e2e 層 (二層テスト)"
+    },
+    {
+      "name": "ユニット: extractSection 7 / normalizeVaultFilePath 4 / embed 純ロジック 12 (循環・深さ・ターゲット解釈・拡張子レジストリ)",
+      "file": "packages/shared/src/{sections,path}.test.ts, packages/ui/tests/unit/embed.spec.ts",
+      "story": "S9e5ca4-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json test.junit 223/223 pass に含まれる (Markdown パース・リンク解決・パス正規化のユニットテスト必須 — CLAUDE.md)"
+    },
+    {
+      "name": "既存リグレッション: unit+acceptance 223 件 / Playwright 84 件 / lint",
+      "file": "make test / make test-ui / make lint",
+      "story": "S9e5ca4-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json overall_machine_status=pass。__VERIFY_EXIT_CODE__:test:0 / :lint:0 / :ui-tests:0。skip 0"
+    }
+  ],
+  "diff_coverage": {
+    "$comment": "Rule 6 — 本 Sprint diff のユーザー可観測な追加面と検証の対応",
+    "surfaces": [
+      {
+        "type": "api",
+        "identifier": "GET /api/files/{path}",
+        "introduced_in_files": ["packages/server/src/routes/files.ts", "packages/server/src/app.ts"],
+        "resolution": "covered",
+        "test": "[AC-S9e5ca4-2-1] tests/acceptance/files.spec.ts (実 HTTP 8 件)"
+      },
+      {
+        "type": "cli",
+        "identifier": "loamium file <path>",
+        "introduced_in_files": ["packages/cli/src/main.ts", "packages/cli/src/client.ts"],
+        "resolution": "covered",
+        "test": "[AC-S9e5ca4-2-1] tests/acceptance/files.spec.ts CLI ブロック (実 bin subprocess 4 件)"
+      },
+      {
+        "type": "gui",
+        "identifier": "embed-card / embed-card-open / embed-error (transclusion カード)",
+        "introduced_in_files": ["packages/ui/src/renderers/embed.ts", "packages/ui/src/live-preview.ts"],
+        "resolution": "covered",
+        "test": "[AC-S9e5ca4-1-1/1-2/1-3] embed.e2e.spec.ts + embed.mock.spec.ts"
+      },
+      {
+        "type": "gui",
+        "identifier": "embed-image (![[img]] と ![](path) の画像表示、data-error 状態)",
+        "introduced_in_files": ["packages/ui/src/renderers/embed.ts", "packages/ui/src/live-preview.ts"],
+        "resolution": "covered",
+        "test": "[AC-S9e5ca4-2-2] embed.e2e.spec.ts + embed.mock.spec.ts (404 → data-error)"
+      },
+      {
+        "type": "gui",
+        "identifier": "callout / callout-fold (5 タイプ + フォールバック + 折りたたみ)",
+        "introduced_in_files": ["packages/ui/src/renderers/callout.ts"],
+        "resolution": "covered",
+        "test": "[AC-S9e5ca4-3-1] callout.e2e.spec.ts + callout.mock.spec.ts"
+      },
+      {
+        "type": "gui",
+        "identifier": "highlight (==text==)",
+        "introduced_in_files": ["packages/ui/src/renderers/highlight.ts"],
+        "resolution": "covered",
+        "test": "[AC-S9e5ca4-4-1] highlight.e2e.spec.ts + highlight.mock.spec.ts"
+      },
+      {
+        "type": "gui",
+        "identifier": "ContextMenu のビューポート内クランプ (位置補正のみ、新規操作面なし)",
+        "introduced_in_files": ["packages/ui/src/components/ContextMenu.tsx"],
+        "resolution": "covered",
+        "test": "rename.e2e.spec.ts [AC-S6fbf45-3-2] が実ブラウザでメニュー経由のリネームを実行 (修正前はツリー下部項目で fail していた — 本修正で pass)"
+      },
+      {
+        "type": "library",
+        "identifier": "@loamium/shared: normalizeVaultFilePath / HiddenVaultPathError / extractSection",
+        "introduced_in_files": ["packages/shared/src/path.ts", "packages/shared/src/sections.ts"],
+        "resolution": "covered",
+        "test": "path.test.ts (4) + sections.test.ts (7) + 消費側の実 HTTP/E2E (files.spec.ts, embed.e2e.spec.ts)"
+      },
+      {
+        "type": "library",
+        "identifier": "packages/ui registries (workspace 内部): RenderEnv / embedChain / matchWhile / identity / registerEmbedFileRenderer",
+        "introduced_in_files": ["packages/ui/src/registries.ts", "packages/ui/src/renderers/embed.ts"],
+        "resolution": "covered",
+        "test": "packages/ui/tests/unit/embed.spec.ts (レジストリ lookup 経路) + callout/embed e2e (エンジン経由の実挙動)"
+      }
+    ]
+  },
+  "done_judgment": [
+    {
+      "story_id": "S9e5ca4-1",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      },
+      "notes": "guard1: user_review_required=false。guard2: nil-guard 0 件。guard3: e2e はネットワークモック 0 件 (grep clean)、実サーバー+実 vault。guard5: embed→api.getNote→実 GET /api/notes/{path} の結合を e2e が実 round-trip で証明。guard6: 先送りコメント 0 件。guard7: docs/DESIGN/ 不在。guard8: data path 非該当。"
+    },
+    {
+      "story_id": "S9e5ca4-2",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      },
+      "notes": "guard3: files.spec.ts は実サーバー subprocess + 実 fetch + 実 CLI bin (MOCK/fake/DRY_RUN 0 件)。guard5: route→readVaultFile→実 FS、CLI→apiFetchBytes→実 HTTP、UI img→/api/files を e2e が naturalWidth で証明。"
+    },
+    {
+      "story_id": "S9e5ca4-3",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      },
+      "notes": "callout は API 呼び出しなし (表示層のみ)。guard5 はレジストリ登録→エンジン描画の経路を e2e が実ブラウザで証明。"
+    },
+    {
+      "story_id": "S9e5ca4-4",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      },
+      "notes": "highlight は inline レジストリのみ。フェンス・インラインコード除外はエンジン規約 + e2e で検証。"
+    }
+  ]
+}

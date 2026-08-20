@@ -1,0 +1,5 @@
+{
+  "sprint": "Sa629e2",
+  "compromises": [],
+  "notes": "禁止カテゴリの diff スキャン (test skip / assertion 弱体化 / エラー握りつぶし / any 化 / AC 変更) は全て clean。既存テストは 1 件も変更していない (挙動変更が既存契約と衝突しなかったため)。既知 flaky 2 件 (terminal.spec / wikilink.mock — いずれも本 Sprint の変更範囲外) は単独 pass 確認 + 機械検証フル再実行で解消し、decisions.json verification_notes に記録。"
+}

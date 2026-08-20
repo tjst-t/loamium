@@ -1,0 +1,104 @@
+Sprint Log: Sd22b1f-2 — スマートコマンド実行エンジン (POST run) + 権限/監査 + CLI
+Date: 2026-07-11
+
+== Test Results ==
+
+packages/shared/src/ (unit):
+  17 test files | 313 tests | all passed
+
+tests/acceptance/command-run.spec.ts:
+  16 tests | all passed
+
+tests/acceptance/commands.spec.ts (Story-1 regression):
+  12 tests | all passed
+
+Typecheck (shared + server + cli): CLEAN
+
+== Files Changed ==
+
+packages/shared/src/journal-section.ts       [NEW] insertUnderHeading helper
+packages/shared/src/journal-section.test.ts  [NEW] 8 unit tests
+packages/shared/src/schemas.ts               [EDITED] added commandRunRequestSchema, commandStepResultSchema, commandRunResponseSchema
+packages/shared/src/index.ts                 [EDITED] export insertUnderHeading
+
+packages/server/src/routes/commands.ts       [EDITED] added POST /api/commands/:name/run handler
+packages/server/src/permissions.ts           [EDITED] classifyOp: /api/commands/{name}/run → 'append'
+
+packages/cli/src/main.ts                     [EDITED] added 'command run' subcommand
+
+tests/acceptance/command-run.spec.ts         [NEW] 16 acceptance tests
+
+== HTTP Status Convention ==
+
+missing_params (required param not given): 400 { error: 'missing_params', message: '...', missing: string[] }
+command not found: 404 { error: 'not_found', message: '...' }
+invalid command definition: 400 { error: 'invalid_command', message: '...' }
+invalid path in step: step marked ok:false + error, overall 200 (stop with completed steps)
+step runtime failure: overall 200, step result ok:false
+read-only mode: 403 { error: 'forbidden', message: '...' } (via permissionMiddleware)
+append-only mode + v1 command: 200 (classifyOp returns 'append' → middleware passes through)
+
+== AC Coverage ==
+
+[AC-Sd22b1f-2-1] multi-step happy path (note-create + journal-append + journal section) — PASS
+[AC-Sd22b1f-2-2] fail-stop, missing_params 400, path traversal → step ok:false — PASS
+[AC-Sd22b1f-2-3] read-only 403, append-only allowed, audit log records command.run — PASS
+[AC-Sd22b1f-2-4] note-create suffix collision avoidance, CLI command run --param — PASS
+
+== Notes ==
+
+- permissions.ts: /api/commands/{name}/run classified as 'append' so permissionMiddleware
+  allows it in append-only mode. read-only mode is blocked by the middleware (kind !== read).
+  The handler also has an explicit read-only guard for defense-in-depth but the middleware
+  fires first.
+- missing_params response includes { error, message, missing[] } — `message` field added
+  so CLI errorResponseSchema can parse it and propagate the correct error code.
+- insertUnderHeading: inserts at end of section (before next same-or-higher-level heading).
+  Trailing newlines preserved. NFC normalization for heading text match.
+
+== Review Fix Run (2026-07-11) ==
+
+Findings fixed: F-1, F-2, F-3, D-1 (all applied).
+
+=== F-1 (CRITICAL — AC-2-2 violation) ===
+VaultPathError on expanded step target now returns 400 immediately (not 200+ok:false) for
+all three step kinds: note-append, note-create, template-instantiate.
+Test: traversal-test (target: "../evil") strictly asserts status === 400 + error: 'invalid_target_path'.
+Added second test case for hidden segment (".hidden/secret.md") — also 400.
+
+=== F-2 (AC-2-3 gap) ===
+After each successful write in the step loop, writeAuditEntry is called directly:
+  journal-append  → op 'journal-append.write'
+  note-append     → op 'note-append.write'
+  note-create     → op 'note-create.write'
+  template-instantiate → op 'template-instantiate.write'
+Test: runs create-todo (note-create + journal-append), then checks audit log for both
+  note-create.write (path = todos/audit-step-test.md) and journal-append.write entries.
+
+=== F-3 (minor) ===
+audit.ts deriveOp: added rule for POST /api/commands/{name}/run → 'command.run'.
+Test: read-only denial test now also asserts denied[*].op === 'command.run'.
+
+=== D-1 (reuse) ===
+Created packages/server/src/vault-paths.ts exporting firstFreePath.
+Both routes/templates.ts and routes/commands.ts now import from there.
+Duplicate local definitions removed. templates regression: 12 tests all passed.
+
+=== Final HTTP Status Table ===
+missing_params:       400 { error: 'missing_params', missing[] }
+command-not-found:    404 { error: 'not_found' }
+invalid-def:          400 { error: 'invalid_command' }
+path-traversal:       400 { error: 'invalid_target_path' }  ← FIXED (was 200+ok:false)
+runtime step failure: 200 + results[*].ok = false
+read-only:            403 { error: 'forbidden' }
+append-only:          200 (v1 steps pass through)
+
+=== Test Results (review fix run) ===
+npx vitest run packages/shared/src/
+  17 files | 313 tests | all passed
+
+npx vitest run tests/acceptance/command-run.spec.ts tests/acceptance/commands.spec.ts tests/acceptance/templates.spec.ts
+  3 files | 42 tests | all passed (18 + 12 + 12)
+  traversal test strictly asserts 400 — no weakened assertions remain.
+
+npx tsc --noEmit -p packages/shared && -p packages/server && -p packages/cli: CLEAN

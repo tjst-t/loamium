@@ -1,0 +1,38 @@
+{
+  "id": "ADR-0009",
+  "title": "プロダクト化の方向性 — エージェントネイティブを軸に self-host 先行、収益化は Obsidian 型(無料ローカルコア + Sync/Publish)。マルチテナント WebApp SaaS は採らない",
+  "status": "tentative",
+  "tentative": true,
+  "date": "2026-07-11",
+  "context": "個人用に作ってきた Loamium を他者に提供する価値と形態を検討した。一般ノートアプリ市場は Obsidian / Logseq / Notion / Tana / Reflect / Capacities 等で飽和しており、『もう一つの Web ノート』では差別化が弱い。Loamium 固有の刺さる差別化は『エージェントネイティブ』= REST API / CLI / Skill により Claude Code 等のエージェントがノートをデータ層から直接読み書きできること(多くの競合は AI チャットを横付けするだけで、データ層でエージェント操作可能なものは少ない)。提供形態は (A) WebApp = ホスト型マルチテナントエディタ SaaS か、(B) Web Vault = ローカルファーストを維持しクラウド Sync/Publish をアドオンで売る Obsidian 型か。ADR-0008 で『アプリ本体は Node/fs バックエンド(Tauri/コンテナ)、Cloudflare Workers 非対象』は確定済み。参考にした 2 社の 2026 年時点のモデル: Obsidian = 無料ローカルコア(機能ゲートなし・追跡なし・データはユーザーの手元)+ 有料 Sync(~$4-5/mo, E2E 暗号)+ Publish(~$8-10/mo)+ 商用ライセンス($50/user/yr, 任意)。ブートストラップで黒字・VC なし・『データは預からない』を信頼軸にする。Logseq = OSS 無料コア(機能ゲートなし)+ Sync Backer $5/mo(E2E)+ Sponsor $15/mo、$4.1M seed(Patrick Collison / Nat Friedman / Tobias Lütke 等)。両者に共通する型は『機能は決してゲートせず、課金は便利さ(Sync)・公開(Publish)・開発支援(sponsor / 商用ライセンス)に対して』であり、いずれもホスト型マルチテナントエディタではなく、ローカルファースト + クラウド Sync アドオンである。",
+  "alternatives": [
+    {
+      "name": "self-host 先行 + Web Vault(Sync/Publish)、収益化は Obsidian 型 (tentative 採用)",
+      "tradeoff": "local-Markdown identity と『データを預からない』信頼を保ったまま、実証済みの持続可能モデルに乗れる。まず self-host のワンクリック体験で需要を検証し、引きがあれば E2E Sync を後付け。Sync 実装(E2E 暗号・衝突解決・複数端末)と VISION 改定が前提。"
+    },
+    {
+      "name": "マルチテナント WebApp SaaS(ホスト型エディタ)",
+      "tradeoff": "Notion と正面衝突し最弱の位置。ユーザーのデータを自社サーバに預ける=local-first identity を自ら破壊。ターミナル/エージェント機能を共有基盤で動かすのはセキュリティ上ほぼ不可(重サンドボックス必須)。最大コスト。不採用。"
+    },
+    {
+      "name": "他者提供せず個人用に留める",
+      "tradeoff": "最小リスク・最小コストだが機会損失。保留の基準点。"
+    }
+  ],
+  "decision": "(tentative) (1) 対外的な差別化の軸を『エージェントネイティブな個人ナレッジベース(開発者 / Claude ユーザー向け)』に置く。一般消費者向けの汎用ノートとしては戦わない。(2) いきなり SaaS を作らず、まず self-host のワンクリックデプロイ体験(Railway / Fly / docker compose / Tauri インストーラ、ADR-0008)を磨いて他者需要を検証する。データ所有と local-Markdown identity は完全に維持する。(3) 需要が確認できたら収益化は Obsidian / Logseq 型に倣う = 無料ローカルコア(機能ゲート一切なし)+ 有料 E2E Sync(単一ユーザーの複数端末同期)+ 任意 Publish(選択ノートの read-only 公開)+ 任意支援(商用ライセンス / sponsor)。(4) データを預かるマルチテナント WebApp SaaS は採らない。",
+  "consequences": [
+    "+ local-Markdown identity と『データを預からない』を保てる(Obsidian と同じ信頼軸で、これが Loamium の魂)",
+    "+ 収益源が『便利さ(Sync/Publish)』であり、コア機能を人質にしないため支持されやすく健全",
+    "+ self-host 先行なら初期のインフラ・課金・サポート負担が小さく、需要を検証してから投資判断できる",
+    "+ エージェントネイティブは競合が薄く、Claude ユーザーというチャネルと親和的でタイムリー",
+    "- Sync を提供するなら E2E 暗号・同期衝突解決・複数端末対応の同期基盤が新規に必要(中規模開発)+ ADR-0008 の逃げ道(VaultStore 抽象)の再オープン",
+    "- Publish / Sync は現行 VISION のスコープ外(マルチユーザー・コラボレーション、モバイル本格編集を明示的に除外)。進めるなら VISION 改定が前提",
+    "- self-host 主体だと収益は薄い(Obsidian も Sync/Publish は convenience 課金で爆発的ではないが持続可能。Loamium は個人起点なので Obsidian 型=小さく持続が現実的、Logseq 型の VC 路線は取りにくい)",
+    "- ターミナル/エージェント機能を他者に提供する場合のセキュリティ設計(サンドボックス・権限境界)は別途重い課題として残る"
+  ],
+  "reversibility_cost": "low",
+  "affects": ["*"],
+  "supersedes": null,
+  "superseded_by": null,
+  "notes": "これは戦略的な賭けであり tentative。次のマイルストーンで再評価する。実装に進む判断が出た場合の順序: (a) VISION の out_of_scope(マルチユーザー / モバイル編集 / コラボレーション)を改定、(b) VaultStore 抽象の ADR を起こし ADR-0008 を supersede、(c) Sync の E2E プロトコルを data.json で設計。参考モデル: Obsidian(bootstrapped・黒字・データ預からない)= Loamium と最も親和的。Logseq(VC 調達・OSS)= 同じ Sync 課金型だが資金路線が異なる。共通教訓 = 機能を絶対にゲートしない / E2E Sync が主課金 / ホスト型エディタにはしない。"
+}

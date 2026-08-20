@@ -1,0 +1,50 @@
+{
+  "story": "Sa629e2-3",
+  "title": "検索ページのスリム化",
+  "story_type": "gui",
+  "entry_point": "/search ルート (Cmd+K パレットの『詳細検索を開く』・URL 直打ち・検索フォーム送信)。既存 S935867-1 の導線を維持。",
+  "state_diagram": "stateDiagram-v2\n    [*] --> Idle: /search (条件なし)\n    Idle --> Searching: インラインバーで条件入力 + Enter/検索\n    Searching --> Results: ヒットあり (密なリスト行)\n    Searching --> Empty: 0 件 (search-empty)\n    Searching --> Error: API 失敗 (search-error)\n    Results --> Preview: 結果行クリック (一覧は保持)\n    Idle --> Searching: 履歴チップ (search-history-item) クリック\n    note right of Idle: /search では right-sidebar は非表示 (display none, xterm セッション維持)\n",
+  "scenarios": [
+    {
+      "name": "コンパクトな 1 行インラインバー",
+      "linked_ac": ["Sa629e2-3-AC1"],
+      "steps": [
+        {"action": "/search を開く", "expected": "キーワード・タグ・フォルダ・並び順・検索ボタンが 1 行 (同一 Y 帯) に並ぶ。『Cmd+K は 1 件開くと閉じる…』の説明メッセージは存在しない"},
+        {"action": "キーワード入力欄にキーワードを入れて Enter を押す", "expected": "検索が実行され URL に ?q= が反映される"}
+      ]
+    },
+    {
+      "name": "密な結果リスト",
+      "linked_ac": ["Sa629e2-3-AC2"],
+      "steps": [
+        {"action": "全文キーワードで検索する", "expected": "各結果行にタイトル・パス・スニペット・更新日時が詰めて表示され、行の高さは 1〜2 行相当 (約 60px 以下)"}
+      ]
+    },
+    {
+      "name": "/search で右サイドバー非表示 (セッション維持)",
+      "linked_ac": ["Sa629e2-3-AC3"],
+      "steps": [
+        {"action": "ノートを開き right-sidebar の Claude タブでコマンドを実行する", "expected": "ターミナルに出力が表示される"},
+        {"action": "/search へ遷移する", "expected": "right-sidebar が視覚的に表示されない"},
+        {"action": "ノートルートへ戻る", "expected": "right-sidebar が再表示され、Claude ターミナルには遷移前の出力が残っている (セッション破棄なし)"}
+      ]
+    }
+  ],
+  "data_states": {
+    "empty": "0 件 → search-empty (既存)。条件なし → search-empty の案内 (既存)",
+    "error": "GET /api/notes / /api/search 失敗 → search-error (既存)"
+  },
+  "endpoint_contracts": [
+    {"path": "/api/search", "method": "GET", "registered": true, "request_fields": {"q": "string (query param)"}, "response_fields": {"query": "string", "results": "{path,title,snippet,score,line?}[]"}},
+    {"path": "/api/notes", "method": "GET", "registered": true, "request_fields": null, "response_fields": {"notes": "NoteMeta[] (path,title,folder,tags,mtime,...)"}}
+  ],
+  "testids": {
+    "existing": ["search-page", "search-form", "search-field-fulltext", "search-field-tag", "search-field-folder", "search-field-sort", "search-submit", "search-results", "search-result-item", "search-history", "search-history-item", "search-empty", "search-error", "search-preview-pane", "search-preview-open-editor", "search-preview-close", "right-sidebar", "right-tab-claude", "claude-panel", "terminal"],
+    "added": [],
+    "removed_ui_text": ["Cmd+K は 1 件開くと閉じる…説明ボックス", "結果 — クリックで開いてもこの一覧は残ります"]
+  },
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/search-slim.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/search-slim.mock.spec.ts"
+  }
+}

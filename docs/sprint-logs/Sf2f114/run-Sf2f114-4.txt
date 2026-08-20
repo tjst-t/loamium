@@ -1,0 +1,72 @@
+Story Sf2f114-4: prop-set / note-patch ステップ (ADR-0009/0010)
+=================================================================
+Date: 2026-07-12
+
+## 実装概要
+
+### 1. スキーマ拡張 (packages/shared/src/loamium-command.ts)
+- `propSetStepSchema` を追加: kind:'prop-set', target, set?, unset?, when/when-not
+- `notePatchStepSchema` を追加: kind:'note-patch', target, old, new, when/when-not
+- `commandStepSchema` (discriminatedUnion) に 2 種を追加: v1 4 種 + v2 2 種 = 6 種
+
+### 2. コアロジック抽出 (packages/server/src/routes/notes.ts)
+- `applyPropSet(config, {rel, set?, unset?})` を export
+  - properties ルートの round-trip-safe frontmatter upsert 実装をそのまま関数化
+  - `PropSetCoreResult`: ok:true | notFound | unprocessable の判別ユニオン
+- `applyNotePatch(config, rel, old, new)` を export
+  - patch ルートの old→new 一意置換実装をそのまま関数化
+  - `NotePatchCoreResult`: ok:true | notFound | oldNotFound | ambiguous の判別ユニオン
+- ルートハンドラは両関数を呼ぶ形にリファクタリング — 既存ルート動作は変更なし
+
+### 3. コマンド実行エンジン更新 (packages/server/src/routes/commands.ts)
+- `applyPropSet` / `applyNotePatch` を import
+- append-only モードチェック追加: cmd.steps に prop-set/note-patch が含まれれば 403
+  (これらは既存コンテンツを変更する MUTATE 操作 — pure-append ではない)
+- `prop-set` ハンドラ:
+  - target, string 値を resolveTemplate 展開
+  - set/unset 両方なし → no-op (ok:true)
+  - applyPropSet 呼び出し → 結果に応じて ok:false/break またはログ記録
+  - 監査: op='prop-set.write'
+- `note-patch` ハンドラ:
+  - target, old, new を resolveTemplate 展開
+  - applyNotePatch 呼び出し → oldNotFound/ambiguous → ok:false; 成功 → ログ記録
+  - 監査: op='note-patch.write'
+
+## 設計判断
+
+### append-only でのコマンド全体 403
+prop-set/note-patch を含むコマンドはコマンド実行前に 403 で拒否する。
+(安全側の選択: ステップレベル ok:false ではなく HTTP 403 でコマンド全体を止める)
+
+### set のキー名はテンプレート展開しない
+YAML frontmatter の制約上、`"{{key}}": value` のようなキー名のテンプレート展開は
+実装しない。キーは静的に定義すること (値の展開は対応)。
+
+## テスト結果
+
+### shared package
+365 tests passed
+
+### acceptance tests (全体)
+399 tests passed, 33 test files — 0 failed / 0 skipped
+
+新規テスト (command-run.spec.ts に追加):
+[AC-Sf2f114-4-1] prop-set sets a frontmatter key via round-trip-safe path
+[AC-Sf2f114-4-1] prop-set unsets a frontmatter key
+[AC-Sf2f114-4-1] prop-set with neither set nor unset → ok:true (no-op)
+[AC-Sf2f114-4-1] prop-set on non-existent note → ok:false
+[AC-Sf2f114-4-2] note-patch replaces old text with new text
+[AC-Sf2f114-4-2] note-patch with non-matching old → ok:false (not 4xx)
+[AC-Sf2f114-4-2] note-patch with ambiguous (multiple-match) old → ok:false
+[AC-Sf2f114-4-3] unknown kind is rejected at command parse time
+[AC-Sf2f114-4-3] prop-set audit: prop-set.write is recorded in audit log
+[AC-Sf2f114-4-3] note-patch audit: note-patch.write is recorded in audit log
+[AC-Sf2f114-4-3] append-only rejects prop-set command with 403
+[AC-Sf2f114-4-3] append-only rejects note-patch command with 403
+[AC-Sf2f114-4-3] append-only still allows v1-only commands (journal-append / note-create)
+
+### lint + tsc
+make lint: 全 package PASS (tsc --noEmit)
+
+## 範囲外所見
+なし

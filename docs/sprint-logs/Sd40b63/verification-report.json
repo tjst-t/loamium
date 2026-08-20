@@ -1,0 +1,94 @@
+{
+  "sprint": "Sd40b63",
+  "verified_at": "2026-07-05T00:00:00Z",
+  "verifier_model": "claude-opus-4-8 (read-only, separate session)",
+  "overall": "pass",
+  "findings": [
+    {
+      "id": "F-1",
+      "category": "machine_verdict_reconciliation",
+      "status": "pass",
+      "ac": null,
+      "summary": "自己申告 (verification-results.json) は make test 388/388・make lint exit0・make test-ui 175/175 を主張。独立再実行で裏付けを確認: make lint exit 0、make test-ui 175/175 pass exit 0 (全 Sd40b63 E2E 8 本を含む — 161..168 相当が緑)。make test は独立 run で 387/388・exit 2 と 1 件 fail したが、その 1 件は実装者が申告した terminal.spec.ts [AC-S79c210-3-1] (WS 監査ログ flush timing race) のみ (F-8 参照)。verify-run-test.log の格納ログ自体は 388/388・__VERIFY_EXIT_CODE__:test:0 のクリーン run。緑チェックは機械 pass に裏付けられている。",
+      "evidence": "independent make test-ui -> 175 passed exit0; independent make lint -> EXIT0; independent make test -> 1 failed (terminal only) exit2; stored verify-run-test.log trailer __VERIFY_EXIT_CODE__:test:0 388/388"
+    },
+    {
+      "id": "F-2",
+      "category": "AC-Sd40b63-1-AC1",
+      "status": "pass",
+      "ac": "Sd40b63-1-AC1",
+      "summary": "描画テーブルのセル直接編集が実コードパスで成立。live-preview.ts TableWidget.toDOM が renderMarkdownTable(lines, {commit}) を渡し (l.201)、commit は posAtDOM で元行範囲を算出し view.dispatch({changes}) で標準 Markdown を書き戻す (l.183-197)。table.ts beginEdit が cell-body クリックで <input> を差し込み、blur の relatedTarget 判定でコミット、finish() が renderCellBody で再描画 (l.257-329)。E2E [AC-Sd40b63-1-1] は実サーバー+実ブラウザで りんご→ばなな 編集→再描画→Ctrl+S→実ファイルに '| ばなな | 12 |'・'| 名前 | 数 |'・'| --- | --- |' を含み 'りんご' を含まないことを readVaultFile で実検証。ユーザー観測点で裏付けあり。",
+      "evidence": "packages/ui/src/live-preview.ts:177-209; packages/ui/src/renderers/table.ts:257-329; tests/e2e/table-edit.e2e.spec.ts:49-92"
+    },
+    {
+      "id": "F-3",
+      "category": "AC-Sd40b63-1-AC2",
+      "status": "pass",
+      "ac": "Sd40b63-1-AC2",
+      "summary": "行/列の追加・削除 (指定位置削除含む) が実装・検証済み。table.ts addRow/addColumn/deleteRow(index)/deleteColumn(index) は純関数、UI ボタン (data-testid table-add-row/-add-col/-del-row[data-row]/-del-col[data-col]) から structuralCommit 経由で直列化。deleteColumn は最終 1 列を残すガードあり。E2E [AC-Sd40b63-1-2] は add-row→tr2・add-col→th3・del-row[0]→tr1・del-col[0]→th2 の後 Ctrl+S し、実ファイルの | 行が ['| B |  |','| --- | --- |','|  |  |'] と完全一致・削除済み列/行が残らないことを検証。区切り行も維持。unit table.spec.ts が add/del×直列化を独立検証。",
+      "evidence": "packages/ui/src/renderers/table.ts:148-171,352-445; tests/e2e/table-edit.e2e.spec.ts:94-135; tests/unit/table.spec.ts (行/列の追加・削除)"
+    },
+    {
+      "id": "F-4",
+      "category": "AC-Sd40b63-1-AC3",
+      "status": "pass",
+      "ac": "Sd40b63-1-AC3",
+      "summary": "WYSIWYG 編集後もピュア Markdown を維持。toEditable (\\| → |) と toSource (| → \\|) はパイプのみ変換し他のバックスラッシュ列は不変 (l.94-104) — parse/serialize がパイプ変換について互いに逆写像で、未編集セルを書き換えない。unit がラウンドトリップ不変性 (toEditable(toSource(x))===x)・'\\frac \\\\ x' 不変・改行→空白を検証。E2E [AC-Sd40b63-1-3] は 'a|b' 入力→実ファイルに '| a\\|b | 論理和 |'、かつ ^blockid 正規表現不一致・'id::' 不在・zero-width/NBSP 不在・制御文字不在を実ファイルでアサート。ブロック ID・独自記法・不可視文字の混入なし (priority 1/4 準拠)。",
+      "evidence": "packages/ui/src/renderers/table.ts:84-104,126-143; tests/e2e/table-edit.e2e.spec.ts:137-172; tests/unit/table.spec.ts (toEditable/toSource, parse/serialize)"
+    },
+    {
+      "id": "F-5",
+      "category": "AC-Sd40b63-2-AC1",
+      "status": "pass",
+      "ac": "Sd40b63-2-AC1",
+      "summary": "テーブル項目選択でグリッドピッカー (8×8=64 セル、ホバー setPickerSize / キー movePicker で N×M) が出て、選択サイズの標準 Markdown テーブルを挿入する実コードパス。slash-menu.ts applyCommand('table')→openPicker、buildPicker が data-testid slash-table-picker/-cell/-label を生成、applyTableSize→buildTableSnippet→insertSnippet でカーソルを先頭セル (offset 2) へ。E2E [AC-Sd40b63-2-1] は →/↑ で '4 列 × 2 行' 表示→Enter 確定→'X' タイプで先頭セルに入り、実ファイルが 4 列ヘッダ+区切り+2 空行の標準 Markdown と完全一致。mock が 64 セル・ホバー追従・2×4 クリック挿入・Esc 復帰を検証。",
+      "evidence": "packages/ui/src/slash-menu.ts:52-61,402-490,610-682; tests/e2e/slash-table.e2e.spec.ts:37-79; tests/e2e/slash-table.mock.spec.ts:48-90"
+    },
+    {
+      "id": "F-6",
+      "category": "AC-Sd40b63-2-AC2",
+      "status": "pass",
+      "ac": "Sd40b63-2-AC2",
+      "summary": "↑↓ 選択でアクティブ項目のスクロール追従が実装・実測されている。render() が毎描画で selectedBtn.scrollIntoView({block:'nearest'}) を呼ぶ (slash-menu.ts:591-596)。.slash-list は max-height:320px・overflow-y:auto、8 項目×約44px=約352px で実際にオーバーフローするため追従は非自明 (下端 date は追従なしなら約32px はみ出て不可視)。E2E [AC-Sd40b63-2-2] は list と item の boundingBox を expect.poll で比較し、↑ で末尾 date が list viewport 内 (ib.y+height <= lb.y+height+1)、↓ で先頭 table も可視であることを実測。トリビアルに常時可視ではなく本当のスクロール追従を検証している。",
+      "evidence": "packages/ui/src/slash-menu.ts:591-596; packages/ui/src/styles.css:2298 (.slash-list max-height:320px overflow-y:auto); tests/e2e/slash-table.e2e.spec.ts:81-115"
+    },
+    {
+      "id": "F-7",
+      "category": "test_assertion_weakened",
+      "status": "pass",
+      "ac": null,
+      "summary": "実装者が『S79c210/S763a98 の table/slash テストを進化後挙動に更新』と申告 — 精査の結果、正当な挙動更新でカバレッジ喪失・AC 逃れなし。table-render.e2e [AC-S79c210-2-1] はクリック→フル行ソース断片を『セル cell-body クリック→ table-cell-input.value==**在庫**、外すと td strong=在庫』へ強化 (むしろ検証が厚くなった)。slash-menu.e2e/[.mock] は table 挿入を『ピッカー→3×3 確定/クリック』の 2 段へ更新しつつ、挿入結果 (標準 Markdown・先頭セルカーソル・ブロック ID なし) のアサーションを維持。ROADMAP の AC description は一切変更なし (diff は status:pending→pass/done のみ)。禁止カテゴリ (skip/only/xit・any/ts-ignore・error swallow・AC 改変) の混入なし。",
+      "evidence": "git diff table-render.e2e/.mock, slash-menu.e2e/.mock; git diff ROADMAP.json (status のみ変化); diff grep: no .skip/.only/xit, no ':any'/@ts-ignore (唯一の eslint-disable は no-control-regex=制御文字検出の強化)"
+    },
+    {
+      "id": "F-8",
+      "category": "preexisting_flaky_test",
+      "status": "warn",
+      "ac": null,
+      "summary": "make test は独立フル run で terminal.spec.ts [AC-S79c210-3-1] (WS Origin 拒否の監査ログ: expect(deniedAudit).toBeDefined() が undefined) が 1 件 fail し exit 2。ただし (a) 本 Sprint の diff は terminal/audit コードを一切変更していない (git diff --stat で terminal/wikilink 0 変更を確認)、(b) 独立に terminal.spec.ts を単体で 3 回連続実行し 13/13 pass を再現 — フルスイート並行時のみ監査ログ flush が間に合わない timing race。回帰ではなく既存の flaky。実装者の compromises.json 申告どおり (overlooked=false)。ただしフルスイート make test が決定的に緑ではない点は保守 backlog として残る (別 Sprint)。Sd40b63 の AC には影響しない。",
+      "evidence": "independent make test: FAIL terminal.spec.ts:353 expected undefined to be defined; isolated npx vitest run tests/acceptance/terminal.spec.ts x3 -> 13 passed each; git diff --stat 32e4990..HEAD -- '*terminal*' '*wikilink*' -> 0 files"
+    },
+    {
+      "id": "F-9",
+      "category": "design_principles_pure_markdown",
+      "status": "pass",
+      "ac": null,
+      "summary": "ピュア Markdown 正本性 (priority 1) 準拠。WYSIWYG は表示層のみ: TableWidget は CM ドキュメントを編集中は変更せず、コミット時だけ標準 Markdown テーブル文字列を元行範囲へ dispatch。serializeTableModel はヘッダ+区切り+データの標準 GFM のみ生成し、ブロック ID・id::・独自記法・不可視文字を一切書かない。buildTableSnippet も標準 Markdown 雛形。ファイル正本は Markdown 文字列 1 本のまま (ブロック配列化なし)。E2E が実ファイルで不可視/制御文字・^blockid・id:: の不在を機械検証。ADR ディレクトリ (docs/DESIGN) は不在、触れた ADR なし。",
+      "evidence": "packages/ui/src/live-preview.ts:183-197; packages/ui/src/renderers/table.ts:126-143; packages/ui/src/slash-menu.ts:52-61; tests/e2e/table-edit.e2e.spec.ts:167-171"
+    },
+    {
+      "id": "F-10",
+      "category": "compromise_completeness",
+      "status": "pass",
+      "ac": null,
+      "summary": "compromises.json の 3 件 (independent_verifier_not_spawned / preexisting_flaky_tests / scope_deferral: 数値任意入力・セル内改行<br>) を diff と突合。数値入力欄は AC が要求せず (AC は『ホバー/キーで N×M のグリッドピッカー』のみ)、8×8 グリッド+↑↓←→ で充足 — 正当な先送りで申告済み。<br> も AC 対象外、toSource が改行を空白へ潰す挙動と一致。flaky は F-8 で独立再現・回帰でないことを確認。申告漏れ (overlooked_by_autopilot:true 相当) の未記載 compromise は検出されず。clean text: 触れた全ソース/JSON に制御文字・NUL 混入なし。",
+      "evidence": "docs/sprint-logs/Sd40b63/compromises.json; ROADMAP Sd40b63-2-AC1 text; packages/ui/src/renderers/table.ts:102-104; LC_ALL=C grep 制御文字 -> clean 全ファイル"
+    }
+  ],
+  "summary": {
+    "ac_failures": 0,
+    "forbidden_warnings": 0,
+    "adr_conflicts": 0,
+    "overlooked_count": 0
+  }
+}

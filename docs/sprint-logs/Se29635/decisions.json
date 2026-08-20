@@ -1,0 +1,263 @@
+{
+  "sprint": "Se29635",
+  "mode": "auto",
+  "base_sha": "e67e2073c6984621a68fa0dc6aa4f0527626ec88",
+  "branch": "autopilot/main/Se29635",
+  "touched_adrs": [
+    "ADR-0032",
+    "ADR-0030",
+    "ADR-0025",
+    "ADR-0016",
+    "ADR-0018"
+  ],
+  "planning_decisions": [
+    {
+      "topic": "Sprint 詳細化",
+      "decision": "Se29635 は detail_level=detailed で 5 Story 完備。elaboration 不要。rolling-wave precondition クリア。",
+      "rationale": "coarse でも stories 空でもない。"
+    },
+    {
+      "topic": "Story 型分類",
+      "decision": "Story1=library, Story2=api, Story3=api, Story4=gui, Story5=cli。",
+      "rationale": "story-scenarios.md の『ユーザーがどう起動するか』基準。Story4 は UI+API 併存のため gui (UI が API を含意)。"
+    },
+    {
+      "topic": "実行波",
+      "decision": "5 Story は engine→remote/manual→auto→conflict/UI→agent/CLI の厳密な直列依存。worktree 並列は使わず main tree で順次実装。",
+      "rationale": "全 Story が sync/ 単一モジュールを共有 (worktree-old-base-pitfall メモリ)。DESIGN_PRINCIPLES p5 シンプルさ。"
+    },
+    {
+      "topic": "同期エンジン構造",
+      "decision": "packages/server/src/sync/ に GitRunner(interface)+SystemGitRunner+GitUnavailableError / SyncEngine / SyncConfigStore / SyncScheduler / sync-conflict に分割。シェルアウト層を interface 化。",
+      "rationale": "ADR-0032『差し替え可能な単一モジュール、シェルアウト層を interface 化』/ ADR-0025 の遅延検出・明示エラー・スタブテスト パターン踏襲。"
+    },
+    {
+      "topic": "設定・トークン保管",
+      "decision": "設定は .loamium/sync.json、PAT は .loamium/sync-credentials.json を chmod 0600 か env LOAMIUM_SYNC_TOKEN。vault(git 管理下)/.git/config には絶対書かない。認証は既定で git credential 委譲、PAT は per-command の http.extraheader で渡し disk 非永続。",
+      "rationale": "ADR-0032(3) トークン vault 内保管禁止・credential 委譲・0600 フォールバック。DESIGN_PRINCIPLES p2 データ安全性。"
+    },
+    {
+      "topic": "監査",
+      "decision": "commit/pull/push/merge の実行と結果を writeAuditEntry で .loamium/audit.log に記録 (op=sync.*)。",
+      "rationale": "ADR-0032/ADR-0016: git 直接操作はサービス層を通らない例外のため監査で補完。"
+    },
+    {
+      "topic": "競合解決",
+      "decision": "git 自動解決不能な競合と dirty バッファ衝突は @loamium/shared の diff3Merge (ADR-0030) を再利用。新規マージ実装は作らない。",
+      "rationale": "ADR-0032(4)/ADR-0030 資産再利用。二重管理排除。"
+    },
+    {
+      "topic": "エージェント統合",
+      "decision": "sync_status(read)/sync_now(write) ツール + agent-help sync トピック + 機能ガイド + samples/index.md リンクを Story5 で同時実装。",
+      "rationale": "CLAUDE.md エージェント操作ツール必須規約 / 機能ガイド更新義務 / ADR-0018 権限 (write ツールは write モードのみ広告)。"
+    },
+    {
+      "topic": "テスト real-mode",
+      "decision": "Story2/3/5 の同期往復は実 system git + temp ローカル bare リポジトリを remote にして検証 (mock 禁止, test-discipline Rule7)。Story1 のみ ADR 指定どおりスタブ GitRunner で決定的検証。",
+      "rationale": "ローカル bare は実 git プロトコルで外部サービス不要。往復バイト一致・競合で編集喪失なしを含める (Rule8 の精神)。"
+    },
+    {
+      "topic": "モバイル",
+      "decision": "同期クライアントはモバイルに積まず、Story4 の状態表示 UI のみ ≤680px で崩れないことを担保 (閲覧中心)。",
+      "rationale": "ADR-0032 notes / VISION out_of_scope (モバイルは閲覧中心) / CLAUDE.md モバイル規約。"
+    }
+  ],
+  "guard_rationale": {
+    "guard8_rationale": "n/a — .claude/guards.json 未設定でありプロジェクトの guard8 data_paths 既定 (Go の internal/…, cmd/…) は当リポジトリに存在しない。ただし同期はデータ経路のため、往復バイト一致検証 (scenario-2 step4) と競合で編集喪失なし検証 (Story4) を acceptance に含め Rule8 の精神を TS で満たす。",
+    "guard7_note": "ADR-0032 に machine_check ブロックは無い。ADR conformance はモデルが確認: (a) git 同梱しない=SystemGitRunner がシステム git を spawn、(b) トークン vault 内非保存、(c) 同期操作 audit、(d) diff3 再利用。Story ごとの review で確認する。"
+  },
+  "implementation_decisions": [
+    {
+      "story": "Se29635-1",
+      "topic": "config 抽象",
+      "decision": "SyncEngine コンストラクタは `getConfig: () => SyncEngineConfig` ゲッタで設定を読む。Story 2 が .loamium/sync.json backed の store をこのゲッタ経由で注入する (コンストラクタ形は維持)。",
+      "rationale": "Story 1 を config 実装から分離。差し替え容易。"
+    },
+    {
+      "story": "Se29635-1",
+      "topic": "監査 mode 値",
+      "decision": "audit の mode は 'full' を使用 (AuditEntry.mode は 'full'|'read-only'|'append-only')。design-sync.md の 'read-write' は誤記だったため修正済み。",
+      "rationale": "既存 zod スキーマ準拠。"
+    },
+    {
+      "story": "Se29635-1",
+      "topic": "Story2 引き継ぎ (F-3)",
+      "decision": "pull/push は現状 upstream tracking 依存。Story 2 で `pull --rebase <remote> <branch>` / `push <remote> HEAD:<branch>` に config.remoteName/branch を配線する。",
+      "rationale": "review F-3。config フィールドを load-bearing として維持。"
+    },
+    {
+      "story": "Se29635-2",
+      "topic": "設定/認証保管",
+      "decision": ".loamium/sync.json に設定、PAT は .loamium/sync-credentials.json (0600) か env LOAMIUM_SYNC_TOKEN。PAT は per-command http.extraheader (Base64) で push/pull にのみ注入し disk 非永続。configureRemote が .git/config に remoteUrl(トークン抜き) を設定。",
+      "rationale": "ADR-0032(3) / データ安全性 p2。"
+    },
+    {
+      "story": "Se29635-2",
+      "topic": "秘密混入防止 (review F-1)",
+      "decision": "commit() は add -A の前に #ensureLoamiumIgnored() で .loamium/ が gitignore されていることを保証 (無ければ .gitignore に追記)。configureRemote/起動時にも先回り。PAT を含む sync-credentials.json を誤って commit/push しない。",
+      "rationale": "review 指摘の data-safety バグ (add -A が .loamium/ を stage しうる)。correctness bug のため即修正。"
+    },
+    {
+      "story": "Se29635-3",
+      "topic": "オフラインキュー = git の未push commit",
+      "decision": "別ファイルにキューを持たず未push のローカル commit 自体をキューとする。queued=offline?ahead:0。ahead は rev-list --count HEAD ^origin/main、remote ref 不在時は HEAD 全数にフォールバック。retryIfPending で復帰時に再push。",
+      "rationale": "priority6 ファイル/gitが正。durable なキューを再発明しない。"
+    },
+    {
+      "story": "Se29635-3",
+      "topic": "scheduler 配線",
+      "decision": "index.setOnChange を上書きせず内部で scheduler.onVaultChange を連鎖。scheduler.start() は無条件開始 (各tickでenabled/remote/git再確認しno-op)。同期処理は #inFlight mutex で直列化。",
+      "rationale": "Sd5c9f4 の onChange を壊さない。runtime 有効化でも定期pull/再送が働く (Finding1)。git状態の競合防止 (Finding2/3)。"
+    },
+    {
+      "story": "Se29635-4",
+      "topic": "競合解決 (diff3 再利用)",
+      "decision": "pull --rebase 競合時は各ファイルの 3 ステージを git show で読み diff3Merge で自動マージ。全解決なら add+continue、未解決が1件でもあれば rebase --abort でローカル編集を保護しハンクを UI へ返す。想定外例外も finally 相当で必ず abort。",
+      "rationale": "ADR-0030 資産再利用。priority2 データ安全性 (迷ったらファイルを守る)。"
+    },
+    {
+      "story": "Se29635-4",
+      "topic": "rebase の ours/theirs 反転 (review #1 critical)",
+      "decision": "rebase 中は :2:=onto(リモート) / :3:=再生(ローカル) で merge と逆。diff3Merge には ours=:3:(ローカル) theirs=:2:(リモート) を渡すよう修正。UI ラベル「ローカル/リモート」と一致させ、ユーザーの選択が編集喪失に繋がらないようにした。",
+      "rationale": "review 指摘のデータ喪失バグ。correctness/data-safety のため即修正。"
+    },
+    {
+      "story": "Se29635-4",
+      "topic": "git 競合ダイアログは read-only (review #4)",
+      "decision": "ConflictResolverDialog に readOnly を追加し、git 同期競合では ours/theirs を表示するのみ(書き戻さない)。abort ベースでは UI 内で解決テキストを書き戻しても再生時に元のローカルコミットが再競合し収束しないため。ユーザーはエディタで編集して再同期して解決する。merged=\"\" のまま save すると空書き込みでファイルを消す危険もあったため撤去。",
+      "rationale": "壊れた/収束しない write-back を出荷しない方が安全。AC「解決不能ハンクのみ UI で人間に渡す」は表示で満たし、編集喪失は abort で防ぐ。収束する UI 内解決 (in-rebase 保持) は backlog。"
+    },
+    {
+      "story": "Se29635-5",
+      "topic": "共有エンジン",
+      "decision": "getSyncService(config) を vaultRoot 単位でメモ化し、REST/scheduler とエージェントツールが同一 SyncEngine を共有 (offline/lastSyncAt 等ランタイム状態の一貫性)。",
+      "rationale": "エージェント sync_now と REST status のズレ防止。"
+    },
+    {
+      "story": "Se29635-5",
+      "topic": "エージェント権限境界",
+      "decision": "sync_status=read ツール (全モード)、sync_now=write ツールで full モードのみ (read-only/append-only の clamp で除外)。config/credential はエージェントツール非公開。",
+      "rationale": "ADR-0016 監査済みエンジン経由 / ADR-0018 write は書込モードのみ・機密は非公開。"
+    },
+    {
+      "story": "Se29635-6",
+      "topic": "同期設定 GUI",
+      "decision": "統一設定 UI に独立ナビグループ sync (/settings/sync) を追加し、remote/branch/autoSync/device を PUT /api/sync/config、PAT を書込専用 PUT /api/sync/credential で保存。token は config-save スキーマに無く GUI/DOM に生値を残さない。",
+      "rationale:": "user 指摘: GUI に git 設定導線が無かった。AC-2-1 の GUI 完成形。ADR-0032 秘密非露出。"
+    }
+  ],
+  "review_decisions": [
+    {
+      "story": "Se29635-1",
+      "cycle": 1,
+      "findings": 7,
+      "applied": [
+        "F-1 syncNow コメント修正",
+        "F-2 redactGitSecrets 導入 (URL userinfo / Authorization 伏字化) + テスト追加",
+        "F-5 timeout SIGTERM→SIGKILL エスカレーション",
+        "F-6 不要な as cast 除去"
+      ],
+      "deferred": [
+        "F-3 remote/branch 配線 → Story2",
+        "F-4 isAvailable cache 恒久化 → ADR-0032 上許容 (long-running server の trade-off、明記)"
+      ],
+      "cap_hit": false
+    },
+    {
+      "story": "Se29635-2",
+      "cycle": 1,
+      "findings": 5,
+      "credential_security": "pass",
+      "applied": [
+        "F-1 .loamium/ gitignore ガード (#ensureLoamiumIgnored, commit/configureRemote)",
+        "F-2 #runWithAuth の auth 注入ユニットテスト追加 (平文トークン非露出を検証)",
+        "F-3 syncNow pull/push catch を redactGitSecrets",
+        "F-4 起動時 pull 前に configureRemote"
+      ],
+      "deferred": [
+        "F-5 save() の Partial<SyncConfig> 型狭化 — 現状安全 (呼出は zod 検証済み data のみ) low"
+      ],
+      "cap_hit": false
+    },
+    {
+      "story": "Se29635-3",
+      "cycle": 1,
+      "findings": 8,
+      "applied": [
+        "F1 scheduler.start() 無条件化 (HIGH)",
+        "F4 countAheadRevs remote-ref 不在時フォールバック",
+        "F5 push-reject pull error の nullish 保険",
+        "F6 syncService TDZ 順序修正",
+        "F2 #inFlight 再入ガード",
+        "F3 pull 開始時に pending debounce キャンセル"
+      ],
+      "deferred": [
+        "F7 bad-remote エラーを retryable 扱い — テストの offline 再現に使用、本番の恒久誤設定は再送ノイズになるが軽微 (accept)",
+        "F8 sync-auto Scenario2 の固定500ms sleep — 明示 syncNow 前の debounce レース回避用、green のため据置"
+      ],
+      "cap_hit": false
+    },
+    {
+      "story": "Se29635-4",
+      "cycle": 1,
+      "findings": 8,
+      "data_safety": "FAIL→fixed",
+      "applied": [
+        "#1 rebase ours/theirs ステージ反転を修正 (critical data-loss)",
+        "#2/#3 想定外例外時に必ず rebase --abort する try/catch ガード (mid-rebase 固着・部分書込を防止)",
+        "#4 onSave gap → git 競合ダイアログを readOnly 情報表示に変更 (空書込/無限ループ/選択破棄を回避)",
+        "#6 rebase ステージ番号のコメント修正"
+      ],
+      "deferred": [
+        "#5 rebase --continue の多コミット競合ラウンドで空ハンク情報 — 稀・安全側 (abort)、backlog",
+        "#8 複数競合ファイルは先頭のみダイアログ表示 (全件は #lastConflicts に保持、編集喪失なし) — backlog",
+        "収束する UI 内 git 競合解決 (in-rebase 状態保持) — 後続 sprint backlog"
+      ],
+      "cap_hit": false
+    },
+    {
+      "story": "Se29635-5",
+      "cycle": 1,
+      "self_review": true,
+      "fixed": [
+        "sub-agent が createVaultReadTools の戻り型を ReturnType<typeof defineTool>[] に広げ details:unknown に潰し agent-tools/privacy テストの型を破壊 → 推論に戻して修正 (sub-agent は誤って pre-existing と報告、実際は Story5 回帰)。全 typecheck clean を独立検証。"
+      ],
+      "cap_hit": false
+    },
+    {
+      "story": "Se29635-6",
+      "cycle": 1,
+      "self_review": true,
+      "verified": [
+        "tsc ui/shared clean",
+        "settings mock 30/30 (isolated)",
+        "settings-sync e2e 1/1 (実バックエンド round-trip)",
+        "make test-ui-mock 650/650 (isolated)",
+        "token が config-save に載らない/DOM 非出現を確認"
+      ],
+      "note": "初回 full mock run で 641 failed → 原因は settings-sync e2e を mock gate と同時実行し tests/.harness-state.json を相互破壊した false alarm。分離再実行で 650 pass。",
+      "cap_hit": false
+    }
+  ],
+  "done_judgment": {
+    "verdict": "all stories done (overall: ok)",
+    "independent_verifier": "pass_with_warnings (must_fix_before_done: none)",
+    "machine_gate": "make lint=0, make test=0 (1871), make test-ui-mock=0 (644)",
+    "guards": "Guard1-8 全 Story ok (guard2/4/8 は当 TS リポジトリで n/a、Rule8 精神は往復byte一致/競合無喪失で充足)",
+    "note": "verify で cross-cutting 回帰 (header インジケータの GET /api/sync/status が全 mock spec の unexpected アサーションを破壊、371 failed) を machine gate が検出→mock ハーネス既定スタブで修正→644 pass。"
+  },
+  "out_of_scope_findings": [
+    {
+      "story": "Se29635-2",
+      "note": "vault に .loamium/ の gitignore が必要 (audit.log が pull --rebase を邪魔する)。#ensureLoamiumIgnored で自動追記するようにしたが、機能ガイド(Story5)にも明記する。"
+    },
+    {
+      "story": "Se29635-4",
+      "note": "収束する UI 内 git 競合解決 (rebase を中断せず保持して git add+continue) は abort ベースでは不可。後続 sprint で in-rebase 解決 or merge 戦略を検討。現状は read-only 表示 + エディタ編集→再同期で解決 (データ安全)。"
+    },
+    {
+      "story": "Se29635-4",
+      "note": "複数ファイル競合時、ダイアログは先頭ファイルのみ表示 (全件は GET /api/sync/conflicts に含まれる)。複数ファイル UI は backlog。"
+    }
+  ]
+}

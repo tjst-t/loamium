@@ -1,0 +1,38 @@
+{
+  "sprint": "S9ab6c3",
+  "compromises": [
+    {
+      "id": "C1",
+      "type": "error_swallowed",
+      "severity": "low",
+      "source": "verifier finding V11",
+      "overlooked_by_autopilot": true,
+      "status": "resolved",
+      "rationale": "InlineRuleWidget.toDOM() の catch {} がレンダラー例外を無言で握りつぶしていた (フォールバック自体は意図した挙動)。verifier 指摘を受け、err を bind して console.warn でログするよう同 Sprint 内で修正済み。",
+      "diff_summary": "packages/ui/src/live-preview.ts InlineRuleWidget.toDOM: catch {} → catch (err) + console.warn",
+      "recommended_action": "対応済み — 追加アクション不要"
+    },
+    {
+      "id": "C2",
+      "type": "known_limitation",
+      "severity": "info",
+      "source": "verifier finding V15",
+      "overlooked_by_autopilot": true,
+      "status": "documented",
+      "rationale": "Shiki のハイライト対象言語は SHIKI_LANGS の固定リスト (約 30 言語)。未登録言語のフェンスは fence-widget にならずソース表示のままフォールバックする (preview.mock.spec.ts で検証済みの意図した挙動)。新言語は registerFenceRenderer 相当のリスト追加のみで拡張できる (AC-S9ab6c3-2-3 のレジストリ機構どおり)。",
+      "diff_summary": "packages/ui/src/renderers/shiki.ts SHIKI_LANGS",
+      "recommended_action": "実用上不足する言語が出たら SHIKI_LANGS に追記 (1 行)"
+    },
+    {
+      "id": "C3",
+      "type": "known_limitation",
+      "severity": "info",
+      "source": "decisions.json R3 (self-reported)",
+      "overlooked_by_autopilot": false,
+      "status": "documented",
+      "rationale": "タブ文字で字下げされたリスト行の Shift+Tab は no-op (本プロジェクトはタブを生成しない。外部エディタ由来のタブ行のみ影響)。priority 5 (シンプルさ) により対応見送り。",
+      "diff_summary": "packages/ui/src/outline.ts changeListIndent (先頭スペースのみ計数)",
+      "recommended_action": "必要になったら leading tab を 4 スペース換算で扱う対応を backlog へ"
+    }
+  ]
+}

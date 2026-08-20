@@ -1,0 +1,15 @@
+{
+  "sprint_range": ["Sa100c6"],
+  "screens": [
+    {"file":"prototype/settings-hub.html","story":"Sa100c6-1","feedback_rounds":5,"approved":true},
+    {"file":"prototype/settings-hub.html","story":"Sa100c6-2","feedback_rounds":5,"approved":true},
+    {"file":"prototype/settings-hub.html","story":"Sa100c6-3","feedback_rounds":5,"approved":true}
+  ],
+  "design_decisions": [
+    "マスターディテール2ペイン(左=一覧+絞り込み+新規、右=広い編集ペイン)",
+    "テンプレ本文は本体と同じエディタ整形・枠なしで全高(スペース最大化)",
+    "編集可能タイトルヘッダ(=ファイル名/名前、冗長な名前欄は削除)+ 下部フッタ(保存/キャンセル/複製/削除)",
+    "スマートコマンドの param/step は各行に編集ボタン(確定済みも後から変更可)+ 削除 + 並べ替え + 試し実行",
+    "説明ヒントは非表示"
+  ]
+}

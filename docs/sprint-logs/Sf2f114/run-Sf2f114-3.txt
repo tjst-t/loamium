@@ -1,0 +1,60 @@
+## Sprint Log: Sf2f114-3 — note-append の section/create/position 一般化 (ADR-0010)
+
+### 実装サマリ
+
+#### packages/shared/src/journal-section.ts
+- `InsertPosition` 型 ('bottom' | 'top' | 'section') を追加
+- `insertAtPosition(content, opts, text)` 関数を追加 [AC-Sf2f114-3-1]
+  - bottom: appendText と同義 (ファイル末尾)
+  - section: insertUnderHeading と同義 (ATX 見出し配下)
+  - top: YAML frontmatter ブロック直後 (本文先頭) に挿入。frontmatter 保護。
+         frontmatter なし → コンテンツ先頭に挿入
+         frontmatter が閉じていない → 先頭に挿入 (誤認識防止)
+
+#### packages/shared/src/loamium-command.ts
+- `insertPositionSchema` (z.enum) + `InsertPositionField` 型を追加
+- `journalAppendStepSchema` に `position?: InsertPositionField` を追加 [AC-Sf2f114-3-2]
+- `noteAppendStepSchema` を拡張 [AC-Sf2f114-3-1]:
+  - `section?: string (min 1)` — ATX 見出し配下挿入
+  - `create?: boolean` — 対象ノート不在時に新規作成
+  - `position?: InsertPositionField` — 挿入位置制御
+
+#### packages/shared/src/index.ts
+- `insertAtPosition`, `InsertPosition`, `insertPositionSchema`, `InsertPositionField` をエクスポート
+
+#### packages/server/src/routes/commands.ts
+- `insertAtPosition` をインポート
+- journal-append executor: position 明示時は insertAtPosition を使用、省略時は後方互換
+- note-append executor: section/create/position を完全実装
+  - create:true で不在ノートを新規作成 (空文字列に追記)
+  - create 未指定 → 後方互換 (ok:false fail-stop)
+  - position 明示 → insertAtPosition
+  - position 省略、section あり → insertUnderHeading (後方互換)
+  - position 省略、section なし → appendText (後方互換)
+
+### テスト結果
+
+#### ユニットテスト (packages/shared/src/)
+- journal-section.test.ts: 26 tests (14 新規 insertAtPosition テスト)
+- 全共有ユニット: 365 passed
+
+#### 受け入れテスト
+- command-run.spec.ts: 39 passed (10 新規 [AC-Sf2f114-3-*] テスト)
+- commands.spec.ts: 12 passed
+- journal-section.spec.ts: 8 passed
+
+#### フルスイート
+- 57 test files, 827 tests, 0 failures, 0 skipped
+
+### lint
+- make lint: PASS (全パッケージ tsc --noEmit)
+- tsc --noEmit (shared/server/cli/ui + tests): PASS
+
+### 後方互換確認
+- note-append (create なし, missing target) → ok:false: ✓
+- journal-append (section あり/なし, position 省略) → 既存挙動維持: ✓
+- when/when-not (Story 2) との共存: ✓ (共通フィールドとして動作)
+
+### ADR-0010 additive 確認
+- 既存スキーマに対して additive フィールドのみ追加
+- 既存テストが全て green のまま

@@ -1,0 +1,77 @@
+{
+  "sprint": "S8a3f2e",
+  "run_at": "2026-07-16",
+  "server_command": "make lint / make test / playwright mock+e2e",
+  "machine_verdict": "pass",
+  "summary": "内蔵オフライン LLM 全 5 Story 実装・検証済み。make lint 緑、make test 1360 pass、settings-llm-backend.mock 10 pass、agent-tools e2e pin 3 pass。独立検証者 pass_with_notes: 全 20 AC met/partial、ADR-0025(明示選択・非フォールバック・llm/asr サブフォルダ・in-process shim)/ADR-0026(自己昇格防止)準拠、禁止 degradation なし。S8a3f2e-5 のオフライン acceptance が pi→shim→engine の実経路を通したことで S8a3f2e-2 の 3 欠陥(PORT=0/遅延ロード欠落=常時503/content 配列400)を発見・修正。",
+  "tests": [
+    {
+      "name": "[S8a3f2e-1] engine 往復・直列化・model-paths(llm/asr)",
+      "file": "packages/server/src/local-llm-engine.test.ts, model-paths.test.ts",
+      "story": "S8a3f2e-1",
+      "status": "pass"
+    },
+    {
+      "name": "[S8a3f2e-2] shim 変換・backend 明示選択非フォールバック",
+      "file": "packages/server/src/local-llm-shim.test.ts, agent-service-backend.test.ts, routes/llm.test.ts",
+      "story": "S8a3f2e-2",
+      "status": "pass"
+    },
+    {
+      "name": "[S8a3f2e-3] モデル REST list/download/delete 封じ込め・監査",
+      "file": "packages/server/src/model-download.test.ts, routes/llm.test.ts, routes/llm-audit.test.ts",
+      "story": "S8a3f2e-3",
+      "status": "pass"
+    },
+    {
+      "name": "[S8a3f2e-4] 設定UI backend 切替・一覧・0件・read-only",
+      "file": "packages/ui/tests/e2e/settings-llm-backend.mock.spec.ts, tests/acceptance/settings-api.spec.ts",
+      "story": "S8a3f2e-4",
+      "status": "pass"
+    },
+    {
+      "name": "[S8a3f2e-5] オフライン acceptance + 明示選択回帰4パターン",
+      "file": "tests/acceptance/offline-agent.spec.ts, agent-service-backend.test.ts",
+      "story": "S8a3f2e-5",
+      "status": "pass"
+    }
+  ],
+  "compromises": [
+    {
+      "category": "test_scope",
+      "detail": "ストリーミングは engine 面がトークンストリーム未公開のため、完了文字列を単一 delta で送出([DONE]で締める)。真のトークン単位 delta ではない。",
+      "severity": "low",
+      "story": "S8a3f2e-2"
+    },
+    {
+      "category": "principle_deviation",
+      "detail": "モデル管理を REST のみ実装し CLI 1:1(DESIGN_PRINCIPLES priority 3)を省略。priority 3 の核は journal-append/search でモデル管理はコア外のため限定的逸脱。後続で CLI 追加すれば回復可能。",
+      "severity": "low",
+      "story": "S8a3f2e-3"
+    },
+    {
+      "category": "test_scope",
+      "detail": "実 GGUF/実ネイティブ推論/実 DL は環境制約(GB級・sandbox)で未実施。決定的スタブエンジン + スタブ fetch で経路・ロジックを検証(実 URL 発信なし)。実機推論は未実証。",
+      "severity": "medium",
+      "story": "S8a3f2e-1,3,5"
+    },
+    {
+      "category": "fidelity",
+      "detail": "usage は概算トークン(空白語数)、multi-turn は System/User/Assistant ラベル連結でプロンプト縮約。ADR-0025 の「無いよりまし」位置付けと整合だが忠実度は落ちる。",
+      "severity": "low",
+      "story": "S8a3f2e-2"
+    }
+  ],
+  "overlooked_by_implementer": [
+    "S8a3f2e-2 のユニットテストが engine ロード済みスタブ + string content + in-process app.request で通しており、実サーバー/実 pi クライアント経路を通していなかったため、backend=local が実サーバー経由で常に 503 になる致命欠陥(遅延ロード欠落)・PORT=0・content 配列400 の 3 欠陥を見逃した。実経路を通す S8a3f2e-5 で初めて露見。→ skill-retrospective: 外部クライアント統合ストーリーは実サーバー経路の smoke を Story 内に含めるべき。"
+  ],
+  "preexisting_failures": {
+    "note": "UI 実サーバー e2e の create-todo 系 6 失敗は S8a3f2e 以前からの既存破損(S5a66e4 verify で base 再現確認済み・backlog bug 化済み)。本スプリントとは無関係。"
+  },
+  "done_judgment": {
+    "guard4_priority_rule9": "N/A",
+    "guard5_call_path": "pass — agent-service→localLlmBaseUrl/resolveBackend、routes/llm→ensureModelLoaded/engine.complete、SettingsView→getLlmModels/putAgentConnection すべて実在",
+    "guard6_deferred_comment": "pass",
+    "overall": "done"
+  }
+}

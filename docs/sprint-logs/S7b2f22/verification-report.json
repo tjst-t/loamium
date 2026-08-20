@@ -1,0 +1,40 @@
+{
+  "sprint": "S7b2f22",
+  "verifier": "independent read-only sub-agent",
+  "run_at": "2026-07-08T00:25:15Z",
+  "verdict": "all_pass_after_fixes",
+  "per_ac_all_pass": true,
+  "adr_conformance": {
+    "ADR-0001": "conforms (preset→DQL string, editable raw DQL)",
+    "ADR-0003": "conforms (pin|query only)"
+  },
+  "forbidden_degradations": [],
+  "test_quality": {
+    "AC-1-2": "genuine (exact 4 DQL strings asserted)",
+    "AC-1-5": "genuine (PUT body field-by-field)"
+  },
+  "verifier_findings_and_resolution": [
+    {
+      "finding": "SmartPin data-testid moved to div with no onClick → coordinate-hit fragility (regression risk to smart-view pin-click test)",
+      "severity": "medium",
+      "resolution": "FIXED — onClick moved to the smart-pin row div; action buttons stopPropagation; smart-view pin-click e2e re-verified pass"
+    },
+    {
+      "finding": "AC-1-7 read-only tests used empty item list → per-item controls never asserted absent",
+      "severity": "medium",
+      "resolution": "FIXED — added mock test with items present asserting edit/delete/moveup/movedown count 0 in read-only"
+    },
+    {
+      "finding": "raw-DQL direct-edit path untested (impl correct)",
+      "severity": "low",
+      "resolution": "backlog"
+    },
+    {
+      "finding": "movedown button untested (only moveup); impl symmetric/correct",
+      "severity": "low",
+      "resolution": "backlog"
+    }
+  ],
+  "lint": "pass",
+  "tests": "16 new + regression (174 mock, smart-view/bookmark) all pass"
+}

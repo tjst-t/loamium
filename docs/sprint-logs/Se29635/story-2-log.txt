@@ -1,0 +1,35 @@
+=== Story Se29635-2 Implementation Log ===
+Date: 2026-07-25
+
+## Summary
+Implemented remote config, auth delegation, manual sync, and startup pull.
+
+## Files Created / Modified
+- packages/server/src/sync/sync-config.ts (NEW) — SyncConfigStore: .loamium/sync.json + sync-credentials.json (0600)
+- packages/server/src/sync/sync-engine.ts (EXTENDED) — F-3: remoteName/branch in pull/push; getToken opts; #runWithAuth; configureRemote()
+- packages/server/src/sync-service.ts (NEW) — createSyncService factory
+- packages/server/src/routes/sync.ts (NEW) — 7 REST endpoints
+- packages/server/src/app.ts (MODIFIED) — added syncService optional param + syncRoutes
+- packages/server/src/index.ts (MODIFIED) — createSyncService + startup pull (non-fatal)
+- packages/server/src/sync/index.ts (MODIFIED) — barrel exports for sync-config
+- packages/shared/src/schemas.ts (MODIFIED) — sync zod schemas added
+- packages/server/src/sync/sync-engine.test.ts (MODIFIED) — updated 2 assertions for F-3 pull/push args
+- tests/acceptance/sync-remote.spec.ts (NEW) — 9 acceptance tests (real git, file:// bare)
+
+## Test Results
+- npx vitest run packages/server/src/sync/ tests/acceptance/sync-remote.spec.ts
+  → Test Files: 3 passed (3), Tests: 37 passed (37)
+  (28 unit tests from Story 1 + 9 new acceptance tests)
+
+## Typecheck
+- npx tsc --noEmit -p packages/shared/tsconfig.json → OK (0 errors)
+- npx tsc --noEmit -p packages/server/tsconfig.json → OK (0 errors)
+
+## Key Design Decisions
+- Token stored in .loamium/sync-credentials.json with chmod 0600 (double-set: writeFile mode + fs.chmod)
+- Auth applied per-command via -c http.extraheader only on push/pull (#runWithAuth)
+- configureRemote() is non-fatal in routes (PUT /api/sync/config succeeds even if git unavailable)
+- Startup pull is non-fatal (caught + logged to stderr only)
+- .gitignore with .loamium/ is required in vault for pull --rebase to work (audit.log untracked otherwise)
+- Test helper: git branch -m master main + git symbolic-ref HEAD refs/heads/main on bare repo (env may default to 'master')
+Story2: 39 tests pass (28 unit + 9 acceptance + auth tests), tsc clean. Review F-1..F-4 applied.

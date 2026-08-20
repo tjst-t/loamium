@@ -1,0 +1,92 @@
+{
+  "sprint": "S9e5ca4",
+  "mode": "auto (autopilot, --with-verifier)",
+  "base_sha": "cf250ffdabecb0ca711df6b8766cfa3118dc9028",
+  "planning_decisions": [
+    {
+      "id": "P1",
+      "decision": "Story 4 本を単線シーケンシャル実行 (S9e5ca4-2 サーバー部 → S9e5ca4-1 embed → S9e5ca4-2 UI 画像 → S9e5ca4-3 callout → S9e5ca4-4 highlight)。worktree 並列・実装サブエージェントは使わない",
+      "rationale": "過去 Sprint (S9ab6c3 / S6fbf45 / Sbd061c) と同じく本セッションにサブエージェント起動ツールが無い。変更が packages/ui/src/renderers と live-preview.ts に集中し、embed が files エンドポイント (画像) と registries 拡張を共有するため、依存順の単線実行が最短・最安全 (DESIGN_PRINCIPLES priority 5: シンプルさ)。"
+    },
+    {
+      "id": "P2",
+      "decision": "ユーザーストーリー・AC は ROADMAP のまま採用 (書き換え・分割不要)",
+      "rationale": "全 Story が「{役割}として、{やりたいこと}。なぜなら {理由}」形式を満たし、1 Story = 1 ユーザー可観測記法で粒度も適切。AC は全てユーザー可観測 (embed カード / 画像表示 / callout ボックス / highlight)。"
+    },
+    {
+      "id": "P3",
+      "decision": "GUI spec は autonomous mode で導出。S9e5ca4-1/3/4 は gui、S9e5ca4-2 は mixed (api: GET /api/files + CLI, gui: 画像表示)。ビジュアルの正は prototype/embed-preview.html + prototype/callout-highlight.html + TESTIDS.md「Sprint 7-11 追加分」の embed-card / embed-card-open / embed-error / embed-image / callout / callout-fold / highlight 契約",
+      "rationale": "エントリポイント・状態・testid はプロトタイプ 2 枚から一意に導出できる。S9e5ca4-2 はサーバーエンドポイントが AC-2-1 として独立に定義されているため mixed とし、api 部は tests/acceptance/files.spec.ts (実 HTTP)、gui 部は embed.e2e.spec.ts で検証する。"
+    },
+    {
+      "id": "P4",
+      "decision": "GET /api/files/{path} に対応する CLI コマンド `loamium file <path>` を追加する (バイト列を stdout へ)",
+      "rationale": "CLAUDE.md / DESIGN_PRINCIPLES architecture「REST API と CLI コマンドは 1:1 対応」は強い不変条件で、S6fbf45 の /api/backlinks も CLI backlinks を同時追加している。追加面は tests/acceptance/files.spec.ts の CLI ブロックで実バイナリ subprocess 検証する (test-discipline Rule 2/6)。"
+    }
+  ],
+  "implementation_decisions": [
+    {
+      "id": "I1",
+      "decision": "files API のパス検証は shared に normalizeVaultFilePath を新設 (.md 非補完)。隠しセグメントは HiddenVaultPathError (VaultPathError の部分型) に分け、ルートで 404 に写像 (存在自体を隠す)。traversal 等は 400",
+      "rationale": "CLAUDE.md「vault 内パスは必ず shared のパス正規化を経由」。AC-S9e5ca4-2-1 は『パス脱出 400 / .loamium 404』を要求しており、エラー型で区別するのが最も単純 (priority 5) かつ audit.log 等の存在を漏らさない (priority 2)。"
+    },
+    {
+      "id": "I2",
+      "decision": "Content-Type は拡張子の最小マップで推定し、未知は application/octet-stream。.html/.htm は text/plain で返し、常に X-Content-Type-Options: nosniff を付ける",
+      "rationale": "vault 内の任意 HTML を同一オリジンで実行させない (priority 2: データ安全性 — API は無認証ローカルで、将来 Cloudflare Access 公開もある)。画像表示という Story の目的には影響しない。"
+    },
+    {
+      "id": "I3",
+      "decision": "registries は additive に拡張: RenderContext に env (getNotePaths/openNote) と embedChain、BlockRule に matchWhile (継続型ブロック) と identity (外部状態依存の再描画キー)",
+      "rationale": "3 レジストリ構造 (VISION tech_constraints) を保ったまま、embed のリンク解決 (S6fbf45 の wikilinkEnvFacet を再利用)・callout の「> が続く限り」ブロック・ノート一覧到着後の壊れ→解決の再描画を実現する最小 API。既存レンダラー (KaTeX 等) は無変更で動く。"
+    },
+    {
+      "id": "I4",
+      "decision": "embed の本文は読み取り専用のミニ Markdown レンダラー (renderers/mini-md.ts) で描画。DOM は textContent ベースで組み立て innerHTML には固定 SVG リテラル以外を通さない。ネスト embed は embedChain を伝搬して再帰、循環・深さ (最大 5) は checkEmbedChain (純関数・ユニットテスト付き) で判定",
+      "rationale": "CodeMirror インスタンスをカード内に入れ子生成するより大幅に単純 (priority 5)。XSS 面は textContent 構築で塞ぐ (priority 2)。最大深さ 5 は prototype の注記どおり。"
+    },
+    {
+      "id": "I5",
+      "decision": "拡張子→プレビュー種別は embed 内のレジストリ (registerEmbedFileRenderer)。既定は画像 (png/jpg/jpeg/gif/svg/webp/avif/bmp/ico → embed-image)、未登録拡張子はエラーカード (未対応表示)。画像ターゲットは書かれたとおりの vault ルート相対パスとして解決",
+      "rationale": "後続のファイルプレビュー拡張が『レジストリ登録だけ』で種別を足せる構造 (Sprint 指示の拡張性要件)。画像はノート一覧に載らないため basename 横断解決はできず、添付は assets/ 配下慣行 (DESIGN_PRINCIPLES architecture) に従いパス直指定が最も予測可能。"
+    },
+    {
+      "id": "I6",
+      "decision": "標準 Markdown 画像 ![](path) は inline レジストリではなく live-preview の構文木走査 (lezer の Image ノード) で処理し、embed と同じ renderImageEmbed を使う。URL の無い参照形式 (![[wikilink]] が該当) は請求せず従来の壊れリンク処理に委ねる。http(s) URL はそのまま src に使う",
+      "rationale": "lezer は ![](path) の URL を既に URL ノードとして請求するため、inline レジストリでは到達できない (HeaderMark 等と同じ『標準記法はエンジン側』の整理)。![[...]] は Image (URL なし) と誤請求される regression をフルスイートで検出し、URL 有無で分岐した。"
+    },
+    {
+      "id": "I7",
+      "decision": "embed カードヘッダと callout 折りたたみは mousedown で処理し click を stopPropagation。カード本文クリックは従来どおりソース編集へ戻る",
+      "rationale": "クリックでカーソルが行に入ると装飾がソースに差し替わり click が届かない WikilinkWidget と同じ理由 + BlockRuleWidget ルートの「ソースへ戻る」click と干渉させない。"
+    },
+    {
+      "id": "I8",
+      "decision": "blockDecoField を notesUpdatedAnnotation でも再構築し、embed ブロックの identity にリンク解決状態 (unloaded/broken/解決先) を含める",
+      "rationale": "ノート一覧の到着・作成・リネームで壊れ embed が解決済みに変わる必要がある。widget の eq がソース行のみだと DOM が再生成されず古い状態が残るため。カーソル移動ごとの再フェッチは widget eq (行+identity 同一で DOM 再利用) が防ぐ。"
+    },
+    {
+      "id": "I9",
+      "decision": "ContextMenu をビューポート内にクランプする補正を追加 (useLayoutEffect で実寸補正)",
+      "rationale": "ノート数が増えるとツリー下部の項目で右クリックメニューが画面外に描画され操作不能になる実バグを、本 Sprint のフルスイート (rename.e2e) が検出した。テストを弱めるのではなく製品側を修正 (test-discipline)。"
+    },
+    {
+      "id": "I10",
+      "decision": "E2E の画像シードは一時 vault への直接書き込み (fs) で行う",
+      "rationale": "画像を置く書き込み API はまだ存在しない (アップロードは別 Sprint 予定のロードマップ項目)。AC-S9e5ca4-2-2 の検証対象は『表示』であり、シードはテストの前提条件準備。ノートのシードは従来どおり実 PUT API。"
+    }
+  ],
+  "review_decisions": [
+    {
+      "id": "R1",
+      "decision": "parseEmbedTarget に |エイリアス の除外を追加 (![[img.png|300]] / ![[note#見出し|表示名]])。画像では alias を alt に使う",
+      "rationale": "レビュー (line-by-line 走査) で検出: alias 付きターゲットが image.png|300 のまま拡張子判定に入り「未対応」エラーカードになる Obsidian 互換バグ (priority 4)。ユニットテスト追加済み。"
+    },
+    {
+      "id": "R2",
+      "decision": "files.ts の decodeURIComponent は notes.ts と同一規約 (二重デコードの懸念は既存規約と同挙動) — 変更しない",
+      "rationale": "レビュー候補として検討したが、日本語パスの実 HTTP/CLI テストが通っており、notes API と同じ経路・同じ挙動。挙動を分けるほうがリスク。"
+    }
+  ],
+  "done_judgment": []
+}

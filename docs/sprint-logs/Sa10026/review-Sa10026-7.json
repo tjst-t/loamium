@@ -1,0 +1,7 @@
+{"story_id":"Sa10026-7","reviewer":"実装エージェント自己 review + mock 検証","critical_findings":0,
+ "auto_fixable":[
+   {"id":"AF-1","desc":"capability 検出文字列が誤り(notes:write→note_edit/note_create、web:read→web)","status":"fixed"},
+   {"id":"AF-2","desc":"権限プリセット select に無効な 'append-only' → 'notes-rw' へ","status":"fixed"},
+   {"id":"AF-3","desc":"putAgentPermissions がプリセット名/capability 配列を正しく送る","status":"fixed"},
+   {"id":"AF-4","desc":"SaveStatusBadge をモジュールスコープへ(再マウント防止)","status":"fixed"}],
+ "note":"SettingsView(左ナビ 全体/エージェント/プライバシー + 導線リンク)。apiKey は $ENV 参照表示。read-only/append-only で書込無効 + mode バナー。接続テスト + モデルコンボボックス(カスタム、直接入力可)。mock 17 pass。e2e は sprint verify で実行。"}

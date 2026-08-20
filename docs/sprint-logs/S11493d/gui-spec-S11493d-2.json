@@ -1,0 +1,153 @@
+{
+  "story_id": "S11493d-2",
+  "story_title": "インフォタブ格上げ + 基本セクション (Outline/Properties/Tags/メタ情報)",
+  "state_diagram": "stateDiagram-v2\n    [*] --> NoNote : アプリ起動(ノート未選択)\n    NoNote --> Loading : ノートを開く\n    Loading --> Populated : GET /api/notes/{path}/meta 成功\n    Loading --> Error : API 失敗\n    Error --> Loading : ノート切替 / refreshToken 変化\n    Populated --> Loading : 別ノートを開く / refreshToken 変化\n    Populated --> SectionCollapsed : info-section-toggle クリック\n    SectionCollapsed --> Populated : info-section-toggle 再クリック\n    Populated --> ScrollToLine : outline-item クリック\n    ScrollToLine --> Populated : スクロール完了\n    Populated --> SearchPage : tag-chip クリック",
+  "scenarios": [
+    {
+      "name": "happy_path_outline_jump",
+      "description": "ノートを開くと meta API が呼ばれ、Outline セクションに見出しツリーが表示される。outline-item をクリックすると CodeMirror が対応行へスクロールする。",
+      "steps": [
+        "ノートを開く (tree-item クリック)",
+        "right-tab-info が aria-selected=true",
+        "info-panel が表示される",
+        "GET /api/notes/{path}/meta が呼ばれる",
+        "info-section-toggle[data-section='outline'] 配下に outline-item が描画される",
+        "outline-item[data-line='N'] をクリック",
+        "CodeMirror エディタが行 N へスクロールする"
+      ]
+    },
+    {
+      "name": "happy_path_properties",
+      "description": "frontmatter があるノートでは Properties セクションが表示され、tags キーは除外される。",
+      "steps": [
+        "frontmatter あり (type/date/status/tags キー) のノートを開く",
+        "info-section-body[data-section='properties'] に property-row が表示される",
+        "tags キーの property-row は存在しない (DOM に hidden ではなく存在しない)"
+      ]
+    },
+    {
+      "name": "happy_path_tags",
+      "description": "Tags セクションが frontmatter tags + 本文 #tag を集約して tag-chip として表示する。",
+      "steps": [
+        "frontmatter に tags: [会議, project-x] があるノートを開く",
+        "info-section-body[data-section='tags'] に tag-chip[data-tag='会議'] と tag-chip[data-tag='project-x'] が表示される"
+      ]
+    },
+    {
+      "name": "happy_path_meta",
+      "description": "メタ情報セクションに単語数・文字数・更新日時が表示される。",
+      "steps": [
+        "ノートを開く",
+        "info-section-body[data-section='meta'] に meta-wordcount / meta-charcount / meta-mtime が表示される"
+      ]
+    },
+    {
+      "name": "section_collapsible",
+      "description": "各セクションの info-section-toggle をクリックすると折りたたみ/展開できる。",
+      "steps": [
+        "info-section-toggle[data-section='outline'] をクリック",
+        "info-section-body[data-section='outline'] が非表示になる (<details> が閉じる)",
+        "再クリックで展開される"
+      ]
+    },
+    {
+      "name": "edge_empty_note",
+      "description": "見出しなし・frontmatter なし・タグなしのノートでは各セクションが empty state を表示する。",
+      "steps": [
+        "空ノート (見出しなし、frontmatter なし、タグなし) を開く",
+        "outline セクション: '見出しがありません' メッセージが表示される",
+        "properties セクション: hidden 属性が付き toBeVisible() = false",
+        "tags セクション: 'タグなし' メッセージが表示される",
+        "meta セクション: wordCount=0 相当、mtime は表示される"
+      ]
+    },
+    {
+      "name": "edge_large_headings",
+      "description": "多数の見出し (50件以上) があっても全件描画し、スクロールできる。",
+      "steps": [
+        "見出し 50 件のノートを開く",
+        "outline セクションに 50 件の outline-item が表示される",
+        "スクロールで全件閲覧できる"
+      ]
+    },
+    {
+      "name": "error_api_failure",
+      "description": "GET /api/notes/{path}/meta が失敗した場合、エラー表示が出る。",
+      "steps": [
+        "サーバーが 500 を返すようにモックする",
+        "info-panel 内にエラーメッセージが表示される (data-testid='info-panel-error' を additive 追加)"
+      ]
+    }
+  ],
+  "endpoint_contracts": [
+    {
+      "path": "/api/notes/{path}/meta",
+      "method": "GET",
+      "registered": false,
+      "request_fields": null,
+      "response_fields": {
+        "headings": "[{level: number, text: string, line: number}]",
+        "outgoingLinks": "[{target: string, resolvedPath: string|null, raw: string}]",
+        "tags": "string[]",
+        "frontmatter": "Record<string,unknown>|null",
+        "mtime": "number",
+        "wordCount": "number",
+        "charCount": "number"
+      },
+      "notes": "S11493d-1 で実装される。registered=false は S11493d-1 完了後に true になる"
+    }
+  ],
+  "testid_contract": [
+    "right-tab-info (aria-selected=true/false)",
+    "right-tab-claude (変更なし)",
+    "backlink-count (インフォタブ内。0件時 display:none)",
+    "right-sidebar-toggle (変更なし)",
+    "info-panel (スクロール可能コンテナ。旧 backlink-panel を置換)",
+    "info-section-toggle[data-section='outline']",
+    "info-section-body[data-section='outline']",
+    "outline-item[data-line][data-level]",
+    "info-section-toggle[data-section='properties']",
+    "info-section-body[data-section='properties']",
+    "property-row[data-key]",
+    "info-section-toggle[data-section='tags']",
+    "info-section-body[data-section='tags']",
+    "tag-chip[data-tag]",
+    "info-section-toggle[data-section='meta']",
+    "info-section-body[data-section='meta']",
+    "meta-wordcount",
+    "meta-charcount",
+    "meta-mtime",
+    "info-actions-btn",
+    "info-actions-menu",
+    "action-export-pdf",
+    "action-copy-link",
+    "action-copy-path"
+  ],
+  "testid_replaced": [
+    {
+      "old": "right-tab-backlinks",
+      "new": "right-tab-info",
+      "note": "既存テストの backlink-panel / backlink-count は right-sidebar 内で存続"
+    },
+    {
+      "old": "backlink-panel",
+      "new": "info-panel",
+      "note": "パネルコンテナをインフォパネル全体に拡張"
+    }
+  ],
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/info-panel.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/info-panel.mock.spec.ts"
+  },
+  "prototype_paths": [
+    "prototype/info-panel.html",
+    "prototype/info-panel-empty.html"
+  ],
+  "files_expected": [
+    "packages/ui/src/components/RightSidebar.tsx",
+    "packages/ui/src/components/InfoPanel.tsx",
+    "packages/ui/src/api.ts",
+    "packages/shared/src/schemas.ts"
+  ],
+  "planning_notes": "S11493d-2 は RightSidebar.tsx を大幅に書き換え、バックリンクタブを廃止してインフォタブへ格上げする。このファイルを S11493d-3 と同時に編集すると worktree マージ競合が起きるため、S11493d-2 を先に完了させてから S11493d-3 を実行する (別ウェーブ)。InfoPanel コンポーネントを新規作成し RightSidebar から分離することを推奨する。"
+}

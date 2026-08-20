@@ -1,0 +1,27 @@
+{
+  "sprint": "Se29635",
+  "story": "Se29635-6",
+  "state_diagram": "stateDiagram-v2\n    [*] --> Loading: /settings/sync 開く\n    Loading --> Loaded: GET /api/sync/config\n    Loaded --> Saving: 保存クリック\n    Saving --> Loaded: PUT /api/sync/config ok\n    Loaded --> TokenSaving: トークン保存\n    TokenSaving --> Loaded: PUT /api/sync/credential ok (tokenConfigured=true)",
+  "scenarios": {
+    "entry_point": "統一設定 UI のナビ「同期」→ /settings/sync",
+    "happy_path": "ユーザーがリモート URL・ブランチを入力し自動同期を ON にして保存 → PUT /api/sync/config。PAT を入力し保存 → PUT /api/sync/credential(生トークン非表示)。",
+    "data_states": {
+      "loaded": "GET /api/sync/config の値でフォーム prefill、tokenConfigured で「設定済み」表示",
+      "saving": "保存中",
+      "token_write_only": "トークン欄は書き込み専用、保存後は値を保持表示しない"
+    },
+    "edge_cases": ["リモート未入力での保存", "モバイル ≤680px"],
+    "success_feedback": "保存成功メッセージ + フォーム反映",
+    "failure_feedback": "エラーメッセージ"
+  },
+  "endpoint_contracts": [
+    { "path": "/api/sync/config", "method": "GET", "registered": true, "request_fields": null, "response_fields": { "enabled": "boolean", "remoteUrl": "string|null", "branch": "string", "remoteName": "string", "autoSync": "boolean", "debounceMs": "number", "pullIntervalMs": "number", "deviceName": "string", "tokenConfigured": "boolean" } },
+    { "path": "/api/sync/config", "method": "PUT", "registered": true, "request_fields": { "enabled": "boolean?", "remoteUrl": "string?", "branch": "string?", "autoSync": "boolean?", "deviceName": "string?" }, "response_fields": { "...redacted config": "" } },
+    { "path": "/api/sync/credential", "method": "PUT", "registered": true, "request_fields": { "token": "string" }, "response_fields": { "ok": "boolean" } }
+  ],
+  "data_testids": ["settings-sync-enabled", "settings-sync-remote-url", "settings-sync-branch", "settings-sync-auto", "settings-sync-device", "settings-sync-save", "settings-sync-token", "settings-sync-token-save", "settings-sync-token-status"],
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/settings-sync.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/settings-sync.mock.spec.ts"
+  }
+}

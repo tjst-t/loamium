@@ -1,0 +1,32 @@
+{
+  "story": "Sd63ad1-3",
+  "story_type": "api",
+  "user_role": "vault 所有者がエージェントの書き込みを監査・制限する",
+  "entry_point": "http://localhost:{PORT}/api (LOAMIUM_MODE 環境変数で権限モードを指定)",
+  "scenarios": [
+    {
+      "id": "scenario-1",
+      "linked_ac": ["AC-Sd63ad1-3-1"],
+      "description": "書き込み系 API 呼び出しがすべて .loamium/audit.log に JSONL で記録される",
+      "preconditions": ["空の一時 vault、LOAMIUM_MODE=full"],
+      "steps": [
+        { "n": 1, "action": "PUT / append / patch / DELETE / journal-append を一通り実行", "expected": "各呼び出しに対応する JSONL 行が .loamium/audit.log に増える。各行に時刻(ts)・操作(op)・パス(path) が含まれる" },
+        { "n": 2, "action": "GET /api/notes/... (読み取り)", "expected": "audit.log に行が増えない" }
+      ],
+      "cleanup": ["一時 vault 削除"]
+    },
+    {
+      "id": "scenario-2",
+      "linked_ac": ["AC-Sd63ad1-3-2"],
+      "description": "read-only では書き込み系が全て 403、append-only では追記のみ通る",
+      "preconditions": ["既存ノートを含む一時 vault"],
+      "steps": [
+        { "n": 1, "action": "LOAMIUM_MODE=read-only のサーバーで PUT / append / patch / DELETE / journal-append", "expected": "すべて 403。ファイルは変更されない" },
+        { "n": 2, "action": "同サーバーで GET /api/notes/...", "expected": "200 (読み取りは通る)" },
+        { "n": 3, "action": "LOAMIUM_MODE=append-only のサーバーで POST append / journal-append", "expected": "200。追記される" },
+        { "n": 4, "action": "同サーバーで PUT (上書き) / patch / DELETE", "expected": "403。ファイルは変更されない" }
+      ],
+      "cleanup": ["一時 vault 削除"]
+    }
+  ]
+}

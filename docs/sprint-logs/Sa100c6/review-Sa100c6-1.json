@@ -1,0 +1,1 @@
+{"story_id":"Sa100c6-1","reviewer":"実装エージェント + 実機/e2e 検証","critical_findings":0,"note":"master-detail セクション。既存コンポーネント(本体エディタ/SmartFolderForm/コマンド編集ロジック)流用。mock+e2e green。"}

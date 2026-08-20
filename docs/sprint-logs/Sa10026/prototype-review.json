@@ -1,0 +1,16 @@
+{
+  "sprint_range": ["Sa10026"],
+  "screens": [
+    { "file": "prototype/settings.html", "story": "Sa10026-7", "feedback_rounds": 2, "approved": true },
+    { "file": "prototype/system-folder-tree.html", "story": "Sa10026-4", "feedback_rounds": 1, "approved": true },
+    { "file": "prototype/new-note-modal.html", "story": "Sa10026-8", "feedback_rounds": 1, "approved": true }
+  ],
+  "design_decisions": [
+    "統一設定は左ナビ 全体/エージェント/プライバシー + テンプレ/スマートフォルダ/コマンドへの導線リンク(ハブに再実装しない)",
+    "エージェント接続は baseUrl → APIキー(右に接続テストボタン=実API1回呼び) → モデル の順",
+    "モデルは native datalist を避け、カスタム select 風ドロップダウン(GET /api/settings/agent/models 由来)+ 直接入力可",
+    "apiKey は平文非保存で $ENV_VAR 参照表示",
+    "smart-folders / commands の定義は .yaml、templates は .md(ADR-0010 amendment)。system/ ツリーは拡張子重複の yaml/md バッジを置かない",
+    "新規ノート作成を smart-newfile(Sebf6b0-3)と統一し、settings.yaml.defaultFolder を prefill(Sa10026-8)"
+  ]
+}

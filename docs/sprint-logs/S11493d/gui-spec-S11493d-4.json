@@ -1,0 +1,133 @@
+{
+  "story_id": "S11493d-4",
+  "story_title": "タグクリック → タグ検索の全表示箇所への統一",
+  "state_diagram": "stateDiagram-v2\n    [*] --> NoteOpen : ノートを開く\n    NoteOpen --> TagVisible : タグが表示される (info-panel Tags / properties chip / dataview dv-tag / table cell)\n    TagVisible --> SearchPage : tag-chip / properties-chip / dv-tag / table tag クリック\n    SearchPage --> TagFiltered : /search?tag=<tag> へ遷移 + GET /api/notes + クライアントフィルタ\n    TagFiltered --> [*] : 結果表示完了\n    NoteOpen --> InlineTag : エディタ内 #tag が body-tag として表示 (S45fa45 既実装)\n    InlineTag --> SearchPage : body-tag クリック (onOpenTag 経路 — 既実装)",
+  "scenarios": [
+    {
+      "name": "happy_path_info_panel_tag_click",
+      "description": "インフォパネルの Tags セクションの tag-chip をクリックすると /search?tag=<tag> へ遷移し、タグでフィルタされた結果が表示される。",
+      "steps": [
+        "frontmatter に tags: [会議] があるノートを開く",
+        "info-section-body[data-section='tags'] に tag-chip[data-tag='会議'] が表示される",
+        "tag-chip をクリック",
+        "URL が /search?tag=%E4%BC%9A%E8%AD%B0 へ遷移する",
+        "search-field-tag に '会議' が入力されている",
+        "search-results に会議タグを持つノートが表示される"
+      ]
+    },
+    {
+      "name": "happy_path_properties_chip_tag_click",
+      "description": "frontmatter プロパティブロック (properties-chip) の tags チップをクリックすると同じ遷移が起きる。",
+      "steps": [
+        "properties-chip[data-value='会議'] が表示されているノートを開く",
+        "chip をクリック",
+        "URL が /search?tag=会議 へ遷移する"
+      ]
+    },
+    {
+      "name": "happy_path_dataview_tag_click",
+      "description": "dataview フェンスの TABLE 結果の dv-tag チップをクリックすると遷移する。",
+      "steps": [
+        "tags フィールドを含む dataview TABLE クエリがあるノートを開く",
+        "描画された dv-tag[data-tag='会議'] をクリック",
+        "URL が /search?tag=会議 へ遷移する"
+      ]
+    },
+    {
+      "name": "happy_path_table_tag_click",
+      "description": "テーブルセル (GFM テーブルの tags 配列値) のタグチップをクリックすると遷移する。",
+      "steps": [
+        "GFM テーブルにタグを含むノートを開く",
+        "セル内の tag チップをクリック",
+        "URL が /search?tag=<tag> へ遷移する"
+      ]
+    },
+    {
+      "name": "edge_inline_tag_already_wired",
+      "description": "エディタ内インライン #tag (body-tag) は S45fa45 で既に onOpenTag 経路に接続済み。本 Sprint では変更しない。",
+      "steps": [
+        "本文に #会議 を書いたノートを開く",
+        "body-tag[data-tag='会議'] をクリック",
+        "URL が /search?tag=会議 へ遷移する (既存動作の確認のみ)"
+      ]
+    },
+    {
+      "name": "edge_tag_url_encoding",
+      "description": "日本語タグ・特殊文字タグが正しく URL エンコードされる。",
+      "steps": [
+        "#project-x タグと #日本語タグ を持つノートを開く",
+        "それぞれの tag-chip をクリック",
+        "URL に %2D / %E6 等の正しいエンコードが含まれる"
+      ]
+    },
+    {
+      "name": "edge_search_page_tag_filter_display",
+      "description": "遷移後の検索ページで search-field-tag にタグ名が反映され、URL クエリと同期している。",
+      "steps": [
+        "tag-chip[data-tag='会議'] をクリック",
+        "/search?tag=会議 へ遷移",
+        "search-field-tag の値が '会議' になっている",
+        "ブラウザの戻るボタンで元ノートへ戻れる"
+      ]
+    },
+    {
+      "name": "error_codemirror_inline_tag_constraint",
+      "description": "CodeMirror レジストリ経路の #tag が配線できない場合は decisions.json に記録し、body-tag の既存動作で代替とする。",
+      "steps": [
+        "実装制約で CodeMirror inline #tag への新規配線が困難な場合",
+        "decisions.json に理由を記録する",
+        "AC-S11493d-4-3 の免責条件 (TESTIDS.md の注記) に従い対象外とする"
+      ]
+    }
+  ],
+  "endpoint_contracts": [
+    {
+      "path": "/api/notes",
+      "method": "GET",
+      "registered": true,
+      "request_fields": null,
+      "response_fields": {
+        "notes": "[{path: string, title: string, tags: string[], folder: string, mtime: number}]"
+      },
+      "notes": "タグ絞り込みはクライアント側フィルタ (既存 SearchPage の実装に準拠)"
+    },
+    {
+      "path": "/api/search",
+      "method": "GET",
+      "registered": true,
+      "request_fields": null,
+      "response_fields": {
+        "results": "[{path: string, title: string, snippet?: string, score: number}]"
+      },
+      "notes": "クエリパラメータ ?q=<fulltext>。タグフィルタはクライアント側。SearchPage 既存実装を利用"
+    }
+  ],
+  "testid_contract": [
+    "tag-chip[data-tag] (info-panel Tags セクション — S11493d-2 が追加)",
+    "properties-chip[data-value] (S9df823 既存。tags 型の値への click 配線を追加)",
+    "search-field-tag (S935867 既存。tag-chip クリックで値が入力される)",
+    "search-results (S935867 既存。タグフィルタ後の結果一覧)",
+    "search-result-item[data-path] (S935867 既存)"
+  ],
+  "shared_handler": {
+    "extract_to": "packages/ui/src/tag-click.ts",
+    "signature": "export function makeTagClickHandler(openSearch: (p: SearchParams) => void): (tag: string) => void",
+    "usage": "App.tsx から openSearch を渡してインスタンス化し、InfoPanel / PropertiesWidget / Dataview / Table の各オプション (onTagClick) へコールバックとして注入する"
+  },
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/tag-navigation.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/tag-navigation.mock.spec.ts"
+  },
+  "prototype_paths": [
+    "prototype/info-panel.html"
+  ],
+  "files_expected": [
+    "packages/ui/src/tag-click.ts",
+    "packages/ui/src/components/InfoPanel.tsx",
+    "packages/ui/src/renderers/properties.ts",
+    "packages/ui/src/renderers/dataview.ts",
+    "packages/ui/src/renderers/table.ts",
+    "packages/ui/src/App.tsx"
+  ],
+  "planning_notes": "S11493d-4 は S11493d-2 完了後に実行する (InfoPanel.tsx の tag-chip が依存先)。properties.ts / dataview.ts / table.ts はそれぞれ独立した DOM モジュールであり、RightSidebar.tsx には触れないため S11493d-3 と並行できるが、InfoPanel.tsx (S11493d-2 成果物) への依存から S11493d-2 後に置く。共有ハンドラは純関数として tag-click.ts に抽出し、各 renderer のオプション型に onTagClick?: (tag: string) => void を additive 追加する。dv-tag (dataview) と table セルのタグチップは現状クリックハンドラが未設定のため、本 Sprint で初めて配線する。properties-chip の tags 型チップは openNoteLink が設定されている場合のみ note-link として動作しているが、タグチップには onTagClick を別途配線する。"
+}

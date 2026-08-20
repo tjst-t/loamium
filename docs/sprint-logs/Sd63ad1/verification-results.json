@@ -1,0 +1,763 @@
+{
+  "sprint": "Sd63ad1",
+  "run_at": "2026-07-03T15:42:47Z",
+  "server_command": "tsx packages/server/src/index.ts (spawned per test file with temp vault; same code path as make serve)",
+  "machine_verdict": {
+    "source": "docs/sprint-logs/Sd63ad1/verify-run.json",
+    "overall_machine_status": "pass",
+    "evidence": "run-verify: test: exit=0 status=pass / lint: exit=0 status=pass / JUnit 66 total, 66 passed, 0 failed, 0 errored, 0 skipped"
+  },
+  "summary": {
+    "total": 66,
+    "pass": 66,
+    "fail": 0,
+    "skip": 0
+  },
+  "tests": [
+    {
+      "name": "[AC-Sd63ad1-3-1] audit log records every write API call > logs PUT / append / patch / DELETE / journal-append with ts, op, path",
+      "file": "tests/acceptance/audit-permissions.spec.ts",
+      "story": "Sd63ad1-3",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-3-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-3-1] audit log records every write API call > logs journal auto-generation (GET that writes to disk)",
+      "file": "tests/acceptance/audit-permissions.spec.ts",
+      "story": "Sd63ad1-3",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-3-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-3-1] audit log records every write API call > does not log read-only calls (GET note)",
+      "file": "tests/acceptance/audit-permissions.spec.ts",
+      "story": "Sd63ad1-3",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-3-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-3-2] read-only mode rejects all writes with 403 > rejects PUT / append / patch / DELETE / journal-append with 403 and leaves files untouched",
+      "file": "tests/acceptance/audit-permissions.spec.ts",
+      "story": "Sd63ad1-3",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-3-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-3-2] read-only mode rejects all writes with 403 > still allows reads (200)",
+      "file": "tests/acceptance/audit-permissions.spec.ts",
+      "story": "Sd63ad1-3",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-3-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-3-2] read-only mode rejects all writes with 403 > GET /api/journal does not auto-create the file in read-only mode",
+      "file": "tests/acceptance/audit-permissions.spec.ts",
+      "story": "Sd63ad1-3",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-3-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-3-2] read-only mode rejects all writes with 403 > records denied write attempts in the audit log",
+      "file": "tests/acceptance/audit-permissions.spec.ts",
+      "story": "Sd63ad1-3",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-3-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-3-2] append-only mode allows only appends > allows note append and journal append",
+      "file": "tests/acceptance/audit-permissions.spec.ts",
+      "story": "Sd63ad1-3",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-3-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-3-2] append-only mode allows only appends > rejects overwrite (PUT), patch, and DELETE with 403",
+      "file": "tests/acceptance/audit-permissions.spec.ts",
+      "story": "Sd63ad1-3",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-3-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-2-1] GET /api/journal auto-generates today's journal > returns today (server-local) and creates journals/YYYY-MM-DD.md when missing",
+      "file": "tests/acceptance/journal.spec.ts",
+      "story": "Sd63ad1-2",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-2-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-2-1] GET /api/journal auto-generates today's journal > supports ?date=YYYY-MM-DD and auto-generates that file",
+      "file": "tests/acceptance/journal.spec.ts",
+      "story": "Sd63ad1-2",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-2-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-2-1] GET /api/journal auto-generates today's journal > rejects invalid dates with 400 (format and non-existent calendar day)",
+      "file": "tests/acceptance/journal.spec.ts",
+      "story": "Sd63ad1-2",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-2-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-2-1] GET /api/journal auto-generates today's journal > returns parsed frontmatter for a journal that has one",
+      "file": "tests/acceptance/journal.spec.ts",
+      "story": "Sd63ad1-2",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-2-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-2-2] POST /api/journal/append > appends to today's journal (creating it if missing)",
+      "file": "tests/acceptance/journal.spec.ts",
+      "story": "Sd63ad1-2",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-2-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-2-2] POST /api/journal/append > appends to a specified date, auto-creating the file (201)",
+      "file": "tests/acceptance/journal.spec.ts",
+      "story": "Sd63ad1-2",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-2-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-2-2] POST /api/journal/append > rejects invalid date / empty content with 400",
+      "file": "tests/acceptance/journal.spec.ts",
+      "story": "Sd63ad1-2",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-2-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-1-1] PUT/GET notes (create, read with frontmatter, overwrite) > creates a note with PUT and reads it back with parsed frontmatter",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": "Sd63ad1-1",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-1-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-1-1] PUT/GET notes (create, read with frontmatter, overwrite) > overwrites an existing note with PUT (200, created=false)",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": "Sd63ad1-1",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-1-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-1-1] PUT/GET notes (create, read with frontmatter, overwrite) > adds .md automatically when the path has no extension",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": "Sd63ad1-1",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-1-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-1-1] PUT/GET notes (create, read with frontmatter, overwrite) > returns 404 for a missing note",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": "Sd63ad1-1",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-1-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-1-1] PUT/GET notes (create, read with frontmatter, overwrite) > handles Japanese (NFC-normalized) paths",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": "Sd63ad1-1",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-1-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-1-2] append and patch > appends to the end of a note",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": "Sd63ad1-1",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-1-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-1-2] append and patch > patches old→new (single occurrence)",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": "Sd63ad1-1",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-1-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-1-2] append and patch > returns 409 when old is not found, without modifying the file",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": "Sd63ad1-1",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-1-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-1-2] append and patch > returns 409 when old matches multiple locations (ambiguous, data safety)",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": "Sd63ad1-1",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-1-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-1-2] append and patch > does not interpret $-patterns in the replacement string (data safety)",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": "Sd63ad1-1",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-1-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-1-2] append and patch > rejects an action call without a note path (POST /api/notes/append) with 400",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": "Sd63ad1-1",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-1-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-1-2] append and patch > returns 404 when appending to a missing note",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": "Sd63ad1-1",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-1-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-1-2] append and patch > rejects an invalid request body with 400 (zod validation)",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": "Sd63ad1-1",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-1-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-1-3] path traversal rejection and UTF-8/LF storage > rejects ../ traversal with 400 and writes nothing outside the vault",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": "Sd63ad1-1",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-1-3"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-1-3] path traversal rejection and UTF-8/LF storage > rejects nested traversal and hidden segments (.loamium protection)",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": "Sd63ad1-1",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-1-3"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "[AC-Sd63ad1-1-3] path traversal rejection and UTF-8/LF storage > stores files as UTF-8 with LF only (CRLF input is normalized)",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": "Sd63ad1-1",
+      "acceptance_criteria": [
+        "AC-Sd63ad1-1-3"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "health endpoint > GET /api/health returns ok with the permission mode",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": "Sd63ad1-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "DELETE /api/notes/{path} > deletes an existing note and returns 404 afterwards",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": "Sd63ad1-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "isValidJournalDate > accepts real dates",
+      "file": "packages/shared/src/journal.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "isValidJournalDate > rejects wrong formats",
+      "file": "packages/shared/src/journal.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "isValidJournalDate > rejects non-existent calendar dates",
+      "file": "packages/shared/src/journal.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "journalPath > maps a date to journals/YYYY-MM-DD.md",
+      "file": "packages/shared/src/journal.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "journalPath > throws JournalDateError for invalid dates",
+      "file": "packages/shared/src/journal.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "todayJournalDate > formats in server-local timezone",
+      "file": "packages/shared/src/journal.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "todayJournalDate > pads month and day",
+      "file": "packages/shared/src/journal.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "parseNote > extracts YAML frontmatter and body",
+      "file": "packages/shared/src/markdown.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "parseNote > returns null frontmatter when there is none",
+      "file": "packages/shared/src/markdown.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "parseNote > does not treat a later --- as frontmatter open",
+      "file": "packages/shared/src/markdown.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "parseNote > returns null frontmatter for an unclosed block",
+      "file": "packages/shared/src/markdown.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "parseNote > returns null frontmatter for broken YAML without destroying content",
+      "file": "packages/shared/src/markdown.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "parseNote > returns null frontmatter when YAML top-level is not an object",
+      "file": "packages/shared/src/markdown.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "parseNote > handles empty frontmatter block",
+      "file": "packages/shared/src/markdown.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "parseNote > handles CRLF content without crashing",
+      "file": "packages/shared/src/markdown.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "normalizeVaultPath > appends .md when extension is missing",
+      "file": "packages/shared/src/path.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "normalizeVaultPath > keeps .md extension as-is",
+      "file": "packages/shared/src/path.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "normalizeVaultPath > treats non-md extensions as part of the name (notes API only manages .md)",
+      "file": "packages/shared/src/path.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "normalizeVaultPath > normalizes to NFC (NFD input from macOS)",
+      "file": "packages/shared/src/path.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "normalizeVaultPath > accepts Japanese paths",
+      "file": "packages/shared/src/path.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "normalizeVaultPath > rejects \"..\" traversal",
+      "file": "packages/shared/src/path.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "normalizeVaultPath > rejects \".\" segments",
+      "file": "packages/shared/src/path.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "normalizeVaultPath > rejects absolute paths",
+      "file": "packages/shared/src/path.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "normalizeVaultPath > rejects hidden segments (.loamium / .git protection)",
+      "file": "packages/shared/src/path.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "normalizeVaultPath > rejects empty / backslash / null-byte paths",
+      "file": "packages/shared/src/path.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "normalizeVaultPath > isValidVaultPath mirrors normalizeVaultPath",
+      "file": "packages/shared/src/path.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "toLf > converts CRLF and lone CR to LF",
+      "file": "packages/shared/src/text.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "appendText > appends to empty content with trailing newline",
+      "file": "packages/shared/src/text.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "appendText > inserts a newline when existing content lacks one",
+      "file": "packages/shared/src/text.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "appendText > does not double newlines when existing content ends with one",
+      "file": "packages/shared/src/text.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "appendText > normalizes CRLF in the addition",
+      "file": "packages/shared/src/text.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "countOccurrences > counts non-overlapping occurrences",
+      "file": "packages/shared/src/text.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    }
+  ],
+  "diff_coverage": {
+    "$comment": "Rule 6 — user-observable surfaces added in this Sprint diff (base 2bc06dd)",
+    "surfaces": [
+      {
+        "type": "api",
+        "identifier": "GET /api/health",
+        "introduced_in_files": [
+          "packages/server/src/app.ts"
+        ],
+        "resolution": "covered",
+        "test": "health endpoint > GET /api/health returns ok with the permission mode"
+      },
+      {
+        "type": "api",
+        "identifier": "GET /api/notes/{path}",
+        "introduced_in_files": [
+          "packages/server/src/routes/notes.ts"
+        ],
+        "resolution": "covered",
+        "test": "[AC-Sd63ad1-1-1] creates a note with PUT and reads it back with parsed frontmatter"
+      },
+      {
+        "type": "api",
+        "identifier": "PUT /api/notes/{path}",
+        "introduced_in_files": [
+          "packages/server/src/routes/notes.ts"
+        ],
+        "resolution": "covered",
+        "test": "[AC-Sd63ad1-1-1] creates/overwrites tests"
+      },
+      {
+        "type": "api",
+        "identifier": "DELETE /api/notes/{path}",
+        "introduced_in_files": [
+          "packages/server/src/routes/notes.ts"
+        ],
+        "resolution": "covered",
+        "test": "DELETE /api/notes/{path} > deletes an existing note and returns 404 afterwards"
+      },
+      {
+        "type": "api",
+        "identifier": "POST /api/notes/{path}/append",
+        "introduced_in_files": [
+          "packages/server/src/routes/notes.ts"
+        ],
+        "resolution": "covered",
+        "test": "[AC-Sd63ad1-1-2] appends to the end of a note"
+      },
+      {
+        "type": "api",
+        "identifier": "POST /api/notes/{path}/patch",
+        "introduced_in_files": [
+          "packages/server/src/routes/notes.ts"
+        ],
+        "resolution": "covered",
+        "test": "[AC-Sd63ad1-1-2] patch tests (single/not-found/ambiguous/$-patterns)"
+      },
+      {
+        "type": "api",
+        "identifier": "GET /api/journal[?date=]",
+        "introduced_in_files": [
+          "packages/server/src/routes/journal.ts"
+        ],
+        "resolution": "covered",
+        "test": "[AC-Sd63ad1-2-1] journal auto-generation tests"
+      },
+      {
+        "type": "api",
+        "identifier": "POST /api/journal/append",
+        "introduced_in_files": [
+          "packages/server/src/routes/journal.ts"
+        ],
+        "resolution": "covered",
+        "test": "[AC-Sd63ad1-2-2] journal append tests"
+      },
+      {
+        "type": "api",
+        "identifier": "LOAMIUM_MODE permission modes (read-only/append-only/full)",
+        "introduced_in_files": [
+          "packages/server/src/permissions.ts"
+        ],
+        "resolution": "covered",
+        "test": "[AC-Sd63ad1-3-2] mode tests across three real server instances"
+      },
+      {
+        "type": "api",
+        "identifier": ".loamium/audit.log JSONL audit trail",
+        "introduced_in_files": [
+          "packages/server/src/audit.ts"
+        ],
+        "resolution": "covered",
+        "test": "[AC-Sd63ad1-3-1] audit log tests"
+      },
+      {
+        "type": "library",
+        "identifier": "@loamium/shared exports (normalizeVaultPath/parseNote/journalPath/appendText/zod schemas)",
+        "introduced_in_files": [
+          "packages/shared/src/index.ts"
+        ],
+        "resolution": "covered",
+        "test": "packages/shared/src/*.test.ts unit tests + consumed by all acceptance tests through the real server"
+      }
+    ]
+  },
+  "done_judgment": [
+    {
+      "story_id": "Sd63ad1-1",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    },
+    {
+      "story_id": "Sd63ad1-2",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    },
+    {
+      "story_id": "Sd63ad1-3",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    }
+  ],
+  "guard_notes": {
+    "guard4": "no story claims a priority_rule 9 exception",
+    "guard7": "docs/DESIGN/ does not exist; no ADRs to check",
+    "guard8_rationale": "n/a — Hydra-specific data-path directories (internal/, cmd/) do not exist in this project; loamium data safety is covered by traversal/LF/ambiguous-patch acceptance tests"
+  }
+}

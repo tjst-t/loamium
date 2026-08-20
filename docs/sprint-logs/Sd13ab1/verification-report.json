@@ -1,0 +1,118 @@
+{
+  "sprint": "Sd13ab1",
+  "verified_at": "2026-07-06T00:00:00Z",
+  "verifier_model": "claude-opus-4-8 (read-only, separate session)",
+  "overall": "pass",
+  "findings": [
+    {
+      "id": "F-1",
+      "category": "machine_verdict_reconciliation",
+      "status": "pass",
+      "ac": null,
+      "summary": "verify-run.json (machine-authored) は test 461/461 pass・lint exit 0・ui-tests 246/246 pass を機械記録。独立再実行で裏付けを確認: `make test-ui` を別プロセスで再走 → 246 passed, EXIT=0 (自己申告と完全一致)。`make lint` を独立再走 → EXIT=0 (tsc --noEmit 全 workspace + tests)。`make test` の独立再走は 460 passed + 1 failed だが、失敗は tests/acceptance/terminal.spec.ts [AC-S79c210-3-1] のみ — 本 Sprint と無関係な既知 flaky (denied 監査エントリのタイミング競合)。同 spec を単体再実行 → 13/13 pass で再現、真の回帰ではないことを確認。緑チェックは機械 pass に裏付けられている。",
+      "evidence": "independent make test-ui -> 246 passed EXIT=0; make lint EXIT=0; make test -> 460 pass/1 flaky (terminal.spec) ; isolated `vitest run terminal.spec.ts` -> 13 passed"
+    },
+    {
+      "id": "F-2",
+      "category": "AC-Sd13ab1-1-1",
+      "status": "pass",
+      "ac": "AC-Sd13ab1-1-1",
+      "summary": "畳み時の値要約バーは properties.ts の buildSummary/summaryTokensFor で実装。型別トークン (tags→#チップ / select→色ドット+ラベル / star→★☆ / progress→% / checkbox→☑+キー / date・text→値)、上限 6・超過分は summaryEntriesFor で +N。要約バー (.pc-summary=properties-summary) には値/キー名トークンのみを append し、ラベル語『プロパティ』を一切 DOM に入れない。E2E props-summary.e2e.spec.ts は実ブラウザ→実サーバーで data-open=false のバーに #sample-book/#science/読了/2026-05-20 が描画されることをアサートし、`not.toContainText('プロパティ')` と密行 hidden、8件時の .pc-sum-more '+2' を検証。実描画を観測している。",
+      "evidence": "packages/ui/src/renderers/properties.ts:172-254 buildSummary; props-summary.e2e.spec.ts:57-68,125-128"
+    },
+    {
+      "id": "F-3",
+      "category": "AC-Sd13ab1-1-2",
+      "status": "pass",
+      "ac": "AC-Sd13ab1-1-2",
+      "summary": "setOpen が propsOpenState(notePath 単位・メモリのみ)を更新し wrap.dataset.open を切替。要約バー(button)と `>` トグル(properties-toggle)両方に click→setOpen(toggle) を結線。E2E は要約バークリックで data-open=true・status 行と rating の .pc-star×5 が可視、`>` トグルで data-open=false・行 hidden・要約バー可視へ戻るトグルを実検証。",
+      "evidence": "packages/ui/src/renderers/properties.ts:342-379; props-summary.e2e.spec.ts:84-100"
+    },
+    {
+      "id": "F-4",
+      "category": "AC-Sd13ab1-2-1",
+      "status": "pass",
+      "ac": "AC-Sd13ab1-2-1",
+      "summary": "キーファースト2ゾーンメニュー (createAddMenu)。buildKeyOptions が内蔵 well-known + JSON定義キー + vault 実使用キー(件数)を重複排除して zone① を生成、canCreateNewKey が不一致名で zone② 新規作成を出す。filterKeyOptions でインクリメンタル絞り込み。E2E props-add.e2e.spec.ts は実サーバーで 'stat'→status のみ・rating 非表示、不一致名→property-add-new 表示、及び別テストで他ファイルの hoge が別ノート追加メニューに vault サジェストされることを実検証。unit props-keyfirst.test.ts が merge/型解決/絞り込みを固める。",
+      "evidence": "packages/shared/src/property-types.ts:301-395 buildKeyOptions/filterKeyOptions/canCreateNewKey; props-add.e2e.spec.ts:58-79,165-184; props-keyfirst.test.ts"
+    },
+    {
+      "id": "F-5",
+      "category": "AC-Sd13ab1-2-2",
+      "status": "pass",
+      "ac": "AC-Sd13ab1-2-2",
+      "summary": "既知/一意キー選択で onPickKnown→resolvePropertyType(D方式)で型解決し addForKey が即追加(キー名再入力なし)。既存キーは existing=true で makeKnownOption が disabled + data-existing。E2E は status が data-existing/disabled、rating 選択で即 star 行(.pc-star×5)追加→保存で `rating: 0` が標準 YAML に書かれ `type:` を含まないことをバイト確認(ピュア Markdown)。mock props-add も同挙動を固める。",
+      "evidence": "packages/ui/src/renderers/properties.ts:997-1013,1156-1203; props-add.e2e.spec.ts:81-109"
+    },
+    {
+      "id": "F-6",
+      "category": "AC-Sd13ab1-2-3",
+      "status": "pass",
+      "ac": "AC-Sd13ab1-2-3",
+      "summary": "新規キー→property-add-new→GENERIC_NEW_TYPES 型セレクタ→onPickNew が persistType(App→api.putPropertyType→PUT /api/property-types)で .loamium/property-types.json へ 1 キー分マージ書込。サーバー routes/property-types.ts は既存を読み full マージ・整形書込、mutate 分類(read-only 403)・監査ログ(setAudit 'property-types.write')。最重要検証: props-add.e2e.spec.ts が note B で新規キーを star で作成→JSON へ star 永続化を poll 確認→別ファイル note C を開き同キーを追加すると star(.pc-star×5)に横断解決されることを実サーバーで立証。note B ファイルは `KEY: 0` かつ `type:` 非含有をバイト確認。acceptance property-keys.spec.ts が HTTP で永続化・別ファイル解決・既存マージ保持・read-only 403(ファイル未作成)・監査ログ result:ok を検証。",
+      "evidence": "packages/server/src/routes/property-types.ts:49-66; packages/ui/src/App.tsx onPersistPropertyType/api.ts putPropertyType; props-add.e2e.spec.ts:111-163; property-keys.spec.ts:145-243"
+    },
+    {
+      "id": "F-7",
+      "category": "AC-Sd13ab1-2-4",
+      "status": "pass",
+      "ac": "AC-Sd13ab1-2-4",
+      "summary": "GET /api/property-keys は search.ts→index.propertyKeys() で全ノート frontmatter トップレベルキーを NFC 正規化・件数付き集約(件数降順→キー昇順、tags() と同型)。read 分類で全モード許可。chokidar 追従はインデックス側 refreshFile が担保。acceptance property-keys.spec.ts が実サーバー起動で件数集約(tags=2/status=1/rating=1)、他ノートの hoge が集約に出現、fs 直書き(chokidar 経由)の外部キーが poll(20s)で追従、read-only でも 200 を実 HTTP 検証。poll は緩和/skip でなく done 条件充足まで待つ堅牢化で、緩和の証跡なし。",
+      "evidence": "packages/server/src/noteIndex.ts:271-286 propertyKeys(); routes/search.ts:60-63; property-keys.spec.ts:66-143 (POLL_TIMEOUT_MS=20000)"
+    },
+    {
+      "id": "F-8",
+      "category": "AC-Sd13ab1-3-1",
+      "status": "pass",
+      "ac": "AC-Sd13ab1-3-1",
+      "summary": "各行 dd に削除ボタン(properties-row-delete[data-key])を付与、click→removeEntry→structuralCommit。最後の1件削除時 serializeFrontmatterBlock が null を返し commit(null)→PropertiesBlockWidget が --- ブロック+直後改行を除去。E2E props-delete.e2e.spec.ts は status 行 × で削除→保存で `status:` 消失・`rating: 4`/`tags:` 残存・先頭 `---` 維持を実ファイル検証、全削除で widget 消失→empty-add 表示→保存で `---` 完全除去・本文残存をバイト確認。",
+      "evidence": "packages/ui/src/renderers/properties.ts:957-973; live-preview.ts:366-382 commit(null); props-delete.e2e.spec.ts:53-103"
+    },
+    {
+      "id": "F-9",
+      "category": "AC-Sd13ab1-3-2",
+      "status": "pass",
+      "ac": "AC-Sd13ab1-3-2",
+      "summary": "frontmatter フェンス不在時、buildBlockDecorations が EmptyPropsWidget(側 -1)を本文冒頭へ挿入 → renderEmptyPropertiesEntry の properties-empty-add がキーファーストメニューを開き、最初のプロパティ選択で serializeFrontmatterBlock→commit が文書先頭に --- ブロック+改行を挿入・カーソルを本文先頭へ。E2E props-empty.e2e.spec.ts が該当挙動を実検証(delete.e2e でも全削除後に empty-add 復帰を確認)。",
+      "evidence": "packages/ui/src/live-preview.ts:457-506,584-598 EmptyPropsWidget; properties.ts:1366-1415 renderEmptyPropertiesEntry; props-empty.e2e.spec.ts"
+    },
+    {
+      "id": "F-10",
+      "category": "forbidden_category_scan",
+      "status": "pass",
+      "ac": null,
+      "summary": "diff 全体を .skip/.only/.todo/xit/xdescribe/@ts-ignore/@ts-nocheck/eslint-disable/as any/toBeTruthy/expect.any でスキャン — 実コード/テストに該当なし(grep ヒットは verify-run.json 内の 'exit' 文字列データのみ)。property-keys.spec.ts の pollUntil は skip でなく条件成立待ちで chokidar テストを堅牢化(緩和なし)。旧 type-picker.e2e/mock 撤去と properties-del→properties-row-delete 改称は decisions.json に仕様進化として明記。型ファースト→キーファーストは Sprint 目的そのものであり、同等以上のユーザー可視能力(絞り込みメニュー・内蔵+JSON定義混在提示・標準 YAML 追加+横断型固定)を props-add.e2e/mock + 移行後 properties.e2e が実測。properties.mock の 1 アサーションが star data-value=5→visible へ変わったのは即追加(既定値0)フローの必然的帰結で、row 件数チェック追加により実追加は担保。properties.e2e は追加後の実ファイル `個数: 5` + expectCleanMarkdown を維持。不当なカバレッジ喪失・アサーション弱体化は認めず。",
+      "evidence": "git diff grep for forbidden patterns -> only verify-run.json data hits; decisions.json implementation/review_decisions; properties.mock.spec.ts:189-214 (row count 6 added); properties.e2e.spec.ts:220-236"
+    },
+    {
+      "id": "F-11",
+      "category": "roadmap_integrity",
+      "status": "pass",
+      "ac": null,
+      "summary": "docs/ROADMAP.json diff は Sd13ab1 配下の status(pending→done/pass)と progress カウンタ(current_sprint Sd13ab1→S89a350, done 21→22, remaining 3→2, 88→92%)のみ。sprints は 24 本を保持、execution_order に +/- 変更なし。他 Sprint(S89a350/S67ea41 テンプレ系含む)の acceptance_criteria description・id は一切改変されていない。AC 改変=即停止カテゴリの違反ゼロ。",
+      "evidence": "git diff docs/ROADMAP.json -> status/counter only; python len(sprints)=24; no execution_order +/- lines"
+    },
+    {
+      "id": "F-12",
+      "category": "clean_text",
+      "status": "pass",
+      "ac": null,
+      "summary": "変更 34 ファイル全てを NUL バイト走査(grep -aP '\\x00' + tr -d -c '\\000' クロスチェック、検出器は printf 'a\\0b' で DETECTED を確認済み)— 該当ゼロ。UTF-8/LF、制御文字混入なし。",
+      "evidence": "for f in $(git diff --name-only) grep -aqP '\\x00' -> no hits; tr NUL count = 0 on properties.ts/property-keys.spec.ts/ROADMAP.json"
+    },
+    {
+      "id": "F-13",
+      "category": "compromise_completeness",
+      "status": "warn",
+      "ac": "AC-S87f4b7-3-1",
+      "summary": "申告漏れ 1 件(トレーサビリティ債)。実装者は旧 type-picker.e2e.spec.ts / type-picker.mock.spec.ts(AC-S87f4b7-3-*)を撤去し props-add へ移行と decisions.json に明記したが、削除された type-picker.e2e.spec.ts を指す S87f4b7 の AC 参照(S87f4b7-3-AC1/AC2 の test フィールド = '[AC-S87f4b7-3-1] in packages/ui/tests/e2e/type-picker.e2e.spec.ts' 等)を ROADMAP 上で更新せず、S87f4b7 は status='done' のまま存在しないテストを指す宙吊り参照になっている。AC の id/文言は不変のため『AC 改変』違反ではなく、ユーザー可視能力の喪失でもない(キーファースト系テストが等価能力を実測)。ただし過去 Sprint の AC→テスト参照の整合が壊れており、テスト移行の副作用(旧 Sprint 参照の reconcile)が申告・対処されていない点で overlooked。重大度=warn(修正不要・記録のみ)。",
+      "evidence": "docs/ROADMAP.json:1891,1897 S87f4b7-3 test refs -> packages/ui/tests/e2e/type-picker.e2e.spec.ts (deleted in this Sprint); git diff --stat shows type-picker.e2e/mock deleted; decisions.json declares removal but not S87f4b7 ref reconciliation"
+    }
+  ],
+  "summary": {
+    "ac_failures": 0,
+    "forbidden_warnings": 0,
+    "adr_conflicts": 0,
+    "overlooked_count": 1
+  }
+}

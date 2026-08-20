@@ -1,0 +1,27 @@
+{
+  "$file": "gui-spec-S9e5ca4-4.json",
+  "sprint": "S9e5ca4",
+  "story": "S9e5ca4-4",
+  "story_type": "gui",
+  "visual_reference": "prototype/callout-highlight.html の .md-mark (+ prototype/TESTIDS.md highlight)",
+  "state_diagram": "stateDiagram-v2\n    [*] --> Source: カーソル行の ==text== はソース表示\n    Source --> Highlighted: カーソルが離れる → 黄色マーカー (highlight)\n    Highlighted --> Source: カーソルを行へ置く → ==text== ソース表示\n    Source --> NotDecorated: コードフェンス・インラインコード内の ==text== は常にソースのまま",
+  "scenarios": {
+    "entry_point": "ブラウザで UI を開き、==テキスト== を含むノートを開く",
+    "happy_path": "==text== がカーソル行以外で黄色マーカー (data-testid=highlight) で表示される",
+    "data_states": {},
+    "edge_cases": [
+      "カーソルを置いた行はソース ==text== が見える",
+      "コードフェンス内の ==text== は装飾されない",
+      "インラインコード `==text==` は装飾されない",
+      "==== のような空内容はハイライトしない"
+    ],
+    "success_feedback": "マーカー表示 (mark 相当のスタイル)",
+    "failure_feedback": "N/A (レンダラー失敗時はソース文字列にフォールバック — 既存 InlineRuleWidget の規約)"
+  },
+  "endpoint_contracts": [],
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/highlight.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/highlight.mock.spec.ts"
+  },
+  "linked_ac": ["AC-S9e5ca4-4-1"]
+}

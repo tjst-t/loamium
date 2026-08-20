@@ -1,0 +1,19 @@
+{
+  "milestone_summary": {
+    "stopped_at": "milestone_final (Sprints Sbd061c, S9e5ca4, Sf53ad6, Sb1593c, Sb7f458)",
+    "compromises": [],
+    "notes": [
+      "§2.4 の妥協カテゴリ(テスト無効化・アサーション弱体化・エラー握りつぶし・型緩和・AC 改変)に該当する未解消項目は 0 件。verifier が overlooked_by_autopilot として摘出した指摘はすべて同一 Sprint 内で修正済み:",
+      "Sb7f458 (verifier 指摘・修正済み): WS /api/terminal に Origin 検証がなかった (CSWSH) → Origin 検証 + 受け入れテスト追加。terminal.e2e の resize アサーションが条件付きだった → 無条件化。",
+      "Sbd061c (C1・low・解消済み): verifier 実行時点で ROADMAP status 未更新という順序アーティファクト。done フェーズで解消。",
+      "Sf53ad6 (P4・スコープ判断): 添付ファイル削除・リネームの CLI コマンド化を AC 外として backlog へ記録 (API/CLI 1:1 の完全性はノート系で維持、files 系の delete/rename は UI と API のみ)。"
+    ],
+    "blockers_encountered": [
+      "Sprint 実行サブエージェント (S9e5ca4) が verifier 待ちのままターン終了 → 親 autopilot が verifier (opus・read-only) を補完実行 (判定 pass)。他 4 Sprint はサブエージェント自身が verifier を同期実行。",
+      "node-pty がプリインストールの nix ツールチェーンでビルド不能 → システム gcc で npm rebuild して解決 (Sb7f458 decisions I1)。"
+    ],
+    "scope_changes": [
+      "Sf53ad6-2 (UI 削除・リネーム) の成立要件として files API に DELETE /api/files と POST /api/files/{path}/rename を追加 (計画時想定より API 表面が 2 本増)。非 .md ファイルへの ![[リンク]] 追従書き換えも同時に実装。"
+    ]
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "sprint": "S935867",
+  "verified_at": "2026-07-04T00:00:00Z",
+  "verifier_model": "claude-opus-4-8 (read-only, separate session)",
+  "overall": "pass",
+  "findings": [
+    {
+      "category": "machine_verification",
+      "story": null,
+      "ac": null,
+      "verdict": "pass",
+      "detail": "verify-run 3 run すべて exit 0 (__VERIFY_EXIT_CODE__ トレーラー確認): lint:0 / test:0 (vitest 28 files 349 passed) / ui-tests:0 (Playwright 137 passed)。search-page.e2e.spec.ts の 3 AC (log 123-125) と search-palette.e2e (Sbd061c 3 件) がいずれも実行され pass。independent 再実行で router.spec.ts を単体再走 → 15 passed で一致。verification-results.json の全 pass 申告は機械 pass に裏付けられている。baseline+6 unit / +9 ui の delta も log と整合。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "S935867-1",
+      "ac": "AC-S935867-1-1",
+      "verdict": "pass",
+      "detail": "SearchPage.tsx は search-results (結果一覧) を常時マウントし、結果クリックは setPreviewPath のみ更新して一覧を消さない。App.tsx で route.kind==='search' 時 <SearchPage> をメイン領域へインライン描画 (タブでなくルート)。E2E (43-86 行) は Cmd+K パレット→search-open-advanced で /search 遷移→全文3件→タグ絞り込みで2件 (N3 除外を toHaveCount(0) で確認)→N1 クリックでプレビュー表示かつ search-results 可視+item count=2 維持→N2 クリックで active クラス確認→エディタ遷移まで実操作検証。ポップアップと違い開いても一覧が閉じないことがユーザー観測点として実アサートされている。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "S935867-1",
+      "ac": "AC-S935867-1-2",
+      "verdict": "pass",
+      "detail": "router.ts に SearchParams(q/tag/folder/sort)⇄URL クエリの parseSearchParams/searchParamsToQuery/routeToPath を追加、App.tsx が openSearch→applyHistory('push') で条件を pushState、popstate と初期 parseLocation(pathname+search) で復元。E2E (88-126 行) は条件1→条件2 で URL に tag 反映→goBack でフォーム値と結果3件復元→goForward で条件2復元→ブックマーク URL 直接 goto で再現、を実ブラウザ履歴操作で検証。フォーム値 (toHaveValue) と結果件数 (toHaveCount) の双方をユーザー観測点としてアサート。router.spec 往復単体テストも補強。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "acceptance_criteria",
+      "story": "S935867-1",
+      "ac": "AC-S935867-1-3",
+      "verdict": "pass",
+      "detail": "upsertHistory が localStorage(loamium.searchHistory) に条件を保存、previewPath===null 時に右カラムへ search-history/search-history-item を描画、クリックで replayHistory→commit→URL 遷移で再実行。E2E (128-158 行) は 2 検索後に search-history 表示→data-query='q=…' 履歴を可視確認→クリックで URL・フォーム値・結果3件が復元されることを実検証。mock 版 (152-180 行) も dedup と再取得を独立検証。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "design_principles",
+      "story": "S935867-1",
+      "ac": null,
+      "verdict": "pass",
+      "detail": "DESIGN_PRINCIPLES L48『ナビゲーションはブラウザ的ルーティングで統一。メインは常に1画面、検索等はルート(URL)として遷移、戻る/進むが効く。タブを増やす UI は採らない』に適合。/search は Route 型に kind:'search' として追加され、既存 /files・/n/ と同じ 1 画面切替 (App.tsx の三項分岐) でインライン描画され、独立タブ・並列ペインではない。Cmd+K パレット (Sbd061c) は存続し footer の search-open-advanced 導線で 2 モード共存。E2E で共存を実検証済み。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "test_assertion_weakened",
+      "story": "S935867-1",
+      "ac": "AC-S935867-1-2",
+      "verdict": "pass",
+      "detail": "router.spec.ts で旧 `expect(parseLocation('/search')).toEqual({kind:'home'})` が削除されたが、これは弱体化ではなく仕様変更に伴う正当な更新。/search は本 Sprint で未知パス→home から正式ルートへ昇格したため、旧アサーションは新挙動と矛盾する。代替として /unknown/path→home を追加し home フォールバックのカバレッジを維持、さらに /search クエリ解釈・往復保存・sort フォールバック・sameRoute の 4 テストを追加(純増強)。test_skipped/error_swallowed/type_safety_relaxed/acceptance_criteria_modified はコード追加行スキャンで検出なし(ROADMAP の AC 文面は不変、status のみ pending→pass)。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    },
+    {
+      "category": "encoding_hygiene",
+      "story": "S935867-1",
+      "ac": null,
+      "verdict": "warn",
+      "detail": "packages/ui/src/components/SearchPage.tsx が NUL バイト(\\x00)を 3 個含み(historyKey 関数 L142-144 の template literal 区切り: `${e.q}\\x00${e.tag}\\x00${e.folder}\\x00${e.sort}`)、git がこのファイルをバイナリ扱いにしている(diff --stat は `Bin 0 -> 20862 bytes`)。結果として本 Sprint の中核 575 行が diff レビュー不能なブロブとして着地している。CLAUDE.md『文字コード UTF-8 / 改行 LF 固定』の趣旨(=クリーンなプレーンテキスト源)に反する。機能面の影響は無し: historyKey は upsertHistory の dedup と React key 専用で、localStorage 保存(historyQueryAttr 経由)や UI 表示・ファイル書き込みには到達せず、NUL がユーザーやディスクへ漏れることはない。lint(tsc)・全テストも pass。ただし NUL は誤混入と見られ、区切りは通常空白/制御外文字に置換すべき。self_review/verification-results.json はこの点(ファイルが git バイナリ化している事実)を一切開示していないため overlooked と判定。",
+      "overlooked_by_autopilot": true,
+      "recommended_action": "SearchPage.tsx の historyKey 区切り \\x00 を通常の区切り文字(例: '\\n' や '\\u001f' でなく '|' 等の可視 ASCII、あるいは配列 JSON キー)に置換し、ファイルを UTF-8 プレーンテキストへ戻して git diff をレビュー可能にする。回帰防止として source に NUL バイトが混入しないことを CI で検査(例: grep -rP '\\x00' src)することを推奨。"
+    },
+    {
+      "category": "compromise_completeness",
+      "story": "S935867-1",
+      "ac": null,
+      "verdict": "pass",
+      "detail": "自己申告(decisions.json / verification-results.json)と diff を突合。サーバー無改修・クライアント側タグ/フォルダ AND フィルタ・localStorage 履歴・2 モード共存・additive testid は申告どおり実装され diff と一致。independent_verifier.launched=false は正当に開示済み(本レポートがその補完)。唯一の申告漏れは上記 encoding_hygiene(NUL バイトによる git バイナリ化)であり、それ以外に隠れた妥協(ダミー実装・到達不能経路・握りつぶし)は検出されなかった。",
+      "overlooked_by_autopilot": false,
+      "recommended_action": null
+    }
+  ],
+  "summary": {
+    "ac_failures": 0,
+    "forbidden_warnings": 1,
+    "adr_conflicts": 0,
+    "overlooked_count": 1
+  }
+}

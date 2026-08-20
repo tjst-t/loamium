@@ -1,0 +1,129 @@
+{
+  "$comment": "status は docs/sprint-logs/Sb1593c/verify-run.json (機械判定) から複写。evidence のみ本セッションが記述。",
+  "sprint": "Sb1593c",
+  "run_at": "2026-07-04",
+  "server_command": "テストハーネスが実サーバー (tsx packages/server/src/index.ts, PORT=0) と Vite dev server を一時 vault で自動起動",
+  "machine_verdict": {
+    "source": "docs/sprint-logs/Sb1593c/verify-run.json",
+    "overall_machine_status": "pass",
+    "runs": [
+      { "name": "test", "exit_code": 0, "junit": { "tests": 323, "failed": 0, "skipped": 0 } },
+      { "name": "lint", "exit_code": 0 },
+      { "name": "ui-tests", "exit_code": 0, "junit": { "tests": 111, "failed": 0, "skipped": 0 } }
+    ],
+    "regression_note": "既存スイートを壊していない: test 267 → 323 (+56 全て本 Sprint 追加分)、test-ui 103 → 111 (+8)、fail/skip 0"
+  },
+  "summary": { "total": 434, "pass": 434, "fail": 0, "skip": 0 },
+  "tests": [
+    {
+      "name": "[AC-Sb1593c-1-1] POST /api/query — LIST / TABLE / TASK + from / where / sort、構文エラー 400 + 位置情報",
+      "file": "tests/acceptance/query.spec.ts",
+      "story": "Sb1593c-1",
+      "acceptance_criteria": ["AC-Sb1593c-1-1"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json test.junit: query.spec.ts の [AC-Sb1593c-1-1] describe (7 tests) 全 pass。実サーバー + 実 HTTP。LIST from #tag (インライン + frontmatter tags)・TABLE fields from \"folder\" where != sort desc (prototype のクエリ例そのまま)・file.name/file.folder/file.mtime・contains (タグ配列/文字列) + and 結合・構文エラー 400 {query_syntax, '1 行 6 列', line:1, column:6, length:4}・対応外構文 (or / ~) の 400・query 欠落 400 invalid_request・read-only モードで 200 を検証。パーサー/評価器のユニットテスト 30 件 (dql.test.ts) も同 run で pass"
+    },
+    {
+      "name": "[AC-Sb1593c-1-2] タスクインデックス — TASK クエリ / write-through / chokidar 追従",
+      "file": "tests/acceptance/query.spec.ts",
+      "story": "Sb1593c-1",
+      "acceptance_criteria": ["AC-Sb1593c-1-2"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json test.junit: [AC-Sb1593c-1-2] describe (4 tests) 全 pass。TASK where !completed が vault 横断で行番号・indent 付きの未完了タスクを返す・completed で完了のみ・API append (write-through) の即時反映・fs 直書き (API 非経由) の chokidar 追従をポーリングで検証。extractTasks のユニットテスト 6 件 (extract.test.ts) も pass"
+    },
+    {
+      "name": "[AC-Sb1593c-1-3] loamium query — API 1:1・--json・構文エラー非 0 + stderr JSON",
+      "file": "tests/acceptance/cli-query.spec.ts",
+      "story": "Sb1593c-1",
+      "acceptance_criteria": ["AC-Sb1593c-1-3"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json test.junit: cli-query.spec.ts (7 tests) 全 pass。実 bin subprocess。LIST/TABLE/TASK の人間可読出力・--json の生 JSON (queryResponseSchema 適合)・構文エラー exit 1 + stderr {error:'query_syntax', message:'1 行 6 列: …'}・引数なし exit 2 usage・server_unreachable。skill.spec.ts の doc-drift (query 用例 + 15 コマンド整合) も pass"
+    },
+    {
+      "name": "[AC-Sb1593c-2-1] dataview フェンスの LIST/TABLE/TASK 描画と結果クリックナビゲーション",
+      "file": "packages/ui/tests/e2e/dataview.e2e.spec.ts",
+      "story": "Sb1593c-2",
+      "acceptance_criteria": ["AC-Sb1593c-2-1"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests.junit: dataview.e2e.spec.ts [AC-Sb1593c-2-1] pass。実ブラウザ → Vite → 実サーバー。dataview-widget[data-query-type=list/task] の描画・dataview-item クリックで元ノートへ (breadcrumb 遷移)・dataview-task (data-path + data-line=5) クリックで該当行へカーソル (.cm-activeLine が '- [ ] A の未完了タスク')。mock 5 件 (LIST/TABLE null・チップ/TASK 0 件/構文エラー/500) も pass"
+    },
+    {
+      "name": "[AC-Sb1593c-2-2] vault のファイル変更に追従して表示中のクエリ結果が更新される",
+      "file": "packages/ui/tests/e2e/dataview.e2e.spec.ts",
+      "story": "Sb1593c-2",
+      "acceptance_criteria": ["AC-Sb1593c-2-2"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests.junit: [AC-Sb1593c-2-2] pass。表示中に API 経由で #dvproj ノートを追加 → LIST が 2→3 件へ、タスク行追記 → TASK が 1→2 件へ、いずれも操作なしで更新 (2s ポーリング追従、10s 以内)"
+    },
+    {
+      "name": "[AC-Sb1593c-2-3] 構文エラーのフェンス内表示とエディタの編集継続",
+      "file": "packages/ui/tests/e2e/dataview.e2e.spec.ts",
+      "story": "Sb1593c-2",
+      "acceptance_criteria": ["AC-Sb1593c-2-3"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests.junit: [AC-Sb1593c-2-3] pass。dataview-error に 'クエリを解析できません (400)' + ソース行 + ^^^^ キャレット + '1 行 6 列' 表示・その状態でエディタに文字入力できる・エラーフェンスのクリックでソース編集へ戻る"
+    }
+  ],
+  "user_observable_additions": [
+    { "surface": "POST /api/query (API ルート)", "covered_by": "tests/acceptance/query.spec.ts (実 HTTP)" },
+    { "surface": "loamium query サブコマンド (--json 含む)", "covered_by": "tests/acceptance/cli-query.spec.ts (実 bin subprocess)" },
+    { "surface": "permissions: read-only モードでの POST /api/query 許可", "covered_by": "query.spec.ts 'read-only モードでも POST /api/query は実行できる'" },
+    { "surface": "```dataview フェンス描画 (dataview-widget / dataview-item / dataview-task / dataview-error)", "covered_by": "dataview.e2e.spec.ts + dataview.mock.spec.ts (実ブラウザ)" },
+    { "surface": "shared 公開 API: extractTasks / parseQuery / executeQuery / runQuery / DqlParseError / query 系スキーマ", "covered_by": "dql.test.ts / extract.test.ts (ユニット) + 上記受け入れテスト (経路)" },
+    { "surface": "SKILL.md の query 用例", "covered_by": "tests/acceptance/skill.spec.ts (doc-drift: 15 コマンド整合・用例存在)" }
+  ],
+  "forbidden_degradation_scan": {
+    "test_skipped": 0,
+    "assertion_weakened": 0,
+    "error_swallowed": 0,
+    "type_safety_relaxed": 0,
+    "acceptance_criteria_modified": 0,
+    "note": "git diff main...HEAD を grep — ヒットゼロ。ROADMAP.json の変更は status フィールドのみ (AC 文言不変)"
+  },
+  "done_judgment": [
+    {
+      "story_id": "Sb1593c-1",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    },
+    {
+      "story_id": "Sb1593c-2",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    }
+  ],
+  "done_judgment_notes": {
+    "guard1": "両 Story とも user_review_required: false (ROADMAP)",
+    "guard2": "nil-guard 依存注入パターンの新規導入なし。RenderEnv.openNoteAtLine の optional フォールバックは装飾のみの UI 規約 (実依存の省略ではない)",
+    "guard3": "MOCK=true / --fake-* / DRY_RUN / InMemoryStore 不使用。E2E は実サーバー + 実 FS。mock spec は二層テストの mock 層 (E2E と別ファイル) で規約どおり",
+    "guard4": "priority_rule 9 例外の主張なし (n/a)",
+    "guard5": "結合経路 grep: UI → POST /api/query (dataview.ts の api.query)・CLI → /api/query (main.ts)・route → executeQuery(index.queryNotes()) いずれも実在しテストが経路を通過",
+    "guard6": "新規追加コードに TODO/先送りコメントなし (git diff main...HEAD を grep)",
+    "guard7": "docs/DESIGN/ 不存在・ADR なしのため n/a。DESIGN_PRINCIPLES の forbidden (独自記法・ブロック ID 等) 違反なし — dataview フェンスは標準コードフェンス記法で正本を汚さない",
+    "guard8": "Go データパスディレクトリ (internal/ 等) は本プロジェクトに存在せず n/a"
+  }
+}

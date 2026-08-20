@@ -1,0 +1,91 @@
+{
+  "sprint": "S935867",
+  "title": "検索の2モード化 — 詳細検索ページ",
+  "mode": "auto",
+  "branch": "autopilot/main/S935867",
+  "planning_decisions": [
+    {
+      "id": "P1",
+      "topic": "Story 粒度",
+      "decision": "S935867-1 (詳細検索ページ) は 1 Story のまま。分割しない。",
+      "rationale": "AC 3 本 (探索的閲覧 / URL 同期 / 履歴) は密結合した 1 つのユーザー体験。DESIGN_PRINCIPLES priority 5 シンプルさ優先。"
+    },
+    {
+      "id": "P2",
+      "topic": "GUI/非 GUI 判定",
+      "decision": "GUI Story。二層テスト (mock + e2e) を生成する。ビジュアルの正は prototype/search-page.html。",
+      "rationale": "検索ページは新ルート UI。TESTIDS.md 第3バッチ search-page 系契約に厳密一致させる。"
+    }
+  ],
+  "implementation_decisions": [
+    {
+      "id": "I1",
+      "topic": "AC-S935867-1-1『結果一覧を開いたまま複数の結果を順に閲覧できる』の実装方針",
+      "decision": "検索ページ内に読み取り専用プレビューペインを持つ 2 カラム構成にする (結果一覧は常時マウント / クリックで右カラムにノート内容を表示、履歴カラムと切替)。結果を開いても search-results は unmount しない。プレビューから『エディタで開く』で /n/ ルートへ遷移も可能。",
+      "rationale": "Cmd+K ポップアップは 1 件開くと閉じるジャンプ用 (Sbd061c)。詳細検索は『探索用』で一覧が閉じないことが AC の核。単一メイン画面 (DESIGN_PRINCIPLES ui_ux タブ非採用) の制約下で、一覧を保持したまま順に閲覧する最も確実な UX は in-page プレビュー。prototype の『左でノートを開く想定・一覧は残ります』のコメントに沿う。プレビューは mini-md (textContent ベース・安全) を再利用し read-only 表示 (priority 2 データ安全性)。",
+      "additive_testids": ["search-preview-pane", "search-preview-open-editor", "search-preview-close", "search-empty", "search-error", "search-open-advanced"]
+    },
+    {
+      "id": "I2",
+      "topic": "サーバー無改修での条件検索",
+      "decision": "全文は GET /api/search?q=、タグ(空白区切り AND)/フォルダ絞り込みは GET /api/notes のメタ(tags/folder/mtime)でクライアント側フィルタ。q と絞り込みの積集合を結果とする。q 空時は絞り込み後のノート一覧をそのまま結果に。",
+      "rationale": "prompt 指示『サーバー変更は原則不要』。/api/search は q のみ、/api/notes は単一 tag のみ対応のため、複数タグ AND とスニペット強調はクライアントで合成。priority 3 API 安定性を崩さない。"
+    },
+    {
+      "id": "I3",
+      "topic": "並び順",
+      "decision": "updated(mtime 降順・既定) / score(関連度昇順) / name(タイトル昇順) の 3 種。既定 updated は URL から省略。",
+      "rationale": "prototype の select 3 択に一致。既定値省略で URL をクリーンに保つ。"
+    },
+    {
+      "id": "I4",
+      "topic": "URL 同期 (AC-1-2)",
+      "decision": "router.ts に search ルートを追加。/search?q=&tag=&folder=&sort= を Route<'search'> に相互変換。routeToPath はクエリ込みで pushState、parseLocation は pathname+search を解釈。空値・既定 sort は URL から省略。",
+      "rationale": "前 Sprint Sf1a90a の History API 基盤を利用。戻る/進む/ブックマーク/リロードで再現 = parseLocation が唯一の真実源。"
+    },
+    {
+      "id": "I5",
+      "topic": "検索履歴 (AC-1-3)",
+      "decision": "localStorage キー loamium.searchHistory に最大 12 件。条件 (q/tag/folder/sort) で dedupe、最新を先頭。検索成功時に記録、履歴クリックで条件復元 + 再実行 (URL push)。",
+      "rationale": "prompt 指示『検索履歴は localStorage』。個人用アプリでサーバー永続は不要 (priority 5)。"
+    },
+    {
+      "id": "I6",
+      "topic": "2 モード共存の導線",
+      "decision": "SearchPalette (Cmd+K) は存続。パレット footer に『詳細検索を開く』(search-open-advanced) を追加し、現在の入力を q として /search へ遷移。",
+      "rationale": "prompt/TESTIDS 指示『ポップアップに詳細検索を開く導線を足す (2モード共存)』。"
+    },
+    {
+      "id": "I7",
+      "topic": "router.spec.ts の既存アサーション更新",
+      "decision": "既存の『parseLocation(\"/search\") === home』アサーションを『search ルート』へ更新。additive でない変更だが、/search を本 Sprint で正式ルート化するため意図的。search の往復テストを追加。",
+      "rationale": "テスト弱体化ではなく仕様追加に伴う正当な更新 (forbidden『アサーション弱体化』に該当しない — 検証は強化方向)。"
+    }
+  ],
+  "review_decisions": [
+    {
+      "id": "R1",
+      "topic": "独立 verifier の起動",
+      "decision": "独立 verifier (別セッション read-only) は起動できなかった。理由を記録し done を完了する。",
+      "rationale": "本実行環境にサブエージェント spawn (Agent/Task ディスパッチ) ツールが無く、利用可能な Task* は todo リスト管理のみ。sprint auto / 親からの指示の fallback 条項『Agent ツールが使えず verifier を起動できない場合はその旨を decisions.json に明記して done を完了してよい (親 autopilot が補完実行)』に従う。機械検証 (run-verify.py overall=pass)・6/8 ガード・セルフレビューは実施済。"
+    }
+  ],
+  "done_judgment": {
+    "S935867-1": {
+      "guard1_user_review_required_not_done": "pass",
+      "guard2_nil_injection_mock": "n/a",
+      "guard3_mock_mode_not_real_smoke": "pass",
+      "guard4_priority_rule_9_exception_valid": "n/a",
+      "guard5_call_path_grep": "pass",
+      "guard6_deferred_comment_clean": "pass",
+      "guard7_adr_conformance": "n/a",
+      "guard8_destructive_multi_version_test": "n/a",
+      "overall": "ok"
+    }
+  },
+  "verifier_status": {
+    "launched": false,
+    "reason": "サブエージェント spawn ツール利用不可。親 autopilot が verification-report.json を補完実行する想定。",
+    "machine_verdict": "pass (hooks/run-verify.py: test 349 / lint / ui-tests 137 すべて pass)"
+  }
+}

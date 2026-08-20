@@ -1,0 +1,83 @@
+=== Story Se29635-4 Implementation Log ===
+Date: 2026-07-25
+Agent: claude-sonnet-4-6
+
+## Files Created
+- packages/server/src/sync/sync-conflict.ts
+  - resolveRebaseConflicts(vaultRoot, runner): ConflictResolution
+  - Uses diff3Merge from @loamium/shared (ADR-0030 reuse)
+  - If all conflicts auto-resolve: writes merged text, git add, git rebase --continue
+  - If any unresolvable hunks: git rebase --abort (preserves local edits), returns FileConflict[]
+
+- packages/ui/src/components/SyncStatusIndicator.tsx
+  - data-testids: sync-status, sync-now-button, sync-last-time, sync-unpushed-count,
+    sync-badge-offline, sync-badge-conflict
+  - Window focus → syncPull('focus'), blur/beforeunload → syncFlush()
+  - Conflict badge → opens ConflictResolverDialog (S2df65d reuse)
+  - Mobile ≤680px responsive (44px tap targets)
+
+- packages/ui/tests/e2e/sync-status.mock.spec.ts
+  - 9 mock tests covering all UI states (idle, unpushed, offline, conflict, git-unavailable,
+    no-remote, sync-now click, mobile)
+  - All 9 pass
+
+- packages/ui/tests/e2e/sync-status.e2e.spec.ts
+  - 2 e2e tests using real backend (no mocking sync endpoints)
+  - Both pass
+
+- tests/acceptance/sync-conflict.spec.ts
+  - Scenario 1: auto-mergeable divergence → both changes preserved
+  - Scenario 2: unresolvable conflict → local edit protected, GET /api/sync/conflicts returns hunks
+  - All 3 acceptance tests pass
+
+## Files Modified
+- packages/shared/src/schemas.ts
+  - Added syncConflictHunkSchema, SyncConflictHunk, syncConflictsResponseSchema, SyncConflictsResponse
+  - Added SyncResultResponse type export
+
+- packages/server/src/sync/sync-engine.ts
+  - Import resolveRebaseConflicts from sync-conflict.ts
+  - Added #lastConflicts: FileConflict[], #conflicted: boolean state
+  - Added getLastConflicts(): FileConflict[] public method
+  - pull(): on rebase failure, calls resolveRebaseConflicts; auto-resolved returns ok:true;
+    unresolvable sets #conflicted=true + stores hunks + calls rebase --abort
+  - status(): uses #conflicted (engine flag) instead of git status conflicted field
+
+- packages/server/src/routes/sync.ts
+  - Added GET /api/sync/conflicts → { conflicts: [{ file, hunks }] }
+
+- packages/ui/src/api.ts
+  - Imported syncStatusResponseSchema, syncResultResponseSchema, syncConflictsResponseSchema,
+    SyncStatusResponse, SyncConflictsResponse, SyncResultResponse
+  - Added syncStatus(), syncNow(), syncPull(), syncFlush(), syncConflicts() API methods
+
+- packages/ui/src/App.tsx
+  - Import SyncStatusIndicator
+  - Render <SyncStatusIndicator /> in editor-header
+
+- packages/ui/src/styles.css
+  - Added sync-status, sync-badge, sync-now-button CSS with @media (max-width: 680px) rules
+
+- packages/server/src/sync/sync-engine.test.ts
+  - Updated "pull: 競合発生時" test to queue additional stub responses for resolveRebaseConflicts
+
+## Test Results
+- vitest: 47/47 passed (sync-engine, git-runner, sync-remote, sync-auto, sync-conflict)
+- playwright mock: 9/9 passed
+- playwright e2e: 2/2 passed
+- tsc --noEmit: clean (server, shared, ui)
+
+## Escalations / Judgment Calls
+1. ConflictResolverDialog reuse: The git-level conflict uses the same dialog component. However
+   the "save" callback for git conflicts is currently a thin wrapper (marks conflict as resolved
+   visually, re-fetches status). Actual writing of resolved text to vault + re-push is left as
+   a future enhancement since the AC only requires "surface unresolvable hunks via dialog".
+   Local edits are NOT lost (git rebase --abort preserves them).
+
+2. status().conflicted uses #conflicted (engine flag) rather than git status 'u' lines.
+   This ensures the conflict badge persists until the next successful pull/sync, even after
+   rebase --abort restores the working tree (which would clear the 'u' status lines).
+
+3. Focus listener guards: Only fires when status.available && status.remoteConfigured to
+   avoid spurious API calls when sync is not configured.
+Story4: 33 vitest (sync unit+conflict acceptance) + 9 mock + 2 e2e pass, 3 typechecks clean. Review #1-#6 applied (data-safety fixed), #4 readOnly, deferred #5/#8+converging→backlog.

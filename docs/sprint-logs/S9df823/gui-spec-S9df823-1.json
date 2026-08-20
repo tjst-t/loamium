@@ -1,0 +1,84 @@
+{
+  "story": "S9df823-1",
+  "title": "プロパティブロック表示と編集",
+  "story_type": "gui",
+  "entry_point": "ノート (/n/{path}) を開く。文書冒頭に YAML frontmatter (--- ... ---) があり、カーソルが frontmatter 外にあると properties-widget が描画される (テーブル widget と同じ live-preview のブロック置換)。",
+  "state_diagram": "stateDiagram-v2\n    [*] --> Rendered: カーソルが frontmatter 外 (properties-widget 描画)\n    [*] --> Source: カーソルが frontmatter 内 (生 YAML ソース表示)\n    Rendered --> ValueEditing: 値セルをクリック (テキスト/数値/日付は input 差し替え)\n    ValueEditing --> Rendered: Enter / blur (コミット) / Esc (取消)\n    Rendered --> Rendered: 真偽値チェックボックス切替 (即コミット)\n    Rendered --> ChipEditing: チップ入力にフォーカス\n    ChipEditing --> Rendered: Enter でチップ追加 (コミット + フォーカス復元) / チップ × で削除\n    Rendered --> AddingProp: 『プロパティを追加』クリック (キー+値 input)\n    AddingProp --> Rendered: Enter/blur でコミット / Esc で取消\n    Rendered --> Rendered: 行の削除ボタン (× ) — 最後の 1 件を消すと frontmatter ブロック自体を除去\n    Rendered --> Source: 『ソースを編集』ボタン (カーソルが frontmatter へ移動)\n    Source --> Rendered: カーソルを frontmatter 外へ移動\n    Rendered --> Source: 複雑な値 (ネスト等) の読み取り専用行をクリック (ソースへ誘導)\n",
+  "scenarios": [
+    {
+      "name": "プロパティブロック表示",
+      "linked_ac": ["S9df823-1-AC1"],
+      "steps": [
+        {"action": "frontmatter (tags 配列 + 文字列 + 数値 + 日付) 付きノートを開き、カーソルを本文へ置く", "expected": "properties-widget が描画され、キーと値の一覧が並ぶ。生の `---` や `tags:` の YAML テキストは見えない"},
+        {"action": "tags 行を確認する", "expected": "各タグが properties-chip として個別のチップで表示される"},
+        {"action": "本文の行をクリックしてもカーソルが frontmatter 外である限り", "expected": "widget が表示されたまま"}
+      ]
+    },
+    {
+      "name": "値のその場編集と標準 YAML 書き戻し",
+      "linked_ac": ["S9df823-1-AC2"],
+      "steps": [
+        {"action": "テキスト値 (status) の値セルをクリックする", "expected": "properties-value-input が開きフォーカスされる"},
+        {"action": "値を書き換えて Enter → Ctrl+S で保存する", "expected": "実ファイルの frontmatter が標準 YAML (`status: 新しい値`) に更新され、他のキーは保たれる"},
+        {"action": "tags のチップ入力に新タグを入れて Enter、既存チップの × をクリックし保存する", "expected": "実ファイルの tags 配列 (ブロックシーケンス) に追加/削除が反映される"}
+      ]
+    },
+    {
+      "name": "プロパティ追加・削除と frontmatter 生成",
+      "linked_ac": ["S9df823-1-AC3"],
+      "steps": [
+        {"action": "『プロパティを追加』でキーと値を入力して Enter、保存する", "expected": "実ファイルの frontmatter に新しいキーが追加される"},
+        {"action": "行の削除ボタンで全プロパティを削除して保存する", "expected": "実ファイルから frontmatter ブロック (--- ... ---) 自体が消える"},
+        {"action": "frontmatter 無しノートでスラッシュメニューから『プロパティ』を選ぶ", "expected": "文書冒頭に標準 YAML frontmatter が生成され、properties-widget が表示される。保存後の実ファイル先頭が `---` で始まる"}
+      ]
+    },
+    {
+      "name": "ソース編集切替と複雑値のフォールバック",
+      "linked_ac": ["S9df823-1-AC4"],
+      "steps": [
+        {"action": "『ソースを編集』(properties-edit-source) をクリックする", "expected": "widget が消えて生 YAML (--- ... ---) が表示され、カーソルが frontmatter 内にある"},
+        {"action": "生 YAML を直接編集して保存する", "expected": "実ファイルは標準 YAML frontmatter のまま (独自記法・制御文字なし)"},
+        {"action": "ネストしたオブジェクト値を持つノートを開く", "expected": "該当キーは読み取り専用表示 (properties-value-readonly) になり、クリックでソース編集へ誘導される。他のキーを編集してもネスト値のソースはバイト単位で保たれる"}
+      ]
+    }
+  ],
+  "data_states": {
+    "no_frontmatter": "widget は表示しない (スラッシュメニュー『プロパティ』で生成できる)",
+    "broken_yaml": "parseNote が null を返す壊れた YAML / 空 frontmatter は widget を出さず従来どおり生ソース表示 (ファイルを壊さない)",
+    "complex_values": "ネスト・複数行文字列など round-trip を保証できない値は読み取り専用行 + ソース誘導"
+  },
+  "endpoint_contracts": [
+    {
+      "path": "/api/notes/{path}",
+      "method": "PUT",
+      "registered": true,
+      "request_fields": {"content": "string", "baseMtime": "number?"},
+      "response_fields": {"path": "string", "mtime": "number", "created": "boolean"},
+      "note": "プロパティ編集は既存の保存経路 (Ctrl+S) を使う。新規エンドポイントなし"
+    }
+  ],
+  "testids": {
+    "existing": ["editor", "save-status", "slash-menu", "slash-item", "tree-item"],
+    "added": [
+      "properties-widget",
+      "properties-row",
+      "properties-key",
+      "properties-value",
+      "properties-value-input",
+      "properties-bool",
+      "properties-value-readonly",
+      "properties-chip",
+      "properties-chip-remove",
+      "properties-chip-input",
+      "properties-del",
+      "properties-add",
+      "properties-new-key",
+      "properties-new-value",
+      "properties-edit-source"
+    ]
+  },
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/properties.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/properties.mock.spec.ts"
+  }
+}

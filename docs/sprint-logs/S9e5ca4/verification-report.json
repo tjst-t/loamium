@@ -1,0 +1,74 @@
+{
+  "sprint": "S9e5ca4",
+  "verified_at": "2026-07-04",
+  "verifier_model": "claude-opus-4-8 (read-only, separate session)",
+  "overall": "pass",
+  "findings": [
+    {
+      "category": "machine_log_reconciliation",
+      "verdict": "pass",
+      "detail": "verify-run.json + 各 verify-run-*.log の __VERIFY_EXIT_CODE__ トレーラーが ground truth。test:0 / lint:0 / ui-tests:0。junit は test 223/223 pass・0 skip、ui-tests 84/84 pass・0 skip。verification-results.json の summary(308 pass / 0 fail / 0 skip = 223+84+1(lint))と machine_verdict は verify-run.json と完全一致。全 pass 申告が機械 pass に裏付けられている。独立再実行 `make test` を実施し 223/223 pass を再現(Test Files 19 passed)。"
+    },
+    {
+      "category": "e2e_real_browser_server",
+      "verdict": "pass",
+      "detail": "playwright.config.ts に mock/e2e の 2 プロジェクト。e2e は globalSetup(harness/global-setup.ts)が PORT=0 で実 Loamium server(LOAMIUM_MODE=full)+ 実 Vite dev server を起動し、実 vault(mkdtemp)にシードして実 URL をテストへ渡す。route mock は使っていない。ui-tests ログで [e2e] プロジェクトの AC-S9e5ca4-1-1/1-2/1-3/2-2(embed)、3-1(callout)、4-1(highlight)が実ブラウザで pass(58〜84 番、各 630ms〜2.7s)。AC は route mock ではなく実サーバー経由で通っている。"
+    },
+    {
+      "category": "AC-S9e5ca4-1-1_embed_card_navigation",
+      "verdict": "pass",
+      "detail": "embed.ts renderEmbed が embed-card / embed-card-open を DOM 生成、header mousedown で ctx.env.openNote(resolved) を呼ぶ。embed.e2e.spec.ts が実ブラウザでカード表示・本文取得(正本内容)・ヘッダクリック→breadcrumb が元ノート名に変わりエディタに本文が出ることをアサート。ユーザー入口(ツリー→ノートを開く)から到達可能。"
+    },
+    {
+      "category": "AC-S9e5ca4-1-2_section_embed",
+      "verdict": "pass",
+      "detail": "parseEmbedTarget が #見出し を抽出、shared extractSection でセクションのみ取得。e2e が data-section 付きカードに該当セクション本文が出て他セクション(last-write-wins)が含まれないことを .not.toContainText で明示検証。sections.ts + sections.test.ts(7 ユニット)も裏付け。"
+    },
+    {
+      "category": "AC-S9e5ca4-1-3_cycle_depth_no_freeze",
+      "verdict": "pass",
+      "detail": "checkEmbedChain がチェーン集合を伝搬し、再訪(cycle)・深さ>=5(depth)で再帰前にエラーカードを返す。無限ループの余地なし。e2e が A→B→A の循環エラーカード('循環埋め込みを検出しました' / '循環A → 循環B → 循環A')と 深さ6 の打ち切り('埋め込みが深すぎます (最大深さ 5)')を検証。さらに『UI がフリーズしていない』を実観測: 追記入力→save-status が dirty→saved に遷移することをアサート(単なる pass 名でなく凍結しない挙動を実証)。embed.spec.ts に checkEmbedChain のユニットも 4 件。"
+    },
+    {
+      "category": "AC-S9e5ca4-2-1_files_endpoint_readonly",
+      "verdict": "pass",
+      "detail": "routes/files.ts は app.get のみ登録(PUT/POST/DELETE を一切登録しない→Hono 404)。normalizeVaultFilePath 経由で traversal→400 invalid_path、HiddenVaultPathError→404(存在秘匿)。read-only モードでも GET 許可(permission ミドルウェアの読み取り扱い)。files.spec.ts(実サーバー subprocess+実 fetch)が: 画像バイト一致、日本語パス、percent-encoded traversal→400、.loamium//.git→404 でメッセージに 'audit' を漏らさない、存在しないファイル/ディレクトリ→404、PUT/POST/DELETE が全て 404 かつファイル不変(バイト一致)、read-only 200、CLI file の 4 件を検証。書き込みメソッド不在を実観測でアサート。"
+    },
+    {
+      "category": "AC-S9e5ca4-2-2_image_via_files_api",
+      "verdict": "pass",
+      "detail": "![[image.png]] は embed.ts の embedExtensionOf→imageRenderer、![](path) は live-preview.ts の Image ノード処理(URL 子ノード有り)→renderImageEmbed。両者とも src=/api/files/{encoded}(外部 URL 以外)。embed.e2e.spec.ts が実 1x1 PNG を vault へシードし、embed-image が 2 個・img.naturalWidth===1(実サーバー GET /api/files から実デコードできた証拠)・src==='/api/files/assets/pixel.png' をアサート。route mock でなく実配信。"
+    },
+    {
+      "category": "AC-S9e5ca4-3-1_callout",
+      "verdict": "pass",
+      "detail": "callout.ts が note/info/tip/warning/danger を既知、normalizeCalloutType で未知タイプ→note フォールバック。[!type]- は data-folded=true(閉)で描画、callout-fold ボタンで開閉。callout.e2e.spec.ts が 5 タイプの data-type・タイトル・本文、note と danger の computed background が異なること、[!hoge]→data-type=note かつ data-type=hoge が 0 件、[!note]- が閉状態→クリックで開→再クリックで閉、カーソルでソース('> [!warning] ...')に戻ることを実ブラウザで検証。"
+    },
+    {
+      "category": "AC-S9e5ca4-4-1_highlight_code_exclusion",
+      "verdict": "pass",
+      "detail": "highlight.ts は inline レジストリに ==...== を登録するだけ。コード内除外はエンジン(live-preview.ts)が担保: FencedCode 行は fenceLines に入り inline ルールループでスキップ(468 行)、InlineCode 範囲は claimed に入り overlap で除外(503 行)。highlight.e2e.spec.ts が: 本文の ==22:00 以降== が 1 個ハイライト+背景色あり、コードフェンス内 '==フェンス内は装飾しない==' とインラインコード内 '==コード内も装飾しない==' がソースのまま(highlight 総数 1 個)、カーソル行はソース('==22:00 以降==')表示・離れると再ハイライト を実観測。AC のコード除外条項をテストが実際に検証している。"
+    },
+    {
+      "category": "forbidden_category_scan",
+      "verdict": "pass",
+      "detail": "git diff cf250ff..HEAD(docs 除く)を走査。test_skipped(.skip/.only/xit/xdescribe)0、type_safety_relaxed(@ts-ignore/@ts-nocheck/@ts-expect-error/as any/eslint-disable)0、error_swallowed(空 catch)0。live-preview.ts の InlineRuleWidget の catch は console.warn 付きの表示フォールバック(無言の握りつぶしでない — 前 verifier 指摘 V11 対応)。test_assertion_weakened / acceptance_criteria_modified: ROADMAP の AC 定義・テスト参照は変更なし(diff は status のみ)。"
+    },
+    {
+      "category": "design_principles_forbidden",
+      "verdict": "pass",
+      "detail": "priority 1(ピュア Markdown 正本性): embed/callout/highlight は全て表示層のみ、ファイル書き込みなし。parseEmbedTarget は ^block を明示除外(読み取り互換のみ・生成しない)。priority 2(データ安全性): files API は normalizeVaultFilePath で vault 外脱出を 400、隠しセグメント 404、書き込みメソッド不在。priority 4(Obsidian 互換 > 独自): ![[embed]] / [!type] callout / ==highlight== は全て Obsidian 標準記法。Loamium 独自記法の導入なし。forbidden リスト(ブロック ID 書込・独自記法・vault 外アクセス・一括破壊・テスト無効化・AC 緩和)いずれも違反なし。"
+    },
+    {
+      "category": "compromise_completeness",
+      "verdict": "pass",
+      "detail": "decisions.json review_decisions R1(![[img|300]] alias が拡張子判定に混入し未対応エラーになる Obsidian 互換バグ — parseEmbedTarget で alias 除外、ユニットテスト追加)は実コード(embed.ts 36-38 行)と embed.spec.ts で裏付け確認、申告と実装が一致。R2(files.ts の decodeURIComponent を notes.ts と同規約に据え置き)は妥当。verification-results.json / decisions.json いずれにも overlooked_by_autopilot:true や未申告の compromise なし。diff とも突き合わせ、申告漏れは検出されず。done_judgment の 8 ガードは story 1/2 とも整合。"
+    }
+  ],
+  "summary": {
+    "ac_failures": 0,
+    "forbidden_warnings": 0,
+    "adr_conflicts": 0,
+    "overlooked_count": 0
+  }
+}

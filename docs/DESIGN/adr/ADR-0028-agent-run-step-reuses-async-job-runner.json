@@ -1,0 +1,36 @@
+{
+  "id": "ADR-0028",
+  "title": "agent-run ステップは新規実行基盤を作らず S2fe109 の非同期ジョブランナー(runAgentJob)を再利用し、結果書き込みは ADR-0016 の監査済みツールへ委譲する",
+  "status": "accepted",
+  "date": "2026-07-16",
+  "context": "ADR-0021 はスマートコマンドのステップ語彙を『閉じた判別可能ユニオン + サーバー側同期実行』と定め、v1 では決定的操作のみに限定して agent-run(AI 委譲)を予約条項として明示的にスコープ外へ退避した(『agent-run ステップは予約のみで v1 に含めない。Pi Agent 統合後に別 ADR で追加する。その際に非同期ジョブモデル・進捗通知を判断する』)。ADR-0022 も『判断・分岐・繰り返しを要する賢い処理は将来の agent-run に切り分ける』と繰り返し、目玉ユースケース(議事録まとめ)を agent-run 待ちとした。本 ADR はその予約を解消する load-bearing な判断である。前提として、Pi Agent 統合(ADR-0011)と、無人でエージェントを起動しターン数・タイムアウトで打ち切るジョブ実行エンジン(S2fe109 の runAgentJob / agent-job-runner.ts、ADR-0013 の定期実行契約)が既に実装済みである。したがって残る判断は『agent-run のために新しい実行基盤を作るか、既存ジョブランナーを再利用するか』『結果のファイル書き込みをどこが担うか』『同期 run API 境界・fail-stop・権限モードとどう整合させるか』の 3 点に絞られる。",
+  "alternatives": [
+    {
+      "name": "既存の runAgentJob(S2fe109 / agent-job-runner.ts)を再利用して agent-run を実装(採用)",
+      "tradeoff": "コマンドの agent-run ステップは一時ジョブを組み立てて既存 runAgentJob へ委譲するだけで済み、権限解決(ADR-0015)・監査・Pi セッション生成・maxTurns/timeoutSec 打ち切り(ADR-0013)を無改造で再利用できる。代償は、同期 run API が 1 ステップの中でエージェント実行完了まで(timeoutSec 上限で)ブロックすること。"
+    },
+    {
+      "name": "agent-run 専用の新しい非同期ジョブ実行基盤・進捗通知・独自結果フォーマットを作る",
+      "tradeoff": "進捗ストリーミング等の表現力は最大だが、S2fe109 のジョブランナーと二重の実行経路・二重の権限/監査配線を持つことになり『シンプルさ > 汎用性』『プラグイン API を作らない』に抵触する。過剰。"
+    },
+    {
+      "name": "agent-run ステップ自身が結果を専用の書き込み経路で vault へ保存する",
+      "tradeoff": "書き込み先を宣言的に固定できるが、ADR-0016 の監査済みサービス層(journal_append / note_create / note_edit)とは別のもう 1 本の書き込み経路・新フォーマットを作ることになり、監査・パス制約・round-trip 安全性の一貫性が崩れる。不採用。"
+    }
+  ],
+  "decision": "(1) agent-run ステップは新規ジョブ実行基盤を作らず、S2fe109 の runAgentJob(agent-job-runner.ts)を再利用して Pi セッションを起動する。commands.ts の run ハンドラは step.prompt(および permissions が文字列を含む場合はそれ)を resolveTemplate で展開し、agentJobSchema 形の一時ジョブ(name=command:{commandName}、schedule はダミー、prompt=展開済み、permissions/maxTurns/timeoutSec=step 値 or 既定、enabled:true)を組み立てて runAgentJob(config, index, job)へ委譲する。 (2) 非同期ジョブモデル・上限(maxTurns 既定 20 / 1..50、timeoutSec 既定 120 / 10..600)・失敗時挙動は ADR-0013 のジョブ実行契約を踏襲し、agentJobSchema の既定値と一致させる。 (3) 結果のファイル書き込みは agent-run ステップ独自の書き込み経路・新フォーマットを作らず、エージェント自身が ADR-0016 の監査済み書き込みツール(当日ジャーナルへは journal_append、新規ノートは note_create、既存ノートは note_edit)を用いてプロンプト指示に従い行う。commands.ts は書き込み先を強制せず、prompt が出力先を指定する。",
+  "consequences": [
+    "+ agent-run は既存の単一実行経路(runAgentJob)に乗るため、権限解決(step → agent.json 既定の順、ADR-0015)・Pi セッション生成・maxTurns/timeoutSec 打ち切り(ADR-0013)・監査を無改造で再利用でき、ADR-0021 の『実行経路を 2 本持たない』方針を維持する",
+    "+ 結果書き込みは ADR-0016 の監査済みツールへプロンプト経由で委譲するため、agent-run 独自の書き込み経路・新フォーマットを持たず、パス制約(vault ルート内)・round-trip 安全性・監査の一貫性を保つ。目玉ユースケース(議事録まとめ)がピュア Markdown として vault に残る",
+    "+ 監査ログには command.run(コマンド実行)と agent 側の書き込み(journal_append/note_create/note_edit)の双方が残り、誰が何を書いたかを二重に追跡できる",
+    "- 失敗モデルは ADR-0021 の fail-stop 契約(逐次実行・最初のエラーで停止・ロールバックなし)に従う。runAgentJob の返り値が error / timeout / aborted のとき当該 agent-run ステップは ok:false としてレスポンスに反映され、後続ステップを止め、results に途中経過を残す(agent.json 未設定時も runAgentJob が result:error を返すため ok:false で fail-stop する)",
+    "- 同期 run API 境界(POST /api/commands/{name}/run が結果まで待つ)ゆえに agent-run は 1 ステップの中でエージェント実行完了までブロックする。timeoutSec(既定 120s、上限 600s)で上限が付くが、CLI/UI は長時間ブロックしうる。長時間・定期的な実行は既存の agent-jobs(ADR-0013)で行う",
+    "- 権限との整合: agent-run は Pi エージェントに委譲するため MUTATE 相当とみなし、append-only モードでは agent-run を含むコマンドを 403 で拒否する(prop-set/note-patch と同じ安全側の扱い)。read-only は permissionMiddleware が run 全体を既に 403。実効ケーパビリティは step 指定 → agent.json 既定の順で解決する(ADR-0015)",
+    "- when / when-not のスキップは既存経路で agent-run にも効き、スキップ時はエージェントを起動せず {kind:'agent-run', ok:true, skipped:true} を返す"
+  ],
+  "reversibility_cost": "low",
+  "affects": ["packages/shared", "packages/server", "packages/cli", "packages/ui"],
+  "supersedes": null,
+  "superseded_by": null,
+  "notes": "本 ADR は ADR-0021 の agent-run 予約条項(『agent-run は予約のみで v1 に含めない。別 ADR で非同期ジョブモデルを扱う』)および ADR-0022 の agent-run バックログ退避を解消する加算拡張であり、両 ADR を supersede しない(superseded_by は変更しない)。再利用対象: runAgentJob / agent-job-runner.ts / agentJobSchema(S2fe109)、resolveTemplate(S89a350)、agentPermissionsSchema(ADR-0015)、書き込みツール journal_append/note_create/note_edit(ADR-0016)。実装スライス: shared にステップ・ユニオンを 7 種化(S5a66e4-2)、server の run ループに agent-run 分岐を追加(S5a66e4-3)、サンプル meeting-summary コマンドと監査二重記録テスト(S5a66e4-4)、UI 補完 7 種化(S5a66e4-5)、CLI 透過表示(S5a66e4-6)。reversibility は既存基盤の再利用のみで新規境界を導入しないため low。"
+}

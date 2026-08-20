@@ -1,0 +1,72 @@
+Story S9e64e7-3: 左ペインの補完 (ADR-0011)
+==============================================
+
+## 実装
+
+### 新規ファイル
+- packages/ui/src/commandDslCompletion.ts
+  CodeMirror 6 CompletionSource 3本 + Extension ファクトリ:
+  1. kindCompletionSource — "kind: " 直後で 6 種の kind 候補 + scaffold 雛形挿入
+  2. tokenCompletionSource — "{{" 直後で param 名・date:/now: トークン・|fallback
+  3. fieldValueCompletionSource(notePaths) — position:/section:/type:/target: フィールド値補完
+
+- packages/ui/tests/e2e/command-editor-completion.mock.spec.ts
+  mock テスト 14 本 (AC-S9e64e7-3-1/-2/-3)
+
+### 修正ファイル
+- packages/ui/src/components/CommandEditor.tsx
+  import commandDslCompletionExtension 追加 + buildExtensions() に組み込み
+
+## 語彙の派生元 (shared スキーマとの同期)
+
+- DSL_KINDS: commandStepSchema.optionsMap.keys() から動的に取得
+  (z.discriminatedUnion の optionsMap — journal-append/note-append/note-create/
+   template-instantiate/prop-set/note-patch の 6 種)
+- DSL_PARAM_TYPES: commandParamTypeSchema.options から取得
+  (string/text/date/select/note/boolean/number の 7 種)
+- DSL_POSITIONS: insertPositionSchema.options から取得
+  (bottom/top/section の 3 種)
+
+→ shared の DSL 定義が変われば補完語彙も自動追従 (ハードコードなし)
+
+## section/target 補完の方針 (ドキュメント)
+
+- section: 補完 → 静的ヒント (Todo/Done/Notes/Tasks/Log/Journal/Ideas/Archive)
+  理由: ノートの見出し一覧をリアルタイム取得するには GET /api/notes/{path}/meta が必要で、
+  current document path が CommandEditor に伝播されていないため Live fetch は過剰。
+  静的ヒントで "入力しやすさ" (ADR-0011) の要件を満たす。
+
+- target: 補完 → マウント時に GET /api/notes を 1 回フェッチしてキャッシュ (vault ノートパス一覧)
+  理由: gui-spec endpoint_contracts に "GET /api/notes … NoteListResponse を補完候補として使用"
+  と明記されているため実装。フェッチ失敗は補完なし (フォールバック)。
+  キャッシュは setCommandDslNotePaths() でテスト注入可能。
+
+## テスト結果
+
+実行コマンド:
+  cd packages/ui && npx playwright test command-editor-completion.mock.spec.ts command-editor.mock.spec.ts --project=mock
+
+結果: 30/30 passed (27.3s)
+- command-editor-completion.mock.spec.ts: 14 tests PASS
+  - AC-S9e64e7-3-3 単体テスト (DSL_KINDS/PARAM_TYPES/POSITIONS/extractParamNames): 5 tests
+  - AC-S9e64e7-3-1 kind 補完 + scaffold: 4 tests
+  - AC-S9e64e7-3-2 {{ トークン補完 + 選択挿入: 5 tests
+- command-editor.mock.spec.ts: 16 tests PASS (S9e64e7-1/-2 回帰なし)
+
+## TypeScript / lint
+
+npx tsc --noEmit -p packages/ui: PASS (エラー 0)
+make lint: PASS (全 workspace)
+
+## 技術メモ: CodeMirror interactionDelay
+
+CodeMirror の acceptCompletion は "timestamp から 75ms 未満" の場合に return false する
+(誤確定防止の安全策)。Playwright テストで popup 出現直後に Enter を押すと 75ms 未満の
+可能性があるため、allTextContents() などの DOM クエリが 75ms 以上かかる場合は自然に
+解消されるが、短いクエリ (1 文字) の場合は waitForTimeout(200) を挟む必要がある。
+tests 8/9/11/12 で waitForTimeout(200) を使用。
+
+## スコープ外
+- select param の options: 内での補完 (gui-spec にあるが実装は将来: AC-3-2 は
+  position/section/type/target を対象としており、options リスト内 is nice-to-have)
+- 壊れリンクのない範囲でノート補完は機能する (target: field)

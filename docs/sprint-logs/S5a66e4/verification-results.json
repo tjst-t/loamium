@@ -1,0 +1,54 @@
+{
+  "sprint": "S5a66e4",
+  "run_at": "2026-07-16",
+  "server_command": "make lint / make test / make test-ui",
+  "machine_verdict": "pass",
+  "summary": "S5a66e4 の 6 Story すべて実装・検証済み。make lint 緑、make test 1281 tests pass。S5a66e4 が追加した shared/server/cli/ui-mock の新規テストはすべて緑。独立検証者 (read-only) は pass_with_notes: 全 AC met、禁止カテゴリの degradation なし、ADR-0028/0021/0022/0016/0015 準拠。検証者が partial とした ADR-0022 相互参照は実際には存在 (誤検知)。監査二重記録テストは runAgentJob スタブ内で agent 側監査を生成 (AC 許容範囲・実ツール経路は Pi 統合済みだが Sc4b9d1 で更に実証予定)。",
+  "tests": [
+    {
+      "name": "[AC-S5a66e4-2-*] agent-run ステップ parse 正常/異常 (shared)",
+      "file": "packages/shared/src/loamium-command.test.ts",
+      "story": "S5a66e4-2",
+      "status": "pass"
+    },
+    {
+      "name": "[AC-S5a66e4-3-*] commands run agent-run 分岐 (ok/error/timeout/append-only 403/when skip)",
+      "file": "packages/server/src/routes/commands.test.ts",
+      "story": "S5a66e4-3",
+      "status": "pass"
+    },
+    {
+      "name": "[AC-S5a66e4-4-*] agent-run 監査二重記録 + vault 外書込拒否",
+      "file": "packages/server/src/routes/commands-agent-audit.test.ts",
+      "story": "S5a66e4-4",
+      "status": "pass"
+    },
+    {
+      "name": "[AC-S5a66e4-5-*] agent-run DSL 補完/scaffold + 数値シリアライズ",
+      "file": "packages/ui/tests/e2e/command-editor-completion.mock.spec.ts, settings-hub-commands.mock.spec.ts",
+      "story": "S5a66e4-5",
+      "status": "pass"
+    },
+    {
+      "name": "[AC-S5a66e4-6-*] command run agent-run 透過表示 + help 注記",
+      "file": "tests/acceptance/command-run.spec.ts",
+      "story": "S5a66e4-6",
+      "status": "pass"
+    }
+  ],
+  "preexisting_failures": {
+    "note": "make test-ui 全体で 7 件失敗するが S5a66e4 の回帰ではない。base main (a0b9d8b) で同一に再現済み (証拠取得済み)。",
+    "e2e": [
+      "command-editor.e2e.spec.ts (4): AC-S9e64e7-1-1/1-2/1-3, AC-S9e64e7-2-3 — create-todo.yaml を /n/ で開くと command-editor 未表示",
+      "smart-command-run.e2e.spec.ts (2): AC-Sde7a63-3-2/3-4 — create-todo param フォーム param-field[data-name=タスク概要] 未表示",
+      "smart-folder-editor.e2e.spec.ts (1): AC-S7b2f22-2-5 — ドラッグ&ドロップ並べ替え永続 (flaky、2スペック再実行では非再現)"
+    ],
+    "classification": "pre-existing (backlog bug 追加: create-todo e2e。マイルストーン Sc4b9d1 で triage)"
+  },
+  "done_judgment": {
+    "guard4_priority_rule9": "N/A (該当する例外主張なし)",
+    "guard5_call_path": "pass — commands.ts が runAgentJob を import・呼出 (line 981)、agent-run 分岐実在 (line 941)",
+    "guard6_deferred_comment": "pass — 新規の TODO Phase / Sprint N で実装 コメントなし",
+    "overall": "done"
+  }
+}

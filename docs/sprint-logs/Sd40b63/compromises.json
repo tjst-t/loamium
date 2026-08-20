@@ -1,0 +1,27 @@
+{
+  "sprint": "Sd40b63",
+  "compromises": [
+    {
+      "type": "independent_verifier_not_spawned",
+      "severity": "medium",
+      "rationale": "本ハーネスに Agent (サブエージェント spawn) ツールが無いため、独立 read-only verifier セッションを起動できず verification-report.json を生成できなかった。代替として同一セッションで手動 diff レビュー + 機械検証 + 8 ガードを実施。",
+      "recommended_action": "親 autopilot が opus の read-only verifier を補完実行し verification-report.json を得ること。",
+      "overlooked_by_autopilot": false
+    },
+    {
+      "type": "preexisting_flaky_tests",
+      "severity": "low",
+      "rationale": "make test の terminal.spec.ts [AC-S79c210-3-1] (WS Origin 拒否の監査ログ timing race) と make test-ui の wikilink.mock 1 件が、フルスイート初回 run で intermittently fail。いずれも単体では pass し、本 Sprint の diff (テーブル/スラッシュメニュー) とは無関係。再 run で全 pass (overall_machine_status=pass) を取得済み。",
+      "diff_summary": "本 Sprint は terminal/wikilink のコードを一切変更していない。",
+      "recommended_action": "terminal WS 監査ログの flush 待ちを test 側で安定化する保守 backlog を検討 (別 Sprint)。",
+      "overlooked_by_autopilot": false
+    },
+    {
+      "type": "scope_deferral",
+      "severity": "low",
+      "rationale": "グリッドピッカーの『任意入力(数値直接入力)』は、エディタからフォーカスを奪う数値入力欄が CM tooltip の維持を不確実にするため見送り。8×8 グリッド + キーボード (↑↓←→) で N×M 指定の AC は充足。セル内改行(<br>)も将来拡張として見送り (ユーザー要望どおり)。",
+      "recommended_action": "8×8 超のサイズが必要になった時点で数値入力 or サイズ拡張を backlog 化。",
+      "overlooked_by_autopilot": false
+    }
+  ]
+}

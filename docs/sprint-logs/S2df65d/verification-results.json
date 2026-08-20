@@ -1,0 +1,38 @@
+{
+ "sprint": "S2df65d",
+ "verified_by": "autopilot main-loop (independent machine runs)",
+ "machine_status": {
+  "make_lint": "pass (exit 0)",
+  "make_test": "pass (116 files / 1751 tests)",
+  "make_test_ui": "exit non-zero: 810 passed / 9 failed / 2 skipped. ALL 9 failures machine-proven pre-existing (fail identically on base with S2df65d stashed): list-hang.mock(121,128,155), list-image.mock(128), wiki-embed-image.mock(165), dataview.e2e:68, editor.e2e:176, journal.e2e:47, smart-folder-editor.e2e:262. 0 S2df65d-introduced failures."
+ },
+ "regression_analysis": {
+  "method": "git stash S2df65d source (App.tsx/styles.css/index.ts) -> ran failing specs on base -> compared",
+  "introduced_regressions_found": 1,
+  "introduced_regressions_fixed": 1,
+  "detail": "properties.e2e:215 broke (ConflictResolverDialog spuriously opened on property-write self-echo). Root cause: self-echo suppression gap in saveNow (baseMd/lastSavedContent not updated). Fixed via lastSavedContentRef + baseMd update; properties.e2e:215 now pass; regression test props-no-conflict-dialog.mock added (2 pass).",
+  "net_new_failures": 0
+ },
+ "stories": {
+  "S2df65d-1": {
+   "acceptance_criteria": {
+    "AC-S2df65d-1-1": "pass",
+    "AC-S2df65d-1-2": "pass",
+    "AC-S2df65d-1-3": "pass",
+    "AC-S2df65d-1-4": "pass",
+    "AC-S2df65d-1-5": "pass",
+    "AC-S2df65d-1-6": "pass"
+   },
+   "ac_evidence": "conflict-merge.mock(5)+e2e(4) green; diff3.test.ts(16) green incl. conservative-conflict cases; audit-log e2e green",
+   "done_judgment": {
+    "guard1_user_review_required": "FAIL->needs_user_review (GUI story, user_review_required:true; prototype approved but running-feature demo approval pending at milestone)",
+    "guard2_forbidden_degradation": "pass (no it.skip/only, no any/@ts-ignore, no assertion weakening; verified by grep on diff+new files)",
+    "guard_conflict_markers_in_files": "pass (no <<< === >>> written to any file; UI-only side-by-side; placeholder is in-memory only)",
+    "guard_adr_conformance": "pass (ADR-0030 3-way/pure-markdown/conservative; ADR-0016 reuse PUT+audit)",
+    "guard_callpath_exists": "pass (diff3Merge exported; ConflictResolverDialog wired in App.tsx SSE handler)",
+    "overall": "needs_user_review"
+   }
+  }
+ },
+ "verify_gate_finding": "'.claude/verify.json' declares ui-tests = 'make test-ui' (full e2e), but Makefile comment designates 'make test-ui-mock' (deterministic) as the verify gate. Both are pre-existing-RED on base due to flaky mobile-layout mock + env-dependent e2e (backlog #13/#23/#28). This predates S2df65d. RECOMMEND: point verify.json ui-tests at test-ui-mock and/or triage the documented flakes."
+}

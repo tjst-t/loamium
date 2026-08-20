@@ -1,0 +1,171 @@
+{
+  "story_id": "S9e64e7-2",
+  "story_title": "右ペイン — ライブ検証 + params/steps プレビュー + テスト実行",
+  "state_diagram": "stateDiagram-v2\n    [*] --> PreviewIdle : CommandEditor 表示\n    PreviewIdle --> Parsing : YAML 編集イベント(debounce)\n    Parsing --> PreviewValid : parseLoamiumCommandWithError → ok:true\n    Parsing --> PreviewInvalid : parseLoamiumCommandWithError → ok:false\n    PreviewValid --> PreviewValid : YAML 編集(有効のまま)\n    PreviewValid --> PreviewInvalid : YAML 編集(エラー発生)\n    PreviewInvalid --> PreviewValid : YAML 修正\n    PreviewInvalid --> PreviewInvalid : YAML 編集(エラー継続)\n    PreviewValid --> TestRunReady : テスト実行ボタン有効\n    PreviewInvalid --> TestRunBlocked : テスト実行ボタン aria-disabled=true\n    TestRunReady --> UnsavedWarning : 未保存あり(save-status dirty)\n    UnsavedWarning --> Saving : 保存を先に実行\n    Saving --> ParamFormOpen : params あり → ParamFormModal を開く\n    Saving --> Running : params なし → POST 直接\n    TestRunReady --> ParamFormOpen : 保存済み + params あり\n    TestRunReady --> Running : 保存済み + params なし\n    ParamFormOpen --> Running : フォーム送信\n    ParamFormOpen --> TestRunReady : キャンセル\n    Running --> RunSuccess : 全ステップ ok\n    Running --> RunPartialFail : 途中ステップ ok:false\n    RunSuccess --> PreviewValid : 結果表示(cmd-edit-run-result)\n    RunPartialFail --> PreviewValid : エラー結果表示",
+  "scenarios": [
+    {
+      "name": "happy_path_live_validation_valid",
+      "description": "有効な YAML を開くと右ペインに '有効' バッジ + params/steps プレビューが表示される。",
+      "steps": [
+        "commands/create-todo.md を開く(有効な定義)",
+        "cmd-edit-validation が data-valid='true'",
+        "cmd-edit-preview 内に '✓ 有効' バッジが表示",
+        "cmd-param-row が 3 件(summary/due/detail)表示される",
+        "cmd-param-row[data-name='summary'] が data-type='string' data-required='true'",
+        "cmd-param-row[data-name='due'] が data-type='date' data-required='false'",
+        "cmd-step-row が 1 件表示される",
+        "cmd-step-row[data-index='0'] が data-kind='journal-append'"
+      ]
+    },
+    {
+      "name": "happy_path_live_validation_invalid",
+      "description": "YAML を編集して steps[0].kind を不正値にすると右ペインがリアルタイムでエラー表示に切り替わる。",
+      "steps": [
+        "cmd-edit-yaml 内の kind: journal-append を kind: agent-run に変更",
+        "debounce 後 parseLoamiumCommandWithError が呼ばれる",
+        "cmd-edit-validation が data-valid='false' に切り替わる",
+        "cmd-edit-error が visible",
+        "エラーメッセージ 'steps.0.kind: Invalid discriminator value' が表示",
+        "cmd-edit-test-run が aria-disabled='true'",
+        "cmd-edit-save が aria-disabled='true'"
+      ]
+    },
+    {
+      "name": "happy_path_params_preview_all_types",
+      "description": "DSL v2 の全 param 型が右ペインの cmd-param-row に正しく表示される。",
+      "steps": [
+        "string/text/date/select/note/boolean/number の各型を持つ param を含む定義を開く",
+        "cmd-param-row[data-name='status'][data-type='select'] が options カラムを持つ",
+        "cmd-param-row[data-name='target'][data-type='note'] が visible",
+        "cmd-param-row[data-name='flag'][data-type='boolean'] が visible",
+        "cmd-param-row[data-name='count'][data-type='number'] が visible"
+      ]
+    },
+    {
+      "name": "happy_path_steps_preview_all_kinds",
+      "description": "6 種の step kind が cmd-step-row に kind バッジつきで表示される。when:/when-not: がある行はその旨表示する。",
+      "steps": [
+        "6 種(journal-append/note-append/note-create/template-instantiate/prop-set/note-patch)を持つ定義を開く",
+        "cmd-step-row[data-kind='journal-append'] が visible",
+        "cmd-step-row[data-kind='note-append'] が visible",
+        "cmd-step-row[data-kind='note-create'] が visible",
+        "cmd-step-row[data-kind='template-instantiate'] が visible",
+        "cmd-step-row[data-kind='prop-set'] が visible",
+        "cmd-step-row[data-kind='note-patch'] が visible",
+        "when: が設定されているステップの cmd-step-row に data-when 属性が付与"
+      ]
+    },
+    {
+      "name": "happy_path_test_run_with_params",
+      "description": "テスト実行ボタンで params があるとき ParamFormModal が開き、送信で POST run が呼ばれる。",
+      "steps": [
+        "有効な定義(params あり)を開き save-status が data-state='saved'",
+        "cmd-edit-test-run をクリック",
+        "param-form-modal が visible(role=dialog)",
+        "param-form-title が 'create todo' を表示",
+        "param-field[data-name='summary'] に '実装タスク' を入力",
+        "param-form-submit をクリック",
+        "POST /api/commands/create-todo/run { params: { summary: '実装タスク' } } が呼ばれる",
+        "param-form-modal が閉じる",
+        "cmd-edit-run-result が visible(実行結果表示)"
+      ]
+    },
+    {
+      "name": "happy_path_test_run_without_params",
+      "description": "params のないコマンドはテスト実行ボタン押下で即 POST run が呼ばれる。",
+      "steps": [
+        "params: [] のコマンド定義を開き保存済み",
+        "cmd-edit-test-run をクリック",
+        "param-form-modal は表示されない",
+        "POST /api/commands/no-param-cmd/run {} が呼ばれる",
+        "cmd-edit-run-result が visible"
+      ]
+    },
+    {
+      "name": "edge_invalid_blocks_test_run",
+      "description": "無効状態では cmd-edit-test-run が aria-disabled になりクリックしても POST は呼ばれない。",
+      "steps": [
+        "cmd-edit-validation が data-valid='false' の状態",
+        "cmd-edit-test-run が aria-disabled='true'",
+        "cmd-edit-test-run をクリックしても param-form-modal は開かない",
+        "POST は呼ばれない"
+      ]
+    },
+    {
+      "name": "edge_unsaved_prompts_save_before_run",
+      "description": "未保存(dirty)状態でテスト実行すると保存を先に行ってから run を実行する。",
+      "steps": [
+        "YAML を編集して save-status が data-state='dirty'",
+        "cmd-edit-validation が data-valid='true'",
+        "cmd-edit-test-run をクリック",
+        "PUT /api/notes/commands%2Fcreate-todo.md が先に呼ばれる",
+        "save-status が data-state='saved' になる",
+        "params があれば param-form-modal が開く / なければ POST run を実行"
+      ]
+    },
+    {
+      "name": "edge_run_partial_failure_display",
+      "description": "ステップ途中で失敗した場合、cmd-edit-run-result に完了済みと失敗ステップが表示される。",
+      "steps": [
+        "POST /api/commands/create-todo/run が { results: [{ kind: 'journal-append', ok: false, error: 'journal not found' }] } を返す",
+        "cmd-edit-run-result が visible",
+        "cmd-edit-run-result 内に step-result[data-kind='journal-append'][data-ok='false'] が表示",
+        "エラーメッセージ 'journal not found' が表示"
+      ]
+    }
+  ],
+  "testid_contract": [
+    "cmd-edit-preview — 右ペイン全体コンテナ(Story 1 でシェル追加済み)。プレビューバー + バリデーション + params/steps 一覧 + テスト実行ボタンを内包",
+    "cmd-edit-validation — 右ペインのバリデーション結果。data-valid='true'|'false'。prototype V3 の preview-pane[data-testid='cmd-edit-validation'] に対応",
+    "cmd-edit-error — エラーバナー要素。data-valid='false' 時のみ visible",
+    "cmd-param-row — params セクションの各パラメータ行。data-name / data-type / data-required 属性で識別。prototype の cmd-preview-pill 相当だが行形式",
+    "cmd-step-row — steps セクションの各ステップ行。data-index / data-kind / data-when(省略可)属性。prototype の cmd-step-row に対応",
+    "cmd-edit-test-run — テスト実行ボタン。InvalidState または dirty+invalid の場合 aria-disabled='true'。prototype V3 の cmd-test-run-btn に対応",
+    "cmd-edit-run-result — テスト実行結果表示エリア(右ペイン下部)。成功/失敗両用",
+    "step-result[data-kind][data-ok] — run 結果の各ステップ行(Sde7a63-3 の param-form-result 内 step-result と同型)",
+    "cmd-edit-save — Story 1 継続。右ペイン下部にも保存ボタンを配置(prototype V3 の右ペイン保存ボタン位置)",
+    "param-form-modal — 既存 ParamFormModal の再利用。テスト実行時に params があれば表示",
+    "param-form-submit — 既存。テスト実行フォームの送信ボタン"
+  ],
+  "testid_notes": "cmd-param-row は prototype の cmd-preview-pill を行形式に拡張したもの。cmd-step-row は prototype V3 右ペインの cmd-step-row testid と同名で統一する。cmd-edit-run-result は本 Story で新規追加。",
+  "endpoint_contracts": [
+    {
+      "path": "/api/commands/{id}/run",
+      "method": "POST",
+      "registered": true,
+      "request_fields": {
+        "params": "Record<string, string>"
+      },
+      "response_fields": {
+        "results": "[{ kind: string, ok: boolean, path?: string, error?: string }]",
+        "openPath": "string | undefined"
+      },
+      "error_responses": {
+        "400_missing_params": "{ error: 'missing_params', message: string, missing: string[] }",
+        "400_invalid_command": "{ error: 'invalid_command', message: string }",
+        "403": "read-only / append-only 拒否",
+        "404_not_found": "{ error: 'not_found', message: string }"
+      },
+      "notes": "Sd22b1f-2 で実装済み。{id} は commands/ ファイルの stem(例: 'create-todo')。テスト実行は保存済み定義に対して行う(未保存の場合は先に PUT で保存してから POST run)。"
+    },
+    {
+      "path": "/api/notes/{path}",
+      "method": "PUT",
+      "registered": true,
+      "notes": "Story 1 継続。テスト実行前の自動保存に使用。"
+    }
+  ],
+  "test_files": {
+    "mock": "packages/ui/tests/e2e/command-editor.mock.spec.ts",
+    "e2e": "packages/ui/tests/e2e/command-editor.e2e.spec.ts"
+  },
+  "prototype_paths": [
+    "prototype/command-editor.html"
+  ],
+  "files_expected": [
+    "packages/ui/src/components/CommandEditor.tsx (S9e64e7-1 で作成済み。右ペインにライブバリデーション + params/steps プレビュー + テスト実行ボタンを追加)",
+    "packages/ui/src/components/ParamFormModal.tsx (既存 Sde7a63-3 実装を再利用。CommandEditor から CommandParam[] を渡す)",
+    "packages/ui/src/api.ts (既存 runCommand / listCommands を利用)"
+  ],
+  "planning_notes": "S9e64e7-1(CommandEditor シェル)完了後に着手。ライブバリデーションは CodeMirror onChange イベントを debounce(300ms 程度)して parseLoamiumCommandWithError(packages/shared から import)を呼ぶ。結果を React state に保持し右ペインに反映する。ParamFormModal は既存の Sde7a63-3 実装をそのまま再利用する — commandId は commands/ の stem を使う。テスト実行は '保存済み定義に対して run' が原則(AC-S9e64e7-2-3)。未保存 dirty 時は PUT 後に run する。"
+}

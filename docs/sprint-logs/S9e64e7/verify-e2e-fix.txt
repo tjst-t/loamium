@@ -1,0 +1,72 @@
+## verify-e2e-fix — S9e64e7 E2E 実失敗デバッグ結果
+
+### 対象テスト
+- command-editor.e2e.spec.ts:74 [AC-S9e64e7-1-3] cmd-param-row が見つからない (10s timeout)
+- command-editor.e2e.spec.ts:101 [AC-S9e64e7-2-3] cmd-edit-run-result が見つからない
+
+---
+
+### ROOT CAUSE 1 — fixture に params がなかった (AC-S9e64e7-1-3)
+
+`packages/ui/tests/harness/global-setup.ts` の `seedVault()` で書き込む
+`commands/create-todo.md` に `params:` フィールドが存在しなかった。
+
+結果:
+- `parseLoamiumCommandWithError` は valid を返すが `command.params = []`
+- ComponentEditor 右ペインは `params.length > 0` のときのみ `cmd-param-row` を描画
+- → `cmd-param-row` が 0 件 → `getByTestId('cmd-param-row').first()` タイムアウト
+
+mock テストが全 pass していた理由: `VALID_COMMAND_CONTENT` (mock フィクスチャ) には
+`params: [summary, due, detail]` が定義されており、e2e 実 vault とは別物だった。
+
+修正: global-setup.ts の `commands/create-todo.md` に mock と同一の 3 params を追加。
+
+---
+
+### ROOT CAUSE 2 — modal 検出が 3000ms タイムアウトで失敗 (AC-S9e64e7-2-3)
+
+テスト (line 129) が `isVisible({ timeout: 3000 }).catch(() => false)` で modal を検出していた。
+
+`handleTestRun` の処理:
+1. 検証 → valid
+2. dirty → `await handleSave()` (PUT /api/notes/commands/create-todo.md)
+3. save 完了後 → params あり → `setRunState({ phase: 'param-form' })` → modal 表示
+
+save の HTTP RTT + React re-render が 3000ms を超えることがあり、
+`hasModal = false` → fill/submit ブロックをスキップ → modal が開いたまま
+`cmd-edit-run-result` を待つ (10s timeout 失敗)。
+
+さらに:
+- `param-form-submit` は `summary` が空のうちに click されると
+  `handleSubmit` が `requiredMissing.length > 0` を検知して早期 return し modal が閉じない
+- fill 後にボタンの `aria-disabled` が外れるのを待たずに click → 同じ問題
+
+修正:
+- `isVisible({ timeout: 3000 }).catch(() => false)` 条件分岐を削除
+- `await expect(param-form-modal).toBeVisible({ timeout: 10000 })` で必ず modal を待つ
+  (create-todo.md には必ず params がある fixture になった)
+- fill 後に `await expect(param-form-submit).not.toHaveAttribute('aria-disabled')` を挟む
+  (React state が反映されてから click)
+
+---
+
+### 変更ファイル
+1. `packages/ui/tests/harness/global-setup.ts`
+   — commands/create-todo.md に params (summary/required, due/date, detail/text) を追加
+
+2. `packages/ui/tests/e2e/command-editor.e2e.spec.ts`
+   — AC-S9e64e7-2-3: modal 検出を確実な await expect に変更、fill 後 aria-disabled 解除待ちを追加
+
+ComponentEditor.tsx は変更なし (コンポーネントは mount 時に `useState(() => validateText(content))`
+で初期 validation を計算し右ペインを描画 — 初回 render での params 表示は正しく動作していた)。
+
+---
+
+### テスト結果
+- command-editor.e2e.spec.ts --project=e2e: 4/4 passed
+- command-editor.mock.spec.ts + command-editor-completion.mock.spec.ts + command-guide.mock.spec.ts --project=mock: 33/33 passed
+- smart-command-run.e2e.spec.ts + command-palette.e2e.spec.ts --project=e2e: 21/21 passed
+
+### tsc + lint
+- npx tsc --noEmit -p packages/ui: PASS (no errors)
+- make lint: PASS (all workspaces)

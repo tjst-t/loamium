@@ -1,0 +1,37 @@
+{
+  "story": "Se29635-2",
+  "story_type": "api",
+  "user_role": "単一ユーザー (複数端末)。REST/UI から同期先を設定し手動同期する",
+  "entry_point": "http://<server>/api/sync/* (dev トークン、実 system git + ローカル bare リモート)",
+  "scenarios": [
+    {
+      "id": "scenario-1",
+      "linked_ac": ["AC-Se29635-2-1", "AC-Se29635-2-3"],
+      "description": "任意 git リモート (ローカル bare) を設定し、手動『今すぐ同期』で push、別端末の変更を pull で取り込みインデックスが追従する",
+      "preconditions": [
+        "temp vault が git init 済み",
+        "temp の bare リポジトリ (file:// パス) を remote として用意",
+        "別クローン (端末B相当) から bare へ 1 コミット push 済み (notes/from-b.md を追加)"
+      ],
+      "steps": [
+        {"n": 1, "action": "PUT /api/sync/config {remoteUrl: 'file:///tmp/.../hub.git', branch:'main', enabled:true}", "expected": "200。GET /api/sync/config が remoteUrl を返す (差し替え可能)"},
+        {"n": 2, "action": "vault にノートを 1 本作成 (PUT /api/notes/notes/from-a.md) してから POST /api/sync/now", "expected": "200、result.pushed=true。bare リポジトリの main tip に from-a.md が含まれる (実 push)"},
+        {"n": 3, "action": "端末B相当のクローンから bare に notes/from-b.md を push した状態で、サーバを『起動時 pull』または POST /api/sync/pull を実行", "expected": "vault に notes/from-b.md が実体で出現し、GET /api/search 等で index に反映される (watcher/インデックス追従)"},
+        {"n": 4, "action": "from-a.md の中身を端末A vault のファイルとして読む / 端末B クローンで pull して読む", "expected": "両端末で from-a.md の内容 (バイト) が一致する (往復でデータ破損しない)"}
+      ],
+      "cleanup": ["temp vault / bare / クローンを削除"]
+    },
+    {
+      "id": "scenario-2",
+      "linked_ac": ["AC-Se29635-2-2"],
+      "description": "認証は git credential に委譲。フォールバック PAT は .loamium 0600 に保存し vault (git 管理下) には絶対保存しない",
+      "preconditions": ["temp vault"],
+      "steps": [
+        {"n": 1, "action": "PUT /api/sync/credential {token:'ghp_dummy'}", "expected": "200。.loamium/sync-credentials.json が mode 0600 で作成される"},
+        {"n": 2, "action": "vault (git 管理下) 全体を走査し token 文字列を探す / .git/config を読む", "expected": "'ghp_dummy' は vault 追跡ファイルにも .git/config にも出現しない (vault 内保存禁止を満たす)"},
+        {"n": 3, "action": "GET /api/sync/config", "expected": "token は redact されて返る (生 PAT を返さない)"}
+      ],
+      "cleanup": []
+    }
+  ]
+}

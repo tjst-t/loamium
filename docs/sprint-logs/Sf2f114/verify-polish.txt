@@ -1,0 +1,26 @@
+# verify-polish — Sf2f114 ポリッシュ修正 (2026-07-12)
+
+## F1 — CLI skip 表示
+- packages/cli/src/main.ts: `step.skipped === true` のとき `skip\t{kind}` を出力するよう変更
+- CLI acceptance test 2 件追加 (tests/acceptance/command-run.spec.ts):
+  - [AC-Sf2f114-2-4] human output: skip\tnote-create で出力される
+  - [AC-Sf2f114-2-4] --json: ok:true + skipped:true のまま (JSON 未変更)
+
+## F2 — コメント修正
+- tests/acceptance/command-run.spec.ts line ~1105:
+  「resolveParams で '' になる」→「params に flag キーが存在しない → missing.length > 0 で falsey 扱い」
+
+## F3 — テスト追加
+- [AC-Sf2f114-2-2] when-not: {{undefined_param}} + param 未送信 → ステップ実行される
+  (tests/acceptance/command-run.spec.ts)
+- [AC-Sf2f114-1-2] {{date:HH:mm}} standalone → "09:04" に整形される
+  (packages/shared/src/template.test.ts)
+- [AC-Sf2f114-3-1] position:'section' + section フィールドなし → ok:false (クラッシュなし)
+  (tests/acceptance/command-run.spec.ts)
+
+## 検証結果
+- npx vitest run packages/shared/src/: 374 tests PASS
+- npx vitest run tests/acceptance/command-run.spec.ts: 61 tests PASS
+- npx vitest run tests/acceptance/commands.spec.ts: 14 tests PASS
+- tsc --noEmit (shared/server/cli/tests): ALL PASS
+- make lint: PASS

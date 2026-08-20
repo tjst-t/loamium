@@ -1,0 +1,26 @@
+{
+  "story": "Sf17a4c-2",
+  "story_type": "api",
+  "user_role": "単一ユーザー。両側にデータがある状態から無損失でリンクしたい",
+  "entry_point": "http://<server>/api/sync/link/{preview,apply}(実 git + bare/クローン)",
+  "scenarios": [
+    {
+      "id": "scenario-1", "linked_ac": ["AC-Sf17a4c-2-1"],
+      "description": "merge-tree で作業ツリーを触らず件数プレビュー",
+      "preconditions": ["ローカル vault(git 化・数ファイル)", "リモート(別クローンで別ファイル + 一部同名別内容を push 済み)"],
+      "steps": [
+        {"n": 1, "action": "POST /api/sync/link/preview", "expected": "作業ツリー未変更のまま、リモートから追加 X / ローカルから Y / 衝突(同名別内容)Z 件と衝突ファイル一覧が返る(git status がクリーンのまま=merge-tree)"}
+      ], "cleanup": []
+    },
+    {
+      "id": "scenario-2", "linked_ac": ["AC-Sf17a4c-2-2", "AC-Sf17a4c-2-3"],
+      "description": "両側 add/add を解決指定どおり適用し、データ喪失ゼロで push",
+      "preconditions": ["ローカル `メモ/買い物.md`=牛乳/卵、リモート同名=牛乳/パン、各々に片側だけのファイルも存在"],
+      "steps": [
+        {"n": 1, "action": "apply(衝突を『両方保持』指定)", "expected": "メモ/買い物.md=ローカル版が残り、メモ/買い物.remote.md=リモート版が新規追加。片側だけのファイルは両立。commit→push で bare に反映"},
+        {"n": 2, "action": "別解決指定でも検証(ローカル採用/リモート採用/3-way)", "expected": "指定どおり適用され、採用系で外した側も backup ref から復元可能。reset --hard / -X ours,theirs は使われない"},
+        {"n": 3, "action": "リンク後、ローカルとリモート(別クローン)の内容を比較", "expected": "両側の元データがどこにも失われていない(byte 一致で確認)"}
+      ], "cleanup": []
+    }
+  ]
+}

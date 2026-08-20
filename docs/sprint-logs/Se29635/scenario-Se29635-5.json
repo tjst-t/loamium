@@ -1,0 +1,32 @@
+{
+  "story": "Se29635-5",
+  "story_type": "cli",
+  "user_role": "エージェント利用者 / CLI ユーザー。同期の実行・状態確認をツール/CLI からしたい",
+  "entry_point": "loamium CLI バイナリ (packages/cli/bin/loamium.js) + エージェントツール + agent-help + 機能ガイド",
+  "scenarios": [
+    {
+      "id": "scenario-1",
+      "linked_ac": ["AC-Se29635-5-1", "AC-Se29635-5-2"],
+      "description": "CLI で同期状態確認と実行ができ、REST と 1:1 で、同期操作が audit.log に記録される",
+      "preconditions": ["実サーバ (LOAMIUM_URL) + temp vault (git init) + bare remote 設定済み"],
+      "steps": [
+        {"n": 1, "action": "user runs `loamium sync status`", "expected": "exit 0、stdout に同期状態 (available / ahead / lastSyncAt 等) が出る"},
+        {"n": 2, "action": "user runs `loamium sync now`", "expected": "exit 0、stdout に push 済みの結果。bare tip に反映される (REST /api/sync/now と同一挙動)"},
+        {"n": 3, "action": ".loamium/audit.log を読む", "expected": "op が sync.commit / sync.push / sync.pull 等の JSONL エントリが記録されている (git 直接操作の監査補完)"}
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "scenario-2",
+      "linked_ac": ["AC-Se29635-5-1", "AC-Se29635-5-3"],
+      "description": "エージェントに sync ツールと help が提供され、機能ガイドが samples から取得できる",
+      "preconditions": ["実サーバ (read-write モード)"],
+      "steps": [
+        {"n": 1, "action": "エージェントの advertised ツール一覧を取得 (agent-tools.e2e 相当)", "expected": "read で sync_status、read-write で sync_now がツールとして広告される"},
+        {"n": 2, "action": "agent-help の `sync` トピックを引く", "expected": "sync ツールの使い方 (名前・入出力・使用例・制約) が返る。help はどの権限セットでも利用可"},
+        {"n": 3, "action": "packages/server/src/samples/機能ガイド/Vault同期の使い方.md と samples/index.md を確認", "expected": "同期ガイドが存在し、index.md の機能ガイドセクションからリンクされている (init-samples で取得可能)"}
+      ],
+      "cleanup": []
+    }
+  ]
+}

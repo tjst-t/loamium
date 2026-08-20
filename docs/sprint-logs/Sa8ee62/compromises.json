@@ -1,0 +1,15 @@
+{
+  "sprint": "Sa8ee62",
+  "milestone_batch": ["S11493d", "Sa8ee62"],
+  "compromises": [
+    {"category": "scope_deferral", "severity": "low", "story": "Sa8ee62-1",
+     "what": "エクスポートの Markdown→HTML は marked(GFM)止まり。mermaid/KaTeX/Shiki/![[embed]]/callout/==highlight== は素の HTML/テキストにフォールバック。",
+     "why": "ADR-0006 のパイプライン契約を満たす MVP。リッチ描画は将来のパイプライン拡張で追加。", "resolution": "backlog 候補"},
+    {"category": "scope_narrowing", "severity": "low", "story": "S11493d-4",
+     "what": "AC-4-1『テーブルセルのタグ』は dataview の dv-tag チップに限定。GFM Markdown 表セル中の素 #tag は未配線。",
+     "why": "GFM 表セルの素テキスト #tag をクリック可能にするのはピュア Markdown 原則(priority 1)と衝突しうるため除外。", "resolution": "decisions.json S11493d に記録済み"},
+    {"category": "traceability", "severity": "low", "story": "Sa8ee62-2",
+     "what": "AC-Sa8ee62-2-3 のタグが mock と e2e で別シナリオを指す(両者で全体はカバー)。",
+     "why": "テスト分割の都合。カバレッジは満たすがラベルの対応が分かりにくい。", "resolution": "軽微。次サイクルで整理可"}
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "sprint": "Sd5c9f4",
+  "mode": "auto (autopilot batch elaboration)",
+  "base_sha": "a9e7f7db5c8f40905fa4629d6f305837a3c386b4",
+  "touched_adrs": ["ADR-0001", "ADR-0014", "ADR-0015"],
+  "elaboration_decisions": [
+    {"id": "E1", "category": "elaboration", "decision": "coarse→detailed: 5 Stories (DQL 結果キャッシュ / chokidar 無効化+VaultIndex onChange / GET /api/events SSE / クライアント SSE 購読+差分更新 / 1秒以内反映 e2e)。backlog[8]『query スマートフォルダの再取得』を消費。", "rationale": "sprint description の遅延+stale 同時解決を層別に分解。backlog[8] は SSE 無効化で解消。", "reference": "autopilot-start Batch elaboration"},
+    {"id": "E2", "category": "elaboration", "decision": "DQL キャッシュはインメモリのみ(永続化なし)。破棄・再生成でファイルから再構築可能を AC 化。", "rationale": "DESIGN_PRINCIPLES priority 6 (インデックスは使い捨て・ファイルが正)。既存 DQL エンジンを再利用・拡張しフォークしない。", "reference": "ADR-0001, priority 6"},
+    {"id": "E3", "category": "elaboration", "decision": "GET /api/events(SSE) にエージェントツールを追加しない。判断を agent-help.ts に1行コメントで記録。", "rationale": "SSE は UI 受動購読インフラでエージェント操作対象外(エージェントは毎回サービス層を直接呼び最新結果を得る)。CLAUDE.md『エージェント操作ツール必須』の note/sf/command 操作条件に非該当。", "reference": "ADR-0014"},
+    {"id": "E4", "category": "elaboration", "decision": "SSE は read-only/append-only モードでも利用可能(permissionMiddleware 通過)。物理ツリー差分更新は既存 refreshNotes(全件)も残し二重更新は同一パス上書きで安全収束。", "rationale": "イベント購読は最小権限で許可すべき操作。書き込み後の即時整合は refreshNotes、外部変更は SSE で分担。", "reference": "ADR-0015, priority 2"}
+  ],
+  "notes_for_po": "リスク: (1) SSE 再接続レースで無効化イベント欠落→再接続時に展開中 SF を強制再フェッチで軽減。(2) 1秒反映 e2e の CI flakiness→2秒タイムアウトで余裕。(3) burst 変更(git checkout 等)で getNoteMeta 多発→debounce/全件再取得フォールバック検討。(4) VaultIndex.setOnChange 追加で agent-smartfolder-tools.test.ts の toolset pin 確認(MEMORY: agent-tools.e2e pin)。"
+}

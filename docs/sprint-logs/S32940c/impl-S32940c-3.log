@@ -1,0 +1,52 @@
+S32940c-3 impl log — 2026-07-07
+
+## Story
+frontmatter プロパティ書込 API + CLI (スター基盤)
+
+## Changes
+
+packages/shared/src/schemas.ts
+  - notePropertyWriteRequestSchema / NotePropertyWriteRequest
+    {set?: Record<string,scalar>, unset?: string[]} — scalar = string|number|boolean|null
+  - notePropertyWriteResponseSchema / NotePropertyWriteResponse
+    {path, frontmatter, mtime}
+
+packages/server/src/routes/notes.ts
+  - 'properties' を POST_ACTIONS に追加
+  - POST /api/notes/{path}/properties ハンドラ実装:
+    * parseNote → frontmatter が null かつ --- あり → 422 (破損 YAML)
+    * parsePropertiesModel(yamlText) → null → 422 (複雑 frontmatter)
+    * set/unset を PropEntry[] に適用 (upsert / filter)
+    * serializeFrontmatterBlock → null = 全キー削除 → frontmatter ブロック除去
+    * parseNote(newContent) でラウンドトリップ検証 → 失敗は 422 (priority 2)
+    * writeNote → 監査ログは indexSyncMiddleware 経由で自動更新
+
+packages/server/src/audit.ts
+  - deriveOp に '/properties' → 'note.property.write' を追加
+
+packages/cli/src/main.ts
+  - prop set <path> <key> <value>  → POST /api/notes/{path}/properties {set:{key:parsePropInput(value)}}
+  - prop unset <path> <key>        → POST /api/notes/{path}/properties {unset:[key]}
+  - 1:1 対応コメントブロック更新
+
+tests/acceptance/note-properties.spec.ts (新規)
+  - 18 テスト、全 AC カバー
+
+## AC カバレッジ
+- AC-S32940c-3-1: POST /properties set/unset → 200 + frontmatter 反映  ✓
+- AC-S32940c-3-2: body バイト一致、全キー削除 → ブロック除去、複雑 FM → 4xx ファイル不変  ✓
+- AC-S32940c-3-3: 監査ログ note.property.write、read-only/append-only → 403  ✓
+- AC-S32940c-3-4: CLI prop set / prop unset → 1:1  ✓
+- AC-S32940c-3-5: bookmark → LIST WHERE bookmark に反映 → unset で除外  ✓
+
+## Gates
+- make lint: PASS
+- npx vitest run packages/shared: 247 tests PASS
+- npx vitest run tests/acceptance/note-properties.spec.ts: 18/18 PASS
+
+## Round-trip safety design
+afterFrontmatter = bodyLines.length > 0 ? '\n' + bodyLines.join('\n') : ''
+newContent = block + afterFrontmatter  (block=null → afterFrontmatter.slice(1) = body)
+parseNote(newContent) で frontmatter 再パース → null なら拒否
+parsePropertiesModel(yamlText) で modelable か検証 → null なら拒否
+いずれかが失敗したらファイルを一切書かない (priority 2)

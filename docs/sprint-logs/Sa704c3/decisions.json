@@ -1,0 +1,168 @@
+{
+  "$file": "decisions.json",
+  "sprint": "Sa704c3",
+  "decisions": [
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "Story は逐次実行(worktree サブエージェント並列なし)",
+      "detail": "この実行環境には worktree 分離のサブエージェント起動ツールが無いため、Sa704c3-1 → Sa704c3-2 の順でメインセッションが直接実装する。Sa704c3-2 はエディタ基盤(Sa704c3-1)に依存するため、どのみち逐次が正しい依存順。Story/Sprint レベルレビューは code-review スキルで実施する。",
+      "reference": "sprint-run.md の並列化は依存が無い場合の最適化であり、依存がある本 Sprint では逐次が正",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "mtime 競合検出はサーバー側の追加変更で実装 (PUT baseMtime → 409)",
+      "detail": "NoteResponse / JournalResponse / NoteWriteResponse に mtime (ms epoch) を追加し、PUT /api/notes/{path} が optional な baseMtime を受け取る。baseMtime 指定時にファイルの現 mtime と不一致なら 409 conflict を返し、UI は警告ダイアログ(上書き / 再読込)を出す。ARCHITECTURE 既定路線『last-write-wins + mtime/hash による楽観的検出』と backlog 項目『書き込み競合の楽観的検出』への最小対応。レスポンスへのフィールド追加は後方互換(additive)で、zod スキーマは shared で共有更新。",
+      "reference": "docs/ARCHITECTURE.md Data Flow / SPEC.md §9 高-1 / ROADMAP タスク Sa704c3-1-3 / DESIGN_PRINCIPLES priority 2 (データ安全性)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "CLI には --base-mtime フラグを追加しない",
+      "detail": "baseMtime は optional なリクエストフィールドであり、エンドポイント/コマンドの 1:1 対応は変わらない。エージェント経由の書き込みは ARCHITECTURE の通り last-write-wins で開始する(append API は read-modify-write をサーバー内で行うため UI 経由の編集と競合しにくい)。CLI への競合検出オプションは必要になった時点で追加する(シンプルさ優先)。",
+      "reference": "DESIGN_PRINCIPLES priority 5 (シンプルさ > 汎用性) / priority 3 (API/CLI の安定)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "リネームは既存 API のクライアント合成 (GET→PUT→DELETE)。リンク追従は S6fbf45-3 スコープ",
+      "detail": "AC-Sa704c3-1-3 のリネームは既存 API の合成(旧パス GET → 新パス PUT → 旧パス DELETE)で実装する。[[リンク]] の自動書き換えと POST /api/notes/{path}/rename は ROADMAP 上 S6fbf45-3 の AC として明示されているため、本 Sprint では実装しない。従って tree-rename.html プロトタイプの rename-link-note(『[[リンク]] N 件を自動更新』表示)は本 Sprint では出さず、確定ボタンのラベルも『リネーム』とする(未実装機能を約束する文言は出さない)。",
+      "reference": "docs/ROADMAP.json S6fbf45-3 acceptance_criteria / prototype-review.json (tree-rename.html は S6fbf45-3 のプロトタイプ)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "バックリンクパネルはシェルのみ実装(結線は S6fbf45-2)",
+      "detail": "3 ペインレイアウトを守るため右ペインのコンテナ(backlink-panel)と開閉トグル(backlink-panel-toggle)、正直なプレースホルダ(backlink-empty: 『バックリンクパネルは未実装です』)を実装する。実データの件数バッジ(backlink-count)・参照元リスト(backlink-item)は S6fbf45-2 の AC なので本 Sprint では出さない(0 件と偽表示するより非表示が誠実)。同様に fold-toggle / task-checkbox / wikilink / fence-widget 等 journal.html 内の将来 Sprint 要素(S9ab6c3 / S6fbf45)は実装しない。プロトタイプ drift チェックでの意図的差分として本エントリを根拠にする。",
+      "reference": "親指示『アウトライン操作・ライブプレビュー・[[リンク]]補完は次 Sprint 以降』/ prototype/TESTIDS.md の画面列(fold-toggle は S9ab6c3 画面、backlink-item は S6fbf45)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "新規ノート・フォルダ・削除確認・競合警告のダイアログ testid を TESTIDS.md に追記",
+      "detail": "契約表に無い新規 UI(新規ノート名入力・新規フォルダ・削除確認・mtime 競合警告)には new-note-dialog / new-note-input / new-note-confirm / new-note-cancel / new-folder-dialog / new-folder-input / new-folder-confirm / new-folder-cancel / delete-dialog / delete-confirm / delete-cancel / conflict-dialog / conflict-overwrite / conflict-reload を採番し、TESTIDS.md に『Sa704c3 実装時追加』として追記する(既存行の変更はしない — 契約は additive にのみ拡張)。ダイアログの見た目は rename-dialog(tree-rename.html)のスタイルを流用する。",
+      "reference": "prototype/TESTIDS.md の方針(共通 testid + data-* 属性)/ DESIGN_PRINCIPLES priority 5",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "新規フォルダはクライアント側の一時表示(空フォルダ作成 API は追加しない)",
+      "detail": "vault の正本は .md ファイルであり空フォルダはインデックスにも載らない。sidebar-new-folder はツリー上に一時的な空フォルダ行を追加し、その中にノートを作成した時点でファイルとして永続化される。フォルダ作成 API の追加は行わない(API 面積の最小化)。",
+      "reference": "DESIGN_PRINCIPLES priority 1 (ピュア Markdown) / priority 5 (シンプルさ)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "journal-prev / journal-next はカレンダー日 ±1 移動(GET /api/journal?date= の自動生成に乗る)",
+      "detail": "プロトタイプのツールチップ(前日/翌日)どおりカレンダー日で移動する。存在しない日付は journal API が自動生成する(Sd63ad1 で確定した API 契約・VISION の自動生成方針)。journal-open-list の一覧は GET /api/notes?folder=journals から YYYY-MM-DD.md を新しい順に表示する。",
+      "reference": "docs/VISION.json success_criteria (デイリージャーナル自動生成) / prototype/journal.html",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "起動時は GET /api/journal(日付指定なし)の結果を開く。empty state は『開いているノートが無い』時のみ",
+      "detail": "『今日』の判定はサーバーローカル日付が正のため、UI は日付を計算せず GET /api/journal のレスポンス(date/path/content/mtime)をそのまま開く。editor-empty-state は開いているノートが無い場合(起動時の journal 取得失敗・表示中ノートの削除後)に表示し、empty-open-journal で再取得、empty-new-note で新規ノートダイアログを開く。",
+      "reference": "DESIGN_PRINCIPLES ui_ux (起動時に今日のジャーナルを開く) / prototype/editor-empty.html",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "Makefile serve/serve-ui/stop をインストール済み portman (lease/release) に合わせて修正",
+      "detail": "この環境の portman には acquire/port サブコマンドが無く lease/release/list/env/exec がある(lease は同一 branch+name で冪等)。既存の `portman acquire --pid-file` 形式は動作しないため、serve/serve-ui を `PORT=$(portman lease --name ...)` + nohup + pid ファイル(再実行時に前プロセス kill)に書き換える。ポートのハードコードはしない。CLAUDE.md の『portman port --name loamium』記述も実コマンド(portman lease)に合わせて更新する。",
+      "reference": "CLAUDE.md Server 節(ポート番号をハードコードしない)/ 実環境の portman --help 検証結果",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "Playwright は packages/ui 配下・エフェメラルポートで実サーバー+Vite を globalSetup 起動",
+      "detail": "テストは packages/ui/tests/e2e/{editor,journal}.{mock,e2e}.spec.ts。globalSetup が (1) 一時 vault を作成・シード、(2) 実サーバー(PORT=0 で OS 割当、stdout からパース — tests/acceptance/helpers/server.ts と同方式)、(3) Vite dev server(net.Server で空きポート取得 → --port N --strictPort、プロキシ先は環境変数 LOAMIUM_API_URL)を起動する。ポートはハードコードしない。mock テストは全 /api を page.route でモックし実サーバーへ到達させない。JUnit は reports/ui/playwright.xml に出力し、.claude/verify.json に `make test-ui` を追加して機械判定に載せる。",
+      "reference": "test-discipline Rule 2/4/9 + CLAUDE.md ポート方針",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "planning",
+      "title": "3 レジストリ(fence/inline/block)は骨格のみ敷く(登録はゼロ)",
+      "detail": "Sprint description の『拡張レンダリングの 3 レジストリ構造をここで敷く』に対し、packages/ui/src/registries.ts に registerFenceRenderer / registerInlineRule / registerBlockRule の型と保持構造のみを定義する。実レンダラー(Mermaid/KaTeX/Shiki)の登録・描画は S9ab6c3-2(ライブプレビュー)のスコープ。UI から観測可能な挙動は増やさない(Rule 6 の追加サーフェス無し)。",
+      "reference": "SPEC.md §8.2 / ROADMAP S9ab6c3-2",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "implementation",
+      "title": "CLI の portman 解決に lease フォールバックを追加",
+      "detail": "インストール済み portman には `port` サブコマンドが無く `lease` がある (lease は同一 project+worktree+name で冪等)。CLI url.ts は `portman port` → `portman lease` の順に試すようにした (旧版との互換維持・additive 変更)。これが無いと `make serve` (lease でポート取得) と CLI の解決が食い違い、CLI がデフォルト :3000 に落ちてサーバーを見つけられない。cli.spec.ts に lease 版 portman のテストを追加。skill/SKILL.md / CLAUDE.md / ARCHITECTURE.md の記述も実コマンドに合わせて更新。",
+      "reference": "実環境 portman --help 検証 / DESIGN_PRINCIPLES priority 3 (API/CLI の安定・後方互換)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "implementation",
+      "title": "Makefile serve/serve-ui を portman lease + nohup + pid ファイルで再実装",
+      "detail": "portman acquire (存在しない) 依存だった serve/serve-ui/stop を書き換え。再実行時は pid ファイルの前プロセスを kill。serve は tsx watch を直接起動 (npm 経由だと kill がプロセスツリーに届かない)。serve-ui は loamium-ui のポートで vite を起動し、LOAMIUM_API_URL で loamium のポートへプロキシ。実機で serve → serve-ui → CLI 接続 → stop の一連を検証済み。",
+      "reference": "CLAUDE.md Server 節 (再実行で前プロセスを自動 kill / ポートハードコード禁止)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "implementation",
+      "title": "StrictMode 二重マウント対策: 起動処理は didInit ref で 1 回だけ",
+      "detail": "React 19 StrictMode は開発時に effect を二重実行するため、起動時の GET /api/journal が 2 回飛び mock テストの呼び出し回数検証が壊れた。didInitRef ガードで起動処理を 1 回に固定 (標準的な受け入れパターン)。StrictMode 自体は維持。",
+      "reference": "React docs (You Might Not Need an Effect / StrictMode)",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "implementation",
+      "title": "ノート切替時は EditorView.setState で undo 履歴ごと破棄",
+      "detail": "dispatch でドキュメント差し替えると undo 履歴が残り、切替後の Ctrl+Z で前ノートの本文が復活して自動保存で誤った内容が書き込まれる恐れがある。setState で履歴ごと差し替えてデータ事故を防ぐ (priority 2 データ安全性)。",
+      "reference": "DESIGN_PRINCIPLES priority 2",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "implementation",
+      "title": "sidebar-settings は disabled で配置 (設定画面は全 Sprint スコープ外)",
+      "detail": "契約 testid (全画面) のため要素は置くが、設定画面はどの Story にも無いので disabled + title「設定 (未実装)」とし、動かないボタンで機能があるように見せない。",
+      "reference": "prototype/TESTIDS.md / 誠実な UI 表示",
+      "adr_ref": null,
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-03T00:00:00Z",
+      "category": "review",
+      "title": "Story レビュー (code-review high): 5 件検出・4 件修正・1 件許容",
+      "detail": "サブエージェント起動ツールが無いためレビューはメインセッションが 7 アングル (行単位 diff / 削除挙動 / クロスファイル / 再利用 / 単純化 / 効率 / 高度) を直接実施。修正: (1) 新規作成・リネームの PUT を baseMtime:0 の create-only にし、ツリーが古い場合の外部作成ノート上書き (データロス) を 409 で防止 + 専用エラー表示。(2) F2 がダイアログ/メニュー表示中に状態を奪う問題をガード。(3) リネーム部分失敗時に refreshNotes してツリーを実状に同期。(4) mock テストの json/installCatchAll 重複を tests/harness/mock-helpers.ts へ抽出、Rule 6 ギャップ (backlink-panel-toggle / empty-new-note / 各ダイアログのキャンセル / context-open / F2) の mock テスト 3 件を追加。許容: 保存進行中 (数 ms) のノート切替クリックが no-op になる挙動 — ローカル API でウィンドウが極小のため複雑化しない。",
+      "reference": "test-discipline Rule 6 / DESIGN_PRINCIPLES priority 2",
+      "adr_ref": null,
+      "drift_flag": "none"
+    }
+  ]
+}

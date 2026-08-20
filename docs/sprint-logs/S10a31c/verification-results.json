@@ -1,0 +1,17 @@
+{
+  "sprint": "S10a31c",
+  "overall_machine_status": "pass",
+  "tsc": "pass",
+  "tests": { "server": "31 passed / 0 failed" },
+  "acceptance_criteria": {
+    "AC-S10a31c-1-1": "pass", "AC-S10a31c-1-2": "pass",
+    "AC-S10a31c-2-1": "pass", "AC-S10a31c-2-2": "pass"
+  },
+  "done_judgment": {
+    "guard4_priority9_exception": "n/a (no exception claims)",
+    "guard5_call_path": "pass (resourceLoader wired in createPiSession+openPiSession; help in VAULT_READ_TOOL_NAMES)",
+    "guard6_deferred_comment": "pass (none)",
+    "forbidden_degradation": "none",
+    "overall": "done"
+  }
+}

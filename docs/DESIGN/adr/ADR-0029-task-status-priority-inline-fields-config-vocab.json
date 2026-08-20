@@ -1,0 +1,40 @@
+{
+  "id": "ADR-0029",
+  "title": "タスクの status/priority/due は Dataview インラインフィールドで保存し、チェックボックスは完了のみ。status/priority の語彙は system/settings.yaml で定義する",
+  "status": "accepted",
+  "date": "2026-07-19",
+  "context": "Se3b7a2(TODO 機能向上)のプロトタイプレビューで、タスクのステータス(TODO/進行中/ブロック/完了 等)と期限・重要度をどう Markdown に保存するかが load-bearing な判断として浮上した。初期案は Obsidian の alt-checkbox 慣習(`- [ ]`=TODO / `- [/]`=進行中 / `- [!]`=ブロック / `- [x]`=完了)でステータスをチェックボックス 1 文字に埋め込む方式だったが、ユーザーレビューで『ちょっとしたチェックボックスで済むタスクには過剰で、前知識がないと分かりづらい。ステータスは必要なときだけ別に持ちたい』との指摘を受けた。また『status/priority が取りうる値をどこで定義するか。コードに埋め込みたくない』という要件が出た。前提として、正本は常にピュア Markdown 文字列 1 本(priority 1)、記法は Obsidian で通用するものに限定(priority 4)、設定系データは vault 内 system/ フォルダの Markdown/YAML(ADR-0010)、人間向け設定は型付き設定 API で集約し保存場所と agent 編集境界を維持(ADR-0026)、DQL は既存エンジンを再利用・拡張(ADR-0001)。",
+  "alternatives": [
+    {
+      "name": "status/priority/due を Dataview インラインフィールドで保存し、チェックボックスは完了のみ。語彙は system/settings.yaml で定義(採用)",
+      "tradeoff": "`- [ ]`/`- [x]` は GFM 標準の完了/未完了だけを表し、前知識ゼロで使える。status/priority/due は `[status:: progress] [priority:: high] [due:: 2026-07-25]` の Dataview インラインフィールドとして必要なときだけ行末に付与する(単純タスクはフィールドなし)。語彙(取りうる status/priority の key/label/color/done フラグ)は system/settings.yaml の tasks: セクションで定義し、UI(エディタ・Dataview・スラッシュ /task)のピル/選択肢をそこから描画する。代償は、ステータスと完了(チェックボックス)が二軸になり整合ルール(done 相当の status に設定するとチェックボックスも [x] に同期)が要ること。"
+    },
+    {
+      "name": "Obsidian alt-checkbox でステータスをチェックボックス 1 文字に埋め込む(`- [/]`/`- [!]` 等)",
+      "tradeoff": "1 行で完結し追加フィールドが不要だが、全タスクがステータス概念を持つ前提になり、単純なチェックボックスに過剰。ステータスの語彙を増減しづらく(文字の割当が固定的)、前知識のないユーザーに `[/]`/`[!]` の意味が伝わらない。ユーザー指摘により不採用。"
+    },
+    {
+      "name": "LogSeq 式の行頭キーワード(TODO/DOING/DONE)",
+      "tradeoff": "LogSeq ユーザーには自然だが、素の Obsidian で開くと 'TODO' が単なる文字列に見えチェックボックスにならない。priority 4(Obsidian 互換)に抵触。VISION out_of_scope(LogSeq 式ブロック化)にも反する。不採用。"
+    },
+    {
+      "name": "status/priority の語彙をコード(TypeScript enum)にハードコード",
+      "tradeoff": "実装は単純だが、ユーザーがワークフロー(状態集合)を変えられず、コード変更を要する。『コードに埋め込みたくない』という要件と、設定は vault 内 YAML という ADR-0010 に反する。不採用。"
+    }
+  ],
+  "decision": "(1) タスクのチェックボックス `- [ ]` / `- [x]` は GFM 標準の完了/未完了のみを表す。単純タスクは追加フィールドなしの `- [ ] テキスト` のまま。 (2) status / priority / due は Obsidian Dataview のインラインフィールド構文 `[key:: value]` を行末に付与する任意フィールドとして保存する(`[status:: progress]` / `[priority:: high]` / `[due:: 2026-07-25]`)。ブロック ID・独自記法は用いない。書き込みは ADR-0016 の監査済み patch 経路(POST /api/notes/{path}/patch)を経由する。 (3) status / priority が取りうる値の語彙(key / label / color、および status には done:true フラグ)は system/settings.yaml の tasks: セクションで定義し、ADR-0026 の型付き設定 API 経由で読み書きする。エディタ・Dataview・スラッシュ /task のピルと選択肢はこの語彙から描画する(コードに enum をハードコードしない)。 (4) 完了(チェックボックス)とワークフロー status の整合: done:true が付いた status に設定するとチェックボックスも [x] に同期し、逆も同様。status を持たないタスクはチェックボックスのみで完結する。 (5) DQL は ADR-0001 に従い既存エンジンを拡張し、`TASK WHERE status = \"progress\"` / `WHERE due < \"...\"` / `WHERE priority = \"high\"` と SORT を task フィールドとして解決する。",
+  "consequences": [
+    "+ 単純なチェックボックスタスクは前知識ゼロで使え(priority 5 シンプルさ)、必要なタスクだけ status/priority/due を足せる。段階的な複雑さ。",
+    "+ 保存はすべてピュア Markdown / Obsidian Dataview 互換(priority 1/4)。素の Obsidian やプレーンエディタで開いても壊れない。",
+    "+ status/priority の語彙が system/settings.yaml で定義されるため、ユーザーが自分のワークフロー(状態集合・色・ラベル)をコード変更なしにカスタムできる(ADR-0010/0026 に整合)。",
+    "+ DQL は既存エンジンの拡張のみ(ADR-0001)。task 行に due/priority/status フィールドを加算するだけで WHERE/SORT が効く。",
+    "- 完了(チェックボックス)とワークフロー status が二軸になり、done:true status との同期ルールを実装・テストで担保する必要がある。",
+    "- 語彙が設定ファイル由来のため、UI は settings を読み込んでからピルを描画する(未設定・空語彙時のフォールバック=既定語彙 todo/progress/blocked/done・highest/high/medium/low を持つ)。",
+    "- Obsidian Tasks プラグインの絵文字記法(📅/⏫)とは非互換(Dataview インラインフィールドを採用)。Obsidian Dataview プラグインとは互換。"
+  ],
+  "reversibility_cost": "medium",
+  "affects": ["packages/shared", "packages/server", "packages/ui"],
+  "supersedes": null,
+  "superseded_by": null,
+  "notes": "Se3b7a2 のプロトタイプレビュー(ユーザー承認 2026-07-19)で確定。関連実装スライス: shared のインラインフィールドパーサー(status/priority/due)+ NoteTask 拡張(Se3b7a2-1)、DQL 拡張(Se3b7a2-3)、エディタ/ Dataview のピル・ポップオーバー(Se3b7a2-2/4/5、単純タスクはピルなし・語彙は config-driven)、スラッシュ /task(Se3b7a2-7、全フィールド既定『なし』)、system/settings.yaml tasks: 語彙 + 設定 UI(Se3b7a2-8、ADR-0026 型付き設定 API)。fallback 既定語彙: statuses=todo/progress/blocked/done(done:true=done)、priorities=highest/high/medium/low。alt-checkbox 案・LogSeq 案は不採用。"
+}

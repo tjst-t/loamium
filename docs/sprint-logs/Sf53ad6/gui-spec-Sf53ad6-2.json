@@ -1,0 +1,36 @@
+{
+  "$file": "gui-spec-Sf53ad6-2.json",
+  "sprint": "Sf53ad6",
+  "story": "Sf53ad6-2",
+  "story_type": "gui",
+  "visual_reference": "prototype/upload.html + prototype/TESTIDS.md (drop-overlay / upload-toast / tree-file)",
+  "state_diagram": "stateDiagram-v2\n    [*] --> Editing\n    Editing --> Dragging: ファイルを editor 上へドラッグ → drop-overlay\n    Dragging --> Uploading: drop → POST /api/files/assets/{name} (progress トースト)\n    Editing --> Uploading: 画像ペースト\n    Uploading --> Inserted: 成功 → カーソル/ドロップ位置に ![[assets/パス]] 挿入 + ツリー更新\n    Uploading --> Renamed: 409 衝突 → -1,-2… で再試行 → renamed トースト\n    Uploading --> Failed: 413/403 等 → error トースト (挿入なし)\n    Editing --> Preview: tree-file クリック → file-preview-pane\n    Preview --> Editing: ノートを開く",
+  "scenarios": {
+    "entry_point": "ブラウザで UI を開き、エディタへファイルを D&D または画像を Cmd/Ctrl+V",
+    "happy_path": "assets/ にアップロードされ、カーソル位置に ![[assets/名前]] が挿入され、ツリーに tree-file が現れる",
+    "data_states": {
+      "collision": "同名は image-1.png へ連番リネーム + renamed トースト",
+      "error": "サイズ超過 (LOAMIUM_MAX_UPLOAD)・権限 403 は error トースト。挿入・ファイル作成なし"
+    },
+    "edge_cases": [
+      "無名クリップボード画像は MIME から image.png を補完",
+      "ドロップ位置 (posAtCoords) へ挿入。ペーストはカーソル位置",
+      "tree-file はアイコン色で種別区別 (画像=緑 / PDF=赤 / データ=琥珀)",
+      "添付リネームは ![[basename]] / ![[フルパス]] 両参照を追従し、フェンス内は不変",
+      "添付削除は確認ダイアログ (「ファイルを削除」) 経由"
+    ],
+    "success_feedback": "エディタ本文の ![[パス]] とツリーの tree-file、renamed トースト",
+    "failure_feedback": "upload-toast[data-kind=error]。エディタは操作可能なまま"
+  },
+  "endpoint_contracts": [
+    { "path": "/api/files/{path}", "method": "POST", "registered": true, "note": "本 Sprint で新設 (Sf53ad6-1)" },
+    { "path": "/api/files", "method": "GET", "registered": true, "note": "添付一覧 (本 Sprint で新設)" },
+    { "path": "/api/files/{path}", "method": "DELETE", "registered": true, "note": "本 Sprint で新設" },
+    { "path": "/api/files/{path}/rename", "method": "POST", "registered": true, "note": "本 Sprint で新設 (リンク追従)" }
+  ],
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/upload.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/upload.mock.spec.ts"
+  },
+  "linked_ac": ["AC-Sf53ad6-2-1", "AC-Sf53ad6-2-2", "AC-Sf53ad6-2-3"]
+}

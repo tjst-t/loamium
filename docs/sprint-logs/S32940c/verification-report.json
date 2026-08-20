@@ -1,0 +1,28 @@
+{
+  "sprint": "S32940c",
+  "verifier": "independent read-only sub-agent",
+  "run_at": "2026-07-07T16:15:45Z",
+  "verdict": "all_pass",
+  "per_ac_all_pass": true,
+  "adr_conformance": {
+    "ADR-0001": "conforms",
+    "ADR-0002": "conforms",
+    "ADR-0003": "conforms",
+    "ADR-0004": "conforms"
+  },
+  "forbidden_degradations": [],
+  "overlooked_by_autopilot": [
+    {
+      "item": "append-only 403 not acceptance-tested for PUT /api/smart-folders",
+      "severity": "low",
+      "resolution": "fixed — added append-only 403 test to smart-folders.spec.ts"
+    },
+    {
+      "item": "AC-S32940c-1-3 backward-compat covered at unit level; acceptance test carries no AC-1-3 tag",
+      "severity": "info",
+      "resolution": "traceability only; existing query.spec.ts (12 tests) proves backward compat"
+    }
+  ],
+  "lint": "pass",
+  "tests": "47 acceptance files / 570 tests pass (ex terminal.spec.ts env-blocked); 51 dql unit + 99 new sprint tests all pass"
+}

@@ -1,0 +1,32 @@
+{
+  "story": "Sd63ad1-2",
+  "story_type": "api",
+  "user_role": "Claude Code が作業ログをデイリージャーナルに自動蓄積する",
+  "entry_point": "http://localhost:{PORT}/api (LOAMIUM_VAULT で指定した vault)",
+  "scenarios": [
+    {
+      "id": "scenario-1",
+      "linked_ac": ["AC-Sd63ad1-2-1"],
+      "description": "今日・指定日のジャーナルを取得すると、無ければ journals/YYYY-MM-DD.md が自動生成される",
+      "preconditions": ["空の一時 vault"],
+      "steps": [
+        { "n": 1, "action": "GET /api/journal", "expected": "200。date が今日(サーバーローカル)で、vault に journals/YYYY-MM-DD.md が作成されている" },
+        { "n": 2, "action": "GET /api/journal?date=2026-01-15", "expected": "200。journals/2026-01-15.md が自動生成される" },
+        { "n": 3, "action": "GET /api/journal?date=不正な日付", "expected": "400" }
+      ],
+      "cleanup": ["一時 vault 削除"]
+    },
+    {
+      "id": "scenario-2",
+      "linked_ac": ["AC-Sd63ad1-2-2"],
+      "description": "今日(または指定日)のジャーナル末尾に追記できる",
+      "preconditions": ["空の一時 vault"],
+      "steps": [
+        { "n": 1, "action": "POST /api/journal/append に {content: \"- 決定: X を採用\"}", "expected": "200。今日の journals/YYYY-MM-DD.md 末尾に追記される(ファイルが無ければ自動生成)" },
+        { "n": 2, "action": "POST /api/journal/append に {content, date: \"2026-01-15\"}", "expected": "200。journals/2026-01-15.md の末尾に追記される" },
+        { "n": 3, "action": "GET /api/journal?date=2026-01-15", "expected": "200。追記した内容が末尾にある" }
+      ],
+      "cleanup": []
+    }
+  ]
+}

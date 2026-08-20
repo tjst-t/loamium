@@ -1,0 +1,22 @@
+{
+  "sprint": "Sa8ee62",
+  "overall_machine_status": "pass",
+  "evidence": {
+    "vitest": "674/674 passed (51 files) under --no-file-parallelism (includes 27 export acceptance tests launching real Chromium, %PDF- verified). Post-fix export re-run 27/27.",
+    "ui_mock": "235/235 passed",
+    "ui_e2e": "export-menu 3/3 pass (real server PDF + browser download)",
+    "independent_verifier": "pass after audit-defect fix (verification-report.json)"
+  },
+  "done_judgment": {
+    "guard1_ac_met": "pass — all 6 AC in real code (verifier confirmed)",
+    "guard2_tests_pass": "pass — 674 vitest + 235 mock + e2e green",
+    "guard3_no_forbidden": "pass — none found",
+    "guard4_priority9_exception": "n/a",
+    "guard5_callpath_exists": "pass — export route + CLI + UI wiring exist",
+    "guard6_deferred_residue": "pass",
+    "guard7_realmode_smoke": "pass — real Chromium PDF generation exercised in acceptance + e2e",
+    "guard8_destructive_multiversion": "n/a — export is read-only, no vault writeback",
+    "overall": "done"
+  },
+  "known_issues": ["Export defers rich render features (mermaid/KaTeX/Shiki/callouts/![[embed]]/==highlight==) to plain HTML — documented compromise."]
+}

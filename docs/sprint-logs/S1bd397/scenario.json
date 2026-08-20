@@ -1,0 +1,150 @@
+{
+  "sprint": "S1bd397",
+  "story": "S1bd397-4",
+  "title": "入力フォーム UI — 動的選択肢ドロップダウン/オートコンプリート",
+  "endpoint_ui_contract": {
+    "candidate_resolution_api": {
+      "method": "POST",
+      "path": "/api/options-query",
+      "request": {
+        "dql": "string (必須) — 実行する DQL クエリ (LIST のみ v1)",
+        "resolvedVars": "Record<string, string> (任意) — 依存クエリ用: 解決済み上流変数を差し込んでから実行",
+        "topN": "number (任意, 既定 50) — 取得件数上限"
+      },
+      "response_ok": {
+        "candidates": "Array<{ value: string; label: string }> (value=label=ノートタイトル, v1)",
+        "truncated": "boolean — topN で打ち切られた場合 true"
+      },
+      "response_error": {
+        "400": "{ error: 'query_syntax', message: string } — DQL 構文エラー",
+        "403": "{ error: 'forbidden' } — read-only では利用不可 (queryNotes へのアクセスが必要)"
+      },
+      "notes": [
+        "既存 POST /api/query と同じ DQL エンジン (parseQuery/executeQuery) を再利用",
+        "LIST 以外 (TABLE/TASK) は v1 では 400 を返す (LIST のみサポート)",
+        "0件は空配列 + truncated:false (エラーにしない)",
+        "権限: 候補取得は read-only でも可 (queryNotes はインデックス読み取り)"
+      ]
+    },
+    "schema_positions": {
+      "TemplateVar.optionsQuery": "packages/shared/src/schemas.ts の templateVarSchema に z.string().optional() を追加",
+      "CommandParam.optionsQuery": "packages/shared/src/loamium-command.ts の commandParamSchema に z.string().optional() を追加",
+      "OptionsQueryResponse": "packages/shared/src/schemas.ts に optionsQueryResponseSchema を追加"
+    },
+    "testids": {
+      "template_modal": {
+        "select_with_optionsQuery": "template-var-input[data-var='{varName}'][data-widget='dynamic-select'] — <select> 要素",
+        "text_with_optionsQuery": "template-var-input[data-var='{varName}'][data-widget='autocomplete'] — <input> + <datalist>",
+        "loading_indicator": "template-var-options-loading[data-var='{varName}']",
+        "truncated_hint": "template-var-options-truncated[data-var='{varName}']",
+        "empty_hint": "template-var-options-empty[data-var='{varName}']"
+      },
+      "command_param_form": {
+        "select_with_optionsQuery": "param-field-input[data-name='{paramName}'][data-widget='dynamic-select'] — <select> 要素",
+        "text_with_optionsQuery": "param-field-input[data-name='{paramName}'][data-widget='autocomplete'] — <input> + <datalist>",
+        "note_with_optionsQuery": "param-field-input[data-name='{paramName}'][data-widget='note-picker'] — ノートピッカー",
+        "loading_indicator": "param-field-options-loading[data-name='{paramName}']",
+        "empty_hint": "param-field-options-empty[data-name='{paramName}']"
+      }
+    }
+  },
+  "state_transitions": {
+    "template_modal_select_optionsQuery": {
+      "description": "select+optionsQuery: 候補ドロップダウン",
+      "states": [
+        {
+          "state": "loading",
+          "trigger": "モーダル表示 (依存なし) または上流変数値変更 (依存あり)",
+          "ui": "template-var-options-loading 表示、<select> disabled",
+          "action": "POST /api/options-query (resolvedVars に解決済み上流変数を注入)"
+        },
+        {
+          "state": "loaded_with_candidates",
+          "trigger": "POST /api/options-query 成功 + candidates.length > 0",
+          "ui": "<select> enabled、候補リスト表示。truncated=true なら truncated-hint 表示",
+          "action": "最初の候補を初期値に設定 (optionsQuery 付き select は no default の場合)"
+        },
+        {
+          "state": "loaded_empty",
+          "trigger": "POST /api/options-query 成功 + candidates.length === 0",
+          "ui": "template-var-options-empty 表示 ('候補なし。直接入力してください')、<input type=text> に切替 (自由入力フォールバック)",
+          "action": "既存入力値を維持"
+        },
+        {
+          "state": "error",
+          "trigger": "POST /api/options-query 失敗 (ネットワーク/400)",
+          "ui": "<input type=text> に切替 (自由入力フォールバック)、エラーヒント表示",
+          "action": "既存入力値を維持"
+        }
+      ]
+    },
+    "template_modal_text_optionsQuery": {
+      "description": "text+optionsQuery: オートコンプリート (自由入力可)",
+      "states": [
+        {
+          "state": "loading",
+          "trigger": "モーダル表示",
+          "ui": "template-var-options-loading 表示 (非ブロッキング: inputは即座に使える)",
+          "action": "POST /api/options-query"
+        },
+        {
+          "state": "loaded",
+          "trigger": "POST /api/options-query 成功",
+          "ui": "<input> + <datalist> でオートコンプリート。自由入力は常に可能。truncated=true なら hint",
+          "action": "datalist に候補をセット"
+        },
+        {
+          "state": "error_fallback",
+          "trigger": "POST /api/options-query 失敗",
+          "ui": "<input type=text> (候補なし自由入力)。エラーヒント非表示 (text は自由入力なので UX を壊さない)",
+          "action": "自由入力継続"
+        }
+      ]
+    },
+    "command_param_note_optionsQuery": {
+      "description": "commands の note+optionsQuery: 絞り込みノートピッカー",
+      "states": [
+        {
+          "state": "loading",
+          "trigger": "フォーム表示",
+          "action": "POST /api/options-query → candidates (ノートタイトル候補)"
+        },
+        {
+          "state": "loaded",
+          "trigger": "成功",
+          "ui": "ノートピッカー UI に候補フィルタ済みリストを表示。直接入力も可 (note 型の特性)"
+        },
+        {
+          "state": "error_fallback",
+          "trigger": "失敗",
+          "ui": "全ノートリスト (optionsQuery なしの通常 note 型と同様)"
+        }
+      ]
+    },
+    "dependent_query_flow": {
+      "description": "依存クエリ: 上流変数変更 → 下流候補再解決",
+      "flow": [
+        "ユーザーが変数A を選択/入力",
+        "変数B の optionsQuery に {{A}} が含まれる場合、上流値変更を検出",
+        "変数B の候補: POST /api/options-query に resolvedVars: {A: 選択値} を注入",
+        "変数B の候補リストが再描画される",
+        "変数B の現在値が新候補に含まれなければリセット"
+      ]
+    }
+  },
+  "test_vault_fixtures": {
+    "e2e_epic_template": {
+      "path": "system/templates/epic-optionsquery.md",
+      "content": "---\nloamium-template:\n  description: Epic テンプレート (optionsQuery デモ)\n  target: 'projects/{{プロジェクト名}}/epics/{{Epic名}}'\n  vars:\n    - name: プロジェクト名\n      type: select\n      required: true\n      label: プロジェクト\n      optionsQuery: 'LIST FROM #project'\n    - name: Epic名\n      type: text\n      required: true\n      label: Epic 名\n      optionsQuery: 'LIST file.name FROM #epic WHERE project = \"{{プロジェクト名}}\"'\n---\n# {{Epic名}}\n\nプロジェクト: [[projects/{{プロジェクト名}}/index]]\n",
+      "seed_notes": [
+        { "path": "projects/loamium/index.md", "tags": ["project"], "frontmatter": {} },
+        { "path": "projects/webapp/index.md", "tags": ["project"], "frontmatter": {} },
+        { "path": "projects/loamium/epic-dql.md", "tags": ["epic"], "frontmatter": { "project": "loamium" } }
+      ]
+    },
+    "e2e_command_with_optionsquery": {
+      "path": "system/commands/create-epic.yaml",
+      "content": "name: create-epic\ndescription: Epicノート作成 (optionsQuery デモ)\nparams:\n  - name: プロジェクト\n    type: select\n    required: true\n    label: プロジェクト\n    optionsQuery: 'LIST FROM #project'\n  - name: title\n    type: text\n    required: true\n    label: Epic タイトル\nsteps:\n  - kind: note-create\n    target: 'projects/{{プロジェクト}}/epics/{{title}}'\n    content: '# {{title}}'\n"
+    }
+  }
+}

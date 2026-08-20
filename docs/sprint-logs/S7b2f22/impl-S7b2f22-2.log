@@ -1,0 +1,87 @@
+impl-S7b2f22-2 — スマートフォルダ Authoring Refinements
+===========================================================
+Date: 2026-07-08
+Branch: autopilot/smart-folder/S7b2f22-refine
+Sprint: S7b2f22 / Story S7b2f22-2
+
+## Changes Implemented
+
+### AC-2-1 — pin パスインクリメンタルピッカー
+- `sf-form-path` をコンボボックス化
+- フォーカス/入力時に `api.listNotes()` を遅延ロード (初回のみ)
+- パス/タイトルの大文字小文字不区別部分一致でフィルタ (最大20件)
+- 候補: `sf-form-path-option` (data-path)、クリックで入力欄に入力
+- フリーテキスト入力も引き続き許容
+
+### AC-2-2 — アイコンインクリメンタルピッカー
+- `sf-form-icon` をコンボボックス化
+- ビルトインアイコン名セット (12種) をサブストリングでフィルタ
+- 候補: `sf-form-icon-option` (data-icon)、アイコングリフ + 名前を表示
+- 新規ファイル `SmartIcons.tsx` にアイコン定義を抽出 (SmartView / SmartFolderForm 共用)
+
+### AC-2-3 — + ボタン配置
+- `smart-view-add` を SmartView 内ヘッダから App.tsx の `tree-section-title` 行へ移動
+- `sidebar-view-physical`/`sidebar-view-smart` トグルと同じ `data-testid="smart-view-header"` コンテナ内に配置
+- スマートモード + full 権限のときのみ表示
+- SmartView に `onModeChange` + `triggerAdd` props を追加してブリッジ
+
+### AC-2-4 — 削除確認ダイアログ
+- `smart-context-delete` クリックで `smart-delete-dialog` を表示
+- `smart-delete-confirm` で削除実行 + PUT + refresh
+- `smart-delete-cancel` でキャンセル (アイテム保持)
+- 既存 `.dialog-backdrop`/`.dialog` CSS を再利用
+
+### AC-2-5 — DnD 並べ替え
+- インライン moveup/movedown ボタン廃止 (smart-folder-moveup/movedown testid 削除)
+- `smart-folder` / `smart-pin` 行に `draggable={true}` (full モードのみ)
+- dragstart: ドラッグ元 ID を ref に記録
+- dragover: e.preventDefault() でドロップ許可
+- drop: 配列の splice+insert で新順序を計算し PUT
+- CSS: `.smart-drag-item { cursor: grab; }` / `:active { cursor: grabbing; opacity: 0.75; }`
+- Playwright `locator.dragTo()` で動作確認済み
+
+### AC-2-6 — 右クリックコンテキストメニュー
+- インライン `smart-folder-edit`/`smart-folder-delete` ボタン廃止
+- `onContextMenu` (e.preventDefault + stopPropagation) で `smart-context-menu` を表示
+- `smart-context-edit`: 編集フォームを prefill 付きで開く
+- `smart-context-delete`: 削除確認ダイアログを開く
+- `ContextMenu.tsx` と同じ useLayoutEffect ビューポートクランプパターン使用
+- Escape で閉じる、外側クリックで閉じる
+- CSS: `.context-menu` クラスを再利用 (新スタイル不要)
+
+### AC-2-7 — read-only/append-only 保護
+- `mode !== 'full'` のとき: `smart-view-add` 非表示、rows not draggable
+- 右クリックしてもコンテキストメニューなし (contextMenuHandler = undefined)
+
+## Files Changed
+- `packages/ui/src/components/SmartIcons.tsx` (新規: アイコン定義分離)
+- `packages/ui/src/components/SmartFolderForm.tsx` (コンボボックス追加)
+- `packages/ui/src/components/SmartView.tsx` (大幅書き換え: DnD/CM/削確)
+- `packages/ui/src/App.tsx` (PermissionMode import, smartViewMode state, + ボタン移動)
+- `packages/ui/src/styles.css` (コンボボックス CSS + ドラッグ affordance CSS)
+- `packages/ui/tests/e2e/smart-folder-editor.mock.spec.ts` (19 tests: 6→19)
+- `packages/ui/tests/e2e/smart-folder-editor.e2e.spec.ts` (9 tests: 6→9)
+
+## Removed testids
+- smart-folder-edit
+- smart-folder-delete
+- smart-folder-moveup
+- smart-folder-movedown
+
+## Added testids
+- sf-form-path-option (data-path)
+- sf-form-icon-option (data-icon)
+- smart-view-header
+- smart-context-menu
+- smart-context-edit
+- smart-context-delete
+- smart-delete-dialog
+- smart-delete-confirm
+- smart-delete-cancel
+
+## Test Results
+- mock editor tests: 19/19 passed
+- full mock project: 184/184 passed
+- e2e editor tests: 9/9 passed
+- e2e regression (smart-view + bookmark-star): 8/8 passed
+- lint: pass

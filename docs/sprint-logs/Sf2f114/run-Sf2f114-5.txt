@@ -1,0 +1,453 @@
+
+ RUN  v3.2.6 /home/ubuntu/worktrees/github.com/tjst-t/loamium/smart-command
+
+ ✓ packages/shared/src/frontmatter.test.ts > parsePropertiesModel > スカラーとフラット配列を編集可能エントリへ分解する 8ms
+ ✓ packages/shared/src/frontmatter.test.ts > parsePropertiesModel > ブロックシーケンス (Obsidian 形式の tags) も list になる 1ms
+ ✓ packages/shared/src/frontmatter.test.ts > parsePropertiesModel > ネストしたオブジェクトは complex (読み取り専用) になり原文を保持する 1ms
+ ✓ packages/shared/src/frontmatter.test.ts > parsePropertiesModel > 複数行文字列 (block scalar) は complex になる 1ms
+ ✓ packages/shared/src/frontmatter.test.ts > parsePropertiesModel > null 値はスカラー (空値) として編集可能 1ms
+ ✓ packages/shared/src/frontmatter.test.ts > parsePropertiesModel > トップレベルのコメント行と空行は raw として保持される 1ms
+ ✓ packages/shared/src/frontmatter.test.ts > parsePropertiesModel > 壊れた YAML / 非オブジェクト / 空テキストは null 1ms
+ ✓ packages/shared/src/frontmatter.test.ts > parsePropertiesModel > 引用符付きキーは complex になり原文を保持する 1ms
+ ✓ packages/shared/src/frontmatter.test.ts > parsePropertiesModel > アンカー/エイリアスを含むエントリは complex (読み取り専用) になる 3ms
+ ✓ packages/shared/src/frontmatter.test.ts > serializeProperties — round-trip 保証 > 未編集エントリは原文バイトを一切変えない (flow 配列のスタイル維持) 2ms
+ ✓ packages/shared/src/frontmatter.test.ts > serializeProperties — round-trip 保証 > 編集済みスカラー (source 除去) は標準 YAML になり、読み戻すと同値 4ms
+ ✓ packages/shared/src/frontmatter.test.ts > serializeProperties — round-trip 保証 > クオートが必要な文字列 (: や # を含む・型と紛らわしい) を正しく引用する 1ms
+ ✓ packages/shared/src/frontmatter.test.ts > serializeProperties — round-trip 保証 > 編集済み配列はブロックシーケンス (Obsidian 形式) になり、読み戻すと同値 1ms
+ ✓ packages/shared/src/frontmatter.test.ts > serializeProperties — round-trip 保証 > 空配列は tags: [] へ直列化される 0ms
+ ✓ packages/shared/src/frontmatter.test.ts > serializeProperties — round-trip 保証 > 日本語キー・日本語値も round-trip する 1ms
+ ✓ packages/shared/src/frontmatter.test.ts > serializeProperties — round-trip 保証 > 直列化結果に制御文字 (NUL 等) が混入しない 0ms
+ ✓ packages/shared/src/frontmatter.test.ts > serializeFrontmatterBlock + parseNote 整合 > ブロックへ直列化したものを parseNote で読むと frontmatter が同値になる 1ms
+ ✓ packages/shared/src/frontmatter.test.ts > serializeFrontmatterBlock + parseNote 整合 > キー付きエントリが無ければ null (frontmatter ブロック除去) 0ms
+ ✓ packages/shared/src/frontmatter.test.ts > serializeFrontmatterBlock + parseNote 整合 > 実サンプル相当の frontmatter を分解 → 一部編集 → parseNote で読み戻せる 1ms
+ ✓ packages/shared/src/frontmatter.test.ts > parsePropInput / isDateLike > 素朴な型解釈: 空→null / true・false→真偽 / 数値表記→数値 / 他→文字列 1ms
+ ✓ packages/shared/src/frontmatter.test.ts > parsePropInput / isDateLike > isDateLike は YYYY-MM-DD のみ true 0ms
+ ✓ packages/shared/src/extract.test.ts > extractTags > extracts inline #tags from the body 2ms
+ ✓ packages/shared/src/extract.test.ts > extractTags > extracts Japanese and unicode tags 1ms
+ ✓ packages/shared/src/extract.test.ts > extractTags > merges frontmatter tags (array form) with inline tags, deduplicated 6ms
+ ✓ packages/shared/src/extract.test.ts > extractTags > accepts frontmatter tags as a comma-separated string 1ms
+ ✓ packages/shared/src/extract.test.ts > extractTags > strips a leading # from frontmatter tags 1ms
+ ✓ packages/shared/src/extract.test.ts > extractTags > ignores #tags inside fenced code blocks 0ms
+ ✓ packages/shared/src/extract.test.ts > extractTags > ignores #tags inside tilde fences 0ms
+ ✓ packages/shared/src/extract.test.ts > extractTags > ignores #tags inside inline code 0ms
+ ✓ packages/shared/src/extract.test.ts > extractTags > does not treat markdown headings as tags 0ms
+ ✓ packages/shared/src/extract.test.ts > extractTags > rejects numeric-only tags (Obsidian rule) 0ms
+ ✓ packages/shared/src/extract.test.ts > extractTags > does not extract tags glued to a word or in URLs 0ms
+ ✓ packages/shared/src/extract.test.ts > extractTags > NFC-normalizes tags (NFD input) 0ms
+ ✓ packages/shared/src/extract.test.ts > extractTags > deduplicates case-insensitively keeping first spelling 0ms
+ ✓ packages/shared/src/extract.test.ts > frontmatterTags > returns [] for null frontmatter 0ms
+ ✓ packages/shared/src/extract.test.ts > frontmatterTags > handles the singular "tag" key too 0ms
+ ✓ packages/shared/src/extract.test.ts > frontmatterTags > ignores non-string values safely 0ms
+ ✓ packages/shared/src/extract.test.ts > extractLinks > extracts simple [[WikiLink]] with line number and context 1ms
+ ✓ packages/shared/src/extract.test.ts > extractLinks > parses [[note#heading|alias]] into target + heading 0ms
+ ✓ packages/shared/src/extract.test.ts > extractLinks > treats ^block references as read-compat (not headings) 0ms
+ ✓ packages/shared/src/extract.test.ts > extractLinks > marks embeds (![[...]]) 0ms
+ ✓ packages/shared/src/extract.test.ts > extractLinks > extracts multiple links on one line in order 0ms
+ ✓ packages/shared/src/extract.test.ts > extractLinks > ignores links inside fenced code blocks and inline code 0ms
+ ✓ packages/shared/src/extract.test.ts > extractLinks > ignores links inside frontmatter 0ms
+ ✓ packages/shared/src/extract.test.ts > extractLinks > skips same-note links ([[#heading]] with no target) 0ms
+ ✓ packages/shared/src/extract.test.ts > extractLinks > NFC-normalizes targets (NFD input) 0ms
+ ✓ packages/shared/src/extract.test.ts > noteTitle > returns the basename without .md 0ms
+ ✓ packages/shared/src/extract.test.ts > noteTitle > NFC-normalizes 0ms
+ ✓ packages/shared/src/extract.test.ts > rewriteLinks (リネーム追従の書き換え) > rewrites plain / heading / alias / embed link forms, preserving decorations 0ms
+ ✓ packages/shared/src/extract.test.ts > rewriteLinks (リネーム追従の書き換え) > leaves fenced code, inline code and frontmatter untouched 0ms
+ ✓ packages/shared/src/extract.test.ts > rewriteLinks (リネーム追従の書き換え) > does not touch links the callback declines (別ノート向け・同一ノート内リンク) 0ms
+ ✓ packages/shared/src/extract.test.ts > rewriteLinks (リネーム追従の書き換え) > preserves block references (#^block) verbatim 0ms
+ ✓ packages/shared/src/extract.test.ts > rewriteLinks (リネーム追従の書き換え) > normalizes NFD targets before calling back (macOS ゆれ) 0ms
+ ✓ packages/shared/src/extract.test.ts > rewriteLinks (リネーム追従の書き換え) > trims whitespace around the target when rewriting 0ms
+ ✓ packages/shared/src/extract.test.ts > rewriteLinks (リネーム追従の書き換え) > returns the original content object semantics when nothing matches 0ms
+ ✓ packages/shared/src/extract.test.ts > rewriteLinks (リネーム追従の書き換え) > rewrites multiple links on the same line at correct offsets 0ms
+ ✓ packages/shared/src/extract.test.ts > extractTasks (Sb1593c-1) > extracts unchecked and checked tasks with 1-based line numbers 0ms
+ ✓ packages/shared/src/extract.test.ts > extractTasks (Sb1593c-1) > records indent for nested tasks and accepts [X] as checked 0ms
+ ✓ packages/shared/src/extract.test.ts > extractTasks (Sb1593c-1) > accepts *, + and ordered list markers (Obsidian 互換) 0ms
+ ✓ packages/shared/src/extract.test.ts > extractTasks (Sb1593c-1) > ignores tasks inside code fences and frontmatter 1ms
+ ✓ packages/shared/src/extract.test.ts > extractTasks (Sb1593c-1) > does not match non-task syntax ([y] や checkbox なしのリンク行) 0ms
+ ✓ packages/shared/src/extract.test.ts > extractTasks (Sb1593c-1) > keeps inline code and tags in the task text verbatim 0ms
+ ✓ packages/shared/src/extract.test.ts > matchInlineTags > returns #tag positions for a single line 0ms
+ ✓ packages/shared/src/extract.test.ts > matchInlineTags > does not match an ATX heading (# followed by a space) 0ms
+ ✓ packages/shared/src/extract.test.ts > matchInlineTags > matches a tag at line start when no space follows the # 0ms
+ ✓ packages/shared/src/extract.test.ts > matchInlineTags > ignores #tags inside inline code 0ms
+ ✓ packages/shared/src/extract.test.ts > matchInlineTags > drops a trailing separator from the matched range 0ms
+ ✓ packages/shared/src/extract.test.ts > matchInlineTags > agrees with extractTags on which tags a body line yields 0ms
+ ✓ packages/shared/src/dql.test.ts > parseQuery — 構文 > LIST 単独をパースする 3ms
+ ✓ packages/shared/src/dql.test.ts > parseQuery — 構文 > キーワードは大文字小文字両対応 (list / List / LIST) 2ms
+ ✓ packages/shared/src/dql.test.ts > parseQuery — 構文 > TABLE の列リスト (カンマ区切り) をパースする 0ms
+ ✓ packages/shared/src/dql.test.ts > parseQuery — 構文 > TABLE で列を省略すると構文エラー 0ms
+ ✓ packages/shared/src/dql.test.ts > parseQuery — 構文 > from #tag と from "folder" の両方をパースする 0ms
+ ✓ packages/shared/src/dql.test.ts > parseQuery — 構文 > where の比較演算子 (= != > < >= <= contains) をパースする 1ms
+ ✓ packages/shared/src/dql.test.ts > parseQuery — 構文 > bare フィールドと !フィールド (truthy / 否定) をパースする 0ms
+ ✓ packages/shared/src/dql.test.ts > parseQuery — 構文 > sort field asc/desc (省略時 asc) をパースする 0ms
+ ✓ packages/shared/src/dql.test.ts > parseQuery — 構文 > true / false リテラルをパースする 0ms
+ ✓ packages/shared/src/dql.test.ts > parseQuery — 構文エラー (位置情報付き) > prototype の例: 'LIST form #reading' は 1 行 6 列でエラー 1ms
+ ✓ packages/shared/src/dql.test.ts > parseQuery — 構文エラー (位置情報付き) > 先頭が LIST/TABLE/TASK 以外はエラー 1ms
+ ✓ packages/shared/src/dql.test.ts > parseQuery — 構文エラー (位置情報付き) > 空クエリはエラー 0ms
+ ✓ packages/shared/src/dql.test.ts > parseQuery — 構文エラー (位置情報付き) > 対応外の構文 (where の or) は明確なエラー 0ms
+ ✓ packages/shared/src/dql.test.ts > parseQuery — 構文エラー (位置情報付き) > 閉じられていない文字列リテラルはエラー 0ms
+ ✓ packages/shared/src/dql.test.ts > parseQuery — 構文エラー (位置情報付き) > 複数行クエリのエラーは 2 行目の位置を指す 0ms
+ ✓ packages/shared/src/dql.test.ts > parseQuery — 構文エラー (位置情報付き) > FROM の後にタグ/フォルダ以外が来るとエラー 0ms
+ ✓ packages/shared/src/dql.test.ts > executeQuery — 評価 > LIST from #tag はタグ付きノートのみ (パス昇順) 0ms
+ ✓ packages/shared/src/dql.test.ts > executeQuery — 評価 > from #tag はネストタグにもマッチする (Obsidian 互換) 0ms
+ ✓ packages/shared/src/dql.test.ts > executeQuery — 評価 > from "folder" はサブフォルダも含む 0ms
+ ✓ packages/shared/src/dql.test.ts > executeQuery — 評価 > TABLE は fields のセル値 (frontmatter / 欠損 null) を返し、sort desc が効く 1ms
+ ✓ packages/shared/src/dql.test.ts > executeQuery — 評価 > where の数値比較 (> / <=) が効く 0ms
+ ✓ packages/shared/src/dql.test.ts > executeQuery — 評価 > 組み込みフィールド file.name / file.folder / file.path が使える 0ms
+ ✓ packages/shared/src/dql.test.ts > executeQuery — 評価 > file.mtime は日付文字列と比較できる 0ms
+ ✓ packages/shared/src/dql.test.ts > executeQuery — 評価 > tags contains はタグ配列の要素一致 (大文字小文字不区別) 0ms
+ ✓ packages/shared/src/dql.test.ts > executeQuery — 評価 > 文字列フィールドの contains は部分一致 0ms
+ ✓ packages/shared/src/dql.test.ts > executeQuery — 評価 > 欠損フィールドは = で false、!= で true 1ms
+ ✓ packages/shared/src/dql.test.ts > executeQuery — 評価 > TASK は行番号・ネスト付きで全タスクを返す (パス → 行番号順) 4ms
+ ✓ packages/shared/src/dql.test.ts > executeQuery — 評価 > TASK where !completed は未完了のみ、completed は完了のみ 0ms
+ ✓ packages/shared/src/dql.test.ts > executeQuery — 評価 > TASK from "folder" + text contains の組み合わせ 0ms
+ ✓ packages/shared/src/dql.test.ts > executeQuery — 評価 > sort の欠損値は方向に関わらず末尾 0ms
+ ✓ packages/shared/src/dql.test.ts > executeQuery — 評価 > executeQuery は入力ノート配列を変更しない (読み取り専用) 0ms
+ ✓ packages/shared/src/dql.test.ts > [AC-S32940c-1-1][AC-S32940c-1-3] parseQuery — LIMIT 節 > LIMIT n をパースして limit フィールドに保持する 0ms
+ ✓ packages/shared/src/dql.test.ts > [AC-S32940c-1-1][AC-S32940c-1-3] parseQuery — LIMIT 節 > SORT と LIMIT の組み合わせをパースする (Obsidian dataview 互換) 0ms
+ ✓ packages/shared/src/dql.test.ts > [AC-S32940c-1-1][AC-S32940c-1-3] parseQuery — LIMIT 節 > [AC-S32940c-1-5] LIMIT 0 は合法で 0 件を意味する 0ms
+ ✓ packages/shared/src/dql.test.ts > [AC-S32940c-1-1][AC-S32940c-1-3] parseQuery — LIMIT 節 > [AC-S32940c-1-5] 巨大な LIMIT n は受け入れる 0ms
+ ✓ packages/shared/src/dql.test.ts > [AC-S32940c-1-1][AC-S32940c-1-3] parseQuery — LIMIT 節 > [AC-S32940c-1-3][AC-S32940c-1-5] LIMIT 負値は DqlParseError (位置情報付き) 0ms
+ ✓ packages/shared/src/dql.test.ts > [AC-S32940c-1-1][AC-S32940c-1-3] parseQuery — LIMIT 節 > [AC-S32940c-1-3][AC-S32940c-1-5] LIMIT 非整数 (小数) は DqlParseError (位置情報付き) 0ms
+ ✓ packages/shared/src/dql.test.ts > [AC-S32940c-1-1][AC-S32940c-1-3] parseQuery — LIMIT 節 > [AC-S32940c-1-3][AC-S32940c-1-5] LIMIT 非整数 (単語) は DqlParseError (位置情報付き) 0ms
+ ✓ packages/shared/src/dql.test.ts > [AC-S32940c-1-1][AC-S32940c-1-3] parseQuery — LIMIT 節 > LIMIT なしのクエリは limit: null を返す (後方互換) 0ms
+ ✓ packages/shared/src/dql.test.ts > [AC-S32940c-1-1][AC-S32940c-1-3] executeQuery — LIMIT 適用 > [AC-S32940c-1-1] LIST SORT mtime DESC LIMIT 3 は SORT 後の先頭 3 件 0ms
+ ✓ packages/shared/src/dql.test.ts > [AC-S32940c-1-1][AC-S32940c-1-3] executeQuery — LIMIT 適用 > [AC-S32940c-1-5] LIMIT 0 は 0 件返す 1ms
+ ✓ packages/shared/src/dql.test.ts > [AC-S32940c-1-1][AC-S32940c-1-3] executeQuery — LIMIT 適用 > [AC-S32940c-1-5] 巨大 n (全件より多い) は全件返す 0ms
+ ✓ packages/shared/src/dql.test.ts > [AC-S32940c-1-1][AC-S32940c-1-3] executeQuery — LIMIT 適用 > [AC-S32940c-1-3] LIMIT なしクエリは従来通り全件返す (後方互換) 0ms
+ ✓ packages/shared/src/dql.test.ts > [AC-S32940c-1-1][AC-S32940c-1-3] executeQuery — LIMIT 適用 > [AC-S32940c-1-1] TABLE LIMIT が機能する 0ms
+ ✓ packages/shared/src/dql.test.ts > [AC-S32940c-1-1][AC-S32940c-1-3] executeQuery — LIMIT 適用 > [AC-S32940c-1-1] TASK LIMIT が機能する 0ms
+ ✓ packages/shared/src/dql.test.ts > [AC-S32940c-1-2] noteField — file.tasks / file.open_tasks > [AC-S32940c-1-2] LIST WHERE file.open_tasks は未完了タスクを持つノートのみ返す 0ms
+ ✓ packages/shared/src/dql.test.ts > [AC-S32940c-1-2] noteField — file.tasks / file.open_tasks > [AC-S32940c-1-2] LIST WHERE file.tasks はタスクが存在するノートのみ返す 0ms
+ ✓ packages/shared/src/dql.test.ts > [AC-S32940c-1-2] noteField — file.tasks / file.open_tasks > [AC-S32940c-1-5] タスク 0 件のノートは file.open_tasks で除外される 0ms
+ ✓ packages/shared/src/dql.test.ts > [AC-S32940c-1-2] noteField — file.tasks / file.open_tasks > [AC-S32940c-1-5] 完了タスクのみのノートは file.open_tasks で除外される 0ms
+ ✓ packages/shared/src/dql.test.ts > [AC-S32940c-1-2] noteField — file.tasks / file.open_tasks > [AC-S32940c-1-2] file.open_tasks は数値として比較できる 0ms
+ ✓ packages/shared/src/dql.test.ts > [AC-S32940c-1-2] noteField — file.tasks / file.open_tasks > [AC-S32940c-1-3] 既存クエリ (LIMIT・新フィールド未使用) の結果は不変 0ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-2] GET /api/commands > commands/ 配下の *.md をすべて一覧し 200 を返す 20ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-2] GET /api/commands > 正常なコマンドは valid:true で id / name / description / params / path を返す 14ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-2] GET /api/commands > 壊れた frontmatter のコマンドは valid:false + error + id で一覧に含まれる (200 維持) 5ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-2] GET /api/commands > steps が空のコマンドは valid:false になる 10ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-2] GET /api/commands > 壊れた定義があっても 200 を維持する (アプリを落とさない) 7ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sd22b1f-2] command run — full mode > [AC-Sd22b1f-2-1] multi-step happy path: note-create + journal-append 20ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sd22b1f-2] command run — full mode > [AC-Sd22b1f-2-1] note-append step appends to existing note 18ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sd22b1f-2] command run — full mode > [AC-Sd22b1f-2-1] journal-append section inserts under heading 16ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sd22b1f-2] command run — full mode > [AC-Sd22b1f-2-2] missing required param → 400 missing_params 4ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sd22b1f-2] command run — full mode > [AC-Sd22b1f-2-2] command not found → 404 4ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sd22b1f-2] command run — full mode > [AC-Sd22b1f-2-2] fail-stop: stops at first failure, returns completed steps so far 16ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sd22b1f-2] command run — full mode > [AC-Sd22b1f-2-2] path traversal in expanded target → 400 invalid_target_path 7ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sd22b1f-2] command run — full mode > [AC-Sd22b1f-2-2] hidden segment in expanded target → 400 invalid_target_path 11ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] extractHeadings > ATX 見出し (#〜######) を行番号付きで抽出する 2ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] extractHeadings > code-fence 内の見出しを除外する 0ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] extractHeadings > tilde フェンス (~~~) 内の見出しを除外する 0ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] extractHeadings > frontmatter 内の見出し(YAML)を除外する 4ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] extractHeadings > frontmatter + code-fence の両方が除外される 1ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] extractHeadings > 見出しなしのノートは空配列を返す 0ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] extractHeadings > 空文字列は空配列を返す 0ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] extractHeadings > 見出しの行番号が正しい (frontmatter 分を考慮) 1ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] extractHeadings > 見出しレベルが 1〜6 の範囲外 (#######) は見出しとして扱わない 0ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] extractHeadings > closing # を持つ ATX 見出し (trailing hashes) のテキストが正しい 0ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] countWords > ASCII テキストのワード数を空白で分割して数える 0ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] countWords > CJK 各文字を 1 ワードとして数える 0ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] countWords > CJK と ASCII が混在する場合の字数カウント 0ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] countWords > 日本語 (ひらがな・カタカナ) も CJK と同様に 1 文字 = 1 ワード 0ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] countWords > frontmatter の内容はワード数から除外する 1ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] countWords > code-fence の内容はワード数から除外する 0ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] countWords > code-fence 内容が確実に除外されていることを直接確認する 0ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] countWords > charCount は frontmatter と code-fence 除外後のテキスト文字数 0ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] countWords > 空文字列は wordCount=0, charCount=0 0ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] countWords > frontmatter + 空本文のノートは本文テキストをカウントしない 0ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] extractOutgoingLinks > WikiLink ターゲットを vault パスに解決する 1ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] extractOutgoingLinks > 解決できないリンクの resolvedPath は null 0ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] extractOutgoingLinks > 同一ターゲットの重複リンクは 1 件にまとめる 0ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] extractOutgoingLinks > code-fence 内のリンクを除外する 0ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] extractOutgoingLinks > frontmatter 内のリンクを除外する 1ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] extractOutgoingLinks > raw に元のリンクテキスト全体を保持する 0ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] extractOutgoingLinks > 空のノートは空配列を返す 0ms
+ ✓ packages/shared/src/noteMeta.test.ts > [AC-S11493d-1-3] extractOutgoingLinks > NFC/NFD ゆれがあってもターゲットが NFC に正規化される 0ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sd22b1f-2] command run — full mode > [AC-Sd22b1f-2-4] note-create does not overwrite existing note — uses suffix 35ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sd22b1f-2] command run — full mode > [AC-Sd22b1f-2-3] run records command.run in audit log 12ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sd22b1f-2] command run — full mode > [AC-Sd22b1f-2-3] multi-step run records per-step write entries in audit log 12ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] commandParamSchema > 最小定義 (name のみ) が通る 2ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] commandParamSchema > 全フィールド付き定義が通る 1ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] commandParamSchema > type が string / text / date を受け入れる (既存 3 種 — 後方互換) 1ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] commandParamSchema > name が空文字は拒否される 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] commandParamSchema > 未知の type は拒否される 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] commandParamSchema > [AC-Sf2f114-5-1] type=boolean が通る 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] commandParamSchema > [AC-Sf2f114-5-1] type=number が通る 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] commandParamSchema > [AC-Sf2f114-5-1] type=note が通る 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] commandParamSchema > [AC-Sf2f114-5-1] type=select + options (非空) が通る 1ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] commandParamSchema > [AC-Sf2f114-5-1] type=select で options が空配列 → 無効 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] commandParamSchema > [AC-Sf2f114-5-1] type=select で options が省略 → 無効 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] commandParamSchema > [AC-Sf2f114-5-1] type=string で options を付けても通る (ignored at runtime) 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] commandParamSchema > [AC-Sf2f114-5-1] 既存の string / text / date は options なしで変わらず通る 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] commandStepSchema > journal-append ステップが通る (最小) 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] commandStepSchema > journal-append ステップが通る (全フィールド) 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] commandStepSchema > note-append ステップが通る 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] commandStepSchema > note-create ステップが通る 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] commandStepSchema > template-instantiate ステップが通る (最小) 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] commandStepSchema > template-instantiate ステップが通る (vars 付き) 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] commandStepSchema > 未知の kind は拒否される 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] commandStepSchema > kind が欠けていると拒否される 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] commandStepSchema > 必須フィールドが欠けていると拒否される (note-append の target 欠如) 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] loamiumCommandSchema > 最小定義 (steps のみ) が通る 3ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] loamiumCommandSchema > 全フィールド付き定義が通る 1ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] loamiumCommandSchema > steps が空配列は拒否される (1 個以上必須) 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] loamiumCommandSchema > steps が未定義は拒否される 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] loamiumCommandSchema > steps 内の未知 kind は拒否される 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] parseLoamiumCommand > 正常な frontmatter から LoamiumCommand を返す 1ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] parseLoamiumCommand > null frontmatter (壊れ YAML) は null を返す 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] parseLoamiumCommand > loamium-command キーが存在しない frontmatter は null を返す 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] parseLoamiumCommand > loamium-command が非オブジェクト (文字列) は null を返す 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] parseLoamiumCommand > steps の未知 kind は null を返す 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] parseLoamiumCommand > 型不一致 (steps が数値) は null を返す 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] parseLoamiumCommand > params の name が空は null を返す 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] parseLoamiumCommandWithError > 正常 frontmatter は ok:true + command を返す 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] parseLoamiumCommandWithError > null frontmatter は ok:false + error を返す 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] parseLoamiumCommandWithError > loamium-command キー欠損は ok:false + error を返す 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sd22b1f-1-1] parseLoamiumCommandWithError > 未知の kind は ok:false + error を返す 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sf2f114-2-1] evaluateCondition > 空文字列 "" → falsey 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sf2f114-2-1] evaluateCondition > 空白のみ文字列 "  " → falsey (trim 後が空) 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sf2f114-2-1] evaluateCondition > "false" → falsey 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sf2f114-2-1] evaluateCondition > "false" (前後空白付き) → falsey (trim 後 "false") 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sf2f114-2-1] evaluateCondition > "0" → falsey 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sf2f114-2-1] evaluateCondition > "0" (前後空白付き) → falsey (trim 後 "0") 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sf2f114-2-1] evaluateCondition > "true" → truthy 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sf2f114-2-1] evaluateCondition > "1" → truthy 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sf2f114-2-1] evaluateCondition > "yes" → truthy 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sf2f114-2-1] evaluateCondition > 任意の非空・非 false・非 0 文字列 → truthy 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sf2f114-2-1] commandStepSchema with when / when-not > journal-append に when フィールドが追加できる 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sf2f114-2-1] commandStepSchema with when / when-not > journal-append に when-not フィールドが追加できる 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sf2f114-2-1] commandStepSchema with when / when-not > note-append に when / when-not が追加できる 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sf2f114-2-1] commandStepSchema with when / when-not > note-create に when / when-not が追加できる 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sf2f114-2-1] commandStepSchema with when / when-not > template-instantiate に when / when-not が追加できる 0ms
+ ✓ packages/shared/src/loamium-command.test.ts > [AC-Sf2f114-2-1] commandStepSchema with when / when-not > when / when-not なしの既存ステップも引き続き通る (後方互換) 0ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-2] GET /api/commands > commands/ が空の vault では { commands: [] } を 200 で返す 468ms
+ ✓ packages/shared/src/markdown.test.ts > parseNote > extracts YAML frontmatter and body 6ms
+ ✓ packages/shared/src/markdown.test.ts > parseNote > returns null frontmatter when there is none 0ms
+ ✓ packages/shared/src/markdown.test.ts > parseNote > does not treat a later --- as frontmatter open 0ms
+ ✓ packages/shared/src/markdown.test.ts > parseNote > returns null frontmatter for an unclosed block 0ms
+ ✓ packages/shared/src/markdown.test.ts > parseNote > returns null frontmatter for broken YAML without destroying content 1ms
+ ✓ packages/shared/src/markdown.test.ts > parseNote > returns null frontmatter when YAML top-level is not an object 0ms
+ ✓ packages/shared/src/markdown.test.ts > parseNote > handles empty frontmatter block 0ms
+ ✓ packages/shared/src/markdown.test.ts > parseNote > handles CRLF content without crashing 0ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sd22b1f-2-3] read-only mode rejects command run > [AC-Sd22b1f-2-3] read-only → 403 for POST run 7ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sd22b1f-2-3] read-only mode rejects command run > [AC-Sd22b1f-2-3] denied run is recorded in audit log with result:denied and op:command.run 2ms
+ ✓ packages/shared/src/template-note.test.ts > [AC-S67ea41-1-1] buildBodyTemplate が loamium-template ブロックを除去する > 残りフロントマター + 本文を返し、loamium-template は残さない 2ms
+ ✓ packages/shared/src/template-note.test.ts > [AC-S67ea41-1-1] buildBodyTemplate が loamium-template ブロックを除去する > frontmatter 無しファイルは全体が本文テンプレート 0ms
+ ✓ packages/shared/src/template-note.test.ts > [AC-S67ea41-1-1] buildBodyTemplate が loamium-template ブロックを除去する > loamium-template のみのフロントマターは本文のみになる 0ms
+ ✓ packages/shared/src/template-note.test.ts > [AC-S67ea41-1-2] applyJournalTemplate が対象日基準で {{date:...}} を展開する > 今日基準で journalPath と同一の日付文字列を再現する 6ms
+ ✓ packages/shared/src/template-note.test.ts > [AC-S67ea41-1-2] applyJournalTemplate が対象日基準で {{date:...}} を展開する > 未来日 (明日) ジャーナルは対象日基準で展開される 1ms
+ ✓ packages/shared/src/template-note.test.ts > [AC-S67ea41-1-2] applyJournalTemplate が対象日基準で {{date:...}} を展開する > 過去日ジャーナルは対象日基準で展開される (now ではなく date を使う) 1ms
+ ✓ packages/shared/src/template-note.test.ts > [AC-S67ea41-1-2] 変数の default は対象日基準で解決し、default 無しは空文字 > 宣言済み変数 default を対象日基準で展開する 1ms
+ ✓ packages/shared/src/template-note.test.ts > [AC-S67ea41-1-2] 変数の default は対象日基準で解決し、default 無しは空文字 > default の無い参照変数は空文字で解決し、記法を残さない 0ms
+ ✓ packages/shared/src/template-note.test.ts > parseTemplateConfig は壊れた loamium-template をフォールバックする > オブジェクトでない loamium-template は純粋雛形 (target=null) へ 1ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-2] GET /api/commands > [AC-Sd22b1f-1-2] 非UTF-8バイナリファイルがあっても GET /api/commands は 200 を返す 473ms
+ ✓ packages/shared/src/template.test.ts > [AC-S89a350-1-1] {{name}} 変数置換と未定義検出 > 定義済み変数を値で置換する 3ms
+ ✓ packages/shared/src/template.test.ts > [AC-S89a350-1-1] {{name}} 変数置換と未定義検出 > 未定義変数はトークンを残し、不足変数名の一覧を返す 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-S89a350-1-1] {{name}} 変数置換と未定義検出 > 空文字の値は「指定済み」扱いで空に展開する (missing にしない) 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-S89a350-1-1] {{name}} 変数置換と未定義検出 > 前後の空白を無視してトークン名を解決する 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-S89a350-1-1] {{name}} 変数置換と未定義検出 > {{}} や壊れたトークンは記法として扱わない 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-S89a350-1-1] {{name}} 変数置換と未定義検出 > templateVariableNames はプリセットを除外して変数名だけ返す 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-S89a350-1-2] {{date:FORMAT}} / {{now:FORMAT}} の整形 > YYYY/MM/DD/HH/mm/ss トークンを 0 詰めで整形する 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-S89a350-1-2] {{date:FORMAT}} / {{now:FORMAT}} の整形 > MM(月) と mm(分)、HH(時) を大小で区別する 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-S89a350-1-2] {{date:FORMAT}} / {{now:FORMAT}} の整形 > リテラル文字はそのまま通す 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-S89a350-1-2] {{date:FORMAT}} / {{now:FORMAT}} の整形 > {{date:YYYY-MM-DD}} は既存 journalPath と同じ文字列を再現する 1ms
+ ✓ packages/shared/src/template.test.ts > [AC-S89a350-1-2] {{date:FORMAT}} / {{now:FORMAT}} の整形 > date は date 基準日、now は now 基準時刻を使う (注入可能) 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-S89a350-1-2] {{date:FORMAT}} / {{now:FORMAT}} の整形 > date 未指定時は now を基準日にフォールバックする 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-S89a350-1-3] パスサニタイズ + normalizeVaultPath 通過 > パス区切りを除去する 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-S89a350-1-3] パスサニタイズ + normalizeVaultPath 通過 > .. (traversal) を単一ドットに潰す 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-S89a350-1-3] パスサニタイズ + normalizeVaultPath 通過 > 制御文字を除去する 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-S89a350-1-3] パスサニタイズ + normalizeVaultPath 通過 > 先頭・末尾のドット/空白を除去する (隠しセグメント化を防ぐ) 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-S89a350-1-3] パスサニタイズ + normalizeVaultPath 通過 > pathMode では変数値をサニタイズしてから展開する 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-S89a350-1-3] パスサニタイズ + normalizeVaultPath 通過 > 本文解決 (pathMode 無し) では値を verbatim に保つ 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-S89a350-1-3] パスサニタイズ + normalizeVaultPath 通過 > サニタイズ + 展開結果は normalizeVaultPath を通過する 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-S89a350-1-3] パスサニタイズ + normalizeVaultPath 通過 > 悪意ある変数値でも vault 外へ脱出できない 1ms
+ ✓ packages/shared/src/template.test.ts > [AC-Sf2f114-1-1] {{param|fallback}} パイプ付きフォールバック > param が未定義のとき fallback を返す (missing に収集しない) 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-Sf2f114-1-1] {{param|fallback}} パイプ付きフォールバック > param が空文字のとき fallback を返す 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-Sf2f114-1-1] {{param|fallback}} パイプ付きフォールバック > param に値があるとき値を返す 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-Sf2f114-1-1] {{param|fallback}} パイプ付きフォールバック > fallback に日本語やスペースを含んでも正しく展開する 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-Sf2f114-1-1] {{param|fallback}} パイプ付きフォールバック > パイプ付きと通常トークンが混在しても正しく処理する 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-Sf2f114-1-1] {{param|fallback}} パイプ付きフォールバック > パイプなし {{x}} は未定義のとき verbatim に残り missing に収集される (後方互換) 1ms
+ ✓ packages/shared/src/template.test.ts > [AC-Sf2f114-1-1] {{param|fallback}} パイプ付きフォールバック > パイプなし {{x}} で値が空文字のとき空に展開する (既存ルール変更なし) 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-Sf2f114-1-1] {{param|fallback}} パイプ付きフォールバック > fallback の先頭スペースは保持する ({{x| fallback}} → " fallback") 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-Sf2f114-1-2] 相対日付オフセット {{date:+Nd:FMT}} / {{date:-Nd:FMT}} > +3d: 3 日後の日付を返す 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-Sf2f114-1-2] 相対日付オフセット {{date:+Nd:FMT}} / {{date:-Nd:FMT}} > -1d: 1 日前の日付を返す 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-Sf2f114-1-2] 相対日付オフセット {{date:+Nd:FMT}} / {{date:-Nd:FMT}} > +0d: オフセット 0 は {{date:YYYY-MM-DD}} と同一 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-Sf2f114-1-2] 相対日付オフセット {{date:+Nd:FMT}} / {{date:-Nd:FMT}} > 月跨ぎのオフセットを正しく計算する 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-Sf2f114-1-2] 相対日付オフセット {{date:+Nd:FMT}} / {{date:-Nd:FMT}} > now:+2d もサポートする 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-Sf2f114-1-2] 相対日付オフセット {{date:+Nd:FMT}} / {{date:-Nd:FMT}} > 既存 {{date:YYYY-MM-DD}} はオフセットなしで変更なし 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-Sf2f114-1-2] 相対日付オフセット {{date:+Nd:FMT}} / {{date:-Nd:FMT}} > 既存 {{date:YYYY/MM/DD HH:mm:ss}} はコロン含むフォーマットも変更なし 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-Sf2f114-1-2] 相対日付オフセット {{date:+Nd:FMT}} / {{date:-Nd:FMT}} > d 以外の単位 (+3h) はサポート外 — クラッシュせず部分フォーマットになる 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-Sf2f114-1-3] 既存トークンの後方互換 (バイト変化なし) > {{date:YYYY-MM-DD}} は journalPath と同一文字列を再現する (byte-identical) 0ms
+ ✓ packages/shared/src/template.test.ts > [AC-Sf2f114-1-3] 既存トークンの後方互換 (バイト変化なし) > 未定義の {{missing}} はトークンを verbatim に保持し missing[] に収集する 0ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sd22b1f-2-3] append-only mode allows v1 commands > [AC-Sd22b1f-2-3] append-only allows v1 commands (journal-append + note-create) 19ms
+ ✓ packages/shared/src/property-types.test.ts > heuristicType > キー名から意味型を推定する 1ms
+ ✓ packages/shared/src/property-types.test.ts > heuristicType > 値の形から意味型を推定する (キー名が中立のとき) 4ms
+ ✓ packages/shared/src/property-types.test.ts > heuristicType > キー名照合は NFC + lowercase (大文字・全角無関係) 0ms
+ ✓ packages/shared/src/property-types.test.ts > parsePropertyTypesJson > 妥当な定義を検証して採用する (options は string / {value,color} 混在可) 5ms
+ ✓ packages/shared/src/property-types.test.ts > parsePropertyTypesJson > 壊れたエントリは黙って捨て、妥当なものだけ残す (クラッシュしない — AC-2-3) 1ms
+ ✓ packages/shared/src/property-types.test.ts > parsePropertyTypesJson > オブジェクトでない入力は {} (フォールバック) 0ms
+ ✓ packages/shared/src/property-types.test.ts > resolvePropertyType > JSON定義があればヒューリスティックを上書きする (source=json) 0ms
+ ✓ packages/shared/src/property-types.test.ts > resolvePropertyType > JSON定義が無ければヒューリスティック (source=builtin) 0ms
+ ✓ packages/shared/src/property-types.test.ts > buildTypePickerOptions / filterTypeOptions > 内蔵型 + JSON定義型を混在提示する (JSON定義は source=json) 1ms
+ ✓ packages/shared/src/property-types.test.ts > buildTypePickerOptions / filterTypeOptions > インクリメンタル絞り込み: 's' で select/star/... に絞れる (AC-3-1) 1ms
+ ✓ packages/shared/src/property-types.test.ts > buildTypePickerOptions / filterTypeOptions > JSON定義型もキー名で絞り込める 0ms
+ ✓ packages/shared/src/property-types.test.ts > 値の正規化ヘルパ > defaultValueForType は型に応じた標準 YAML スカラーを返す 0ms
+ ✓ packages/shared/src/property-types.test.ts > 値の正規化ヘルパ > clampStar / clampProgress は範囲内の整数へ丸める 0ms
+ ✓ packages/shared/src/property-types.test.ts > 値の正規化ヘルパ > selectColorFor は options の色を優先し、無ければ安定に割り当てる 0ms
+ ✓ packages/shared/src/journal-section.test.ts > insertUnderHeading > [AC-Sd22b1f-3-1] empty content + heading absent: appends heading + text at EOF 1ms
+ ✓ packages/shared/src/journal-section.test.ts > insertUnderHeading > [AC-Sd22b1f-3-1] heading present: inserts text at end of that section (before next heading) 1ms
+ ✓ packages/shared/src/journal-section.test.ts > insertUnderHeading > [AC-Sd22b1f-3-1] heading absent (content non-empty): appends heading + text at end of file 0ms
+ ✓ packages/shared/src/journal-section.test.ts > insertUnderHeading > [AC-Sd22b1f-3-1] multiple same-level headings: inserts under the FIRST matching heading 0ms
+ ✓ packages/shared/src/journal-section.test.ts > insertUnderHeading > nested headings: inserts before next same-or-higher-level heading 0ms
+ ✓ packages/shared/src/journal-section.test.ts > insertUnderHeading > text without trailing newline gets a trailing newline 0ms
+ ✓ packages/shared/src/journal-section.test.ts > insertUnderHeading > [AC-Sd22b1f-3-1] matches heading with NFC normalization (decomposed heading found by composed search) 0ms
+ ✓ packages/shared/src/journal-section.test.ts > insertUnderHeading > matches heading with NFC normalization (ASCII baseline) 0ms
+ ✓ packages/shared/src/journal-section.test.ts > insertUnderHeading > empty section: inserts text right after heading 0ms
+ ✓ packages/shared/src/journal-section.test.ts > insertUnderHeading > [AC-Sd22b1f-3-1] duplicate heading names: inserts under the FIRST occurrence only 0ms
+ ✓ packages/shared/src/journal-section.test.ts > [AC-Sf2f114-3-1] insertAtPosition — bottom > bottom: 空コンテンツ → text のみ (末尾改行付き) 0ms
+ ✓ packages/shared/src/journal-section.test.ts > [AC-Sf2f114-3-1] insertAtPosition — bottom > bottom: 既存コンテンツの末尾に追記する 0ms
+ ✓ packages/shared/src/journal-section.test.ts > [AC-Sf2f114-3-1] insertAtPosition — bottom > bottom: 既存コンテンツの末尾改行がなければ補う 0ms
+ ✓ packages/shared/src/journal-section.test.ts > [AC-Sf2f114-3-1] insertAtPosition — bottom > bottom: section フィールドは無視される (position が優先) 0ms
+ ✓ packages/shared/src/journal-section.test.ts > [AC-Sf2f114-3-1] insertAtPosition — section > section: insertUnderHeading と同義 (見出し存在) 0ms
+ ✓ packages/shared/src/journal-section.test.ts > [AC-Sf2f114-3-1] insertAtPosition — section > section: insertUnderHeading と同義 (見出し不在 → EOF に追加) 0ms
+ ✓ packages/shared/src/journal-section.test.ts > [AC-Sf2f114-3-1] insertAtPosition — section > section: section が未指定ならエラーをスローする 1ms
+ ✓ packages/shared/src/journal-section.test.ts > [AC-Sf2f114-3-1] insertAtPosition — section > section: section が空文字ならエラーをスローする 0ms
+ ✓ packages/shared/src/journal-section.test.ts > [AC-Sf2f114-3-1] insertAtPosition — top > top: 空コンテンツ → text のみ 0ms
+ ✓ packages/shared/src/journal-section.test.ts > [AC-Sf2f114-3-1] insertAtPosition — top > top: frontmatter なし → コンテンツ先頭に挿入 0ms
+ ✓ packages/shared/src/journal-section.test.ts > [AC-Sf2f114-3-1] insertAtPosition — top > top: frontmatter あり → frontmatter を保護し本文先頭に挿入 0ms
+ ✓ packages/shared/src/journal-section.test.ts > [AC-Sf2f114-3-1] insertAtPosition — top > top: frontmatter あり、本文なし → frontmatter の直後に追記 0ms
+ ✓ packages/shared/src/journal-section.test.ts > [AC-Sf2f114-3-1] insertAtPosition — top > top: frontmatter が閉じていない → 先頭に挿入 (frontmatter 誤認識を防ぐ) 0ms
+ ✓ packages/shared/src/journal-section.test.ts > [AC-Sf2f114-3-1] insertAtPosition — top > top: frontmatter が保護され、YAML が壊れないこと 0ms
+ ✓ packages/shared/src/journal-section.test.ts > [AC-Sf2f114-3-1] insertAtPosition — top > top: text が改行で終わらない場合も LF を補う 0ms
+ ✓ packages/shared/src/journal-section.test.ts > [AC-Sf2f114-3-1] insertAtPosition — top > top: CRLF 入力でも LF に正規化される 0ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sf2f114-5-2] GET /api/commands — new param types passthrough > [AC-Sf2f114-5-2] select param command は valid:true で options が passthrough される 6ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sf2f114-5-2] GET /api/commands — new param types passthrough > [AC-Sf2f114-5-2] select-without-options command は valid:false で一覧に含まれる 7ms
+ ✓ packages/shared/src/props-keyfirst.test.ts > buildKeyOptions (キーファースト zone ① 候補) > 内蔵 well-known + JSON定義 + vault 実使用キーを重複排除して 1 覧にする 4ms
+ ✓ packages/shared/src/props-keyfirst.test.ts > buildKeyOptions (キーファースト zone ① 候補) > この文書に既にあるキーは existing=true (重複不可) 0ms
+ ✓ packages/shared/src/props-keyfirst.test.ts > buildKeyOptions (キーファースト zone ① 候補) > vault キーの型は D方式 (キー名) で解決される — hoge は text 0ms
+ ✓ packages/shared/src/props-keyfirst.test.ts > filterKeyOptions / canCreateNewKey > key + search 語で部分一致絞り込みする 0ms
+ ✓ packages/shared/src/props-keyfirst.test.ts > filterKeyOptions / canCreateNewKey > 既存候補と完全一致する名前では新規作成を出さない (空も不可) 0ms
+ ✓ packages/shared/src/props-keyfirst.test.ts > summaryEntriesFor (畳み時の値要約) > 上限以下なら全件、超過分は more で件数だけ返す 1ms
+ ✓ packages/shared/src/props-keyfirst.test.ts > summaryEntriesFor (畳み時の値要約) > raw (コメント・空行) は要約対象から除外する 1ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-3] CLI loamium commands > exit 0 で全コマンドを stdout に出力する 265ms
+ ✓ tests/acceptance/command-run.spec.ts > [BUG-REGRESSION] display name ≠ stem — GET returns id, run uses stem > GET returns id="my-cmd" (stem) and name="My Command" (display) 3ms
+ ✓ tests/acceptance/command-run.spec.ts > [BUG-REGRESSION] display name ≠ stem — GET returns id, run uses stem > POST /api/commands/my-cmd/run (stem) succeeds 11ms
+ ✓ tests/acceptance/command-run.spec.ts > [BUG-REGRESSION] display name ≠ stem — GET returns id, run uses stem > POST /api/commands/My Command/run (display name) → 404 3ms
+ ✓ packages/shared/src/links.test.ts > resolveLinkTarget > resolves a bare filename across folders (shortest path wins) 1ms
+ ✓ packages/shared/src/links.test.ts > resolveLinkTarget > resolves with explicit .md extension the same as without 0ms
+ ✓ packages/shared/src/links.test.ts > resolveLinkTarget > resolves a path-qualified target from the vault root 0ms
+ ✓ packages/shared/src/links.test.ts > resolveLinkTarget > resolves case-insensitively (Obsidian-compatible) 0ms
+ ✓ packages/shared/src/links.test.ts > resolveLinkTarget > resolves NFD input to the NFC path 0ms
+ ✓ packages/shared/src/links.test.ts > resolveLinkTarget > prefers fewer path segments, then lexicographic order 0ms
+ ✓ packages/shared/src/links.test.ts > resolveLinkTarget > returns null for a broken link 0ms
+ ✓ packages/shared/src/links.test.ts > resolveLinkTarget > returns null for an empty target 0ms
+ ✓ packages/shared/src/links.test.ts > resolveLinkTarget > treats a leading / as vault-root reference 0ms
+ ✓ packages/shared/src/links.test.ts > resolveLinkTarget > does not fall back to basename matching for path-qualified misses 0ms
+ ✓ packages/shared/src/links.test.ts > preferredLinkTarget > returns the basename when it resolves uniquely to the note 0ms
+ ✓ packages/shared/src/links.test.ts > preferredLinkTarget > returns the full path when the basename resolves to a different note 0ms
+ ✓ packages/shared/src/links.test.ts > preferredLinkTarget > NFC-normalizes the note path 0ms
+ ✓ packages/shared/src/links.test.ts > resolveFileLinkTarget > resolves a bare filename across folders (shortest path wins) 0ms
+ ✓ packages/shared/src/links.test.ts > resolveFileLinkTarget > resolves a path-qualified target from the vault root 0ms
+ ✓ packages/shared/src/links.test.ts > resolveFileLinkTarget > does not append .md (attachment targets keep their extension) 0ms
+ ✓ packages/shared/src/links.test.ts > resolveFileLinkTarget > resolves case-insensitively and NFC-normalized 0ms
+ ✓ packages/shared/src/links.test.ts > resolveFileLinkTarget > strips a leading slash (vault-root explicit form) 0ms
+ ✓ packages/shared/src/links.test.ts > resolveFileLinkTarget > returns null for unknown or empty targets 0ms
+ ✓ packages/shared/src/links.test.ts > preferredFileLinkTarget > returns the basename (with extension) when it resolves uniquely 0ms
+ ✓ packages/shared/src/links.test.ts > preferredFileLinkTarget > returns the full path when the basename resolves to a different file 0ms
+ ✓ packages/shared/src/links.test.ts > preferredFileLinkTarget > NFC-normalizes the file path 0ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-3] CLI loamium commands > 有効なコマンドは description も出力する 276ms
+ ✓ packages/shared/src/tag-suggest.test.ts > normalizeTagQuery > strips leading # and NFC-normalizes 1ms
+ ✓ packages/shared/src/tag-suggest.test.ts > isValidTagName > accepts unicode / _ - / but rejects numeric-only and edge separators 1ms
+ ✓ packages/shared/src/tag-suggest.test.ts > filterTagSuggestions > returns all existing tags for an empty query (no create item) 1ms
+ ✓ packages/shared/src/tag-suggest.test.ts > filterTagSuggestions > incrementally filters by substring (case-insensitive) with a match range 0ms
+ ✓ packages/shared/src/tag-suggest.test.ts > filterTagSuggestions > appends a 新規作成 item when the query is a valid, non-existing tag 0ms
+ ✓ packages/shared/src/tag-suggest.test.ts > filterTagSuggestions > does not append 新規作成 when the query exactly matches an existing tag 0ms
+ ✓ packages/shared/src/tag-suggest.test.ts > filterTagSuggestions > does not append 新規作成 for an invalid (numeric-only) query 0ms
+ ✓ packages/shared/src/tag-suggest.test.ts > filterTagSuggestions > preserves the input (server) ordering of existing tags 0ms
+ ✓ packages/shared/src/path.test.ts > normalizeVaultPath > appends .md when extension is missing 1ms
+ ✓ packages/shared/src/path.test.ts > normalizeVaultPath > keeps .md extension as-is 0ms
+ ✓ packages/shared/src/path.test.ts > normalizeVaultPath > treats non-md extensions as part of the name (notes API only manages .md) 0ms
+ ✓ packages/shared/src/path.test.ts > normalizeVaultPath > normalizes to NFC (NFD input from macOS) 0ms
+ ✓ packages/shared/src/path.test.ts > normalizeVaultPath > accepts Japanese paths 0ms
+ ✓ packages/shared/src/path.test.ts > normalizeVaultPath > rejects ".." traversal 0ms
+ ✓ packages/shared/src/path.test.ts > normalizeVaultPath > rejects "." segments 0ms
+ ✓ packages/shared/src/path.test.ts > normalizeVaultPath > rejects absolute paths 0ms
+ ✓ packages/shared/src/path.test.ts > normalizeVaultPath > rejects hidden segments (.loamium / .git protection) 0ms
+ ✓ packages/shared/src/path.test.ts > normalizeVaultPath > rejects empty / backslash / null-byte paths 0ms
+ ✓ packages/shared/src/path.test.ts > normalizeVaultPath > isValidVaultPath mirrors normalizeVaultPath 0ms
+ ✓ packages/shared/src/path.test.ts > normalizeVaultFilePath (S9e5ca4-2: files API 用) > .md を補完せず任意拡張子を通す 0ms
+ ✓ packages/shared/src/path.test.ts > normalizeVaultFilePath (S9e5ca4-2: files API 用) > NFC 正規化とセグメント trim は normalizeVaultPath と同じ 0ms
+ ✓ packages/shared/src/path.test.ts > normalizeVaultFilePath (S9e5ca4-2: files API 用) > traversal / 絶対パス / 空 / バックスラッシュ / null byte は VaultPathError 0ms
+ ✓ packages/shared/src/path.test.ts > normalizeVaultFilePath (S9e5ca4-2: files API 用) > 隠しセグメントは HiddenVaultPathError (404 写像用に区別できる) 0ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-3] CLI loamium commands > 無効なコマンドは [INVALID] マーク付きで出力する 239ms
+ ✓ packages/shared/src/journal.test.ts > isValidJournalDate > accepts real dates 1ms
+ ✓ packages/shared/src/journal.test.ts > isValidJournalDate > rejects wrong formats 0ms
+ ✓ packages/shared/src/journal.test.ts > isValidJournalDate > rejects non-existent calendar dates 0ms
+ ✓ packages/shared/src/journal.test.ts > journalPath > maps a date to journals/YYYY-MM-DD.md 0ms
+ ✓ packages/shared/src/journal.test.ts > journalPath > throws JournalDateError for invalid dates 0ms
+ ✓ packages/shared/src/journal.test.ts > todayJournalDate > formats in server-local timezone 0ms
+ ✓ packages/shared/src/journal.test.ts > todayJournalDate > pads month and day 0ms
+ ✓ packages/shared/src/journal.test.ts > shiftJournalDate (Sa704c3: 前日/翌日ナビゲーション) > shifts within a month 0ms
+ ✓ packages/shared/src/journal.test.ts > shiftJournalDate (Sa704c3: 前日/翌日ナビゲーション) > crosses month and year boundaries 0ms
+ ✓ packages/shared/src/journal.test.ts > shiftJournalDate (Sa704c3: 前日/翌日ナビゲーション) > throws for invalid dates 0ms
+ ✓ packages/shared/src/journal.test.ts > journalDayOfWeek > returns the Japanese day of week 0ms
+ ✓ packages/shared/src/journal.test.ts > journalDayOfWeek > throws for invalid dates 0ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sd22b1f-2-4] CLI command run > [AC-Sd22b1f-2-4] CLI command run succeeds and prints step results 263ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-3] CLI loamium commands > --json フラグで API レスポンスの生 JSON をそのまま出力する 257ms
+ ✓ packages/shared/src/sections.test.ts > extractSection > 見出しセクションを次の同レベル見出しの直前まで抜き出す (下位見出しは含む) 1ms
+ ✓ packages/shared/src/sections.test.ts > extractSection > 最後のセクションは末尾まで 0ms
+ ✓ packages/shared/src/sections.test.ts > extractSection > 上位見出し (# タイトル) は下位見出しで打ち切られない 0ms
+ ✓ packages/shared/src/sections.test.ts > extractSection > 大文字小文字不区別 + NFC 正規化で一致する 0ms
+ ✓ packages/shared/src/sections.test.ts > extractSection > 見出しが見つからなければ null 0ms
+ ✓ packages/shared/src/sections.test.ts > extractSection > コードフェンス内の # 行は見出しとして扱わない 0ms
+ ✓ packages/shared/src/sections.test.ts > extractSection > 閉じ見出し (## x ##) と行末空白を吸収する 0ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sd22b1f-2-4] CLI command run > [AC-Sd22b1f-2-4] CLI command run with --json outputs raw JSON 263ms
+ ✓ tests/acceptance/commands.spec.ts > [AC-Sd22b1f-1-3] CLI loamium commands > サーバー未起動の場合は exit 1 + server_unreachable エラー 264ms
+ ✓ packages/shared/src/text.test.ts > toLf > converts CRLF and lone CR to LF 1ms
+ ✓ packages/shared/src/text.test.ts > appendText > appends to empty content with trailing newline 0ms
+ ✓ packages/shared/src/text.test.ts > appendText > inserts a newline when existing content lacks one 0ms
+ ✓ packages/shared/src/text.test.ts > appendText > does not double newlines when existing content ends with one 0ms
+ ✓ packages/shared/src/text.test.ts > appendText > normalizes CRLF in the addition 0ms
+ ✓ packages/shared/src/text.test.ts > countOccurrences > counts non-overlapping occurrences 0ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sd22b1f-2-4] CLI command run > [AC-Sd22b1f-2-4] CLI command run with missing param exits non-0 with machine-readable error 232ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sd22b1f-2-4] CLI command run > [AC-Sd22b1f-2-4] multiple --param flags are all sent 220ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-3-1] note-append with section/create/position > [AC-Sf2f114-3-1] note-append with section (heading present): inserts under heading 14ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-3-1] note-append with section/create/position > [AC-Sf2f114-3-1] note-append with section (heading absent): creates heading at EOF 16ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-3-1] note-append with section/create/position > [AC-Sf2f114-3-1] note-append with create:true (missing target) → creates note 9ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-3-1] note-append with section/create/position > [AC-Sf2f114-3-2] note-append without create to missing target → ok:false (backward compat) 6ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-3-1] note-append with section/create/position > [AC-Sf2f114-3-1] note-append position:top (no frontmatter) → inserts at body start 12ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-3-1] note-append with section/create/position > [AC-Sf2f114-3-1] note-append position:top (with frontmatter) → preserves frontmatter, inserts before body 11ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-3-1] note-append with section/create/position > [AC-Sf2f114-3-1] note-append position:bottom → appends at end 11ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-3-1] note-append with section/create/position > [AC-Sf2f114-3-2] journal-append unchanged — backward compat (section present) 15ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-3-1] note-append with section/create/position > [AC-Sf2f114-3-2] journal-append unchanged — backward compat (section absent, bottom) 14ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-2-1/2] when / when-not 条件付きステップ実行 > [AC-Sf2f114-2-2] when: {{flag}} — flag が truthy → ステップ実行される 13ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-2-1/2] when / when-not 条件付きステップ実行 > [AC-Sf2f114-2-2] when: {{flag}} — flag が falsey → スキップ (skipped:true), 後続ステップ続行 10ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-2-1/2] when / when-not 条件付きステップ実行 > [AC-Sf2f114-2-2] when: {{flag}} — flag が空文字 (省略) → スキップ 10ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-2-1/2] when / when-not 条件付きステップ実行 > [AC-Sf2f114-2-2] when-not: {{skip}} — skip が falsey → ステップ実行される 10ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-2-1/2] when / when-not 条件付きステップ実行 > [AC-Sf2f114-2-2] when-not: {{skip}} — skip が truthy → スキップ (skipped:true) 7ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-2-1/2] when / when-not 条件付きステップ実行 > [AC-Sf2f114-2-2] when + when-not 両方 — 両方満たす → 実行 8ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-2-1/2] when / when-not 条件付きステップ実行 > [AC-Sf2f114-2-2] when + when-not 両方 — when が falsey → スキップ 7ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-2-1/2] when / when-not 条件付きステップ実行 > [AC-Sf2f114-2-2] when + when-not 両方 — when-not が truthy → スキップ 6ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-2-1/2] when / when-not 条件付きステップ実行 > [AC-Sf2f114-2-2] 後方互換 — when / when-not なしのステップは変わらず実行される 20ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-4-1/2/3] prop-set / note-patch ステップ > [AC-Sf2f114-4-1] prop-set sets a frontmatter key via round-trip-safe path 21ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-4-1/2/3] prop-set / note-patch ステップ > [AC-Sf2f114-4-1] prop-set unsets a frontmatter key 14ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-4-1/2/3] prop-set / note-patch ステップ > [AC-Sf2f114-4-1] prop-set with neither set nor unset → ok:true (no-op) 12ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-4-1/2/3] prop-set / note-patch ステップ > [AC-Sf2f114-4-1] prop-set on non-existent note → ok:false 10ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-4-1/2/3] prop-set / note-patch ステップ > [AC-Sf2f114-4-2] note-patch replaces old text with new text 17ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-4-1/2/3] prop-set / note-patch ステップ > [AC-Sf2f114-4-2] note-patch with non-matching old → ok:false (not 4xx) 11ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-4-1/2/3] prop-set / note-patch ステップ > [AC-Sf2f114-4-2] note-patch with ambiguous (multiple-match) old → ok:false 12ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-4-1/2/3] prop-set / note-patch ステップ > [AC-Sf2f114-4-3] unknown kind is rejected at command parse time 6ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-4-1/2/3] prop-set / note-patch ステップ > [AC-Sf2f114-4-3] prop-set audit: prop-set.write is recorded in audit log 13ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-4-1/2/3] prop-set / note-patch ステップ > [AC-Sf2f114-4-3] note-patch audit: note-patch.write is recorded in audit log 16ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-5-2] new param types — value flows through resolveTemplate > [AC-Sf2f114-5-2] select param: 選択 option 文字列が resolveTemplate に渡されノートに展開される 10ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-5-2] new param types — value flows through resolveTemplate > [AC-Sf2f114-5-2] boolean param: "true" が resolveTemplate に渡されノートに展開される 8ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-5-2] new param types — value flows through resolveTemplate > [AC-Sf2f114-5-2] boolean param: "" (falsey) が渡されたとき when ゲートがスキップを引き起こす 7ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-5-2] new param types — value flows through resolveTemplate > [AC-Sf2f114-5-2] number param: 数値文字列が resolveTemplate に渡されノートに展開される 8ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-5-2] new param types — value flows through resolveTemplate > [AC-Sf2f114-5-2] note param: vault パス文字列が resolveTemplate に渡されノートに展開される 8ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-4-3] append-only rejects prop-set / note-patch commands > [AC-Sf2f114-4-3] append-only rejects prop-set command with 403 10ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-4-3] append-only rejects prop-set / note-patch commands > [AC-Sf2f114-4-3] append-only rejects note-patch command with 403 5ms
+ ✓ tests/acceptance/command-run.spec.ts > [AC-Sf2f114-4-3] append-only rejects prop-set / note-patch commands > [AC-Sf2f114-4-3] append-only still allows v1-only commands (journal-append / note-create) 8ms
+
+ Test Files  19 passed (19)
+      Tests  444 passed (444)
+   Start at  14:38:35
+   Duration  6.74s (transform 542ms, setup 0ms, collect 1.40s, tests 9.82s, environment 2ms, prepare 1.08s)
+

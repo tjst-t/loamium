@@ -1,0 +1,2 @@
+{"story_id":"Sa10026-3","reviewer":"実装エージェント自己申告 + フルスイート検証","critical_findings":0,
+ "notes":"settings-store.ts + appSettingsSchema(4キー: theme/defaultFolder/journalTemplate/showSystemFolder)。境界原則: 端末依存フィールドをスキーマに含めない(schemaKeys.length===4 で担保)。壊れ YAML 寛容 read + 既定フォールバック。config 変更なし。フルスイート 1157 pass。"}

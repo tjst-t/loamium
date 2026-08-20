@@ -1,0 +1,87 @@
+{
+  "sprint": "Sbd061c",
+  "date": "2026-07-04",
+  "machine_verdict_source": "docs/sprint-logs/Sbd061c/verify-run.json (overall_machine_status: pass — test 189/189, ui-tests 66/66, lint exit 0, skip 0)",
+  "summary": { "total": 264, "pass": 264, "fail": 0, "skip": 0 },
+  "tests": [
+    {
+      "name": "[AC-Sbd061c-1-1] Cmd/Ctrl+K とサイドバーの検索ボタンでパレットが開き、Esc・外側クリックで閉じる",
+      "file": "packages/ui/tests/e2e/search-palette.e2e.spec.ts",
+      "story": "Sbd061c-1",
+      "acceptance_criteria": ["AC-Sbd061c-1-1"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: search-palette.e2e.spec.ts.[AC-Sbd061c-1-1] status=pass。実ブラウザ→実 Vite→実サーバー→一時 vault。Ctrl+K でパレット表示 + search-input フォーカス、Esc で消滅 (count 0)、sidebar-search クリックで再表示、パレット内クリックでは閉じず backdrop (外側) クリックで閉じることまで assert"
+    },
+    {
+      "name": "[AC-Sbd061c-1-2] 入力に応じてノート名一致と全文ヒット (スニペット・行番号付き) がインクリメンタルに表示される",
+      "file": "packages/ui/tests/e2e/search-palette.e2e.spec.ts",
+      "story": "Sbd061c-1",
+      "acceptance_criteria": ["AC-Sbd061c-1-2"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: search-palette.e2e.spec.ts.[AC-Sbd061c-1-2] status=pass。実サーバーの GET /api/notes + GET /api/search (Fuse インデックス) に接続。「監査」でノート名一致 2 件 (mark 強調・パス表示) + 全文セクション表示、続けて「ログ」を打つと Enter 不要でノート名 1 件に絞られ (インクリメンタル)、全文ヒットが data-line=4・スニペット本文・L4 バッジ・mark 付きで出ることを assert。デバウンス 1 回発火は mock 側で回数 assert"
+    },
+    {
+      "name": "[AC-Sbd061c-1-3] 候補の Enter・クリックでノートが開き、全文ヒットは該当行にカーソルが移動する",
+      "file": "packages/ui/tests/e2e/search-palette.e2e.spec.ts",
+      "story": "Sbd061c-1",
+      "acceptance_criteria": ["AC-Sbd061c-1-3"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: search-palette.e2e.spec.ts.[AC-Sbd061c-1-3] status=pass。↑↓ で aria-selected が移動、Enter でノート名一致が開く (breadcrumb + エディタ本文)、全文ヒットのクリックで実装方針 L4 が開き cm-activeLine (カーソル行) がスニペット行全文と一致、開いているノート内の別ヒット (L5) へも Enter でカーソル移動することを assert"
+    },
+    {
+      "name": "Sbd061c-1 mock (パレットのエッジ・エラー 6 ケース)",
+      "file": "packages/ui/tests/e2e/search-palette.mock.spec.ts",
+      "story": "Sbd061c-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: search-palette.mock 6/6 pass。デバウンス (高速入力で GET /api/search が最後のクエリ 1 回のみ — 呼び出し配列を assert)、/api/search 500 の search-error (ノート名フィルタ生存・app-error 非漏出・エディタ編集可)、0 件の search-empty、IME composition 中の非発火 + compositionend で 1 回検索、line null ヒットの全文セクション除外、Ctrl+K 再押下の全選択"
+    },
+    {
+      "name": "既存回帰 (Sd63ad1〜S6fbf45 の全テスト)",
+      "file": "make test + make test-ui + make lint 全体",
+      "story": "Sbd061c",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json: test 189/189 (既存全件・変更なし)、ui-tests 66/66 (既存 57 + 新規 9)、lint exit 0。skip 0。既存テストの変更・無効化なし (diff は新規 2 spec のみ)"
+    }
+  ],
+  "diff_coverage": {
+    "$comment": "Rule 6 — 本 Sprint の diff が追加したユーザー可観測サーフェスと担保テスト。サーバー/CLI/shared の変更なし (Sprint 制約どおり)",
+    "surfaces": [
+      { "type": "gui", "identifier": "sidebar-search (サイドバーの検索ボタン)", "introduced_in_files": ["packages/ui/src/App.tsx"], "resolution": "covered", "test": "search-palette.e2e AC-1-1 (クリックでパレットが開く)" },
+      { "type": "gui", "identifier": "search-palette / search-palette-backdrop / search-input (Cmd/Ctrl+K パレット開閉)", "introduced_in_files": ["packages/ui/src/components/SearchPalette.tsx", "packages/ui/src/App.tsx"], "resolution": "covered", "test": "search-palette.e2e AC-1-1 + mock (Ctrl+K 再押下)" },
+      { "type": "gui", "identifier": "search-section-notes / search-result-note (ノート名一致セクション)", "introduced_in_files": ["packages/ui/src/components/SearchPalette.tsx"], "resolution": "covered", "test": "search-palette.e2e AC-1-2/1-3 + mock (エラー時の生存・絞り込み)" },
+      { "type": "gui", "identifier": "search-section-fulltext / search-result-fulltext (全文ヒット: スニペット + data-line)", "introduced_in_files": ["packages/ui/src/components/SearchPalette.tsx"], "resolution": "covered", "test": "search-palette.e2e AC-1-2/1-3 + mock (デバウンス・line null 除外)" },
+      { "type": "gui", "identifier": "search-empty / search-error (空結果・API 失敗の状態表示)", "introduced_in_files": ["packages/ui/src/components/SearchPalette.tsx"], "resolution": "covered", "test": "search-palette.mock (0 件 / 500)" },
+      { "type": "gui", "identifier": "Editor seek (全文ヒット確定で該当行へカーソル移動 + センタリング)", "introduced_in_files": ["packages/ui/src/components/Editor.tsx", "packages/ui/src/App.tsx"], "resolution": "covered", "test": "search-palette.e2e AC-1-3 (cm-activeLine が該当行に一致、同一ノート内の再移動含む)" },
+      { "type": "gui", "identifier": "IME composition 対応 (変換確定まで全文検索を遅延)", "introduced_in_files": ["packages/ui/src/components/SearchPalette.tsx"], "resolution": "covered", "test": "search-palette.mock (compositionstart/end)" }
+    ]
+  },
+  "done_judgment": [
+    {
+      "story_id": "Sbd061c-1",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      },
+      "notes": "guard1: user_review_required=false (review_reason=null)。guard2: nil-guard パターン 0 件。guard3: e2e はネットワークモック 0 件 (page.route/MSW/vi.mock grep clean)、実サーバー + 実 vault。MOCK=true/DRY_RUN/fake 0 件。guard4: priority_rule 9 例外の主張なし → n/a。guard5: パレット→GET /api/search→S31ba00 実 Fuse インデックス、GET /api/notes→実 listNotes の結合を e2e が実 round-trip (シード PUT→検索ヒット→該当行カーソル) で証明。guard6: 先送りコメント 0 件 (diff grep clean)。guard7: docs/DESIGN/ 不在 → n/a。guard8: data path (Go 定義ディレクトリ) 非該当 → n/a。"
+    }
+  ],
+  "prototype_drift": {
+    "checked_file": "prototype/search-palette.html",
+    "result": "pass",
+    "notes": "prototype の全 data-testid が実装に存在。task-checkbox / wikilink は S9ab6c3 / S6fbf45 実装の setAttribute による動的付与 (grep で確認)。search-* 系 7 testid + sidebar-search は今回実装。追加分 search-empty / search-error は TESTIDS.md に additive 追記済み"
+  }
+}

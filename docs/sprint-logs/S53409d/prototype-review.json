@@ -1,0 +1,27 @@
+{
+  "sprint_range": ["S53409d"],
+  "screens": [
+    {
+      "file": "prototype/agent-chat.html",
+      "story": "S53409d-2",
+      "feedback_rounds": 0,
+      "approved": true
+    },
+    {
+      "file": "prototype/agent-chat.html",
+      "story": "S53409d-3",
+      "feedback_rounds": 0,
+      "approved": true
+    }
+  ],
+  "design_decisions": [
+    "旧 Claude タブと同一位置・同一 seg-toggle にエージェントタブ(★アイコン)を置換 — ノートを見ながら対話する配置を維持 (DESIGN_PRINCIPLES ui_ux: 右サイドバーのトグル)",
+    "ユーザー発言は右寄せの淡紫バブル、アシスタント応答は地の文 — 狭いサイドバー幅で可読性優先",
+    "ツール実行はアシスタント応答先頭に縦積みチップで可視化(実行中=スピナー / 完了=●)。出典 [[リンク]] は既存の壊れリンク規約を踏襲(存在=紫 / 不在=赤破線)",
+    "入力欄下に常時ヒント行『ツール: vault 読み取りのみ』を表示し、第1段が読み取り専用であることを UI で明示 (ADR-0012)",
+    "未設定時はセットアップガイド(.loamium/agent.json サンプル付き)を表示し入力欄を出さない。設定は遅延読込で再起動不要",
+    "5 状態(履歴+回答 / 応答中 / 新規 / 未設定 / エラー)を定義。エラーは履歴に残し再送信可能"
+  ],
+  "approved_at": "2026-07-11",
+  "approved_by": "user"
+}

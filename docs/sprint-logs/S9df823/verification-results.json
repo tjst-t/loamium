@@ -1,0 +1,27 @@
+{
+  "sprint": "S9df823",
+  "authored_by": "parent autopilot (sub-agent hit usage limit before finalize; parent ran full verify)",
+  "machine_verdict": "pass (verify-run.json: test/lint/ui-tests all exit 0; test 412, ui-tests 207)",
+  "stories": [
+    {
+      "story_id": "S9df823-1",
+      "acceptance_criteria": [
+        {"id": "AC-S9df823-1-1", "status": "pass", "evidence": "properties.ts + live-preview ブロック置換で frontmatter をプロパティ一覧描画。properties.e2e が実ブラウザで描画を検証"},
+        {"id": "AC-S9df823-1-2", "status": "pass", "evidence": "値/チップ編集→標準 YAML 書き戻し。frontmatter.test.ts が round-trip を、e2e が実ファイル内容を検証"},
+        {"id": "AC-S9df823-1-3", "status": "pass", "evidence": "プロパティ追加削除・frontmatter 無しノートへの生成・スラッシュメニュー『プロパティ』。e2e 検証"},
+        {"id": "AC-S9df823-1-4", "status": "pass", "evidence": "『ソースを編集』切替。complex 値(ネスト/アンカー)は verbatim 保持しソース誘導。frontmatter.test.ts + e2e"}
+      ],
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "n/a",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    }
+  ]
+}

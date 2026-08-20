@@ -1,0 +1,57 @@
+{
+  "story": "S32940c-2",
+  "story_type": "mixed",
+  "user_role": "ノートを整理する本人 / エージェント",
+  "entry_point": "http://<server>/api/smart-folders (実 HTTP) + loamium CLI ($PATH のビルド済みバイナリ)",
+  "scenarios": [
+    {
+      "id": "scenario-1-api-crud-resolve",
+      "linked_ac": ["AC-S32940c-2-1", "AC-S32940c-2-2", "AC-S32940c-2-3", "AC-S32940c-2-4"],
+      "description": "定義を保存し、取得し、フォルダを解決する(API 経由)",
+      "preconditions": ["空 vault、mode=full"],
+      "steps": [
+        {"n": 1, "action": "GET /api/smart-folders(定義ファイル未作成)", "expected": "200。{version:1, items:[]}(欠損は空フォールバック、500 にしない)"},
+        {"n": 2, "action": "PUT /api/smart-folders に {version:1, items:[{kind:'query',id:'recent',name:'最近の更新',dql:'LIST SORT file.mtime DESC LIMIT 5'},{kind:'pin',id:'dash',name:'ダッシュボード',path:'Dashboard.md'}]}", "expected": "200。.loamium/smart-folders.json が 2-space JSON で作成され、監査ログに smart-folders.write"},
+        {"n": 3, "action": "GET /api/smart-folders", "expected": "200。PUT した items がそのまま返る"},
+        {"n": 4, "action": "GET /api/smart-folders/recent/notes", "expected": "200。NoteMeta[] が mtime 降順 5 件以内で返る(executeQuery 経由)"},
+        {"n": 5, "action": "PUT /api/smart-folders に pin.path='../escape.md' を含む不正定義", "expected": "4xx(normalizeVaultPath 違反)。ファイルは書き換わらない"},
+        {"n": 6, "action": "GET /api/smart-folders/dash/notes(Dashboard.md は未作成)", "expected": "200。存在しない pin は結果から除外され、エラーにならない(ファイルは壊さない)"}
+      ],
+      "cleanup": ["PUT で items:[] に戻す"]
+    },
+    {
+      "id": "scenario-2-api-permission",
+      "linked_ac": ["AC-S32940c-2-2"],
+      "description": "read-only モードでは書込を拒否",
+      "preconditions": ["mode=read-only でサーバ起動"],
+      "steps": [
+        {"n": 1, "action": "PUT /api/smart-folders に任意の定義", "expected": "403。定義ファイルは変更されない"},
+        {"n": 2, "action": "GET /api/smart-folders", "expected": "200(読み取りは許可)"}
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "scenario-3-gitignore",
+      "linked_ac": ["AC-S32940c-2-5"],
+      "description": "定義ファイルだけが git 追跡対象になる",
+      "preconditions": [".gitignore 更新後、.loamium/smart-folders.json と .loamium/audit.log が存在"],
+      "steps": [
+        {"n": 1, "action": "`git check-ignore -v .loamium/smart-folders.json` を実行", "expected": "終了コード 1(無視されない=追跡可能)"},
+        {"n": 2, "action": "`git check-ignore -v .loamium/audit.log` を実行", "expected": "終了コード 0(従来どおり無視される)"}
+      ],
+      "cleanup": []
+    },
+    {
+      "id": "scenario-4-cli",
+      "linked_ac": ["AC-S32940c-2-6"],
+      "description": "CLI が API と 1:1 対応する",
+      "preconditions": ["make build 済み、サーバ起動中"],
+      "steps": [
+        {"n": 1, "action": "`loamium smart-folders set /tmp/def.json`(def.json は有効な定義)", "expected": "終了コード 0。PUT と同じ結果(定義が保存される)"},
+        {"n": 2, "action": "`loamium smart-folders --json`", "expected": "終了コード 0。stdout に {version, items} の生 JSON"},
+        {"n": 3, "action": "`loamium smart-folder recent --json`", "expected": "終了コード 0。stdout に解決された NoteMeta 配列"}
+      ],
+      "cleanup": ["`loamium smart-folders set` で空定義に戻す"]
+    }
+  ]
+}

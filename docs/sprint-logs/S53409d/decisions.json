@@ -1,0 +1,54 @@
+{
+  "sprint": "S53409d",
+  "touched_adrs": [
+    "ADR-0011",
+    "ADR-0012"
+  ],
+  "decisions": [
+    {
+      "timestamp": "2026-07-10T00:00:00Z",
+      "category": "planning",
+      "title": "内蔵エージェントを 3 Sprint に分割 (基盤 / 書き込み+権限 / 定期実行)",
+      "detail": "S53409d (detailed) は Node 22 化・ターミナル撤去・pi SDK・読み取りツール・チャット UI まで。書き込みツールは ADR-0012 の 3 段階権限 UI とセットで S5bd678 (coarse) に、定期実行は S2fe109 (coarse) に置く。読み取り専用スプリントとして権限リスクゼロで先に価値を出すため。",
+      "reference": "DESIGN_PRINCIPLES priority 2 (データ安全性 > 開発速度), priority 5 (シンプルさ > 汎用性)",
+      "adr_ref": "ADR-0011, ADR-0012, ADR-0013",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-10T00:00:00Z",
+      "category": "planning",
+      "title": "接続設定はファイル + 環境変数のみ (設定 UI は作らない)",
+      "detail": ".loamium/agent.json (baseUrl / api 種別 / model、apiKey は $ENV_VAR 参照可) + 環境変数。設定 UI は当面作らず、未設定時はチャットペインに設定手順ガイドを表示する。",
+      "reference": "DESIGN_PRINCIPLES priority 5 (シンプルさ > 汎用性)",
+      "adr_ref": "ADR-0011",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-10T00:00:00Z",
+      "category": "planning",
+      "title": ".loamium/agent.json は Git 追跡しない (ADR-0002 の再包含対象に加えない)",
+      "detail": "接続設定は再構築容易 (数行) かつ apiKey の平文混入リスクがあるため、smart-folders.json と異なり .gitignore の再包含リストに加えない。",
+      "reference": "DESIGN_PRINCIPLES priority 2 (データ安全性 > 開発速度)",
+      "adr_ref": "ADR-0002, ADR-0011",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-10T00:00:00Z",
+      "category": "planning",
+      "title": "E2E テストの LLM はローカル OpenAI 互換スタブサーバー (実 HTTP)",
+      "detail": "エージェント e2e は実ブラウザ→実 Loamium サーバー→実 HTTP のスタブ LLM サーバーで検証する。スタブは別プロセス/別ポートの実 HTTP サーバーであり、in-process fake やネットワークモックではない (test-discipline Rule 7 の範囲内: モックするのは外部 SaaS に相当する LLM のみで、Loamium 側の経路はすべて実物)。実プロバイダ課金なしで決定的なツール呼び出し応答を返せる。",
+      "reference": "test-discipline Rule 2/4/7",
+      "adr_ref": "ADR-0011",
+      "drift_flag": "none"
+    },
+    {
+      "timestamp": "2026-07-11T00:00:00Z",
+      "category": "process",
+      "title": "S53409d の Story 実装は worktree 分離なしで順次 in-place 実行",
+      "detail": "3 Story は依存が完全直列 (1 基盤→2 接続→3 ツール) で intra-wave 並列が存在しない。worktree 分離は並列衝突回避が目的のため利点ゼロで、worktree ごとの full npm install が重複するのみ。sprint ブランチ autopilot/aiagent/S53409d 上で順次 in-place 実装し、各 Story 後にレビュー→修正→検証する。",
+      "reference": "DESIGN_PRINCIPLES priority 5 (シンプルさ > 汎用性)",
+      "adr_ref": "none",
+      "drift_flag": "none"
+    }
+  ]
+}

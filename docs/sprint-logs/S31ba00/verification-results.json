@@ -1,0 +1,1212 @@
+{
+  "sprint": "S31ba00",
+  "run_at": "2026-07-03T16:13:48Z",
+  "server_command": "tsx packages/server/src/index.ts (subprocess per test file, PORT=0, temp vault)",
+  "machine_verdict": {
+    "source": "docs/sprint-logs/S31ba00/verify-run.json",
+    "overall_machine_status": "pass",
+    "evidence": "run-verify: test: exit=0 status=pass / lint: exit=0 status=pass / JUnit 126 total, 126 passed, 0 failed, 0 errored, 0 skipped"
+  },
+  "summary": {
+    "total": 126,
+    "pass": 126,
+    "fail": 0,
+    "skip": 0
+  },
+  "tests": [
+    {
+      "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-1] audit log records every write API call > logs PUT / append / patch / DELETE / journal-append with ts, op, path",
+      "file": "tests/acceptance/audit-permissions.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-1] audit log records every write API call > logs journal auto-generation (GET that writes to disk)",
+      "file": "tests/acceptance/audit-permissions.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-1] audit log records every write API call > does not log read-only calls (GET note)",
+      "file": "tests/acceptance/audit-permissions.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-2] read-only mode rejects all writes with 403 > rejects PUT / append / patch / DELETE / journal-append with 403 and leaves files untouched",
+      "file": "tests/acceptance/audit-permissions.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-2] read-only mode rejects all writes with 403 > still allows reads (200)",
+      "file": "tests/acceptance/audit-permissions.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-2] read-only mode rejects all writes with 403 > GET /api/journal does not auto-create the file in read-only mode",
+      "file": "tests/acceptance/audit-permissions.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-2] read-only mode rejects all writes with 403 > records denied write attempts in the audit log",
+      "file": "tests/acceptance/audit-permissions.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-2] append-only mode allows only appends > allows note append and journal append",
+      "file": "tests/acceptance/audit-permissions.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/audit-permissions.spec.ts.[AC-Sd63ad1-3-2] append-only mode allows only appends > rejects overwrite (PUT), patch, and DELETE with 403",
+      "file": "tests/acceptance/audit-permissions.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/backlinks.spec.ts.[AC-S31ba00-2-1] GET /api/backlinks lists linking notes with context > returns all notes linking to the target, with line context",
+      "file": "tests/acceptance/backlinks.spec.ts",
+      "story": "S31ba00-2",
+      "acceptance_criteria": [
+        "AC-S31ba00-2-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/backlinks.spec.ts.[AC-S31ba00-2-1] GET /api/backlinks lists linking notes with context > returns an empty list for a note nobody links to",
+      "file": "tests/acceptance/backlinks.spec.ts",
+      "story": "S31ba00-2",
+      "acceptance_criteria": [
+        "AC-S31ba00-2-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/backlinks.spec.ts.[AC-S31ba00-2-1] GET /api/backlinks lists linking notes with context > accepts the path without the .md extension (normalized)",
+      "file": "tests/acceptance/backlinks.spec.ts",
+      "story": "S31ba00-2",
+      "acceptance_criteria": [
+        "AC-S31ba00-2-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/backlinks.spec.ts.[AC-S31ba00-2-1] GET /api/backlinks lists linking notes with context > rejects a missing path parameter and traversal attempts with 400",
+      "file": "tests/acceptance/backlinks.spec.ts",
+      "story": "S31ba00-2",
+      "acceptance_criteria": [
+        "AC-S31ba00-2-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/backlinks.spec.ts.[AC-S31ba00-2-2] link resolution: #heading, NFC/NFD, extension omission — no block IDs > resolves NFD input, #heading form, and extension omission to the same note",
+      "file": "tests/acceptance/backlinks.spec.ts",
+      "story": "S31ba00-2",
+      "acceptance_criteria": [
+        "AC-S31ba00-2-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/backlinks.spec.ts.[AC-S31ba00-2-2] link resolution: #heading, NFC/NFD, extension omission — no block IDs > resolves an NFD path query to the NFC-normalized target",
+      "file": "tests/acceptance/backlinks.spec.ts",
+      "story": "S31ba00-2",
+      "acceptance_criteria": [
+        "AC-S31ba00-2-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/backlinks.spec.ts.[AC-S31ba00-2-2] link resolution: #heading, NFC/NFD, extension omission — no block IDs > never writes block IDs or any markup into vault files (pure Markdown)",
+      "file": "tests/acceptance/backlinks.spec.ts",
+      "story": "S31ba00-2",
+      "acceptance_criteria": [
+        "AC-S31ba00-2-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/journal.spec.ts.[AC-Sd63ad1-2-1] GET /api/journal auto-generates today's journal > returns today (server-local) and creates journals/YYYY-MM-DD.md when missing",
+      "file": "tests/acceptance/journal.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/journal.spec.ts.[AC-Sd63ad1-2-1] GET /api/journal auto-generates today's journal > supports ?date=YYYY-MM-DD and auto-generates that file",
+      "file": "tests/acceptance/journal.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/journal.spec.ts.[AC-Sd63ad1-2-1] GET /api/journal auto-generates today's journal > rejects invalid dates with 400 (format and non-existent calendar day)",
+      "file": "tests/acceptance/journal.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/journal.spec.ts.[AC-Sd63ad1-2-1] GET /api/journal auto-generates today's journal > returns parsed frontmatter for a journal that has one",
+      "file": "tests/acceptance/journal.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/journal.spec.ts.[AC-Sd63ad1-2-2] POST /api/journal/append > appends to today's journal (creating it if missing)",
+      "file": "tests/acceptance/journal.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/journal.spec.ts.[AC-Sd63ad1-2-2] POST /api/journal/append > appends to a specified date, auto-creating the file (201)",
+      "file": "tests/acceptance/journal.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/journal.spec.ts.[AC-Sd63ad1-2-2] POST /api/journal/append > rejects invalid date / empty content with 400",
+      "file": "tests/acceptance/journal.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-1] PUT/GET notes (create, read with frontmatter, overwrite) > creates a note with PUT and reads it back with parsed frontmatter",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-1] PUT/GET notes (create, read with frontmatter, overwrite) > overwrites an existing note with PUT (200, created=false)",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-1] PUT/GET notes (create, read with frontmatter, overwrite) > adds .md automatically when the path has no extension",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-1] PUT/GET notes (create, read with frontmatter, overwrite) > returns 404 for a missing note",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-1] PUT/GET notes (create, read with frontmatter, overwrite) > handles Japanese (NFC-normalized) paths",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > appends to the end of a note",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > patches old→new (single occurrence)",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > returns 409 when old is not found, without modifying the file",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > returns 409 when old matches multiple locations (ambiguous, data safety)",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > does not interpret $-patterns in the replacement string (data safety)",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > rejects an action call without a note path (POST /api/notes/append) with 400",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > returns 404 when appending to a missing note",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-2] append and patch > rejects an invalid request body with 400 (zod validation)",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-3] path traversal rejection and UTF-8/LF storage > rejects ../ traversal with 400 and writes nothing outside the vault",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-3] path traversal rejection and UTF-8/LF storage > rejects nested traversal and hidden segments (.loamium protection)",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/notes-crud.spec.ts.[AC-Sd63ad1-1-3] path traversal rejection and UTF-8/LF storage > stores files as UTF-8 with LF only (CRLF input is normalized)",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/notes-crud.spec.ts.health endpoint > GET /api/health returns ok with the permission mode",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/notes-crud.spec.ts.DELETE /api/notes/{path} > deletes an existing note and returns 404 afterwards",
+      "file": "tests/acceptance/notes-crud.spec.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/search.spec.ts.[AC-S31ba00-1-1] GET /api/search full-text search > finds a note by a body keyword and returns path + matching snippet",
+      "file": "tests/acceptance/search.spec.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [
+        "AC-S31ba00-1-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/search.spec.ts.[AC-S31ba00-1-1] GET /api/search full-text search > reflects notes created through the API immediately (write-through index)",
+      "file": "tests/acceptance/search.spec.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [
+        "AC-S31ba00-1-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/search.spec.ts.[AC-S31ba00-1-1] GET /api/search full-text search > returns an empty result list for a query that matches nothing",
+      "file": "tests/acceptance/search.spec.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [
+        "AC-S31ba00-1-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/search.spec.ts.[AC-S31ba00-1-1] GET /api/search full-text search > rejects a missing/empty q parameter with 400",
+      "file": "tests/acceptance/search.spec.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [
+        "AC-S31ba00-1-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/search.spec.ts.[AC-S31ba00-1-2] GET /api/notes list with tag / folder filters > lists all vault notes without filters",
+      "file": "tests/acceptance/search.spec.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [
+        "AC-S31ba00-1-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/search.spec.ts.[AC-S31ba00-1-2] GET /api/notes list with tag / folder filters > filters by tag, recognizing both inline #tag and frontmatter tags",
+      "file": "tests/acceptance/search.spec.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [
+        "AC-S31ba00-1-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/search.spec.ts.[AC-S31ba00-1-2] GET /api/notes list with tag / folder filters > accepts the tag filter with a leading #",
+      "file": "tests/acceptance/search.spec.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [
+        "AC-S31ba00-1-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/search.spec.ts.[AC-S31ba00-1-2] GET /api/notes list with tag / folder filters > does not recognize #tags inside fenced code blocks",
+      "file": "tests/acceptance/search.spec.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [
+        "AC-S31ba00-1-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/search.spec.ts.[AC-S31ba00-1-2] GET /api/notes list with tag / folder filters > filters by folder (subfolders included)",
+      "file": "tests/acceptance/search.spec.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [
+        "AC-S31ba00-1-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/search.spec.ts.[AC-S31ba00-1-2] GET /api/notes list with tag / folder filters > combines tag and folder filters",
+      "file": "tests/acceptance/search.spec.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [
+        "AC-S31ba00-1-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/search.spec.ts.[AC-S31ba00-1-2] GET /api/notes list with tag / folder filters > GET /api/tags returns vault-wide tags with counts",
+      "file": "tests/acceptance/search.spec.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [
+        "AC-S31ba00-1-2"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/watch.spec.ts.[AC-S31ba00-3-1] external file changes are reflected in search and backlinks > picks up a file added outside the API (search + backlinks)",
+      "file": "tests/acceptance/watch.spec.ts",
+      "story": "S31ba00-3",
+      "acceptance_criteria": [
+        "AC-S31ba00-3-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/watch.spec.ts.[AC-S31ba00-3-1] external file changes are reflected in search and backlinks > picks up an external modification (old content gone, new content searchable)",
+      "file": "tests/acceptance/watch.spec.ts",
+      "story": "S31ba00-3",
+      "acceptance_criteria": [
+        "AC-S31ba00-3-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/watch.spec.ts.[AC-S31ba00-3-1] external file changes are reflected in search and backlinks > picks up an external deletion (gone from search and backlinks)",
+      "file": "tests/acceptance/watch.spec.ts",
+      "story": "S31ba00-3",
+      "acceptance_criteria": [
+        "AC-S31ba00-3-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/watch.spec.ts.[AC-S31ba00-3-1] external file changes are reflected in search and backlinks > indexes an externally added NFD-named file under its NFC path (macOS filename quirk)",
+      "file": "tests/acceptance/watch.spec.ts",
+      "story": "S31ba00-3",
+      "acceptance_criteria": [
+        "AC-S31ba00-3-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "tests/acceptance/watch.spec.ts.[AC-S31ba00-3-1] external file changes are reflected in search and backlinks > does not index files under .loamium/ (watch exclusion)",
+      "file": "tests/acceptance/watch.spec.ts",
+      "story": "S31ba00-3",
+      "acceptance_criteria": [
+        "AC-S31ba00-3-1"
+      ],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.extractTags > extracts inline #tags from the body",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.extractTags > extracts Japanese and unicode tags",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.extractTags > merges frontmatter tags (array form) with inline tags, deduplicated",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.extractTags > accepts frontmatter tags as a comma-separated string",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.extractTags > strips a leading # from frontmatter tags",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.extractTags > ignores #tags inside fenced code blocks",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.extractTags > ignores #tags inside tilde fences",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.extractTags > ignores #tags inside inline code",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.extractTags > does not treat markdown headings as tags",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.extractTags > rejects numeric-only tags (Obsidian rule)",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.extractTags > does not extract tags glued to a word or in URLs",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.extractTags > NFC-normalizes tags (NFD input)",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.extractTags > deduplicates case-insensitively keeping first spelling",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.frontmatterTags > returns [] for null frontmatter",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.frontmatterTags > handles the singular \"tag\" key too",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.frontmatterTags > ignores non-string values safely",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.extractLinks > extracts simple [[WikiLink]] with line number and context",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.extractLinks > parses [[note#heading|alias]] into target + heading",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.extractLinks > treats ^block references as read-compat (not headings)",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.extractLinks > marks embeds (![[...]])",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.extractLinks > extracts multiple links on one line in order",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.extractLinks > ignores links inside fenced code blocks and inline code",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.extractLinks > ignores links inside frontmatter",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.extractLinks > skips same-note links ([[#heading]] with no target)",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.extractLinks > NFC-normalizes targets (NFD input)",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.noteTitle > returns the basename without .md",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/extract.test.ts.noteTitle > NFC-normalizes",
+      "file": "packages/shared/src/extract.test.ts",
+      "story": "S31ba00-1",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/journal.test.ts.isValidJournalDate > accepts real dates",
+      "file": "packages/shared/src/journal.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/journal.test.ts.isValidJournalDate > rejects wrong formats",
+      "file": "packages/shared/src/journal.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/journal.test.ts.isValidJournalDate > rejects non-existent calendar dates",
+      "file": "packages/shared/src/journal.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/journal.test.ts.journalPath > maps a date to journals/YYYY-MM-DD.md",
+      "file": "packages/shared/src/journal.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/journal.test.ts.journalPath > throws JournalDateError for invalid dates",
+      "file": "packages/shared/src/journal.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/journal.test.ts.todayJournalDate > formats in server-local timezone",
+      "file": "packages/shared/src/journal.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/journal.test.ts.todayJournalDate > pads month and day",
+      "file": "packages/shared/src/journal.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/links.test.ts.resolveLinkTarget > resolves a bare filename across folders (shortest path wins)",
+      "file": "packages/shared/src/links.test.ts",
+      "story": "S31ba00-2",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/links.test.ts.resolveLinkTarget > resolves with explicit .md extension the same as without",
+      "file": "packages/shared/src/links.test.ts",
+      "story": "S31ba00-2",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/links.test.ts.resolveLinkTarget > resolves a path-qualified target from the vault root",
+      "file": "packages/shared/src/links.test.ts",
+      "story": "S31ba00-2",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/links.test.ts.resolveLinkTarget > resolves case-insensitively (Obsidian-compatible)",
+      "file": "packages/shared/src/links.test.ts",
+      "story": "S31ba00-2",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/links.test.ts.resolveLinkTarget > resolves NFD input to the NFC path",
+      "file": "packages/shared/src/links.test.ts",
+      "story": "S31ba00-2",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/links.test.ts.resolveLinkTarget > prefers fewer path segments, then lexicographic order",
+      "file": "packages/shared/src/links.test.ts",
+      "story": "S31ba00-2",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/links.test.ts.resolveLinkTarget > returns null for a broken link",
+      "file": "packages/shared/src/links.test.ts",
+      "story": "S31ba00-2",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/links.test.ts.resolveLinkTarget > returns null for an empty target",
+      "file": "packages/shared/src/links.test.ts",
+      "story": "S31ba00-2",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/links.test.ts.resolveLinkTarget > treats a leading / as vault-root reference",
+      "file": "packages/shared/src/links.test.ts",
+      "story": "S31ba00-2",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/links.test.ts.resolveLinkTarget > does not fall back to basename matching for path-qualified misses",
+      "file": "packages/shared/src/links.test.ts",
+      "story": "S31ba00-2",
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/markdown.test.ts.parseNote > extracts YAML frontmatter and body",
+      "file": "packages/shared/src/markdown.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/markdown.test.ts.parseNote > returns null frontmatter when there is none",
+      "file": "packages/shared/src/markdown.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/markdown.test.ts.parseNote > does not treat a later --- as frontmatter open",
+      "file": "packages/shared/src/markdown.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/markdown.test.ts.parseNote > returns null frontmatter for an unclosed block",
+      "file": "packages/shared/src/markdown.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/markdown.test.ts.parseNote > returns null frontmatter for broken YAML without destroying content",
+      "file": "packages/shared/src/markdown.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/markdown.test.ts.parseNote > returns null frontmatter when YAML top-level is not an object",
+      "file": "packages/shared/src/markdown.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/markdown.test.ts.parseNote > handles empty frontmatter block",
+      "file": "packages/shared/src/markdown.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/markdown.test.ts.parseNote > handles CRLF content without crashing",
+      "file": "packages/shared/src/markdown.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/path.test.ts.normalizeVaultPath > appends .md when extension is missing",
+      "file": "packages/shared/src/path.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/path.test.ts.normalizeVaultPath > keeps .md extension as-is",
+      "file": "packages/shared/src/path.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/path.test.ts.normalizeVaultPath > treats non-md extensions as part of the name (notes API only manages .md)",
+      "file": "packages/shared/src/path.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/path.test.ts.normalizeVaultPath > normalizes to NFC (NFD input from macOS)",
+      "file": "packages/shared/src/path.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/path.test.ts.normalizeVaultPath > accepts Japanese paths",
+      "file": "packages/shared/src/path.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/path.test.ts.normalizeVaultPath > rejects \"..\" traversal",
+      "file": "packages/shared/src/path.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/path.test.ts.normalizeVaultPath > rejects \".\" segments",
+      "file": "packages/shared/src/path.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/path.test.ts.normalizeVaultPath > rejects absolute paths",
+      "file": "packages/shared/src/path.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/path.test.ts.normalizeVaultPath > rejects hidden segments (.loamium / .git protection)",
+      "file": "packages/shared/src/path.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/path.test.ts.normalizeVaultPath > rejects empty / backslash / null-byte paths",
+      "file": "packages/shared/src/path.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/path.test.ts.normalizeVaultPath > isValidVaultPath mirrors normalizeVaultPath",
+      "file": "packages/shared/src/path.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/text.test.ts.toLf > converts CRLF and lone CR to LF",
+      "file": "packages/shared/src/text.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/text.test.ts.appendText > appends to empty content with trailing newline",
+      "file": "packages/shared/src/text.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/text.test.ts.appendText > inserts a newline when existing content lacks one",
+      "file": "packages/shared/src/text.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/text.test.ts.appendText > does not double newlines when existing content ends with one",
+      "file": "packages/shared/src/text.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/text.test.ts.appendText > normalizes CRLF in the addition",
+      "file": "packages/shared/src/text.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    },
+    {
+      "name": "packages/shared/src/text.test.ts.countOccurrences > counts non-overlapping occurrences",
+      "file": "packages/shared/src/text.test.ts",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null
+    }
+  ],
+  "diff_coverage": {
+    "$comment": "Rule 6 — user-observable surfaces added in this Sprint diff (base 03f1e13)",
+    "surfaces": [
+      {
+        "type": "api",
+        "identifier": "GET /api/search",
+        "introduced_in_files": [
+          "packages/server/src/routes/search.ts"
+        ],
+        "resolution": "covered",
+        "test": "[AC-S31ba00-1-1] finds a note by a body keyword and returns path + matching snippet (+ empty result / 400 cases)"
+      },
+      {
+        "type": "api",
+        "identifier": "GET /api/notes (list, tag/folder filters)",
+        "introduced_in_files": [
+          "packages/server/src/routes/search.ts"
+        ],
+        "resolution": "covered",
+        "test": "[AC-S31ba00-1-2] lists all vault notes / filters by tag / folder / combined"
+      },
+      {
+        "type": "api",
+        "identifier": "GET /api/tags",
+        "introduced_in_files": [
+          "packages/server/src/routes/search.ts"
+        ],
+        "resolution": "covered",
+        "test": "[AC-S31ba00-1-2] GET /api/tags returns vault-wide tags with counts"
+      },
+      {
+        "type": "api",
+        "identifier": "GET /api/backlinks",
+        "introduced_in_files": [
+          "packages/server/src/routes/search.ts"
+        ],
+        "resolution": "covered",
+        "test": "[AC-S31ba00-2-1] returns all notes linking to the target, with line context (+400 cases)"
+      },
+      {
+        "type": "api",
+        "identifier": "write-through index sync on write APIs (behavioral field: search reflects PUT immediately)",
+        "introduced_in_files": [
+          "packages/server/src/indexSync.ts"
+        ],
+        "resolution": "covered",
+        "test": "[AC-S31ba00-1-1] reflects notes created through the API immediately (write-through index)"
+      },
+      {
+        "type": "api",
+        "identifier": "chokidar watch: external add/change/unlink reflected, .loamium excluded",
+        "introduced_in_files": [
+          "packages/server/src/watcher.ts"
+        ],
+        "resolution": "covered",
+        "test": "[AC-S31ba00-3-1] watch.spec.ts (4 tests + NFD filename regression)"
+      },
+      {
+        "type": "library",
+        "identifier": "@loamium/shared: extractTags / extractLinks / frontmatterTags / noteTitle",
+        "introduced_in_files": [
+          "packages/shared/src/extract.ts"
+        ],
+        "resolution": "covered",
+        "test": "packages/shared/src/extract.test.ts (23 tests) + transitively via /api/search, /api/notes, /api/backlinks acceptance tests"
+      },
+      {
+        "type": "library",
+        "identifier": "@loamium/shared: resolveLinkTarget",
+        "introduced_in_files": [
+          "packages/shared/src/links.ts"
+        ],
+        "resolution": "covered",
+        "test": "packages/shared/src/links.test.ts (9 tests) + transitively via [AC-S31ba00-2-2]"
+      },
+      {
+        "type": "library",
+        "identifier": "@loamium/shared: search/list/tags/backlinks zod schemas",
+        "introduced_in_files": [
+          "packages/shared/src/schemas.ts"
+        ],
+        "resolution": "covered",
+        "test": "response shapes asserted structurally in search.spec.ts / backlinks.spec.ts"
+      }
+    ]
+  },
+  "done_judgment": [
+    {
+      "story_id": "S31ba00-1",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    },
+    {
+      "story_id": "S31ba00-2",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    },
+    {
+      "story_id": "S31ba00-3",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      }
+    }
+  ],
+  "guard_notes": {
+    "guard2": "TypeScript codebase; the Go nil-guard anti-pattern grep does not apply. No optional-dependency guards that would make real connections skippable were introduced.",
+    "guard3": "All acceptance tests spawn the real server via tsx (same code path as make serve) with a real temp vault; no MOCK/DRY_RUN/in-memory fake anywhere in tests/.",
+    "guard4": "no story claims a priority_rule 9 exception",
+    "guard5": "AC couplings verified by grep: search->Fuse (packages/server/src/noteIndex.ts imports fuse.js), watch->chokidar (packages/server/src/watcher.ts imports chokidar), write APIs->index (indexSyncMiddleware wired in app.ts), backlinks->resolveLinkTarget (noteIndex.backlinks).",
+    "guard6": "git diff main...HEAD grep for TODO.*Phase / Sprint.*で実装 deferred comments: no hits.",
+    "guard7": "docs/DESIGN/ does not exist; no ADRs to check",
+    "guard8_rationale": "n/a — Hydra-specific data-path directories (internal/, cmd/) do not exist in this project; this sprint is read-only index code that never writes vault files (verified by [AC-S31ba00-2-2] pure-markdown byte-identity test)",
+    "empty_catch_note": "Three new catch blocks in noteIndex.ts are not swallowed errors: each implements a defined fallback (missing dir -> skip subtree, vault-escape -> refuse to read, missing file -> remove from index) per priority 6 (index is disposable, files are truth). indexSync/watcher failures are logged to stderr, not silenced."
+  }
+}

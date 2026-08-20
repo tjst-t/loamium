@@ -1,0 +1,54 @@
+{
+  "$file": "gui-spec-S6fbf45-1.json",
+  "sprint": "S6fbf45",
+  "story": "S6fbf45-1",
+  "story_type": "gui",
+  "state_diagram": "stateDiagram-v2\n    [*] --> NoteOpen: ノートをエディタに開く\n    NoteOpen --> Autocompleting: [[ を入力 (wikilink-autocomplete 表示)\n    Autocompleting --> Autocompleting: 文字入力で候補を部分一致絞り込み\n    Autocompleting --> LinkInserted: 候補選択 (Enter/クリック) → [[ノート名]] 挿入\n    Autocompleting --> NoteCreatedAndLinked: wikilink-autocomplete-create 選択 → 新規ノート作成 + [[名前]] 挿入\n    Autocompleting --> NoteOpen: Esc / ]] 手入力で閉じる\n    NoteOpen --> ResolvedLink: 既存ノートへの [[リンク]] は wikilink 装飾 (data-target=解決済みパス)\n    NoteOpen --> BrokenLink: 存在しないノートへの [[リンク]] は wikilink-broken 装飾 (赤+破線)\n    ResolvedLink --> TargetNoteOpen: クリック (または Cmd/Ctrl+クリック) で対象ノートへ移動\n    BrokenLink --> NewNoteOpen: クリックで新規ノート作成 + 移動 (リンクは解決済みに変わる)",
+  "scenarios": {
+    "entry_point": "ブラウザで UI を開き、ノートをエディタに開いて本文に [[ を入力する",
+    "happy_path": "[[ 入力で既存ノート名の候補ポップアップが出る → 文字を足すと部分一致で絞り込まれる → Enter/クリックで [[ノート名]] が挿入され自動保存される。既存ノートへのリンクは通常装飾でクリックするとそのノートに移動。存在しないノートへのリンクは赤+破線で表示され、クリックすると新規ノートが作成されて開く",
+    "data_states": {
+      "empty": "候補 0 件 (一致なし) のときは「新規ノートを作成してリンク」項目のみ表示される",
+      "loading": "ノート一覧は App 起動時取得済みのインメモリキャッシュを使う (追加ロード状態なし)",
+      "error": "壊れリンククリックでのノート作成 API 失敗時は app-error 表示、ノートは移動しない"
+    },
+    "edge_cases": [
+      "コードフェンス内・インラインコード内の [[...]] は装飾もナビゲーションもされない (S9ab6c3 の除外を維持)",
+      "[[読書 のような部分入力はタイトル・パスの部分一致 (大文字小文字不区別・NFC) で絞り込む",
+      "同名 basename が複数フォルダにある場合の解決は shared resolveLinkTarget の決定的規則 (浅いパス優先) に従う",
+      "候補選択時、basename が一意に解決するなら [[basename]]、衝突するなら [[フルパス]] を挿入する",
+      "エイリアス [[target|表示名]] は表示名で描画されるがナビゲーションは target に従う",
+      "IME 変換中は候補確定を奪わない (CodeMirror autocompletion の composition 対応に任せる)"
+    ],
+    "success_feedback": "リンク挿入は本文に即時反映され save-status が dirty → saved と遷移。クリック移動でパンくず・エディタ内容・アクティブツリー項目が対象ノートに切り替わる",
+    "failure_feedback": "ノート作成失敗時は app-error バナー。既存本文は失われない"
+  },
+  "endpoint_contracts": [
+    {
+      "path": "/api/notes",
+      "method": "GET",
+      "registered": true,
+      "request_fields": null,
+      "response_fields": { "notes": "[{path, title, tags, folder}]" }
+    },
+    {
+      "path": "/api/notes/:path",
+      "method": "PUT",
+      "registered": true,
+      "request_fields": { "content": "string", "baseMtime": "number (optional, 0=create-only)" },
+      "response_fields": { "path": "string", "created": "boolean", "mtime": "number" }
+    },
+    {
+      "path": "/api/notes/:path",
+      "method": "GET",
+      "registered": true,
+      "request_fields": null,
+      "response_fields": { "path": "string", "content": "string", "frontmatter": "object|null", "body": "string", "mtime": "number" }
+    }
+  ],
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/wikilink.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/wikilink.mock.spec.ts"
+  },
+  "linked_ac": ["AC-S6fbf45-1-1", "AC-S6fbf45-1-2", "AC-S6fbf45-1-3"]
+}

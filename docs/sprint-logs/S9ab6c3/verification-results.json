@@ -1,0 +1,189 @@
+{
+  "sprint": "S9ab6c3",
+  "date": "2026-07-03",
+  "machine_verdict_source": "docs/sprint-logs/S9ab6c3/verify-run.json (overall_machine_status: pass — test 167/167, ui-tests 35/35, lint exit 0)",
+  "summary": {
+    "total": 202,
+    "pass": 202,
+    "fail": 0,
+    "skip": 0
+  },
+  "tests": [
+    {
+      "name": "[AC-S9ab6c3-1-1] リスト行で Tab がサブツリーごとインデント、Shift+Tab でアンインデントされる",
+      "file": "packages/ui/tests/e2e/outline.e2e.spec.ts",
+      "story": "S9ab6c3-1",
+      "acceptance_criteria": ["AC-S9ab6c3-1-1"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: outline.e2e.spec.ts.[AC-S9ab6c3-1-1] status=pass。実ブラウザ→Vite→実サーバー→一時 vault。箇条書き (- 親タスク B + 子 2 行) の Tab で 4 スペース字下げが子要素にも追従し、Shift+Tab で完全に元のバイト列へ戻ることを実ファイルで assert。番号付きリスト (1.) でも Tab/Shift+Tab を検証。^blockid / id:: が混入しないことも assert"
+    },
+    {
+      "name": "[AC-S9ab6c3-1-2] 見出し行・段落では Tab を押してもインデント操作にならない",
+      "file": "packages/ui/tests/e2e/outline.e2e.spec.ts",
+      "story": "S9ab6c3-1",
+      "acceptance_criteria": ["AC-S9ab6c3-1-2"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: outline.e2e.spec.ts.[AC-S9ab6c3-1-2] status=pass。見出し行・段落行にカーソルを置いて Tab → save-status が saved のまま (doc 不変) + vault の実ファイルがシード内容と完全一致することを assert (C 方式境界)"
+    },
+    {
+      "name": "[AC-S9ab6c3-1-3] 子を持つリスト行をガターから折りたたみ・展開できる",
+      "file": "packages/ui/tests/e2e/outline.e2e.spec.ts",
+      "story": "S9ab6c3-1",
+      "acceptance_criteria": ["AC-S9ab6c3-1-3"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: outline.e2e.spec.ts.[AC-S9ab6c3-1-3] status=pass。子持ち行だけに fold-toggle が出る (子なし行は 0 個)、クリックで子行が消え fold-pill「… 2 行」+ data-folded=true、pill / 再クリックで展開、ファイル不変を assert"
+    },
+    {
+      "name": "[AC-S9ab6c3-1-4] チェックボックスのクリックでトグルされ、ファイルに - [x] として保存される",
+      "file": "packages/ui/tests/e2e/outline.e2e.spec.ts",
+      "story": "S9ab6c3-1",
+      "acceptance_criteria": ["AC-S9ab6c3-1-4"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: outline.e2e.spec.ts.[AC-S9ab6c3-1-4] status=pass。task-checkbox クリック → checked class → 自動保存後に vault 実ファイルへ「- [x] 未完了タスク」が書かれる。解除方向 (- [ ] へ戻る) と原状復帰も assert"
+    },
+    {
+      "name": "[MOCK] outline エッジケース 4 件 (見出し/段落/先頭項目 Tab no-op、Tab インデントの PUT 本文、保存 500 で dirty 維持、fold-toggle 表示条件)",
+      "file": "packages/ui/tests/e2e/outline.mock.spec.ts",
+      "story": "S9ab6c3-1",
+      "acceptance_criteria": ["AC-S9ab6c3-1-1", "AC-S9ab6c3-1-2", "AC-S9ab6c3-1-3", "AC-S9ab6c3-1-4"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: outline.mock.spec.ts 4 件 status=pass (page.route モック。エラー・エッジケース担当)"
+    },
+    {
+      "name": "[AC-S9ab6c3-2-1] 見出し・太字/斜体・インラインコード・[[リンク]] がカーソル行以外で装飾され、カーソル行はソース表示",
+      "file": "packages/ui/tests/e2e/preview.e2e.spec.ts",
+      "story": "S9ab6c3-2",
+      "acceptance_criteria": ["AC-S9ab6c3-2-1"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: preview.e2e.spec.ts.[AC-S9ab6c3-2-1] status=pass。# / ** / ` が非カーソル行で消え、wikilink が data-target 付きピル (エイリアス表示含む) になり、カーソルを置いた行だけ生 Markdown が見えることを行単位で assert。ファイルはシード内容と完全一致 (装飾は表示層のみ)"
+    },
+    {
+      "name": "[AC-S9ab6c3-2-2] mermaid フェンスが図、$…$/$$…$$ が KaTeX、コードフェンスが Shiki で描画される (3 レジストリ経由)",
+      "file": "packages/ui/tests/e2e/preview.e2e.spec.ts",
+      "story": "S9ab6c3-2",
+      "acceptance_criteria": ["AC-S9ab6c3-2-2"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: preview.e2e.spec.ts.[AC-S9ab6c3-2-2] status=pass。fence-widget[data-lang=mermaid] 内に svg 図、math-inline/math-block 内に .katex、fence-widget[data-lang=bash] 内に pre.shiki を実レンダラー (バンドル同梱・CDN なし) で assert。fence-widget クリック → ```mermaid ソース表示 → カーソルを外すと図に戻る round-trip も検証"
+    },
+    {
+      "name": "[MOCK] preview エッジケース 5 件 (不正 mermaid のエラー表示、未登録言語、未閉鎖 $$、コード内/通貨 $、$$ 1 行ブロックとソース復帰)",
+      "file": "packages/ui/tests/e2e/preview.mock.spec.ts",
+      "story": "S9ab6c3-2",
+      "acceptance_criteria": ["AC-S9ab6c3-2-1", "AC-S9ab6c3-2-2"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json ui-tests junit: preview.mock.spec.ts 5 件 status=pass (page.route モック。レンダラーエラー・数式誤検知のエッジ担当)"
+    },
+    {
+      "name": "[AC-S9ab6c3-2-3] 3 レジストリのユニットテスト (新規言語識別子の登録だけで追加できる)",
+      "file": "packages/ui/tests/unit/registry.spec.ts",
+      "story": "S9ab6c3-2",
+      "acceptance_criteria": ["AC-S9ab6c3-2-3"],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json test junit: packages/ui/tests/unit/registry.spec.ts 5 件 status=pass。未登録識別子が undefined → registerFenceRenderer だけで同じ lookup 経路 (getFenceRenderer) が解決すること、複数言語配列、inline/block ルールの登録と match/matchEnd、ビルトイン (mermaid/katex/shiki) が 3 レジストリ経由であることを検証"
+    },
+    {
+      "name": "既存回帰: vitest 162 件 (server/shared/cli/acceptance) + Playwright 26 件 (Sa704c3 editor/journal)",
+      "file": "reports/junit.xml, reports/ui/playwright.xml",
+      "story": null,
+      "acceptance_criteria": [],
+      "status": "pass",
+      "error": null,
+      "evidence": "verify-run.json: test junit total=167 passed=167 failed=0 skipped=0 (既存 162 + registry 5) / ui-tests junit total=35 passed=35 failed=0 (既存 26 + 新規 9)"
+    }
+  ],
+  "diff_coverage": {
+    "$comment": "Rule 6 — 本 Sprint の diff が追加したユーザー可観測サーフェスと担保テスト",
+    "surfaces": [
+      {
+        "type": "gui",
+        "identifier": "Tab / Shift+Tab アウトラインキーマップ (リスト行限定・IME ガード)",
+        "introduced_in_files": ["packages/ui/src/outline.ts"],
+        "resolution": "covered",
+        "test": "outline.e2e AC-1-1/AC-1-2 + outline.mock (no-op エッジ 3 種)"
+      },
+      {
+        "type": "gui",
+        "identifier": "fold-toggle ガター + fold-pill (折りたたみ)",
+        "introduced_in_files": ["packages/ui/src/outline.ts"],
+        "resolution": "covered",
+        "test": "outline.e2e AC-1-3 + outline.mock 表示条件"
+      },
+      {
+        "type": "gui",
+        "identifier": "task-checkbox クリックトグル",
+        "introduced_in_files": ["packages/ui/src/outline.ts"],
+        "resolution": "covered",
+        "test": "outline.e2e AC-1-4 + outline.mock 保存 500"
+      },
+      {
+        "type": "gui",
+        "identifier": "ライブプレビュー装飾 (見出し/強調/インラインコード/wikilink、カーソル行ソース表示)",
+        "introduced_in_files": ["packages/ui/src/live-preview.ts"],
+        "resolution": "covered",
+        "test": "preview.e2e AC-2-1 + preview.mock ($ 誤検知エッジ)"
+      },
+      {
+        "type": "gui",
+        "identifier": "fence-widget (mermaid 図 / Shiki ハイライト、クリックでソース復帰)",
+        "introduced_in_files": ["packages/ui/src/live-preview.ts", "packages/ui/src/renderers/mermaid.ts", "packages/ui/src/renderers/shiki.ts"],
+        "resolution": "covered",
+        "test": "preview.e2e AC-2-2 + preview.mock (不正 mermaid / 未登録言語)"
+      },
+      {
+        "type": "gui",
+        "identifier": "math-inline / math-block (KaTeX)",
+        "introduced_in_files": ["packages/ui/src/renderers/katex.ts", "packages/ui/src/live-preview.ts"],
+        "resolution": "covered",
+        "test": "preview.e2e AC-2-2 + preview.mock (未閉鎖 $$ / 1 行 $$ / 通貨 $)"
+      },
+      {
+        "type": "library",
+        "identifier": "registries.ts additive 拡張 (RenderContext.lang / FenceRenderer.info / BlockRule.matchEnd) と renderers/* 登録関数",
+        "introduced_in_files": ["packages/ui/src/registries.ts", "packages/ui/src/renderers/index.ts"],
+        "resolution": "covered",
+        "test": "registry.spec.ts 5 件 (AC-2-3) — matchEnd / 複数 lang / ビルトイン登録"
+      }
+    ]
+  },
+  "done_judgment": [
+    {
+      "story_id": "S9ab6c3-1",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      },
+      "notes": "guard1: user_review_required=false。guard2: TS プロジェクト、nil-guard パターン 0 件。guard3: e2e はネットワークモック 0 件 (grep clean)、実サーバー+実ファイル。guard5: チェックボックス→自動保存→PUT /api/notes→vault 実ファイルの経路を e2e が実 round-trip で証明。guard6: diff に先送りコメント 0 件。guard7: docs/DESIGN/ 不在。guard8: data path (Go 定義) 非該当。"
+    },
+    {
+      "story_id": "S9ab6c3-2",
+      "done_judgment": {
+        "guard1_user_review_required_not_done": "pass",
+        "guard2_nil_injection_mock": "pass",
+        "guard3_mock_mode_not_real_smoke": "pass",
+        "guard4_priority_rule_9_exception_valid": "n/a",
+        "guard5_call_path_grep": "pass",
+        "guard6_deferred_comment_clean": "pass",
+        "guard7_adr_conformance": "n/a",
+        "guard8_destructive_multi_version_test": "n/a",
+        "overall": "ok"
+      },
+      "notes": "装飾はすべて表示層のみで、e2e がファイル内容の完全一致 (ピュア Markdown 維持) を assert。mermaid/katex/shiki は CDN なしバンドル同梱で実描画 (svg / .katex / pre.shiki) を e2e が確認。prototype 由来 testid (wikilink/fence-widget/math-inline/math-block) の drift check clean (backlink-count/backlink-item は S6fbf45 スコープ — TESTIDS.md 記載どおり)。"
+    }
+  ]
+}

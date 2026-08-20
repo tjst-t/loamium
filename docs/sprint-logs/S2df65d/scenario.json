@@ -1,0 +1,147 @@
+{
+  "sprint": "S2df65d",
+  "story": "S2df65d-1",
+  "title": "dirty 編集中のリモート変更を 3-way 自動マージし、競合ハンクのみ提示",
+  "actors": ["ユーザー(編集中)", "リモートデバイス/エージェント(書き込み側)"],
+  "states": [
+    "idle_clean",
+    "editing_dirty",
+    "merging_auto",
+    "conflict_dialog_open",
+    "conflict_resolving",
+    "saving_merge_result",
+    "idle_clean_after_save"
+  ],
+  "scenarios": [
+    {
+      "id": "SC-1",
+      "title": "非 dirty 時の自動リロード(現行挙動維持)",
+      "precondition": "ユーザーがノートを開いており dirty=false",
+      "steps": [
+        "SSE notes_changed (upsert) を受信する",
+        "dirtyRef.current === false を確認",
+        "api.getNote(path) で最新内容を取得",
+        "contentRef.current と一致する場合: mtime のみ更新(自己エコー抑制)",
+        "一致しない場合: setOpenDoc で本文を自動更新(カーソルトップへ)→ baseMd = 新内容"
+      ],
+      "postcondition": "エディタが最新内容を表示。dirty=false のまま。",
+      "ac_covered": ["AC-S2df65d-1-3"]
+    },
+    {
+      "id": "SC-2",
+      "title": "dirty + 非競合変更 → 自動統合",
+      "precondition": "ユーザーが段落 A を編集中(dirty=true)。リモートが段落 B を変更した。",
+      "steps": [
+        "SSE notes_changed (upsert) を受信する",
+        "dirtyRef.current === true を確認",
+        "api.getNote(path) で theirs (新リモート内容) を取得",
+        "baseMd (= 最後に取得したリモート内容) / ours (= contentRef.current) / theirs を確定",
+        "diff3Merge(base, ours, theirs) を実行",
+        "競合ハンクが 0 件 → 非競合: マージ結果テキストを CM Transaction で適用(カーソル保持)",
+        "dirtyRef を true のまま保持",
+        "baseMd を theirs に更新(次回変更に備える)",
+        "成功トースト: 『リモート変更を自動統合しました』(または静かに行う)"
+      ],
+      "postcondition": "エディタにマージ結果が反映され、ユーザーの編集は保持されている。view.dispatch() により onEditorChange が発火し autosave タイマーが起動するため、AUTOSAVE_DEBOUNCE_MS 後にマージ結果が自動保存される(baseMtime=theirs の mtime のため 409 は起きない)。dirty は autosave 完了まで true、完了後 false に戻る(方針B / D-S2df65d-NC-autosave)。",
+      "ac_covered": ["AC-S2df65d-1-1"]
+    },
+    {
+      "id": "SC-3",
+      "title": "dirty + 競合ハンクあり → 競合ダイアログ表示",
+      "precondition": "ユーザーとリモートが同じ段落を異なる内容に編集した。",
+      "steps": [
+        "SSE notes_changed (upsert) を受信する",
+        "dirtyRef.current === true を確認",
+        "api.getNote(path) で theirs を取得",
+        "diff3Merge(base, ours, theirs) を実行",
+        "競合ハンク >= 1 件 → ConflictResolverDialog を開く",
+        "ダイアログにマージ済みテキスト(非競合適用済み)+競合ハンク一覧を渡す",
+        "各ハンクに ours/theirs を並列表示。操作: 『こちらを使う(ours)』『リモートを使う(theirs)』『両方保持』",
+        "全ハンク解決後 → 『マージ結果を保存』ボタンが有効化"
+      ],
+      "postcondition": "ダイアログが開かれ、競合ハンクが表示されている。",
+      "ui_elements": {
+        "dialog_testid": "conflict-resolver-dialog",
+        "hunk_item_testid": "conflict-hunk-item",
+        "ours_choice_testid": "conflict-choose-ours",
+        "theirs_choice_testid": "conflict-choose-theirs",
+        "both_choice_testid": "conflict-choose-both",
+        "save_button_testid": "conflict-save-merge",
+        "cancel_button_testid": "conflict-cancel"
+      },
+      "ac_covered": ["AC-S2df65d-1-2"]
+    },
+    {
+      "id": "SC-4",
+      "title": "競合ハンク解決 → 監査書き戻し",
+      "precondition": "ConflictResolverDialog が開いており全ハンクが解決済み",
+      "steps": [
+        "ユーザーが『マージ結果を保存』をクリック",
+        "解決済みテキストを PUT /api/notes/{path} (baseMtime 付き) で送信",
+        "サーバーが note-service の upsertNote を経由して書き込み",
+        "auditMiddleware が audit.log に記録",
+        "成功 (200): ダイアログを閉じ、setOpenDoc でエディタを更新 → dirty=false",
+        "409 (再競合): ダイアログを閉じてトーストで通知し再マージを促す"
+      ],
+      "postcondition": "マージ結果がファイルに書き込まれ、audit.log に記録。dirty=false。",
+      "ac_covered": ["AC-S2df65d-1-4"]
+    },
+    {
+      "id": "SC-5",
+      "title": "ダイアログキャンセル",
+      "precondition": "ConflictResolverDialog が開いている",
+      "steps": [
+        "ユーザーが『後で解決』(キャンセル)をクリック",
+        "ダイアログを閉じる",
+        "dirty=true のまま保持(ローカル編集は失わない)",
+        "トーストで『競合が解決されていません。次にリモート変更があれば再度通知します』"
+      ],
+      "postcondition": "ローカル編集が保持され、競合は未解決のまま。",
+      "ac_covered": ["AC-S2df65d-1-2"]
+    }
+  ],
+  "endpoint_ui_contract": {
+    "sse_event": {
+      "endpoint": "GET /api/events (EventSource)",
+      "payload": { "type": "notes_changed", "path": "string", "op": "upsert | delete" },
+      "note": "既存の SSE インフラを流用。変更なし。"
+    },
+    "get_note": {
+      "endpoint": "GET /api/notes/{path}",
+      "response_fields": ["content", "mtime", "frontmatter"],
+      "note": "theirs の取得に使用。既存エンドポイントをそのまま利用。"
+    },
+    "put_note": {
+      "endpoint": "PUT /api/notes/{path}",
+      "request_body": { "content": "string (ピュア Markdown)", "baseMtime": "number (楽観ロック)" },
+      "success": "200 { path, mtime, created }",
+      "conflict": "409 (再競合: マージ解決中にさらに変更が来た場合)",
+      "note": "マージ結果書き戻しに使用。auditMiddleware 経由で audit.log 記録。既存エンドポイント。"
+    },
+    "diff3_module": {
+      "path": "packages/shared/src/diff3.ts",
+      "exports": ["diff3Merge"],
+      "signature": "function diff3Merge(base: string, ours: string, theirs: string): Diff3Result",
+      "types": {
+        "Diff3Result": "{ merged: string; conflicts: ConflictHunk[] }",
+        "ConflictHunk": "{ startLine: number; endLine: number; ours: string[]; theirs: string[] }"
+      },
+      "note": "pure function. 純 JS。依存なし。保守的競合検出(疑わしきは競合)。"
+    },
+    "ui_testids": {
+      "conflict_resolver_dialog": "conflict-resolver-dialog",
+      "conflict_hunk_item": "conflict-hunk-item",
+      "conflict_choose_ours": "conflict-choose-ours",
+      "conflict_choose_theirs": "conflict-choose-theirs",
+      "conflict_choose_both": "conflict-choose-both",
+      "conflict_save_merge": "conflict-save-merge",
+      "conflict_cancel": "conflict-cancel",
+      "conflict_hunk_count": "conflict-hunk-count"
+    },
+    "state_tracking": {
+      "baseMd": "OpenDoc 型に追加。setOpenDoc 時に content を保存。",
+      "contentRef": "既存。ours = contentRef.current。",
+      "dirtyRef": "既存。"
+    }
+  }
+}

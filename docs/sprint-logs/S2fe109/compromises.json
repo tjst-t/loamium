@@ -1,0 +1,50 @@
+{
+  "sprint": "S2fe109",
+  "compromises": [
+    {
+      "id": "C-S2fe109-01",
+      "category": "pre-existing-test-failure",
+      "severity": "medium",
+      "title": "make test-ui 全体の Playwright テストが 600+ 件失敗 (Sa100c6/S763a98/Sd40b63/S53409d 由来)",
+      "description": "make test-ui (Playwright mock + e2e) が overall_machine_status: fail。失敗テストは settings-hub-sf.mock.spec.ts (AC-Sa100c6)、settings-hub-templates.mock.spec.ts (AC-Sa100c6)、slash-menu.e2e.spec.ts (AC-S763a98)、slash-table.e2e.spec.ts (AC-Sd40b63)、agent-chat.e2e.spec.ts (AC-S53409d)、agent-tools.e2e.spec.ts (AC-S53409d) など。S2fe109 は UI ストーリーが無く、これらのテストファイルに一切変更を加えていない (git diff main..HEAD で 0 行)。S2fe109 以前から存在する失敗で、S2fe109 の変更が原因ではない。独立検証者 (verifier) も同様に確認済み。",
+      "root_cause": "pre-existing — prior sprints (Sa100c6 etc.) left Playwright tests that fail in the current test environment. Not introduced by S2fe109.",
+      "affected_stories": [],
+      "overlooked_by_autopilot": false,
+      "resolution": "deferred — requires investigation of the Playwright test infrastructure / Vite setup issues that cause prior-sprint tests to fail. Recommended backlog item: fix make test-ui CI stability.",
+      "source_run": "verify-run.json (second run with lint fixed)"
+    },
+    {
+      "id": "C-S2fe109-02",
+      "category": "type-safety-relaxation",
+      "severity": "low",
+      "title": "append-only permission の型キャスト: as const → as ['journal_append']",
+      "description": "agent-scheduler.ts と routes/agent.ts で `['journal_append'] as const` が `readonly` 型を生成し resolvePermissions の引数型 (mutable array) と不一致になった。`as ['journal_append']` に修正して解決。型安全性は維持されている (as any でも as string[] でもない)。",
+      "root_cause": "implementation error — `as const` produces a readonly tuple which is not assignable to a mutable array parameter",
+      "affected_stories": ["S2fe109-2", "S2fe109-3"],
+      "overlooked_by_autopilot": false,
+      "resolution": "fixed in commit e76976e"
+    },
+    {
+      "id": "C-S2fe109-03",
+      "category": "missing-behavior",
+      "severity": "high",
+      "title": "AC-S2fe109-3-4: maxTurns が session に渡されず `void maxTurns` で破棄されていた",
+      "description": "agent-scheduler.ts の runJobSession() で maxTurns パラメータが受け取られた後 `void maxTurns` で破棄されており、セッションのターン数に制限がかかっていなかった。単体テストは定数 SCHEDULER_MAX_TURNS===10 を検証するだけで実際の配線を検証していなかった。独立検証者 (verifier) が発見。",
+      "root_cause": "implementation gap — the Pi SDK session.prompt() has no maxTurns option; implementation was written as a placeholder (`void maxTurns`) instead of using session.subscribe() turn_end events for counting",
+      "affected_stories": ["S2fe109-3"],
+      "overlooked_by_autopilot": true,
+      "resolution": "fixed in commit 920d704 — session.subscribe() turn_end counting added; unit test updated to assert abort fires on Nth turn_end"
+    },
+    {
+      "id": "C-S2fe109-04",
+      "category": "missing-test-coverage",
+      "severity": "medium",
+      "title": "AC-S2fe109-2-4: loamium agent-run CLI テストが未実装 (TODO コメントのみ)",
+      "description": "agent-jobs-run.spec.ts に AC-S2fe109-2-4 (loamium agent-run CLI) の CLI バイナリ spawn テストがなく、HTTP API パステストのみで pass としていた。CLI の exit code / stdout の user-observable seam が未検証。独立検証者 (verifier) が発見。",
+      "root_cause": "test coverage gap — implementer left a TODO comment instead of writing the CLI spawn test, incorrectly reporting the API-path test as sufficient for CLI AC",
+      "affected_stories": ["S2fe109-2"],
+      "overlooked_by_autopilot": true,
+      "resolution": "fixed in commit 920d704 — CLI acceptance test added that spawns loamium agent-run and asserts exit 0 + sessionId stdout"
+    }
+  ]
+}

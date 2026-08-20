@@ -1,0 +1,16 @@
+{
+  "story_id":"Sa100c6-3",
+  "story_title":"スマートコマンド管理セクション(コマンドエディタ流用 + param/step 編集)",
+  "state_diagram":"stateDiagram-v2\n    [*] --> Cmd : nav-item[data-group=commands]\n    Cmd --> Selected : md-item クリック\n    Selected --> EditParam : param 行の編集ボタン\n    Selected --> EditStep : step 行の編集ボタン\n    Selected --> AddParam : ＋パラメータ\n    Selected --> AddStep : ＋ステップ\n    Selected --> Saved : 保存 → PUT system/commands/{id}.yaml\n    Selected --> TestRun : 試し実行 → POST /api/commands/{id}/run\n    Cmd --> New : md-new\n    Selected --> Deleted : 削除",
+  "endpoint_contracts":[
+    {"endpoint":"GET /api/commands","note":"コマンド一覧(Sd22b1f/Sa10026-2)。正本 system/commands/*.yaml。","response_shape":"{ commands:[{id,name,description,params,steps,valid}] }"},
+    {"endpoint":"GET/PUT/DELETE system/commands source","note":"コマンド yaml の読み書き・削除(system-files 流用 + 不足分)。mode クランプ + 監査 + agent 非公開。","response_shape":"{ content } / { ok }"},
+    {"endpoint":"POST /api/commands/{id}/run","note":"試し実行。既存(ADR-0021)。","response_shape":"{ results:[{kind,ok,path?,error?}], openPath? }"}
+  ],
+  "scenarios":[
+    {"name":"cmd_master_detail_edit","description":"コマンド選択→param/step 編集→保存。","steps":["nav-item[data-group=commands] クリック","md-item[data-id=todo-add] クリック→ 右ペインに名前ヘッダ+説明+パラメータ/ステップ一覧","param 行の編集ボタン(mini-row 内)で確定済み param を編集","step 行の編集ボタンで確定済み step を編集","＋パラメータ/＋ステップで追加、× で削除、ドラッグで並べ替え","フッタ保存 → PUT system/commands/todo-add.yaml"]},
+    {"name":"cmd_test_run","description":"試し実行で結果確認。","steps":["フッタ『試し実行』→ 必要なら param 入力","POST /api/commands/todo-add/run","結果(ok/追記先)が表示される"]},
+    {"name":"cmd_new_delete","description":"新規/削除。","steps":["md-new → 空コマンド","名前+step 追加し保存 → 新規 yaml(valid)","削除 → 一覧から消える"]}
+  ],
+  "test_files":{"mock":"packages/ui/tests/e2e/settings-hub-commands.mock.spec.ts","e2e":"packages/ui/tests/e2e/settings-hub-commands.e2e.spec.ts"}
+}

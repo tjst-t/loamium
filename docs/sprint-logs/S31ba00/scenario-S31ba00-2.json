@@ -1,0 +1,31 @@
+{
+  "story": "S31ba00-2",
+  "story_type": "api",
+  "user_role": "エージェント・ノート利用者が REST API であるノートへのバックリンクを取得する",
+  "entry_point": "http://localhost:{PORT}/api (LOAMIUM_VAULT で指定した vault、認証なしローカル)",
+  "scenarios": [
+    {
+      "id": "scenario-1",
+      "linked_ac": ["AC-S31ba00-2-1"],
+      "description": "利用者が [[リンク]] を張った複数ノートから対象ノートへのバックリンク一覧をコンテキスト付きで得る",
+      "preconditions": ["ターゲットノート notes/hydra.md と、[[hydra]] / [[notes/hydra]] を本文に含むノートが複数存在する"],
+      "steps": [
+        { "n": 1, "action": "GET /api/backlinks?path=notes/hydra.md", "expected": "200。backlinks にリンク元ノートのパスと、リンクを含む行のコンテキスト(行テキスト・行番号)が入っている" },
+        { "n": 2, "action": "GET /api/backlinks?path=notes/isolated.md (誰もリンクしていないノート)", "expected": "200。backlinks は空配列" },
+        { "n": 3, "action": "GET /api/backlinks?path=../escape.md", "expected": "400。パス検証エラー" }
+      ],
+      "cleanup": ["一時 vault ディレクトリ削除"]
+    },
+    {
+      "id": "scenario-2",
+      "linked_ac": ["AC-S31ba00-2-2"],
+      "description": "[[note#heading]]・NFC/NFD ゆれ・拡張子省略のリンクが同一ノートに解決され、ファイルにブロック ID が書き込まれない",
+      "preconditions": ["NFC 正規形のファイル名のノート ノート/概要.md と、[[概要#設計]] (NFD 入力)・[[概要.md]]・[[ノート/概要]] を含むノートが存在する"],
+      "steps": [
+        { "n": 1, "action": "GET /api/backlinks?path=ノート/概要.md", "expected": "200。#heading 付き・NFD 入力・拡張子省略・フォルダ付きのリンク元がすべて同一ターゲットへのバックリンクとして返る" },
+        { "n": 2, "action": "リンク元・ターゲット全ファイルをディスクから直接読む", "expected": "^blockid / ((uuid)) / id:: などのブロック ID がどのファイルにも書き込まれていない (本文はユーザーが書いたままのバイト列)" }
+      ],
+      "cleanup": ["一時 vault ディレクトリ削除"]
+    }
+  ]
+}

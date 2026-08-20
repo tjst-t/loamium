@@ -1,0 +1,35 @@
+{
+  "sprint": "S8086d9",
+  "story": "S8086d9-2",
+  "state_diagram": "stateDiagram-v2\n    [*] --> Unmarked: ノート表示 (frontmatter.bookmark 無し)\n    [*] --> Marked: ノート表示 (frontmatter.bookmark = true)\n    Unmarked --> Submitting: スタークリック (POST properties {set:{bookmark:true}})\n    Marked --> Submitting: スタークリック (POST properties {unset:['bookmark']})\n    Submitting --> Marked: set 成功\n    Submitting --> Unmarked: unset 成功\n    Submitting --> Unmarked: 失敗で元に戻す (楽観更新のロールバック)\n    Unmarked --> Disabled: mode=read-only\n    Marked --> Disabled: mode=read-only",
+  "scenarios": {
+    "entry_point": "ノートヘッダ右上の bookmark-star(パンくず行右端。frontmatter 未存在でも常時表示)",
+    "happy_path": "ユーザーがノートを開く → 右上にスターが常時見える(未ブックマークは枠のみ) → クリックすると POST /api/notes/{path}/properties {set:{bookmark:true}} が飛び、スターが即塗りに → 再クリックで {unset:['bookmark']} が飛び枠に戻る → リロードしても状態は frontmatter から復元",
+    "data_states": {
+      "empty": "frontmatter.bookmark 無し: data-bookmarked=false(枠のみ)。スターは表示される",
+      "loading": "クリック直後は楽観的に即反映(送信中もUIはブロックしない)",
+      "error": "POST 失敗(5xx): 楽観更新をロールバックし data-bookmarked を元に戻す。ノート編集は継続可能"
+    },
+    "edge_cases": [
+      "read-only / append-only モード: スターは aria-disabled=true でクリック無効(書込不可と整合)",
+      "解除で frontmatter が空になるノートは frontmatter ブロックごと除去(サーバ α-3 側で担保)",
+      "本文は書換で壊れない(round-trip 安全、サーバ α-3 側で担保)"
+    ],
+    "success_feedback": "data-bookmarked 属性が即 true/false に切替。LIST WHERE bookmark のスマートフォルダに反映",
+    "failure_feedback": "元の data-bookmarked へロールバック。致命的表示は出さずノートは操作継続可能"
+  },
+  "endpoint_contracts": [
+    {"path": "/api/notes/{path}/properties", "method": "POST", "registered": false, "request_fields": {"set": "Record<string,scalar> (任意)", "unset": "string[] (任意)"}, "response_fields": {"path": "string", "frontmatter": "Record<string,unknown>|null"}},
+    {"path": "/api/notes/{path}", "method": "GET", "registered": true, "request_fields": null, "response_fields": {"path": "string", "content": "string", "frontmatter": "Record<string,unknown>|null", "body": "string", "mtime": "number"}},
+    {"path": "/api/health", "method": "GET", "registered": true, "request_fields": null, "response_fields": {"status": "'ok'", "mode": "'full'|'read-only'|'append-only'", "terminal": "{enabled,reason}"}},
+    {"path": "/api/query", "method": "POST", "registered": true, "request_fields": {"query": "string (例 'LIST WHERE bookmark')"}, "response_fields": {"type": "'list'", "results": "{path,title,folder}[]"}}
+  ],
+  "testid_contract": {
+    "bookmark-star": "ノートヘッダ右上のスター (data-bookmarked='true'|'false', aria-disabled='true' when read-only)"
+  },
+  "registered_false_note": "POST /api/notes/{path}/properties は Sprint S32940c(α-3)で実装される。GET /api/health・POST /api/query・GET /api/notes/{path} は既存。β は α 完了後に実装・検証する。",
+  "test_files": {
+    "e2e": "packages/ui/tests/e2e/bookmark-star.e2e.spec.ts",
+    "mock": "packages/ui/tests/e2e/bookmark-star.mock.spec.ts"
+  }
+}
