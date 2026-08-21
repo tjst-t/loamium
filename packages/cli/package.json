@@ -1,0 +1,8 @@
+{
+  "name": "@loamium/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": { "loamium": "src/index.ts" },
+  "dependencies": { "@loamium/shared": "*" }
+}

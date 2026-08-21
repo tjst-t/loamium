@@ -59,6 +59,26 @@ export class VaultService extends Service {
     this.ctx.emit('vault/change', rel, 'upsert')
   }
 
+  /**
+   * vault 全体を正規形へ揃える (ADR-0035 が前提にしている「初回の正規化コミット」)。
+   * これを一度通しておけば、以後 1 文字編集の diff は 1 行で済む。
+   */
+  async fmt(options: { dryRun?: boolean } = {}): Promise<{ scanned: number; changed: string[] }> {
+    const changed: string[] = []
+    const paths = await this.list()
+    for (const rel of paths) {
+      const before = await this.read(rel)
+      const after = normalizeForSave(before)
+      if (before === after) continue
+      changed.push(rel)
+      if (options.dryRun !== true) await this.write(rel, after)
+    }
+    this.ctx.logger('vault').info(
+      'fmt: %d/%d 件を正規化%s', changed.length, paths.length, options.dryRun === true ? ' (dry-run)' : '',
+    )
+    return { scanned: paths.length, changed }
+  }
+
   /** 書き込み系 API は監査ログに記録する */
   private async audit(op: string, path: string, bytes: number): Promise<void> {
     const dir = join(this.config.root, '.loamium')

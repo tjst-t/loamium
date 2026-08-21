@@ -5,7 +5,7 @@ NVM  := if [ -s "$$HOME/.nvm/nvm.sh" ]; then . "$$HOME/.nvm/nvm.sh"; nvm use 22 
 BUN   = $$([ -x "$$HOME/.bun/bin/bun" ] && echo "$$HOME/.bun/bin/bun" || command -v bun)
 CORPUS ?= packages/server/src/samples
 
-.PHONY: install lint test roundtrip gate build serve serve-ui clean
+.PHONY: install lint test roundtrip gate build serve serve-ui fmt clean
 
 install:
 	$(NVM) npm install
@@ -14,6 +14,7 @@ lint:
 	$(NVM) npx tsc -p packages/shared --noEmit
 	$(NVM) npx tsc -p packages/server --noEmit
 	$(NVM) npx tsc -p packages/ui --noEmit
+	$(NVM) npx tsc -p packages/cli --noEmit
 
 ## 不変条件 2 の gate (1): packages/shared のプロセッサ単体
 roundtrip:
@@ -36,6 +37,10 @@ serve:
 ## UI 開発サーバ (別ターミナルで make serve と併用する)
 serve-ui:
 	cd packages/ui && $(NVM) UI_PORT=$${UI_PORT:-5199} PORT=$${PORT:-8200} npx vite
+
+## vault 全体を正規形へ揃える (ADR-0035 の「初回の正規化コミット」)
+fmt:
+	$(NVM) node --experimental-strip-types packages/cli/src/index.ts fmt $(ARGS)
 
 clean:
 	rm -rf dist

@@ -80,6 +80,7 @@ TypeScript (strict), Node.js 22, npm workspaces モノレポ。
 - **Service で `#private` フィールドを使わない。** cordis は Service を Proxy 経由で公開するため、`ctx.foo.bar` の内部で `this` が Proxy になり `TypeError: Cannot access invalid private field` で落ちる。TS の `private` (コンパイル時のみ・実体は通常プロパティ) を使う
 - **プラグイン関数に `.name` を代入しない。** `Function.name` は readonly で、ESM は strict mode なので `TypeError: Attempted to assign to readonly property`。関数宣言の名前がそのまま使われるので代入は不要。`.inject` の代入は問題ない
 - **ロガーは exporter を登録するまで完全に無音。** cordis 4 の `LoggerService` に既定の出力先は無い。`ctx.logger.exporter({ export(msg) {...} })` を最初のプラグインとして登録する (`plugins/logging.ts`)
+- **`await ctx.plugin(...)` は async effect の解決までは待たない (実測)。** 初期化の完了を呼び出し側が待つ必要がある場合は、サービスに `ready: Promise<void>` を持たせ、`ctx.inject([...], c => c.svc.ready.then(...))` で「サービスの生成」と「初期化の完了」の両方を待つこと。`noteIndex` がこの形
 - **teardown の逆順実行は自前で書かなくてよい。** 登録順 `logging → vault → noteIndex → sse → sync → http` に対し、`ctx.fiber.dispose()` が `sync → sse → ...` の逆順で effect を畳むことを実測で確認済み
 
 ### エディタ
@@ -110,7 +111,15 @@ TypeScript (strict), Node.js 22, npm workspaces モノレポ。
 
 ## Commands
 
-`make install` / `lint` / `roundtrip` / `build` / `serve` を用意済み。UI 系 (`serve-ui` / `test-ui`) は未整備。
+| ターゲット | 内容 |
+|---|---|
+| `make gate` | **CI が回すゲート一式** (lint + roundtrip + test) |
+| `make lint` | shared / server / ui / cli の型検査 |
+| `make test` | vitest (Milkdown 実体・書き手の収束・vault・feature 契約) |
+| `make roundtrip` | shared のプロセッサ単体の round-trip 判定 |
+| `make serve` / `serve-ui` | 開発サーバ (別ターミナルで併用) |
+| `make fmt` | vault 全体を正規形へ揃える (`ARGS=--dry-run` で確認) |
+| `make build` | `bun --compile` で単一実行ファイル |
 
 ⚠️ **ツールチェーンが PATH に無い。** `/usr/bin/node` は **v20** で、Node 22 は nvm 側 (`~/.nvm/versions/node/v22.23.1`) にしかない。`bun` も `~/.bun/bin/bun` (1.4.0)。Makefile が両方を明示的に解決しているので、**コマンドは直接叩かず `make` 経由で実行する**。
 
