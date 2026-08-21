@@ -1,64 +1,107 @@
-# Loamium
+# Loamium (rebuild)
 
-> ローカル Markdown を正本とする個人用ノートアプリ。アウトライナー編集(C 方式)とエージェント統合(REST API / CLI / Skill)を両立する。
+> ローカル Markdown を正本とする個人用ノートアプリ。**cordis** ベースのプラグイン型サーバーと **ProseMirror** ベースの WYSIWYG エディタで作り直す。
+
+**⚠️ このブランチにはまだ実装がありません。** `rebuild` は orphan ブランチで、`docs/` と本ファイルだけを持って始まっています。旧実装 (TS/TSX 約 79k 行) は `main` に無傷で残っており、いつでも参照・移植できます:
+
+```sh
+git show main:packages/server/src/index.ts     # 旧実装を読む
+git grep -n 'ensureDir' main -- packages/      # 旧ツリーを横断検索
+git checkout main -- <path>                    # 必要なものだけ引く
+```
+
+## 2 つの不変条件 (最優先)
+
+旧 `CLAUDE.md` の「ピュア Markdown 絶対」は 3 つの主張を束ねていた。作り直しでは **(a) を死守し、(c) を捨て、代わりに round-trip 保存性を昇格**する。
+
+1. **標準 Markdown ファイルが正本。** ブロック ID・独自記法をファイルに書き込まない。Obsidian や素のエディタで開いても壊れない (VISION の `problem` 文そのもの = プロダクトの存在理由)
+2. **round-trip 差分ゼロ。** `parse → serialize` がバイト単位で一致する。git sync と 3-way merge があるため、1 文字打っただけでリストマーカーや表の桁が正規化されると diff が爆発し merge が壊れる
+
+**採らない方式:**
+- **行単位 Raw 表示 (旧 live preview)** — VISION に要求が無く ADR も存在しなかった、Logseq からの無検証の輸入。Logseq でこれが成立するのはブロックが原子的で短いからで、Loamium はそのブロックモデルを VISION で明確に拒否している。前提を捨てたのにインタラクションだけ輸入していた
+- **メモリ上の正本を Markdown 文字列 1 本に固定すること** — CodeMirror が強いた実装都合であり、(a) さえ守れば不要
+
+> **最初のタスク:** 既存 vault の全 `.md` を parse→serialize してバイト差分ゼロを CI で gate する。ここが通らなければ ProseMirror 案は成立しない、という判定ライン。
 
 ## Tech Stack
 
 TypeScript (strict), Node.js 22, npm workspaces モノレポ。
-Backend: Hono / Frontend: React + CodeMirror 6 (lezer-markdown) / 検索: Fuse.js / テスト: Vitest / スキーマ検証: zod
 
-## Commands
-
-- `make serve` — API + UI 開発サーバーをまとめてバックグラウンド起動 (portman 管理。`.env` があれば自動読込)
-- `make serve-ui` — UI 開発サーバーのみをバックグラウンド起動 (portman 管理)
-- `make stop` — サーバー停止
-- `make test` — 全 workspace のテスト実行 (JUnit XML を `reports/` に出力)
-- `make test-ui` — UI の Playwright テスト (mock + e2e。実サーバー/Vite はハーネスが一時 vault で自動起動)
-- `make build` — 全 workspace のビルド
-- `make lint` — 型チェック + lint
+| 領域 | 採用 |
+|---|---|
+| サーバー | Hono + **cordis** (AOP / DI / プラグイン) |
+| エディタ | **ProseMirror 系** (Tiptap / Milkdown) |
+| Markdown | **unified / remark に一本化** (旧実装の `marked` × lezer-markdown の二重パーサを解消。shared でサーバーと共有) |
+| サーバー状態 | TanStack Query |
+| クライアント状態 | Zustand または Jotai |
+| UI プリミティブ | Radix UI または Base UI (ヘッドレス) |
+| スタイル | Tailwind v4 (旧 `styles.css` 7,576 行 / 674 クラスは**移植しない**) |
+| コマンドパレット | cmdk |
+| フォーム | react-hook-form + zod |
+| テーブル | TanStack Table |
+| アイコン | lucide-react (inline SVG を手書きしない) |
+| テスト | Vitest + Playwright |
 
 ## Development Rules
 
-- **ピュア Markdown 絶対**: ブロック ID・独自記法をファイルに書き込むコードは書かない。正本は常に Markdown 文字列 1 本(ブロック配列にしない)
-- TypeScript strict。`any` 禁止(`unknown` + 絞り込み)。`@ts-ignore` 禁止
+### cordis / サーバー
+
+- **本番ビルドはプラグインを静的登録する。`@cordisjs/loader` と HMR は dev 専用。**
+  最大の地雷。パッケージ版サーバーは `bun --compile` の単一実行ファイルで、cordis の設定駆動な動的 `import()` は静的解決できず必ず壊れる。後から分離するのは極めて痛いので、最初から分ける
+- **1 機能 = 1 プラグイン。** REST ルート・エージェントツール・help トピック・ケーパビリティ宣言を**同じプラグイン内で同時に登録**する。これにより「新機能にはエージェントツールも必ず実装」が規約(人間の努力)ではなく構造で担保される
+- **サービスは `ctx` 経由で取得する。** 位置引数 DI (`createApp(config, index, dqlCache?, sse?, sync?)`) と手書きシングルトン (`getSyncService()`) を再発明しない
+- **イベントは `ctx.on()`。** リスナー 1 本しか持てないコールバックスロット (旧 `index.setOnChange`) を作らない。旧実装ではそこに無関係な 4 つの関心事が詰まり、1 つ throw すると後続が全部死んでいた
+- **teardown は各プラグインの `ctx.on('dispose')`。** 手書きの逆順 shutdown チェーンを書かない
+- 生成順序を「TDZ 回避」のようなコメントで守らない。`inject` で宣言する
+
+### エディタ
+
+- **ソースモードのトグルは一級市民。** 外部エディタ・git・エージェントが同じファイルを直接触る以上、必須。文書単位で切り替える (行単位ではない)
+- **`Escape` / `Mod+Enter` でノードを抜ける挙動を最初から作り込む。** リストやコードブロックから抜けられない・書式が引きずられるのは ProseMirror 系の古典的な不満で、Markdown ネイティブなユーザーほど強く効く。後入れは苦しいので**最初のスプリントの受け入れ条件に含める**
+- **ProseMirror スキーマには「Markdown に往復変換できるもの」だけを入れる。** スキーマが Markdown 表現力の型になり、不変条件 2 の実装手段になる。Confluence 的なパネル・バッジ・複雑レイアウトは標準 Markdown に落ちないので採用しない
+- **Markdown ショートカット入力 (input rules) は維持する。** `# ` で見出し、`- ` でリスト、`**bold**`。打鍵は Markdown のまま、結果だけリッチになる
+- リストの Tab / Shift+Tab インデント (VISION の C 方式) は `sinkListItem` / `liftListItem` の標準機能を使う。旧 `outline.ts` 1,670 行を再実装しない
+- frontmatter は doc の中に押し込まず、**エディタ外のプロパティパネル**に出す (VISION: frontmatter はデータモデルの第一級市民)
+- DQL / dataview 等の動的ブロックは NodeView で描き、**Markdown へはコードフェンス (` ```dataview `) として落とす**。Obsidian 互換の既存慣行に乗る (独自記法禁止と整合)
+- 共同編集はしない (VISION `out_of_scope`)。ProseMirror の collab モジュールは使わない
+
+### 共通
+
+- TypeScript strict。`any` 禁止 (`unknown` + 絞り込み)。`@ts-ignore` 禁止
 - 文字コード UTF-8 / 改行 LF 固定。リンク・パス比較は NFC 正規化を通す
-- vault 内パスは必ず `packages/shared` のパス正規化ユーティリティを経由(`..` 脱出の検証込み)
+- vault 内パスは必ず `packages/shared` のパス正規化ユーティリティを経由 (`..` 脱出の検証込み)
 - REST API と CLI コマンドは 1:1 対応。リクエスト/レスポンスは zod スキーマで検証し、型は `packages/shared` で共有
-- Markdown パース・リンク解決・ジャーナル日付処理には必ずユニットテストを書く
-- 書き込み系 API は監査ログ(`.loamium/audit.log`)に記録する
-- **生のファイル API 禁止 / 書き込み配線は共通ヘルパー経由**: サーバーの書き込みで `fs.mkdir(recursive)` を直接呼ばない。必ず `packages/server/src/fs-utils.ts` の `ensureDir()`(または `vault.ts` の書き込みユーティリティ)を経由する。理由: パッケージ済みサーバー(`loamium-server.exe` = bun --compile)は **bun on Windows** で既存ディレクトリへの `mkdir(recursive)` が **EEXIST を投げる**(Node/tsx・bun-linux では再現しない)。OneDrive 配下 vault の Windows 版で `Error: EEXIST … mkdir '…'` として顕在化する。ディレクトリ作成に限らず、書き込み経路は既存の共通ヘルパーに統一し、経路ごとに独自実装しない(二重管理の排除)。新規サーバーコードを足したら `grep 'mkdir(' <新規ファイル>` で生 mkdir が残っていないか確認する。ユニットテスト `fs-utils.test.ts` が EEXIST 握りつぶしを固定。
-- **モバイルレスポンシブ規約**: 以降に追加するすべての UI 機能はモバイルを考慮したレスポンシブデザインとする。タップターゲットは 44px 以上 (`@media (max-width: 680px)` で適用)。モバイルは**閲覧中心** (VISION out_of_scope: フル編集体験は対象外)。新規 CSS クラス追加時は `@media (max-width: 680px)` での表示を必ず確認すること。ブレークポイント: ≤680px = モバイル (サイドバーオーバーレイ) / 681–960px = タブレット (左サイドバーのみ) / ≥961px = デスクトップ (3 ペイン)。
-- **エージェント操作ツール必須**: 新機能(REST エンドポイント・スマートフォルダ / コマンド / テンプレート等の主要機能)を追加するときは、エージェントがその機能を操作できるツールも必ず実装し、help 知識ベース(`packages/server/src/agent-help.ts`)に使い方(ツール名・入出力・使用例・制約)を追加する。エージェント統合を後付けにしない
-  - ツールは既存の監査済みサービス層を経由する(ADR-0016)。REST と重複する独自の実行・解決・直列化ロジックを新設しない(二重管理の排除)。エージェント専用の直接ファイル操作・独自フォーマットは禁止(「ピュア Markdown 絶対」と整合)
-  - 権限はケーパビリティで制御し(ADR-0015)、書き込み系ツールは書込モードでのみ広告する。機密領域は deny リストで一覧・書き込みから除外する(ADR-0018)
-  - 使い方の詳細は base システムプロンプトへ移さず help トピックに置く(ADR-0014。常時=base / 詳細=help)。help はどの権限セットでも利用可能を維持する
-- **機能ガイド更新義務**: 新機能追加・仕様変更を行った場合は、対応するガイド Markdown を `packages/server/src/samples/機能ガイド/` に追加・更新すること。ガイドはピュア Markdown で書き、`loamium init-samples` でユーザーが取得できる形で保持する。ユーザーが init-samples で得るドキュメントが常に最新機能を反映するよう維持する
-  - 例: スマートコマンドの仕様変更 → `packages/server/src/samples/機能ガイド/スマートコマンドの使い方.md` を更新。新機能追加時は新ガイドファイルを作成し `samples/index.md` の機能ガイドセクションにリンクを追加する
+- Markdown パース・リンク解決・ジャーナル日付処理・**round-trip 保存性**には必ずユニットテストを書く
+- 書き込み系 API は監査ログ (`.loamium/audit.log`) に記録する
+- **生のファイル API 禁止 / 書き込み配線は共通ヘルパー経由**: サーバーの書き込みで `fs.mkdir(recursive)` を直接呼ばない。必ず共通の `ensureDir()` を経由する。理由: `bun --compile` 済みサーバーは **bun on Windows** で既存ディレクトリへの `mkdir(recursive)` が **EEXIST を投げる** (Node/tsx・bun-linux では再現しない)。OneDrive 配下 vault で顕在化する。新規サーバーコードを足したら `grep 'mkdir(' <新規ファイル>` で確認する
+- **モバイルレスポンシブ規約**: すべての UI 機能はモバイル考慮。タップターゲット 44px 以上。ブレークポイント: ≤680px = モバイル / 681–960px = タブレット / ≥961px = デスクトップ。
+  なお WYSIWYG 化により、旧 VISION が `out_of_scope` としていた「モバイルでの本格的な編集体験」は射程に入る (生 Markdown をモバイルで触らせるより明確に有利)。扱いを見直す余地がある
+- **エージェント操作ツール必須**: 新機能には必ずエージェント用ツールも実装し、help 知識ベースに使い方を追加する。ツールは監査済みサービス層を経由する (ADR-0016)。権限はケーパビリティで制御し (ADR-0015)、機密領域は deny リストで除外する (ADR-0018)。使い方の詳細は base プロンプトでなく help トピックへ (ADR-0014)
+- **機能ガイド更新義務**: 新機能追加・仕様変更時は、対応するガイド Markdown (`機能ガイド/`) を追加・更新する。ピュア Markdown で書き、`loamium init-samples` で取得できる形に保つ
 
-## Server
+## Commands
 
-- `make serve` はバックグラウンド起動 (portman がポートを管理)。再実行で前プロセスを自動 kill
-- ポート番号をハードコードしない。CLI/テストは `portman lease --name loamium` で取得 (旧版 portman の `portman port` にも CLI はフォールバック対応)
-- UI 開発サーバー (`make serve-ui`) は `/api` を `portman lease --name loamium` のポートへプロキシする (`LOAMIUM_API_URL` で上書き可)
-- 開発用 vault: `dev-vault/` (git 管理外)
+**未整備。** 新しい Makefile はまだ無い。旧版のターゲット構成 (`make serve` / `serve-ui` / `stop` / `test` / `test-ui` / `build` / `lint`) を踏襲する予定。
 
-### 内蔵オフライン LLM / ネイティブ addon (ADR-0025 / S8a3f2e)
+- ポート番号をハードコードしない。`portman lease --name loamium` で取得する
+- 開発用 vault: `dev-vault/` (git 管理外)。**現状このチェックアウトには存在しないので、作り直す必要がある**
 
-- `packages/server` は `node-llama-cpp` v3 (ESM, Node 22+) を依存に持つ。これは **ネイティブ addon** を含む。プレビルドバイナリを同梱するが、環境によってはソースビルド (llama.cpp を CMake でコンパイル) が走る。
-- **ビルド注意 (dev VM / CI)**: プレビルドの実行が GLIBC/バインディング検証で失敗する環境がある。その場合は gcc-13 でソースビルドし直す:
-  ```sh
-  CC=/usr/bin/gcc-13 CXX=/usr/bin/g++-13 npx node-llama-cpp source download
-  ```
-  ビルド成果物は `node_modules/node-llama-cpp/llama/localBuilds` (git 管理外)。`getLlama()` は最新のローカルビルドを自動採用する。GPU (Metal/CUDA/Vulkan) があれば使い、無ければ CPU にフォールバックする (必須にしない)。
-- **環境非依存の担保**: エンジン層 (`src/local-llm-engine.ts`) は `node-llama-cpp` を **動的 import (遅延ロード)** する。addon が無い / ロード不可でも server の起動・型チェック・他テストは壊れない。利用不可は握りつぶさず `LocalLlmUnavailableError` (明示エラー) で返す。ユニットテストはロード層 (`EngineLoader`) を決定的スタブに差し替えて検証する (小型 GGUF を用意しない)。
-- **攻撃面 (CI/セキュリティ注意点)**: node-llama-cpp の再導入で、ADR-0011 が node-pty 撤去で減らしたネイティブ依存・攻撃面が部分的に戻る (ADR-0025 consequences)。OS 別プレビルド配布・CI・Tauri 同梱の手当てが必要。CI ではネイティブビルド失敗が workspace 全体の lint/test を壊さないこと (遅延ロード設計で担保) を維持する。
-- **モデル置き場 (種別サブフォルダ)**: `src/model-paths.ts` に一元化。`.loamium/models/llm/` (LLM GGUF) と `.loamium/models/asr/` (音声認識・将来 Whisper 用) に分ける。`.loamium/*` は .gitignore 済み・models/ は再包含なし = 「消しても vault は無傷」の使い捨て資産。ディレクトリは初回アクセス時に作成する。
+## 着手順
+
+1. **cordis で `vault → index → SSE → sync` の 4 プラグインを白紙で組み、`bun --compile` を通す** — 最大の地雷を最短で踏み抜く
+2. **round-trip 差分ゼロの CI gate**
+3. エディタ本体
 
 ## References
 
-- Architecture & system design: `docs/ARCHITECTURE.md`
-- Architecture Decision Records (ADR): `docs/DESIGN/adr/`(例: エージェント統合は ADR-0014 help / ADR-0015 ケーパビリティ / ADR-0016 監査済みサービス層経由 / ADR-0018 機密領域 deny)
-- Sprint roadmap & task tracking: `docs/ROADMAP.json`
+- Architecture Decision Records (ADR): `docs/DESIGN/adr/` — **34 本すべて有効な資産**。エージェント統合 (ADR-0014/0015/0016/0018)、sync (ADR-0030/0032)、スマートコマンド (ADR-0020〜0024) 等
 - Product vision: `docs/VISION.json`
-- Design principles (autonomous decision rules): `docs/DESIGN_PRINCIPLES.json`
-- Original spec / 引き継ぎ: `SPEC.md`
+- Design principles: `docs/DESIGN_PRINCIPLES.json`
+- 旧実装: `git show main:<path>` / `git grep <pattern> main -- packages/`
+
+### 陳腐化しているので要書き換え
+
+- `docs/ARCHITECTURE.md` — 旧構成 (CodeMirror / 手書き DI) 前提。cordis + ProseMirror で書き直す
+- `docs/ROADMAP.v1-archive.json` — 旧実装の完了スプリント記録。**アクティブなロードマップではない** (`sprint init` で新規に引き直す)
+- `docs/sprint-logs/` — 旧実装の履歴。参照用に残す
+- 新プロジェクトの **ADR-0001 は「Markdown 正本の不変条件を (a) 標準 Markdown + round-trip 保存性 に再定義し、行単位 Raw 表示を採らない」**を書くこと。旧リポジトリではこの最重要判断だけが ADR 化されていなかった
