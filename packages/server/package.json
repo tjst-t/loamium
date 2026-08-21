@@ -1,0 +1,12 @@
+{
+  "name": "@loamium/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "dependencies": {
+    "cordis": "4.0.0-rc.8",
+    "hono": "^4.13.3",
+    "@hono/node-server": "^1.14.0"
+  }
+}

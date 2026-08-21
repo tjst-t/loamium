@@ -51,8 +51,17 @@ TypeScript (strict), Node.js 22, npm workspaces モノレポ。
 - **1 機能 = 1 プラグイン。** REST ルート・エージェントツール・help トピック・ケーパビリティ宣言を**同じプラグイン内で同時に登録**する。これにより「新機能にはエージェントツールも必ず実装」が規約(人間の努力)ではなく構造で担保される
 - **サービスは `ctx` 経由で取得する。** 位置引数 DI (`createApp(config, index, dqlCache?, sse?, sync?)`) と手書きシングルトン (`getSyncService()`) を再発明しない
 - **イベントは `ctx.on()`。** リスナー 1 本しか持てないコールバックスロット (旧 `index.setOnChange`) を作らない。旧実装ではそこに無関係な 4 つの関心事が詰まり、1 つ throw すると後続が全部死んでいた
-- **teardown は各プラグインの `ctx.on('dispose')`。** 手書きの逆順 shutdown チェーンを書かない
+- **teardown は各プラグインの `ctx.effect()` が返す disposable。** 手書きの逆順 shutdown チェーンを書かない。`ctx.fiber.dispose()` が登録順の逆で自動的に畳む (検証済み)
 - 生成順序を「TDZ 回避」のようなコメントで守らない。`inject` で宣言する
+
+#### cordis 4 固有の落とし穴 (spike で実地確認済み / 2026-08-21)
+
+採用バージョンは **`cordis@4.0.0-rc.8`**。npm の `latest` タグが RC を指している (stable の最終は `3.18.1`)。**RC なので必ず完全一致でピンする。**
+
+- **Service で `#private` フィールドを使わない。** cordis は Service を Proxy 経由で公開するため、`ctx.foo.bar` の内部で `this` が Proxy になり `TypeError: Cannot access invalid private field` で落ちる。TS の `private` (コンパイル時のみ・実体は通常プロパティ) を使う
+- **プラグイン関数に `.name` を代入しない。** `Function.name` は readonly で、ESM は strict mode なので `TypeError: Attempted to assign to readonly property`。関数宣言の名前がそのまま使われるので代入は不要。`.inject` の代入は問題ない
+- **ロガーは exporter を登録するまで完全に無音。** cordis 4 の `LoggerService` に既定の出力先は無い。`ctx.logger.exporter({ export(msg) {...} })` を最初のプラグインとして登録する (`plugins/logging.ts`)
+- **teardown の逆順実行は自前で書かなくてよい。** 登録順 `logging → vault → noteIndex → sse → sync → http` に対し、`ctx.fiber.dispose()` が `sync → sse → ...` の逆順で effect を畳むことを実測で確認済み
 
 ### エディタ
 
@@ -88,8 +97,9 @@ TypeScript (strict), Node.js 22, npm workspaces モノレポ。
 
 ## 着手順
 
-1. **cordis で `vault → index → SSE → sync` の 4 プラグインを白紙で組み、`bun --compile` を通す** — 最大の地雷を最短で踏み抜く
-2. **round-trip 差分ゼロの CI gate**
+1. ~~**cordis で `vault → index → SSE → sync` の 4 プラグインを白紙で組み、`bun --compile` を通す**~~ — **✅ 2026-08-21 完了。地雷は不発。**
+   `cordis@4.0.0-rc.8` + Hono が `bun build --compile` で 79MB の単一実行ファイルになり、`node_modules` の無い場所で起動・API 応答・日本語ファイル名・ネストディレクトリ書き込み・SIGTERM での正常終了まで確認済み。**静的登録である限り問題ない**という前提が裏付けられた
+2. **round-trip 差分ゼロの CI gate** ← 次はここ
 3. エディタ本体
 
 ## References
