@@ -1,0 +1,44 @@
+{
+  "id": "ADR-0035",
+  "title": "Markdown 正本の不変条件を「標準 Markdown ファイル + round-trip 保存性(3 段階判定)」へ再定義し、行単位 Raw 表示を採らない",
+  "status": "accepted",
+  "date": "2026-08-21",
+  "context": "旧 CLAUDE.md の『ピュア Markdown 絶対』は、実際には 3 つの独立した主張を 1 つの旗に束ねていた: (a) ファイルは標準 Markdown でありブロック ID・独自記法を書き込まない / (b) メモリ上の正本も Markdown 文字列 1 本に固定する / (c) 編集中はアクティブ行だけを Raw 表示する (旧 live preview)。しかし VISION.json が success_criteria で要求しているのは (a) 『ノートの正本が常にプレーンな Markdown テキスト 1 本であり、Obsidian や素のエディタで開いても壊れない』と、C 方式アウトライナー (リスト行の Tab/Shift+Tab インデント) のみであり、(c) はどこにも記述が無い。さらに ADR-0001〜0034 を通査しても (c) を決定した ADR は存在せず、スマートフォルダの粒度 (ADR-0003) や frontmatter の扱い (ADR-0004) には ADR があるのに、プロジェクトで最も load-bearing な制約だけが未 ADR 化のまま前提として通っていた。(c) は Logseq からの輸入だが、Logseq でそれが成立するのはブロックが原子的で短いからであり、VISION は out_of_scope で『全行のリストブロック化(LogSeq 方式)』を明確に拒否している。つまり前提となるブロックモデルを捨てたにもかかわらず、その上に成り立っていたインタラクションだけを輸入していた。その維持費は実際に発生しており、block widget の CSS margin が CodeMirror の heightmap に計上されず見出しクリックが数行ずれる問題、cm-content を width でなく max-width にしないとカーソルがずれる問題、テーブル前後行を矢印キーがスキップする問題として現れた。コード量では live-preview.ts 1,259 行 + renderers/ 約 3,200 行 + outline.ts 1,670 行が (c) と自前レイアウト計算のために費やされている。一方で ADR-0032 (vault sync を system git に委譲) と ADR-0030 (3-way 自動マージ) がある以上、1 文字の編集でリストマーカーや表の桁が正規化されて diff が爆発することは実害であり、ここは守る必要がある。作り直しにあたり、(a) と (c) を分離できることが判明したため、不変条件を再定義する。",
+  "alternatives": [
+    {
+      "name": "現状維持。CodeMirror 6 + 行単位 Raw 表示を継続し、バイト一致を暗黙の前提とする",
+      "tradeoff": "移行コストはゼロだが、文書のレイアウト計算を自前で持つことに起因する heightmap 系のバグ(見出しクリックのずれ・矢印ナビのスキップ)が恒久的な維持費として残る。生 Markdown を触らせる前提のためモバイルでの本格的な編集は実質不可能で、VISION が out_of_scope としている状態から抜け出せない。live-preview / renderers / outline の自作約 8,000 行の保守も続く。"
+    },
+    {
+      "name": "厳格ゲート。原文バイト一致 (判定 A) を 100% にすることを不変条件として要求する",
+      "tradeoff": "『任意の Markdown をそのまま保存する』という最も強い保証が得られるが、実測では素の remark で A=3.8%、対策 4 点を入れても A=42.3% であり、残るテーブル区切り行の幅・CJK 隣接の強調のエスケープ・ネストリストのインデント幅まで作り込む必要がある。得られる追加価値は『初回の正規化コミット 1 回を避けられる』ことだけで、費用対効果が見合わない。"
+    },
+    {
+      "name": "モード分離のみ。CodeMirror を残したまま (c) 行単位 Raw 表示だけを廃止し、文書単位のトグルにする",
+      "tradeoff": "最も低リスクで、行ごとの decoration 出し分けが不要になるため live-preview.ts の複雑さの大半は消える。しかし編集モードでは依然として自前レイアウト計算が残るため heightmap 系のバグは解消せず、outline.ts 1,670 行も温存される。ProseMirror が標準機能で提供するものを自作し続けることになる。"
+    },
+    {
+      "name": "ブロックモデルを採用する (Logseq / Notion 方向)。ブロック ID をファイルに書き込む",
+      "tradeoff": "編集体験の一貫性は最も高くなるが、不変条件 (a) を捨てることになる。VISION の problem 文『LogSeq はブロック ID でファイルが汚れロックインが生じる』を自ら再現する選択であり、プロダクトの存在理由そのものを失うため却下する。"
+    },
+    {
+      "name": "採用: ProseMirror 系エディタ + round-trip 保存性の 3 段階判定 (B/C のみ hard gate)",
+      "tradeoff": "(a) を守りつつ (b')(c) を捨てられる。レイアウトをブラウザに委ねるため heightmap 系のバグが原理的に消滅し、リストのインデントは sinkListItem / liftListItem の標準機能になる。代償は、正本が AST になることで原文バイト一致が保証されなくなる点だが、実測により B (冪等性) と C (意味の保存) がともに 100% で成立することを確認済みで、git sync が壊れる条件は満たさない。初回に vault 全体の正規化コミットが 1 回だけ発生する。"
+    }
+  ],
+  "decision": "Markdown 正本の不変条件を次の 2 つに再定義する。(1) 標準 Markdown ファイルが正本である。ブロック ID・独自記法をファイルに書き込まず、Obsidian や素のエディタで開いても壊れない。(2) round-trip 保存性を保つ。ただし判定は 3 段階に分け、A (原文バイト一致) は報告のみで gate しない、B (冪等性: 一度正規化した後は二度と変化しない) と C (意味の保存: 正規化で mdast が変化しない) を hard gate とする。根拠は機能ガイド 26 ファイル (見出し 178 / 表 108 行 / フェンス 66 / WikiLink 69 / タスク 19 / 数式 7) に対する実測で、A=42.3% に対し B=100% / C=100%。git sync と 3-way merge が壊れる条件は A ではなく B・C であり、B と C が通っていれば vault を一度 fmt した後は 1 文字編集の diff は 1 行で済む。あわせて次を決定する。(3) 行単位 Raw 表示は採らない。ソースモードは文書単位のトグルとして一級市民で残す (外部エディタ・git・エージェントが同じファイルを直接触るため必須)。(4) メモリ上の正本を Markdown 文字列 1 本に固定する制約は撤廃する。これは CodeMirror が強いた実装都合であり、(1) さえ守れば不要。(5) エディタは ProseMirror 系 (Tiptap / Milkdown) を採る。ProseMirror スキーマには Markdown へ往復変換できるものだけを入れる。スキーマが Markdown 表現力の型になり、これが不変条件 (2) の実装手段になる。Confluence 的なパネル・バッジ・複雑レイアウトは標準 Markdown に落ちないため採用しない。(6) Markdown 処理系は unified / remark に一本化し、packages/shared でサーバーと共有する (旧実装の marked と lezer-markdown による二重パーサを解消する)。",
+  "consequences": "初回に vault 全体の正規化コミットが 1 回発生する (loamium fmt 相当)。以後は 1 文字編集の diff が 1 行で収まる。既存ノートの見え方が変わる箇所がある: CJK に隣接する **強調** は CommonMark の flanking 規則で強調と解釈されないことがあり、旧実装の marked より remark のほうが厳格なため、移行時に目視確認が必要になる。エスケープ処理は必ず文脈依存にする: [[WikiLink]] と callout > [!tip] を通すために text ハンドラのエスケープを一律無効化したところ、表セル内の \\| まで剥がれ、再パース時に列区切りと解釈されて 2 列の表が 4 列に化ける破壊が実測された (Vault同期の使い方.md)。\\[ のみ選択的に復元すること。この破壊を検出したのが判定 C であり、3 段階 gate の有効性そのものの裏付けになっている。outline.ts 1,670 行は sinkListItem / liftListItem の標準機能に置換できる。WYSIWYG 化により VISION の out_of_scope『モバイルでの本格的な編集体験』が射程に入るため、VISION 側の見直し余地が生じる (本 ADR では宣言に留め、変更は別途)。CI に make roundtrip を追加し、B と C を hard gate として常時検証する。ADR-0030 (3-way マージ) と ADR-0032 (git sync) は正本がファイルのままであるため影響を受けない。DQL / dataview 等の動的ブロックは NodeView で描画し、Markdown へはコードフェンス (```dataview) として落とす (Obsidian 互換の既存慣行に乗り、独自記法禁止と整合させる)。ProseMirror 系の古典的な不満 (リストやコードブロックから抜けられない・書式の引きずり) は Markdown ネイティブなユーザーほど強く効くため、ソースモードのトグルと、Escape / Mod+Enter でノードを抜ける挙動の作り込みを最初のスプリントの受け入れ条件に含める。共同編集はしない (VISION out_of_scope) ため ProseMirror の collab モジュールは使わない。",
+  "reversibility_cost": "high",
+  "affects": [
+    "packages/shared/src/markdown/ (unified/remark 処理系)",
+    "packages/ui (エディタ全体)",
+    "scripts/roundtrip-check.ts",
+    "Makefile (roundtrip ターゲット)",
+    "CLAUDE.md (不変条件・エディタ規約)",
+    "docs/ARCHITECTURE.md",
+    "docs/VISION.json (out_of_scope のモバイル編集項目)"
+  ],
+  "supersedes": null,
+  "superseded_by": null,
+  "notes": "旧リポジトリに該当 ADR が存在しなかったため supersedes は null だが、本 ADR は旧 CLAUDE.md の『ピュア Markdown 絶対』規約を明示的に置き換えるものである。番号は ADR-0035 とした。作り直し (rebuild ブランチ) の起点となる判断だが、ADR-0001 は既に ADR-0001-smart-folder-reuses-dql が使用しており、CLAUDE.md や他 ADR が番号で相互参照しているため既存の採番は動かさない。実測は 2026-08-21、cordis 4 プラグイン骨格 + bun --compile 検証 (d253378) の後、round-trip gate 実装 (3097c4e) で得た数値に基づく。A が崩れる残りの原因は、テーブル区切り行の幅 (| --- | が | - | になる) 16 行、CJK 隣接の強調のエスケープ 10 行、ネストリストのインデント幅 2 行、その他 2 行。いずれも B・C を保つ範囲の差であり、対処は任意・優先度は低い。"
+}

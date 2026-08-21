@@ -119,7 +119,8 @@ TypeScript (strict), Node.js 22, npm workspaces モノレポ。
 
 ## References
 
-- Architecture Decision Records (ADR): `docs/DESIGN/adr/` — **34 本すべて有効な資産**。エージェント統合 (ADR-0014/0015/0016/0018)、sync (ADR-0030/0032)、スマートコマンド (ADR-0020〜0024) 等
+- **ADR-0035** — 本ファイルの「2 つの不変条件」の根拠 ADR。作り直しの起点となる判断 (不変条件の再定義 / 行単位 Raw 表示の不採用 / ProseMirror 採用)。**迷ったらまずこれを読む**
+- Architecture Decision Records (ADR): `docs/DESIGN/adr/` — **35 本すべて有効な資産**。エージェント統合 (ADR-0014/0015/0016/0018)、sync (ADR-0030/0032)、スマートコマンド (ADR-0020〜0024) 等
 - Product vision: `docs/VISION.json`
 - Design principles: `docs/DESIGN_PRINCIPLES.json`
 - 旧実装: `git show main:<path>` / `git grep <pattern> main -- packages/`
@@ -129,4 +130,4 @@ TypeScript (strict), Node.js 22, npm workspaces モノレポ。
 - `docs/ARCHITECTURE.md` — 旧構成 (CodeMirror / 手書き DI) 前提。cordis + ProseMirror で書き直す
 - `docs/ROADMAP.v1-archive.json` — 旧実装の完了スプリント記録。**アクティブなロードマップではない** (`sprint init` で新規に引き直す)
 - `docs/sprint-logs/` — 旧実装の履歴。参照用に残す
-- 新プロジェクトの **ADR-0001 は「Markdown 正本の不変条件を (a) 標準 Markdown + round-trip 保存性 に再定義し、行単位 Raw 表示を採らない」**を書くこと。旧リポジトリではこの最重要判断だけが ADR 化されていなかった
+
