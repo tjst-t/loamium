@@ -1,6 +1,7 @@
 import type { Context } from 'cordis'
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
+import { VaultPathError } from '@loamium/shared'
 
 export interface HttpConfig { port: number; hostname: string }
 
@@ -16,13 +17,20 @@ export function http(ctx: Context, config: HttpConfig): void {
   app.get('/api/notes/:path{.+}', async (c) => {
     try {
       return c.text(await ctx.vault.read(c.req.param('path')))
-    } catch {
+    } catch (err: unknown) {
+      // 存在の有無を漏らさないため、不正パスも 404 に寄せる
+      if (err instanceof VaultPathError) return c.json({ error: 'invalid_path', message: err.message }, 400)
       return c.json({ error: 'not_found' }, 404)
     }
   })
   app.post('/api/notes/:path{.+}', async (c) => {
     const path = c.req.param('path')
-    await ctx.vault.write(path, await c.req.text())
+    try {
+      await ctx.vault.write(path, await c.req.text())
+    } catch (err: unknown) {
+      if (err instanceof VaultPathError) return c.json({ error: 'invalid_path', message: err.message }, 400)
+      throw err
+    }
     return c.json({ ok: true, path })
   })
 

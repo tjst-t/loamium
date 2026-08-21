@@ -1,6 +1,8 @@
-# 環境メモ: /usr/bin/node は v20 なので nvm で 22 を明示的に使う。bun は ~/.bun/bin。
-NVM  := . $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null &&
-BUN  := $$HOME/.bun/bin/bun
+# ツールチェーンの解決。
+# ローカル開発機は PATH に無い (/usr/bin/node は v20、bun は ~/.bun/bin)。
+# CI では PATH 上のものをそのまま使う。どちらでも動くよう両対応にする。
+NVM  := if [ -s "$$HOME/.nvm/nvm.sh" ]; then . "$$HOME/.nvm/nvm.sh"; nvm use 22 >/dev/null; fi;
+BUN   = $$([ -x "$$HOME/.bun/bin/bun" ] && echo "$$HOME/.bun/bin/bun" || command -v bun)
 CORPUS ?= packages/server/src/samples
 
 .PHONY: install lint test roundtrip gate build serve serve-ui clean
@@ -17,12 +19,12 @@ lint:
 roundtrip:
 	$(BUN) run scripts/roundtrip-check.ts $(CORPUS)
 
-## 不変条件 2 の gate (2): Milkdown 実体 + 書き手の収束 (jsdom)
+## 不変条件 2 の gate (2): Milkdown 実体 + 書き手の収束、および vault の各種検証
 test:
 	$(NVM) npx vitest run
 
-## 不変条件 2 を両側から検証する。CI はこれを回す
-gate: roundtrip test
+## CI が回すゲート一式
+gate: lint roundtrip test
 
 ## 本番ビルド: プラグインは静的登録。動的 import を持ち込まないこと
 build:

@@ -29,7 +29,7 @@ git checkout main -- <path>                    # 必要なものだけ引く
 
    > **書き戻しは必ず `normalizeForSave()` を通すこと。** これが唯一の正規形の出口。エディタの保存経路もサーバーの書き込みもここに一本化する。Milkdown が空セル・空リスト項目に差し込む `<br />` の除去もここで行う (書式でなく**内容の混入**なので不変条件 1 に関わる)。
 
-   gate は 2 本立て: `make roundtrip` (shared 単体) と `make test` (Milkdown 実体 + 収束、jsdom)。**`make gate` で両方**
+   gate は 2 本立て: `make roundtrip` (shared 単体) と `make test` (Milkdown 実体 + 収束、jsdom)。**`make gate` で lint 込みの全部**を回す (CI: `.github/workflows/gate.yml`)
 
 **採らない方式:**
 - **行単位 Raw 表示 (旧 live preview)** — VISION に要求が無く ADR も存在しなかった、Logseq からの無検証の輸入。Logseq でこれが成立するのはブロックが原子的で短いからで、Loamium はそのブロックモデルを VISION で明確に拒否している。前提を捨てたのにインタラクションだけ輸入していた
@@ -97,10 +97,11 @@ TypeScript (strict), Node.js 22, npm workspaces モノレポ。
 
 - TypeScript strict。`any` 禁止 (`unknown` + 絞り込み)。`@ts-ignore` 禁止
 - 文字コード UTF-8 / 改行 LF 固定。リンク・パス比較は NFC 正規化を通す
-- vault 内パスは必ず `packages/shared` のパス正規化ユーティリティを経由 (`..` 脱出の検証込み)
+- **vault 内パスは必ず `packages/shared` の `resolveVaultPath()` / `normalizeVaultPath()` を経由する** (`..` 脱出の検証込み)。
+  ⚠️ **ルーティング層の正規化に依存しないこと。** Hono は生の `../` を含む URL は 404 にするが、**URL エンコードした `%2e%2e%2f` はデコードされてハンドラに届く**。実際にこれで vault 外のファイルを読み書きできる状態になっていた (2026-08-21 に修正)。検証は必ずサービス層で行う
 - REST API と CLI コマンドは 1:1 対応。リクエスト/レスポンスは zod スキーマで検証し、型は `packages/shared` で共有
 - Markdown パース・リンク解決・ジャーナル日付処理・**round-trip 保存性**には必ずユニットテストを書く
-- 書き込み系 API は監査ログ (`.loamium/audit.log`) に記録する
+- 書き込み系 API は監査ログ (`.loamium/audit.log`) に記録する。監査の失敗で書き込み自体を落とさない
 - **生のファイル API 禁止 / 書き込み配線は共通ヘルパー経由**: サーバーの書き込みで `fs.mkdir(recursive)` を直接呼ばない。必ず共通の `ensureDir()` を経由する。理由: `bun --compile` 済みサーバーは **bun on Windows** で既存ディレクトリへの `mkdir(recursive)` が **EEXIST を投げる** (Node/tsx・bun-linux では再現しない)。OneDrive 配下 vault で顕在化する。新規サーバーコードを足したら `grep 'mkdir(' <新規ファイル>` で確認する
 - **モバイルレスポンシブ規約**: すべての UI 機能はモバイル考慮。タップターゲット 44px 以上。ブレークポイント: ≤680px = モバイル / 681–960px = タブレット / ≥961px = デスクトップ。
   なお WYSIWYG 化により、旧 VISION が `out_of_scope` としていた「モバイルでの本格的な編集体験」は射程に入る (生 Markdown をモバイルで触らせるより明確に有利)。扱いを見直す余地がある

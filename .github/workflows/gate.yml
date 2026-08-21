@@ -1,0 +1,24 @@
+name: Gate
+
+# 不変条件 2 (round-trip 保存性) と型検査。ADR-0035 の consequences で CI 必須とした。
+on:
+  push:
+    branches: [rebuild, main]
+  pull_request:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # roundtrip-check は bun で走らせる (本番ビルドも bun --compile なので合わせる)
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - run: npm ci
+      - name: gate (lint + roundtrip + test)
+        run: make gate

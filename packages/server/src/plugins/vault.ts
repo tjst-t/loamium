@@ -1,12 +1,13 @@
 import { Service, type Context } from 'cordis'
-import { mkdir, readFile, writeFile, readdir } from 'node:fs/promises'
-import { join, relative } from 'node:path'
+import { mkdir, readFile, writeFile, readdir, appendFile } from 'node:fs/promises'
+import { join, relative, dirname } from 'node:path'
+import { normalizeForSave, resolveVaultPath, normalizeVaultPath } from '@loamium/shared'
 
 export interface VaultConfig { root: string }
 
 /**
  * vault = Markdown ファイルの正本。
- * 旧実装の `ensureDir()` 規約は維持する (bun on Windows の mkdir EEXIST 対策)。
+ * **ファイルに触る経路はすべてこのサービスを通す** (パス検証・正規化・監査を一箇所に集約するため)。
  */
 export class VaultService extends Service {
   static readonly inject = []
@@ -14,7 +15,10 @@ export class VaultService extends Service {
     super(ctx, 'vault')
   }
 
-  /** bun on Windows で既存ディレクトリへの mkdir(recursive) が EEXIST を投げる件の共通ヘルパー */
+  /**
+   * bun on Windows では既存ディレクトリへの mkdir(recursive) が EEXIST を投げる
+   * (Node/tsx・bun-linux では再現しない)。書き込み系はすべてこれを経由すること。
+   */
   async ensureDir(dir: string): Promise<void> {
     try {
       await mkdir(dir, { recursive: true })
@@ -31,7 +35,7 @@ export class VaultService extends Service {
         if (e.name.startsWith('.')) continue
         const p = join(dir, e.name)
         if (e.isDirectory()) await walk(p)
-        else if (e.name.endsWith('.md')) out.push(relative(this.config.root, p))
+        else if (e.name.endsWith('.md')) out.push(relative(this.config.root, p).split(/[\\/]/).join('/'))
       }
     }
     await walk(this.config.root)
@@ -39,14 +43,32 @@ export class VaultService extends Service {
   }
 
   async read(path: string): Promise<string> {
-    return readFile(join(this.config.root, path), 'utf8')
+    // vault 脱出の検証込み。URL エンコードされた `..` もデコード後にここで弾かれる
+    return readFile(resolveVaultPath(this.config.root, path), 'utf8')
   }
 
   async write(path: string, body: string): Promise<void> {
-    const full = join(this.config.root, path)
-    await this.ensureDir(join(full, '..'))
-    await writeFile(full, body, 'utf8')
+    const rel = normalizeVaultPath(path)
+    const full = resolveVaultPath(this.config.root, rel)
+    // **書き戻しは必ず normalizeForSave を通す** (エディタとサーバーの正規形を一致させる)
+    const content = rel.endsWith('.md') ? normalizeForSave(body) : body
+    await this.ensureDir(dirname(full))
+    await writeFile(full, content, 'utf8')
+    await this.audit('write', rel, content.length)
     // 単一コールバックスロットではなく、イベントとして撒く
-    this.ctx.emit('vault/change', path, 'upsert')
+    this.ctx.emit('vault/change', rel, 'upsert')
+  }
+
+  /** 書き込み系 API は監査ログに記録する */
+  private async audit(op: string, path: string, bytes: number): Promise<void> {
+    const dir = join(this.config.root, '.loamium')
+    const line = JSON.stringify({ ts: new Date().toISOString(), op, path, bytes }) + '\n'
+    try {
+      await this.ensureDir(dir)
+      await appendFile(join(dir, 'audit.log'), line, 'utf8')
+    } catch (err: unknown) {
+      // 監査の失敗で書き込み自体を落とさない (ログには残す)
+      this.ctx.logger('vault').warn('audit append failed: %s', String(err))
+    }
   }
 }
