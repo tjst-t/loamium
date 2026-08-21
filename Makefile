@@ -3,7 +3,7 @@ NVM  := . $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null &&
 BUN  := $$HOME/.bun/bin/bun
 CORPUS ?= packages/server/src/samples
 
-.PHONY: install lint roundtrip build serve serve-ui clean
+.PHONY: install lint test roundtrip gate build serve serve-ui clean
 
 install:
 	$(NVM) npm install
@@ -13,9 +13,16 @@ lint:
 	$(NVM) npx tsc -p packages/server --noEmit
 	$(NVM) npx tsc -p packages/ui --noEmit
 
-## 不変条件 2 の gate。B (冪等性) と C (意味の保存) が通らなければ失敗する
+## 不変条件 2 の gate (1): packages/shared のプロセッサ単体
 roundtrip:
 	$(BUN) run scripts/roundtrip-check.ts $(CORPUS)
+
+## 不変条件 2 の gate (2): Milkdown 実体 + 書き手の収束 (jsdom)
+test:
+	$(NVM) npx vitest run
+
+## 不変条件 2 を両側から検証する。CI はこれを回す
+gate: roundtrip test
 
 ## 本番ビルド: プラグインは静的登録。動的 import を持ち込まないこと
 build:

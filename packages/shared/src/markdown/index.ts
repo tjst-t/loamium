@@ -6,3 +6,4 @@ export {
   stringifyOptions,
 } from './processor'
 export { splitFrontmatter, joinFrontmatter, type SplitDocument } from './frontmatter'
+export { normalizeForSave } from './normalize'

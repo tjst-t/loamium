@@ -5,7 +5,7 @@ import { gfm } from '@milkdown/kit/preset/gfm'
 import { history } from '@milkdown/kit/plugin/history'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
-import { splitFrontmatter, joinFrontmatter } from '@loamium/shared'
+import { splitFrontmatter, joinFrontmatter, normalizeForSave } from '@loamium/shared'
 import { applyLoamiumStringifyOptions } from './markdown-config'
 import { exitNodeKeymap } from './exit-node'
 
@@ -63,7 +63,10 @@ export function Editor({ value, onSave }: EditorProps): JSX.Element {
 
   const dirty = draftBody !== bodyRef.current
   const save = useCallback(() => {
-    onSave(joinFrontmatter({ frontmatter, body: draftBody }))
+    // **書き戻しは必ず normalizeForSave を通す。**
+    // Milkdown と shared は serializer が別物なので、素のまま書くと正規形が食い違い、
+    // サーバー/CLI 側が書き直したときに git の diff が振動する。
+    onSave(joinFrontmatter({ frontmatter, body: normalizeForSave(draftBody) }))
   }, [frontmatter, draftBody, onSave])
 
   return (
