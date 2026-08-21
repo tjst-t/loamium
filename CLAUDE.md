@@ -15,13 +15,26 @@ git checkout main -- <path>                    # 必要なものだけ引く
 旧 `CLAUDE.md` の「ピュア Markdown 絶対」は 3 つの主張を束ねていた。作り直しでは **(a) を死守し、(c) を捨て、代わりに round-trip 保存性を昇格**する。
 
 1. **標準 Markdown ファイルが正本。** ブロック ID・独自記法をファイルに書き込まない。Obsidian や素のエディタで開いても壊れない (VISION の `problem` 文そのもの = プロダクトの存在理由)
-2. **round-trip 差分ゼロ。** `parse → serialize` がバイト単位で一致する。git sync と 3-way merge があるため、1 文字打っただけでリストマーカーや表の桁が正規化されると diff が爆発し merge が壊れる
+2. **round-trip 保存性。** git sync と 3-way merge があるため、1 文字打っただけでリストマーカーや表の桁が正規化されると diff が爆発し merge が壊れる。**実測の結果、判定は 3 段階に分ける** (`make roundtrip` / `scripts/roundtrip-check.ts`):
+
+   | | 内容 | 状態 |
+   |---|---|---|
+   | **A** | 原文バイト一致 (任意の Markdown をそのまま保存) | 42.3% — **報告のみ。gate しない** |
+   | **B** | 冪等性 (一度正規化した後は二度と変化しない) | **100% — hard gate** |
+   | **C** | 意味の保存 (正規化で mdast が変化しない) | **100% — hard gate** |
+
+   A を 100% にするのは高コストで、**B と C が通っていれば git sync は壊れない** (vault を一度 `fmt` すれば、以後 1 文字編集の diff は 1 行で済む)。初回の正規化コミットだけが大きくなる
 
 **採らない方式:**
 - **行単位 Raw 表示 (旧 live preview)** — VISION に要求が無く ADR も存在しなかった、Logseq からの無検証の輸入。Logseq でこれが成立するのはブロックが原子的で短いからで、Loamium はそのブロックモデルを VISION で明確に拒否している。前提を捨てたのにインタラクションだけ輸入していた
 - **メモリ上の正本を Markdown 文字列 1 本に固定すること** — CodeMirror が強いた実装都合であり、(a) さえ守れば不要
 
-> **最初のタスク:** 既存 vault の全 `.md` を parse→serialize してバイト差分ゼロを CI で gate する。ここが通らなければ ProseMirror 案は成立しない、という判定ライン。
+> **判定結果 (2026-08-21):** ✅ 成立する。`unified` / `remark` で B・C ともに 26/26。
+> **A が崩れる残り 4 カテゴリ** (対処は任意・優先度順): テーブル区切り行の幅 (`| --- |` → `| - |`) 16 行 / CJK 隣接の強調のエスケープ 10 行 / ネストリストのインデント幅 2 行 / その他 2 行。
+>
+> ⚠️ **エスケープを一律で無効化してはいけない。** `[[WikiLink]]` と callout `> [!tip]` を通すために `text` ハンドラでエスケープを切ったところ、**表セル内の `\|` まで剥がれて再パース時に列区切りと解釈され、2 列の表が 4 列に化けた**。`\[` のみ選択的に復元すること。この破壊を検出したのが判定 C で、gate の有効性そのものの裏付けになっている。
+>
+> ⚠️ **CJK に隣接する `**強調**` は CommonMark の flanking 規則で強調と解釈されないことがある。** 旧実装の `marked` より remark のほうが厳格なので、**既存ノートの見え方が変わる箇所がある**。移行時に要確認。
 
 ## Tech Stack
 
@@ -90,7 +103,9 @@ TypeScript (strict), Node.js 22, npm workspaces モノレポ。
 
 ## Commands
 
-**未整備。** 新しい Makefile はまだ無い。旧版のターゲット構成 (`make serve` / `serve-ui` / `stop` / `test` / `test-ui` / `build` / `lint`) を踏襲する予定。
+`make install` / `lint` / `roundtrip` / `build` / `serve` を用意済み。UI 系 (`serve-ui` / `test-ui`) は未整備。
+
+⚠️ **ツールチェーンが PATH に無い。** `/usr/bin/node` は **v20** で、Node 22 は nvm 側 (`~/.nvm/versions/node/v22.23.1`) にしかない。`bun` も `~/.bun/bin/bun` (1.4.0)。Makefile が両方を明示的に解決しているので、**コマンドは直接叩かず `make` 経由で実行する**。
 
 - ポート番号をハードコードしない。`portman lease --name loamium` で取得する
 - 開発用 vault: `dev-vault/` (git 管理外)。**現状このチェックアウトには存在しないので、作り直す必要がある**
@@ -99,8 +114,8 @@ TypeScript (strict), Node.js 22, npm workspaces モノレポ。
 
 1. ~~**cordis で `vault → index → SSE → sync` の 4 プラグインを白紙で組み、`bun --compile` を通す**~~ — **✅ 2026-08-21 完了。地雷は不発。**
    `cordis@4.0.0-rc.8` + Hono が `bun build --compile` で 79MB の単一実行ファイルになり、`node_modules` の無い場所で起動・API 応答・日本語ファイル名・ネストディレクトリ書き込み・SIGTERM での正常終了まで確認済み。**静的登録である限り問題ない**という前提が裏付けられた
-2. **round-trip 差分ゼロの CI gate** ← 次はここ
-3. エディタ本体
+2. ~~**round-trip 差分ゼロの CI gate**~~ — **✅ 2026-08-21 完了。** `make roundtrip` で B/C を gate。詳細は上の不変条件 2 の表
+3. **エディタ本体** ← 次はここ
 
 ## References
 
