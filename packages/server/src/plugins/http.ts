@@ -13,6 +13,13 @@ export function http(ctx: Context, config: HttpConfig): void {
     c.json({ ok: true, notes: ctx.noteIndex.size, sseClients: ctx.sse.clientCount }),
   )
   app.get('/api/notes', (c) => c.json({ paths: ctx.noteIndex.paths() }))
+  app.get('/api/notes/:path{.+}', async (c) => {
+    try {
+      return c.text(await ctx.vault.read(c.req.param('path')))
+    } catch {
+      return c.json({ error: 'not_found' }, 404)
+    }
+  })
   app.post('/api/notes/:path{.+}', async (c) => {
     const path = c.req.param('path')
     await ctx.vault.write(path, await c.req.text())

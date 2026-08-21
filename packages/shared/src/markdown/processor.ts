@@ -14,7 +14,7 @@ import { defaultHandlers, type Options as ToMarkdownOptions } from 'mdast-util-t
  * ファイル全体が書き換わり git sync の diff が爆発する。**原文の書き方を保つ**方向へ倒す。
  * 以下 4 点は実測した差分原因への対策 (2026-08-21 / コーパス: 機能ガイド 26 ファイル)。
  */
-const stringifyOptions: ToMarkdownOptions = {
+export const stringifyOptions: ToMarkdownOptions = {
   bullet: '-',
   listItemIndent: 'one',
   emphasis: '_',
