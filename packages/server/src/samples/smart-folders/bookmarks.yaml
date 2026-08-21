@@ -1,0 +1,5 @@
+id: bookmarks
+name: ブックマーク
+icon: star
+query: LIST WHERE bookmark SORT file.mtime DESC
+order: 4

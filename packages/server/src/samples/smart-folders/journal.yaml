@@ -1,0 +1,5 @@
+id: journal
+name: 最近のジャーナル
+icon: calendar
+query: LIST FROM "journals" SORT file.name DESC LIMIT 7
+order: 2

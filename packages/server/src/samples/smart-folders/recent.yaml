@@ -1,0 +1,5 @@
+id: recent
+name: 最近の更新
+icon: clock
+query: LIST SORT file.mtime DESC LIMIT 10
+order: 1
