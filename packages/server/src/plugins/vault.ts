@@ -2,7 +2,9 @@ import { Service, type Context } from 'cordis'
 import type { Stats } from 'node:fs'
 import { mkdir, readFile, writeFile, readdir, appendFile, rename, rm, stat } from 'node:fs/promises'
 import { join, relative, dirname } from 'node:path'
-import { normalizeForSave, normalizeVaultPath } from '@loamium/shared'
+import {
+  normalizeForSave, normalizeVaultPath, preferredWikiTarget, resolveWikiLink, rewriteWikiLinks,
+} from '@loamium/shared'
 import { resolveVaultPath } from '@loamium/shared/src/vault-path.node'
 import { VaultConflictError, VaultNotFoundError } from '../errors'
 
@@ -129,14 +131,14 @@ export class VaultService extends Service {
   }
 
   /** リネーム / 移動。ノートでもフォルダでも同じ入口を使う */
-  async move(from: string, to: string): Promise<{ from: string; to: string }> {
+  async move(from: string, to: string): Promise<{ from: string; to: string; linksUpdated: string[] }> {
     const relFrom = normalizeVaultPath(from)
     const relTo = normalizeVaultPath(to)
     const fullFrom = resolveVaultPath(this.config.root, relFrom)
     const fullTo = resolveVaultPath(this.config.root, relTo)
     const info = await this.statOrNull(fullFrom)
     if (info === null) throw new VaultNotFoundError(`存在しません: ${relFrom}`)
-    if (relFrom === relTo) return { from: relFrom, to: relTo }
+    if (relFrom === relTo) return { from: relFrom, to: relTo, linksUpdated: [] }
     if (await this.exists(relTo)) throw new VaultConflictError(`すでに存在します: ${relTo}`)
     if (info.isDirectory() && (relTo + '/').startsWith(relFrom + '/')) {
       throw new VaultConflictError(`フォルダを自分の中には移動できません: ${relFrom} → ${relTo}`)
@@ -146,11 +148,57 @@ export class VaultService extends Service {
     await this.ensureDir(dirname(fullTo))
     await rename(fullFrom, fullTo)
     await this.audit('move', relFrom, { to: relTo })
-    for (const p of before) {
-      this.ctx.emit('vault/change', p, 'remove')
-      this.ctx.emit('vault/change', relTo + p.slice(relFrom.length), 'upsert')
+    const moved = new Map(before.map((p) => [p, relTo + p.slice(relFrom.length)]))
+    for (const [from_, to_] of moved) {
+      this.ctx.emit('vault/change', from_, 'remove')
+      this.ctx.emit('vault/change', to_, 'upsert')
     }
-    return { from: relFrom, to: relTo }
+    const linksUpdated = await this.followLinks(moved)
+    return { from: relFrom, to: relTo, linksUpdated }
+  }
+
+  /**
+   * リネーム・移動に本文の `[[リンク]]` を追従させる (task #5)。
+   *
+   * **move() の中で必ず呼ぶ。** UI・CLI・エージェントのどの経路から移動しても
+   * 同じように追いつかせるため、ルート側ではなくサービス層に置く。
+   *
+   * 書き方は保つ: 元が `[[フォルダ/ノート]]` ならフォルダ付きのまま、
+   * `[[ノート]]` なら (名前が一意な限り) ノート名のまま。見出しと表示名も保つ。
+   */
+  private async followLinks(moved: ReadonlyMap<string, string>): Promise<string[]> {
+    if (moved.size === 0) return []
+    const after = await this.list()
+    const toOld = new Map([...moved].map(([from_, to_]) => [to_, from_]))
+    // 移動前のパス集合。リンクは「移動前の書き方」で書かれているのでこれで解決する
+    const beforeAll = after.map((p) => toOld.get(p) ?? p)
+
+    const changed: string[] = []
+    for (const path of after) {
+      const selfBefore = toOld.get(path) ?? path
+      let content: string
+      try {
+        content = await this.read(path)
+      } catch {
+        continue // 走査中に消えたファイルで移動全体を落とさない
+      }
+      const next = rewriteWikiLinks(content, (link) => {
+        const resolved = resolveWikiLink(link.target, beforeAll, selfBefore)
+        const moveTo = resolved === null ? undefined : moved.get(resolved)
+        if (moveTo === undefined) return null
+        // 元がフォルダ付きならフォルダ付きのまま書く
+        return link.target.includes('/')
+          ? moveTo.replace(/\.md$/i, '')
+          : preferredWikiTarget(moveTo, after)
+      })
+      if (next === content) continue
+      await this.write(path, next)
+      changed.push(path)
+    }
+    if (changed.length > 0) {
+      this.ctx.logger('vault').info('links followed: %d ファイル', changed.length)
+    }
+    return changed
   }
 
   async createFolder(path: string): Promise<string> {

@@ -8,8 +8,8 @@ import { scrollToTextWhenReady } from './scroll-to-text'
 import { pathFromSearch, useRoute } from './route'
 import { forgetNoteViewState, renameNoteViewState } from './editor/view-state'
 import {
-  ApiError, createFolder, createNote, fetchJournal, fetchTree, movePath, readNote, removePath,
-  writeNote, type TreeNode,
+  ApiError, createFolder, createNote, fetchJournal, fetchTree, listNotes, movePath, readNote,
+  removePath, writeNote, type TreeNode,
 } from './api'
 
 /** `journals/YYYY-MM-DD.md` から日付を取り出す。ジャーナル以外なら null */
@@ -27,9 +27,13 @@ export function App(): JSX.Element {
   // 開いているノートは URL が持つ。戻る/進むがそのままノート履歴になる (task #2)
   const { path: current, navigate } = useRoute()
   const [tree, setTree] = useState<TreeNode[]>([])
+  /** vault の全ノート。`[[リンク]]` の解決と補完に渡す */
+  const [notes, setNotes] = useState<string[]>([])
   const [content, setContent] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  /** 本文を強制的に読み直すための世代番号 (リネームでリンクが書き換わったときなど) */
+  const [reloadToken, setReloadToken] = useState(0)
   const [panelOpen, setPanelOpen] = useState(() => window.localStorage.getItem(PANEL_KEY) !== 'false')
   /** 開いた直後に本文中で光らせる語 (検索から飛んできたとき) */
   const [pendingNeedle, setPendingNeedle] = useState<string | null>(null)
@@ -45,7 +49,9 @@ export function App(): JSX.Element {
   }, [])
 
   const refresh = useCallback(async (): Promise<void> => {
-    setTree(await fetchTree())
+    const [nextTree, nextNotes] = await Promise.all([fetchTree(), listNotes()])
+    setTree(nextTree)
+    setNotes(nextNotes)
   }, [])
 
   /** ジャーナルを開く。遅延生成されたらツリーを引き直す */
@@ -81,7 +87,7 @@ export function App(): JSX.Element {
       if (live) setContent(text)
     })
     return () => { live = false }
-  }, [current, run])
+  }, [current, reloadToken, run])
 
   // Cmd/Ctrl+K で検索パレット。入力欄にいても開けるようにする
   useEffect(() => {
@@ -115,6 +121,22 @@ export function App(): JSX.Element {
     return scrollToTextWhenReady(pendingNeedle)
   }, [pendingNeedle, content])
 
+  /**
+   * 壊れリンクをクリックしたら、その名前でノートを作って開く (task #4)。
+   * 置き場所は**リンク元と同じフォルダ**。`[[フォルダ/名前]]` と書いてあればそのパス。
+   */
+  const createFromLink = useCallback((target: string) => {
+    const clean = target.trim().replace(/\.md$/i, '')
+    const dir = current !== null && current.includes('/') ? current.slice(0, current.lastIndexOf('/')) : ''
+    const path = clean.includes('/') || dir === '' ? `${clean}.md` : `${dir}/${clean}.md`
+    void run(async () => {
+      const title = clean.slice(clean.lastIndexOf('/') + 1)
+      await createNote(path, `# ${title}\n`)
+      await refresh()
+      navigate(path)
+    })
+  }, [current, navigate, refresh, run])
+
   // 情報パネルの開閉は憶えておく (毎回開き直させない)
   useEffect(() => { window.localStorage.setItem(PANEL_KEY, String(panelOpen)) }, [panelOpen])
 
@@ -147,6 +169,9 @@ export function App(): JSX.Element {
       await movePath(from, to)
       await refresh()
       renameNoteViewState(from, to)
+      // 移動で本文中の [[リンク]] がサーバー側で書き換わることがある。
+      // 開いているノートが対象だと画面が古いままになるので読み直す
+      setReloadToken((v) => v + 1)
       // 開いているノート (またはその親フォルダ) が動いたら追従する。
       // 履歴には積まない — 戻ると存在しないパスに着地してしまうため
       if (current === from) navigate(to, { replace: true })
@@ -195,7 +220,15 @@ export function App(): JSX.Element {
         ) : content === null ? (
           <p className="empty">読み込み中…</p>
         ) : (
-          <Editor key={current} path={current} value={content} onSave={save} />
+          <Editor
+            key={current}
+            path={current}
+            notes={notes}
+            value={content}
+            onSave={save}
+            onOpenLink={open}
+            onCreateLink={createFromLink}
+          />
         )}
       </main>
       <InfoPanel
@@ -203,6 +236,7 @@ export function App(): JSX.Element {
         onToggle={() => { setPanelOpen((v) => !v) }}
         path={current}
         content={content}
+        onOpen={open}
       />
       <SearchPalette
         open={paletteOpen}

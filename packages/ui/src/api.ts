@@ -96,3 +96,30 @@ export async function removePath(path: string, type: 'folder' | 'note'): Promise
   const base = type === 'folder' ? '/api/folders' : '/api/notes'
   await request(`${base}/${encodeURI(path)}`, { method: 'DELETE' })
 }
+
+export interface Backlink {
+  path: string
+  line: number
+  snippet: string
+  raw: string
+}
+
+/** そのノートを指している [[リンク]] (task #6) */
+export async function fetchBacklinks(path: string): Promise<Backlink[]> {
+  const r = await request(`/api/backlinks?path=${encodeURIComponent(path)}`)
+  return ((await r.json()) as { backlinks: Backlink[] }).backlinks
+}
+
+export interface OutgoingLink {
+  target: string
+  heading: string | null
+  alias: string | null
+  /** 解決できた vault パス。null なら壊れリンク */
+  path: string | null
+  line: number
+}
+
+export async function fetchLinks(path: string): Promise<OutgoingLink[]> {
+  const r = await request(`/api/links?path=${encodeURIComponent(path)}`)
+  return ((await r.json()) as { links: OutgoingLink[] }).links
+}

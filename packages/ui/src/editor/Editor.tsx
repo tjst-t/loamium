@@ -11,6 +11,8 @@ import { splitFrontmatter, joinFrontmatter, normalizeForSave } from '@loamium/sh
 import { applyLoamiumStringifyOptions } from './markdown-config'
 import { exitNodeKeymap } from './exit-node'
 import { outline } from './outline'
+import { wikilink } from './wikilink'
+import { setWikiLinkEnv } from './wikilink-env'
 import { getNoteViewState, saveNoteViewState, type NoteViewState } from './view-state'
 
 export type Mode = 'wysiwyg' | 'source'
@@ -38,9 +40,15 @@ interface MilkdownHostProps {
   path: string
   initialBody: string
   onChange: (markdown: string) => void
+  /** vault の全ノート。リンク解決と `[[` 補完に使う */
+  notes: readonly string[]
+  onOpenLink: (path: string) => void
+  onCreateLink: (target: string) => void
 }
 
-function MilkdownHost({ path, initialBody, onChange }: MilkdownHostProps): JSX.Element {
+function MilkdownHost({
+  path, initialBody, onChange, notes, onOpenLink, onCreateLink,
+}: MilkdownHostProps): JSX.Element {
   // 最新の表示状態。アンマウント時にこれをそのまま保存する
   const viewState = useRef<NoteViewState>({ cursor: 0, scrollTop: 0 })
 
@@ -56,6 +64,8 @@ function MilkdownHost({ path, initialBody, onChange }: MilkdownHostProps): JSX.E
           viewState.current.cursor = selection.from
         })
       })
+      // ⚠️ wikilink は preset より**前**。Enter / Tab をリストのコマンドより先に拾うため
+      .use(wikilink)
       .use(commonmark)
       .use(gfm)
       .use(history)
@@ -63,6 +73,20 @@ function MilkdownHost({ path, initialBody, onChange }: MilkdownHostProps): JSX.E
       .use(exitNodeKeymap)
       .use(outline),
   )
+
+  /**
+   * リンク解決に要るものを React 側から差し込む。
+   * ノート一覧が変わったら空の transaction を投げて decoration を貼り直す
+   * (decoration の再計算は state の変化でしか起きないため)。
+   */
+  useEffect(() => {
+    setWikiLinkEnv({ notes, currentPath: path, open: onOpenLink, create: onCreateLink })
+    if (loading) return
+    get()?.action((ctx) => {
+      const view = ctx.get(editorViewCtx)
+      view.dispatch(view.state.tr)
+    })
+  }, [loading, get, notes, path, onOpenLink, onCreateLink])
 
   /**
    * ノートを開き直したときにスクロールとカーソルを戻す (task #2)。
@@ -102,6 +126,12 @@ function MilkdownHost({ path, initialBody, onChange }: MilkdownHostProps): JSX.E
 export interface EditorProps {
   /** 開いているノートの vault パス。表示状態を憶える単位になる */
   path: string
+  /** vault の全ノート。`[[リンク]]` の解決と補完に使う */
+  notes: readonly string[]
+  /** リンクをクリックしたとき */
+  onOpenLink: (path: string) => void
+  /** 壊れリンクをクリックしたとき (新規作成) */
+  onCreateLink: (target: string) => void
   /** ファイルの内容そのもの (frontmatter を含む) */
   value: string
   onSave: (next: string) => void
@@ -112,7 +142,7 @@ export interface EditorProps {
  * 外部エディタ・git・エージェントが同じファイルを直接触る以上、必須。
  * **文書単位**で切り替える (行単位ではない)。
  */
-export function Editor({ path, value, onSave }: EditorProps): JSX.Element {
+export function Editor({ path, notes, value, onSave, onOpenLink, onCreateLink }: EditorProps): JSX.Element {
   const [mode, setMode] = useState<Mode>('wysiwyg')
   const { frontmatter, body } = useMemo(() => splitFrontmatter(value), [value])
   const [draftBody, setDraftBody] = useState(body)
@@ -167,7 +197,15 @@ export function Editor({ path, value, onSave }: EditorProps): JSX.Element {
       {mode === 'wysiwyg' ? (
         <MilkdownProvider>
           {/* key で強制再マウント: ファイルを切り替えたら中身を作り直す */}
-          <MilkdownHost key={value} path={path} initialBody={body} onChange={handleChange} />
+          <MilkdownHost
+            key={value}
+            path={path}
+            initialBody={body}
+            onChange={handleChange}
+            notes={notes}
+            onOpenLink={onOpenLink}
+            onCreateLink={onCreateLink}
+          />
         </MilkdownProvider>
       ) : (
         <textarea

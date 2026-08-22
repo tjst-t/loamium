@@ -49,8 +49,9 @@
         "dependencies": [
           "1"
         ],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-08-22T07:10:00.000Z"
       },
       {
         "id": "5",
@@ -63,8 +64,9 @@
           "1",
           "4"
         ],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-08-22T07:10:00.000Z"
       },
       {
         "id": "6",
@@ -76,8 +78,9 @@
         "dependencies": [
           "4"
         ],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-08-22T07:10:00.000Z"
       },
       {
         "id": "7",

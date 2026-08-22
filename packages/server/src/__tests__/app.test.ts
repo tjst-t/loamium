@@ -82,9 +82,9 @@ describe('REST: agent', () => {
     const body = (await (await call('/api/agent/tools')).json()) as { tools: { name: string }[] }
     expect(body.tools.map((t) => t.name).sort()).toEqual(
       [
-        'fmt_vault', 'folder_create', 'help', 'journal_append', 'journal_read',
-        'list_notes', 'list_tree', 'note_create', 'note_delete', 'note_move',
-        'read_note', 'search', 'write_note',
+        'find_broken_links', 'fmt_vault', 'folder_create', 'help', 'journal_append',
+        'journal_read', 'list_backlinks', 'list_links', 'list_notes', 'list_tree',
+        'note_create', 'note_delete', 'note_move', 'read_note', 'search', 'write_note',
       ],
     )
   })
@@ -92,12 +92,15 @@ describe('REST: agent', () => {
   it('ケーパビリティで絞れる (ADR-0015)', async () => {
     const body = (await (await call('/api/agent/tools?capability=read')).json()) as { tools: { name: string }[] }
     expect(body.tools.map((t) => t.name).sort()).toEqual(
-      ['help', 'journal_read', 'list_notes', 'list_tree', 'read_note', 'search'])
+      [
+        'find_broken_links', 'help', 'journal_read', 'list_backlinks', 'list_links',
+        'list_notes', 'list_tree', 'read_note', 'search',
+      ])
   })
 
   it('help トピックが機能ごとに登録されている (ADR-0014)', async () => {
     const body = (await (await call('/api/agent/help')).json()) as { topics: string[] }
-    expect(body.topics.sort()).toEqual(['fmt', 'help', 'journal', 'notes', 'search'])
+    expect(body.topics.sort()).toEqual(['fmt', 'help', 'journal', 'links', 'notes', 'search'])
   })
 
   it('help 本文はピュア Markdown で返る', async () => {
@@ -293,5 +296,94 @@ describe('REST: search', () => {
     await writeFile(join(root, 'ok.md'), '# ok\n\n外から書いた語\n')
     const body = (await (await call(`/api/search?q=${encodeURIComponent('外から書いた語')}`)).json()) as Hits
     expect(body.hits.map((h) => h.path)).toEqual(['ok.md'])
+  })
+})
+
+describe('REST: links / backlinks (task #4, #6)', () => {
+  beforeEach(async () => {
+    await writeFile(join(root, 'hub.md'), '# hub\n\n- [[ok]] を見る\n- [[日誌/list|一覧]]\n- [[存在しない]]\n')
+    await writeFile(join(root, '日誌/mention.md'), '[[ok#見出し]] を参照\n')
+    // インデックスはファイル走査で作られるので、書いたあとに作り直す
+    await ctx.noteIndex.start()
+  })
+
+  it('GET /api/backlinks でリンク元が行番号つきで返る', async () => {
+    const r = await call(`/api/backlinks?path=${encodeURIComponent('ok.md')}`)
+    const body = (await r.json()) as { backlinks: { path: string; line: number; raw: string }[] }
+    expect(body.backlinks).toEqual([
+      { path: 'hub.md', line: 3, snippet: '- [[ok]] を見る', raw: '[[ok]]' },
+      { path: '日誌/mention.md', line: 1, snippet: '[[ok#見出し]] を参照', raw: '[[ok#見出し]]' },
+    ])
+  })
+
+  it('リンクされていないノートのバックリンクは空', async () => {
+    const r = await call(`/api/backlinks?path=${encodeURIComponent('table.md')}`)
+    expect(await r.json()).toMatchObject({ backlinks: [] })
+  })
+
+  it('path が無ければ 400', async () => {
+    expect((await call('/api/backlinks')).status).toBe(400)
+  })
+
+  it('GET /api/links は出ているリンクを解決して返す (壊れリンクは path: null)', async () => {
+    const r = await call(`/api/links?path=${encodeURIComponent('hub.md')}`)
+    const body = (await r.json()) as { links: { target: string; path: string | null }[] }
+    expect(body.links).toEqual([
+      { target: 'ok', heading: null, alias: null, path: 'ok.md', line: 3 },
+      { target: '日誌/list', heading: null, alias: '一覧', path: '日誌/list.md', line: 4 },
+      { target: '存在しない', heading: null, alias: null, path: null, line: 5 },
+    ])
+  })
+
+  it('GET /api/broken-links は vault 全体の壊れリンクを返す', async () => {
+    const r = await call('/api/broken-links')
+    expect(await r.json()).toMatchObject({ broken: [{ from: 'hub.md', target: '存在しない', line: 5 }] })
+  })
+})
+
+describe('リネームすると [[リンク]] が追従する (task #5)', () => {
+  beforeEach(async () => {
+    await writeFile(join(root, 'hub.md'), '[[ok]] と [[ok|表示名]] と [[ok#見出し]]\n\n```md\n[[ok]]\n```\n')
+    await ctx.noteIndex.start()
+  })
+
+  it('リンク先の書き換えで見出しと表示名は保たれる', async () => {
+    await call('/api/move', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ from: 'ok.md', to: 'renamed.md' }),
+    })
+    expect(await readFile(join(root, 'hub.md'), 'utf8'))
+      .toBe('[[renamed]] と [[renamed|表示名]] と [[renamed#見出し]]\n\n```md\n[[ok]]\n```\n')
+  })
+
+  it('更新したファイルを応答で返す', async () => {
+    const r = await call('/api/move', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ from: 'ok.md', to: 'renamed.md' }),
+    })
+    expect(await r.json()).toMatchObject({ ok: true, linksUpdated: ['hub.md'] })
+  })
+
+  it('フォルダを跨いで動かしてもノート名が変わらなければ本文はそのまま (無駄な diff を作らない)', async () => {
+    const r = await call('/api/move', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ from: 'ok.md', to: '日誌/ok.md' }),
+    })
+    expect(await r.json()).toMatchObject({ linksUpdated: [] })
+    expect(await readFile(join(root, 'hub.md'), 'utf8')).toContain('[[ok]]')
+  })
+
+  it('フォルダごと動かしても追従する', async () => {
+    await writeFile(join(root, 'hub.md'), '[[日誌/list]] と [[list]]\n')
+    await ctx.noteIndex.start()
+    await call('/api/move', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ from: '日誌', to: 'diary' }),
+    })
+    expect(await readFile(join(root, 'hub.md'), 'utf8')).toBe('[[diary/list]] と [[list]]\n')
   })
 })

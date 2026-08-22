@@ -5,6 +5,7 @@ import type { Node as ProseNode } from '@milkdown/kit/prose/model'
 import { applyLoamiumStringifyOptions } from './markdown-config'
 import { exitNodeKeymap } from './exit-node'
 import { outline } from './outline'
+import { wikilink } from './wikilink'
 
 /**
  * Editor.tsx と**同一の構成**で Milkdown を組み、parser / serializer だけを取り出す。
@@ -28,6 +29,7 @@ export async function createMilkdownTransform(root: HTMLElement): Promise<Milkdo
       ctx.set(rootCtx, root)
       applyLoamiumStringifyOptions(ctx)
     })
+    .use(wikilink)
     .use(commonmark)
     .use(gfm)
     .use(exitNodeKeymap)
