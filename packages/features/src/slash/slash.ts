@@ -175,6 +175,7 @@ function activeQuery(state: EditorState): { from: number; to: number; query: str
 
 export const slashSuggest = createSuggest({
   name: 'loamium-slash',
+  priority: 10,
   header: (query) => (query === '' ? '挿入' : `挿入: ${query}`),
   match: activeQuery,
   items: (query) => filterSlashItems(query),

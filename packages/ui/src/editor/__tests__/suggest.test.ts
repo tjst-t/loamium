@@ -83,8 +83,9 @@ function makeOverlapping(): { first: ReturnType<typeof createSuggest>; second: R
 
 describe('補完の調停', () => {
   it('登録された suggest の優先順が分かる', () => {
-    expect(suggestPriority().slice(0, 3)).toEqual([
-      'loamium-slash', 'loamium-wikilink-suggest', 'loamium-tag-suggest',
+    // ⚠️ import の並びではなく、各 suggest が宣言した priority で決まる
+    expect(suggestPriority().slice(0, 4)).toEqual([
+      'loamium-slash', 'loamium-wikilink-suggest', 'loamium-tag-suggest', 'loamium-emoji',
     ])
   })
 

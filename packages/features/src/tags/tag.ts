@@ -74,6 +74,7 @@ function activeTagQuery(state: EditorState): { from: number; to: number; query: 
 
 export const tagSuggest = createSuggest({
   name: 'loamium-tag-suggest',
+  priority: 30,
   header: (query) => (query === '' ? 'タグ' : `タグ: ${query}`),
   match: activeTagQuery,
   items: (query) => suggestTags(query, getEditorEnv().tags).map((tag) => ({

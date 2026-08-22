@@ -599,7 +599,8 @@ mark {
 }
 .suggest-header {
   padding: var(--s1) var(--s2) 6px;
-  font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  /* ⚠️ 大文字化しない: 打った文字をそのまま映す欄なので、`roc` を `ROC` に見せない */
+  font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
   color: var(--ink-3);
   border-bottom: 1px solid var(--rule); margin-bottom: var(--s1);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

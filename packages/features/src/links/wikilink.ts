@@ -141,6 +141,7 @@ function activeQuery(state: EditorState): { from: number; to: number; query: str
 
 export const wikiLinkSuggest = createSuggest({
   name: 'loamium-wikilink-suggest',
+  priority: 20,
   header: (query) => (query === '' ? 'ノートへリンク' : `ノートへリンク: ${query}`),
   match: activeQuery,
   items: (query) => suggestNotes(query, getEditorEnv().notes).map((path) => ({

@@ -12,12 +12,18 @@ import type { EditorView } from '@milkdown/kit/prose/view'
  * 見えないところで候補が出なくなる。ここで**登録順が優先**と明示的に決める。
  */
 
-/** 登録された suggest。順番が優先順位そのもの */
-const registry: { name: string; key: PluginKey<SuggestState> }[] = []
+/**
+ * 登録された suggest。**優先順は config の priority で決める。**
+ * ⚠️ 登録順 (= import 順) に頼らないこと: features.ts の import の並びを変えただけで
+ * 勝ち負けが変わってしまう (実測で踏んだ)。
+ */
+const registry: { name: string; key: PluginKey<SuggestState>; priority: number }[] = []
+
+const byPriority = (): typeof registry => [...registry].sort((a, b) => a.priority - b.priority)
 
 /** 自分より先に登録された suggest が既に開いているか */
 function earlierIsActive(key: PluginKey<SuggestState>, state: EditorState): boolean {
-  for (const entry of registry) {
+  for (const entry of byPriority()) {
     if (entry.key === key) return false
     if (entry.key.getState(state)?.active != null) return true
   }
@@ -26,7 +32,7 @@ function earlierIsActive(key: PluginKey<SuggestState>, state: EditorState): bool
 
 /** テスト用: 登録された suggest の名前 (優先順) */
 export function suggestPriority(): string[] {
-  return registry.map((entry) => entry.name)
+  return byPriority().map((entry) => entry.name)
 }
 export interface SuggestRange {
   /** 入力中の語の先頭 (トリガー記号の直後) */
@@ -63,6 +69,11 @@ export interface SuggestConfig {
    * (`trigger` の文字数だけ手前まで消す)。
    */
   apply?: (view: EditorView, item: SuggestItem, range: SuggestRange) => void
+  /**
+   * 優先順 (小さいほど強い)。条件が重なったときに開く 1 つを決める。
+   * 既定は 100。**import の並びに依存させないため、必ず明示する。**
+   */
+  priority?: number
   /**
    * トリガの文字数 (既定の apply が消す範囲に使う)。`/` なら 1、`[[` なら 2。
    * ⚠️ トリガの直前の空白も一緒に消す: 残すとファイルに `&#x20;` として書かれる
@@ -137,7 +148,7 @@ function renderPopup(
 
 export function createSuggest(config: SuggestConfig): SuggestPlugin {
   const key = new PluginKey<SuggestState>(config.name)
-  registry.push({ name: config.name, key })
+  registry.push({ name: config.name, key, priority: config.priority ?? 100 })
 
   const compute = (state: EditorState, index = 0): SuggestState['active'] => {
     const range = config.match(state)

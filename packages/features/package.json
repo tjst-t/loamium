@@ -10,9 +10,10 @@
     "./*": "./src/*.ts"
   },
   "dependencies": {
-    "@loamium/shared": "*",
     "@loamium/server": "*",
+    "@loamium/shared": "*",
     "cordis": "4.0.0-rc.8",
+    "emojilib": "^4.0.3",
     "hono": "^4.13.3"
   }
 }
