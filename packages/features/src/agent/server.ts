@@ -1,10 +1,16 @@
-import { defineFeature } from '../feature'
+import { defineFeature } from '@loamium/server/src/feature'
 
 /** エージェント向けの自己記述 API。ツール一覧と help をエージェントが引ける。 */
 export const agentFeature = defineFeature({
   name: 'agent',
 
   routes: (app, ctx) => {
+    /**
+     * 登録されている機能の一覧。**UI 側の機能の有効・無効はこれで決まる。**
+     * `app.ts` から `ctx.plugin(tagsFeature)` を消すと、UI のタグ機能もリロードで消える。
+     */
+    app.get('/api/features', (c) => c.json({ features: ctx.tools.features() }))
+
     app.get('/api/agent/tools', (c) => {
       const cap = c.req.query('capability')
       const granted = cap === undefined ? undefined : cap.split(',')

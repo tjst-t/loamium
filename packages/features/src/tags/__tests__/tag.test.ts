@@ -6,10 +6,10 @@ import { gfm } from '@milkdown/kit/preset/gfm'
 import { TextSelection } from '@milkdown/kit/prose/state'
 import type { EditorView } from '@milkdown/kit/prose/view'
 import { normalizeForSave } from '@loamium/shared'
-import { applyLoamiumStringifyOptions } from '../markdown-config'
+import { applyLoamiumStringifyOptions } from '@loamium/ui/src/editor/markdown-config'
 import { tag, tagSuggest, tagSuggestStateOf, suggestTags } from '../tag'
-import { wikilink } from '../wikilink'
-import { resetEditorEnv, setEditorEnv } from '../editor-env'
+import { wikilink } from '../../links/wikilink'
+import { resetEditorEnv, setEditorEnv } from '@loamium/ui/src/editor/editor-env'
 
 const TAGS = ['仕事', '読書', '読書/SF']
 

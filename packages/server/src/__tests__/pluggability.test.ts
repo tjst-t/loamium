@@ -10,10 +10,11 @@ import { NoteIndexService } from '../plugins/note-index'
 import { SseService } from '../plugins/sse'
 import { HttpService } from '../plugins/http'
 import { ToolsService } from '../plugins/tools'
-import { notesFeature } from '../features/notes'
-import { searchFeature } from '../features/search'
-import { tagsFeature } from '../features/tags'
-import { linksFeature } from '../features/links'
+import { notesFeature } from '@loamium/features/notes/server'
+import { searchFeature } from '@loamium/features/search/server'
+import { tagsFeature } from '@loamium/features/tags/server'
+import { linksFeature } from '@loamium/features/links/server'
+import { agentFeature } from '@loamium/features/agent/server'
 
 let root: string
 let ctx: Context
@@ -87,5 +88,24 @@ describe('機能のつけ外し', () => {
     await boot([notesFeature])
     await ctx.vault.move('b.md', 'c.md')
     expect(await ctx.vault.read('a.md')).toBe('#タグ [[c]]\n')
+  })
+})
+
+describe('/api/features — UI 側の有効・無効の出所', () => {
+  it('登録された機能の名前が返る', async () => {
+    await boot([notesFeature, searchFeature, agentFeature])
+    const body = (await (await call('/api/features')).json()) as { features: string[] }
+    expect(body.features).toEqual(['agent', 'notes', 'search'])
+  })
+
+  it('外した機能は名前も返らない (UI はこれを見て自分を無効にする)', async () => {
+    await boot([notesFeature, searchFeature, tagsFeature, agentFeature])
+    const withTags = (await (await call('/api/features')).json()) as { features: string[] }
+    expect(withTags.features).toContain('tags')
+
+    await ctx.fiber.dispose()
+    await boot([notesFeature, searchFeature, agentFeature])
+    const without = (await (await call('/api/features')).json()) as { features: string[] }
+    expect(without.features).not.toContain('tags')
   })
 })

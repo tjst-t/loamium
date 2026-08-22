@@ -1,5 +1,5 @@
 import { collectTags, countTags, noteHasTag, normalizeTag, type TagCount } from '@loamium/shared'
-import { defineFeature } from '../feature'
+import { defineFeature } from '@loamium/server/src/feature'
 import type { Context } from 'cordis'
 
 /**

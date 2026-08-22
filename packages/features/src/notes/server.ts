@@ -1,4 +1,4 @@
-import { defineFeature } from '../feature'
+import { defineFeature } from '@loamium/server/src/feature'
 
 /**
  * ノートのブラウズと基本操作。

@@ -11,11 +11,11 @@ import { gfm } from '@milkdown/kit/preset/gfm'
 import { TextSelection } from '@milkdown/kit/prose/state'
 import type { EditorView } from '@milkdown/kit/prose/view'
 import { normalizeForSave } from '@loamium/shared'
-import { applyLoamiumStringifyOptions } from '../markdown-config'
-import { exitNodeKeymap } from '../exit-node'
-import { outline } from '../outline'
+import { applyLoamiumStringifyOptions } from '@loamium/ui/src/editor/markdown-config'
+import { exitNodeKeymap } from '@loamium/ui/src/editor/exit-node'
+import { outline } from '@loamium/ui/src/editor/outline'
 import { wikilink, suggestNotes, suggestStateOf, accept } from '../wikilink'
-import { resetEditorEnv, setEditorEnv } from '../editor-env'
+import { resetEditorEnv, setEditorEnv } from '@loamium/ui/src/editor/editor-env'
 
 const NOTES = ['index.md', 'プロジェクト/計画.md', 'プロジェクト/メモ.md', 'アーカイブ/メモ.md']
 

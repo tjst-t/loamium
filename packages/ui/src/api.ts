@@ -27,6 +27,17 @@ async function request(path: string, init?: RequestInit): Promise<Response> {
   return r
 }
 
+/** 機能側 (packages/features) から REST を叩くための入口。パスは各機能の contract.ts が組み立てる */
+export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
+  return (await request(path, init)).json() as Promise<T>
+}
+
+/** サーバーに登録されている機能の名前 (UI 機能の有効・無効に使う) */
+export async function fetchServerFeatures(): Promise<string[]> {
+  const r = await request('/api/features')
+  return ((await r.json()) as { features: string[] }).features
+}
+
 export async function listNotes(): Promise<string[]> {
   const r = await request('/api/notes')
   return ((await r.json()) as { paths: string[] }).paths
@@ -109,32 +120,6 @@ export async function removePath(path: string, type: 'folder' | 'note'): Promise
   await request(`${base}/${encodeURI(path)}`, { method: 'DELETE' })
 }
 
-export interface Backlink {
-  path: string
-  line: number
-  snippet: string
-  raw: string
-}
-
-/** そのノートを指している [[リンク]] (task #6) */
-export async function fetchBacklinks(path: string): Promise<Backlink[]> {
-  const r = await request(`/api/backlinks?path=${encodeURIComponent(path)}`)
-  return ((await r.json()) as { backlinks: Backlink[] }).backlinks
-}
-
-export interface OutgoingLink {
-  target: string
-  heading: string | null
-  alias: string | null
-  /** 解決できた vault パス。null なら壊れリンク */
-  path: string | null
-  line: number
-}
-
-export async function fetchLinks(path: string): Promise<OutgoingLink[]> {
-  const r = await request(`/api/links?path=${encodeURIComponent(path)}`)
-  return ((await r.json()) as { links: OutgoingLink[] }).links
-}
 
 export interface TagCount {
   tag: string

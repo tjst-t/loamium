@@ -12,6 +12,7 @@ install:
 
 lint:
 	$(NVM) npx tsc -p packages/shared --noEmit
+	$(NVM) npx tsc -p packages/features --noEmit
 	$(NVM) npx tsc -p packages/server --noEmit
 	$(NVM) npx tsc -p packages/ui --noEmit
 	$(NVM) npx tsc -p packages/cli --noEmit

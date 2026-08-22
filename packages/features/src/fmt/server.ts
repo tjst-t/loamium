@@ -1,4 +1,4 @@
-import { defineFeature } from '../feature'
+import { defineFeature } from '@loamium/server/src/feature'
 
 /**
  * vault 全体を正規形へ揃える。ADR-0035 が前提にしている「初回の正規化コミット」を

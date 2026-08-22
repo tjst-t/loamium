@@ -9,9 +9,19 @@ export class ToolsService extends Service {
   static readonly inject = []
   private toolMap = new Map<string, AgentTool>()
   private helpMap = new Map<string, HelpTopic>()
+  /** 登録されている機能の名前。UI 側の有効・無効判定に使う (/api/features) */
+  private featureNames = new Set<string>()
 
   constructor(ctx: Context) {
     super(ctx, 'tools')
+  }
+
+  registerFeature(name: string): void {
+    this.featureNames.add(name)
+  }
+
+  features(): string[] {
+    return [...this.featureNames].sort()
   }
 
   registerTool(tool: AgentTool): void {

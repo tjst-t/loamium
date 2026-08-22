@@ -11,9 +11,8 @@ import { splitFrontmatter, joinFrontmatter, normalizeForSave } from '@loamium/sh
 import { applyLoamiumStringifyOptions } from './markdown-config'
 import { exitNodeKeymap } from './exit-node'
 import { outline } from './outline'
-import { wikilink } from './wikilink'
-import { tag } from './tag'
 import { setEditorEnv } from './editor-env'
+import type { MilkdownPlugin } from '@milkdown/kit/ctx'
 import { getNoteViewState, saveNoteViewState, type NoteViewState } from './view-state'
 
 export type Mode = 'wysiwyg' | 'source'
@@ -48,10 +47,14 @@ interface MilkdownHostProps {
   onOpenLink: (path: string) => void
   onCreateLink: (target: string) => void
   onOpenTag: (tag: string) => void
+  /** 有効な機能が持ち込む Milkdown プラグイン (preset の前/後) */
+  beforePreset: MilkdownPlugin[]
+  afterPreset: MilkdownPlugin[]
 }
 
 function MilkdownHost({
   path, initialBody, onChange, notes, tags, onOpenLink, onCreateLink, onOpenTag,
+  beforePreset, afterPreset,
 }: MilkdownHostProps): JSX.Element {
   // 最新の表示状態。アンマウント時にこれをそのまま保存する
   const viewState = useRef<NoteViewState>({ cursor: 0, scrollTop: 0 })
@@ -68,15 +71,16 @@ function MilkdownHost({
           viewState.current.cursor = selection.from
         })
       })
-      // ⚠️ 補完系は preset より**前**。Enter / Tab をリストのコマンドより先に拾うため
-      .use(wikilink)
-      .use(tag)
+      // ⚠️ 順序が意味を持つ。補完系 (`[[` / `#`) は Enter / Tab をリストのコマンドより
+      // 先に拾う必要があるので preset より**前**。並びの出所は features.ts の 1 か所だけ
+      .use(beforePreset)
       .use(commonmark)
       .use(gfm)
       .use(history)
       .use(listener)
       .use(exitNodeKeymap)
-      .use(outline),
+      .use(outline)
+      .use(afterPreset),
   )
 
   /**
@@ -143,6 +147,9 @@ export interface EditorProps {
   onCreateLink: (target: string) => void
   /** タグをクリックしたとき (詳細検索へ) */
   onOpenTag: (tag: string) => void
+  /** 有効な機能が持ち込む Milkdown プラグイン */
+  beforePreset: MilkdownPlugin[]
+  afterPreset: MilkdownPlugin[]
   /** ファイルの内容そのもの (frontmatter を含む) */
   value: string
   onSave: (next: string) => void
@@ -153,9 +160,9 @@ export interface EditorProps {
  * 外部エディタ・git・エージェントが同じファイルを直接触る以上、必須。
  * **文書単位**で切り替える (行単位ではない)。
  */
-export function Editor(
-  { path, notes, tags, value, onSave, onOpenLink, onCreateLink, onOpenTag }: EditorProps,
-): JSX.Element {
+export function Editor({
+  path, notes, tags, value, onSave, onOpenLink, onCreateLink, onOpenTag, beforePreset, afterPreset,
+}: EditorProps): JSX.Element {
   const [mode, setMode] = useState<Mode>('wysiwyg')
   const { frontmatter, body } = useMemo(() => splitFrontmatter(value), [value])
   const [draftBody, setDraftBody] = useState(body)
@@ -220,6 +227,8 @@ export function Editor(
             onOpenLink={onOpenLink}
             onCreateLink={onCreateLink}
             onOpenTag={onOpenTag}
+            beforePreset={beforePreset}
+            afterPreset={afterPreset}
           />
         </MilkdownProvider>
       ) : (

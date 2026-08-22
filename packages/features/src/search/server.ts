@@ -1,5 +1,5 @@
 import { noteHasTag, normalizeVaultPath, rankHits, searchNote, type SearchHit } from '@loamium/shared'
-import { defineFeature } from '../feature'
+import { defineFeature } from '@loamium/server/src/feature'
 import type { Context } from 'cordis'
 
 /** 1 回の検索で返す最大件数。UI のパレットが扱える量に抑える */

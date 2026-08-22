@@ -1,5 +1,5 @@
 import { journalInitialContent, journalPath, resolveJournalDate } from '@loamium/shared'
-import { defineFeature } from '../feature'
+import { defineFeature } from '@loamium/server/src/feature'
 import type { Context } from 'cordis'
 
 /** 空でない本文の末尾に追記する。段落として離れるよう空行を 1 つ挟む */

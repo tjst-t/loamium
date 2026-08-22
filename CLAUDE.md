@@ -68,6 +68,10 @@ TypeScript (strict), Node.js 22, npm workspaces モノレポ。
 - **本番ビルドはプラグインを静的登録する。`@cordisjs/loader` と HMR は dev 専用。**
   最大の地雷。パッケージ版サーバーは `bun --compile` の単一実行ファイルで、cordis の設定駆動な動的 `import()` は静的解決できず必ず壊れる。後から分離するのは極めて痛いので、最初から分ける
 - **1 機能 = 1 プラグイン。** REST ルート・エージェントツール・help トピック・ケーパビリティ宣言を**同じプラグイン内で同時に登録**する。これにより「新機能にはエージェントツールも必ず実装」が規約(人間の努力)ではなく構造で担保される
+- **1 機能 = 1 フォルダ (`packages/features/<機能名>/`)。フロントとバックにまたがる機能を 1 か所にまとめる。**
+  `contract.ts` (両側で共有する型と REST パス / React も Node も含めない) / `server.ts` (`defineFeature`) / `ui.tsx` (`defineUiFeature`)。
+  登録は `packages/server/src/app.ts` と `packages/ui/src/features.ts` の 2 行だけ。**機能を捨てるならフォルダごと消して 2 行消す。**
+  ⚠️ `server.ts` と `ui.tsx` を同じ barrel から再エクスポートしないこと (UI のバンドルに Node 依存を引き込む)
 - **サービスは `ctx` 経由で取得する。** 位置引数 DI (`createApp(config, index, dqlCache?, sse?, sync?)`) と手書きシングルトン (`getSyncService()`) を再発明しない
 - **イベントは `ctx.on()`。** リスナー 1 本しか持てないコールバックスロット (旧 `index.setOnChange`) を作らない。旧実装ではそこに無関係な 4 つの関心事が詰まり、1 つ throw すると後続が全部死んでいた
 - **teardown は各プラグインの `ctx.effect()` が返す disposable。** 手書きの逆順 shutdown チェーンを書かない。`ctx.fiber.dispose()` が登録順の逆で自動的に畳む (検証済み)
@@ -82,6 +86,16 @@ TypeScript (strict), Node.js 22, npm workspaces モノレポ。
 - **ロガーは exporter を登録するまで完全に無音。** cordis 4 の `LoggerService` に既定の出力先は無い。`ctx.logger.exporter({ export(msg) {...} })` を最初のプラグインとして登録する (`plugins/logging.ts`)
 - **`await ctx.plugin(...)` は async effect の解決までは待たない (実測)。** 初期化の完了を呼び出し側が待つ必要がある場合は、サービスに `ready: Promise<void>` を持たせ、`ctx.inject([...], c => c.svc.ready.then(...))` で「サービスの生成」と「初期化の完了」の両方を待つこと。`noteIndex` がこの形
 - **teardown の逆順実行は自前で書かなくてよい。** 登録順 `logging → vault → noteIndex → sse → sync → http` に対し、`ctx.fiber.dispose()` が `sync → sse → ...` の逆順で effect を畳むことを実測で確認済み
+
+### UI (機能レジストリ)
+
+- **UI 側も 1 機能 = 1 プラグイン。** `defineUiFeature` で「エディタ拡張 / 情報パネルの節 / 画面 / サイドバーの入口 / コマンド」を宣言し、`packages/ui/src/features.ts` が静的に登録する。`App.tsx` はスロットを描くシェルに徹する (props のバケツリレーを増やさない)
+- **`requires` にサーバー機能名を書く。** `GET /api/features` に無ければ UI 側も丸ごと無効になる。
+  `app.ts` から `ctx.plugin(tagsFeature)` を消せば、**UI をリロードするだけで**タグ関連の UI が消える (UI のコードは触らない)
+- **Milkdown プラグインの順序は型で持つ** (`order: 'before-preset' | 'after-preset'`)。`[[` / `#` の補完は Enter / Tab をリストのコマンドより先に拾う必要があり、コメントでは守れない。
+  並びの出所は `features.ts` の 1 か所だけ。**`Editor.tsx` と `milkdown-transform.ts` で手で揃えない** (以前は 2 箇所同期で、足し忘れると本番とテストの構成がずれる状態だった)
+- **UI に cordis は入れない。** 実測でブラウザでも動き React とも 5 行で繋がる (`useSyncExternalStore`) が、フロントで欲しいのは「機能を束ねる器」だけで、それは型と配列で足りる (+15KB を払う理由が今は無い)。実行時の着脱やサードパーティ拡張が必要になったら、レジストリを `defineFeature` に置き換えて移行する
+- **UI 機能の動的ロード (vault から JS) は採らない。** 任意コード実行なので ADR とセットの判断になる
 
 ### エディタ
 

@@ -1,16 +1,9 @@
 import { useEffect, useMemo, useState, type JSX } from 'react'
 import { Hash, Search } from 'lucide-react'
-import { fetchTags, searchNotes, type SearchHit, type TagCount, type TreeNode } from '../api'
-import type { SearchParams } from '../route'
-
-export interface SearchPageProps {
-  params: SearchParams
-  tree: TreeNode[]
-  /** 条件を変える (URL に反映する) */
-  onChange: (next: Partial<SearchParams>) => void
-  /** ヒットを開く。needle は本文中で光らせる語 */
-  onOpen: (path: string, needle: string) => void
-}
+import { apiJson, type SearchHit, type TreeNode } from '@loamium/ui/src/api'
+import { defineUiFeature, useShell } from '@loamium/ui/src/feature'
+import { searchApi } from './contract'
+import { tagsApi, type TagCount } from '../tags/contract'
 
 const baseNameOf = (path: string): string => path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/i, '')
 
@@ -50,7 +43,9 @@ function groupByNote(hits: SearchHit[]): Group[] {
  * パレット (Ctrl+K) が「思い出したノートへ飛ぶ」ためのものなのに対し、こちらは
  * **条件で絞って見渡す**ための画面。条件は URL に載るので共有・ブックマークできる。
  */
-export function SearchPage({ params, tree, onChange, onOpen }: SearchPageProps): JSX.Element {
+function SearchPage(): JSX.Element {
+  const { search, tree, setSearch: onChange, openHit: onOpen } = useShell()
+  const params = search ?? { q: '', tag: '', folder: '' }
   const [hits, setHits] = useState<SearchHit[]>([])
   const [truncated, setTruncated] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -58,7 +53,9 @@ export function SearchPage({ params, tree, onChange, onOpen }: SearchPageProps):
   const folders = useMemo(() => foldersOf(tree), [tree])
 
   useEffect(() => {
-    fetchTags().then(setTags).catch(() => { setTags([]) })
+    apiJson<{ tags: TagCount[] }>(tagsApi.list())
+      .then((body) => { setTags(body.tags) })
+      .catch(() => { setTags([]) })
   }, [])
 
   useEffect(() => {
@@ -70,7 +67,9 @@ export function SearchPage({ params, tree, onChange, onOpen }: SearchPageProps):
     let live = true
     setLoading(true)
     const timer = setTimeout(() => {
-      searchNotes(params.q, { tag: params.tag, folder: params.folder })
+      apiJson<{ hits: SearchHit[]; truncated: boolean }>(
+        searchApi.search(params.q, { tag: params.tag, folder: params.folder }),
+      )
         .then((result) => {
           if (!live) return
           setHits(result.hits)
@@ -166,3 +165,24 @@ export function SearchPage({ params, tree, onChange, onOpen }: SearchPageProps):
     </div>
   )
 }
+
+
+/** サイドバーの入口。パレット (Ctrl+K) が「飛ぶ」ため、こちらは「絞って見渡す」ため */
+function SidebarItem(): JSX.Element {
+  const { search, openSearch } = useShell()
+  return (
+    <button type="button" className="sidebar-search" aria-current={search !== null} onClick={openSearch}>
+      <Search size={14} />
+      詳細検索
+      <kbd>Ctrl+Shift+F</kbd>
+    </button>
+  )
+}
+
+/** 詳細検索ページ (task #8) */
+export default defineUiFeature({
+  name: 'search',
+  requires: 'search',
+  view: { match: (route) => route.search !== null, render: () => <SearchPage /> },
+  sidebarItem: () => <SidebarItem />,
+})

@@ -1,19 +1,18 @@
 import { useCallback, useEffect, useState, type JSX } from 'react'
-import { Search as SearchIcon } from 'lucide-react'
 import { Editor } from './editor/Editor'
 import { FileTree } from './components/FileTree'
 import { InfoPanel } from './components/InfoPanel'
 import { JournalCard } from './components/JournalCard'
 import { SearchPalette } from './components/SearchPalette'
-import { SearchPage } from './components/SearchPage'
+import { ShellProvider, type Shell } from './feature'
+import { editorPlugins, enabledFeatures } from './features'
 import { scrollToTextWhenReady } from './scroll-to-text'
 import { pathFromSearch, searchParamsFromSearch, useRoute } from './route'
 import { forgetNoteViewState, renameNoteViewState } from './editor/view-state'
 import {
-  ApiError, createFolder, createNote, fetchJournal, fetchTags, fetchTree, listNotes, movePath,
-  readNote, removePath, writeNote, type TreeNode,
+  ApiError, createFolder, createNote, fetchJournal, fetchServerFeatures, fetchTags, fetchTree,
+  listNotes, movePath, readNote, removePath, writeNote, type TreeNode,
 } from './api'
-import type { SearchParams } from './route'
 
 /** `journals/YYYY-MM-DD.md` から日付を取り出す。ジャーナル以外なら null */
 const journalDateOf = (path: string | null): string | null =>
@@ -34,6 +33,11 @@ export function App(): JSX.Element {
   const [notes, setNotes] = useState<string[]>([])
   /** vault のタグ。`#` の補完に渡す */
   const [tags, setTags] = useState<string[]>([])
+  /**
+   * サーバーに登録されている機能。**これが UI 機能の有効・無効を決める** (取得前は null)。
+   * `app.ts` から機能を外すと、リロードで UI 側も消える
+   */
+  const [serverFeatures, setServerFeatures] = useState<string[] | null>(null)
   const [content, setContent] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -72,6 +76,7 @@ export function App(): JSX.Element {
   // 起動時: URL にノートが載っていればそれを開く。無ければ今日のジャーナルへ着地する
   // (VISION: ジャーナル中心のワークフロー)。着地は履歴に積まない
   useEffect(() => {
+    fetchServerFeatures().then(setServerFeatures).catch(() => { setServerFeatures(null) })
     void run(refresh)
     if (pathFromSearch(window.location.search) === null && searchParamsFromSearch(window.location.search) === null) {
       openJournal(undefined, { replace: true })
@@ -224,22 +229,33 @@ export function App(): JSX.Element {
   // ジャーナルを開いていればその日付、そうでなければ今日を指しておく
   const journalDate = journalDateOf(current)
 
+  const features = enabledFeatures(serverFeatures)
+  const shell: Shell = {
+    notes,
+    tags,
+    tree,
+    currentPath: current,
+    search,
+    openNote: open,
+    openHit,
+    openTag,
+    openSearch: openSearchPage,
+    setSearch: (next) => { navigateSearch(next) },
+  }
+  const view = features.find((feature) => feature.view?.match({ path: current, search }) === true)
+
   return (
+    <ShellProvider value={shell}>
     <div className={`app${panelOpen ? ' panel-open' : ''}`}>
       <aside className="sidebar">
         <h1>Loamium</h1>
         {error !== null && <p className="error">{error}</p>}
         <JournalCard date={journalDate ?? todayISO()} active={journalDate !== null} onGo={openJournal} />
-        <button
-          type="button"
-          className="sidebar-search"
-          aria-current={search !== null}
-          onClick={openSearchPage}
-        >
-          <SearchIcon size={14} />
-          詳細検索
-          <kbd>Ctrl+Shift+F</kbd>
-        </button>
+        {features.map((feature) => (
+          feature.sidebarItem === undefined
+            ? null
+            : <div key={feature.name}>{feature.sidebarItem()}</div>
+        ))}
         <FileTree
           tree={tree}
           currentPath={current}
@@ -250,13 +266,8 @@ export function App(): JSX.Element {
         />
       </aside>
       <main className="main">
-        {search !== null ? (
-          <SearchPage
-            params={search}
-            tree={tree}
-            onChange={(next: Partial<SearchParams>) => { navigateSearch(next) }}
-            onOpen={openHit}
-          />
+        {view !== undefined ? (
+          view.view?.render()
         ) : current === null ? (
           <p className="empty">ノートを選んでください</p>
         ) : content === null ? (
@@ -272,6 +283,8 @@ export function App(): JSX.Element {
             onOpenLink={open}
             onCreateLink={createFromLink}
             onOpenTag={openTag}
+            beforePreset={editorPlugins(features, 'before-preset')}
+            afterPreset={editorPlugins(features, 'after-preset')}
           />
         )}
       </main>
@@ -280,7 +293,7 @@ export function App(): JSX.Element {
         onToggle={() => { setPanelOpen((v) => !v) }}
         path={current}
         content={content}
-        onOpen={open}
+        features={features}
       />
       <SearchPalette
         open={paletteOpen}
@@ -288,5 +301,6 @@ export function App(): JSX.Element {
         onPick={openHit}
       />
     </div>
+    </ShellProvider>
   )
 }

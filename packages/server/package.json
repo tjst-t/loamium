@@ -5,6 +5,8 @@
   "type": "module",
   "main": "src/index.ts",
   "dependencies": {
+    "@loamium/features": "*",
+    "@loamium/shared": "*",
     "cordis": "4.0.0-rc.8",
     "hono": "^4.13.3",
     "@hono/node-server": "^1.14.0"

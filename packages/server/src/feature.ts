@@ -1,3 +1,6 @@
+// ctx.vault / ctx.tools などの型拡張。defineFeature を import した側にも効かせる
+// (機能は @loamium/features 側にあるので、ここで一緒に運ぶ)
+import './types'
 import type { Context } from 'cordis'
 import type { Hono } from 'hono'
 
@@ -58,6 +61,7 @@ export function defineFeature(feature: Feature): (ctx: Context) => void {
   }
 
   const plugin = (ctx: Context): void => {
+    ctx.tools.registerFeature(feature.name)
     if (feature.routes) ctx.http.mount((app) => feature.routes?.(app, ctx))
     for (const tool of feature.tools ?? []) ctx.tools.registerTool(tool)
     for (const topic of feature.help ?? []) ctx.tools.registerHelp(topic)

@@ -1,7 +1,7 @@
 import {
   findBacklinksIn, normalizeVaultPath, parseWikiLinks, resolveWikiLink, type Backlink,
 } from '@loamium/shared'
-import { defineFeature } from '../feature'
+import { defineFeature } from '@loamium/server/src/feature'
 import type { Context } from 'cordis'
 
 export interface OutgoingLink {

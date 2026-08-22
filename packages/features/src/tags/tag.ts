@@ -2,8 +2,8 @@ import { $prose } from '@milkdown/kit/utils'
 import { Plugin, PluginKey, TextSelection, type EditorState } from '@milkdown/kit/prose/state'
 import { Decoration, DecorationSet } from '@milkdown/kit/prose/view'
 import { foldTag, parseInlineTags } from '@loamium/shared'
-import { createSuggest } from './suggest'
-import { getEditorEnv } from './editor-env'
+import { createSuggest } from '@loamium/ui/src/editor/suggest'
+import { getEditorEnv } from '@loamium/ui/src/editor/editor-env'
 
 /**
  * タグ `#tag` (task #9)。

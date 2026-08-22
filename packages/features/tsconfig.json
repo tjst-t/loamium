@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    // server.ts は node、ui.tsx は Vite。1 パッケージに両方あるので両方入れる
+    // (⚠️ 入口を混ぜないこと: server.ts と ui.tsx を同じ barrel から出さない)
+    "types": ["node", "vite/client"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}
