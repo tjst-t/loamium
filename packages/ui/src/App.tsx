@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useState, type JSX } from 'react'
 import { Editor } from './editor/Editor'
 import { FileTree } from './components/FileTree'
+import { JournalNav } from './components/JournalNav'
 import {
-  ApiError, createFolder, createNote, fetchTree, movePath, readNote, removePath, writeNote,
-  type TreeNode,
+  ApiError, createFolder, createNote, fetchJournal, fetchTree, movePath, readNote, removePath,
+  writeNote, type TreeNode,
 } from './api'
+
+/** `journals/YYYY-MM-DD.md` から日付を取り出す。ジャーナル以外なら null */
+const journalDateOf = (path: string | null): string | null =>
+  (path === null ? null : /^journals\/(\d{4}-\d{2}-\d{2})\.md$/.exec(path)?.[1] ?? null)
 
 export function App(): JSX.Element {
   const [tree, setTree] = useState<TreeNode[]>([])
@@ -26,7 +31,21 @@ export function App(): JSX.Element {
     setTree(await fetchTree())
   }, [])
 
-  useEffect(() => { void run(refresh) }, [run, refresh])
+  /** ジャーナルを開く。遅延生成されたらツリーを引き直す */
+  const openJournal = useCallback((date?: string) => {
+    void run(async () => {
+      const journal = await fetchJournal(date)
+      setCurrent(journal.path)
+      setContent(journal.content)
+      if (journal.created) await refresh()
+    })
+  }, [refresh, run])
+
+  // 起動したら今日のジャーナルに着地する (VISION: ジャーナル中心のワークフロー)
+  useEffect(() => {
+    void run(refresh)
+    openJournal()
+  }, [openJournal, refresh, run])
 
   const open = useCallback((path: string) => {
     void run(async () => {
@@ -85,11 +104,16 @@ export function App(): JSX.Element {
     })
   }, [current, refresh, run])
 
+  const journalDate = journalDateOf(current)
+
   return (
     <div className="app">
       <aside className="sidebar">
         <h1>Loamium</h1>
         {error !== null && <p className="error">{error}</p>}
+        <button type="button" className="text-button today-button" onClick={() => { openJournal() }}>
+          今日のジャーナル
+        </button>
         <FileTree
           tree={tree}
           currentPath={current}
@@ -105,7 +129,10 @@ export function App(): JSX.Element {
         ) : content === null ? (
           <p className="empty">読み込み中…</p>
         ) : (
-          <Editor key={current} value={content} onSave={save} />
+          <>
+            {journalDate !== null && <JournalNav date={journalDate} onGo={openJournal} />}
+            <Editor key={current} value={content} onSave={save} />
+          </>
         )}
       </main>
     </div>

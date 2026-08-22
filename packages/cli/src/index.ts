@@ -12,6 +12,8 @@ const USAGE = `loamium — ローカル Markdown ノート
   loamium mv <from> <to>         ノート/フォルダをリネーム・移動する
   loamium rm <path>              ノート/フォルダを削除する (フォルダは中身ごと)
   loamium mkdir <path>           フォルダを作る
+  loamium journal [date]         デイリージャーナルを表示する (無ければ作る)
+  loamium journal-append <text>  ジャーナルに追記する (--date=YYYY-MM-DD)
   loamium fmt [--dry-run]        vault 全体を標準 Markdown へ正規化する
   loamium tools                  エージェント操作ツールの一覧
   loamium help [topic]           help 知識ベースを引く
@@ -99,6 +101,23 @@ async function main(argv: string[]): Promise<number> {
       if (path === undefined) { process.stderr.write('パスを指定してください\n'); return 2 }
       await api.createFolder(path)
       process.stdout.write(`作成しました: ${path}/\n`)
+      return 0
+    }
+
+    case 'journal': {
+      // date は today / yesterday / +3d / YYYY-MM-DD。省略時は今日
+      const { content, path, created } = await api.journal(rest[0])
+      process.stdout.write(content)
+      if (created) process.stderr.write(`(${path} を新規作成しました)\n`)
+      return 0
+    }
+
+    case 'journal-append': {
+      const dateArg = rest.find((a) => a.startsWith('--date='))
+      const text = rest.filter((a) => !a.startsWith('--date=')).join(' ')
+      if (text === '') { process.stderr.write('追記する内容を指定してください\n'); return 2 }
+      const { path } = await api.journalAppend(text, dateArg?.slice('--date='.length))
+      process.stdout.write(`追記しました: ${path}\n`)
       return 0
     }
 

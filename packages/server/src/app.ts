@@ -9,6 +9,7 @@ import { ToolsService } from './plugins/tools'
 import { sync } from './plugins/sync'
 import { notesFeature } from './features/notes'
 import { fmtFeature } from './features/fmt'
+import { journalFeature } from './features/journal'
 import { agentFeature } from './features/agent'
 
 export interface AppConfig {
@@ -38,6 +39,7 @@ export async function createApp(config: AppConfig): Promise<Context> {
 
   // 1 機能 = 1 プラグイン。REST・エージェントツール・help を同時に登録する
   ctx.plugin(notesFeature)
+  ctx.plugin(journalFeature)
   ctx.plugin(fmtFeature)
   ctx.plugin(agentFeature)
 

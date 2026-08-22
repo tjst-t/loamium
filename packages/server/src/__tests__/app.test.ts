@@ -82,8 +82,9 @@ describe('REST: agent', () => {
     const body = (await (await call('/api/agent/tools')).json()) as { tools: { name: string }[] }
     expect(body.tools.map((t) => t.name).sort()).toEqual(
       [
-        'fmt_vault', 'folder_create', 'help', 'list_notes', 'list_tree',
-        'note_create', 'note_delete', 'note_move', 'read_note', 'write_note',
+        'fmt_vault', 'folder_create', 'help', 'journal_append', 'journal_read',
+        'list_notes', 'list_tree', 'note_create', 'note_delete', 'note_move',
+        'read_note', 'write_note',
       ],
     )
   })
@@ -91,12 +92,12 @@ describe('REST: agent', () => {
   it('ケーパビリティで絞れる (ADR-0015)', async () => {
     const body = (await (await call('/api/agent/tools?capability=read')).json()) as { tools: { name: string }[] }
     expect(body.tools.map((t) => t.name).sort()).toEqual(
-      ['help', 'list_notes', 'list_tree', 'read_note'])
+      ['help', 'journal_read', 'list_notes', 'list_tree', 'read_note'])
   })
 
   it('help トピックが機能ごとに登録されている (ADR-0014)', async () => {
     const body = (await (await call('/api/agent/help')).json()) as { topics: string[] }
-    expect(body.topics.sort()).toEqual(['fmt', 'help', 'notes'])
+    expect(body.topics.sort()).toEqual(['fmt', 'help', 'journal', 'notes'])
   })
 
   it('help 本文はピュア Markdown で返る', async () => {
@@ -189,6 +190,66 @@ describe('REST: ツリーと基本操作', () => {
     const r = await call('/api/move', {
       method: 'POST', body: JSON.stringify({ from: 'ok.md', to: '../escaped.md' }),
     })
+    expect(r.status).toBe(400)
+  })
+})
+
+describe('REST: journal', () => {
+  const today = (): string => {
+    const n = new Date()
+    return `${n.getFullYear()}-${`${n.getMonth() + 1}`.padStart(2, '0')}-${`${n.getDate()}`.padStart(2, '0')}`
+  }
+
+  it('GET /api/journal は今日のジャーナルを遅延生成する', async () => {
+    const body = (await (await call('/api/journal')).json()) as
+      { date: string; path: string; content: string; created: boolean }
+    expect(body.date).toBe(today())
+    expect(body.path).toBe(`journals/${today()}.md`)
+    expect(body.created).toBe(true)
+    expect(body.content).toBe(`# ${today()}\n`)
+    expect(await readFile(join(root, body.path), 'utf8')).toBe(`# ${today()}\n`)
+  })
+
+  it('二度目は作り直さない (created=false)', async () => {
+    await call('/api/journal')
+    await call(`/api/notes/${encodeURI(`journals/${today()}.md`)}`, { method: 'POST', body: '# 書いた\n' })
+    const body = (await (await call('/api/journal')).json()) as { created: boolean; content: string }
+    expect(body.created).toBe(false)
+    expect(body.content).toBe('# 書いた\n')
+  })
+
+  it('date で相対指定できる', async () => {
+    const body = (await (await call('/api/journal?date=yesterday')).json()) as { date: string }
+    const y = new Date()
+    y.setDate(y.getDate() - 1)
+    expect(body.date).toBe(
+      `${y.getFullYear()}-${`${y.getMonth() + 1}`.padStart(2, '0')}-${`${y.getDate()}`.padStart(2, '0')}`)
+  })
+
+  it('不正な日付は 400', async () => {
+    const r = await call('/api/journal?date=来週')
+    expect(r.status).toBe(400)
+    expect(await r.json()).toMatchObject({ error: 'invalid_date' })
+  })
+
+  it('POST /api/journal/append は末尾に追記する (既存を消さない)', async () => {
+    await call('/api/journal')
+    await call('/api/journal/append', { method: 'POST', body: JSON.stringify({ text: '- 1 件目' }) })
+    await call('/api/journal/append', { method: 'POST', body: JSON.stringify({ text: '- 2 件目' }) })
+    expect(await readFile(join(root, `journals/${today()}.md`), 'utf8'))
+      .toBe(`# ${today()}\n\n- 1 件目\n\n- 2 件目\n`)
+  })
+
+  it('append は無ければ作る', async () => {
+    await call('/api/journal/append', {
+      method: 'POST', body: JSON.stringify({ text: '- メモ', date: '2026-01-05' }),
+    })
+    expect(await readFile(join(root, 'journals/2026-01-05.md'), 'utf8'))
+      .toBe('# 2026-01-05\n\n- メモ\n')
+  })
+
+  it('空文字の追記は 400 (誤爆でファイルを汚さない)', async () => {
+    const r = await call('/api/journal/append', { method: 'POST', body: JSON.stringify({ text: '  ' }) })
     expect(r.status).toBe(400)
   })
 })

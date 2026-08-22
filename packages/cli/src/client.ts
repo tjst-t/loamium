@@ -58,6 +58,19 @@ export const api = {
   async removeFolder(path: string): Promise<void> {
     await request(`/api/folders/${encodeURI(path)}`, { method: 'DELETE' })
   },
+  async journal(date?: string): Promise<{ date: string; path: string; content: string; created: boolean }> {
+    const q = date === undefined ? '' : `?date=${encodeURIComponent(date)}`
+    const r = await request(`/api/journal${q}`)
+    return (await r.json()) as { date: string; path: string; content: string; created: boolean }
+  },
+  async journalAppend(text: string, date?: string): Promise<{ date: string; path: string }> {
+    const r = await request('/api/journal/append', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(date === undefined ? { text } : { text, date }),
+    })
+    return (await r.json()) as { date: string; path: string }
+  },
   async fmt(dryRun: boolean): Promise<{ scanned: number; changed: string[]; dryRun: boolean }> {
     const r = await request(`/api/vault/fmt${dryRun ? '?dry-run=1' : ''}`, { method: 'POST' })
     return (await r.json()) as { scanned: number; changed: string[]; dryRun: boolean }

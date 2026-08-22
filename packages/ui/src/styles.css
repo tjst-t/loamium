@@ -86,3 +86,20 @@ body { margin: 0; font-family: system-ui, sans-serif; color: var(--fg); }
   .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
   .sidebar { border-right: 0; border-bottom: 1px solid var(--bd); max-height: 35vh; }
 }
+
+/* --- ジャーナル --- */
+.text-button {
+  min-height: 44px; padding: 0 12px; border: 1px solid var(--bd); border-radius: 6px;
+  background: #fff; cursor: pointer; font-size: 13px; color: inherit;
+}
+.text-button:hover { background: #f0f0f0; }
+.today-button { width: 100%; margin-bottom: 8px; }
+.journal-nav {
+  display: flex; align-items: center; gap: 4px;
+  padding: 8px 12px; border-bottom: 1px solid var(--bd);
+}
+.journal-nav .text-button { margin-left: 4px; }
+.journal-date { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.journal-date input {
+  min-height: 44px; border: 0; background: none; font: inherit; color: var(--fg); cursor: pointer;
+}

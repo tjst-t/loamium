@@ -37,6 +37,21 @@ export async function fetchTree(): Promise<TreeNode[]> {
   return ((await r.json()) as { tree: TreeNode[] }).tree
 }
 
+export interface Journal {
+  date: string
+  path: string
+  content: string
+  /** 遅延生成でこの取得時に作られたか (作られたらツリーを引き直す) */
+  created: boolean
+}
+
+/** デイリージャーナルを取得する。無ければサーバー側で作られる */
+export async function fetchJournal(date?: string): Promise<Journal> {
+  const q = date === undefined ? '' : `?date=${encodeURIComponent(date)}`
+  const r = await request(`/api/journal${q}`)
+  return (await r.json()) as Journal
+}
+
 export async function readNote(path: string): Promise<string> {
   return (await request(`/api/notes/${encodeURI(path)}`)).text()
 }
