@@ -94,4 +94,4 @@ Zilla Slab は Fira Mono の骨格から作られた書体なので、3 つが�
 - キーボードフォーカスが見える (`:focus-visible` にアクセントのリング)
 - `prefers-reduced-motion` を尊重する (アニメーションは 120–160ms の必要最小限)
 - `prefers-color-scheme: dark` に追従する
-- モバイル (≤680px): タップターゲット 44px 以上、右パネルはボトムシート、既定で閉じる
+- モバイル (≤680px): 上部バー + ドロワー、タップターゲット 44px 以上 — 詳細は `mobile.md`

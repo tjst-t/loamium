@@ -91,6 +91,12 @@ export interface Shell {
   openSearch: () => void
   /** 検索条件を変える */
   setSearch: (next: Partial<SearchParams>) => void
+  /**
+   * 重なっている面 (モバイルのドロワー) を閉じる。デスクトップでは何も起きない。
+   * **画面遷移や本文内ジャンプを起こした機能は、これを呼ぶ。**
+   * どこに置かれているかを機能が知らなくても、モバイルで正しく畳める。
+   */
+  dismiss: () => void
   /** その日のジャーナルを開く (省略時は今日) */
   openJournal: (date?: string) => void
   /** ノート / フォルダを作る */

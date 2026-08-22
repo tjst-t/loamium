@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore, type JSX } from 'react'
 import { List } from 'lucide-react'
-import { defineUiFeature } from '@loamium/ui/src/feature'
+import { defineUiFeature, useShell } from '@loamium/ui/src/feature'
 import { headingFold, foldedHeadings, sectionsOf, toggleHeadingFoldAt, type Section } from './heading-fold'
 import { activeEditorView, subscribe } from './toc-store'
 
@@ -70,6 +70,7 @@ function useCurrentSection(sections: Section[]): number {
 function Toc(): JSX.Element {
   const sections = useSections()
   const current = useCurrentSection(sections)
+  const { dismiss } = useShell()
 
   return (
     <section className="panel-section">
@@ -100,8 +101,14 @@ function Toc(): JSX.Element {
                   onClick={() => {
                     const view = activeEditorView()
                     if (view === null) return
+                    // モバイルでは目次が本文に重なっている。**先に畳んでから**飛ぶ
+                    // (重なったまま smooth スクロールを始めると効かない)
+                    dismiss()
                     const dom = view.nodeDOM(section.pos)
-                    if (dom instanceof HTMLElement) dom.scrollIntoView({ block: 'start', behavior: 'smooth' })
+                    if (!(dom instanceof HTMLElement)) return
+                    window.requestAnimationFrame(() => {
+                      dom.scrollIntoView({ block: 'start', behavior: 'smooth' })
+                    })
                   }}
                 >
                   {section.text === '' ? '(無題)' : section.text}

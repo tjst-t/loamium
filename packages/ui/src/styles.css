@@ -764,38 +764,131 @@ mark {
 .search-line-no { font-family: var(--mono); font-size: 11px; color: var(--ink-3); min-width: 3em; text-align: right; }
 .search-line-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ============================================================ モバイル */
+/* ============================================================ モバイル
+
+   規約 (docs/DESIGN/ui-design-system.md):
+   - ≤680px = 1 画面 1 面。左 (ナビ) と右 (情報) は**ドロワーで重ねる**。縦に積まない
+   - 681–960px = 本文 + 左サイドバー。右は必要なときだけドロワー
+   - 触れるものは 44px 以上、下端は safe-area を避ける
+   ========================================================================== */
+
+/* --- 上部バー (モバイルのみ) --- */
+.appbar {
+  display: none;
+  align-items: center;
+  gap: var(--s1);
+  height: 48px;
+  padding: 0 var(--s1);
+  padding-top: env(safe-area-inset-top);
+  border-bottom: 1px solid var(--rule);
+  background: var(--panel);
+}
+.appbar-button {
+  display: grid; place-items: center;
+  width: var(--tap); height: var(--tap);
+  border: 0; border-radius: var(--radius); background: none;
+  color: var(--ink-2); cursor: pointer;
+}
+.appbar-button:active { background: var(--panel-2); }
+.appbar-title {
+  flex: 1; min-width: 0; padding-inline: var(--s1);
+  font-size: 15px; font-weight: 500; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* --- ドロワー (左 = ナビ / 右 = 情報) --- */
+.drawer-scrim {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgb(20 23 26 / 45%);
+  animation: fade .12s ease;
+}
+.drawer {
+  position: absolute; top: 0; bottom: 0;
+  width: min(86vw, 360px);
+  display: flex; flex-direction: column;
+  background: var(--panel);
+  box-shadow: var(--shadow-lg);
+  outline: none;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.drawer-left { left: 0; border-right: 1px solid var(--rule); animation: slide-from-left .16s ease; }
+.drawer-right { right: 0; border-left: 1px solid var(--rule); animation: slide-from-right .16s ease; }
+@keyframes slide-from-left { from { transform: translateX(-100%) } }
+@keyframes slide-from-right { from { transform: translateX(100%) } }
+
+.drawer-head {
+  display: flex; align-items: center; gap: var(--s2);
+  height: 48px; padding: 0 var(--s2) 0 var(--s3);
+  padding-top: env(safe-area-inset-top);
+  border-bottom: 1px solid var(--rule);
+}
+.drawer-title {
+  flex: 1;
+  font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-3);
+}
+.drawer-head .icon-button { width: var(--tap); height: var(--tap); }
+.drawer-body {
+  flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: var(--s3);
+  padding: var(--s3) var(--s2);
+}
+/* ドロワーの中の情報パネルは、枠と見出しをドロワー側に任せる */
+.drawer .panel { width: auto; border: 0; padding: 0; overflow: visible; }
+.drawer .panel > .panel-header { display: none; }
+
+/* 背後の画面はスクロールさせない */
+body.is-drawer-open { overflow: hidden; }
+
+@media (max-width: 960px) {
+  /* タブレット: 右パネルは常設しない (本文の幅を優先する) */
+  .app:not(.is-mobile) { grid-template-columns: var(--sidebar-w) 0 minmax(0, 1fr) 0 auto; }
+  .panel { width: min(var(--panel-w), 40vw); }
+}
 
 @media (max-width: 680px) {
-  /* 幅が変えられるのは 2 面が並ぶときだけ。縦積みでは意味がない */
-  .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .appbar { display: flex; }
+  .app.is-mobile {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
   .resizer { display: none; }
-  .panel { width: auto; }
-  .sidebar { border-right: 0; border-bottom: 1px solid var(--rule); max-height: 42vh; gap: var(--s3); }
-  /* 縦が短いので、ツリーだけを伸ばさずサイドバー全体をスクロールさせる */
-  .sidebar-slot:has(.tree-list) { flex: none; overflow: visible; }
-  .journal-card { padding: var(--s2) var(--s3); }
-  .editor-toolbar { padding-inline: var(--s4); }
-  .editor-body { padding: var(--s4) var(--s4) var(--s7); }
-  .milkdown .ProseMirror { font-size: 16px; }
-  .search-page { padding: var(--s4); }
 
-  /* 右サイドバーは画面を割らずにボトムシートで出す */
-  .panel-rail {
-    position: fixed; right: var(--s3); bottom: var(--s3); z-index: 20;
-    border: 1px solid var(--rule); border-radius: 999px; background: var(--paper);
-    padding: var(--s1); box-shadow: var(--shadow);
-  }
-  .panel-rail .icon-button, .panel .icon-button { width: var(--tap); height: var(--tap); }
-  .panel {
-    position: fixed; inset: auto 0 0 0; z-index: 20; width: auto; max-height: 56vh;
-    border-left: 0; border-top: 1px solid var(--rule); background: var(--paper);
-    box-shadow: var(--shadow-lg);
-  }
-  .tree-label, .journal-card-arrow { min-height: var(--tap); }
+  .editor-toolbar { padding-inline: var(--s3); }
+  /* 左は見出しの折りたたみつまみのぶんだけ確保する (画面端で切れないように) */
+  .editor-body { padding: var(--s3) var(--s3) calc(var(--s7) + env(safe-area-inset-bottom)) var(--s5); }
+  /* モバイルは読む距離が近い。本文を少し大きく */
+  .milkdown .ProseMirror { font-size: 15.5px; line-height: 1.75; }
+  .search-page { padding: var(--s3) var(--s3) calc(var(--s7) + env(safe-area-inset-bottom)); }
+  .search-field, .search-filter select { min-height: var(--tap); }
+  .empty-state { padding-top: 10vh; }
+
+  /* 触れるものは 44px */
+  .tree-label, .journal-card-arrow, .sidebar-search, .backlink, .toc-link, .tag-pill { min-height: var(--tap); }
+  .tree-row .icon-button { opacity: 1; }
+  .icon-button { width: 38px; height: 38px; }
+  /* 見た目は小さいまま、当たり判定だけ広げる */
+  .toc-fold { position: relative; width: 20px; height: 32px; font-size: 11px; line-height: 32px; }
+  .toc-fold::after { content: ''; position: absolute; inset: -6px -10px; }
+  /* 物理キーボードが無いので、ショートカットの表示は出さない */
+  .sidebar-search kbd { display: none; }
+
   /* 見た目は小さく、当たり判定だけ広げる (チェックボックスと重ねない) */
   .outline-fold-toggle { width: 20px; height: 20px; left: -2.9em; top: .3em; opacity: 1; font-size: 1em; }
   .outline-fold-toggle::after { content: ''; position: absolute; inset: -12px; }
   .outline-task-checkbox { width: 20px; height: 20px; left: -1.7em; top: .25em; }
   .milkdown .ProseMirror ul, .milkdown .ProseMirror ol { padding-left: 1.8em; }
+  .heading-fold-toggle { opacity: 1; left: -.8em; }
+
+  /* パレットは画面いっぱいに近い形で出す (指で届く位置に) */
+  .palette-backdrop { padding-top: 0; align-items: stretch; }
+  .palette {
+    width: 100%; max-width: none; height: 100%; border: 0; border-radius: 0;
+    display: flex; flex-direction: column;
+    padding-top: env(safe-area-inset-top);
+  }
+  .palette-input input { min-height: 52px; font-size: 16px; }
+  .palette-list { max-height: none; flex: 1; }
+  .palette-item { padding: var(--s2) var(--s3); min-height: var(--tap); }
+  .suggest-popup { max-width: min(92vw, 380px); }
 }
