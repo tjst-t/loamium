@@ -11,7 +11,6 @@ import { splitFrontmatter, joinFrontmatter, normalizeForSave } from '@loamium/sh
 import { applyLoamiumStringifyOptions } from './markdown-config'
 import { exitNodeKeymap } from './exit-node'
 import { setEditorEnv } from './editor-env'
-import { StrataRail } from './StrataRail'
 import type { MilkdownPlugin } from '@milkdown/kit/ctx'
 import { getNoteViewState, saveNoteViewState, type NoteViewState } from './view-state'
 
@@ -163,8 +162,6 @@ export function Editor({
   path, notes, tags, value, onSave, onOpenLink, onCreateLink, onOpenTag, beforePreset, afterPreset,
 }: EditorProps): JSX.Element {
   const [mode, setMode] = useState<Mode>('wysiwyg')
-  /** 地層レールが読む本文の入れ物 */
-  const [bodyEl, setBodyEl] = useState<HTMLElement | null>(null)
   const { frontmatter, body } = useMemo(() => splitFrontmatter(value), [value])
   const [draftBody, setDraftBody] = useState(body)
   const bodyRef = useRef(body)
@@ -222,8 +219,7 @@ export function Editor({
         </div>
       </div>
 
-      <div className="editor-body" ref={setBodyEl}>
-        <StrataRail scope={bodyEl} />
+      <div className="editor-body">
         {mode === 'wysiwyg' ? (
         <MilkdownProvider>
           {/* key で強制再マウント: ファイルを切り替えたら中身を作り直す */}

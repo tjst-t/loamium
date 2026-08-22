@@ -56,11 +56,17 @@ function JournalCard(props: JournalCardProps): JSX.Element {
       <div className="journal-card-head">
         <CalendarDays size={14} />
         <span className="journal-card-title">ジャーナル</span>
-        {!isToday && (
-          <button type="button" className="journal-card-today" onClick={() => { props.onGo('today') }}>
-            今日へ
-          </button>
-        )}
+        {/* 枠は常に置く。出たり消えたりすると周りが動いて読みづらい */}
+        <button
+          type="button"
+          className="journal-card-today"
+          onClick={() => { props.onGo('today') }}
+          aria-hidden={isToday}
+          tabIndex={isToday ? -1 : 0}
+          data-idle={isToday}
+        >
+          今日へ
+        </button>
       </div>
 
       <div className="journal-card-nav">
