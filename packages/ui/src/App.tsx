@@ -1,6 +1,7 @@
-import { Fragment, useCallback, useEffect, useState, type JSX } from 'react'
+import { Fragment, useCallback, useEffect, useState, type CSSProperties, type JSX } from 'react'
 import { Editor } from './editor/Editor'
 import { InfoPanel } from './components/InfoPanel'
+import { Resizer } from './components/Resizer'
 import { matchesKeys, ShellProvider, type Shell } from './feature'
 import { editorPlugins, enabledFeatures } from './features'
 import { scrollToTextWhenReady } from './scroll-to-text'
@@ -12,6 +13,16 @@ import {
 } from './api'
 
 const PANEL_KEY = 'loamium.panel-open'
+/** ペインの幅は憶えておく (毎回引き直させない) */
+const SIDEBAR_W_KEY = 'loamium.sidebar-width'
+const PANEL_W_KEY = 'loamium.panel-width'
+const SIDEBAR_W = { min: 180, max: 460, default: 236 }
+const PANEL_W = { min: 200, max: 520, default: 264 }
+
+const storedWidth = (key: string, fallback: number, min: number, max: number): number => {
+  const value = Number(window.localStorage.getItem(key))
+  return Number.isFinite(value) && value > 0 ? Math.min(Math.max(value, min), max) : fallback
+}
 
 export function App(): JSX.Element {
   // 開いているノートは URL が持つ。戻る/進むがそのままノート履歴になる (task #2)
@@ -30,6 +41,10 @@ export function App(): JSX.Element {
   const [error, setError] = useState<string | null>(null)
   /** 本文を強制的に読み直すための世代番号 (リネームでリンクが書き換わったときなど) */
   const [reloadToken, setReloadToken] = useState(0)
+  const [sidebarWidth, setSidebarWidth] = useState(
+    () => storedWidth(SIDEBAR_W_KEY, SIDEBAR_W.default, SIDEBAR_W.min, SIDEBAR_W.max))
+  const [panelWidth, setPanelWidth] = useState(
+    () => storedWidth(PANEL_W_KEY, PANEL_W.default, PANEL_W.min, PANEL_W.max))
   const [panelOpen, setPanelOpen] = useState(() => {
     const stored = window.localStorage.getItem(PANEL_KEY)
     // 画面が狭いときは既定で閉じる (本文の場所を先に確保する)
@@ -241,7 +256,10 @@ export function App(): JSX.Element {
 
   return (
     <ShellProvider value={shell}>
-    <div className={`app${panelOpen ? ' panel-open' : ''}`}>
+    <div
+      className={`app${panelOpen ? ' panel-open' : ''}`}
+      style={{ '--sidebar-w': `${String(sidebarWidth)}px`, '--panel-w': `${String(panelWidth)}px` } as CSSProperties}
+    >
       <aside className="sidebar">
         <h1>Loamium</h1>
         {error !== null && <p className="error">{error}</p>}
@@ -251,6 +269,16 @@ export function App(): JSX.Element {
             : <div className="sidebar-slot" key={feature.name}>{feature.sidebarItem()}</div>
         ))}
       </aside>
+      <Resizer
+        side="left"
+        width={sidebarWidth}
+        min={SIDEBAR_W.min}
+        max={SIDEBAR_W.max}
+        reset={SIDEBAR_W.default}
+        onChange={setSidebarWidth}
+        onCommit={(w) => { window.localStorage.setItem(SIDEBAR_W_KEY, String(w)) }}
+        label="サイドバーの幅"
+      />
       <main className="main">
         {view !== undefined ? (
           view.view?.render()
@@ -281,6 +309,18 @@ export function App(): JSX.Element {
           />
         )}
       </main>
+      {panelOpen && (
+        <Resizer
+          side="right"
+          width={panelWidth}
+          min={PANEL_W.min}
+          max={PANEL_W.max}
+          reset={PANEL_W.default}
+          onChange={setPanelWidth}
+          onCommit={(w) => { window.localStorage.setItem(PANEL_W_KEY, String(w)) }}
+          label="情報パネルの幅"
+        />
+      )}
       <InfoPanel
         open={panelOpen}
         onToggle={() => { setPanelOpen((v) => !v) }}

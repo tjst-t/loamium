@@ -95,11 +95,39 @@ button, input, select, textarea { font: inherit; color: inherit; }
 /* ============================================================ 骨格 (3 面) */
 
 .app {
+  --sidebar-w: 236px;
+  --panel-w: 264px;
   display: grid;
-  grid-template-columns: 236px minmax(0, 1fr) auto;
+  /* サイドバー / つまみ / 本文 / つまみ / パネル */
+  grid-template-columns: var(--sidebar-w) 0 minmax(0, 1fr) 0 auto;
   height: 100vh;
   overflow: hidden;
 }
+
+/**
+ * ペインの幅を掴むつまみ。幅 0 のグリッド列に置き、**負のマージンで境界にまたがらせる**。
+ * 掴む面積は 6px 取りつつ、見た目の罫線は太らせない。
+ */
+.resizer {
+  position: relative;
+  z-index: 6;
+  width: 6px;
+  margin-inline: -3px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.resizer::before {
+  content: '';
+  position: absolute; inset: 0 2px;
+  background: transparent;
+  transition: background .12s ease;
+}
+.resizer:hover::before, .resizer:focus-visible::before, body.is-resizing .resizer::before {
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.resizer:focus-visible { outline: none; }
+/* ドラッグ中はテキスト選択とカーソルの点滅を止める */
+body.is-resizing { cursor: col-resize; user-select: none; }
 
 .sidebar {
   display: flex;
@@ -545,7 +573,7 @@ mark {
 
 .panel-rail { border-left: 1px solid var(--rule); padding: var(--s3) var(--s2); }
 .panel {
-  width: 264px; border-left: 1px solid var(--rule);
+  width: var(--panel-w); border-left: 1px solid var(--rule);
   padding: var(--s2) var(--s3) var(--s4);
   overflow: auto; display: flex; flex-direction: column; gap: var(--s3);
 }
@@ -695,7 +723,10 @@ mark {
 /* ============================================================ モバイル */
 
 @media (max-width: 680px) {
+  /* 幅が変えられるのは 2 面が並ぶときだけ。縦積みでは意味がない */
   .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .resizer { display: none; }
+  .panel { width: auto; }
   .sidebar { border-right: 0; border-bottom: 1px solid var(--rule); max-height: 42vh; gap: var(--s3); }
   /* 縦が短いので、ツリーだけを伸ばさずサイドバー全体をスクロールさせる */
   .sidebar-slot:has(.tree-list) { flex: none; overflow: visible; }
