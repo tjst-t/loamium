@@ -8,6 +8,7 @@ import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
 import { splitFrontmatter, joinFrontmatter, normalizeForSave } from '@loamium/shared'
 import { applyLoamiumStringifyOptions } from './markdown-config'
 import { exitNodeKeymap } from './exit-node'
+import { outline } from './outline'
 
 export type Mode = 'wysiwyg' | 'source'
 
@@ -30,7 +31,8 @@ function MilkdownHost({ initialBody, onChange }: MilkdownHostProps): JSX.Element
       .use(gfm)
       .use(history)
       .use(listener)
-      .use(exitNodeKeymap),
+      .use(exitNodeKeymap)
+      .use(outline),
   )
   return <Milkdown />
 }

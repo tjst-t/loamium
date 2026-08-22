@@ -84,12 +84,45 @@ body { margin: 0; font-family: system-ui, sans-serif; color: var(--fg); }
 .milkdown .ProseMirror th, .milkdown .ProseMirror td { border: 1px solid var(--bd); padding: 4px 10px; }
 .milkdown .ProseMirror pre { background: #f6f6f6; padding: 12px; border-radius: 6px; overflow: auto; }
 .milkdown .ProseMirror blockquote { border-left: 3px solid var(--bd); margin-left: 0; padding-left: 14px; color: var(--muted); }
+
+/* --- アウトライン (task #10) --------------------------------------------- */
+.milkdown .ProseMirror ul, .milkdown .ProseMirror ol { padding-left: 1.6em; margin: .3em 0; }
+/* 折返しは本文の頭に揃える (ぶら下げ表示) */
+.milkdown .ProseMirror li { position: relative; }
+.milkdown .ProseMirror li > p { margin: .15em 0; }
+
+/* 折りたたみ: decoration が付いた項目の子リストを隠す (ファイルには書かない) */
+.milkdown .ProseMirror li.is-collapsed > ul,
+.milkdown .ProseMirror li.is-collapsed > ol { display: none; }
+.milkdown .ProseMirror li.is-collapsed > p::after { content: ' …'; color: var(--muted); }
+
+.outline-fold-toggle {
+  /* リストマーカーの更に左に置く (マーカーと重ねない) */
+  position: absolute; left: -2.3em; top: .35em;
+  width: 1em; height: 1em; font-size: .8em; padding: 0; border: 0; background: none;
+  cursor: pointer; color: var(--muted); line-height: 1;
+}
+.outline-fold-toggle::before { content: '▾'; display: block; }
+.outline-fold-toggle[aria-expanded='false']::before { content: '▸'; }
+.outline-fold-toggle:hover { color: var(--fg); }
+
+/* チェックボックス (GFM task list) */
+.milkdown .ProseMirror li[data-item-type='task'] { list-style: none; }
+.outline-task-checkbox {
+  position: absolute; left: -1.35em; top: .45em; margin: 0; cursor: pointer;
+  width: 1em; height: 1em; accent-color: var(--accent);
+}
+.milkdown .ProseMirror li[data-item-type='task'][data-checked='true'] > p { color: var(--muted); text-decoration: line-through; }
 .source-view {
   width: 100%; border: 0; padding: 24px; resize: none; outline: none;
   font-family: ui-monospace, monospace; font-size: 13px; line-height: 1.7;
 }
 
 @media (max-width: 680px) {
+  /* タップターゲット 44px 以上 (モバイル規約) */
+  .outline-fold-toggle { width: 44px; height: 44px; left: -3.4em; top: -.6em; }
+  .outline-task-checkbox { width: 22px; height: 22px; left: -1.6em; top: .2em; }
+  .outline-fold-toggle::before { font-size: 16px; line-height: 44px; }
   .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
   .sidebar { border-right: 0; border-bottom: 1px solid var(--bd); max-height: 35vh; }
 }

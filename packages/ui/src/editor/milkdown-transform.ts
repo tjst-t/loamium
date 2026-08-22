@@ -4,6 +4,7 @@ import { gfm } from '@milkdown/kit/preset/gfm'
 import type { Node as ProseNode } from '@milkdown/kit/prose/model'
 import { applyLoamiumStringifyOptions } from './markdown-config'
 import { exitNodeKeymap } from './exit-node'
+import { outline } from './outline'
 
 /**
  * Editor.tsx と**同一の構成**で Milkdown を組み、parser / serializer だけを取り出す。
@@ -30,6 +31,7 @@ export async function createMilkdownTransform(root: HTMLElement): Promise<Milkdo
     .use(commonmark)
     .use(gfm)
     .use(exitNodeKeymap)
+    .use(outline)
     .create()
 
   let parse!: (markdown: string) => ProseNode

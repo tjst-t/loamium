@@ -122,8 +122,9 @@
         "testStrategy": "ネストしたリストで Tab/Shift+Tab、複数行選択での一括インデント、番号の連番維持。",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-08-22T05:45:00.000Z"
       },
       {
         "id": "11",
