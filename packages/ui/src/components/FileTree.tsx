@@ -184,6 +184,7 @@ export function FileTree(props: FileTreeProps): JSX.Element {
   return (
     <div className="tree">
       <div className="tree-toolbar">
+        <span className="tree-toolbar-title">ノート</span>
         <IconButton label="新規ノート" onClick={() => { startDraft('', 'note') }}><FilePlus size={16} /></IconButton>
         <IconButton label="新規フォルダ" onClick={() => { startDraft('', 'folder') }}><FolderPlus size={16} /></IconButton>
       </div>

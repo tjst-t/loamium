@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type JSX } from 'react'
 import { Editor } from './editor/Editor'
 import { FileTree } from './components/FileTree'
-import { JournalNav } from './components/JournalNav'
+import { JournalCard } from './components/JournalCard'
 import {
   ApiError, createFolder, createNote, fetchJournal, fetchTree, movePath, readNote, removePath,
   writeNote, type TreeNode,
@@ -10,6 +10,11 @@ import {
 /** `journals/YYYY-MM-DD.md` から日付を取り出す。ジャーナル以外なら null */
 const journalDateOf = (path: string | null): string | null =>
   (path === null ? null : /^journals\/(\d{4}-\d{2}-\d{2})\.md$/.exec(path)?.[1] ?? null)
+
+const todayISO = (): string => {
+  const n = new Date()
+  return `${n.getFullYear()}-${`${n.getMonth() + 1}`.padStart(2, '0')}-${`${n.getDate()}`.padStart(2, '0')}`
+}
 
 export function App(): JSX.Element {
   const [tree, setTree] = useState<TreeNode[]>([])
@@ -104,6 +109,7 @@ export function App(): JSX.Element {
     })
   }, [current, refresh, run])
 
+  // ジャーナルを開いていればその日付、そうでなければ今日を指しておく
   const journalDate = journalDateOf(current)
 
   return (
@@ -111,9 +117,7 @@ export function App(): JSX.Element {
       <aside className="sidebar">
         <h1>Loamium</h1>
         {error !== null && <p className="error">{error}</p>}
-        <button type="button" className="text-button today-button" onClick={() => { openJournal() }}>
-          今日のジャーナル
-        </button>
+        <JournalCard date={journalDate ?? todayISO()} active={journalDate !== null} onGo={openJournal} />
         <FileTree
           tree={tree}
           currentPath={current}
@@ -129,10 +133,7 @@ export function App(): JSX.Element {
         ) : content === null ? (
           <p className="empty">読み込み中…</p>
         ) : (
-          <>
-            {journalDate !== null && <JournalNav date={journalDate} onGo={openJournal} />}
-            <Editor key={current} value={content} onSave={save} />
-          </>
+          <Editor key={current} value={content} onSave={save} />
         )}
       </main>
     </div>

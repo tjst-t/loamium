@@ -7,7 +7,14 @@ body { margin: 0; font-family: system-ui, sans-serif; color: var(--fg); }
 .sidebar ul { list-style: none; margin: 0; padding: 0; }
 
 /* --- フォルダツリー --- */
-.tree-toolbar { display: flex; gap: 4px; justify-content: flex-end; margin-bottom: 4px; }
+/* ツリーの見出し行。ジャーナルカードと同じ「区画」に見えるよう左に見出しを置く */
+.tree-toolbar {
+  display: flex; align-items: center; gap: 2px;
+  padding-inline: 4px; border-bottom: 1px solid var(--bd);
+}
+.tree-toolbar-title {
+  flex: 1; font-size: 11px; letter-spacing: .04em; color: var(--muted);
+}
 .tree-list { display: flex; flex-direction: column; }
 .tree-row { display: flex; align-items: center; gap: 2px; border-radius: 6px; }
 .tree-row:hover { background: #f0f0f0; }
@@ -87,19 +94,50 @@ body { margin: 0; font-family: system-ui, sans-serif; color: var(--fg); }
   .sidebar { border-right: 0; border-bottom: 1px solid var(--bd); max-height: 35vh; }
 }
 
-/* --- ジャーナル --- */
-.text-button {
-  min-height: 44px; padding: 0 12px; border: 1px solid var(--bd); border-radius: 6px;
-  background: #fff; cursor: pointer; font-size: 13px; color: inherit;
+/* --- ジャーナル (サイドバーの入口 + 日付ナビ) --- */
+.journal-card {
+  border: 1px solid var(--bd); border-radius: 10px; background: #fff;
+  padding: 8px 8px 6px; margin-bottom: 10px;
 }
-.text-button:hover { background: #f0f0f0; }
-.today-button { width: 100%; margin-bottom: 8px; }
-.journal-nav {
-  display: flex; align-items: center; gap: 4px;
-  padding: 8px 12px; border-bottom: 1px solid var(--bd);
+/* 開いているのがそのジャーナルなら現在地として強調する */
+.journal-card[aria-current='true'] {
+  border-color: var(--accent);
+  background: #f4f8f5;
+  box-shadow: inset 3px 0 0 var(--accent);
 }
-.journal-nav .text-button { margin-left: 4px; }
-.journal-date { display: flex; align-items: center; gap: 6px; color: var(--muted); }
-.journal-date input {
-  min-height: 44px; border: 0; background: none; font: inherit; color: var(--fg); cursor: pointer;
+.journal-card-head {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 4px 4px; color: var(--muted); font-size: 11px; letter-spacing: .04em;
+}
+.journal-card-title { flex: 1; }
+.journal-card-today {
+  border: 0; background: none; padding: 4px 6px; margin: -4px -2px -4px 0;
+  border-radius: 6px; cursor: pointer; font-size: 11px; color: var(--accent); font-weight: 600;
+}
+.journal-card-today:hover { background: #e6efe9; }
+
+.journal-card-nav { display: flex; align-items: center; gap: 2px; }
+.journal-card-arrow {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 44px; /* 幅は詰めても高さでタップ領域を確保する */
+  border: 0; background: none; border-radius: 6px; cursor: pointer; color: var(--muted);
+}
+.journal-card-arrow:hover { background: #f0f0f0; color: var(--fg); }
+
+/* 日付は「ボタン + 透明な date input」。表記を自前で組みつつ OS のカレンダーも使う */
+.journal-card-datewrap { position: relative; flex: 1; min-width: 0; }
+.journal-card-date {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  width: 100%; min-height: 44px; padding: 2px 4px;
+  border: 0; background: none; border-radius: 8px; cursor: pointer; color: inherit;
+}
+.journal-card-date:hover { background: #f0f0f0; }
+.journal-card[aria-current='true'] .journal-card-date:hover { background: #e6efe9; }
+.journal-card-date-main { font-size: 15px; font-weight: 600; line-height: 1.2; }
+.journal-card-date-sub { font-size: 10px; color: var(--muted); }
+.journal-card-date-today { color: var(--accent); font-weight: 600; }
+/* 見た目はボタン側が担当。ピッカーを開くために描画は保つ (display:none だと開けない) */
+.journal-card-picker {
+  position: absolute; inset-inline-start: 50%; bottom: 0;
+  width: 1px; height: 1px; opacity: 0; pointer-events: none; border: 0; padding: 0;
 }
