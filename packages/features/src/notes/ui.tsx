@@ -2,7 +2,8 @@ import { useEffect, useState, type JSX, type KeyboardEvent, type MouseEvent } fr
 import {
   ChevronDown, ChevronRight, FileText, Folder, FolderPlus, FilePlus, MoreHorizontal, Pencil, Trash2,
 } from 'lucide-react'
-import type { TreeNode } from '../api'
+import type { TreeNode } from '@loamium/ui/src/api'
+import { defineUiFeature, useShell } from '@loamium/ui/src/feature'
 
 export interface FileTreeProps {
   tree: TreeNode[]
@@ -32,7 +33,7 @@ const withMd = (name: string): string => (name.endsWith('.md') ? name : `${name}
  * サイドバーのフォルダツリー。
  * 作成・リネームは行内の入力欄で完結させる (別モーダルを開かない)。
  */
-export function FileTree(props: FileTreeProps): JSX.Element {
+function FileTree(props: FileTreeProps): JSX.Element {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [draft, setDraft] = useState<Draft | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
@@ -259,3 +260,26 @@ function NameInput(
     />
   )
 }
+
+
+/** サイドバーのツリー。作成・リネーム・削除・移動もここが持つ (task #1) */
+function NotesTree(): JSX.Element {
+  const { tree, currentPath, openNote, createEntry, renameEntry, deleteEntry } = useShell()
+  return (
+    <FileTree
+      tree={tree}
+      currentPath={currentPath}
+      onOpen={openNote}
+      onCreate={createEntry}
+      onRename={renameEntry}
+      onDelete={deleteEntry}
+    />
+  )
+}
+
+/** ノートのブラウズと基本操作 (task #1) */
+export default defineUiFeature({
+  name: 'notes',
+  requires: 'notes',
+  sidebarItem: () => <NotesTree />,
+})

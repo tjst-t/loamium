@@ -89,7 +89,9 @@ TypeScript (strict), Node.js 22, npm workspaces モノレポ。
 
 ### UI (機能レジストリ)
 
-- **UI 側も 1 機能 = 1 プラグイン。** `defineUiFeature` で「エディタ拡張 / 情報パネルの節 / 画面 / サイドバーの入口 / コマンド」を宣言し、`packages/ui/src/features.ts` が静的に登録する。`App.tsx` はスロットを描くシェルに徹する (props のバケツリレーを増やさない)
+- **UI 側も 1 機能 = 1 プラグイン。** `defineUiFeature` で「エディタ拡張 / 情報パネルの節 / 画面 / サイドバーの入口 / 重ねるもの (パレット) / コマンド」を宣言し、`packages/ui/src/features.ts` が静的に登録する。`App.tsx` はスロットを描くシェルに徹する (props のバケツリレーを増やさない)。登録順がサイドバーの並び順
+- **キーバインドは機能が `commands` で宣言する。** シェルは `Mod+k` のような表記を照合して張るだけで、何のキーかを知らない。ESC の blur だけはどの機能にも属さないのでシェルが持つ
+- **機能の内部状態はシェルに持たせない。** パレットの開閉のような状態は機能フォルダの中に閉じる (`useSyncExternalStore` で購読する小さなストアで足りる)
 - **`requires` にサーバー機能名を書く。** `GET /api/features` に無ければ UI 側も丸ごと無効になる。
   `app.ts` から `ctx.plugin(tagsFeature)` を消せば、**UI をリロードするだけで**タグ関連の UI が消える (UI のコードは触らない)
 - **Milkdown プラグインの順序は型で持つ** (`order: 'before-preset' | 'after-preset'`)。`[[` / `#` の補完は Enter / Tab をリストのコマンドより先に拾う必要があり、コメントでは守れない。

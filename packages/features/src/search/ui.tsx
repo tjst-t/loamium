@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState, type JSX } from 'react'
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type JSX } from 'react'
 import { Hash, Search } from 'lucide-react'
 import { apiJson, type SearchHit, type TreeNode } from '@loamium/ui/src/api'
 import { defineUiFeature, useShell } from '@loamium/ui/src/feature'
 import { searchApi } from './contract'
 import { tagsApi, type TagCount } from '../tags/contract'
+import { SearchPalette } from './palette'
 
 const baseNameOf = (path: string): string => path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/i, '')
 
@@ -167,6 +168,29 @@ function SearchPage(): JSX.Element {
 }
 
 
+/**
+ * パレットの開閉。**機能が自分で持つ** (シェルは機能の内部状態を知らない)。
+ * コマンドから開き、React 側は useSyncExternalStore で購読する。
+ */
+let paletteOpen = false
+const listeners = new Set<() => void>()
+const setPaletteOpen = (next: boolean): void => {
+  paletteOpen = next
+  for (const listener of listeners) listener()
+}
+const subscribe = (listener: () => void): (() => void) => {
+  listeners.add(listener)
+  return () => { listeners.delete(listener) }
+}
+
+/** Ctrl+K のパレット。思い出したノートへ「飛ぶ」ためのもの */
+function Palette(): JSX.Element {
+  const open = useSyncExternalStore(subscribe, () => paletteOpen)
+  const { openHit } = useShell()
+  const close = useCallback(() => { setPaletteOpen(false) }, [])
+  return <SearchPalette open={open} onClose={close} onPick={openHit} />
+}
+
 /** サイドバーの入口。パレット (Ctrl+K) が「飛ぶ」ため、こちらは「絞って見渡す」ため */
 function SidebarItem(): JSX.Element {
   const { search, openSearch } = useShell()
@@ -185,4 +209,9 @@ export default defineUiFeature({
   requires: 'search',
   view: { match: (route) => route.search !== null, render: () => <SearchPage /> },
   sidebarItem: () => <SidebarItem />,
+  overlay: () => <Palette />,
+  commands: (shell) => [
+    { id: 'search.palette', title: '検索パレット', keys: 'Mod+k', run: () => { setPaletteOpen(!paletteOpen) } },
+    { id: 'search.page', title: '詳細検索', keys: 'Mod+Shift+f', run: () => { setPaletteOpen(false); shell.openSearch() } },
+  ],
 })

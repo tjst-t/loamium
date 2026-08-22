@@ -4,7 +4,6 @@ import { gfm } from '@milkdown/kit/preset/gfm'
 import type { Node as ProseNode } from '@milkdown/kit/prose/model'
 import { applyLoamiumStringifyOptions } from './markdown-config'
 import { exitNodeKeymap } from './exit-node'
-import { outline } from './outline'
 import { editorPlugins, uiFeatures } from '../features'
 
 /**
@@ -34,7 +33,6 @@ export async function createMilkdownTransform(root: HTMLElement): Promise<Milkdo
     .use(commonmark)
     .use(gfm)
     .use(exitNodeKeymap)
-    .use(outline)
     .use(editorPlugins(uiFeatures, 'after-preset'))
     .create()
 

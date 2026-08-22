@@ -1,5 +1,6 @@
 import { useRef, type JSX } from 'react'
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
+import { defineUiFeature, useShell } from '@loamium/ui/src/feature'
 
 export interface JournalCardProps {
   /** カードが指している日付 (YYYY-MM-DD) */
@@ -33,7 +34,7 @@ const todayISO = (): string => {
  * 本文の上に別のバーを出すとエディタの領域を削り、ノートとジャーナルで
  * ヘッダの高さが変わってしまうため、ナビはサイドバーに置く。
  */
-export function JournalCard(props: JournalCardProps): JSX.Element {
+function JournalCard(props: JournalCardProps): JSX.Element {
   const picker = useRef<HTMLInputElement>(null)
   const { y, m, d, w } = parts(props.date)
   const isToday = props.date === todayISO()
@@ -104,3 +105,25 @@ export function JournalCard(props: JournalCardProps): JSX.Element {
     </section>
   )
 }
+
+
+/** `journals/YYYY-MM-DD.md` から日付を取り出す。ジャーナル以外なら null */
+const journalDateOf = (path: string | null): string | null =>
+  (path === null ? null : /^journals\/(\d{4}-\d{2}-\d{2})\.md$/.exec(path)?.[1] ?? null)
+
+/** デイリージャーナル (task #3)。VISION のジャーナル中心のワークフローの入口 */
+function JournalEntry(): JSX.Element {
+  const { currentPath, openJournal } = useShell()
+  const date = journalDateOf(currentPath)
+  return <JournalCard date={date ?? todayISO()} active={date !== null} onGo={openJournal} />
+}
+
+export default defineUiFeature({
+  name: 'journal',
+  requires: 'journal',
+  sidebarItem: () => <JournalEntry />,
+  // 起動時の着地とは別に、いつでも今日へ戻れるようにする
+  commands: (shell) => [
+    { id: 'journal.today', title: '今日のジャーナルを開く', keys: 'Mod+Shift+d', run: () => { shell.openJournal() } },
+  ],
+})

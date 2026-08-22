@@ -13,7 +13,7 @@ import type { EditorView } from '@milkdown/kit/prose/view'
 import { normalizeForSave } from '@loamium/shared'
 import { applyLoamiumStringifyOptions } from '@loamium/ui/src/editor/markdown-config'
 import { exitNodeKeymap } from '@loamium/ui/src/editor/exit-node'
-import { outline } from '@loamium/ui/src/editor/outline'
+import { outline } from '../../outline/outline'
 import { wikilink, suggestNotes, suggestStateOf, accept } from '../wikilink'
 import { resetEditorEnv, setEditorEnv } from '@loamium/ui/src/editor/editor-env'
 

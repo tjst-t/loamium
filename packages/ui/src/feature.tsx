@@ -28,15 +28,43 @@ export interface UiFeature {
   editor?: { order: 'before-preset' | 'after-preset'; plugins: MilkdownPlugin[] }
   /** 情報パネルに足す節 */
   panelSection?: (props: { path: string }) => JSX.Element | null
-  /** 左サイドバーに足す入口 */
+  /** 左サイドバーに足す区画 (並び順は features.ts の登録順) */
   sidebarItem?: () => JSX.Element | null
+  /** 画面全体に重ねるもの (コマンドパレットなど)。開閉は機能側が持つ */
+  overlay?: () => JSX.Element | null
   /** URL に応じてメイン領域を占める画面 (検索ページなど) */
   view?: {
     match: (route: { path: string | null; search: SearchParams | null }) => boolean
     render: () => JSX.Element
   }
-  /** キーボードショートカット。パレット (task #28) もここから引く想定 */
-  commands?: { id: string; title: string; keys?: string; run: () => void }[]
+  /**
+   * コマンド。`keys` を書けばシェルがキーバインドとして張る (task #28 の統合パレットもここから引く)。
+   * 表記は `Mod+k` / `Mod+Shift+f` (`Mod` = Ctrl / macOS では Cmd)。
+   */
+  commands?: (shell: Shell) => UiCommand[]
+}
+
+export interface UiCommand {
+  id: string
+  title: string
+  /** 例: `Mod+k` / `Mod+Shift+f`。省略するとキーバインドは張られない */
+  keys?: string
+  run: () => void
+}
+
+/** `Mod+Shift+f` のような表記とキーイベントを突き合わせる */
+export function matchesKeys(keys: string, event: KeyboardEvent): boolean {
+  const parts = keys.toLowerCase().split('+')
+  const key = parts.at(-1) ?? ''
+  const want = {
+    mod: parts.includes('mod'),
+    shift: parts.includes('shift'),
+    alt: parts.includes('alt'),
+  }
+  return event.key.toLowerCase() === key
+    && want.mod === (event.metaKey || event.ctrlKey)
+    && want.shift === event.shiftKey
+    && want.alt === event.altKey
 }
 
 export function defineUiFeature(feature: UiFeature): UiFeature {
@@ -63,6 +91,14 @@ export interface Shell {
   openSearch: () => void
   /** 検索条件を変える */
   setSearch: (next: Partial<SearchParams>) => void
+  /** その日のジャーナルを開く (省略時は今日) */
+  openJournal: (date?: string) => void
+  /** ノート / フォルダを作る */
+  createEntry: (parent: string, name: string, kind: 'folder' | 'note') => void
+  /** リネーム・移動 (本文中の [[リンク]] はサーバー側で追従する) */
+  renameEntry: (from: string, to: string) => void
+  /** 削除 (フォルダは中身ごと) */
+  deleteEntry: (node: TreeNode) => void
 }
 
 const ShellContext = createContext<Shell | null>(null)

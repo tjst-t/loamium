@@ -7,12 +7,27 @@ import { describe, it, expect } from 'vitest'
 import { editorPlugins, enabledFeatures, uiFeatures } from '../features'
 
 describe('UI 機能レジストリ', () => {
-  it('登録された機能はすべて名前と requires を持つ', () => {
-    for (const feature of uiFeatures) {
-      expect(feature.name).not.toBe('')
-      // requires が無い機能はサーバー側の状態に関係なく常に有効 (今は全部が対応を持つ)
-      expect(typeof feature.requires).toBe('string')
-    }
+  it('登録された機能は名前を持ち、名前が重複しない', () => {
+    const names = uiFeatures.map((f) => f.name)
+    expect(names.every((name) => name !== '')).toBe(true)
+    expect(new Set(names).size).toBe(names.length)
+  })
+
+  it('サーバー機能に対応するものは requires を書く (outline のようにエディタ内で完結するものは書かない)', () => {
+    const requiring = uiFeatures.filter((f) => f.requires !== undefined).map((f) => f.name)
+    expect(requiring).toEqual(['journal', 'notes', 'search', 'links', 'tags'])
+    expect(uiFeatures.find((f) => f.name === 'outline')?.requires).toBeUndefined()
+  })
+
+  it('サイドバーの並び順は登録順 (ジャーナル → ツリー → 詳細検索)', () => {
+    expect(uiFeatures.filter((f) => f.sidebarItem !== undefined).map((f) => f.name))
+      .toEqual(['journal', 'notes', 'search'])
+  })
+
+  it('コマンドはシェルを受け取り、キーは Mod 表記で宣言される', () => {
+    const keys = uiFeatures.flatMap((f) => f.commands?.({} as never) ?? []).map((c) => c.keys)
+    expect(keys).toContain('Mod+k')
+    expect(keys).toContain('Mod+Shift+f')
   })
 
   it('サーバーに無い機能は無効になる (リロードで反映される部分)', () => {

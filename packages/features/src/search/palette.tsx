@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type JSX } from 'react'
 import { Command } from 'cmdk'
 import { FileText, Search } from 'lucide-react'
-import { searchNotes, type SearchHit } from '../api'
+import { apiJson, type SearchHit } from '@loamium/ui/src/api'
+import { searchApi } from './contract'
 
 export interface SearchPaletteProps {
   open: boolean
@@ -46,7 +47,7 @@ export function SearchPalette(props: SearchPaletteProps): JSX.Element | null {
     setLoading(true)
     const mine = ++seq.current
     const timer = setTimeout(() => {
-      searchNotes(query)
+      apiJson<{ hits: SearchHit[]; truncated: boolean }>(searchApi.search(query))
         .then((result) => {
           // 遅れて返ってきた古い結果で新しい結果を上書きしない
           if (mine !== seq.current) return

@@ -1,16 +1,21 @@
 import type { MilkdownPlugin } from '@milkdown/kit/ctx'
 import type { UiFeature } from './feature'
+import journal from '@loamium/features/journal/ui'
+import notes from '@loamium/features/notes/ui'
+import search from '@loamium/features/search/ui'
+import outline from '@loamium/features/outline/ui'
 import links from '@loamium/features/links/ui'
 import tags from '@loamium/features/tags/ui'
-import search from '@loamium/features/search/ui'
 
 /**
  * UI 機能の登録簿。**ここが唯一の登録場所。**
  *
  * サーバーの `app.ts` と対になる。機能を捨てるならフォルダごと消して、この行と
  * `app.ts` の行を消すだけ。動的 import はしない (CLAUDE.md: 静的登録)。
+ *
+ * **並び順がそのままサイドバーの並び順**になる (ジャーナル → ツリー → 詳細検索)。
  */
-export const uiFeatures: UiFeature[] = [links, tags, search]
+export const uiFeatures: UiFeature[] = [journal, notes, search, outline, links, tags]
 
 /**
  * サーバー側に無い機能は UI からも消す (リロードで反映される)。

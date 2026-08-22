@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useState, type JSX } from 'react'
 import { Editor } from './editor/Editor'
-import { FileTree } from './components/FileTree'
 import { InfoPanel } from './components/InfoPanel'
-import { JournalCard } from './components/JournalCard'
-import { SearchPalette } from './components/SearchPalette'
-import { ShellProvider, type Shell } from './feature'
+import { matchesKeys, ShellProvider, type Shell } from './feature'
 import { editorPlugins, enabledFeatures } from './features'
 import { scrollToTextWhenReady } from './scroll-to-text'
 import { pathFromSearch, searchParamsFromSearch, useRoute } from './route'
@@ -13,15 +10,6 @@ import {
   ApiError, createFolder, createNote, fetchJournal, fetchServerFeatures, fetchTags, fetchTree,
   listNotes, movePath, readNote, removePath, writeNote, type TreeNode,
 } from './api'
-
-/** `journals/YYYY-MM-DD.md` から日付を取り出す。ジャーナル以外なら null */
-const journalDateOf = (path: string | null): string | null =>
-  (path === null ? null : /^journals\/(\d{4}-\d{2}-\d{2})\.md$/.exec(path)?.[1] ?? null)
-
-const todayISO = (): string => {
-  const n = new Date()
-  return `${n.getFullYear()}-${`${n.getMonth() + 1}`.padStart(2, '0')}-${`${n.getDate()}`.padStart(2, '0')}`
-}
 
 const PANEL_KEY = 'loamium.panel-open'
 
@@ -40,7 +28,6 @@ export function App(): JSX.Element {
   const [serverFeatures, setServerFeatures] = useState<string[] | null>(null)
   const [content, setContent] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [paletteOpen, setPaletteOpen] = useState(false)
   /** 本文を強制的に読み直すための世代番号 (リネームでリンクが書き換わったときなど) */
   const [reloadToken, setReloadToken] = useState(0)
   const [panelOpen, setPanelOpen] = useState(() => window.localStorage.getItem(PANEL_KEY) !== 'false')
@@ -102,27 +89,14 @@ export function App(): JSX.Element {
     return () => { live = false }
   }, [current, reloadToken, run])
 
-  // Cmd/Ctrl+K で検索パレット。入力欄にいても開けるようにする
+  // ESC で選択解除と blur。エディタ内で既に処理済み (ノードを抜ける等) なら触らない。
+  // ⚠️ 機能のコマンドとは別扱い: これはシェル自身の挙動 (どの機能にも属さない)
   useEffect(() => {
     const onKey = (e: globalThis.KeyboardEvent): void => {
-      if (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault()
-        setPaletteOpen((v) => !v)
-        return
-      }
-      // 詳細検索ページ (パレットは「飛ぶ」ため、こちらは「絞って見渡す」ため)
-      if (e.key.toLowerCase() === 'f' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
-        e.preventDefault()
-        setPaletteOpen(false)
-        openSearchPage()
-        return
-      }
-      // ESC で選択解除と blur。エディタ内で既に処理済み (ノードを抜ける等) なら触らない
-      if (e.key === 'Escape' && !e.defaultPrevented) {
-        const active = document.activeElement
-        if (active instanceof HTMLElement && active !== document.body) active.blur()
-        window.getSelection()?.removeAllRanges()
-      }
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      const active = document.activeElement
+      if (active instanceof HTMLElement && active !== document.body) active.blur()
+      window.getSelection()?.removeAllRanges()
     }
     document.addEventListener('keydown', onKey)
     return () => { document.removeEventListener('keydown', onKey) }
@@ -130,7 +104,6 @@ export function App(): JSX.Element {
 
   /** 検索結果を開く。本文が描画されてから該当箇所までスクロールする */
   const openHit = useCallback((path: string, needle: string) => {
-    setPaletteOpen(false)
     setPendingNeedle(needle)
     if (path === current) return // 同じノート内の移動は再読み込み不要
     open(path)
@@ -226,9 +199,6 @@ export function App(): JSX.Element {
     })
   }, [current, navigate, refresh, run])
 
-  // ジャーナルを開いていればその日付、そうでなければ今日を指しておく
-  const journalDate = journalDateOf(current)
-
   const features = enabledFeatures(serverFeatures)
   const shell: Shell = {
     notes,
@@ -241,8 +211,28 @@ export function App(): JSX.Element {
     openTag,
     openSearch: openSearchPage,
     setSearch: (next) => { navigateSearch(next) },
+    openJournal,
+    createEntry: onCreate,
+    renameEntry: onRename,
+    deleteEntry: onDelete,
   }
   const view = features.find((feature) => feature.view?.match({ path: current, search }) === true)
+  const commands = features.flatMap((feature) => feature.commands?.(shell) ?? [])
+
+  /**
+   * 機能が宣言したキーバインドを張る。**シェルは何のキーかを知らない。**
+   * 入力欄にいても効かせる (パレットは打鍵中に開きたい)。
+   */
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent): void => {
+      const hit = commands.find((command) => command.keys !== undefined && matchesKeys(command.keys, e))
+      if (hit === undefined) return
+      e.preventDefault()
+      hit.run()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('keydown', onKey) }
+  })
 
   return (
     <ShellProvider value={shell}>
@@ -250,20 +240,11 @@ export function App(): JSX.Element {
       <aside className="sidebar">
         <h1>Loamium</h1>
         {error !== null && <p className="error">{error}</p>}
-        <JournalCard date={journalDate ?? todayISO()} active={journalDate !== null} onGo={openJournal} />
         {features.map((feature) => (
           feature.sidebarItem === undefined
             ? null
             : <div key={feature.name}>{feature.sidebarItem()}</div>
         ))}
-        <FileTree
-          tree={tree}
-          currentPath={current}
-          onOpen={open}
-          onCreate={onCreate}
-          onRename={onRename}
-          onDelete={onDelete}
-        />
       </aside>
       <main className="main">
         {view !== undefined ? (
@@ -295,11 +276,9 @@ export function App(): JSX.Element {
         content={content}
         features={features}
       />
-      <SearchPalette
-        open={paletteOpen}
-        onClose={() => { setPaletteOpen(false) }}
-        onPick={openHit}
-      />
+      {features.map((feature) => (
+        feature.overlay === undefined ? null : <div key={feature.name}>{feature.overlay()}</div>
+      ))}
     </div>
     </ShellProvider>
   )

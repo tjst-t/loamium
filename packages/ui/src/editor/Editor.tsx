@@ -10,7 +10,6 @@ import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
 import { splitFrontmatter, joinFrontmatter, normalizeForSave } from '@loamium/shared'
 import { applyLoamiumStringifyOptions } from './markdown-config'
 import { exitNodeKeymap } from './exit-node'
-import { outline } from './outline'
 import { setEditorEnv } from './editor-env'
 import type { MilkdownPlugin } from '@milkdown/kit/ctx'
 import { getNoteViewState, saveNoteViewState, type NoteViewState } from './view-state'
@@ -79,7 +78,6 @@ function MilkdownHost({
       .use(history)
       .use(listener)
       .use(exitNodeKeymap)
-      .use(outline)
       .use(afterPreset),
   )
 

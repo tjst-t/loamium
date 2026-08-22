@@ -14,7 +14,7 @@ import type { EditorView } from '@milkdown/kit/prose/view'
 import { normalizeForSave } from '@loamium/shared'
 import { applyLoamiumStringifyOptions } from '../markdown-config'
 import { exitNodeKeymap, exitToParagraph } from '../exit-node'
-import { outline } from '../outline'
+import { outline } from '@loamium/features/outline/outline'
 
 let editor: Editor
 let view: EditorView

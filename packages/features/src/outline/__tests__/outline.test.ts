@@ -13,8 +13,8 @@ import { TextSelection } from '@milkdown/kit/prose/state'
 import type { EditorView } from '@milkdown/kit/prose/view'
 import type { Command } from '@milkdown/kit/prose/state'
 import { normalizeForSave } from '@loamium/shared'
-import { applyLoamiumStringifyOptions } from '../markdown-config'
-import { exitNodeKeymap } from '../exit-node'
+import { applyLoamiumStringifyOptions } from '@loamium/ui/src/editor/markdown-config'
+import { exitNodeKeymap } from '@loamium/ui/src/editor/exit-node'
 import { outline, setListKind, toggleFold, toggleTaskChecked, foldKey } from '../outline'
 
 let editor: Editor
