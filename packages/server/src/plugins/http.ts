@@ -2,6 +2,7 @@ import { Service, type Context } from 'cordis'
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
 import { VaultPathError } from '@loamium/shared'
+import { VaultConflictError, VaultNotFoundError } from '../errors'
 
 export interface HttpConfig { port: number; hostname: string }
 
@@ -19,6 +20,12 @@ export class HttpService extends Service {
     this.app.onError((err, c) => {
       if (err instanceof VaultPathError) {
         return c.json({ error: 'invalid_path', message: err.message }, 400)
+      }
+      if (err instanceof VaultNotFoundError) {
+        return c.json({ error: 'not_found', message: err.message }, 404)
+      }
+      if (err instanceof VaultConflictError) {
+        return c.json({ error: 'conflict', message: err.message }, 409)
       }
       ctx.logger('http').error('unhandled: %s', err instanceof Error ? err.stack ?? err.message : String(err))
       return c.json({ error: 'internal_error' }, 500)

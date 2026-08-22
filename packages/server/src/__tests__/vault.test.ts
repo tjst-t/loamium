@@ -96,3 +96,52 @@ describe('VaultService: list', () => {
     expect(await ctx.vault.list()).toEqual(['t.md'])
   })
 })
+
+describe('VaultService: ツリーと基本操作', () => {
+  it('tree はフォルダ先・名前順で、空フォルダも残す', async () => {
+    await ctx.vault.write('b.md', '# b')
+    await ctx.vault.createFolder('空')
+    await ctx.vault.write('あ/c.md', '# c')
+    expect(await ctx.vault.tree()).toEqual([
+      { name: 'あ', path: 'あ', type: 'folder', children: [{ name: 'c.md', path: 'あ/c.md', type: 'note' }] },
+      { name: '空', path: '空', type: 'folder', children: [] },
+      { name: 'b.md', path: 'b.md', type: 'note' },
+    ])
+  })
+
+  it('create は既存を上書きしない', async () => {
+    await ctx.vault.create('a.md', '# 元')
+    await expect(ctx.vault.create('a.md', '# 別')).rejects.toThrow(/すでに存在します/)
+    expect(await ctx.vault.read('a.md')).toBe('# 元\n')
+  })
+
+  it('フォルダ移動は配下のノート分だけ remove+upsert を撒く', async () => {
+    await ctx.vault.write('src/a.md', '# a')
+    await ctx.vault.write('src/nest/b.md', '# b')
+    const seen: [string, string][] = []
+    ctx.on('vault/change', (p, op) => { seen.push([p, op]) })
+    await ctx.vault.move('src', 'dst')
+    expect(seen.sort()).toEqual([
+      ['dst/a.md', 'upsert'], ['dst/nest/b.md', 'upsert'],
+      ['src/a.md', 'remove'], ['src/nest/b.md', 'remove'],
+    ])
+  })
+
+  it('フォルダを自分の中へは移動できない', async () => {
+    await ctx.vault.write('src/a.md', '# a')
+    await expect(ctx.vault.move('src', 'src/nest')).rejects.toThrow(/自分の中には移動できません/)
+  })
+
+  it('存在しないものの削除は VaultNotFoundError', async () => {
+    await expect(ctx.vault.remove('nope.md')).rejects.toThrow(/存在しません/)
+  })
+
+  it('移動・削除も監査ログに残る', async () => {
+    await ctx.vault.write('a.md', '# a')
+    await ctx.vault.move('a.md', 'b.md')
+    await ctx.vault.remove('b.md')
+    const log = await readFile(join(root, '.loamium/audit.log'), 'utf8')
+    expect(log).toContain('"op":"move"')
+    expect(log).toContain('"op":"remove"')
+  })
+})

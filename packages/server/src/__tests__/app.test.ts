@@ -81,13 +81,17 @@ describe('REST: agent', () => {
   it('全機能のツールが登録されている', async () => {
     const body = (await (await call('/api/agent/tools')).json()) as { tools: { name: string }[] }
     expect(body.tools.map((t) => t.name).sort()).toEqual(
-      ['fmt_vault', 'help', 'list_notes', 'read_note', 'write_note'],
+      [
+        'fmt_vault', 'folder_create', 'help', 'list_notes', 'list_tree',
+        'note_create', 'note_delete', 'note_move', 'read_note', 'write_note',
+      ],
     )
   })
 
   it('ケーパビリティで絞れる (ADR-0015)', async () => {
     const body = (await (await call('/api/agent/tools?capability=read')).json()) as { tools: { name: string }[] }
-    expect(body.tools.map((t) => t.name).sort()).toEqual(['help', 'list_notes', 'read_note'])
+    expect(body.tools.map((t) => t.name).sort()).toEqual(
+      ['help', 'list_notes', 'list_tree', 'read_note'])
   })
 
   it('help トピックが機能ごとに登録されている (ADR-0014)', async () => {
@@ -119,5 +123,72 @@ describe('ツールの実行はケーパビリティで守られる', () => {
   it('ツール経由でも vault 脱出は拒否される', async () => {
     await expect(ctx.tools.invoke('read_note', { path: '../../etc/hostname' }, ['read']))
       .rejects.toThrow(/vault の外/)
+  })
+})
+
+describe('REST: ツリーと基本操作', () => {
+  const json = async (path: string, init?: RequestInit): Promise<unknown> =>
+    (await call(path, init)).json()
+
+  it('GET /api/tree はフォルダ先・名前順の階層を返す', async () => {
+    const body = (await json('/api/tree')) as { tree: { name: string; type: string; children?: unknown[] }[] }
+    expect(body.tree.map((n) => `${n.type}:${n.name}`)).toEqual(['folder:日誌', 'note:ok.md', 'note:table.md'])
+    expect(body.tree[0]?.children).toHaveLength(1)
+  })
+
+  it('PUT で新規作成し、二度目は 409', async () => {
+    expect((await call('/api/notes/新規.md', { method: 'PUT', body: '# 新規' })).status).toBe(200)
+    expect(await readFile(join(root, '新規.md'), 'utf8')).toBe('# 新規\n')
+    const dup = await call('/api/notes/新規.md', { method: 'PUT', body: '# 別' })
+    expect(dup.status).toBe(409)
+    expect(await readFile(join(root, '新規.md'), 'utf8')).toBe('# 新規\n')
+  })
+
+  it('POST /move はリネームし、インデックスも追従する', async () => {
+    const r = await call('/api/move', {
+      method: 'POST', body: JSON.stringify({ from: 'ok.md', to: '日誌/renamed.md' }),
+    })
+    expect(r.status).toBe(200)
+    const paths = ((await json('/api/notes')) as { paths: string[] }).paths
+    expect(paths.sort()).toEqual(['table.md', '日誌/list.md', '日誌/renamed.md'])
+  })
+
+  it('移動先が既にあれば 409 で、元ファイルは残る', async () => {
+    const r = await call('/api/move', {
+      method: 'POST', body: JSON.stringify({ from: 'ok.md', to: 'table.md' }),
+    })
+    expect(r.status).toBe(409)
+    expect(await readFile(join(root, 'ok.md'), 'utf8')).toBe('# ok\n')
+  })
+
+  it('存在しないノートの移動は 404', async () => {
+    const r = await call('/api/move', {
+      method: 'POST', body: JSON.stringify({ from: 'nope.md', to: 'x.md' }),
+    })
+    expect(r.status).toBe(404)
+  })
+
+  it('DELETE でノートが消え、インデックスからも消える', async () => {
+    expect((await call('/api/notes/ok.md', { method: 'DELETE' })).status).toBe(200)
+    const paths = ((await json('/api/notes')) as { paths: string[] }).paths
+    expect(paths.sort()).toEqual(['table.md', '日誌/list.md'])
+  })
+
+  it('フォルダを作成・削除できる (削除は中身ごと)', async () => {
+    expect((await call('/api/folders/新フォルダ', { method: 'POST' })).status).toBe(200)
+    const tree = ((await json('/api/tree')) as { tree: { name: string }[] }).tree
+    expect(tree.map((n) => n.name)).toContain('新フォルダ')
+
+    expect((await call('/api/folders/日誌', { method: 'DELETE' })).status).toBe(200)
+    const paths = ((await json('/api/notes')) as { paths: string[] }).paths
+    expect(paths.sort()).toEqual(['ok.md', 'table.md'])
+  })
+
+  it('vault 脱出は移動・削除でも拒否される', async () => {
+    expect((await call('/api/notes/%2e%2e%2fescaped.md', { method: 'DELETE' })).status).toBe(400)
+    const r = await call('/api/move', {
+      method: 'POST', body: JSON.stringify({ from: 'ok.md', to: '../escaped.md' }),
+    })
+    expect(r.status).toBe(400)
   })
 })

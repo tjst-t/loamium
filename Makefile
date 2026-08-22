@@ -40,7 +40,7 @@ serve-ui:
 
 ## vault 全体を正規形へ揃える (ADR-0035 の「初回の正規化コミット」)
 fmt:
-	$(NVM) node --experimental-strip-types packages/cli/src/index.ts fmt $(ARGS)
+	$(BUN) run packages/cli/src/index.ts fmt $(ARGS)
 
 clean:
 	rm -rf dist

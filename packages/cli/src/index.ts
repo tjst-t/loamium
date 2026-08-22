@@ -1,12 +1,17 @@
 #!/usr/bin/env node
-import { api, ApiError, baseUrl } from './client'
+import { api, ApiError, baseUrl, type TreeNode } from './client'
 
 const USAGE = `loamium — ローカル Markdown ノート
 
 使い方:
   loamium ls                     ノートのパス一覧
+  loamium tree                   フォルダ階層を表示する
   loamium cat <path>             ノートを読む
-  loamium write <path>           標準入力からノートを書く
+  loamium write <path>           標準入力からノートを書く (既存は上書き)
+  loamium new <path>             ノートを新規作成する (既存があれば失敗)
+  loamium mv <from> <to>         ノート/フォルダをリネーム・移動する
+  loamium rm <path>              ノート/フォルダを削除する (フォルダは中身ごと)
+  loamium mkdir <path>           フォルダを作る
   loamium fmt [--dry-run]        vault 全体を標準 Markdown へ正規化する
   loamium tools                  エージェント操作ツールの一覧
   loamium help [topic]           help 知識ベースを引く
@@ -34,6 +39,17 @@ async function main(argv: string[]): Promise<number> {
       return 0
     }
 
+    case 'tree': {
+      const render = (nodes: TreeNode[], indent: string): void => {
+        for (const n of nodes) {
+          process.stdout.write(`${indent}${n.type === 'folder' ? `${n.name}/` : n.name}\n`)
+          if (n.children) render(n.children, `${indent}  `)
+        }
+      }
+      render(await api.tree(), '')
+      return 0
+    }
+
     case 'cat': {
       const path = rest[0]
       if (path === undefined) { process.stderr.write('パスを指定してください\n'); return 2 }
@@ -46,6 +62,43 @@ async function main(argv: string[]): Promise<number> {
       if (path === undefined) { process.stderr.write('パスを指定してください\n'); return 2 }
       await api.writeNote(path, await readStdin())
       process.stdout.write(`書き込みました: ${path}\n`)
+      return 0
+    }
+
+    case 'new': {
+      const path = rest[0]
+      if (path === undefined) { process.stderr.write('パスを指定してください\n'); return 2 }
+      // 標準入力がパイプされていれば本文として使う (対話なら空ノート)
+      await api.createNote(path, process.stdin.isTTY === true ? '' : await readStdin())
+      process.stdout.write(`作成しました: ${path}\n`)
+      return 0
+    }
+
+    case 'mv': {
+      const [from, to] = rest
+      if (from === undefined || to === undefined) {
+        process.stderr.write('移動元と移動先を指定してください\n'); return 2
+      }
+      await api.move(from, to)
+      process.stdout.write(`${from} → ${to}\n`)
+      return 0
+    }
+
+    case 'rm': {
+      const path = rest[0]
+      if (path === undefined) { process.stderr.write('パスを指定してください\n'); return 2 }
+      // フォルダかノートかはサーバー側が判別する。CLI は入口を分けない
+      if (path.endsWith('.md')) await api.removeNote(path)
+      else await api.removeFolder(path)
+      process.stdout.write(`削除しました: ${path}\n`)
+      return 0
+    }
+
+    case 'mkdir': {
+      const path = rest[0]
+      if (path === undefined) { process.stderr.write('パスを指定してください\n'); return 2 }
+      await api.createFolder(path)
+      process.stdout.write(`作成しました: ${path}/\n`)
       return 0
     }
 

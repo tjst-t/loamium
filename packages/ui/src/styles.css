@@ -5,13 +5,52 @@ body { margin: 0; font-family: system-ui, sans-serif; color: var(--fg); }
 .sidebar { border-right: 1px solid var(--bd); padding: 12px; overflow: auto; }
 .sidebar h1 { font-size: 15px; margin: 0 0 12px; }
 .sidebar ul { list-style: none; margin: 0; padding: 0; }
-.sidebar button {
-  display: block; width: 100%; text-align: left; background: none; border: 0;
-  padding: 8px; border-radius: 6px; cursor: pointer; font-size: 13px;
-  min-height: 44px; /* モバイル規約: タップターゲット 44px 以上 */
+
+/* --- フォルダツリー --- */
+.tree-toolbar { display: flex; gap: 4px; justify-content: flex-end; margin-bottom: 4px; }
+.tree-list { display: flex; flex-direction: column; }
+.tree-row { display: flex; align-items: center; gap: 2px; border-radius: 6px; }
+.tree-row:hover { background: #f0f0f0; }
+.tree-label {
+  display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0;
+  text-align: left; background: none; border: 0; cursor: pointer; font-size: 13px;
+  padding: 0 4px; min-height: 44px; /* モバイル規約: タップターゲット 44px 以上 */
+  color: inherit;
 }
-.sidebar button:hover { background: #f0f0f0; }
-.sidebar button[aria-current='true'] { background: #e6efe9; color: var(--accent); font-weight: 600; }
+.tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree-spacer { width: 14px; }
+.tree-label[aria-current='true'] { color: var(--accent); font-weight: 600; }
+.tree-row:has(.tree-label[aria-current='true']) { background: #e6efe9; }
+/* 操作は `…` 1 つに畳む (4 個並べると名前が潰れる)。hover / focus で出し、
+   タッチ端末では常時表示 (hover が無いため)。メニューを開いている行も出したままにする */
+.tree-actions { display: none; padding-right: 2px; }
+.tree-row:hover .tree-actions,
+.tree-row:focus-within .tree-actions,
+.tree-actions:has([aria-expanded='true']) { display: flex; }
+@media (hover: none) { .tree-actions { display: flex; } }
+
+/* 行のメニュー (ケバブ・右クリック共通) */
+.tree-menu {
+  position: fixed; z-index: 10; margin: 0; padding: 4px; list-style: none;
+  background: #fff; border: 1px solid var(--bd); border-radius: 8px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 12%);
+}
+.tree-menu-item {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  min-height: 44px; padding: 0 10px; border: 0; border-radius: 6px;
+  background: none; cursor: pointer; font-size: 13px; text-align: left; color: inherit;
+}
+.tree-menu-item:hover { background: #f0f0f0; }
+.icon-button {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; border: 0; background: none; border-radius: 6px;
+  cursor: pointer; color: var(--muted);
+}
+.icon-button:hover { background: #e2e2e2; color: var(--fg); }
+.tree-input {
+  flex: 1; min-width: 0; min-height: 44px; font-size: 13px;
+  border: 1px solid var(--accent); border-radius: 6px; padding: 0 6px;
+}
 .main { overflow: auto; display: flex; flex-direction: column; }
 .empty { color: var(--muted); padding: 24px; }
 .error { color: #b00; font-size: 12px; }

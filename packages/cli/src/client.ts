@@ -21,6 +21,13 @@ async function request(path: string, init?: RequestInit): Promise<Response> {
   return res
 }
 
+export interface TreeNode {
+  name: string
+  path: string
+  type: 'folder' | 'note'
+  children?: TreeNode[]
+}
+
 export const api = {
   async listNotes(): Promise<string[]> {
     const r = await request('/api/notes')
@@ -31,6 +38,25 @@ export const api = {
   },
   async writeNote(path: string, body: string): Promise<void> {
     await request(`/api/notes/${encodeURI(path)}`, { method: 'POST', body })
+  },
+  async tree(): Promise<TreeNode[]> {
+    const r = await request('/api/tree')
+    return ((await r.json()) as { tree: TreeNode[] }).tree
+  },
+  async createNote(path: string, body: string): Promise<void> {
+    await request(`/api/notes/${encodeURI(path)}`, { method: 'PUT', body })
+  },
+  async move(from: string, to: string): Promise<void> {
+    await request('/api/move', { method: 'POST', body: JSON.stringify({ from, to }) })
+  },
+  async removeNote(path: string): Promise<void> {
+    await request(`/api/notes/${encodeURI(path)}`, { method: 'DELETE' })
+  },
+  async createFolder(path: string): Promise<void> {
+    await request(`/api/folders/${encodeURI(path)}`, { method: 'POST' })
+  },
+  async removeFolder(path: string): Promise<void> {
+    await request(`/api/folders/${encodeURI(path)}`, { method: 'DELETE' })
   },
   async fmt(dryRun: boolean): Promise<{ scanned: number; changed: string[]; dryRun: boolean }> {
     const r = await request(`/api/vault/fmt${dryRun ? '?dry-run=1' : ''}`, { method: 'POST' })
