@@ -154,8 +154,9 @@
         "testStrategy": "`/` 入力でメニュー表示、選択で該当ブロックが挿入される。",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-08-23T07:45:00.000Z"
       },
       {
         "id": "13",

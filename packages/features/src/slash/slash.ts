@@ -1,0 +1,164 @@
+import { $prose } from '@milkdown/kit/utils'
+import { TextSelection, type Command, type EditorState } from '@milkdown/kit/prose/state'
+import { setBlockType, wrapIn } from '@milkdown/kit/prose/commands'
+import { wrapInList } from '@milkdown/kit/prose/schema-list'
+import type { EditorView } from '@milkdown/kit/prose/view'
+import type { NodeType } from '@milkdown/kit/prose/model'
+import { createSuggest, type SuggestItem } from '@loamium/ui/src/editor/suggest'
+
+/**
+ * スラッシュメニュー (task #12)。
+ *
+ * `/` を打つと挿入候補が出る。**入るのは標準 Markdown に往復できるものだけ** —
+ * スキーマが Markdown 表現力の型なので、ここに独自ブロックを足さない (ADR-0035)。
+ *
+ * ⚠️ 補完は Enter / Tab をリストのコマンドより先に拾う必要があるので、
+ * preset より**前**に use すること。
+ */
+
+const type = (state: EditorState, name: string): NodeType | undefined => state.schema.nodes[name]
+
+/** その場のブロックを差し替える */
+function toBlock(name: string, attrs?: Record<string, unknown>): Command {
+  return (state, dispatch, view) => {
+    const nodeType = type(state, name)
+    if (nodeType === undefined) return false
+    return setBlockType(nodeType, attrs)(state, dispatch, view)
+  }
+}
+
+function toList(name: 'bullet_list' | 'ordered_list', task = false): Command {
+  return (state, dispatch, view) => {
+    const listType = type(state, name)
+    const itemType = type(state, 'list_item')
+    if (listType === undefined || itemType === undefined) return false
+    if (!wrapInList(listType)(state, dispatch, view)) return false
+    if (!task || dispatch === undefined || view === undefined) return true
+    // チェックボックスは「包んでから checked を付ける」の 2 段。包んだ**後の state** を見る。
+    // ⚠️ ここで outline 機能を参照しない (機能フォルダごと消せる状態を保つため)
+    const $pos = view.state.selection.$from
+    for (let depth = $pos.depth; depth > 0; depth -= 1) {
+      if ($pos.node(depth).type !== itemType) continue
+      const itemPos = $pos.before(depth)
+      const item = view.state.doc.nodeAt(itemPos)
+      if (item !== null) {
+        view.dispatch(view.state.tr.setNodeMarkup(itemPos, undefined, { ...item.attrs, checked: false }))
+      }
+      break
+    }
+    return true
+  }
+}
+
+const toQuote: Command = (state, dispatch, view) => {
+  const quote = type(state, 'blockquote')
+  return quote === undefined ? false : wrapIn(quote)(state, dispatch, view)
+}
+
+const insertHr: Command = (state, dispatch) => {
+  const hr = type(state, 'hr') ?? type(state, 'horizontal_rule')
+  if (hr === undefined) return false
+  dispatch?.(state.tr.replaceSelectionWith(hr.create()).scrollIntoView())
+  return true
+}
+
+/** 3 列 2 行の表 (見出し行 + 1 行)。GFM の表そのものなので Markdown に往復する */
+const insertTable: Command = (state, dispatch) => {
+  const table = type(state, 'table')
+  const row = type(state, 'table_row')
+  const header = type(state, 'table_header')
+  const cell = type(state, 'table_cell')
+  const paragraph = type(state, 'paragraph')
+  if (table === undefined || row === undefined || header === undefined
+    || cell === undefined || paragraph === undefined) return false
+
+  // alignment の既定は 'left' で、そのまま入れると `| :- |` になる。
+  // 指定していない表は `| - |` で書きたいので null にする
+  const emptyCell = (nodeType: NodeType): ReturnType<NodeType['createAndFill']> =>
+    nodeType.createAndFill({ alignment: null }, paragraph.create())
+  const cells = (nodeType: NodeType): NonNullable<ReturnType<NodeType['createAndFill']>>[] =>
+    [0, 1, 2].map(() => emptyCell(nodeType)).filter((node) => node !== null)
+
+  // createAndFill は足りない行を勝手に足すので使わない (空行が 1 本増える)
+  const node = table.create(null, [row.create(null, cells(header)), row.create(null, cells(cell))])
+  const tr = state.tr.replaceSelectionWith(node)
+  // 先頭のセルへカーソルを置く
+  tr.setSelection(TextSelection.near(tr.doc.resolve(Math.max(state.selection.from, 1))))
+  dispatch?.(tr.scrollIntoView())
+  return true
+}
+
+/** そのまま文字を置く候補 (置いたあと別の補完に引き継ぐ) */
+function insertText(text: string): Command {
+  return (state, dispatch) => {
+    dispatch?.(state.tr.insertText(text).scrollIntoView())
+    return true
+  }
+}
+
+export interface SlashItem extends SuggestItem {
+  /** 探すときの手がかり (日本語と英語の両方) */
+  keywords: string[]
+  run: Command
+}
+
+/** 候補。**標準 Markdown に落ちるものだけ** */
+export const SLASH_ITEMS: SlashItem[] = [
+  { value: 'h1', title: '見出し 1', subtitle: '#', keywords: ['みだし', 'midashi', 'heading', 'h1'], run: toBlock('heading', { level: 1 }) },
+  { value: 'h2', title: '見出し 2', subtitle: '##', keywords: ['みだし', 'midashi', 'heading', 'h2'], run: toBlock('heading', { level: 2 }) },
+  { value: 'h3', title: '見出し 3', subtitle: '###', keywords: ['みだし', 'midashi', 'heading', 'h3'], run: toBlock('heading', { level: 3 }) },
+  { value: 'bullet', title: '箇条書き', subtitle: '- ', keywords: ['かじょうがき', 'list', 'ul', 'kajogaki'], run: toList('bullet_list') },
+  { value: 'ordered', title: '番号付きリスト', subtitle: '1. ', keywords: ['ばんごう', 'list', 'ol', 'bangou'], run: toList('ordered_list') },
+  { value: 'task', title: 'チェックボックス', subtitle: '- [ ] ', keywords: ['ちぇっく', 'todo', 'task', 'check'], run: toList('bullet_list', true) },
+  { value: 'quote', title: '引用', subtitle: '> ', keywords: ['いんよう', 'quote', 'inyou'], run: toQuote },
+  { value: 'code', title: 'コードブロック', subtitle: '```', keywords: ['こーど', 'code', 'fence'], run: toBlock('code_block') },
+  { value: 'table', title: '表', subtitle: '| a | b |', keywords: ['ひょう', 'table', 'hyou'], run: insertTable },
+  { value: 'hr', title: '区切り線', subtitle: '---', keywords: ['くぎり', 'hr', 'divider', 'kugiri'], run: insertHr },
+  { value: 'link', title: 'ノートへのリンク', subtitle: '[[', keywords: ['りんく', 'link', 'wikilink', 'rinku'], run: insertText('[[') },
+  { value: 'tag', title: 'タグ', subtitle: '#tag', keywords: ['たぐ', 'tag', 'tagu'], run: insertText('#') },
+]
+
+const fold = (text: string): string => text.normalize('NFC').toLowerCase()
+
+export function filterSlashItems(query: string, items: readonly SlashItem[] = SLASH_ITEMS): SlashItem[] {
+  const needle = fold(query.trim())
+  if (needle === '') return [...items]
+  return items.filter((item) =>
+    fold(item.title).includes(needle)
+    || fold(item.subtitle ?? '').includes(needle)
+    || item.keywords.some((keyword) => fold(keyword).startsWith(needle)))
+}
+
+/**
+ * カーソルの直前が書きかけの `/…` なら、その範囲を返す。
+ * 行頭か空白の直後だけを拾う (`foo/bar` のようなパスでは出さない)。
+ */
+function activeQuery(state: EditorState): { from: number; to: number; query: string } | null {
+  const { $from, empty } = state.selection
+  if (!empty) return null
+  if ($from.parent.type.spec.code === true) return null
+  const before = $from.parent.textBetween(0, $from.parentOffset, undefined, '￼')
+  const match = /(?:^|\s)\/([^\s/]*)$/.exec(before)
+  if (match === null) return null
+  const query = match[1] ?? ''
+  return { from: $from.pos - query.length, to: $from.pos, query }
+}
+
+export const slashSuggest = createSuggest({
+  name: 'loamium-slash',
+  header: (query) => (query === '' ? '挿入' : `挿入: ${query}`),
+  match: activeQuery,
+  items: (query) => filterSlashItems(query),
+  apply: (view: EditorView, item, range) => {
+    const found = SLASH_ITEMS.find((entry) => entry.value === item.value)
+    if (found === undefined) return
+    // `/` ごと消してから挿入する (メニューの痕跡を本文に残さない)。
+    // 直前の空白も一緒に消す: 残すとファイルに `&#x20;` として書かれてしまう
+    const before = view.state.doc.textBetween(Math.max(range.from - 2, 0), range.from - 1)
+    const from = range.from - (before === ' ' ? 2 : 1)
+    view.dispatch(view.state.tr.delete(from, range.to))
+    found.run(view.state, view.dispatch.bind(view), view)
+  },
+})
+
+export const slash = [$prose(() => slashSuggest)]

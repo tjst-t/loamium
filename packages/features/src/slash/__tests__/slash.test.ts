@@ -1,0 +1,195 @@
+/**
+ * スラッシュメニュー (task #12) を Milkdown 実体に対して検証する。
+ *
+ * 判定は**挿入後に保存される Markdown**。候補が「標準 Markdown に往復するものだけ」で
+ * あることを、出力そのもので固定する (不変条件 1)。
+ */
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { Editor, rootCtx, parserCtx, serializerCtx, editorViewCtx } from '@milkdown/kit/core'
+import { commonmark } from '@milkdown/kit/preset/commonmark'
+import { gfm } from '@milkdown/kit/preset/gfm'
+import { TextSelection } from '@milkdown/kit/prose/state'
+import type { EditorView } from '@milkdown/kit/prose/view'
+import { normalizeForSave } from '@loamium/shared'
+import { applyLoamiumStringifyOptions } from '@loamium/ui/src/editor/markdown-config'
+import { filterSlashItems, slash, slashSuggest, SLASH_ITEMS } from '../slash'
+
+let editor: Editor
+let view: EditorView
+let host: HTMLElement
+
+beforeAll(async () => {
+  // jsdom には getClientRects が無く、ProseMirror の scrollIntoView が落ちる。
+  // 位置は使わないので空で足りる
+  const empty = (): DOMRectList => Object.assign([], { item: () => null }) as unknown as DOMRectList
+  const rect = (): DOMRect => ({
+    x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0,
+    toJSON: () => ({}),
+  })
+  Range.prototype.getClientRects = empty
+  Range.prototype.getBoundingClientRect = rect
+  Element.prototype.getClientRects = empty
+  Element.prototype.getBoundingClientRect = rect
+
+  host = document.createElement('div')
+  document.body.appendChild(host)
+  editor = await Editor.make()
+    .config((ctx) => {
+      ctx.set(rootCtx, host)
+      applyLoamiumStringifyOptions(ctx)
+    })
+    .use(slash).use(commonmark).use(gfm)
+    .create()
+  editor.action((ctx) => { view = ctx.get(editorViewCtx) })
+})
+afterAll(async () => { await editor?.destroy(); host?.remove() })
+
+function load(markdown = '\n'): void {
+  editor.action((ctx) => {
+    const doc = ctx.get(parserCtx)(markdown)
+    if (!doc) throw new Error('parse failed')
+    view.dispatch(view.state.tr.replaceWith(0, view.state.doc.content.size, doc.content))
+  })
+  const end = view.state.doc.content.size - 1
+  view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(end))))
+}
+
+const save = (): string => {
+  let out = ''
+  editor.action((ctx) => { out = normalizeForSave(ctx.get(serializerCtx)(view.state.doc)) })
+  return out
+}
+
+/** 1 文字ずつ打つ (input rule や補完の発火条件を実際と同じにするため) */
+function type(text: string): void {
+  for (const char of text) view.dispatch(view.state.tr.insertText(char))
+}
+
+const active = (): ReturnType<typeof slashSuggest.activeState> => slashSuggest.activeState(view.state)
+
+/** メニューから選んで確定する */
+function pick(value: string): void {
+  const item = SLASH_ITEMS.find((entry) => entry.value === value)
+  if (item === undefined) throw new Error(`候補が無い: ${value}`)
+  slashSuggest.accept(view, item)
+}
+
+describe('候補の絞り込み', () => {
+  it('空なら全部', () => {
+    expect(filterSlashItems('')).toHaveLength(SLASH_ITEMS.length)
+  })
+
+  it('日本語で引ける', () => {
+    expect(filterSlashItems('見出し').map((i) => i.value)).toEqual(['h1', 'h2', 'h3'])
+    expect(filterSlashItems('表').map((i) => i.value)).toEqual(['table'])
+  })
+
+  it('かな読みでも引ける (IME で確定した直後の語で探せる)', () => {
+    expect(filterSlashItems('ひょう').map((i) => i.value)).toEqual(['table'])
+    expect(filterSlashItems('みだし').map((i) => i.value)).toEqual(['h1', 'h2', 'h3'])
+  })
+
+  it('英語 (ローマ字) でも引ける', () => {
+    expect(filterSlashItems('table').map((i) => i.value)).toEqual(['table'])
+    expect(filterSlashItems('todo').map((i) => i.value)).toEqual(['task'])
+  })
+
+  it('記法そのものでも引ける', () => {
+    expect(filterSlashItems('##').map((i) => i.value)).toEqual(['h2', 'h3'])
+  })
+
+  it('一致しなければ空', () => {
+    expect(filterSlashItems('zzz')).toEqual([])
+  })
+})
+
+describe('メニューが出る条件', () => {
+  it('行頭の / で出る', () => {
+    load()
+    type('/')
+    expect(active()?.items.length).toBe(SLASH_ITEMS.length)
+  })
+
+  it('空白の直後の / でも出る', () => {
+    load()
+    type('メモ /')
+    expect(active()).not.toBeNull()
+  })
+
+  it('パスの区切りでは出さない (foo/bar)', () => {
+    load()
+    type('foo/bar')
+    expect(active()).toBeNull()
+  })
+
+  it('打った文字で絞り込まれる', () => {
+    load()
+    type('/表')
+    expect(active()?.items.map((i) => i.value)).toEqual(['table'])
+  })
+})
+
+describe('挿入した結果 (保存される Markdown)', () => {
+  const cases: [string, string, string][] = [
+    ['見出し 1', 'h1', '#\n'],
+    ['見出し 2', 'h2', '##\n'],
+    ['箇条書き', 'bullet', '-\n'],
+    ['番号付き', 'ordered', '1.\n'],
+    ['引用', 'quote', '>\n'],
+    ['区切り線', 'hr', '---\n'],
+  ]
+
+  for (const [name, value, expected] of cases) {
+    it(`${name} → ${JSON.stringify(expected)}`, () => {
+      load()
+      type('/')
+      pick(value)
+      expect(save()).toBe(expected)
+    })
+  }
+
+  it('チェックボックス → 文字を打つと `- [ ] ` になる', () => {
+    load()
+    type('/')
+    pick('task')
+    // ⚠️ 空のままだと `- [ ]` は GFM のタスク項目として読み直せず、ただの `-` に戻る。
+    //    構造としては checked: false が入っている
+    type('やること')
+    expect(save()).toBe('- [ ] やること\n')
+  })
+
+  it('表 → GFM の表になる', () => {
+    load()
+    type('/')
+    pick('table')
+    expect(save()).toBe('| | | |\n| - | - | - |\n| | | |\n')
+  })
+
+  it('コードブロック → フェンスになる', () => {
+    load()
+    type('/')
+    pick('code')
+    expect(save()).toBe('```\n```\n')
+  })
+
+  it('`/` とその後の入力は本文に残さない', () => {
+    load()
+    type('/みだ')
+    pick('h1')
+    expect(save()).toBe('#\n')
+  })
+
+  it('書きかけの行の途中でも、その行を変換する', () => {
+    load()
+    type('メモ /')
+    pick('h2')
+    expect(save()).toBe('## メモ\n')
+  })
+
+  it('リンクとタグは文字を置くだけ (次の補完に引き継ぐ)', () => {
+    load()
+    type('/')
+    pick('link')
+    expect(save()).toBe('[[\n')
+  })
+})

@@ -144,6 +144,8 @@ export function createSuggest(config: SuggestConfig): SuggestPlugin {
 
     props: {
       handleKeyDown(view, event) {
+        // ⚠️ IME で変換中の Enter は「変換の確定」。候補の確定に横取りしない
+        if (event.isComposing || event.keyCode === 229) return false
         const active = key.getState(view.state)?.active
         if (active === null || active === undefined || active.items.length === 0) return false
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
