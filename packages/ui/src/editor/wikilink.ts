@@ -12,20 +12,49 @@ import { getWikiLinkEnv } from './wikilink-env'
  * (不変条件 2) に手を入れずに済み、外部エディタで開いたときの見え方とも完全に一致する。
  */
 
+interface DocLink {
+  from: number
+  to: number
+  target: string
+  /** `[[` から `]]` までそのまま */
+  raw: string
+}
+
 /** テキストノード内の `[[…]]` を拾う。コードの中は shared 側が除外する */
-function linksInDoc(state: EditorState): { from: number; to: number; target: string }[] {
-  const out: { from: number; to: number; target: string }[] = []
+function linksInDoc(state: EditorState): DocLink[] {
+  const out: DocLink[] = []
   state.doc.descendants((node, pos, parent) => {
     if (!node.isText || node.text === null || node.text === undefined) return true
     // コードブロック・インラインコードの中はリンクではない
     if (parent?.type.spec.code === true) return false
     if (node.marks.some((mark) => mark.type.spec.code === true || mark.type.name === 'inlineCode')) return true
     for (const link of parseWikiLinks(node.text)) {
-      out.push({ from: pos + link.start, to: pos + link.end, target: link.target })
+      out.push({ from: pos + link.start, to: pos + link.end, target: link.target, raw: link.raw })
     }
     return true
   })
   return out
+}
+
+/**
+ * 記法 (`[[` `]]` と表示名の前) を隠して、リンクらしく見せる。
+ *
+ * ⚠️ **カーソルがそのリンクに触れている間は隠さない。** 隠しっぱなしだと、消したり
+ * 書き換えたりするときに「見えない文字」を相手にすることになる。触れたら素の Markdown が
+ * そのまま出る、という往復を常に成り立たせておく。
+ *
+ * これは「行単位の Raw 表示」(CLAUDE.md で不採用) ではない。行ではなくリンク 1 個の単位で、
+ * 隠しているのは**記法の飾りだけ**。ファイルの中身は 1 バイトも変えない。
+ */
+function syntaxDecorations(link: DocLink): Decoration[] {
+  const decorations = [
+    Decoration.inline(link.from, link.from + 2, { class: 'wikilink-syntax' }),
+    Decoration.inline(link.to - 2, link.to, { class: 'wikilink-syntax' }),
+  ]
+  // 表示名があるなら、その前 (`ノート#見出し|`) はまるごと隠して表示名だけ見せる
+  const bar = link.raw.indexOf('|')
+  if (bar > 2) decorations.push(Decoration.inline(link.from + 2, link.from + bar + 1, { class: 'wikilink-syntax' }))
+  return decorations
 }
 
 const wikiLinkDecorations = new Plugin({
@@ -33,15 +62,20 @@ const wikiLinkDecorations = new Plugin({
   props: {
     decorations(state) {
       const env = getWikiLinkEnv()
-      const decorations = linksInDoc(state).map(({ from, to, target }) => {
-        const path = resolveWikiLink(target, env.notes, env.currentPath)
-        return Decoration.inline(from, to, {
+      const { from: selFrom, to: selTo } = state.selection
+      const decorations: Decoration[] = []
+      for (const link of linksInDoc(state)) {
+        const path = resolveWikiLink(link.target, env.notes, env.currentPath)
+        decorations.push(Decoration.inline(link.from, link.to, {
           class: path === null ? 'wikilink is-broken' : 'wikilink',
-          'data-target': target,
+          'data-target': link.target,
           ...(path === null ? {} : { 'data-path': path }),
-          title: path === null ? `${target} — まだ無いノート (クリックで作成)` : path,
-        })
-      })
+          title: path === null ? `${link.target} — まだ無いノート (クリックで作成)` : path,
+        }))
+        // カーソルが触れているリンクは素の Markdown を見せる
+        if (selTo >= link.from && selFrom <= link.to) continue
+        decorations.push(...syntaxDecorations(link))
+      }
       return DecorationSet.create(state.doc, decorations)
     },
 
@@ -96,7 +130,12 @@ export function suggestNotes(query: string, notes: readonly string[]): string[] 
     .map((entry) => entry.path)
 }
 
-/** カーソルの直前が未確定の `[[…` なら、その範囲を返す */
+/**
+ * カーソルの直前が**書きかけの** `[[…` なら、その範囲を返す。
+ *
+ * ⚠️ **すでに閉じているリンクの中では出さないこと。** `[[ノート]]` の `[[` の直後を
+ * クリックしただけで候補が開くと、何が出ているのか分からないポップアップになる (実機で発生)。
+ */
 function activeQuery(state: EditorState): { from: number; to: number; query: string } | null {
   const { $from, empty } = state.selection
   if (!empty) return null
@@ -104,6 +143,9 @@ function activeQuery(state: EditorState): { from: number; to: number; query: str
   const before = $from.parent.textBetween(0, $from.parentOffset, undefined, '￼')
   const match = /\[\[([^[\]\n|#]*)$/.exec(before)
   if (match === null) return null
+  // カーソルより後ろで `]]` が閉じているなら、それは書きかけではなく既存のリンク
+  const after = $from.parent.textBetween($from.parentOffset, $from.parent.content.size, undefined, '￼')
+  if (/^[^[\]\n]*\]\]/.test(after)) return null
   const query = match[1] ?? ''
   return { from: $from.pos - query.length, to: $from.pos, query }
 }
@@ -120,6 +162,11 @@ function renderPopup(dom: HTMLElement, state: Suggest, view: EditorView): void {
     hidePopup(dom)
     return
   }
+  // 何のポップアップなのかを明示する (急に出ると何が起きたのか分からない)
+  const header = document.createElement('div')
+  header.className = 'wikilink-suggest-header'
+  header.textContent = state.query === '' ? 'ノートへリンク' : `ノートへリンク: ${state.query}`
+  dom.append(header)
   for (const [i, path] of state.items.entries()) {
     const item = document.createElement('button')
     item.type = 'button'
@@ -186,19 +233,22 @@ function computeActive(state: EditorState, index = 0): Suggest | null {
 const wikiLinkSuggest = new Plugin<SuggestState>({
   key: suggestKey,
   state: {
-    init: (_config, state) => ({ active: computeActive(state), dismissed: false }),
+    init: () => ({ active: null, dismissed: false }),
     apply(tr, prev, _oldState, nextState) {
       const meta = tr.getMeta(suggestKey) as { close?: boolean; move?: number } | undefined
       if (meta?.close === true) return { active: null, dismissed: true }
 
-      const stillTyping = activeQuery(nextState) !== null
-      if (prev.dismissed && stillTyping) return prev
+      const inQuery = activeQuery(nextState) !== null
+      if (prev.dismissed && inQuery) return prev
       if (meta?.move !== undefined && prev.active !== null) {
         const count = prev.active.items.length
         if (count === 0) return prev
         const index = (prev.active.index + meta.move + count) % count
         return { active: { ...prev.active, index }, dismissed: false }
       }
+      // **打っている最中だけ**開く。カーソルを動かしただけでは開かない
+      // (既存のリンクの中にカーソルを置いただけで候補が出るのを防ぐ)
+      if (!tr.docChanged && prev.active === null) return { active: null, dismissed: false }
       return { active: computeActive(nextState, prev.active?.index ?? 0), dismissed: false }
     },
   },

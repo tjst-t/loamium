@@ -72,7 +72,8 @@ function decorations(): { text: string; broken: boolean }[] {
     { find?: () => DecoLike[] } | undefined
   if (set?.find === undefined) return []
   return set.find()
-    .filter((deco) => (deco.type.attrs?.['class'] ?? '').includes('wikilink'))
+    .filter((deco) => (deco.type.attrs?.['class'] ?? '').startsWith('wikilink '.trim()))
+    .filter((deco) => !(deco.type.attrs?.['class'] ?? '').includes('wikilink-syntax'))
     .map((deco) => ({
       text: view.state.doc.textBetween(deco.from, deco.to),
       broken: (deco.type.attrs?.['class'] ?? '').includes('is-broken'),
@@ -107,6 +108,39 @@ describe('表示', () => {
   it('インラインコードの中もリンクにしない', () => {
     load('`[[計画]]` と [[計画]]\n')
     expect(decorations()).toHaveLength(1)
+  })
+})
+
+/** 隠している記法の範囲 */
+function hidden(): string[] {
+  const set = view.someProp('decorations', (f) => f(view.state)) as { find?: () => DecoLike[] } | undefined
+  if (set?.find === undefined) return []
+  return set.find()
+    .filter((deco) => (deco.type.attrs?.['class'] ?? '') === 'wikilink-syntax')
+    .map((deco) => view.state.doc.textBetween(deco.from, deco.to))
+}
+
+describe('記法の見せ方', () => {
+  it('普段は [[ ]] を隠す', () => {
+    load('[[計画]] を見る\n')
+    expect(hidden()).toEqual(['[[', ']]'])
+  })
+
+  it('表示名があるときはリンク先ごと隠して表示名だけ見せる', () => {
+    load('まず [[プロジェクト/計画#今週|やること]] を見る\n')
+    expect(hidden()).toEqual(['[[', 'プロジェクト/計画#今週|', ']]'])
+  })
+
+  it('カーソルが触れているリンクは素の Markdown を出す', () => {
+    load('[[計画]] を見る\n')
+    view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(4))))
+    expect(hidden()).toEqual([])
+  })
+
+  it('別の場所にカーソルがあるリンクは隠れたまま', () => {
+    load('[[計画]] と [[存在しない]]\n')
+    view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(4))))
+    expect(hidden()).toEqual(['[[', ']]'])
   })
 })
 
@@ -153,6 +187,13 @@ describe('[[ の補完', () => {
   it('打った文字で絞り込まれる', () => {
     type('[[計')
     expect(suggestStateOf(view.state)?.items).toEqual(['プロジェクト/計画.md'])
+  })
+
+  it('すでに閉じているリンクの中では候補を出さない (カーソルを置いただけで開かない)', () => {
+    load('[[計画]] を見る\n')
+    // `[[` の直後にカーソルを置く
+    view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(3))))
+    expect(suggestStateOf(view.state)).toBeNull()
   })
 
   it('] を閉じたら候補は消える', () => {

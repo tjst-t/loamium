@@ -39,6 +39,8 @@ body { margin: 0; font-family: system-ui, sans-serif; color: var(--fg); }
   text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 2px;
 }
 .milkdown .ProseMirror .wikilink:hover { background: #e8f0ea; }
+/* `[[` `]]` は普段は隠す。カーソルが触れているリンクでは出す (プラグイン側で判定) */
+.milkdown .ProseMirror .wikilink-syntax { display: none; }
 /* 壊れリンク: 行き先が無いことがひと目で分かる。クリックで作れる */
 .milkdown .ProseMirror .wikilink.is-broken { color: #b3261e; }
 .milkdown .ProseMirror .wikilink.is-broken:hover { background: #fbe9e7; }
@@ -48,6 +50,10 @@ body { margin: 0; font-family: system-ui, sans-serif; color: var(--fg); }
   min-width: 240px; max-width: 380px; padding: 4px;
   background: #fff; border: 1px solid var(--bd); border-radius: 8px;
   box-shadow: 0 8px 24px rgb(0 0 0 / 14%);
+}
+.wikilink-suggest-header {
+  padding: 4px 8px 6px; font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--bd);
+  margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .wikilink-suggest-item {
   display: flex; flex-direction: column; gap: 1px; width: 100%; min-height: 44px;
