@@ -86,8 +86,9 @@
         "testStrategy": "キーワードでノート名/本文の両方がヒットし、選択で該当行にカーソルが立つ。",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-08-22T05:21:56.328Z"
       },
       {
         "id": "8",
@@ -592,9 +593,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-08-22T03:21:43.280Z",
+      "lastModified": "2026-08-22T05:21:56.329Z",
       "taskCount": 48,
-      "completedCount": 2,
+      "completedCount": 3,
       "tags": [
         "master"
       ]
