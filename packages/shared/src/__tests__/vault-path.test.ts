@@ -1,6 +1,7 @@
 /** @vitest-environment node */
 import { describe, it, expect } from 'vitest'
-import { normalizeVaultPath, resolveVaultPath, VaultPathError } from '../vault-path'
+import { normalizeVaultPath, VaultPathError } from '../vault-path'
+import { resolveVaultPath } from '../vault-path.node'
 
 describe('normalizeVaultPath', () => {
   it('通常のパスはそのまま', () => {

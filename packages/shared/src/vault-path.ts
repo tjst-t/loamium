@@ -1,5 +1,3 @@
-import { resolve, sep } from 'node:path'
-
 /** vault 外を指すパス・不正なパスが与えられた */
 export class VaultPathError extends Error {
   override readonly name = 'VaultPathError'
@@ -31,18 +29,4 @@ export function normalizeVaultPath(relPath: string): string {
   }
   if (segments.length === 0) throw new VaultPathError('パスが空です')
   return segments.join('/')
-}
-
-/**
- * vault ルートと相対パスから絶対パスを作る。
- * `..` の拒否に加えて、解決後のパスが本当にルート配下かを二重に検証する。
- */
-export function resolveVaultPath(root: string, relPath: string): string {
-  const rel = normalizeVaultPath(relPath)
-  const rootAbs = resolve(root)
-  const full = resolve(rootAbs, rel)
-  if (full !== rootAbs && !full.startsWith(rootAbs + sep)) {
-    throw new VaultPathError(`vault の外を指しています: ${relPath}`)
-  }
-  return full
 }

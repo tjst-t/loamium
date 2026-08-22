@@ -1,7 +1,8 @@
 import { Service, type Context } from 'cordis'
 import { mkdir, readFile, writeFile, readdir, appendFile } from 'node:fs/promises'
 import { join, relative, dirname } from 'node:path'
-import { normalizeForSave, resolveVaultPath, normalizeVaultPath } from '@loamium/shared'
+import { normalizeForSave, normalizeVaultPath } from '@loamium/shared'
+import { resolveVaultPath } from '@loamium/shared/src/vault-path.node'
 
 export interface VaultConfig { root: string }
 
