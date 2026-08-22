@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import { Editor as MilkdownEditor, rootCtx, defaultValueCtx, editorViewCtx, serializerCtx } from '@milkdown/kit/core'
+import { TextSelection } from '@milkdown/kit/prose/state'
+import type { EditorView } from '@milkdown/kit/prose/view'
 import { commonmark } from '@milkdown/kit/preset/commonmark'
 import { gfm } from '@milkdown/kit/preset/gfm'
 import { history } from '@milkdown/kit/plugin/history'
@@ -9,16 +11,40 @@ import { splitFrontmatter, joinFrontmatter, normalizeForSave } from '@loamium/sh
 import { applyLoamiumStringifyOptions } from './markdown-config'
 import { exitNodeKeymap } from './exit-node'
 import { outline } from './outline'
+import { getNoteViewState, saveNoteViewState, type NoteViewState } from './view-state'
 
 export type Mode = 'wysiwyg' | 'source'
 
+/**
+ * 実際にスクロールしている祖先を探す。
+ *
+ * ⚠️ **`.milkdown` を決め打ちしないこと。** CSS 上は `.milkdown` が `overflow: auto` だが、
+ * flex の高さがそのまま伸びるため、実際にスクロールしているのは `.main` 側だった。
+ * クラス名ではなく「スクロールできるか」で選ぶ。
+ */
+function scrollParentOf(node: HTMLElement | null): HTMLElement | null {
+  let fallback: HTMLElement | null = null
+  for (let el = node; el !== null; el = el.parentElement) {
+    const overflowY = window.getComputedStyle(el).overflowY
+    if (overflowY !== 'auto' && overflowY !== 'scroll') continue
+    if (el.scrollHeight > el.clientHeight) return el
+    fallback ??= el
+  }
+  return fallback
+}
+
 interface MilkdownHostProps {
+  /** 表示状態を憶える単位。ノートのパス */
+  path: string
   initialBody: string
   onChange: (markdown: string) => void
 }
 
-function MilkdownHost({ initialBody, onChange }: MilkdownHostProps): JSX.Element {
-  useEditor((root) =>
+function MilkdownHost({ path, initialBody, onChange }: MilkdownHostProps): JSX.Element {
+  // 最新の表示状態。アンマウント時にこれをそのまま保存する
+  const viewState = useRef<NoteViewState>({ cursor: 0, scrollTop: 0 })
+
+  const { loading, get } = useEditor((root) =>
     MilkdownEditor.make()
       .config((ctx) => {
         ctx.set(rootCtx, root)
@@ -26,6 +52,9 @@ function MilkdownHost({ initialBody, onChange }: MilkdownHostProps): JSX.Element
         // shared の remark-stringify 設定を注入する (これを忘れると gate を外れる)
         applyLoamiumStringifyOptions(ctx)
         ctx.get(listenerCtx).markdownUpdated((_, markdown) => onChange(markdown))
+        ctx.get(listenerCtx).selectionUpdated((_, selection) => {
+          viewState.current.cursor = selection.from
+        })
       })
       .use(commonmark)
       .use(gfm)
@@ -34,10 +63,45 @@ function MilkdownHost({ initialBody, onChange }: MilkdownHostProps): JSX.Element
       .use(exitNodeKeymap)
       .use(outline),
   )
+
+  /**
+   * ノートを開き直したときにスクロールとカーソルを戻す (task #2)。
+   *
+   * 復元でフォーカスは奪わない。ツリーやパレットから開いた直後に
+   * キー入力の行き先が勝手に本文へ移ると、続けて操作している側が壊れるため。
+   */
+  useEffect(() => {
+    if (loading) return undefined
+    let view: EditorView | undefined
+    get()?.action((ctx) => { view = ctx.get(editorViewCtx) })
+    if (view === undefined) return undefined
+    const pmView = view
+    const scroller = scrollParentOf(pmView.dom.parentElement)
+
+    const saved = getNoteViewState(path)
+    if (saved !== undefined) {
+      const pos = Math.min(Math.max(saved.cursor, 0), pmView.state.doc.content.size)
+      pmView.dispatch(pmView.state.tr.setSelection(TextSelection.near(pmView.state.doc.resolve(pos))))
+      if (scroller !== null) scroller.scrollTop = saved.scrollTop
+      viewState.current = { ...saved }
+    }
+
+    const onScroll = (): void => {
+      viewState.current.scrollTop = scroller?.scrollTop ?? 0
+    }
+    scroller?.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      scroller?.removeEventListener('scroll', onScroll)
+      saveNoteViewState(path, { ...viewState.current })
+    }
+  }, [loading, get, path])
+
   return <Milkdown />
 }
 
 export interface EditorProps {
+  /** 開いているノートの vault パス。表示状態を憶える単位になる */
+  path: string
   /** ファイルの内容そのもの (frontmatter を含む) */
   value: string
   onSave: (next: string) => void
@@ -48,7 +112,7 @@ export interface EditorProps {
  * 外部エディタ・git・エージェントが同じファイルを直接触る以上、必須。
  * **文書単位**で切り替える (行単位ではない)。
  */
-export function Editor({ value, onSave }: EditorProps): JSX.Element {
+export function Editor({ path, value, onSave }: EditorProps): JSX.Element {
   const [mode, setMode] = useState<Mode>('wysiwyg')
   const { frontmatter, body } = useMemo(() => splitFrontmatter(value), [value])
   const [draftBody, setDraftBody] = useState(body)
@@ -103,7 +167,7 @@ export function Editor({ value, onSave }: EditorProps): JSX.Element {
       {mode === 'wysiwyg' ? (
         <MilkdownProvider>
           {/* key で強制再マウント: ファイルを切り替えたら中身を作り直す */}
-          <MilkdownHost key={value} initialBody={body} onChange={handleChange} />
+          <MilkdownHost key={value} path={path} initialBody={body} onChange={handleChange} />
         </MilkdownProvider>
       ) : (
         <textarea

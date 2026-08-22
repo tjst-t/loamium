@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState, type JSX } from 'react'
 import { Editor } from './editor/Editor'
 import { FileTree } from './components/FileTree'
+import { InfoPanel } from './components/InfoPanel'
 import { JournalCard } from './components/JournalCard'
 import { SearchPalette } from './components/SearchPalette'
 import { scrollToTextWhenReady } from './scroll-to-text'
+import { pathFromSearch, useRoute } from './route'
+import { forgetNoteViewState, renameNoteViewState } from './editor/view-state'
 import {
   ApiError, createFolder, createNote, fetchJournal, fetchTree, movePath, readNote, removePath,
   writeNote, type TreeNode,
@@ -18,12 +21,16 @@ const todayISO = (): string => {
   return `${n.getFullYear()}-${`${n.getMonth() + 1}`.padStart(2, '0')}-${`${n.getDate()}`.padStart(2, '0')}`
 }
 
+const PANEL_KEY = 'loamium.panel-open'
+
 export function App(): JSX.Element {
+  // 開いているノートは URL が持つ。戻る/進むがそのままノート履歴になる (task #2)
+  const { path: current, navigate } = useRoute()
   const [tree, setTree] = useState<TreeNode[]>([])
-  const [current, setCurrent] = useState<string | null>(null)
   const [content, setContent] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [panelOpen, setPanelOpen] = useState(() => window.localStorage.getItem(PANEL_KEY) !== 'false')
   /** 開いた直後に本文中で光らせる語 (検索から飛んできたとき) */
   const [pendingNeedle, setPendingNeedle] = useState<string | null>(null)
 
@@ -42,28 +49,39 @@ export function App(): JSX.Element {
   }, [])
 
   /** ジャーナルを開く。遅延生成されたらツリーを引き直す */
-  const openJournal = useCallback((date?: string) => {
+  const openJournal = useCallback((date?: string, options?: { replace?: boolean }) => {
     void run(async () => {
       const journal = await fetchJournal(date)
-      setCurrent(journal.path)
-      setContent(journal.content)
+      navigate(journal.path, options)
       if (journal.created) await refresh()
     })
-  }, [refresh, run])
+  }, [navigate, refresh, run])
 
-  // 起動したら今日のジャーナルに着地する (VISION: ジャーナル中心のワークフロー)
+  // 起動時: URL にノートが載っていればそれを開く。無ければ今日のジャーナルへ着地する
+  // (VISION: ジャーナル中心のワークフロー)。着地は履歴に積まない
   useEffect(() => {
     void run(refresh)
-    openJournal()
-  }, [openJournal, refresh, run])
+    if (pathFromSearch(window.location.search) === null) openJournal(undefined, { replace: true })
+    // 起動時に一度だけ
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  const open = useCallback((path: string) => {
-    void run(async () => {
-      setCurrent(path)
+  const open = useCallback((path: string) => { navigate(path) }, [navigate])
+
+  // URL のノートを読む。戻る/進むで来たときもここを通る
+  useEffect(() => {
+    if (current === null) {
       setContent(null)
-      setContent(await readNote(path))
+      return undefined
+    }
+    let live = true
+    setContent(null)
+    void run(async () => {
+      const text = await readNote(current)
+      if (live) setContent(text)
     })
-  }, [run])
+    return () => { live = false }
+  }, [current, run])
 
   // Cmd/Ctrl+K で検索パレット。入力欄にいても開けるようにする
   useEffect(() => {
@@ -71,6 +89,13 @@ export function App(): JSX.Element {
       if (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
         setPaletteOpen((v) => !v)
+        return
+      }
+      // ESC で選択解除と blur。エディタ内で既に処理済み (ノードを抜ける等) なら触らない
+      if (e.key === 'Escape' && !e.defaultPrevented) {
+        const active = document.activeElement
+        if (active instanceof HTMLElement && active !== document.body) active.blur()
+        window.getSelection()?.removeAllRanges()
       }
     }
     document.addEventListener('keydown', onKey)
@@ -89,6 +114,9 @@ export function App(): JSX.Element {
     if (pendingNeedle === null || content === null) return undefined
     return scrollToTextWhenReady(pendingNeedle)
   }, [pendingNeedle, content])
+
+  // 情報パネルの開閉は憶えておく (毎回開き直させない)
+  useEffect(() => { window.localStorage.setItem(PANEL_KEY, String(panelOpen)) }, [panelOpen])
 
   const save = useCallback((next: string) => {
     if (current === null) return
@@ -118,11 +146,15 @@ export function App(): JSX.Element {
     void run(async () => {
       await movePath(from, to)
       await refresh()
-      // 開いているノート (またはその親フォルダ) が動いたら追従する
-      if (current === from) setCurrent(to)
-      else if (current !== null && current.startsWith(`${from}/`)) setCurrent(to + current.slice(from.length))
+      renameNoteViewState(from, to)
+      // 開いているノート (またはその親フォルダ) が動いたら追従する。
+      // 履歴には積まない — 戻ると存在しないパスに着地してしまうため
+      if (current === from) navigate(to, { replace: true })
+      else if (current !== null && current.startsWith(`${from}/`)) {
+        navigate(to + current.slice(from.length), { replace: true })
+      }
     })
-  }, [current, refresh, run])
+  }, [current, navigate, refresh, run])
 
   const onDelete = useCallback((node: TreeNode) => {
     const message = node.type === 'folder'
@@ -132,18 +164,18 @@ export function App(): JSX.Element {
     void run(async () => {
       await removePath(node.path, node.type)
       await refresh()
+      forgetNoteViewState(node.path)
       if (current !== null && (current === node.path || current.startsWith(`${node.path}/`))) {
-        setCurrent(null)
-        setContent(null)
+        navigate(null, { replace: true })
       }
     })
-  }, [current, refresh, run])
+  }, [current, navigate, refresh, run])
 
   // ジャーナルを開いていればその日付、そうでなければ今日を指しておく
   const journalDate = journalDateOf(current)
 
   return (
-    <div className="app">
+    <div className={`app${panelOpen ? ' panel-open' : ''}`}>
       <aside className="sidebar">
         <h1>Loamium</h1>
         {error !== null && <p className="error">{error}</p>}
@@ -163,9 +195,15 @@ export function App(): JSX.Element {
         ) : content === null ? (
           <p className="empty">読み込み中…</p>
         ) : (
-          <Editor key={current} value={content} onSave={save} />
+          <Editor key={current} path={current} value={content} onSave={save} />
         )}
       </main>
+      <InfoPanel
+        open={panelOpen}
+        onToggle={() => { setPanelOpen((v) => !v) }}
+        path={current}
+        content={content}
+      />
       <SearchPalette
         open={paletteOpen}
         onClose={() => { setPaletteOpen(false) }}

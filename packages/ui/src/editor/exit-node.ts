@@ -11,8 +11,8 @@ import { exitCode } from '@milkdown/kit/prose/commands'
  * 後入れが苦しいので最初から作り込む。
  *
  * 挙動: カーソルを含む「doc 直下のブロック」の直後に段落を挿し、そこへカーソルを移す。
- * すでに doc 直下の素の段落にいる場合は false を返し、他のハンドラへ委ねる
- * (空段落を無限に生やさないため)。
+ * すでに doc 直下のブロックにいる (= 抜ける先が無い) 場合は false を返し、他のハンドラへ委ねる。
+ * 空段落を無限に生やさないためと、Escape を blur (task #2) に通すため。
  */
 export const exitToParagraph: Command = (state, dispatch) => {
   const { $from, empty } = state.selection
@@ -21,8 +21,9 @@ export const exitToParagraph: Command = (state, dispatch) => {
   // コードブロック内は標準の exitCode に任せる (末尾判定や改行の扱いが最適化されている)
   if ($from.parent.type.spec.code) return false
 
-  // doc 直下の素の段落 = 抜ける先が無い
-  if ($from.depth <= 1 && $from.parent.type.name === 'paragraph') return false
+  // doc 直下のブロック (段落・見出しなど) は抜ける先が無い。
+  // ここで false を返すことで、Escape は「選択解除して blur」(task #2) に回る
+  if ($from.depth <= 1) return false
 
   const paragraph = state.schema.nodes['paragraph']
   if (!paragraph) return false
@@ -39,9 +40,25 @@ export const exitToParagraph: Command = (state, dispatch) => {
 const exitAnyBlock: Command = (state, dispatch, view) =>
   exitCode(state, dispatch, view) || exitToParagraph(state, dispatch, view)
 
+/**
+ * 選択を解いてエディタから抜ける (task #2 の「ESC で選択解除 / blur」)。
+ *
+ * ⚠️ **document の keydown では実装できない。** ProseMirror の `captureKeyDown` が
+ * Escape を常に `preventDefault` するので、エディタの外からは「誰も処理しなかった Escape」を
+ * 見分けられない。抜ける先が無いときの Escape は、この keymap の中で終わらせる。
+ */
+const blurEditor: Command = (_state, _dispatch, view) => {
+  if (view === undefined) return false
+  view.dom.blur()
+  window.getSelection()?.removeAllRanges()
+  return true
+}
+
 export const exitNodeKeymap = $prose(() =>
   keymap({
-    Escape: exitToParagraph,
+    // コードブロックからも抜けたいので Escape も exitAnyBlock。
+    // 抜ける先が無ければ blur する (入れ子の外側から順に抜けていく感覚になる)
+    Escape: (state, dispatch, view) => exitAnyBlock(state, dispatch, view) || blurEditor(state, dispatch, view),
     'Mod-Enter': exitAnyBlock,
   }),
 )

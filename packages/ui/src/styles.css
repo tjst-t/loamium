@@ -1,7 +1,20 @@
 :root { --bd: #d8d8d8; --fg: #1a1a1a; --muted: #6a6a6a; --accent: #2f6f4f; }
 * { box-sizing: border-box; }
 body { margin: 0; font-family: system-ui, sans-serif; color: var(--fg); }
-.app { display: grid; grid-template-columns: 260px 1fr; height: 100vh; }
+.app { display: grid; grid-template-columns: 260px 1fr auto; height: 100vh; }
+
+/* --- 右サイドバー (task #2) --- */
+/* 閉じているときは開くボタンだけのレール。開閉ボタンが行方不明にならない */
+.panel-rail { border-left: 1px solid var(--bd); padding: 8px 4px; }
+.panel {
+  width: 280px; border-left: 1px solid var(--bd); padding: 8px 12px 12px;
+  overflow: auto; display: flex; flex-direction: column; gap: 8px;
+}
+.panel-header { display: flex; align-items: center; gap: 4px; }
+.panel-title { flex: 1; font-size: 11px; letter-spacing: .04em; color: var(--muted); }
+.panel-facts { margin: 0; font-size: 12px; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; }
+.panel-facts dt { color: var(--muted); }
+.panel-facts dd { margin: 0; word-break: break-all; }
 .sidebar { border-right: 1px solid var(--bd); padding: 12px; overflow: auto; }
 .sidebar h1 { font-size: 15px; margin: 0 0 12px; }
 .sidebar ul { list-style: none; margin: 0; padding: 0; }
@@ -64,6 +77,8 @@ body { margin: 0; font-family: system-ui, sans-serif; color: var(--fg); }
 
 .editor { display: flex; flex-direction: column; height: 100%; }
 .editor-toolbar {
+  /* 本文をスクロールしても保存ボタンが消えないように貼り付ける */
+  position: sticky; top: 0; z-index: 5; background: #fff;
   display: flex; align-items: center; gap: 8px;
   padding: 8px 12px; border-bottom: 1px solid var(--bd);
 }
@@ -125,6 +140,18 @@ body { margin: 0; font-family: system-ui, sans-serif; color: var(--fg); }
   .outline-fold-toggle::before { font-size: 16px; line-height: 44px; }
   .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
   .sidebar { border-right: 0; border-bottom: 1px solid var(--bd); max-height: 35vh; }
+  /* 右サイドバーは画面を割らずにボトムシートで出す */
+  .panel-rail {
+    position: fixed; right: 8px; bottom: 8px; z-index: 20; border: 1px solid var(--bd);
+    border-radius: 999px; background: #fff; padding: 4px;
+  }
+  .panel-rail .icon-button { width: 44px; height: 44px; }
+  .panel {
+    position: fixed; inset: auto 0 0 0; z-index: 20; width: auto; max-height: 50vh;
+    border-left: 0; border-top: 1px solid var(--bd); background: #fff;
+    box-shadow: 0 -6px 20px rgb(0 0 0 / 12%);
+  }
+  .panel .icon-button { width: 44px; height: 44px; }
 }
 
 /* --- ジャーナル (サイドバーの入口 + 日付ナビ) --- */
