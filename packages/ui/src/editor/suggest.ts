@@ -1,12 +1,33 @@
-import { Plugin, PluginKey, type EditorState } from '@milkdown/kit/prose/state'
+import { Plugin, PluginKey, type Command, type EditorState } from '@milkdown/kit/prose/state'
 import type { EditorView } from '@milkdown/kit/prose/view'
 
 /**
- * 入力補完のポップアップ (task #4 の `[[` / task #9 の `#` で共有)。
+ * 入力補完のポップアップ (`[[` / `#` / `/` で共有)。
  *
  * ⚠️ **プラグインの登録順が効く。** Enter / Tab はリストのコマンド (splitListItem /
  * sinkListItem) が先に食うので、これを使うプラグインは preset より**前**に `use()` すること。
+ *
+ * ⚠️ **同時に開く候補は 1 つだけ** (task #49)。トリガの条件は同時に成立しうる
+ * (例: `#` の直後に `/` を打つ)。どれが勝つかを暗黙のプラグイン順に委ねると、
+ * 見えないところで候補が出なくなる。ここで**登録順が優先**と明示的に決める。
  */
+
+/** 登録された suggest。順番が優先順位そのもの */
+const registry: { name: string; key: PluginKey<SuggestState> }[] = []
+
+/** 自分より先に登録された suggest が既に開いているか */
+function earlierIsActive(key: PluginKey<SuggestState>, state: EditorState): boolean {
+  for (const entry of registry) {
+    if (entry.key === key) return false
+    if (entry.key.getState(state)?.active != null) return true
+  }
+  return false
+}
+
+/** テスト用: 登録された suggest の名前 (優先順) */
+export function suggestPriority(): string[] {
+  return registry.map((entry) => entry.name)
+}
 export interface SuggestRange {
   /** 入力中の語の先頭 (トリガー記号の直後) */
   from: number
@@ -22,6 +43,11 @@ export interface SuggestItem {
   subtitle?: string
   /** 確定したときに使う値 */
   value: string
+  /**
+   * 確定したときに走らせるコマンド。範囲を消したあとに呼ばれる。
+   * 候補ごとに挙動が違うもの (スラッシュメニュー) はこれを使う。
+   */
+  run?: Command
 }
 
 export interface SuggestConfig {
@@ -31,8 +57,17 @@ export interface SuggestConfig {
   /** カーソル直前が「書きかけ」なら、その範囲を返す */
   match: (state: EditorState) => SuggestRange | null
   items: (query: string) => SuggestItem[]
-  /** 確定。range を置き換える */
-  apply: (view: EditorView, item: SuggestItem, range: SuggestRange) => void
+  /**
+   * 確定。range を置き換える。
+   * 省略すると「トリガと入力を消して `item.run` を走らせる」既定の動きになる
+   * (`trigger` の文字数だけ手前まで消す)。
+   */
+  apply?: (view: EditorView, item: SuggestItem, range: SuggestRange) => void
+  /**
+   * トリガの文字数 (既定の apply が消す範囲に使う)。`/` なら 1、`[[` なら 2。
+   * ⚠️ トリガの直前の空白も一緒に消す: 残すとファイルに `&#x20;` として書かれる
+   */
+  trigger?: { length: number; eatLeadingSpace?: boolean }
 }
 
 export interface SuggestState {
@@ -102,6 +137,7 @@ function renderPopup(
 
 export function createSuggest(config: SuggestConfig): SuggestPlugin {
   const key = new PluginKey<SuggestState>(config.name)
+  registry.push({ name: config.name, key })
 
   const compute = (state: EditorState, index = 0): SuggestState['active'] => {
     const range = config.match(state)
@@ -110,10 +146,22 @@ export function createSuggest(config: SuggestConfig): SuggestPlugin {
     return { ...range, items, index: Math.min(Math.max(index, 0), Math.max(items.length - 1, 0)) }
   }
 
+  const defaultApply = (view: EditorView, item: SuggestItem, range: SuggestRange): void => {
+    const length = config.trigger?.length ?? 0
+    let from = range.from - length
+    if (config.trigger?.eatLeadingSpace === true) {
+      const before = view.state.doc.textBetween(Math.max(from - 1, 0), from)
+      if (before === ' ') from -= 1
+    }
+    view.dispatch(view.state.tr.delete(from, range.to))
+    item.run?.(view.state, view.dispatch.bind(view), view)
+  }
+
   const accept = (view: EditorView, item: SuggestItem): void => {
     const active = key.getState(view.state)?.active
     if (active === null || active === undefined) return
-    config.apply(view, item, active)
+    if (config.apply === undefined) defaultApply(view, item, active)
+    else config.apply(view, item, active)
     view.focus()
   }
 
@@ -124,6 +172,9 @@ export function createSuggest(config: SuggestConfig): SuggestPlugin {
       apply(tr, prev, _oldState, nextState) {
         const meta = tr.getMeta(key) as { close?: boolean; move?: number } | undefined
         if (meta?.close === true) return { active: null, dismissed: true }
+
+        // 先に登録された suggest が開いているなら、こちらは開かない (task #49)
+        if (earlierIsActive(key, nextState)) return { active: null, dismissed: false }
 
         const typing = config.match(nextState) !== null
         if (prev.dismissed && typing) return prev

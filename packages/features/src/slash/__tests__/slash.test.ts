@@ -79,6 +79,12 @@ describe('候補の絞り込み', () => {
     expect(filterSlashItems('')).toHaveLength(SLASH_ITEMS.length)
   })
 
+  it('往復しない記法は候補に無い (ハイライト・数式は #13 / #14 待ち)', () => {
+    const values = SLASH_ITEMS.map((item) => item.value)
+    expect(values).not.toContain('highlight')
+    expect(values).not.toContain('math')
+  })
+
   it('日本語で引ける', () => {
     expect(filterSlashItems('見出し').map((i) => i.value)).toEqual(['h1', 'h2', 'h3'])
     expect(filterSlashItems('表').map((i) => i.value)).toEqual(['table'])
@@ -184,6 +190,23 @@ describe('挿入した結果 (保存される Markdown)', () => {
     type('メモ /')
     pick('h2')
     expect(save()).toBe('## メモ\n')
+  })
+
+  it('インラインコード → 差し替える前提のプレースホルダが選択された状態で入る', () => {
+    load()
+    type('/')
+    pick('inline-code')
+    expect(save()).toBe('`コード`\n')
+    // 選択されているので、そのまま打てば置き換わる
+    expect(view.state.selection.empty).toBe(false)
+    expect(view.state.doc.textBetween(view.state.selection.from, view.state.selection.to)).toBe('コード')
+  })
+
+  it('今日の日付 → ISO で入る', () => {
+    load()
+    type('/')
+    pick('today')
+    expect(save()).toMatch(/^\d{4}-\d{2}-\d{2}\n$/)
   })
 
   it('リンクとタグは文字を置くだけ (次の補完に引き継ぐ)', () => {

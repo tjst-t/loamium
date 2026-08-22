@@ -2,7 +2,6 @@ import { $prose } from '@milkdown/kit/utils'
 import { TextSelection, type Command, type EditorState } from '@milkdown/kit/prose/state'
 import { setBlockType, wrapIn } from '@milkdown/kit/prose/commands'
 import { wrapInList } from '@milkdown/kit/prose/schema-list'
-import type { EditorView } from '@milkdown/kit/prose/view'
 import type { NodeType } from '@milkdown/kit/prose/model'
 import { createSuggest, type SuggestItem } from '@loamium/ui/src/editor/suggest'
 
@@ -88,6 +87,33 @@ const insertTable: Command = (state, dispatch) => {
   return true
 }
 
+/**
+ * インラインの記法を置く (task #51)。
+ *
+ * ⚠️ **カーソルだけの状態で toggleMark しても続きは打てない。** インラインコードのマークは
+ * `inclusive: false` なので、1 文字打った時点で外に出てしまう (実測: `` `c`onst ``)。
+ * 差し替える前提のプレースホルダを入れて、それを選択した状態で渡す。
+ */
+function insertInline(name: string, placeholder: string): Command {
+  return (state, dispatch) => {
+    const mark = state.schema.marks[name]
+    if (mark === undefined) return false
+    const from = state.selection.from
+    const tr = state.tr.replaceSelectionWith(state.schema.text(placeholder, [mark.create()]), false)
+    tr.setSelection(TextSelection.create(tr.doc, from, from + placeholder.length))
+    dispatch?.(tr.scrollIntoView())
+    return true
+  }
+}
+
+/** 今日の日付 (ISO)。ジャーナルのファイル名と同じ書き方に揃える */
+const insertToday: Command = (state, dispatch) => {
+  const now = new Date()
+  const iso = `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  dispatch?.(state.tr.insertText(iso).scrollIntoView())
+  return true
+}
+
 /** そのまま文字を置く候補 (置いたあと別の補完に引き継ぐ) */
 function insertText(text: string): Command {
   return (state, dispatch) => {
@@ -97,7 +123,7 @@ function insertText(text: string): Command {
 }
 
 export interface SlashItem extends SuggestItem {
-  /** 探すときの手がかり (日本語と英語の両方) */
+  /** 探すときの手がかり (かな読みと英語の両方) */
   keywords: string[]
   run: Command
 }
@@ -116,6 +142,9 @@ export const SLASH_ITEMS: SlashItem[] = [
   { value: 'hr', title: '区切り線', subtitle: '---', keywords: ['くぎり', 'hr', 'divider', 'kugiri'], run: insertHr },
   { value: 'link', title: 'ノートへのリンク', subtitle: '[[', keywords: ['りんく', 'link', 'wikilink', 'rinku'], run: insertText('[[') },
   { value: 'tag', title: 'タグ', subtitle: '#tag', keywords: ['たぐ', 'tag', 'tagu'], run: insertText('#') },
+  // --- ここからインライン (task #51)。数式とハイライトは記法が通ってから (#13 / #14) ---
+  { value: 'inline-code', title: 'インラインコード', subtitle: '`…`', keywords: ['こーど', 'code', 'inline'], run: insertInline('inlineCode', 'コード') },
+  { value: 'today', title: '今日の日付', subtitle: '2026-01-01', keywords: ['ひづけ', 'date', 'today', 'kyou'], run: insertToday },
 ]
 
 const fold = (text: string): string => text.normalize('NFC').toLowerCase()
@@ -149,16 +178,8 @@ export const slashSuggest = createSuggest({
   header: (query) => (query === '' ? '挿入' : `挿入: ${query}`),
   match: activeQuery,
   items: (query) => filterSlashItems(query),
-  apply: (view: EditorView, item, range) => {
-    const found = SLASH_ITEMS.find((entry) => entry.value === item.value)
-    if (found === undefined) return
-    // `/` ごと消してから挿入する (メニューの痕跡を本文に残さない)。
-    // 直前の空白も一緒に消す: 残すとファイルに `&#x20;` として書かれてしまう
-    const before = view.state.doc.textBetween(Math.max(range.from - 2, 0), range.from - 1)
-    const from = range.from - (before === ' ' ? 2 : 1)
-    view.dispatch(view.state.tr.delete(from, range.to))
-    found.run(view.state, view.dispatch.bind(view), view)
-  },
+  // `/` と入力、それに直前の空白まで消してから `run` を走らせる (既定の apply)
+  trigger: { length: 1, eatLeadingSpace: true },
 })
 
 export const slash = [$prose(() => slashSuggest)]

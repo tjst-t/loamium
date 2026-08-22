@@ -162,7 +162,7 @@
         "id": "13",
         "title": "記法拡張: callout / highlight / 埋め込み transclusion",
         "description": "`> [!note]` callout、`==highlight==`、`![[note]]` / `![[note#heading]]` / `![[image]]` の埋め込み表示。",
-        "details": "旧実装: renderers/callout, highlight, embed。循環参照は安全に遮断。Markdown 上は標準記法のまま保存する (独自記法を書き込まない)。",
+        "details": "旧実装: renderers/callout, highlight, embed。循環参照は安全に遮断。Markdown 上は標準記法のまま保存する (独自記法を書き込まない)。 記法が通ったら、スラッシュメニューに ==ハイライト== の項目を足す (task #51 の続き)。",
         "testStrategy": "callout が種別ごとに描画される。transclusion が展開され、循環しても無限ループしない。",
         "priority": "medium",
         "dependencies": [],
@@ -173,7 +173,7 @@
         "id": "14",
         "title": "Mermaid 図・KaTeX 数式・コードハイライト",
         "description": "Mermaid 図、`$…$` / `$$…$$` の数式、コードフェンスのシンタックスハイライトをオフラインで描画する。",
-        "details": "旧実装: renderers/mermaid, katex, shiki (ローカルバンドル)。",
+        "details": "旧実装: renderers/mermaid, katex, shiki (ローカルバンドル)。 記法が通ったら、スラッシュメニューに $数式$ の項目を足す (task #51 の続き)。",
         "testStrategy": "3 種すべてがネットワーク遮断下で描画されること。",
         "priority": "medium",
         "dependencies": [],
@@ -596,6 +596,61 @@
         "testStrategy": "docker compose up → ブラウザでアクセスして編集できる。",
         "priority": "low",
         "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "49",
+        "title": "補完基盤: suggest の調停ルールと項目のコマンド化",
+        "description": "同時にアクティブな suggest を 1 つに限定し、候補が任意のコマンドを持てるようにする。",
+        "details": "トリガが増える前に調停を明示する (いまは暗黙のプラグイン順)。`#` と `/` のように条件が同時に満たされる場面で、後から登録した方が静かに負ける状態を無くす。SuggestItem がコマンドを持てるようにして、slash の実装から重複を外す。",
+        "testStrategy": "2 つの suggest の条件が同時に成立する入力で、開くのは 1 つだけ。登録順が優先される。",
+        "priority": "high",
+        "dependencies": [
+          "12"
+        ],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-08-23T08:30:00.000Z"
+      },
+      {
+        "id": "50",
+        "title": "選択バブル (インライン変換ツールバー)",
+        "description": "テキストを選択すると浮かぶツールバーから、太字・斜体・コード・取り消し線・ノートへのリンクに変換できる。",
+        "details": "モバイルには Mod+B が無いので、選択に対する変換手段はこれが唯一の入口になる (docs/DESIGN/mobile.md)。往復できる記法だけを出す。",
+        "testStrategy": "選択すると出る / 変換後の Markdown が期待どおり / 選択が無いときは出ない / モバイルでも指で押せる。",
+        "priority": "high",
+        "dependencies": [
+          "49"
+        ],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-08-23T08:30:00.000Z"
+      },
+      {
+        "id": "51",
+        "title": "スラッシュメニューのインライン項目",
+        "description": "`/` から、その場に置くインライン記法 (日付・インラインコード・リンク・数式・ハイライト) を挿入できる。",
+        "details": "往復できる記法だけを候補に出す。今回入れたのはインラインコードと今日の日付。数式 ($…$) は #14、ハイライト (==…==) は #13 で記法が通ってから候補に足す。",
+        "testStrategy": "挿入後に保存される Markdown が期待どおり。往復しない記法は候補に出ない。",
+        "priority": "medium",
+        "dependencies": [
+          "49"
+        ],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-08-23T08:30:00.000Z"
+      },
+      {
+        "id": "52",
+        "title": "追加トリガ: リンク先と絵文字の補完",
+        "description": "`](` でノートのパスを、`:` で絵文字を補完する。",
+        "details": "トリガ文字は希少資源なので最小限に絞る。⚠️ 日本語入力では `:` が全角 `：` になるため両方を受ける必要がある。#49 の調停ルールが前提。",
+        "testStrategy": "`](` でパス候補が出る / 全角コロンでも絵文字候補が出る / 既存のトリガと衝突しない。",
+        "priority": "low",
+        "dependencies": [
+          "49"
+        ],
         "status": "pending",
         "subtasks": []
       }
