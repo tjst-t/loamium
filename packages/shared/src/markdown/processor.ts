@@ -51,8 +51,13 @@ export const stringifyOptions: ToMarkdownOptions = {
     // よって既定のエスケープを通したうえで、`\[` だけを選択的に復元する。
     text: (node: Text, parent, state, info): string => {
       const escaped = defaultHandlers.text(node, parent, state, info)
-      // `\[` だけを戻す。`\|` `\*` `\_` などの構造的エスケープには触れない
-      return escaped.replace(/\\(?=\[)/g, '')
+      // `\[` と `\#` だけを戻す。`\|` `\*` `\_` などの構造的エスケープには触れない。
+      //
+      // `\#` は **後ろが空白でないときだけ** 戻す。CommonMark の ATX 見出しは
+      // `#` の直後に空白 (または行末) が要るので、`#tag` は見出しにならず戻して安全。
+      // 逆に `\# 見出し` と `\<行末>` を戻すと本物の見出しに化けるため、そこは触らない。
+      // これを怠ると Obsidian 互換のインラインタグ `#tag` が `\#tag` に化ける。
+      return escaped.replace(/\\(?=\[)/g, '').replace(/\\#(?=\S)/g, '#')
     },
 
     // 対策 3: hard break を `\` ではなく行末 2 スペースで出す (原文の書き方)
