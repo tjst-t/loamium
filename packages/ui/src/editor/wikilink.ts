@@ -1,8 +1,9 @@
 import { $prose } from '@milkdown/kit/utils'
 import { Plugin, PluginKey, TextSelection, type EditorState } from '@milkdown/kit/prose/state'
-import { Decoration, DecorationSet, type EditorView } from '@milkdown/kit/prose/view'
+import { Decoration, DecorationSet } from '@milkdown/kit/prose/view'
 import { parseWikiLinks, resolveWikiLink, foldTarget } from '@loamium/shared'
-import { getWikiLinkEnv } from './wikilink-env'
+import { createSuggest, type SuggestItem } from './suggest'
+import { getEditorEnv } from './editor-env'
 
 /**
  * WikiLink `[[…]]` (task #4)。
@@ -61,7 +62,7 @@ const wikiLinkDecorations = new Plugin({
   key: new PluginKey('loamium-wikilink'),
   props: {
     decorations(state) {
-      const env = getWikiLinkEnv()
+      const env = getEditorEnv()
       const { from: selFrom, to: selTo } = state.selection
       const decorations: Decoration[] = []
       for (const link of linksInDoc(state)) {
@@ -83,7 +84,7 @@ const wikiLinkDecorations = new Plugin({
     handleClick(_view, _pos, event) {
       const el = event.target instanceof HTMLElement ? event.target.closest('.wikilink') : null
       if (!(el instanceof HTMLElement)) return false
-      const env = getWikiLinkEnv()
+      const env = getEditorEnv()
       const path = el.dataset['path']
       const target = el.dataset['target'] ?? ''
       if (path !== undefined && path !== '') env.open(path)
@@ -96,18 +97,6 @@ const wikiLinkDecorations = new Plugin({
 /* ------------------------------------------------------------------- 補完 */
 
 const MAX_SUGGESTIONS = 8
-
-interface Suggest {
-  /** `[[` の直後の位置 */
-  from: number
-  /** カーソル位置 */
-  to: number
-  query: string
-  index: number
-  items: string[]
-}
-
-const suggestKey = new PluginKey<SuggestState>('loamium-wikilink-suggest')
 
 const baseNameOf = (path: string): string => path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/i, '')
 
@@ -150,150 +139,24 @@ function activeQuery(state: EditorState): { from: number; to: number; query: str
   return { from: $from.pos - query.length, to: $from.pos, query }
 }
 
-/** 閉じるときは中身も捨てる (見えないボタンが DOM に残らないように) */
-function hidePopup(dom: HTMLElement): void {
-  dom.replaceChildren()
-  dom.style.display = 'none'
-}
-
-function renderPopup(dom: HTMLElement, state: Suggest, view: EditorView): void {
-  dom.replaceChildren()
-  if (state.items.length === 0) {
-    hidePopup(dom)
-    return
-  }
-  // 何のポップアップなのかを明示する (急に出ると何が起きたのか分からない)
-  const header = document.createElement('div')
-  header.className = 'wikilink-suggest-header'
-  header.textContent = state.query === '' ? 'ノートへリンク' : `ノートへリンク: ${state.query}`
-  dom.append(header)
-  for (const [i, path] of state.items.entries()) {
-    const item = document.createElement('button')
-    item.type = 'button'
-    item.className = `wikilink-suggest-item${i === state.index ? ' is-active' : ''}`
-    const name = document.createElement('span')
-    name.className = 'wikilink-suggest-name'
-    name.textContent = baseNameOf(path)
-    const dir = document.createElement('span')
-    dir.className = 'wikilink-suggest-path'
-    dir.textContent = path
-    item.append(name, dir)
-    // mousedown で確定する (click まで待つとエディタが blur してしまう)
-    item.addEventListener('mousedown', (event) => {
-      event.preventDefault()
-      accept(view, path)
-    })
-    dom.append(item)
-  }
-  dom.style.display = 'block'
-  // 座標は環境によっては取れない (jsdom には getClientRects が無い)。位置決めだけ諦める
-  try {
-    const coords = view.coordsAtPos(state.from)
-    dom.style.left = `${String(Math.round(coords.left))}px`
-    dom.style.top = `${String(Math.round(coords.bottom + 4))}px`
-  } catch { /* 位置は据え置き */ }
-}
-
-/** 候補を確定して `[[…]]` を閉じる */
-export function accept(view: EditorView, path: string): void {
-  const active = suggestKey.getState(view.state)?.active
-  if (active === null || active === undefined) return
-  const env = getWikiLinkEnv()
-  // ノート名が一意ならノート名だけで書く (短く読める書き方を既定にする)
-  const name = baseNameOf(path)
-  const unique = env.notes.filter((p) => foldTarget(baseNameOf(p)) === foldTarget(name)).length <= 1
-  const target = unique ? name : path.replace(/\.md$/i, '')
-  const tr = view.state.tr.insertText(`${target}]]`, active.from, active.to)
-  tr.setSelection(TextSelection.near(tr.doc.resolve(active.from + target.length + 2)))
-  view.dispatch(tr.scrollIntoView())
-  view.focus()
-}
-
-/**
- * `[[` を打つとノート名の候補が出る。
- *
- * 候補の上下は矢印キー、確定は Enter か Tab、取り消しは Escape。
- * ⚠️ **プラグインの登録順が効く。** Enter / Tab はリストのコマンド (splitListItem /
- * sinkListItem) が先に食うので、このプラグインは preset より**前**に `use()` すること
- * (Editor.tsx / milkdown-transform.ts)。
- */
-interface SuggestState {
-  active: Suggest | null
-  /** Escape で閉じたあと、その `[[…` から抜けるまでは出し直さない */
-  dismissed: boolean
-}
-
-function computeActive(state: EditorState, index = 0): Suggest | null {
-  const found = activeQuery(state)
-  if (found === null) return null
-  const items = suggestNotes(found.query, getWikiLinkEnv().notes)
-  return { ...found, items, index: Math.min(Math.max(index, 0), Math.max(items.length - 1, 0)) }
-}
-
-const wikiLinkSuggest = new Plugin<SuggestState>({
-  key: suggestKey,
-  state: {
-    init: () => ({ active: null, dismissed: false }),
-    apply(tr, prev, _oldState, nextState) {
-      const meta = tr.getMeta(suggestKey) as { close?: boolean; move?: number } | undefined
-      if (meta?.close === true) return { active: null, dismissed: true }
-
-      const inQuery = activeQuery(nextState) !== null
-      if (prev.dismissed && inQuery) return prev
-      if (meta?.move !== undefined && prev.active !== null) {
-        const count = prev.active.items.length
-        if (count === 0) return prev
-        const index = (prev.active.index + meta.move + count) % count
-        return { active: { ...prev.active, index }, dismissed: false }
-      }
-      // **打っている最中だけ**開く。カーソルを動かしただけでは開かない
-      // (既存のリンクの中にカーソルを置いただけで候補が出るのを防ぐ)
-      if (!tr.docChanged && prev.active === null) return { active: null, dismissed: false }
-      return { active: computeActive(nextState, prev.active?.index ?? 0), dismissed: false }
-    },
-  },
-
-  props: {
-    handleKeyDown(view, event) {
-      const active = suggestKey.getState(view.state)?.active
-      if (active === null || active === undefined || active.items.length === 0) return false
-      if (event.key === 'ArrowDown') {
-        view.dispatch(view.state.tr.setMeta(suggestKey, { move: 1 }))
-        return true
-      }
-      if (event.key === 'ArrowUp') {
-        view.dispatch(view.state.tr.setMeta(suggestKey, { move: -1 }))
-        return true
-      }
-      if (event.key === 'Enter' || event.key === 'Tab') {
-        const path = active.items[active.index]
-        if (path === undefined) return false
-        accept(view, path)
-        return true
-      }
-      if (event.key === 'Escape') {
-        view.dispatch(view.state.tr.setMeta(suggestKey, { close: true }))
-        return true
-      }
-      return false
-    },
-  },
-
-  view(view) {
-    const dom = document.createElement('div')
-    dom.className = 'wikilink-suggest'
-    hidePopup(dom)
-    document.body.append(dom)
-    const render = (v: EditorView): void => {
-      const active = suggestKey.getState(v.state)?.active
-      if (active === null || active === undefined) hidePopup(dom)
-      else renderPopup(dom, active, v)
-    }
-    render(view)
-    return {
-      update: render,
-      destroy: () => { dom.remove() },
-    }
+export const wikiLinkSuggest = createSuggest({
+  name: 'loamium-wikilink-suggest',
+  header: (query) => (query === '' ? 'ノートへリンク' : `ノートへリンク: ${query}`),
+  match: activeQuery,
+  items: (query) => suggestNotes(query, getEditorEnv().notes).map((path) => ({
+    title: baseNameOf(path),
+    subtitle: path,
+    value: path,
+  })),
+  apply: (view, item, range) => {
+    const env = getEditorEnv()
+    // ノート名が一意ならノート名だけで書く (短く読める書き方を既定にする)
+    const name = baseNameOf(item.value)
+    const unique = env.notes.filter((p) => foldTarget(baseNameOf(p)) === foldTarget(name)).length <= 1
+    const target = unique ? name : item.value.replace(/\.md$/i, '')
+    const tr = view.state.tr.insertText(`${target}]]`, range.from, range.to)
+    tr.setSelection(TextSelection.near(tr.doc.resolve(range.from + target.length + 2)))
+    view.dispatch(tr.scrollIntoView())
   },
 })
 
@@ -301,6 +164,11 @@ const wikiLinkSuggest = new Plugin<SuggestState>({
 export const wikilink = [$prose(() => wikiLinkDecorations), $prose(() => wikiLinkSuggest)]
 
 /** テスト用: いま出ている候補 */
-export function suggestStateOf(state: EditorState): Suggest | null {
-  return suggestKey.getState(state)?.active ?? null
+export function suggestStateOf(state: EditorState): { items: SuggestItem[]; index: number } | null {
+  return wikiLinkSuggest.activeState(state)
+}
+
+/** テスト用・後方互換: 候補を確定する */
+export function accept(view: Parameters<typeof wikiLinkSuggest.accept>[0], path: string): void {
+  wikiLinkSuggest.accept(view, { title: baseNameOf(path), subtitle: path, value: path })
 }

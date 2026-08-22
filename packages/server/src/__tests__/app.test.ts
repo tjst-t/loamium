@@ -83,8 +83,9 @@ describe('REST: agent', () => {
     expect(body.tools.map((t) => t.name).sort()).toEqual(
       [
         'find_broken_links', 'fmt_vault', 'folder_create', 'help', 'journal_append',
-        'journal_read', 'list_backlinks', 'list_links', 'list_notes', 'list_tree',
-        'note_create', 'note_delete', 'note_move', 'read_note', 'search', 'write_note',
+        'journal_read', 'list_backlinks', 'list_links', 'list_notes', 'list_tags',
+        'list_tree', 'note_create', 'note_delete', 'note_move', 'notes_by_tag',
+        'read_note', 'search', 'write_note',
       ],
     )
   })
@@ -94,13 +95,13 @@ describe('REST: agent', () => {
     expect(body.tools.map((t) => t.name).sort()).toEqual(
       [
         'find_broken_links', 'help', 'journal_read', 'list_backlinks', 'list_links',
-        'list_notes', 'list_tree', 'read_note', 'search',
+        'list_notes', 'list_tags', 'list_tree', 'notes_by_tag', 'read_note', 'search',
       ])
   })
 
   it('help トピックが機能ごとに登録されている (ADR-0014)', async () => {
     const body = (await (await call('/api/agent/help')).json()) as { topics: string[] }
-    expect(body.topics.sort()).toEqual(['fmt', 'help', 'journal', 'links', 'notes', 'search'])
+    expect(body.topics.sort()).toEqual(['fmt', 'help', 'journal', 'links', 'notes', 'search', 'tags'])
   })
 
   it('help 本文はピュア Markdown で返る', async () => {
@@ -385,5 +386,63 @@ describe('リネームすると [[リンク]] が追従する (task #5)', () => 
       body: JSON.stringify({ from: '日誌', to: 'diary' }),
     })
     expect(await readFile(join(root, 'hub.md'), 'utf8')).toBe('[[diary/list]] と [[list]]\n')
+  })
+})
+
+describe('REST: tags (task #9)', () => {
+  beforeEach(async () => {
+    await writeFile(join(root, 'work.md'), '---\ntags: [仕事]\n---\n\n#読書/SF のメモ\n')
+    await writeFile(join(root, '日誌/day.md'), '今日は #仕事 をした\n')
+    await ctx.noteIndex.start()
+  })
+
+  it('GET /api/tags は件数つきで多い順に返る', async () => {
+    const body = (await (await call('/api/tags')).json()) as { tags: { tag: string; count: number }[] }
+    expect(body.tags).toEqual([
+      { tag: '仕事', count: 2 },
+      { tag: '読書/SF', count: 1 },
+    ])
+  })
+
+  it('GET /api/tags/notes でそのタグのノートが返る (親タグは子にも一致)', async () => {
+    const r = await call(`/api/tags/notes?tag=${encodeURIComponent('読書')}`)
+    const body = (await r.json()) as { notes: { path: string }[] }
+    expect(body.notes.map((n) => n.path)).toEqual(['work.md'])
+  })
+
+  it('tag が無ければ 400', async () => {
+    expect((await call('/api/tags/notes')).status).toBe(400)
+  })
+})
+
+describe('REST: search の絞り込み (task #8)', () => {
+  beforeEach(async () => {
+    await writeFile(join(root, 'work.md'), '#仕事\n\nメモを書く\n')
+    await writeFile(join(root, '日誌/day.md'), 'メモを書く\n')
+    await ctx.noteIndex.start()
+  })
+
+  it('folder で絞れる', async () => {
+    const r = await call(`/api/search?q=${encodeURIComponent('メモ')}&folder=${encodeURIComponent('日誌')}`)
+    const body = (await r.json()) as { hits: { path: string }[] }
+    expect([...new Set(body.hits.map((h) => h.path))]).toEqual(['日誌/day.md'])
+  })
+
+  it('tag で絞れる', async () => {
+    const r = await call(`/api/search?q=${encodeURIComponent('メモ')}&tag=${encodeURIComponent('仕事')}`)
+    const body = (await r.json()) as { hits: { path: string }[] }
+    expect([...new Set(body.hits.map((h) => h.path))]).toEqual(['work.md'])
+  })
+
+  it('検索語が空でもタグだけで一覧できる', async () => {
+    const r = await call(`/api/search?q=&tag=${encodeURIComponent('仕事')}`)
+    const body = (await r.json()) as { hits: { path: string; kind: string }[] }
+    expect(body.hits).toEqual([{
+      path: 'work.md', line: 0, snippet: 'work.md', match: { start: 0, length: 0 }, kind: 'title',
+    }])
+  })
+
+  it('条件が何も無ければ空 (vault 全件を返さない)', async () => {
+    expect(await (await call('/api/search?q=')).json()).toMatchObject({ hits: [] })
   })
 })

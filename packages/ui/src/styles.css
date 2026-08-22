@@ -41,28 +41,89 @@ body { margin: 0; font-family: system-ui, sans-serif; color: var(--fg); }
 .milkdown .ProseMirror .wikilink:hover { background: #e8f0ea; }
 /* `[[` `]]` は普段は隠す。カーソルが触れているリンクでは出す (プラグイン側で判定) */
 .milkdown .ProseMirror .wikilink-syntax { display: none; }
+
+/* --- タグ (task #9) --- */
+.milkdown .ProseMirror .tag-chip {
+  color: #6b4bb3; background: #f2eefb; border-radius: 999px;
+  padding: 1px 6px; cursor: pointer; font-size: .92em;
+}
+.milkdown .ProseMirror .tag-chip:hover { background: #e6dcf7; }
+
+/* --- 詳細検索ページ (task #8) --- */
+.sidebar-search {
+  display: flex; align-items: center; gap: 6px; width: 100%; min-height: 44px; margin: 8px 0 0;
+  padding: 0 10px; border: 1px solid var(--bd); border-radius: 8px; background: #fff;
+  cursor: pointer; font: inherit; font-size: 13px; color: inherit;
+}
+.sidebar-search:hover { background: #f0f0f0; }
+.sidebar-search[aria-current='true'] { border-color: var(--accent); color: var(--accent); }
+.sidebar-search kbd {
+  margin-left: auto; font-size: 10px; color: var(--muted);
+  border: 1px solid var(--bd); border-radius: 4px; padding: 1px 4px;
+}
+
+.search-page { padding: 16px 20px; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+.search-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.search-field {
+  display: flex; align-items: center; gap: 6px; flex: 1; min-width: 240px; min-height: 44px;
+  padding: 0 10px; border: 1px solid var(--bd); border-radius: 8px; color: var(--muted);
+}
+.search-field input { flex: 1; border: 0; outline: none; font-size: 14px; color: var(--fg); background: none; }
+.search-filter { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.search-filter select { min-height: 44px; border: 1px solid var(--bd); border-radius: 8px; padding: 0 8px; }
+.search-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag-pill {
+  display: inline-flex; align-items: center; gap: 3px; min-height: 32px; padding: 0 10px;
+  border: 1px solid var(--bd); border-radius: 999px; background: #fff; cursor: pointer;
+  font-size: 12px; color: var(--fg);
+}
+.tag-pill:hover { background: #f2eefb; }
+.tag-pill.is-active { background: #6b4bb3; border-color: #6b4bb3; color: #fff; }
+.tag-count { color: var(--muted); font-size: 11px; }
+.tag-pill.is-active .tag-count { color: #e6dcf7; }
+.search-summary { margin: 0; font-size: 12px; color: var(--muted); }
+.search-results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.search-result-title { margin: 0; font-size: 14px; }
+.search-result-title button {
+  display: flex; align-items: baseline; gap: 8px; width: 100%; min-height: 44px;
+  border: 0; background: none; cursor: pointer; text-align: left; font: inherit; font-weight: 600; color: inherit;
+}
+.search-result-path { font-size: 11px; font-weight: 400; color: var(--muted); }
+.search-result-badge {
+  font-size: 10px; font-weight: 400; color: var(--accent);
+  border: 1px solid var(--accent); border-radius: 999px; padding: 1px 6px;
+}
+.search-lines { list-style: none; margin: 0; padding: 0 0 0 8px; display: flex; flex-direction: column; }
+.search-lines button {
+  display: flex; gap: 10px; width: 100%; min-height: 32px; align-items: baseline;
+  padding: 4px 8px; border: 0; border-radius: 6px; background: none; cursor: pointer;
+  text-align: left; font: inherit; font-size: 12px; color: inherit;
+}
+.search-lines button:hover { background: #f0f0f0; }
+.search-line-no { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 2.5em; text-align: right; }
+.search-line-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 壊れリンク: 行き先が無いことがひと目で分かる。クリックで作れる */
 .milkdown .ProseMirror .wikilink.is-broken { color: #b3261e; }
 .milkdown .ProseMirror .wikilink.is-broken:hover { background: #fbe9e7; }
 
-.wikilink-suggest {
+.suggest-popup {
   position: fixed; z-index: 40; max-height: 280px; overflow: auto;
   min-width: 240px; max-width: 380px; padding: 4px;
   background: #fff; border: 1px solid var(--bd); border-radius: 8px;
   box-shadow: 0 8px 24px rgb(0 0 0 / 14%);
 }
-.wikilink-suggest-header {
+.suggest-header {
   padding: 4px 8px 6px; font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--bd);
   margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.wikilink-suggest-item {
+.suggest-item {
   display: flex; flex-direction: column; gap: 1px; width: 100%; min-height: 44px;
   padding: 6px 8px; border: 0; border-radius: 6px; background: none; cursor: pointer;
   text-align: left; color: inherit; font: inherit;
 }
-.wikilink-suggest-item.is-active, .wikilink-suggest-item:hover { background: #eef3ef; }
-.wikilink-suggest-name { font-size: 13px; }
-.wikilink-suggest-path { font-size: 11px; color: var(--muted); }
+.suggest-item.is-active, .suggest-item:hover { background: #eef3ef; }
+.suggest-title { font-size: 13px; }
+.suggest-subtitle { font-size: 11px; color: var(--muted); }
 .sidebar { border-right: 1px solid var(--bd); padding: 12px; overflow: auto; }
 .sidebar h1 { font-size: 15px; margin: 0 0 12px; }
 .sidebar ul { list-style: none; margin: 0; padding: 0; }

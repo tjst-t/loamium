@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useState, type JSX } from 'react'
+import { Search as SearchIcon } from 'lucide-react'
 import { Editor } from './editor/Editor'
 import { FileTree } from './components/FileTree'
 import { InfoPanel } from './components/InfoPanel'
 import { JournalCard } from './components/JournalCard'
 import { SearchPalette } from './components/SearchPalette'
+import { SearchPage } from './components/SearchPage'
 import { scrollToTextWhenReady } from './scroll-to-text'
-import { pathFromSearch, useRoute } from './route'
+import { pathFromSearch, searchParamsFromSearch, useRoute } from './route'
 import { forgetNoteViewState, renameNoteViewState } from './editor/view-state'
 import {
-  ApiError, createFolder, createNote, fetchJournal, fetchTree, listNotes, movePath, readNote,
-  removePath, writeNote, type TreeNode,
+  ApiError, createFolder, createNote, fetchJournal, fetchTags, fetchTree, listNotes, movePath,
+  readNote, removePath, writeNote, type TreeNode,
 } from './api'
+import type { SearchParams } from './route'
 
 /** `journals/YYYY-MM-DD.md` から日付を取り出す。ジャーナル以外なら null */
 const journalDateOf = (path: string | null): string | null =>
@@ -25,10 +28,12 @@ const PANEL_KEY = 'loamium.panel-open'
 
 export function App(): JSX.Element {
   // 開いているノートは URL が持つ。戻る/進むがそのままノート履歴になる (task #2)
-  const { path: current, navigate } = useRoute()
+  const { path: current, search, navigate, navigateSearch } = useRoute()
   const [tree, setTree] = useState<TreeNode[]>([])
   /** vault の全ノート。`[[リンク]]` の解決と補完に渡す */
   const [notes, setNotes] = useState<string[]>([])
+  /** vault のタグ。`#` の補完に渡す */
+  const [tags, setTags] = useState<string[]>([])
   const [content, setContent] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -49,9 +54,10 @@ export function App(): JSX.Element {
   }, [])
 
   const refresh = useCallback(async (): Promise<void> => {
-    const [nextTree, nextNotes] = await Promise.all([fetchTree(), listNotes()])
+    const [nextTree, nextNotes, nextTags] = await Promise.all([fetchTree(), listNotes(), fetchTags()])
     setTree(nextTree)
     setNotes(nextNotes)
+    setTags(nextTags.map((entry) => entry.tag))
   }, [])
 
   /** ジャーナルを開く。遅延生成されたらツリーを引き直す */
@@ -67,7 +73,9 @@ export function App(): JSX.Element {
   // (VISION: ジャーナル中心のワークフロー)。着地は履歴に積まない
   useEffect(() => {
     void run(refresh)
-    if (pathFromSearch(window.location.search) === null) openJournal(undefined, { replace: true })
+    if (pathFromSearch(window.location.search) === null && searchParamsFromSearch(window.location.search) === null) {
+      openJournal(undefined, { replace: true })
+    }
     // 起動時に一度だけ
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -95,6 +103,13 @@ export function App(): JSX.Element {
       if (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
         setPaletteOpen((v) => !v)
+        return
+      }
+      // 詳細検索ページ (パレットは「飛ぶ」ため、こちらは「絞って見渡す」ため)
+      if (e.key.toLowerCase() === 'f' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
+        e.preventDefault()
+        setPaletteOpen(false)
+        openSearchPage()
         return
       }
       // ESC で選択解除と blur。エディタ内で既に処理済み (ノードを抜ける等) なら触らない
@@ -136,6 +151,16 @@ export function App(): JSX.Element {
       navigate(path)
     })
   }, [current, navigate, refresh, run])
+
+  /** 詳細検索ページを開く (task #8) */
+  const openSearchPage = useCallback(() => {
+    navigateSearch({ q: '', tag: '', folder: '' }, { replace: false })
+  }, [navigateSearch])
+
+  /** タグをクリックしたら詳細検索へ (task #8 / #9) */
+  const openTag = useCallback((tag: string) => {
+    navigateSearch({ q: '', tag, folder: '' }, { replace: false })
+  }, [navigateSearch])
 
   // 情報パネルの開閉は憶えておく (毎回開き直させない)
   useEffect(() => { window.localStorage.setItem(PANEL_KEY, String(panelOpen)) }, [panelOpen])
@@ -205,6 +230,16 @@ export function App(): JSX.Element {
         <h1>Loamium</h1>
         {error !== null && <p className="error">{error}</p>}
         <JournalCard date={journalDate ?? todayISO()} active={journalDate !== null} onGo={openJournal} />
+        <button
+          type="button"
+          className="sidebar-search"
+          aria-current={search !== null}
+          onClick={openSearchPage}
+        >
+          <SearchIcon size={14} />
+          詳細検索
+          <kbd>Ctrl+Shift+F</kbd>
+        </button>
         <FileTree
           tree={tree}
           currentPath={current}
@@ -215,7 +250,14 @@ export function App(): JSX.Element {
         />
       </aside>
       <main className="main">
-        {current === null ? (
+        {search !== null ? (
+          <SearchPage
+            params={search}
+            tree={tree}
+            onChange={(next: Partial<SearchParams>) => { navigateSearch(next) }}
+            onOpen={openHit}
+          />
+        ) : current === null ? (
           <p className="empty">ノートを選んでください</p>
         ) : content === null ? (
           <p className="empty">読み込み中…</p>
@@ -224,10 +266,12 @@ export function App(): JSX.Element {
             key={current}
             path={current}
             notes={notes}
+            tags={tags}
             value={content}
             onSave={save}
             onOpenLink={open}
             onCreateLink={createFromLink}
+            onOpenTag={openTag}
           />
         )}
       </main>

@@ -61,8 +61,20 @@ export interface SearchHit {
   kind: 'title' | 'body'
 }
 
-export async function searchNotes(query: string): Promise<{ hits: SearchHit[]; truncated: boolean }> {
-  const r = await request(`/api/search?q=${encodeURIComponent(query)}`)
+export interface SearchFilters {
+  /** このタグが付いたノートだけ。親タグは子タグにも一致する */
+  tag?: string
+  /** このフォルダ配下だけ */
+  folder?: string
+}
+
+export async function searchNotes(
+  query: string, filters: SearchFilters = {},
+): Promise<{ hits: SearchHit[]; truncated: boolean }> {
+  const params = new URLSearchParams({ q: query })
+  if (filters.tag !== undefined && filters.tag !== '') params.set('tag', filters.tag)
+  if (filters.folder !== undefined && filters.folder !== '') params.set('folder', filters.folder)
+  const r = await request(`/api/search?${params.toString()}`)
   return (await r.json()) as { hits: SearchHit[]; truncated: boolean }
 }
 
@@ -122,4 +134,15 @@ export interface OutgoingLink {
 export async function fetchLinks(path: string): Promise<OutgoingLink[]> {
   const r = await request(`/api/links?path=${encodeURIComponent(path)}`)
   return ((await r.json()) as { links: OutgoingLink[] }).links
+}
+
+export interface TagCount {
+  tag: string
+  count: number
+}
+
+/** vault で使われているタグと件数 (多い順) */
+export async function fetchTags(): Promise<TagCount[]> {
+  const r = await request('/api/tags')
+  return ((await r.json()) as { tags: TagCount[] }).tags
 }

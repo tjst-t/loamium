@@ -12,6 +12,7 @@ import { fmtFeature } from './features/fmt'
 import { journalFeature } from './features/journal'
 import { searchFeature } from './features/search'
 import { linksFeature } from './features/links'
+import { tagsFeature } from './features/tags'
 import { agentFeature } from './features/agent'
 
 export interface AppConfig {
@@ -44,6 +45,7 @@ export async function createApp(config: AppConfig): Promise<Context> {
   ctx.plugin(journalFeature)
   ctx.plugin(searchFeature)
   ctx.plugin(linksFeature)
+  ctx.plugin(tagsFeature)
   ctx.plugin(fmtFeature)
   ctx.plugin(agentFeature)
 

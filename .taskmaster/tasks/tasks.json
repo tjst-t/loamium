@@ -104,8 +104,9 @@
         "dependencies": [
           "7"
         ],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-08-22T08:05:00.000Z"
       },
       {
         "id": "9",
@@ -115,8 +116,9 @@
         "testStrategy": "タグ一覧に件数が出る。本文で `#` を打つと候補が出る。タグクリックで絞り込み結果へ。",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-08-22T08:05:00.000Z"
       },
       {
         "id": "10",

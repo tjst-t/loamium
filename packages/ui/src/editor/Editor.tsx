@@ -12,7 +12,8 @@ import { applyLoamiumStringifyOptions } from './markdown-config'
 import { exitNodeKeymap } from './exit-node'
 import { outline } from './outline'
 import { wikilink } from './wikilink'
-import { setWikiLinkEnv } from './wikilink-env'
+import { tag } from './tag'
+import { setEditorEnv } from './editor-env'
 import { getNoteViewState, saveNoteViewState, type NoteViewState } from './view-state'
 
 export type Mode = 'wysiwyg' | 'source'
@@ -42,12 +43,15 @@ interface MilkdownHostProps {
   onChange: (markdown: string) => void
   /** vault の全ノート。リンク解決と `[[` 補完に使う */
   notes: readonly string[]
+  /** vault のタグ。`#` 補完に使う */
+  tags: readonly string[]
   onOpenLink: (path: string) => void
   onCreateLink: (target: string) => void
+  onOpenTag: (tag: string) => void
 }
 
 function MilkdownHost({
-  path, initialBody, onChange, notes, onOpenLink, onCreateLink,
+  path, initialBody, onChange, notes, tags, onOpenLink, onCreateLink, onOpenTag,
 }: MilkdownHostProps): JSX.Element {
   // 最新の表示状態。アンマウント時にこれをそのまま保存する
   const viewState = useRef<NoteViewState>({ cursor: 0, scrollTop: 0 })
@@ -64,8 +68,9 @@ function MilkdownHost({
           viewState.current.cursor = selection.from
         })
       })
-      // ⚠️ wikilink は preset より**前**。Enter / Tab をリストのコマンドより先に拾うため
+      // ⚠️ 補完系は preset より**前**。Enter / Tab をリストのコマンドより先に拾うため
       .use(wikilink)
+      .use(tag)
       .use(commonmark)
       .use(gfm)
       .use(history)
@@ -80,13 +85,15 @@ function MilkdownHost({
    * (decoration の再計算は state の変化でしか起きないため)。
    */
   useEffect(() => {
-    setWikiLinkEnv({ notes, currentPath: path, open: onOpenLink, create: onCreateLink })
+    setEditorEnv({
+      notes, tags, currentPath: path, open: onOpenLink, create: onCreateLink, openTag: onOpenTag,
+    })
     if (loading) return
     get()?.action((ctx) => {
       const view = ctx.get(editorViewCtx)
       view.dispatch(view.state.tr)
     })
-  }, [loading, get, notes, path, onOpenLink, onCreateLink])
+  }, [loading, get, notes, tags, path, onOpenLink, onCreateLink, onOpenTag])
 
   /**
    * ノートを開き直したときにスクロールとカーソルを戻す (task #2)。
@@ -128,10 +135,14 @@ export interface EditorProps {
   path: string
   /** vault の全ノート。`[[リンク]]` の解決と補完に使う */
   notes: readonly string[]
+  /** vault のタグ。`#` の補完に使う */
+  tags: readonly string[]
   /** リンクをクリックしたとき */
   onOpenLink: (path: string) => void
   /** 壊れリンクをクリックしたとき (新規作成) */
   onCreateLink: (target: string) => void
+  /** タグをクリックしたとき (詳細検索へ) */
+  onOpenTag: (tag: string) => void
   /** ファイルの内容そのもの (frontmatter を含む) */
   value: string
   onSave: (next: string) => void
@@ -142,7 +153,9 @@ export interface EditorProps {
  * 外部エディタ・git・エージェントが同じファイルを直接触る以上、必須。
  * **文書単位**で切り替える (行単位ではない)。
  */
-export function Editor({ path, notes, value, onSave, onOpenLink, onCreateLink }: EditorProps): JSX.Element {
+export function Editor(
+  { path, notes, tags, value, onSave, onOpenLink, onCreateLink, onOpenTag }: EditorProps,
+): JSX.Element {
   const [mode, setMode] = useState<Mode>('wysiwyg')
   const { frontmatter, body } = useMemo(() => splitFrontmatter(value), [value])
   const [draftBody, setDraftBody] = useState(body)
@@ -203,8 +216,10 @@ export function Editor({ path, notes, value, onSave, onOpenLink, onCreateLink }:
             initialBody={body}
             onChange={handleChange}
             notes={notes}
+            tags={tags}
             onOpenLink={onOpenLink}
             onCreateLink={onCreateLink}
+            onOpenTag={onOpenTag}
           />
         </MilkdownProvider>
       ) : (

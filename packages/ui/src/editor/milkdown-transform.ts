@@ -6,6 +6,7 @@ import { applyLoamiumStringifyOptions } from './markdown-config'
 import { exitNodeKeymap } from './exit-node'
 import { outline } from './outline'
 import { wikilink } from './wikilink'
+import { tag } from './tag'
 
 /**
  * Editor.tsx と**同一の構成**で Milkdown を組み、parser / serializer だけを取り出す。
@@ -30,6 +31,7 @@ export async function createMilkdownTransform(root: HTMLElement): Promise<Milkdo
       applyLoamiumStringifyOptions(ctx)
     })
     .use(wikilink)
+    .use(tag)
     .use(commonmark)
     .use(gfm)
     .use(exitNodeKeymap)

@@ -15,7 +15,7 @@ import { applyLoamiumStringifyOptions } from '../markdown-config'
 import { exitNodeKeymap } from '../exit-node'
 import { outline } from '../outline'
 import { wikilink, suggestNotes, suggestStateOf, accept } from '../wikilink'
-import { resetWikiLinkEnv, setWikiLinkEnv } from '../wikilink-env'
+import { resetEditorEnv, setEditorEnv } from '../editor-env'
 
 const NOTES = ['index.md', 'プロジェクト/計画.md', 'プロジェクト/メモ.md', 'アーカイブ/メモ.md']
 
@@ -37,16 +37,18 @@ beforeAll(async () => {
     .create()
   editor.action((ctx) => { view = ctx.get(editorViewCtx) })
 })
-afterAll(async () => { await editor?.destroy(); host?.remove(); resetWikiLinkEnv() })
+afterAll(async () => { await editor?.destroy(); host?.remove(); resetEditorEnv() })
 
 beforeEach(() => {
   opened.length = 0
   created.length = 0
-  setWikiLinkEnv({
+  setEditorEnv({
     notes: NOTES,
+    tags: [],
     currentPath: 'index.md',
-    open: (path) => opened.push(path),
-    create: (target) => created.push(target),
+    open: (path: string) => opened.push(path),
+    create: (target: string) => created.push(target),
+    openTag: () => {},
   })
 })
 
@@ -67,11 +69,22 @@ const save = (): string => {
 /** いま貼られている wikilink decoration を読み出す */
 interface DecoLike { from: number; to: number; type: { attrs?: Record<string, string> } }
 
+/**
+ * すべてのプラグインの decoration を集める。
+ * ⚠️ `someProp('decorations')` は**最初に見つかった 1 つ**しか返さない
+ * (ProseMirror 本体は全プラグイン分を集めるので、テスト側だけの話)。
+ */
+function allDecorations(): DecoLike[] {
+  const out: DecoLike[] = []
+  for (const plugin of view.state.plugins) {
+    const set = plugin.props.decorations?.call(plugin, view.state) as { find?: () => DecoLike[] } | undefined
+    if (set?.find !== undefined) out.push(...set.find())
+  }
+  return out
+}
+
 function decorations(): { text: string; broken: boolean }[] {
-  const set = view.someProp('decorations', (f) => f(view.state)) as
-    { find?: () => DecoLike[] } | undefined
-  if (set?.find === undefined) return []
-  return set.find()
+  return allDecorations()
     .filter((deco) => (deco.type.attrs?.['class'] ?? '').startsWith('wikilink '.trim()))
     .filter((deco) => !(deco.type.attrs?.['class'] ?? '').includes('wikilink-syntax'))
     .map((deco) => ({
@@ -95,7 +108,10 @@ describe('表示', () => {
   })
 
   it('同名ノートはリンク元と同じフォルダを優先する', () => {
-    setWikiLinkEnv({ notes: NOTES, currentPath: 'アーカイブ/古い.md', open: () => {}, create: () => {} })
+    setEditorEnv({
+      notes: NOTES, tags: [], currentPath: 'アーカイブ/古い.md',
+      open: () => {}, create: () => {}, openTag: () => {},
+    })
     load('[[メモ]]\n')
     expect(decorations()).toEqual([{ text: '[[メモ]]', broken: false }])
   })
@@ -113,9 +129,7 @@ describe('表示', () => {
 
 /** 隠している記法の範囲 */
 function hidden(): string[] {
-  const set = view.someProp('decorations', (f) => f(view.state)) as { find?: () => DecoLike[] } | undefined
-  if (set?.find === undefined) return []
-  return set.find()
+  return allDecorations()
     .filter((deco) => (deco.type.attrs?.['class'] ?? '') === 'wikilink-syntax')
     .map((deco) => view.state.doc.textBetween(deco.from, deco.to))
 }
@@ -181,12 +195,13 @@ describe('[[ の補完', () => {
 
   it('[[ を打つと候補が出る', () => {
     type('[[')
-    expect(suggestStateOf(view.state)?.items).toEqual([...NOTES].sort((a, b) => a.localeCompare(b, 'ja')))
+    expect(suggestStateOf(view.state)?.items.map((item) => item.value))
+      .toEqual([...NOTES].sort((a, b) => a.localeCompare(b, 'ja')))
   })
 
   it('打った文字で絞り込まれる', () => {
     type('[[計')
-    expect(suggestStateOf(view.state)?.items).toEqual(['プロジェクト/計画.md'])
+    expect(suggestStateOf(view.state)?.items.map((item) => item.value)).toEqual(['プロジェクト/計画.md'])
   })
 
   it('すでに閉じているリンクの中では候補を出さない (カーソルを置いただけで開かない)', () => {
@@ -219,7 +234,7 @@ describe('[[ の補完', () => {
     view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(end))))
     for (const char of '[[計') view.dispatch(view.state.tr.insertText(char))
     const active = suggestStateOf(view.state)
-    expect(active?.items).toEqual(['プロジェクト/計画.md'])
+    expect(active?.items.map((item) => item.value)).toEqual(['プロジェクト/計画.md'])
     const handled = view.someProp('handleKeyDown', (f) =>
       f(view, new KeyboardEvent('keydown', { key: 'Enter' })))
     expect(handled).toBe(true)
