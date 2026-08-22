@@ -21,6 +21,13 @@ async function request(path: string, init?: RequestInit): Promise<Response> {
   return res
 }
 
+export interface SearchHitDto {
+  path: string
+  line: number
+  snippet: string
+  kind: 'title' | 'body'
+}
+
 export interface TreeNode {
   name: string
   path: string
@@ -70,6 +77,11 @@ export const api = {
       body: JSON.stringify(date === undefined ? { text } : { text, date }),
     })
     return (await r.json()) as { date: string; path: string }
+  },
+  async search(query: string, limit?: number): Promise<{ hits: SearchHitDto[]; truncated: boolean }> {
+    const q = `?q=${encodeURIComponent(query)}${limit === undefined ? '' : `&limit=${limit}`}`
+    const r = await request(`/api/search${q}`)
+    return (await r.json()) as { hits: SearchHitDto[]; truncated: boolean }
   },
   async fmt(dryRun: boolean): Promise<{ scanned: number; changed: string[]; dryRun: boolean }> {
     const r = await request(`/api/vault/fmt${dryRun ? '?dry-run=1' : ''}`, { method: 'POST' })

@@ -11,6 +11,7 @@
     "@loamium/shared": "*",
     "@milkdown/kit": "^7.22.1",
     "@milkdown/react": "^7.22.1",
+    "cmdk": "^1.1.1",
     "lucide-react": "^1.33.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

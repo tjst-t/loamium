@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState, type JSX } from 'react'
 import { Editor } from './editor/Editor'
 import { FileTree } from './components/FileTree'
 import { JournalCard } from './components/JournalCard'
+import { SearchPalette } from './components/SearchPalette'
+import { scrollToTextWhenReady } from './scroll-to-text'
 import {
   ApiError, createFolder, createNote, fetchJournal, fetchTree, movePath, readNote, removePath,
   writeNote, type TreeNode,
@@ -21,6 +23,9 @@ export function App(): JSX.Element {
   const [current, setCurrent] = useState<string | null>(null)
   const [content, setContent] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  /** 開いた直後に本文中で光らせる語 (検索から飛んできたとき) */
+  const [pendingNeedle, setPendingNeedle] = useState<string | null>(null)
 
   /** 失敗しても画面は生かす。理由はそのまま出す (409「すでに存在します」等) */
   const run = useCallback(async (fn: () => Promise<void>): Promise<void> => {
@@ -59,6 +64,31 @@ export function App(): JSX.Element {
       setContent(await readNote(path))
     })
   }, [run])
+
+  // Cmd/Ctrl+K で検索パレット。入力欄にいても開けるようにする
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent): void => {
+      if (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        setPaletteOpen((v) => !v)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('keydown', onKey) }
+  }, [])
+
+  /** 検索結果を開く。本文が描画されてから該当箇所までスクロールする */
+  const openHit = useCallback((path: string, needle: string) => {
+    setPaletteOpen(false)
+    setPendingNeedle(needle)
+    if (path === current) return // 同じノート内の移動は再読み込み不要
+    open(path)
+  }, [current, open])
+
+  useEffect(() => {
+    if (pendingNeedle === null || content === null) return undefined
+    return scrollToTextWhenReady(pendingNeedle)
+  }, [pendingNeedle, content])
 
   const save = useCallback((next: string) => {
     if (current === null) return
@@ -136,6 +166,11 @@ export function App(): JSX.Element {
           <Editor key={current} value={content} onSave={save} />
         )}
       </main>
+      <SearchPalette
+        open={paletteOpen}
+        onClose={() => { setPaletteOpen(false) }}
+        onPick={openHit}
+      />
     </div>
   )
 }

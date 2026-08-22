@@ -14,6 +14,7 @@ const USAGE = `loamium — ローカル Markdown ノート
   loamium mkdir <path>           フォルダを作る
   loamium journal [date]         デイリージャーナルを表示する (無ければ作る)
   loamium journal-append <text>  ジャーナルに追記する (--date=YYYY-MM-DD)
+  loamium search <query>         ノート名と本文を全文検索する (--limit=N)
   loamium fmt [--dry-run]        vault 全体を標準 Markdown へ正規化する
   loamium tools                  エージェント操作ツールの一覧
   loamium help [topic]           help 知識ベースを引く
@@ -118,6 +119,21 @@ async function main(argv: string[]): Promise<number> {
       if (text === '') { process.stderr.write('追記する内容を指定してください\n'); return 2 }
       const { path } = await api.journalAppend(text, dateArg?.slice('--date='.length))
       process.stdout.write(`追記しました: ${path}\n`)
+      return 0
+    }
+
+    case 'search': {
+      const limitArg = rest.find((a) => a.startsWith('--limit='))
+      const query = rest.filter((a) => !a.startsWith('--limit=')).join(' ')
+      if (query === '') { process.stderr.write('検索語を指定してください\n'); return 2 }
+      const { hits, truncated } = await api.search(
+        query, limitArg === undefined ? undefined : Number(limitArg.slice('--limit='.length)))
+      for (const h of hits) {
+        // grep 互換の `path:line: text` 形式にして、エディタから飛べるようにする
+        process.stdout.write(`${h.path}:${h.line}: ${h.snippet}\n`)
+      }
+      if (hits.length === 0) process.stderr.write('一致するノートはありませんでした\n')
+      else if (truncated) process.stderr.write('(件数が多いため打ち切りました。--limit で増やせます)\n')
       return 0
     }
 

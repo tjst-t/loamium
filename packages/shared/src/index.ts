@@ -3,3 +3,4 @@
 export * from './markdown/index'
 export { normalizeVaultPath, VaultPathError } from './vault-path'
 export * from './journal'
+export * from './search'

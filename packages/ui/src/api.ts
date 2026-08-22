@@ -52,6 +52,20 @@ export async function fetchJournal(date?: string): Promise<Journal> {
   return (await r.json()) as Journal
 }
 
+export interface SearchHit {
+  path: string
+  /** 1 始まりの行番号。ファイル名の一致なら 0 */
+  line: number
+  snippet: string
+  match: { start: number; length: number }
+  kind: 'title' | 'body'
+}
+
+export async function searchNotes(query: string): Promise<{ hits: SearchHit[]; truncated: boolean }> {
+  const r = await request(`/api/search?q=${encodeURIComponent(query)}`)
+  return (await r.json()) as { hits: SearchHit[]; truncated: boolean }
+}
+
 export async function readNote(path: string): Promise<string> {
   return (await request(`/api/notes/${encodeURI(path)}`)).text()
 }

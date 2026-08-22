@@ -84,7 +84,7 @@ describe('REST: agent', () => {
       [
         'fmt_vault', 'folder_create', 'help', 'journal_append', 'journal_read',
         'list_notes', 'list_tree', 'note_create', 'note_delete', 'note_move',
-        'read_note', 'write_note',
+        'read_note', 'search', 'write_note',
       ],
     )
   })
@@ -92,12 +92,12 @@ describe('REST: agent', () => {
   it('ケーパビリティで絞れる (ADR-0015)', async () => {
     const body = (await (await call('/api/agent/tools?capability=read')).json()) as { tools: { name: string }[] }
     expect(body.tools.map((t) => t.name).sort()).toEqual(
-      ['help', 'journal_read', 'list_notes', 'list_tree', 'read_note'])
+      ['help', 'journal_read', 'list_notes', 'list_tree', 'read_note', 'search'])
   })
 
   it('help トピックが機能ごとに登録されている (ADR-0014)', async () => {
     const body = (await (await call('/api/agent/help')).json()) as { topics: string[] }
-    expect(body.topics.sort()).toEqual(['fmt', 'help', 'journal', 'notes'])
+    expect(body.topics.sort()).toEqual(['fmt', 'help', 'journal', 'notes', 'search'])
   })
 
   it('help 本文はピュア Markdown で返る', async () => {
@@ -251,5 +251,47 @@ describe('REST: journal', () => {
   it('空文字の追記は 400 (誤爆でファイルを汚さない)', async () => {
     const r = await call('/api/journal/append', { method: 'POST', body: JSON.stringify({ text: '  ' }) })
     expect(r.status).toBe(400)
+  })
+})
+
+describe('REST: search', () => {
+  type Hits = { query: string; hits: { path: string; line: number; snippet: string; kind: string }[]
+    truncated: boolean }
+
+  it('本文を横断して行番号つきで返す', async () => {
+    const body = (await (await call(`/api/search?q=${encodeURIComponent('ゆるい')}`)).json()) as Hits
+    expect(body.hits).toEqual([
+      { path: '日誌/list.md', line: 1, snippet: '-   ゆるい', match: { start: 4, length: 3 }, kind: 'body' },
+    ])
+  })
+
+  it('ファイル名の一致を本文より上に出す', async () => {
+    await call('/api/notes/ok.md', { method: 'POST', body: '# ok\n\nokay\n' })
+    const body = (await (await call('/api/search?q=ok')).json()) as Hits
+    expect(body.hits[0]).toMatchObject({ path: 'ok.md', kind: 'title', line: 0 })
+    expect(body.hits.some((h) => h.kind === 'body')).toBe(true)
+  })
+
+  it('一致が無ければ空', async () => {
+    const body = (await (await call('/api/search?q=存在しない語')).json()) as Hits
+    expect(body.hits).toEqual([])
+  })
+
+  it('空クエリは走査せず空を返す', async () => {
+    const body = (await (await call('/api/search?q=')).json()) as Hits
+    expect(body).toMatchObject({ query: '', hits: [], truncated: false })
+  })
+
+  it('limit で打ち切り、truncated が立つ', async () => {
+    await call('/api/notes/many.md', { method: 'POST', body: 'x\nx\nx\nx\n' })
+    const body = (await (await call('/api/search?q=x&limit=2')).json()) as Hits
+    expect(body.hits).toHaveLength(2)
+    expect(body.truncated).toBe(true)
+  })
+
+  it('外部で書き換えた内容がすぐ反映される (索引をキャッシュしない)', async () => {
+    await writeFile(join(root, 'ok.md'), '# ok\n\n外から書いた語\n')
+    const body = (await (await call(`/api/search?q=${encodeURIComponent('外から書いた語')}`)).json()) as Hits
+    expect(body.hits.map((h) => h.path)).toEqual(['ok.md'])
   })
 })
