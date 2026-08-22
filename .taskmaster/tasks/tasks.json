@@ -1,0 +1,602 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": "1",
+        "title": "ノートのブラウズと基本操作 (ツリー/新規/リネーム/削除)",
+        "description": "サイドバーのフォルダツリーから vault のノートを辿り、作成・リネーム・削除・移動できる。",
+        "details": "旧実装で提供していた: フォルダツリー表示 (折りたたみ)、ノート新規作成ダイアログ、フォルダ作成、リネーム、削除、別フォルダへの移動。現状の rebuild はフラットなパス一覧しかない。",
+        "testStrategy": "ツリーからノートを開き、新規作成→リネーム→移動→削除まで一連が UI から通ること。",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-08-22T02:49:17.545Z"
+      },
+      {
+        "id": "2",
+        "title": "画面シェルとブラウザ的ナビゲーション",
+        "description": "URL ルーティング・戻る/進む・右サイドバーの開閉・ノートごとのスクロール/カーソル位置復元。",
+        "details": "旧実装: router によるパス連動、ブラウザの戻る/進むでノート履歴を行き来、右サイドバーのトグル、ノート再訪時に表示位置とカーソルを復元、ESC で選択解除/blur。",
+        "testStrategy": "ノート A→B→戻る で A の位置とカーソルが復元されること。",
+        "priority": "high",
+        "dependencies": [
+          "1"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "3",
+        "title": "デイリージャーナル",
+        "description": "起動時に今日の journals/YYYY-MM-DD.md へ着地し、日付ナビ/カレンダーで前後の日を行き来できる。無い日は開いた時点で生成。",
+        "details": "旧実装: 自動生成 (遅延)、日付ナビゲータ、カレンダー UI、journal 追記 API/CLI、テンプレートからの journal 生成。",
+        "testStrategy": "起動→今日のジャーナルに着地。前日/翌日移動。存在しない日を開くと生成される。",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "4",
+        "title": "WikiLink [[ ]] — 補完・追従・壊れリンク",
+        "description": "`[[` でノート名オートコンプリート、クリックで追従、存在しないリンクは赤表示でクリックすると新規作成。",
+        "details": "旧実装: wikilink.ts / タイトル補完 / 壊れリンクの視覚化と作成導線。見出しアンカー `[[note#heading]]` も対象。",
+        "testStrategy": "補完候補が出る / 既存リンク追従 / 壊れリンククリックで新規作成される。",
+        "priority": "high",
+        "dependencies": [
+          "1"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "5",
+        "title": "リネーム時の [[リンク]] 自動追従",
+        "description": "ノートをリネーム・移動すると vault 内の全 `[[旧名]]` が新名に書き換わる。",
+        "details": "旧実装: POST /api/notes/{path}/rename でリンク一括更新 + CLI `rename`。コードフェンス内は退避して書き換えない。",
+        "testStrategy": "リンク元 3 件を用意しリネーム→全て追従。コードフェンス内の同名文字列は不変。",
+        "priority": "high",
+        "dependencies": [
+          "1",
+          "4"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "6",
+        "title": "バックリンクパネル",
+        "description": "開いているノートを参照している他ノートの一覧を、該当行のコンテキスト付きで表示する。",
+        "details": "旧実装: GET /api/backlinks + 右サイドバーのバックリンク一覧 + CLI `backlinks`。",
+        "testStrategy": "リンク元からの参照が一覧され、クリックで該当行へ飛ぶ。",
+        "priority": "medium",
+        "dependencies": [
+          "4"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "7",
+        "title": "全文検索パレット (Cmd/Ctrl+K)",
+        "description": "ノート名と本文全文を横断検索し、選択で該当行へジャンプする。",
+        "details": "旧実装: Fuse.js ベースの GET /api/search (スニペット付き) + SearchPalette。",
+        "testStrategy": "キーワードでノート名/本文の両方がヒットし、選択で該当行にカーソルが立つ。",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "8",
+        "title": "詳細検索ページ",
+        "description": "パレットとは別に、絞り込み条件付きで結果を一覧できる検索画面。",
+        "details": "旧実装: SearchPage (2 モード化スプリント)。フォルダ/タグでの絞り込みと結果一覧。",
+        "testStrategy": "検索語 + フォルダ/タグ絞り込みで結果が変わること。",
+        "priority": "medium",
+        "dependencies": [
+          "7"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "9",
+        "title": "タグ (#tag) の一覧・絞り込み・入力補完",
+        "description": "本文の `#tag` と frontmatter tags を集約し、一覧・件数表示・クリック絞り込み・入力時の候補補完を提供する。",
+        "details": "旧実装: GET /api/tags + CLI `tags` + tag-suggest / tag-click。",
+        "testStrategy": "タグ一覧に件数が出る。本文で `#` を打つと候補が出る。タグクリックで絞り込み結果へ。",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "10",
+        "title": "アウトライン操作 (リスト行の Tab インデント・折りたたみ・採番)",
+        "description": "リスト行で Tab / Shift+Tab による子要素追従インデント、折りたたみ、番号の自動採番、リスト種別の変換。",
+        "details": "旧実装: リスト限定 (C 方式)。複数行選択での Tab、リスト外 Tab の挙動、番号リストの再採番、箇条書き⇄番号⇄チェックボックスの変換、折返しのぶら下げ表示。ProseMirror では sinkListItem/liftListItem を使う。",
+        "testStrategy": "ネストしたリストで Tab/Shift+Tab、複数行選択での一括インデント、番号の連番維持。",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "11",
+        "title": "見出しの折りたたみと目次 (アウトライン) パネル",
+        "description": "本文の見出しを折りたためる。右パネルの目次が階層表示され、現在位置と連動する。",
+        "details": "旧実装: 見出し折り畳み + 右パネル目次の階層連動 + クリックでスクロール。",
+        "testStrategy": "見出しを畳むと配下が隠れる。目次クリックで該当見出しへ。スクロールで現在位置がハイライト。",
+        "priority": "medium",
+        "dependencies": [
+          "2"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "12",
+        "title": "スラッシュメニュー (/ で挿入)",
+        "description": "本文で `/` を打つと挿入候補 (見出し・リスト・表・コードフェンス・callout・テンプレート等) が出る。",
+        "details": "旧実装: slash-menu.ts。キーボード操作で選択・挿入。",
+        "testStrategy": "`/` 入力でメニュー表示、選択で該当ブロックが挿入される。",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "13",
+        "title": "記法拡張: callout / highlight / 埋め込み transclusion",
+        "description": "`> [!note]` callout、`==highlight==`、`![[note]]` / `![[note#heading]]` / `![[image]]` の埋め込み表示。",
+        "details": "旧実装: renderers/callout, highlight, embed。循環参照は安全に遮断。Markdown 上は標準記法のまま保存する (独自記法を書き込まない)。",
+        "testStrategy": "callout が種別ごとに描画される。transclusion が展開され、循環しても無限ループしない。",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "14",
+        "title": "Mermaid 図・KaTeX 数式・コードハイライト",
+        "description": "Mermaid 図、`$…$` / `$$…$$` の数式、コードフェンスのシンタックスハイライトをオフラインで描画する。",
+        "details": "旧実装: renderers/mermaid, katex, shiki (ローカルバンドル)。",
+        "testStrategy": "3 種すべてがネットワーク遮断下で描画されること。",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "15",
+        "title": "テーブルの WYSIWYG 編集",
+        "description": "Markdown テーブルを表として編集できる (行列の追加・削除・移動、セル移動)。",
+        "details": "旧実装: renderers/table + テーブル UX 仕上げスプリント。保存時は正規形の Markdown テーブルに戻る。",
+        "testStrategy": "行/列の追加削除が UI からでき、保存後の Markdown が round-trip gate を通ること。",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "16",
+        "title": "添付ファイルのアップロードと埋め込みプレビュー",
+        "description": "ドラッグ&ドロップ / 画像ペーストで assets/ にアップロードし `![[ファイル]]` を自動挿入。PDF・テキスト・CSV・コードはノート内でプレビュー。",
+        "details": "旧実装: upload.ts / POST /api/files/{path} / GET /api/files / renderers/file-preview / CLI `upload` `files`。",
+        "testStrategy": "画像ペーストで assets に保存されリンクが挿入される。PDF/CSV がノート内でプレビューされる。",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "17",
+        "title": "frontmatter プロパティ UI (Obsidian Properties 風・意味型)",
+        "description": "frontmatter をエディタ外のプロパティパネルで型付き編集する (テキスト/数値/日付/真偽/リスト/タグ)。",
+        "details": "旧実装: renderers/properties + property-types API + キーファースト追加 / 行削除 / 値要約。rebuild の方針では doc 内に押し込まず独立パネルで出す。",
+        "testStrategy": "型ごとの入力 UI が出る。追加・編集・削除が frontmatter に反映される。",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "18",
+        "title": "ブックマーク (★) ",
+        "description": "ノートを ★ でブックマークし、専用ビューから一覧できる。",
+        "details": "旧実装: BookmarkStar。frontmatter プロパティとして保存 (ADR-0004)。開いているバッファの frontmatter を編集する。",
+        "testStrategy": "★ トグルで frontmatter が更新され、ブックマーク一覧に出入りする。",
+        "priority": "low",
+        "dependencies": [
+          "17"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "19",
+        "title": "タスク管理 (チェックボックス + 状態/優先度/期限)",
+        "description": "`- [ ]` のチェックボックス、状態・優先度・期限のインラインフィールド、語彙のカスタマイズ。",
+        "details": "旧実装: ADR-0029 (状態/優先度のインラインフィールド + 設定語彙) / TaskVocabPanel / 子ノード表示 / クリックでトグル。",
+        "testStrategy": "チェックボックスのクリックトグル、期限と優先度の設定、語彙設定の反映。",
+        "priority": "medium",
+        "dependencies": [
+          "17"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "20",
+        "title": "dataview 風クエリブロック (DQL)",
+        "description": "```dataview フェンスに LIST / TABLE / TASK + FROM / WHERE / SORT を書くと結果が描画される。",
+        "details": "旧実装: DQL パーサ + dql-cache + renderers/dataview + POST /api/query + CLI `query`。rebuild ではコードフェンスとして Markdown に落とす (NodeView で描画)。",
+        "testStrategy": "3 種のクエリが描画される。ファイル変更で結果が更新される。保存された Markdown はフェンスのまま。",
+        "priority": "medium",
+        "dependencies": [
+          "9",
+          "17"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "21",
+        "title": "ファイル/フォルダブラウザページ",
+        "description": "ノートと添付ファイルをフォルダ単位で一覧・プレビューする画面。",
+        "details": "旧実装: FilesPage + FileTree + FilePreview + 絞り込み/件数表示。",
+        "testStrategy": "フォルダを辿ってファイル一覧とプレビューが出る。",
+        "priority": "low",
+        "dependencies": [
+          "1"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "22",
+        "title": "コンテキストメニューとドラッグ移動",
+        "description": "ツリー上の右クリックメニュー (新規/リネーム/複製/削除/移動/エクスポート) と、ドラッグ&ドロップでのフォルダ移動。",
+        "details": "旧実装: ContextMenu / MoveDialog / folder-move。モバイルは長押し。",
+        "testStrategy": "右クリックメニューの各項目が動作。ドラッグでフォルダ間移動ができリンクも追従。",
+        "priority": "medium",
+        "dependencies": [
+          "1"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "23",
+        "title": "テンプレートからのノート作成",
+        "description": "テンプレート (vault 内 Markdown) から変数を埋めてノートを作成する。journal もテンプレート化する。",
+        "details": "旧実装: 変数エンジン + TemplateModal / TemplatePicker + POST /api/templates/{name}/instantiate + CLI `new` + テンプレ管理 UI。",
+        "testStrategy": "変数入力→ノート生成、パス/ファイル名テンプレートの解決、journal のテンプレ適用。",
+        "priority": "medium",
+        "dependencies": [
+          "1"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "24",
+        "title": "テンプレート/コマンドの動的選択肢 (optionsQuery)",
+        "description": "テンプレート変数やコマンドパラメータの選択肢を DQL クエリから動的に生成する。",
+        "details": "旧実装: ADR-0031 / POST /api/options-query / ドロップダウン + オートコンプリート + 依存パラメータ。",
+        "testStrategy": "クエリ由来の候補が出る。依存する別パラメータの変更で候補が変わる。",
+        "priority": "low",
+        "dependencies": [
+          "23",
+          "20"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "25",
+        "title": "スマートフォルダ (保存クエリのフォルダ表示)",
+        "description": "DQL で定義した条件をフォルダのように扱い、サイドバーで物理/スマート表示を切り替える。作成・編集 UI とフォルダ pin。",
+        "details": "旧実装: ADR-0001〜0005 / smart-folders API / SmartView / SmartFoldersPanel / SmartFolderForm / DQL キャッシュ + SSE プッシュ更新。",
+        "testStrategy": "スマートフォルダを作成→条件に合うノートが並ぶ→ファイル変更で即更新。",
+        "priority": "medium",
+        "dependencies": [
+          "20"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "26",
+        "title": "スマートコマンド (ユーザー定義のワークフロー実行)",
+        "description": "vault 内の YAML で定義したコマンド (追記/プロパティ更新/パッチ/条件分岐/エージェント実行) をパラメータ入力して実行する。",
+        "details": "旧実装: ADR-0020〜0024, 0028 / commands API / ParamFormModal / DSL v2 (when/prop-set/note-patch/append/param 型) / agent-run ステップ / CLI `commands`。",
+        "testStrategy": "パラメータ入力→実行→対象ノートが更新される。条件分岐と agent-run が動く。",
+        "priority": "medium",
+        "dependencies": [
+          "23",
+          "20"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "27",
+        "title": "スマートコマンド定義エディタ",
+        "description": "YAML を正本にしたスプリットビューの定義エディタ (補完付き)。",
+        "details": "旧実装: CommandEditor + commandDslCompletion (ADR-0023/0024)。",
+        "testStrategy": "補完が効き、不正な定義はエラー表示。保存すると vault の YAML が更新される。",
+        "priority": "low",
+        "dependencies": [
+          "26"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "28",
+        "title": "統合コマンドパレット (Ctrl-K)",
+        "description": "ノート名・全文・コマンドを 1 つのパレットから横断し、`>` でコマンド専用モードに入る。",
+        "details": "旧実装: ADR-0019 / commandRegistry / builtinCommands / palettePrefix。",
+        "testStrategy": "3 セクションが出る。`>` でコマンドのみに絞られ、実行できる。",
+        "priority": "medium",
+        "dependencies": [
+          "7",
+          "26"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "29",
+        "title": "エージェントチャット (右サイドバー)",
+        "description": "アプリ内でエージェントと対話し、開いているノートを文脈として渡してノートを操作させる。",
+        "details": "旧実装: AgentPane / MobileAgentSheet / セッション API (作成・一覧・削除・中断・切り詰め) / メッセージ編集 / 開いている文書との連携。",
+        "testStrategy": "会話が続き、中断・メッセージ編集・セッション切替が動く。",
+        "priority": "high",
+        "dependencies": [
+          "2"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "30",
+        "title": "エージェント権限モデル (ケーパビリティ)",
+        "description": "エージェントに許す操作をケーパビリティ単位で制御する (読み取り/書き込み/コマンド実行/Web など)。",
+        "details": "旧実装: ADR-0012/0015 / permissions.ts / セッション別権限 / 設定 UI。",
+        "testStrategy": "権限を落とすと該当ツールが拒否される。既定値が安全側であること。",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "31",
+        "title": "エージェントの機密領域 deny リスト",
+        "description": "指定したフォルダ/ファイルをエージェントから読み書き不可にする。",
+        "details": "旧実装: ADR-0018 / agent-privacy.ts + 設定 UI。",
+        "testStrategy": "deny 配下のノートは検索結果にも出ず、読み取りも拒否される。",
+        "priority": "medium",
+        "dependencies": [
+          "30"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "32",
+        "title": "エージェントの Web アクセス (opt-in)",
+        "description": "明示的に許可した場合のみ web_search / web_fetch を使えるようにする。",
+        "details": "旧実装: ADR-0017 / agent-web-tools + egress-guard (許可ドメイン制御)。",
+        "testStrategy": "既定では拒否。許可すると取得でき、遮断対象への通信はブロックされる。",
+        "priority": "low",
+        "dependencies": [
+          "30"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "33",
+        "title": "エージェントの定期実行 (スケジュールジョブ)",
+        "description": "cron 相当のスケジュールでエージェントジョブを実行し、結果を確認できる。停止中の分はキャッチアップする。",
+        "details": "旧実装: ADR-0013 / agent-scheduler + agent-jobs API + AgentJobsPanel + CronBuilder。",
+        "testStrategy": "ジョブ定義→スケジュール実行→結果表示。起動時に取りこぼし分が動く。",
+        "priority": "low",
+        "dependencies": [
+          "29"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "34",
+        "title": "エージェント操作ツール群 (ノート/ファイル/テンプレ/スマートフォルダ/コマンド/同期)",
+        "description": "各機能をエージェントから操作できるツールとして提供し、help 知識ベースに使い方を載せる。",
+        "details": "旧実装の全ツール: note_create/note_edit/note_move/note_delete/note_property/note_convert_list/journal_append/search/query/backlinks/tags/file_write/file_move/file_delete/dataview_write/templates_list/template_write/template_instantiate/template_delete/smartfolders_list/smartfolder_notes/smartfolder_write/smartfolder_delete/commands_list/command_run/command_write/command_delete/task_set_fields/sync_now/sync_status/vault_seed/web_search/web_fetch/help。rebuild には list_notes/read_note/write_note/fmt_vault/help しかない。各機能タスクと同時に実装する規約 (1 機能 = 1 プラグイン)。",
+        "testStrategy": "各ツールが監査ログを残し、権限で制御され、help から使い方が引けること。",
+        "priority": "high",
+        "dependencies": [
+          "29"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "35",
+        "title": "インフォパネル (右サイドバーの情報表示)",
+        "description": "開いているノートの目次・プロパティ・バックリンク・統計などを右サイドバーに集約する。",
+        "details": "旧実装: InfoPanel (Tier 1) / RightSidebar / note-meta API。",
+        "testStrategy": "ノート切替でパネルの内容が追従する。",
+        "priority": "low",
+        "dependencies": [
+          "2",
+          "6"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "36",
+        "title": "ノートのエクスポート (PDF / HTML)",
+        "description": "ノートを PDF または HTML として書き出す。",
+        "details": "旧実装: ADR-0006 (サーバーサイド生成) / export.ts。図・数式・ハイライトも反映される。",
+        "testStrategy": "PDF/HTML を書き出し、Mermaid/KaTeX/コードが描画されていること。",
+        "priority": "low",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "37",
+        "title": "Vault 同期 (git 委譲)",
+        "description": "vault を git リモートと同期する。自動 commit/push (debounce)、定期/フォーカス時 pull、オフライン時のキュー、同期状態の表示。",
+        "details": "旧実装: ADR-0032 / SyncEngine (システム git 委譲) / sync API / SyncStatusIndicator / 認証情報 (PAT) の委譲。vault が git リポジトリでない場合に親リポジトリを触らないガード必須。",
+        "testStrategy": "編集→自動 commit/push。リモート更新→pull で反映。オフライン→復帰時に送信。",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "38",
+        "title": "同期の初回リンク (セットアップウィザード)",
+        "description": "既存 vault とリモートを安全に初回接続する。空/片側/両側データありを判別し、競合はダイアログで解決する。",
+        "details": "旧実装: ADR-0034 / sync/link probe・preview・apply / SyncSetupWizard / LinkConflictDialog (per-file 選択 + 残り全部に適用) / keep-both 命名 / backup ref / NFC・大文字小文字のエッジガード。",
+        "testStrategy": "空リモート / 既存リモート / 両側データありの 3 経路が壊れずに完了する。",
+        "priority": "medium",
+        "dependencies": [
+          "37"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "39",
+        "title": "リモート変更時の 3-way 自動マージと競合解決 UI",
+        "description": "編集中にリモート変更が来たとき、非競合の差分は自動統合し、競合ハンクだけ UI で解決させる。",
+        "details": "旧実装: ADR-0030 / diff3 ベースの自動マージ + ConflictResolverDialog。モバイルでも破綻しないこと。",
+        "testStrategy": "非競合は自動統合。競合は選択 UI が出て、選択結果が保存される。",
+        "priority": "medium",
+        "dependencies": [
+          "37"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "40",
+        "title": "統一設定画面",
+        "description": "全体設定・AI 接続・エージェント権限・プライバシー・タスク語彙・同期・テンプレ/スマートフォルダ/コマンド管理を 1 つの設定画面に集約する。",
+        "details": "旧実装: ADR-0010/0026 / SettingsView + 型付き設定 API (zod・REST↔CLI 1:1・監査ログ)。設定は vault の system/ を正本にする。設定書込 API はエージェントの allowlist から除外 (自己昇格防止)。",
+        "testStrategy": "各セクションの保存が system/ のファイルに反映され、再起動後も保持される。",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "41",
+        "title": "内蔵オフライン LLM",
+        "description": "外部 API なしでもエージェントが動くよう、ローカル LLM をアプリ内で動かす (モデルのダウンロード管理付き)。",
+        "details": "旧実装: ADR-0025 / node-llama-cpp in-process + OpenAI 互換 shim + モデル一覧/DL/削除 API。",
+        "testStrategy": "モデルを DL→選択→オフラインでチャットが成立する。",
+        "priority": "low",
+        "dependencies": [
+          "40"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "42",
+        "title": "サンプル vault の投入と機能ガイド",
+        "description": "初回起動時に使えるサンプルノートと、各機能の使い方ガイド (ピュア Markdown) を vault に投入する。",
+        "details": "旧実装: POST /api/vault/seed + CLI `init-samples` + 機能ガイド/ 一式。新機能を足したらガイドも更新する規約。",
+        "testStrategy": "空 vault に投入→サンプルとガイドが開ける。既存ファイルを壊さない。",
+        "priority": "low",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "43",
+        "title": "モバイル対応と PWA",
+        "description": "スマートフォン/タブレットで閲覧・編集ができる。ホーム画面に追加してアプリとして起動できる。",
+        "details": "旧実装: レスポンシブ UI (≤680px モバイル / 681–960 タブレット / ≥961 デスクトップ)、タップターゲット 44px、モバイル用エージェントシート、PWA マニフェスト。WYSIWYG 化でモバイル編集の価値は旧実装より高い。",
+        "testStrategy": "モバイル幅で主要導線 (開く/編集/検索/エージェント) が破綻しない。",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "44",
+        "title": "CLI コマンド一式 (REST と 1:1)",
+        "description": "ノート操作・検索・ジャーナル・テンプレ・スマートフォルダ/コマンド・設定・同期を CLI から実行できる。",
+        "details": "旧実装のコマンド: read/write/append/patch/rename/journal/journal-append/search/query/backlinks/upload/files/list/new/tags/smart-folder/note-meta/commands/init-samples/prop set|unset/settings 各種/agent-*/sync 各種。--json 出力、失敗時は非 0 終了 + stderr に 1 行 JSON。rebuild は ls/cat/write/fmt/tools/help のみ。",
+        "testStrategy": "各コマンドの --json 出力が REST と一致し、エラー時の終了コードが非 0。",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "45",
+        "title": "監査ログと権限モード",
+        "description": "書き込み系の操作をすべて `.loamium/audit.log` に記録し、`LOAMIUM_MODE` (read-only / append-only / full) で操作を制限する。",
+        "details": "旧実装: audit.ts + permissions.ts。監査の失敗で書き込み自体は落とさない。",
+        "testStrategy": "各書き込み経路が JSONL に記録される。read-only で書き込みが拒否される。",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "46",
+        "title": "外部編集・エージェント編集のリアルタイム追従",
+        "description": "他のエディタ・git・エージェントがファイルを直接変更しても、UI とインデックス (検索/バックリンク/タグ/DQL) が自動更新される。",
+        "details": "旧実装: chokidar のファイル監視 + SSE (GET /api/events) + useVaultEvents。編集中バッファとの競合は 3-way マージ側で扱う。",
+        "testStrategy": "外部からファイルを書き換え→開いている画面と検索結果が更新される。",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "47",
+        "title": "デスクトップアプリとして配布",
+        "description": "インストールして単体で起動できるデスクトップアプリを提供する (vault フォルダを選んで開く)。",
+        "details": "旧実装: Electron ビルド (Windows ローカルビルド対応・アイコン) と Tauri sidecar MVP (ADR-0027)。rebuild ではサーバーを bun --compile 単一実行ファイルにする前提と整合させる。",
+        "testStrategy": "インストーラ/zip から起動→vault 選択→編集できる。",
+        "priority": "low",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "48",
+        "title": "セルフホスト配布 (Docker / 静的 UI 配信)",
+        "description": "サーバー 1 プロセスで UI も配信し、コンテナで vault をマウントして動かせる。",
+        "details": "旧実装: ADR-0008 / Dockerfile + docker-compose + serveStatic + DEPLOY.md (外部公開は Cloudflare Tunnel / Tailscale / Caddy の選択肢)。",
+        "testStrategy": "docker compose up → ブラウザでアクセスして編集できる。",
+        "priority": "low",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "version": "1.0.0",
+      "lastModified": "2026-08-22T02:49:17.546Z",
+      "taskCount": 48,
+      "completedCount": 1,
+      "tags": [
+        "master"
+      ]
+    }
+  }
+}

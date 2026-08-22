@@ -109,6 +109,10 @@ TypeScript (strict), Node.js 22, npm workspaces モノレポ。
 - **エージェント操作ツール必須**: 新機能には必ずエージェント用ツールも実装し、help 知識ベースに使い方を追加する。ツールは監査済みサービス層を経由する (ADR-0016)。権限はケーパビリティで制御し (ADR-0015)、機密領域は deny リストで除外する (ADR-0018)。使い方の詳細は base プロンプトでなく help トピックへ (ADR-0014)
 - **機能ガイド更新義務**: 新機能追加・仕様変更時は、対応するガイド Markdown (`機能ガイド/`) を追加・更新する。ピュア Markdown で書き、`loamium init-samples` で取得できる形に保つ
 
+### 使わないワークフロー
+
+- **`autopilot` / `project-init` / `sprint` スキルは使用しない。** スプリント駆動の自動進行 (roadmap → plan → run → verify → review) はこのプロジェクトでは採用しない。作業は通常の対話で進め、`docs/ROADMAP.v1-archive.json` と `docs/sprint-logs/` は履歴の参照用としてのみ残す
+
 ## Commands
 
 | ターゲット | 内容 |
@@ -144,6 +148,6 @@ TypeScript (strict), Node.js 22, npm workspaces モノレポ。
 ### 陳腐化しているので要書き換え
 
 - `docs/ARCHITECTURE.md` — 旧構成 (CodeMirror / 手書き DI) 前提。cordis + ProseMirror で書き直す
-- `docs/ROADMAP.v1-archive.json` — 旧実装の完了スプリント記録。**アクティブなロードマップではない** (`sprint init` で新規に引き直す)
+- `docs/ROADMAP.v1-archive.json` — 旧実装の完了スプリント記録。**アクティブなロードマップではない**
 - `docs/sprint-logs/` — 旧実装の履歴。参照用に残す
 
