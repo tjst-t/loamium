@@ -32,7 +32,7 @@ export function InfoPanel({ open, onToggle, path, content, features }: InfoPanel
         </button>
       </div>
       {path === null ? (
-        <p className="empty">ノートを選んでください</p>
+        <p className="panel-note">ノートを開くと、パスとバックリンクがここに出ます。</p>
       ) : (
         <>
           <dl className="panel-facts">

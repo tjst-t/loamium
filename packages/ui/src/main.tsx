@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import '@milkdown/kit/prose/view/style/prosemirror.css'
 import '@milkdown/kit/prose/tables/style/tables.css'
+import './fonts.css'
 import './styles.css'
 
 const el = document.getElementById('root')

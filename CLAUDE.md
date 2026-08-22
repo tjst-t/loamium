@@ -54,7 +54,7 @@ TypeScript (strict), Node.js 22, npm workspaces モノレポ。
 | サーバー状態 | TanStack Query |
 | クライアント状態 | Zustand または Jotai |
 | UI プリミティブ | Radix UI または Base UI (ヘッドレス) |
-| スタイル | Tailwind v4 (旧 `styles.css` 7,576 行 / 674 クラスは**移植しない**) |
+| スタイル | 手書きの CSS トークン 1 ファイル (`packages/ui/src/styles.css`)。Tailwind は入れていない — 設計は `docs/DESIGN/ui-design-system.md` |
 | コマンドパレット | cmdk |
 | フォーム | react-hook-form + zod |
 | テーブル | TanStack Table |
@@ -96,6 +96,7 @@ TypeScript (strict), Node.js 22, npm workspaces モノレポ。
   `app.ts` から `ctx.plugin(tagsFeature)` を消せば、**UI をリロードするだけで**タグ関連の UI が消える (UI のコードは触らない)
 - **Milkdown プラグインの順序は型で持つ** (`order: 'before-preset' | 'after-preset'`)。`[[` / `#` の補完は Enter / Tab をリストのコマンドより先に拾う必要があり、コメントでは守れない。
   並びの出所は `features.ts` の 1 か所だけ。**`Editor.tsx` と `milkdown-transform.ts` で手で揃えない** (以前は 2 箇所同期で、足し忘れると本番とテストの構成がずれる状態だった)
+- **見た目の規則は `docs/DESIGN/ui-design-system.md` に従う。** 要点: ディスク上の文字列 (パス・ファイル名・タグ・行番号・コード) は等幅、アプリの言葉は比例フォント / 色は信号 (アクセント = いまここ、フラグ = 直すべきもの) / 派手さは地層レール 1 か所だけ
 - **UI に cordis は入れない。** 実測でブラウザでも動き React とも 5 行で繋がる (`useSyncExternalStore`) が、フロントで欲しいのは「機能を束ねる器」だけで、それは型と配列で足りる (+15KB を払う理由が今は無い)。実行時の着脱やサードパーティ拡張が必要になったら、レジストリを `defineFeature` に置き換えて移行する
 - **UI 機能の動的ロード (vault から JS) は採らない。** 任意コード実行なので ADR とセットの判断になる
 

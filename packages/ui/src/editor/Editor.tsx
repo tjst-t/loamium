@@ -11,6 +11,7 @@ import { splitFrontmatter, joinFrontmatter, normalizeForSave } from '@loamium/sh
 import { applyLoamiumStringifyOptions } from './markdown-config'
 import { exitNodeKeymap } from './exit-node'
 import { setEditorEnv } from './editor-env'
+import { StrataRail } from './StrataRail'
 import type { MilkdownPlugin } from '@milkdown/kit/ctx'
 import { getNoteViewState, saveNoteViewState, type NoteViewState } from './view-state'
 
@@ -162,6 +163,8 @@ export function Editor({
   path, notes, tags, value, onSave, onOpenLink, onCreateLink, onOpenTag, beforePreset, afterPreset,
 }: EditorProps): JSX.Element {
   const [mode, setMode] = useState<Mode>('wysiwyg')
+  /** 地層レールが読む本文の入れ物 */
+  const [bodyEl, setBodyEl] = useState<HTMLElement | null>(null)
   const { frontmatter, body } = useMemo(() => splitFrontmatter(value), [value])
   const [draftBody, setDraftBody] = useState(body)
   const bodyRef = useRef(body)
@@ -186,33 +189,42 @@ export function Editor({
   return (
     <div className="editor">
       <div className="editor-toolbar">
+        <div className="toolbar-inner">
         <div className="mode-toggle" role="group" aria-label="表示モード">
           <button
             type="button"
             aria-pressed={mode === 'wysiwyg'}
             onClick={() => setMode('wysiwyg')}
           >
-            エディタ
+            編集
           </button>
           <button
             type="button"
             aria-pressed={mode === 'source'}
             onClick={() => setMode('source')}
           >
-            ソース
+            .md
           </button>
         </div>
         {frontmatter !== null && (
           <span className="badge" title="frontmatter はエディタ外で扱う (ADR-0035)">
-            frontmatter あり
+            frontmatter
           </span>
         )}
-        <button type="button" onClick={save} disabled={!dirty}>
-          保存{dirty ? ' *' : ''}
+        <button
+          type="button"
+          className={`save-button${dirty ? ' is-dirty' : ''}`}
+          onClick={save}
+          disabled={!dirty}
+        >
+          {dirty ? '未保存の変更を保存' : '保存済み'}
         </button>
+        </div>
       </div>
 
-      {mode === 'wysiwyg' ? (
+      <div className="editor-body" ref={setBodyEl}>
+        <StrataRail scope={bodyEl} />
+        {mode === 'wysiwyg' ? (
         <MilkdownProvider>
           {/* key で強制再マウント: ファイルを切り替えたら中身を作り直す */}
           <MilkdownHost
@@ -229,14 +241,15 @@ export function Editor({
             afterPreset={afterPreset}
           />
         </MilkdownProvider>
-      ) : (
-        <textarea
-          className="source-view"
-          value={draftBody}
-          spellCheck={false}
-          onChange={(e) => setDraftBody(e.target.value)}
-        />
-      )}
+        ) : (
+          <textarea
+            className="source-view"
+            value={draftBody}
+            spellCheck={false}
+            onChange={(e) => { setDraftBody(e.target.value) }}
+          />
+        )}
+      </div>
     </div>
   )
 }

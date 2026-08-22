@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type JSX } from 'react'
+import { Fragment, useCallback, useEffect, useState, type JSX } from 'react'
 import { Editor } from './editor/Editor'
 import { InfoPanel } from './components/InfoPanel'
 import { matchesKeys, ShellProvider, type Shell } from './feature'
@@ -30,7 +30,12 @@ export function App(): JSX.Element {
   const [error, setError] = useState<string | null>(null)
   /** 本文を強制的に読み直すための世代番号 (リネームでリンクが書き換わったときなど) */
   const [reloadToken, setReloadToken] = useState(0)
-  const [panelOpen, setPanelOpen] = useState(() => window.localStorage.getItem(PANEL_KEY) !== 'false')
+  const [panelOpen, setPanelOpen] = useState(() => {
+    const stored = window.localStorage.getItem(PANEL_KEY)
+    // 画面が狭いときは既定で閉じる (本文の場所を先に確保する)
+    if (stored === null) return !window.matchMedia('(max-width: 680px)').matches
+    return stored !== 'false'
+  })
   /** 開いた直後に本文中で光らせる語 (検索から飛んできたとき) */
   const [pendingNeedle, setPendingNeedle] = useState<string | null>(null)
 
@@ -243,16 +248,23 @@ export function App(): JSX.Element {
         {features.map((feature) => (
           feature.sidebarItem === undefined
             ? null
-            : <div key={feature.name}>{feature.sidebarItem()}</div>
+            : <div className="sidebar-slot" key={feature.name}>{feature.sidebarItem()}</div>
         ))}
       </aside>
       <main className="main">
         {view !== undefined ? (
           view.view?.render()
         ) : current === null ? (
-          <p className="empty">ノートを選んでください</p>
+          <div className="empty-state">
+            <p className="empty-lead">ノートを開く</p>
+            <ul className="empty-hints">
+              <li><kbd>Ctrl</kbd><kbd>K</kbd> で探す</li>
+              <li><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>D</kbd> で今日のジャーナルへ</li>
+              <li>左のツリーから選ぶ</li>
+            </ul>
+          </div>
         ) : content === null ? (
-          <p className="empty">読み込み中…</p>
+          <p className="empty">読み込んでいます</p>
         ) : (
           <Editor
             key={current}
@@ -276,10 +288,11 @@ export function App(): JSX.Element {
         content={content}
         features={features}
       />
-      {features.map((feature) => (
-        feature.overlay === undefined ? null : <div key={feature.name}>{feature.overlay()}</div>
-      ))}
     </div>
+    {/* 重ねるものはグリッドの外に出す。中に置くと余分な行ができて本文の高さが縮む */}
+    {features.map((feature) => (
+      feature.overlay === undefined ? null : <Fragment key={feature.name}>{feature.overlay()}</Fragment>
+    ))}
     </ShellProvider>
   )
 }

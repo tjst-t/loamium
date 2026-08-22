@@ -1,0 +1,14 @@
+/*
+ * 書体は**すべてバンドルする** (CDN を引かない)。ローカル優先のアプリなので、
+ * オフラインでも初回から同じ見た目で立ち上がる必要がある。
+ *
+ * Zilla Slab は Fira Mono の骨格から作られた書体で、Fira Sans / Fira Mono と
+ * 同じ DNA を持つ。3 つの役割 (display / body / mono) を 1 つの家系で揃える。
+ * 日本語は OS の書体にフォールバックする (数 MB の和文フォントは同梱しない)。
+ */
+@import '@fontsource/zilla-slab/500.css';
+@import '@fontsource/zilla-slab/600.css';
+@import '@fontsource/fira-sans/400.css';
+@import '@fontsource/fira-sans/500.css';
+@import '@fontsource/fira-mono/400.css';
+@import '@fontsource/fira-mono/500.css';
