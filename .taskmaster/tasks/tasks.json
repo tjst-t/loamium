@@ -34,8 +34,9 @@
         "testStrategy": "起動→今日のジャーナルに着地。前日/翌日移動。存在しない日を開くと生成される。",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-08-22T03:21:43.280Z"
       },
       {
         "id": "4",
@@ -591,9 +592,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2026-08-22T02:49:17.546Z",
+      "lastModified": "2026-08-22T03:21:43.280Z",
       "taskCount": 48,
-      "completedCount": 1,
+      "completedCount": 2,
       "tags": [
         "master"
       ]
