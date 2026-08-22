@@ -4,6 +4,7 @@ import journal from '@loamium/features/journal/ui'
 import notes from '@loamium/features/notes/ui'
 import search from '@loamium/features/search/ui'
 import outline from '@loamium/features/outline/ui'
+import toc from '@loamium/features/toc/ui'
 import links from '@loamium/features/links/ui'
 import tags from '@loamium/features/tags/ui'
 
@@ -15,7 +16,7 @@ import tags from '@loamium/features/tags/ui'
  *
  * **並び順がそのままサイドバーの並び順**になる (ジャーナル → ツリー → 詳細検索)。
  */
-export const uiFeatures: UiFeature[] = [journal, notes, search, outline, links, tags]
+export const uiFeatures: UiFeature[] = [journal, notes, search, outline, toc, links, tags]
 
 /**
  * サーバー側に無い機能は UI からも消す (リロードで反映される)。

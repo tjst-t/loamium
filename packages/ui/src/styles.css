@@ -511,6 +511,50 @@ body.is-resizing { cursor: col-resize; user-select: none; }
   color: var(--ink-3); text-decoration: line-through;
 }
 
+/* --- 見出しの折りたたみと目次 (task #11) --- */
+
+.milkdown .ProseMirror h1, .milkdown .ProseMirror h2, .milkdown .ProseMirror h3 { position: relative; }
+.milkdown .ProseMirror .is-folded-away { display: none; }
+.milkdown .ProseMirror .is-folded::after { content: ' …'; color: var(--ink-3); font-weight: 400; }
+
+.heading-fold-toggle {
+  position: absolute; left: -1.1em; top: .25em;
+  width: .7em; height: .7em; padding: 0; border: 0; background: none;
+  color: var(--ink-3); cursor: pointer; line-height: 1; font-size: .7em;
+  opacity: 0; transition: opacity .12s ease, color .12s ease;
+}
+.milkdown .ProseMirror h1:hover > .heading-fold-toggle,
+.milkdown .ProseMirror h2:hover > .heading-fold-toggle,
+.milkdown .ProseMirror h3:hover > .heading-fold-toggle,
+.heading-fold-toggle[aria-expanded='false'] { opacity: 1; }
+.heading-fold-toggle::before { content: '▾'; display: block; }
+.heading-fold-toggle[aria-expanded='false']::before { content: '▸'; }
+.heading-fold-toggle:hover { color: var(--ink); }
+
+.toc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.toc-row { display: flex; align-items: baseline; gap: 2px; border-left: 2px solid transparent; }
+.toc-row:hover { border-left-color: var(--rule-strong); }
+.toc-row.level-2 { padding-left: var(--s3); }
+.toc-row.level-3 { padding-left: var(--s5); }
+.toc-row.level-4 { padding-left: var(--s6); }
+.toc-fold {
+  flex: none; width: 12px; height: 18px; padding: 0; border: 0; background: none;
+  color: var(--ink-3); cursor: pointer; font-size: 9px; line-height: 18px;
+}
+.toc-fold::before { content: '▾'; }
+.toc-fold[aria-expanded='false']::before { content: '▸'; color: var(--accent); }
+.toc-fold[data-idle='true'] { visibility: hidden; }
+.toc-link {
+  flex: 1; min-width: 0; padding: 2px 0; border: 0; background: none; cursor: pointer;
+  text-align: left; font-size: 12px; color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.toc-row.level-1 > .toc-link { color: var(--ink); }
+.toc-link:hover { color: var(--accent); }
+/* いま読んでいる節 */
+.toc-row.is-current { border-left-color: var(--accent); }
+.toc-row.is-current > .toc-link { color: var(--accent); }
+
 /* --- WikiLink (task #4) と タグ (task #9) --- */
 
 .milkdown .ProseMirror .wikilink {
