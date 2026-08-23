@@ -51,13 +51,21 @@ export const stringifyOptions: ToMarkdownOptions = {
     // よって既定のエスケープを通したうえで、`\[` だけを選択的に復元する。
     text: (node: Text, parent, state, info): string => {
       const escaped = defaultHandlers.text(node, parent, state, info)
-      // `\[` と `\#` だけを戻す。`\|` `\*` `\_` などの構造的エスケープには触れない。
+      // `\[` `\#` `\==` だけを戻す。`\|` `\*` `\_` などの構造的エスケープには触れない。
       //
       // `\#` は **後ろが空白でないときだけ** 戻す。CommonMark の ATX 見出しは
       // `#` の直後に空白 (または行末) が要るので、`#tag` は見出しにならず戻して安全。
       // 逆に `\# 見出し` と `\<行末>` を戻すと本物の見出しに化けるため、そこは触らない。
       // これを怠ると Obsidian 互換のインラインタグ `#tag` が `\#tag` に化ける。
-      return escaped.replace(/\\(?=\[)/g, '').replace(/\\#(?=\S)/g, '#')
+      //
+      // `\=` は **`==` の対になっているときだけ** 戻す (task #13 のハイライト)。
+      // 行頭の `=` は setext 見出しの下線に化けうるので remark が逃がすが、`==強調==` が
+      // `\==強調==` になると Obsidian 側でハイライトとして読めない。
+      // 単独の `=` (`\= 何か`) には触れない。
+      return escaped
+        .replace(/\\(?=\[)/g, '')
+        .replace(/\\#(?=\S)/g, '#')
+        .replace(/\\(?==={1,}[^=\s])/g, '')
     },
 
     // 対策 3: hard break を `\` ではなく行末 2 スペースで出す (原文の書き方)

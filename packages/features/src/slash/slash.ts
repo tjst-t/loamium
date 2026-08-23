@@ -49,6 +49,25 @@ function toList(name: 'bullet_list' | 'ordered_list', task = false): Command {
   }
 }
 
+/**
+ * callout は「1 行目が `[!note]` の引用」。引用に包んでからその文字を置く。
+ * ⚠️ 末尾を空白で終えない: `> [!note] ` はファイルに `&#x20;` として書かれてしまう。
+ * 差し替える前提のタイトルを選択状態で置く (ハイライトと同じ形)。
+ */
+const insertCallout: Command = (state, dispatch, view) => {
+  const quote = type(state, 'blockquote')
+  if (quote === undefined) return false
+  if (!wrapIn(quote)(state, dispatch, view)) return false
+  if (dispatch === undefined || view === undefined) return true
+  const from = view.state.selection.from
+  const text = '[!note] タイトル'
+  const tr = view.state.tr.insertText(text)
+  const inner = from + '[!note] '.length
+  tr.setSelection(TextSelection.create(tr.doc, inner, inner + 'タイトル'.length))
+  view.dispatch(tr.scrollIntoView())
+  return true
+}
+
 const toQuote: Command = (state, dispatch, view) => {
   const quote = type(state, 'blockquote')
   return quote === undefined ? false : wrapIn(quote)(state, dispatch, view)
@@ -114,6 +133,21 @@ const insertToday: Command = (state, dispatch) => {
   return true
 }
 
+/**
+ * 記号で挟んだテキストを置き、中身を選択した状態にする (task #13 のハイライト)。
+ * `==…==` はマークではなくただのテキストなので、文字として入れる。
+ */
+function insertWrapped(open: string, close: string, placeholder: string): Command {
+  return (state, dispatch) => {
+    const from = state.selection.from
+    const tr = state.tr.insertText(`${open}${placeholder}${close}`, from, state.selection.to)
+    const inner = from + open.length
+    tr.setSelection(TextSelection.create(tr.doc, inner, inner + placeholder.length))
+    dispatch?.(tr.scrollIntoView())
+    return true
+  }
+}
+
 /** そのまま文字を置く候補 (置いたあと別の補完に引き継ぐ) */
 function insertText(text: string): Command {
   return (state, dispatch) => {
@@ -145,6 +179,8 @@ export const SLASH_ITEMS: SlashItem[] = [
   // --- ここからインライン (task #51)。数式とハイライトは記法が通ってから (#13 / #14) ---
   { value: 'inline-code', title: 'インラインコード', subtitle: '`…`', keywords: ['こーど', 'code', 'inline'], run: insertInline('inlineCode', 'コード') },
   { value: 'today', title: '今日の日付', subtitle: '2026-01-01', keywords: ['ひづけ', 'date', 'today', 'kyou'], run: insertToday },
+  { value: 'highlight', title: 'ハイライト', subtitle: '==…==', keywords: ['はいらいと', 'highlight', 'mark'], run: insertWrapped('==', '==', 'ハイライト') },
+  { value: 'callout', title: 'callout (注記)', subtitle: '> [!note]', keywords: ['ちゅうき', 'callout', 'note', 'admonition'], run: insertCallout },
 ]
 
 const fold = (text: string): string => text.normalize('NFC').toLowerCase()

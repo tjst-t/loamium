@@ -511,6 +511,73 @@ body.is-resizing { cursor: col-resize; user-select: none; }
   color: var(--ink-3); text-decoration: line-through;
 }
 
+/* --- callout とハイライト (task #13) --- */
+
+.milkdown .ProseMirror .callout {
+  border-left: 3px solid var(--rule-strong);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--panel);
+  padding: var(--s2) var(--s3);
+  color: var(--ink);
+}
+/* タイトルは 1 行目だけ (段落全体を太字にしない) */
+.milkdown .ProseMirror .callout-title { font-weight: 500; }
+/* 種別は縁の色で示す。色は信号なので、それ以外は紙のまま */
+.milkdown .ProseMirror .callout-note { border-left-color: var(--ink-3); }
+.milkdown .ProseMirror .callout-tip,
+.milkdown .ProseMirror .callout-example { border-left-color: var(--accent); }
+.milkdown .ProseMirror .callout-info { border-left-color: #4a7ea8; }
+.milkdown .ProseMirror .callout-warning { border-left-color: #b8860b; }
+.milkdown .ProseMirror .callout-danger { border-left-color: var(--flag); }
+.milkdown .ProseMirror .callout-quote { border-left-color: var(--rule-strong); background: none; }
+/* `[!note]` の記法そのものは畳んで見せる (見出しの文字だけ残す) */
+.milkdown .ProseMirror .callout-marker { display: none; }
+.milkdown .ProseMirror .callout > p:first-child::before {
+  content: attr(data-label);
+  font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+  color: var(--ink-3); margin-right: var(--s2);
+}
+.milkdown .ProseMirror .callout-note > p:first-child::before { content: 'NOTE'; }
+.milkdown .ProseMirror .callout-tip > p:first-child::before { content: 'TIP'; }
+.milkdown .ProseMirror .callout-info > p:first-child::before { content: 'INFO'; }
+.milkdown .ProseMirror .callout-warning > p:first-child::before { content: 'WARNING'; }
+.milkdown .ProseMirror .callout-danger > p:first-child::before { content: 'DANGER'; }
+.milkdown .ProseMirror .callout-quote > p:first-child::before { content: 'QUOTE'; }
+.milkdown .ProseMirror .callout-example > p:first-child::before { content: 'EXAMPLE'; }
+
+.milkdown .ProseMirror .highlight {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border-radius: 2px;
+}
+.milkdown .ProseMirror .highlight-syntax { display: none; }
+
+/* --- 埋め込み (task #13) --- */
+
+/* 記法そのものは普段隠す (カーソルが触れたら出す) */
+.milkdown .ProseMirror .embed-syntax { display: none; }
+.embed-card {
+  display: block; margin: var(--s2) 0;
+  border: 1px solid var(--rule); border-left: 2px solid var(--accent);
+  border-radius: var(--radius); background: var(--panel);
+  padding: var(--s2) var(--s3);
+  font-size: .95em;
+}
+.embed-card.is-loading, .embed-card.is-broken { color: var(--ink-3); font-size: 12px; }
+.embed-card.is-broken { border-left-color: var(--flag); color: var(--flag); }
+.embed-head {
+  display: block; width: 100%; padding: 0 0 var(--s1); border: 0; background: none;
+  cursor: pointer; text-align: left;
+  font-family: var(--mono); font-size: 11px; color: var(--ink-3);
+}
+.embed-head:hover { color: var(--accent); }
+.embed-body {
+  white-space: pre-wrap; color: var(--ink-2);
+  max-height: 16em; overflow: hidden;
+}
+.embed-body.is-truncated { mask-image: linear-gradient(to bottom, #000 70%, transparent); }
+/* 段落が埋め込みだけなら、隠れたテキストのぶんの高さを詰める */
+.milkdown .ProseMirror .is-embed-only { line-height: 0; margin: 0; }
+
 /* --- 見出しの折りたたみと目次 (task #11) --- */
 
 .milkdown .ProseMirror h1, .milkdown .ProseMirror h2, .milkdown .ProseMirror h3 { position: relative; }

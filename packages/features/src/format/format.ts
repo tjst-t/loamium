@@ -39,6 +39,23 @@ function toggle(name: string): Command {
   }
 }
 
+/** 選択した文字列を記号で挟む (`==…==` のようなマークではない記法) */
+function wrapWith(open: string, close: string): Command {
+  return (state, dispatch) => {
+    const { from, to, empty } = state.selection
+    if (empty) return false
+    const text = state.doc.textBetween(from, to, ' ')
+    if (text.trim() === '') return false
+    // すでに挟まれていれば外す
+    const wrapped = text.startsWith(open) && text.endsWith(close) && text.length > open.length + close.length
+    const next = wrapped ? text.slice(open.length, text.length - close.length) : `${open}${text}${close}`
+    const tr = state.tr.insertText(next, from, to)
+    tr.setSelection(TextSelection.create(tr.doc, from, from + next.length))
+    dispatch?.(tr.scrollIntoView())
+    return true
+  }
+}
+
 /** 選択した文字列を `[[…]]` にする。ノートが無ければ壊れリンクとして赤く出る */
 const toWikiLink: Command = (state, dispatch) => {
   const { from, to, empty } = state.selection
@@ -56,6 +73,7 @@ export const FORMAT_ACTIONS: FormatAction[] = [
   { id: 'emphasis', label: '斜体', glyph: '*', isActive: (s) => markIsActive(s, 'emphasis'), run: toggle('emphasis') },
   { id: 'code', label: 'コード', glyph: '`', isActive: (s) => markIsActive(s, 'inlineCode'), run: toggle('inlineCode') },
   { id: 'strike', label: '取り消し線', glyph: '~~', isActive: (s) => markIsActive(s, 'strike_through'), run: toggle('strike_through') },
+  { id: 'highlight', label: 'ハイライト', glyph: '==', isActive: () => false, run: wrapWith('==', '==') },
   { id: 'wikilink', label: 'ノートへリンク', glyph: '[[]]', isActive: () => false, run: toWikiLink },
 ]
 

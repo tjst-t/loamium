@@ -79,9 +79,8 @@ describe('候補の絞り込み', () => {
     expect(filterSlashItems('')).toHaveLength(SLASH_ITEMS.length)
   })
 
-  it('往復しない記法は候補に無い (ハイライト・数式は #13 / #14 待ち)', () => {
+  it('往復しない記法は候補に無い (数式は #14 待ち)', () => {
     const values = SLASH_ITEMS.map((item) => item.value)
-    expect(values).not.toContain('highlight')
     expect(values).not.toContain('math')
   })
 
@@ -162,6 +161,22 @@ describe('挿入した結果 (保存される Markdown)', () => {
     //    構造としては checked: false が入っている
     type('やること')
     expect(save()).toBe('- [ ] やること\n')
+  })
+
+  it('ハイライト → ==…== が入り、中身が選択される', () => {
+    load()
+    type('/')
+    pick('highlight')
+    expect(save()).toBe('==ハイライト==\n')
+    expect(view.state.doc.textBetween(view.state.selection.from, view.state.selection.to)).toBe('ハイライト')
+  })
+
+  it('callout → 引用の 1 行目が [!note] になり、タイトルが選択される', () => {
+    load()
+    type('/')
+    pick('callout')
+    expect(save()).toBe('> [!note] タイトル\n')
+    expect(view.state.doc.textBetween(view.state.selection.from, view.state.selection.to)).toBe('タイトル')
   })
 
   it('表 → GFM の表になる', () => {

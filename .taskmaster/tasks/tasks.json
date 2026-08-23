@@ -166,8 +166,9 @@
         "testStrategy": "callout が種別ごとに描画される。transclusion が展開され、循環しても無限ループしない。",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-08-23T10:30:00.000Z"
       },
       {
         "id": "14",

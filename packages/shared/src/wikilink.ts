@@ -8,8 +8,10 @@
 import { normalizeVaultPath } from './vault-path'
 
 export interface WikiLink {
-  /** `[[` から `]]` までそのまま */
+  /** `[[` から `]]` までそのまま (埋め込みなら先頭の `!` も含む) */
   raw: string
+  /** `![[…]]` の埋め込みか (task #13) */
+  embed: boolean
   /** リンク先の指定 (`#`・`|` より前) */
   target: string
   /** `#` の後ろ。無ければ null */
@@ -58,12 +60,16 @@ export function parseWikiLinks(text: string): WikiLink[] {
   for (let m = LINK_RE.exec(masked); m !== null; m = LINK_RE.exec(masked)) {
     const target = (m[1] ?? '').trim()
     if (target === '') continue
+    // 直前が `!` なら埋め込み (`![[ノート]]`)
+    const embed = m.index > 0 && masked[m.index - 1] === '!'
+    const start = embed ? m.index - 1 : m.index
     links.push({
-      raw: text.slice(m.index, m.index + m[0].length),
+      raw: text.slice(start, m.index + m[0].length),
+      embed,
       target,
       heading: m[2] === undefined ? null : m[2].trim(),
       alias: m[3] === undefined ? null : m[3].trim(),
-      start: m.index,
+      start,
       end: m.index + m[0].length,
     })
   }
@@ -116,9 +122,13 @@ export function preferredWikiTarget(path: string, knownPaths: readonly string[])
   return sameName.length <= 1 ? name : path.replace(/\.md$/i, '')
 }
 
-/** `[[…]]` を組み立て直す (見出しと表示名は保つ) */
-export function formatWikiLink(target: string, heading: string | null, alias: string | null): string {
-  return `[[${target}${heading === null || heading === '' ? '' : `#${heading}`}${alias === null || alias === '' ? '' : `|${alias}`}]]`
+/** `[[…]]` を組み立て直す (見出し・表示名・埋め込みの `!` は保つ) */
+export function formatWikiLink(
+  target: string, heading: string | null, alias: string | null, embed = false,
+): string {
+  const head = heading === null || heading === '' ? '' : `#${heading}`
+  const name = alias === null || alias === '' ? '' : `|${alias}`
+  return `${embed ? '!' : ''}[[${target}${head}${name}]]`
 }
 
 /**
@@ -133,7 +143,7 @@ export function rewriteWikiLinks(text: string, replace: (link: WikiLink) => stri
   for (const link of links) {
     const next = replace(link)
     if (next === null) continue
-    out += text.slice(at, link.start) + formatWikiLink(next, link.heading, link.alias)
+    out += text.slice(at, link.start) + formatWikiLink(next, link.heading, link.alias, link.embed)
     at = link.end
   }
   return out + text.slice(at)

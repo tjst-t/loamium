@@ -85,7 +85,7 @@ describe('REST: agent', () => {
         'find_broken_links', 'fmt_vault', 'folder_create', 'help', 'journal_append',
         'journal_read', 'list_backlinks', 'list_links', 'list_notes', 'list_tags',
         'list_tree', 'note_create', 'note_delete', 'note_move', 'notes_by_tag',
-        'read_note', 'search', 'write_note',
+        'read_embed', 'read_note', 'search', 'write_note',
       ],
     )
   })
@@ -95,13 +95,16 @@ describe('REST: agent', () => {
     expect(body.tools.map((t) => t.name).sort()).toEqual(
       [
         'find_broken_links', 'help', 'journal_read', 'list_backlinks', 'list_links',
-        'list_notes', 'list_tags', 'list_tree', 'notes_by_tag', 'read_note', 'search',
+        'list_notes', 'list_tags', 'list_tree', 'notes_by_tag', 'read_embed', 'read_note',
+        'search',
       ])
   })
 
   it('help トピックが機能ごとに登録されている (ADR-0014)', async () => {
     const body = (await (await call('/api/agent/help')).json()) as { topics: string[] }
-    expect(body.topics.sort()).toEqual(['fmt', 'help', 'journal', 'links', 'notes', 'search', 'tags'])
+    expect(body.topics.sort()).toEqual([
+      'embed', 'fmt', 'help', 'journal', 'links', 'notes', 'search', 'tags',
+    ])
   })
 
   it('help 本文はピュア Markdown で返る', async () => {
