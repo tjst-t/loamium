@@ -37,6 +37,8 @@ interface Found {
   from: number
   to: number
   target: string
+  /** `![[図.png|420]]` の幅 (px)。Obsidian と同じ書き方に乗る */
+  width: number | null
 }
 
 function attachmentsIn(state: EditorState): Found[] {
@@ -49,7 +51,8 @@ function attachmentsIn(state: EditorState): Found[] {
     if (node.marks.some((mark) => mark.type.spec.code === true || mark.type.name === 'inlineCode')) return true
     for (const link of parseWikiLinks(node.text)) {
       if (!link.embed || !isAttachment(link.target)) continue
-      out.push({ from: pos + link.start, to: pos + link.end, target: link.target })
+      const width = link.alias !== null && /^\d+$/.test(link.alias) ? Number(link.alias) : null
+      out.push({ from: pos + link.start, to: pos + link.end, target: link.target, width })
     }
     return true
   })
@@ -60,7 +63,46 @@ function attachmentsIn(state: EditorState): Found[] {
 const texts = new Map<string, string>()
 const pending = new Set<string>()
 
-function previewFor(view: EditorView, target: string): HTMLElement {
+/**
+ * 画像の大きさを変える。**幅だけを持ち、高さは常に自動** (縦横比は崩さない)。
+ *
+ * 幅は `![[図.png|420]]` として**ファイルに書く**。これは Obsidian と同じ書き方で、
+ * 独自記法ではない (WikiLink の表示名の枠をそのまま使っている)。localStorage に
+ * 逃がすと、別の端末や素のエディタで開いたときに大きさが消える。
+ */
+function addResizeHandle(view: EditorView, box: HTMLElement, img: HTMLImageElement, found: Found): void {
+  const handle = document.createElement('div')
+  handle.className = 'attachment-resize'
+  handle.title = '大きさを変える'
+  handle.addEventListener('pointerdown', (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    const startX = event.clientX
+    const startWidth = img.getBoundingClientRect().width
+    const max = box.getBoundingClientRect().width
+    let width = startWidth
+    const move = (e: PointerEvent): void => {
+      width = Math.round(Math.min(Math.max(startWidth + (e.clientX - startX), 40), max))
+      img.style.width = `${String(width)}px`
+    }
+    const up = (): void => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      // 元の幅に戻す指定は書かない (`|` 無しが「そのまま」)
+      const text = width >= max - 2
+        ? `![[${found.target}]]`
+        : `![[${found.target}|${String(width)}]]`
+      const tr = view.state.tr.insertText(text, found.from, found.to)
+      view.dispatch(tr)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  })
+  box.append(handle)
+}
+
+function previewFor(view: EditorView, found: Found): HTMLElement {
+  const target = found.target
   const box = document.createElement('div')
   box.className = 'attachment'
   box.contentEditable = 'false'
@@ -81,7 +123,9 @@ function previewFor(view: EditorView, target: string): HTMLElement {
     img.src = url
     img.alt = name
     img.loading = 'lazy'
+    if (found.width !== null) img.style.width = `${String(found.width)}px`
     box.append(img)
+    addResizeHandle(view, box, img, found)
   } else if (kind === 'pdf') {
     const frame = document.createElement('iframe')
     frame.src = url
@@ -201,6 +245,36 @@ function filesOf(data: DataTransfer | null): File[] {
   return [...data.files].filter((file) => !file.name.endsWith('.md'))
 }
 
+/**
+ * HTML 経由で貼られた `data:` の画像。
+ *
+ * ⚠️ **base64 のまま本文に入れさせない。** ブラウザから画像をコピーすると
+ * クリップボードには `<img src="data:image/png;base64,…">` の HTML しか
+ * 入っていないことがあり、素通しすると **数万文字の塊が Markdown に埋まる**
+ * (実機で 1 ノートが 39,806 文字になっていた)。ファイルとして vault に出す。
+ */
+function dataUrlsIn(data: DataTransfer | null): string[] {
+  const html = data?.getData('text/html') ?? ''
+  return [...html.matchAll(/<img[^>]+src="(data:image\/[^">]+)"/g)]
+    .map((m) => m[1])
+    .filter((url): url is string => url !== undefined)
+}
+
+async function filesFromDataUrls(urls: readonly string[]): Promise<File[]> {
+  const out: File[] = []
+  for (const [index, url] of urls.entries()) {
+    try {
+      const blob = await (await fetch(url)).blob()
+      const ext = blob.type.split('/')[1]?.split('+')[0] ?? 'png'
+      const suffix = index === 0 ? '' : `-${String(index + 1)}`
+      out.push(new File([blob], `貼り付け画像${suffix}.${ext}`, { type: blob.type }))
+    } catch {
+      // 読めないものは諦める (既定の貼り付けに任せる方がまだまし)
+    }
+  }
+  return out
+}
+
 const attachPlugin = new Plugin({
   key: new PluginKey('loamium-attachments'),
   view(view) {
@@ -210,10 +284,17 @@ const attachPlugin = new Plugin({
   },
   props: {
     handlePaste(view, event) {
+      const at = view.state.selection.from
       const list = filesOf(event.clipboardData)
-      if (list.length === 0) return false
+      if (list.length > 0) {
+        event.preventDefault()
+        void upload(view, list, at)
+        return true
+      }
+      const urls = dataUrlsIn(event.clipboardData)
+      if (urls.length === 0) return false
       event.preventDefault()
-      void upload(view, list, view.state.selection.from)
+      void filesFromDataUrls(urls).then(async (files) => upload(view, files, at))
       return true
     },
     handleDrop(view, event) {
@@ -241,9 +322,9 @@ const attachPlugin = new Plugin({
         // ⚠️ key に**中身の段階**まで入れる。入れないと「読み込んでいます…」の
         //    DOM が使い回されて、読み終わっても更新されない (embed と mermaid で踏んだ罠)
         const phase = path === null ? (filesLoaded ? 'missing' : 'loading') : texts.has(path) ? 'ready' : 'raw'
-        decorations.push(Decoration.widget(found.to, (view) => previewFor(view, found.target), {
+        decorations.push(Decoration.widget(found.to, (view) => previewFor(view, found), {
           side: 1,
-          key: `attachment-${String(found.to)}-${phase}-${found.target}`,
+          key: `attachment-${String(found.to)}-${phase}-${found.target}-${String(found.width ?? 0)}`,
           ignoreSelection: true,
         }))
         // 記法そのものは、カーソルが**中に入っている**ときだけ見せる

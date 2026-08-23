@@ -702,6 +702,9 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 
 /* --- 見出しの折りたたみと目次 (task #11) --- */
 
+/* ⚠️ **本文のどの画像も紙幅を超えさせない。** HTML 経由で貼られた data URI の画像は
+   attachment ではなく素の <img> になり、原寸で出て横スクロールを生む (実機で発生) */
+.milkdown .ProseMirror img { max-width: 100%; height: auto; }
 .milkdown .ProseMirror h1, .milkdown .ProseMirror h2, .milkdown .ProseMirror h3 { position: relative; }
 .milkdown .ProseMirror .is-folded-away { display: none; }
 .milkdown .ProseMirror .is-folded::after { content: ' …'; color: var(--ink-3); font-weight: 400; }
@@ -1169,7 +1172,21 @@ body.is-drawer-open { overflow: hidden; }
   line-height: 1.6;
   /* 操作バーは fixed で浮くので、ここは重ならない */
 }
-.attachment img { max-width: 100%; height: auto; border-radius: var(--radius); display: block; }
+.attachment img {
+  max-width: 100%; height: auto; border-radius: var(--radius); display: block;
+}
+/* 掴んで大きさを変える。**幅だけ**動かし、高さは auto のまま (縦横比を崩さない) */
+.attachment-resize {
+  position: absolute; right: -4px; bottom: -4px; width: 14px; height: 14px;
+  border: 1px solid var(--paper); border-radius: 3px; background: var(--accent);
+  cursor: nwse-resize; opacity: 0; transition: opacity .12s ease; touch-action: none;
+}
+.attachment:hover .attachment-resize, .attachment-resize:focus-visible { opacity: 1; }
+.attachment:has(img) { display: inline-block; position: relative; max-width: 100%; }
+@media (max-width: 680px) {
+  /* 触る環境では常に見えるようにする (ホバーが無い) */
+  .attachment-resize { opacity: 1; width: 18px; height: 18px; }
+}
 .attachment audio, .attachment video { max-width: 100%; }
 .attachment-pdf { width: 100%; height: 60vh; border: 1px solid var(--rule); border-radius: var(--radius); }
 .attachment-text {

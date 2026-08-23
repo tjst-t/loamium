@@ -48,3 +48,17 @@ describe('CSV', () => {
     expect(parseDelimited('a\tb\n1\t2', '\t')).toEqual([['a', 'b'], ['1', '2']])
   })
 })
+
+describe('画像の大きさ (Obsidian と同じ `|幅`)', () => {
+  it('WikiLink の表示名の枠をそのまま使う (独自記法ではない)', async () => {
+    const { parseWikiLinks } = await import('../wikilink')
+    const [link] = parseWikiLinks('![[assets/図.png|420]]')
+    expect(link).toMatchObject({ target: 'assets/図.png', alias: '420', embed: true })
+    expect(isAttachment(link?.target ?? '')).toBe(true)
+  })
+
+  it('保存の正規化で消えない', async () => {
+    const { normalizeForSave } = await import('../markdown/index')
+    expect(normalizeForSave('![[assets/図.png|420]]\n')).toBe('![[assets/図.png|420]]\n')
+  })
+})
