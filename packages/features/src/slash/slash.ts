@@ -131,7 +131,11 @@ function insertInline(name: string, placeholder: string): Command {
  * 入れられる (値の選び直しはピルを押す)。期限は今日の日付を入れておく。
  */
 const insertField = (key: string, value: string): Command => (state, dispatch) => {
-  dispatch?.(state.tr.insertText(`[${key}:: ${value}]`).scrollIntoView())
+  // ⚠️ 直前に空白を入れる。スラッシュの候補は先頭の空白ごと食うので、
+  //    そのままだと `やること[status:: progress]` とくっつく
+  const before = state.doc.textBetween(Math.max(state.selection.from - 1, 0), state.selection.from)
+  const gap = before === '' || /\s/.test(before) ? '' : ' '
+  dispatch?.(state.tr.insertText(`${gap}[${key}:: ${value}]`).scrollIntoView())
   return true
 }
 

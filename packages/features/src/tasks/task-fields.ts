@@ -77,11 +77,17 @@ function listItemAt(state: EditorState, pos: number): { node: ProseNode; pos: nu
  * `done: true` の status を選べばチェックも入り、そうでなければ外れる。
  */
 function setValue(view: EditorView, found: Found, value: string | null): void {
+  // ⚠️ **位置を取り直してから書く。** メニューを開いたあとに本文が動くことがあり
+  //    (別の差し込み・エージェントの書き込み)、掴んだままの位置で置換すると
+  //    無関係な文字を消す (実機でタスク行が `-` だけになった)
+  const current = fieldsIn(view.state).find((f) => f.key === found.key && f.from === found.from)
+    ?? fieldsIn(view.state).find((f) => f.key === found.key && f.value === found.value)
+  if (current === undefined) return
   const text = value === null ? '' : `[${found.key}:: ${value}]`
-  const tr = view.state.tr.insertText(text, found.from, found.to)
+  const tr = view.state.tr.insertText(text, current.from, current.to)
   if (found.key === 'status' && value !== null) {
     const item = vocab.status.find((s) => s.key === value)
-    const list = listItemAt(view.state, found.from)
+    const list = listItemAt(view.state, current.from)
     if (item !== undefined && list !== null && 'checked' in list.node.attrs) {
       tr.setNodeMarkup(list.pos, undefined, { ...list.node.attrs, checked: item.done === true })
     }
@@ -90,14 +96,18 @@ function setValue(view: EditorView, found: Found, value: string | null): void {
   view.focus()
 }
 
+/** 開いているメニューを閉じる (本文が変わったら呼ぶ) */
+let closeMenu: (() => void) | null = null
+
 /** ピルを押したときに出す小さな選択肢 */
 function openMenu(view: EditorView, anchor: HTMLElement, found: Found): void {
+  closeMenu?.()
   document.querySelector('.task-menu')?.remove()
   const menu = document.createElement('div')
   menu.className = 'task-menu'
 
   const choose = (value: string | null): void => {
-    menu.remove()
+    closeMenu?.()
     setValue(view, found, value)
   }
 
@@ -139,12 +149,17 @@ function openMenu(view: EditorView, anchor: HTMLElement, found: Found): void {
   menu.style.left = `${String(Math.round(Math.min(box.left, window.innerWidth - size.width - 8)))}px`
   menu.style.top = `${String(Math.round(box.bottom + 4 + size.height > window.innerHeight ? box.top - size.height - 4 : box.bottom + 4))}px`
 
-  const close = (event: MouseEvent): void => {
-    if (event.target instanceof Node && menu.contains(event.target)) return
+  const dismiss = (): void => {
     menu.remove()
     window.removeEventListener('mousedown', close, true)
+    closeMenu = null
+  }
+  const close = (event: MouseEvent): void => {
+    if (event.target instanceof Node && menu.contains(event.target)) return
+    dismiss()
   }
   window.addEventListener('mousedown', close, true)
+  closeMenu = dismiss
 }
 
 function pillFor(view: EditorView, found: Found): HTMLElement {
@@ -152,6 +167,7 @@ function pillFor(view: EditorView, found: Found): HTMLElement {
   pill.type = 'button'
   pill.className = `task-field is-${found.key} is-value-${found.value.replace(/[^\w-]/g, '')}`
   pill.contentEditable = 'false'
+  pill.dataset['from'] = String(found.from)
   pill.title = `${found.key}: ${found.value} (押すと変えられます)`
   pill.textContent = found.key === 'due' ? `期限 ${found.value}` : labelOf(found.key, found.value)
   pill.addEventListener('mousedown', (event) => {
@@ -162,11 +178,60 @@ function pillFor(view: EditorView, found: Found): HTMLElement {
   return pill
 }
 
-const fieldsPlugin = new Plugin({
-  key: new PluginKey('loamium-task-fields'),
+const fieldsKey = new PluginKey<number | null>('loamium-task-fields')
+
+/** 差し込まれたテキストが丸ごと 1 つのインラインフィールドか */
+const INSERTED_FIELD = /^\[[A-Za-z_][\w-]*::[^\]]*\]$/
+
+const fieldsPlugin = new Plugin<number | null>({
+  key: fieldsKey,
+
+  /**
+   * `/状態` などで差し込まれた直後は、**そのまま選択肢を出す**。
+   * 差し込んだだけでは「何が選べるのか」が分からず、値を手で打つことになる
+   * (実機で「最初の 1 回だけメニューが出ない」と言われた)。
+   */
+  state: {
+    init: () => null,
+    apply(tr, value) {
+      let inserted: number | null = null
+      for (const step of tr.steps) {
+        // ⚠️ **テキストだけの差し込みに限る。** ノードを含む slice に textBetween(0, size) を
+        //    かけると "Position N outside of fragment" で state の更新ごと落ち、
+        //    本文が壊れる (実機でタスク行が `-` だけになった)
+        const slice = (step as { slice?: { content?: { firstChild: ProseNode | null; childCount: number } } }).slice
+        const child = slice?.content?.firstChild
+        if (child === null || child === undefined || slice?.content?.childCount !== 1 || !child.isText) continue
+        const text = child.text ?? ''
+        // ⚠️ 前後の空白ごと差し込まれることがある (スラッシュの候補が先頭の空白を食うので、
+        //    こちらで 1 つ足している)。トリムしてから見て、位置はそのぶんずらす
+        const trimmed = text.trimStart()
+        if (!INSERTED_FIELD.test(trimmed.trimEnd())) continue
+        inserted = (step as unknown as { from: number }).from + (text.length - trimmed.length)
+      }
+      if (tr.getMeta(fieldsKey) === null && tr.steps.length === 0) return null
+      if (inserted !== null) return inserted
+      return value === null ? null : tr.mapping.map(value)
+    },
+  },
+
   view(view) {
     void loadVocab().then(() => { if (!view.isDestroyed) view.dispatch(view.state.tr) })
-    return {}
+    let shown: number | null = null
+    return {
+      update(updated, prev) {
+        if (prev.doc !== updated.state.doc) closeMenu?.()
+        const at = fieldsKey.getState(updated.state)
+        if (at === null || at === undefined || at === shown) return
+        const found = fieldsIn(updated.state).find((f) => f.from === at)
+        const pill = document.querySelector(`.task-field[data-from="${String(at)}"]`)
+        if (found === undefined || !(pill instanceof HTMLElement)) return
+        // 一度出したら忘れる (同じ場所で何度も開かない)。
+        // ⚠️ update の中で dispatch しない (ProseMirror が再入する)
+        shown = at
+        window.setTimeout(() => { openMenu(updated, pill, found) }, 0)
+      },
+    }
   },
 
   /**
@@ -178,6 +243,10 @@ const fieldsPlugin = new Plugin({
     let tr: Transaction | null = null
     newState.doc.descendants((node, pos) => {
       if (!('checked' in node.attrs)) return true
+      // ⚠️ **古い doc の範囲外を触らない。** 位置は新しい doc のもので、文字が増えていれば
+      //    古い doc からははみ出す。`nodeAt` に渡すと RangeError で state 更新ごと落ち、
+      //    本文が壊れる (実機でタスク行が `-` だけになった)
+      if (pos >= oldState.doc.content.size) return true
       const before = oldState.doc.nodeAt(pos)
       if (before?.type !== node.type || before.attrs['checked'] === node.attrs['checked']) return true
       const checked = node.attrs['checked'] === true
@@ -201,8 +270,10 @@ const fieldsPlugin = new Plugin({
       const { from: selFrom, to: selTo } = state.selection
       const decorations: Decoration[] = []
       for (const found of fieldsIn(state)) {
-        // カーソルが触れているものは素の Markdown を見せる (WikiLink と同じ約束)
-        if (selTo >= found.from && selFrom <= found.to) continue
+        // ⚠️ 素の Markdown を見せるのは**括弧の中**にカーソルがあるときだけ。
+        //    端に触れただけで生に戻すと、差し込んだ直後 (カーソルは `]` の直後) に
+        //    ピルが出ず、選択肢を出す取っかかりが無くなる
+        if (selFrom > found.from && selTo < found.to) continue
         decorations.push(Decoration.inline(found.from, found.to, { class: 'task-field-syntax' }))
         decorations.push(Decoration.widget(found.to, (view) => pillFor(view, found), {
           side: 1,
