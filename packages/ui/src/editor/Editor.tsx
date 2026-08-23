@@ -187,7 +187,14 @@ export function Editor({
     area.style.height = `${String(area.scrollHeight)}px`
   }, [draftBody, mode])
 
-  const dirty = draftBody !== bodyRef.current
+  /**
+   * ⚠️ **正規形どうしで比べる。** Milkdown の serializer と `normalizeForSave()` は
+   * 出力が違う (エスケープの入れ方など)。素の文字列で比べると、保存した直後に
+   * エディタが吐き直したものが「正規形と違う」ままになり、**永久に未保存扱い**になる
+   * (実機で発生: 画像を貼って保存しても「未保存の変更を保存」が消えなかった)。
+   */
+  const savedBody = useMemo(() => normalizeForSave(body), [body])
+  const dirty = useMemo(() => normalizeForSave(draftBody) !== savedBody, [draftBody, savedBody])
   const save = useCallback(() => {
     // **書き戻しは必ず normalizeForSave を通す。**
     // Milkdown と shared は serializer が別物なので、素のまま書くと正規形が食い違い、

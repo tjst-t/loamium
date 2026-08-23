@@ -16,7 +16,7 @@ export interface TreeNode {
   name: string
   /** vault 相対パス (`/` 区切り) */
   path: string
-  type: 'folder' | 'note'
+  type: 'folder' | 'note' | 'file'
   children?: TreeNode[]
 }
 
@@ -92,11 +92,16 @@ export class VaultService extends Service {
           nodes.push({ name: e.name, path: rel, type: 'folder', children: await walk(full) })
         } else if (e.name.endsWith('.md')) {
           nodes.push({ name: e.name, path: rel, type: 'note' })
+        } else {
+          // 添付も出す。**見えないと消せない** (assets/ が空に見えるという報告があった)
+          nodes.push({ name: e.name, path: rel, type: 'file' })
         }
       }
       // フォルダ先 → 名前順 (日本語を辞書順に並べる)
+      // フォルダ → ノート → 添付 の順。同じ種類なら名前順 (日本語を辞書順に)
+      const rank = (t: TreeNode['type']): number => (t === 'folder' ? 0 : t === 'note' ? 1 : 2)
       return nodes.sort((a, b) =>
-        a.type === b.type ? a.name.localeCompare(b.name, 'ja') : a.type === 'folder' ? -1 : 1)
+        rank(a.type) === rank(b.type) ? a.name.localeCompare(b.name, 'ja') : rank(a.type) - rank(b.type))
     }
     return walk(this.config.root)
   }

@@ -4,7 +4,7 @@ const BASE = import.meta.env['VITE_API_BASE'] ?? ''
 export interface TreeNode {
   name: string
   path: string
-  type: 'folder' | 'note'
+  type: 'folder' | 'note' | 'file'
   children?: TreeNode[]
 }
 
@@ -115,9 +115,14 @@ export async function movePath(from: string, to: string): Promise<void> {
   })
 }
 
-export async function removePath(path: string, type: 'folder' | 'note'): Promise<void> {
-  const base = type === 'folder' ? '/api/folders' : '/api/notes'
+export async function removePath(path: string, type: TreeNode['type']): Promise<void> {
+  const base = type === 'folder' ? '/api/folders' : type === 'file' ? '/api/files' : '/api/notes'
   await request(`${base}/${encodeURI(path)}`, { method: 'DELETE' })
+}
+
+/** 添付をそのまま配る URL (ツリーから開くときに使う) */
+export function fileUrl(path: string): string {
+  return `/api/files/${path.split('/').map(encodeURIComponent).join('/')}`
 }
 
 

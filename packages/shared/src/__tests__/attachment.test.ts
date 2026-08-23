@@ -62,3 +62,12 @@ describe('画像の大きさ (Obsidian と同じ `|幅`)', () => {
     expect(normalizeForSave('![[assets/図.png|420]]\n')).toBe('![[assets/図.png|420]]\n')
   })
 })
+
+describe('埋め込みを消したあと', () => {
+  it('Milkdown が置く `<br />` はファイルに残らない', async () => {
+    const { normalizeForSave } = await import('../markdown/index')
+    expect(normalizeForSave('# 見出し\n\n<br />\n\nあと。\n')).toBe('# 見出し\n\nあと。\n')
+    // 本文中の <br /> は残す (書式ではなく内容として書かれたもの)
+    expect(normalizeForSave('行1<br />行2\n')).toContain('<br />')
+  })
+})

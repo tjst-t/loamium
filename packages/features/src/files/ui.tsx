@@ -9,5 +9,7 @@ import { attachments } from './attach'
 export default defineUiFeature({
   name: 'files',
   requires: 'files',
-  editor: { order: 'after-preset', plugins: attachments },
+  // ⚠️ **preset より前。** Backspace / Delete を base keymap の joinBackward より先に
+  //    拾わないと、隣の行から寄せて画像を消す操作が効かない
+  editor: { order: 'before-preset', plugins: attachments },
 })

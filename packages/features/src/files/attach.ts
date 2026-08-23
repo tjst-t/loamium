@@ -174,6 +174,12 @@ function previewFor(view: EditorView, found: Found): HTMLElement {
   attachActions(box, [
     { label: '開く', run: () => { window.open(url, '_blank', 'noreferrer'); return false } },
     { label: 'パスをコピー', run: async () => copyPath(path) },
+    // ⚠️ 記法は隠れているので、キーボードだけだと消し方が分からない。
+    //    ファイルは残し、本文の `![[…]]` だけを消す
+    { label: '削除', run: () => {
+      view.dispatch(view.state.tr.delete(found.from, found.to))
+      return false
+    } },
   ])
   return box
 }
@@ -275,6 +281,37 @@ async function filesFromDataUrls(urls: readonly string[]): Promise<File[]> {
   return out
 }
 
+/**
+ * Backspace / Delete で埋め込みごと消す。
+ *
+ * ⚠️ **記法は隠れている**ので、素の Backspace だと「見えない文字」を 1 つずつ削ることになり、
+ * 何回押しても画像が消えないように見える (実機で「消す手段が無い」と言われた)。
+ * カーソルが埋め込みの中か、その直後 (Backspace) / 直前 (Delete) にあるときは、
+ * `![[…]]` をまるごと 1 回で消す。
+ */
+export function deleteAttachmentAt(state: EditorState, back: boolean): { from: number; to: number } | null {
+  const { empty, from } = state.selection
+  if (!empty) return null
+  const $caret = state.doc.resolve(from)
+  for (const found of attachmentsIn(state)) {
+    if (from > found.from && from < found.to) return { from: found.from, to: found.to }
+    if (back ? from === found.to : from === found.from) return { from: found.from, to: found.to }
+
+    // 埋め込みだけの段落は高さがほとんど無く、そこへカーソルを置くのは難しい。
+    // **隣の行から寄せてきたときも** 1 回で消せるようにする (画像を消す一番自然な操作)
+    const $block = state.doc.resolve(found.from)
+    const alone = $block.parent.textContent.trim() === state.doc.textBetween(found.from, found.to)
+    if (!alone) continue
+    const blockFrom = $block.before($block.depth)
+    const blockTo = $block.after($block.depth)
+    const atStart = from === $caret.start($caret.depth)
+    const atEnd = from === $caret.end($caret.depth)
+    if (back && atStart && blockTo === $caret.before($caret.depth)) return { from: blockFrom, to: blockTo }
+    if (!back && atEnd && blockFrom === $caret.after($caret.depth)) return { from: blockFrom, to: blockTo }
+  }
+  return null
+}
+
 const attachPlugin = new Plugin({
   key: new PluginKey('loamium-attachments'),
   view(view) {
@@ -283,6 +320,14 @@ const attachPlugin = new Plugin({
     return {}
   },
   props: {
+    handleKeyDown(view, event) {
+      if (event.key !== 'Backspace' && event.key !== 'Delete') return false
+      const range = deleteAttachmentAt(view.state, event.key === 'Backspace')
+      if (range === null) return false
+      event.preventDefault()
+      view.dispatch(view.state.tr.delete(range.from, range.to).scrollIntoView())
+      return true
+    },
     handlePaste(view, event) {
       const at = view.state.selection.from
       const list = filesOf(event.clipboardData)

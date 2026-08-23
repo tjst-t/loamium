@@ -1,6 +1,6 @@
 import { useEffect, useState, type JSX, type KeyboardEvent, type MouseEvent } from 'react'
 import {
-  ChevronDown, ChevronRight, FileText, Folder, FolderPlus, FilePlus, MoreHorizontal, Pencil, Trash2,
+  ChevronDown, ChevronRight, FileText, Folder, FolderPlus, FilePlus, MoreHorizontal, Paperclip, Pencil, Trash2,
 } from 'lucide-react'
 import type { TreeNode } from '@loamium/ui/src/api'
 import { defineUiFeature, useShell } from '@loamium/ui/src/feature'
@@ -142,7 +142,7 @@ function FileTree(props: FileTreeProps): JSX.Element {
                 {node.type === 'folder'
                   ? (isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />)
                   : <span className="tree-spacer" />}
-                {node.type === 'folder' ? <Folder size={14} /> : <FileText size={14} />}
+                {node.type === 'folder' ? <Folder size={14} /> : node.type === 'file' ? <Paperclip size={14} /> : <FileText size={14} />}
                 <span className="tree-name">{node.name}</span>
               </button>
               {/* 操作は 1 つに畳む。4 個並べるとサイドバー幅を食って名前が潰れる */}

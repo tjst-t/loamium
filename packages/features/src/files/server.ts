@@ -45,6 +45,13 @@ export const filesFeature = defineFeature({
       return c.json({ path, size: body.byteLength })
     })
 
+    app.delete('/api/files/:path{.+}', async (c) => {
+      const path = decodeURIComponent(c.req.param('path'))
+      if (path.endsWith('.md')) return c.json({ error: 'md_not_allowed' }, 400)
+      await ctx.vault.remove(path)
+      return c.json({ path, removed: true })
+    })
+
     app.get('/api/files/:path{.+}', async (c) => {
       const path = decodeURIComponent(c.req.param('path'))
       try {

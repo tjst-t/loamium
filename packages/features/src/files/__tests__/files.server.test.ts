@@ -85,3 +85,16 @@ describe('エージェントツール', () => {
     expect(body.files).toEqual([])
   })
 })
+
+describe('ツリー', () => {
+  it('添付もツリーに出る (見えないと消せない)', async () => {
+    const body = (await (await call('/api/tree')).json()) as { tree: { name: string; type: string; children?: { name: string; type: string }[] }[] }
+    const assets = body.tree.find((n) => n.name === 'assets')
+    expect(assets?.children).toEqual([{ name: '表.csv', path: 'assets/表.csv', type: 'file' }])
+  })
+
+  it('DELETE /api/files で消せる。.md は消せない', async () => {
+    expect((await call(`/api/files/${encodeURI('assets/表.csv')}`, { method: 'DELETE' })).status).toBe(200)
+    expect((await call('/api/files/note.md', { method: 'DELETE' })).status).toBe(400)
+  })
+})

@@ -14,6 +14,6 @@ export const filesApi = {
   list: (): string => '/api/files',
   /** 中身をそのまま配る (img / iframe の src にそのまま使える) */
   raw: (path: string): string => `/api/files/${path.split('/').map(encodeURIComponent).join('/')}`,
-  /** アップロード (POST, 本文はバイト列そのまま) */
+  /** アップロード (POST, 本文はバイト列そのまま) / 削除 (DELETE) */
   upload: (path: string): string => `/api/files/${path.split('/').map(encodeURIComponent).join('/')}`,
 }

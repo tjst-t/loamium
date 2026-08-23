@@ -26,6 +26,24 @@ function stripEditorArtifacts(node: unknown): void {
   if (node.children.length > 0 && node.children.every((c) => isBareBreak(c as RootContent))) {
     node.children = [] as unknown as typeof node.children
   }
+  // ⚠️ **ブロックの位置に 1 つだけ落ちている `<br />` も落とす。** 埋め込みを消して
+  //    段落が空になると、Milkdown はそこへ `<br />` を置く。上の「全部が br」条件では
+  //    兄弟がいるぶん引っかからず、ファイルに HTML が残っていた (実機で発生)
+  const blockish = new Set(['root', 'blockquote', 'listItem', 'tableCell', 'footnoteDefinition'])
+  if (blockish.has((node as { type?: string }).type ?? '')) {
+    const kept: RootContent[] = []
+    let dropped = false
+    for (const c of node.children as RootContent[]) {
+      const isJunk = isBareBreak(c) || (c.type === 'paragraph' && c.children.length === 0)
+      if (isJunk) { dropped = true; continue }
+      // ⚠️ **消した直後のノードは position を落とす。** serializer は原文の空行数を
+      //    position から復元する (`join`) ので、消したノードのぶんの空行がそのまま
+      //    残ってしまう (実機で空行が 2 行に増えた)
+      if (dropped) { delete c.position; dropped = false }
+      kept.push(c)
+    }
+    node.children = kept as typeof node.children
+  }
   for (const child of node.children) stripEditorArtifacts(child)
 }
 

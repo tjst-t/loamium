@@ -12,7 +12,7 @@ import { pathFromSearch, searchParamsFromSearch, useRoute } from './route'
 import { forgetNoteViewState, renameNoteViewState } from './editor/view-state'
 import {
   ApiError, createFolder, createNote, fetchJournal, fetchServerFeatures, fetchTags, fetchTree,
-  listNotes, movePath, readNote, removePath, writeNote, type TreeNode,
+  fileUrl, listNotes, movePath, readNote, removePath, writeNote, type TreeNode,
 } from './api'
 
 const PANEL_KEY = 'loamium.panel-open'
@@ -105,6 +105,8 @@ export function App(): JSX.Element {
   }, [])
 
   const open = useCallback((path: string) => {
+    // 添付 (.md 以外) はノートとして開けない。そのまま配る URL を別タブで見せる
+    if (!path.endsWith('.md')) { window.open(fileUrl(path), '_blank', 'noreferrer'); return }
     navigate(path)
     dismiss()
   }, [dismiss, navigate])

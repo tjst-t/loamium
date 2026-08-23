@@ -407,17 +407,21 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 
 /* --- 本文 --- */
 
+/*
+ * ⚠️ **紙幅は中身で変わってはいけない。** 以前は flex + justify-content:center で
+ * 中央に寄せていたが、Milkdown は自前のラッパー div を挟むので `.editor-body > .milkdown`
+ * が当たらず、短いノートでは幅が中身なりに縮んでいた (実機で 47px)。
+ * 縦積みの flex にして子を伸ばし、幅は `margin-inline:auto` で中央に置く。
+ */
 .editor-body {
   flex: 1;
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
+  flex-direction: column;
   padding: var(--s5) var(--s5) var(--s7);
 }
-.editor-body > .milkdown,
-.editor-body > .source-view { flex: 1; min-width: 0; }
+.editor-body > * { width: 100%; min-width: 0; }
 
-.milkdown, .source-view { max-width: var(--measure); width: 100%; }
+.milkdown, .source-view { max-width: var(--measure); width: 100%; margin-inline: auto; }
 
 /* --- 本文の組み版 --- */
 
