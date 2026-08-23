@@ -1,4 +1,5 @@
 import { toBlob } from 'html-to-image'
+import { copyImage } from './clipboard'
 
 /**
  * 描画したものを**画像としてクリップボードへ**置く (数式・図)。
@@ -15,8 +16,7 @@ export async function copyAsImage(el: HTMLElement, background: string): Promise<
       style: { padding: '8px' },
     })
     if (blob === null) return false
-    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-    return true
+    return await copyImage(blob)
   } catch {
     return false
   }

@@ -5,6 +5,7 @@ import remarkMath from 'remark-math'
 import katex from 'katex'
 import { attachActions } from '@loamium/ui/src/editor/block-actions'
 import { copyAsImage, paperColor } from '@loamium/ui/src/editor/copy-image'
+import { copyText } from '@loamium/ui/src/editor/clipboard'
 
 /**
  * 数式 `$…$` / `$$…$$` (task #14)。
@@ -95,10 +96,7 @@ export function renderMath(
     attachActions(el, [
       { label: '編集', run: () => { edit(); return false } },
       { label: '画像をコピー', run: async () => copyAsImage(el, paperColor()) },
-      { label: 'LaTeX をコピー', run: async () => {
-        await navigator.clipboard.writeText(source ?? formula)
-        return true
-      } },
+      { label: 'LaTeX をコピー', run: async () => copyText(source ?? formula) },
     ])
   }
   return el

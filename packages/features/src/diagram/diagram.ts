@@ -3,6 +3,7 @@ import { Plugin, PluginKey, TextSelection, type EditorState } from '@milkdown/ki
 import { Decoration, DecorationSet, type EditorView } from '@milkdown/kit/prose/view'
 import { attachActions } from '@loamium/ui/src/editor/block-actions'
 import { copyAsImage, paperColor } from '@loamium/ui/src/editor/copy-image'
+import { copyText } from '@loamium/ui/src/editor/clipboard'
 
 /**
  * Mermaid 図 (task #14)。
@@ -74,7 +75,7 @@ function diagramFor(view: EditorView, code: string, editPos: number): HTMLElemen
       },
     },
     { label: '画像をコピー', run: async () => copyAsImage(box, paperColor()) },
-    { label: 'テキストをコピー', run: async () => { await navigator.clipboard.writeText(code); return true } },
+    { label: 'テキストをコピー', run: async () => copyText(code) },
   ])
 
   const svg = cache.get(code)

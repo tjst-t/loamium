@@ -594,6 +594,7 @@ body.is-resizing { cursor: col-resize; user-select: none; }
   font-size: 11.5px; color: var(--ink-2); white-space: nowrap;
 }
 .block-action:hover { background: var(--panel-2); color: var(--ink); }
+.block-action.is-failed { color: var(--flag); }
 .block-action.is-done { color: var(--accent); }
 
 @media (max-width: 680px) {

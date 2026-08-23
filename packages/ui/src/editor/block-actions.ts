@@ -29,20 +29,25 @@ function build(actions: BlockAction[]): HTMLElement {
       // エディタ側にクリックを渡さない (キャレットが飛ぶ / 選択が消える)
       event.preventDefault()
       event.stopPropagation()
-      const done = (ok: boolean): void => {
-        if (!ok) return
-        const before = button.textContent
-        button.textContent = 'コピーしました'
-        button.classList.add('is-done')
+      // ⚠️ 失敗を黙って捨てない。コピーは環境 (非セキュアな http など) で落ちるので、
+      //    「押したのに何も起きない」が一番たちが悪い
+      const flash = (text: string, cls: string): void => {
+        const before = action.label
+        button.textContent = text
+        button.classList.add(cls)
         window.setTimeout(() => {
           button.textContent = before
-          button.classList.remove('is-done')
+          button.classList.remove(cls)
         }, DONE_MS)
       }
+      const done = (ok: boolean): void => {
+        if (ok) flash('コピーしました', 'is-done')
+      }
+      const fail = (): void => { flash('コピーできません', 'is-failed') }
       // ⚠️ 同期のものは同期のまま実行する。async で包むと dispatch が 1 tick 遅れ、
       //    「編集」を押した直後の状態が呼び出し側から見えない
       const result = action.run()
-      if (result instanceof Promise) void result.then(done)
+      if (result instanceof Promise) void result.then(done, fail)
       else done(result)
     })
     bar.append(button)
