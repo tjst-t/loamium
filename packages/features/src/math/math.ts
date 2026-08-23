@@ -99,7 +99,7 @@ export function renderMath(
         await navigator.clipboard.writeText(source ?? formula)
         return true
       } },
-    ], { inline: !display })
+    ])
   }
   return el
 }

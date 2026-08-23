@@ -13,11 +13,6 @@ export interface BlockAction {
   run: () => boolean | Promise<boolean>
 }
 
-export interface AttachOptions {
-  /** インライン要素に付ける (対象の上に出す。ブロックは右上の内側) */
-  inline?: boolean
-}
-
 const DONE_MS = 1200
 
 function build(actions: BlockAction[]): HTMLElement {
@@ -56,38 +51,39 @@ function build(actions: BlockAction[]): HTMLElement {
 }
 
 /**
- * バーの位置。ブロックは右上の内側、インラインは対象の上。
+ * バーの位置。**対象の右上・外側** (要素の上に浮かせる)。
  *
- * ⚠️ **バーは対象の中に入れず、常に浮かせる (`position: fixed`)。**
- * 中に置くと `overflow: auto` の要素 (図など) にクリップされ、はみ出した部分が
- * 押せなくなる。実機ではボタンに触れた瞬間にバーが消える形で出た。
+ * ⚠️ **中身に重ねない。** 図の中に置くと本体が隠れて邪魔になるし、
+ * `overflow: auto` の要素にクリップされてボタンが押せなくなる (実機で発生)。
+ * だから常に `position: fixed` で、対象の上辺の外に出す。
  */
-function place(bar: HTMLElement, target: HTMLElement, inline: boolean): void {
+function place(bar: HTMLElement, target: HTMLElement): void {
   const box = target.getBoundingClientRect()
   const width = bar.offsetWidth
   const height = bar.offsetHeight
-  const left = inline ? box.right - width : box.right - width - 6
-  const top = inline ? box.top - height - 4 : box.top + 6
-  bar.style.left = `${String(Math.round(Math.min(Math.max(left, 8), window.innerWidth - width - 8)))}px`
-  bar.style.top = `${String(Math.round(Math.max(top, 8)))}px`
+  const left = Math.min(Math.max(box.right - width, 8), window.innerWidth - width - 8)
+  // 上に出す余白が無いときだけ下に回す
+  const top = box.top - height - 4 >= 8 ? box.top - height - 4 : box.bottom + 4
+  bar.style.left = `${String(Math.round(left))}px`
+  bar.style.top = `${String(Math.round(top))}px`
 }
 
+
 /**
- * 操作バーを付ける。ブロックには内側の右上へ、インラインには浮かせて上へ。
+ * 操作バーを付ける。対象の右上の外側に浮かせる (中身に重ねない)。
  * ホバーで出し、離れたら消す。タップでも出る (触る環境ではホバーが無い)。
  */
-export function attachActions(host: HTMLElement, actions: BlockAction[], options: AttachOptions = {}): void {
-  const inline = options.inline === true
+export function attachActions(host: HTMLElement, actions: BlockAction[]): void {
   const bar = build(actions)
 
-  const reposition = (): void => { if (bar.isConnected) place(bar, host, inline) }
+  const reposition = (): void => { if (bar.isConnected) place(bar, host) }
 
   // ⚠️ 表示中かは **DOM に繋がっているか**で見る。boolean で憶えると、外から
   //    バーを消されたときに「出したつもり」のまま二度と出なくなる
   const show = (): void => {
     if (bar.isConnected) return
     document.body.append(bar)
-    place(bar, host, inline)
+    place(bar, host)
     window.addEventListener('scroll', reposition, true)
     window.addEventListener('resize', reposition)
   }
