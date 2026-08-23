@@ -224,11 +224,11 @@ export function Editor({
             .md
           </button>
         </div>
-        {frontmatter !== null && (
-          <span className="badge" title="frontmatter はエディタ外で扱う (ADR-0035)">
-            frontmatter
-          </span>
-        )}
+        {/*
+          ⚠️ **frontmatter の有無でバーの中身を増やさない。** 以前は「frontmatter」バッジを
+          出していたが、★ を押した瞬間にバッジが現れて右のものが動いた。
+          frontmatter があるかどうかは、右のプロパティパネルを見れば分かる。
+        */}
         {actions}
         <button
           type="button"
