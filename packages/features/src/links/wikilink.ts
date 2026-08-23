@@ -1,7 +1,7 @@
 import { $prose } from '@milkdown/kit/utils'
 import { Plugin, PluginKey, TextSelection, type EditorState } from '@milkdown/kit/prose/state'
 import { Decoration, DecorationSet } from '@milkdown/kit/prose/view'
-import { parseWikiLinks, resolveWikiLink, foldTarget } from '@loamium/shared'
+import { isAttachment, parseWikiLinks, resolveWikiLink, foldTarget } from '@loamium/shared'
 import { createSuggest, type SuggestItem } from '@loamium/ui/src/editor/suggest'
 import { getEditorEnv } from '@loamium/ui/src/editor/editor-env'
 
@@ -30,6 +30,9 @@ function linksInDoc(state: EditorState): DocLink[] {
     if (parent?.type.spec.code === true) return false
     if (node.marks.some((mark) => mark.type.spec.code === true || mark.type.name === 'inlineCode')) return true
     for (const link of parseWikiLinks(node.text)) {
+      // 添付の埋め込み (`![[assets/図.png]]`) は files 機能の担当。
+      // ここで触ると「まだ無いノート」として赤くなり、作成を勧めてしまう
+      if (link.embed && isAttachment(link.target)) continue
       out.push({ from: pos + link.start, to: pos + link.end, target: link.target, raw: link.raw })
     }
     return true

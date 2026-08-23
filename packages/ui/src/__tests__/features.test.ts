@@ -15,7 +15,7 @@ describe('UI 機能レジストリ', () => {
 
   it('サーバー機能に対応するものは requires を書く (outline のようにエディタ内で完結するものは書かない)', () => {
     const requiring = uiFeatures.filter((f) => f.requires !== undefined).map((f) => f.name)
-    expect(requiring).toEqual(['journal', 'notes', 'search', 'properties', 'links', 'tags', 'embed'])
+    expect(requiring).toEqual(['journal', 'notes', 'search', 'properties', 'links', 'tags', 'embed', 'files'])
     expect(uiFeatures.find((f) => f.name === 'outline')?.requires).toBeUndefined()
   })
 

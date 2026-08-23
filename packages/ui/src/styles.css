@@ -696,6 +696,9 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 .embed-body.is-truncated { mask-image: linear-gradient(to bottom, #000 70%, transparent); }
 /* 段落が埋め込みだけなら、隠れたテキストのぶんの高さを詰める */
 .milkdown .ProseMirror .is-embed-only { line-height: 0; margin: 0; }
+/* ⚠️ line-height:0 は**記法を隠した段落を詰めるため**のもの。埋め込みの中身にまで
+   継承させると、カードの本文も表も 1 行に潰れる (実機で高さ 17px になっていた) */
+.milkdown .ProseMirror .embed-card, .milkdown .ProseMirror .attachment { line-height: 1.6; }
 
 /* --- 見出しの折りたたみと目次 (task #11) --- */
 
@@ -1156,3 +1159,38 @@ body.is-drawer-open { overflow: hidden; }
   .property-input, .property-key-input { font-size: 16px; min-height: var(--tap); }
   .property-remove, .property-add-button { width: var(--tap); height: var(--tap); }
 }
+
+/* --- 添付ファイル (task #16) --- */
+
+.attachment {
+  position: relative; margin: var(--s3) 0;
+  /* ⚠️ 親の段落は `is-embed-only` で line-height:0 になっている (記法を隠した分を詰めるため)。
+     継承したままだと表や本文が重なって潰れる */
+  line-height: 1.6;
+  /* 操作バーは fixed で浮くので、ここは重ならない */
+}
+.attachment img { max-width: 100%; height: auto; border-radius: var(--radius); display: block; }
+.attachment audio, .attachment video { max-width: 100%; }
+.attachment-pdf { width: 100%; height: 60vh; border: 1px solid var(--rule); border-radius: var(--radius); }
+.attachment-text {
+  margin: 0; padding: var(--s3); max-height: 24em; overflow: auto;
+  background: var(--wash); border: 1px solid var(--rule); border-radius: var(--radius);
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.6; white-space: pre-wrap;
+}
+.attachment-table {
+  border-collapse: collapse; width: 100%; font-size: 12.5px;
+  display: block; max-height: 24em; overflow: auto;
+}
+.attachment-table th, .attachment-table td {
+  border: 1px solid var(--rule); padding: 3px var(--s2); text-align: left; white-space: nowrap;
+}
+.attachment-table th { background: var(--wash); font-weight: 600; }
+.attachment.is-loading, .attachment.is-missing { color: var(--ink-faint); font-size: 13px; }
+.attachment.is-missing { color: var(--flag); }
+/* ファイル名はディスク上の文字列なので等幅 */
+.attachment.is-file a {
+  display: inline-flex; gap: var(--s2); align-items: center;
+  padding: var(--s2) var(--s3); border: 1px solid var(--rule); border-radius: var(--radius);
+  font-family: var(--mono); font-size: 12.5px; color: var(--ink); text-decoration: none;
+}
+.attachment.is-file a:hover { border-color: var(--accent); color: var(--accent); }

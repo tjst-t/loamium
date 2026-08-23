@@ -201,7 +201,7 @@
         "testStrategy": "画像ペーストで assets に保存されリンクが挿入される。PDF/CSV がノート内でプレビューされる。",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {

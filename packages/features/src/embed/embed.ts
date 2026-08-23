@@ -1,7 +1,7 @@
 import { $prose } from '@milkdown/kit/utils'
 import { Plugin, PluginKey, type EditorState } from '@milkdown/kit/prose/state'
 import { Decoration, DecorationSet, type EditorView } from '@milkdown/kit/prose/view'
-import { parseWikiLinks } from '@loamium/shared'
+import { isAttachment, parseWikiLinks } from '@loamium/shared'
 import { apiJson } from '@loamium/ui/src/api'
 import { getEditorEnv } from '@loamium/ui/src/editor/editor-env'
 import { embedApi, type EmbedResult } from './contract'
@@ -26,8 +26,12 @@ function embedsIn(state: EditorState): Found[] {
   state.doc.descendants((node, pos, parent) => {
     if (!node.isText || node.text === null || node.text === undefined) return true
     if (parent?.type.spec.code === true) return false
+    // ⚠️ インラインコードの中は「書き方の説明」。ここを拾うと、ガイドに書いた
+    //    `![[assets/図.png]]` の例までプレビューされる (実機で二重に出た)
+    if (node.marks.some((mark) => mark.type.spec.code === true || mark.type.name === 'inlineCode')) return true
     for (const link of parseWikiLinks(node.text)) {
-      if (!link.embed) continue
+      // 添付 (画像・PDF など) は files 機能が描く。ここで触ると二重になる
+      if (!link.embed || isAttachment(link.target)) continue
       const target = link.heading === null || link.heading === ''
         ? link.target
         : `${link.target}#${link.heading}`

@@ -82,11 +82,11 @@ describe('REST: agent', () => {
     const body = (await (await call('/api/agent/tools')).json()) as { tools: { name: string }[] }
     expect(body.tools.map((t) => t.name).sort()).toEqual(
       [
-        'find_broken_links', 'fmt_vault', 'folder_create', 'get_properties', 'help',
-        'journal_append', 'journal_read', 'list_backlinks', 'list_links', 'list_notes',
-        'list_property_keys', 'list_tags', 'list_tree', 'note_create', 'note_delete',
-        'note_move', 'notes_by_tag', 'read_embed', 'read_note', 'remove_property',
-        'search', 'set_property', 'write_note',
+        'delete_file', 'find_broken_links', 'fmt_vault', 'folder_create', 'get_properties',
+        'help', 'journal_append', 'journal_read', 'list_backlinks', 'list_files', 'list_links',
+        'list_notes', 'list_property_keys', 'list_tags', 'list_tree', 'note_create',
+        'note_delete', 'note_move', 'notes_by_tag', 'read_embed', 'read_file', 'read_note',
+        'remove_property', 'search', 'set_property', 'write_note',
       ],
     )
   })
@@ -96,15 +96,15 @@ describe('REST: agent', () => {
     expect(body.tools.map((t) => t.name).sort()).toEqual(
       [
         'find_broken_links', 'get_properties', 'help', 'journal_read', 'list_backlinks',
-        'list_links', 'list_notes', 'list_property_keys', 'list_tags', 'list_tree',
-        'notes_by_tag', 'read_embed', 'read_note', 'search',
+        'list_files', 'list_links', 'list_notes', 'list_property_keys', 'list_tags',
+        'list_tree', 'notes_by_tag', 'read_embed', 'read_file', 'read_note', 'search',
       ])
   })
 
   it('help トピックが機能ごとに登録されている (ADR-0014)', async () => {
     const body = (await (await call('/api/agent/help')).json()) as { topics: string[] }
     expect(body.topics.sort()).toEqual([
-      'embed', 'fmt', 'help', 'journal', 'links', 'notes', 'properties', 'search', 'tags',
+      'embed', 'files', 'fmt', 'help', 'journal', 'links', 'notes', 'properties', 'search', 'tags',
     ])
   })
 

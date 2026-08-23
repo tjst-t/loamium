@@ -4,6 +4,7 @@ import { mkdir, readFile, writeFile, readdir, appendFile, rename, rm, stat } fro
 import { join, relative, dirname } from 'node:path'
 import {
   normalizeForSave, normalizeVaultPath, preferredWikiTarget, resolveWikiLink, rewriteWikiLinks,
+  VaultPathError,
 } from '@loamium/shared'
 import { resolveVaultPath } from '@loamium/shared/src/vault-path.node'
 import { VaultConflictError, VaultNotFoundError } from '../errors'
@@ -206,6 +207,45 @@ export class VaultService extends Service {
     if (await this.exists(rel)) throw new VaultConflictError(`すでに存在します: ${rel}`)
     await this.ensureDir(resolveVaultPath(this.config.root, rel))
     await this.audit('create_folder', rel)
+    return rel
+  }
+
+  /**
+   * 添付ファイル (.md 以外) の一覧。ノートの索引には入れない —
+   * `noteIndex` は Markdown の索引で、画像を混ぜるとリンク解決が壊れる。
+   */
+  async listFiles(): Promise<{ path: string; size: number; mtime: string }[]> {
+    await this.ensureDir(this.config.root)
+    const out: { path: string; size: number; mtime: string }[] = []
+    const walk = async (dir: string): Promise<void> => {
+      for (const e of await readdir(dir, { withFileTypes: true })) {
+        if (e.name.startsWith('.')) continue
+        const full = join(dir, e.name)
+        if (e.isDirectory()) { await walk(full); continue }
+        if (e.name.endsWith('.md')) continue
+        const info = await this.statOrNull(full)
+        if (info === null) continue
+        out.push({ path: this.toRel(full), size: info.size, mtime: info.mtime.toISOString() })
+      }
+    }
+    await walk(this.config.root)
+    return out.sort((a, b) => a.path.localeCompare(b.path, 'ja'))
+  }
+
+  /** 添付をそのまま読む (画像・PDF)。テキストとして解釈しない */
+  async readBytes(path: string): Promise<Uint8Array> {
+    return new Uint8Array(await readFile(resolveVaultPath(this.config.root, path)))
+  }
+
+  /** 添付を書く。**normalizeForSave は通さない** (Markdown ではないため) */
+  async writeBytes(path: string, data: Uint8Array): Promise<string> {
+    const rel = normalizeVaultPath(path)
+    if (rel.endsWith('.md')) throw new VaultPathError('添付として .md は書けません')
+    const full = resolveVaultPath(this.config.root, rel)
+    await this.ensureDir(dirname(full))
+    await writeFile(full, data)
+    await this.audit('upload', rel, { bytes: data.byteLength })
+    this.ctx.emit('vault/change', rel, 'upsert')
     return rel
   }
 
