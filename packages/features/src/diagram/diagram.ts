@@ -1,5 +1,5 @@
 import { $prose } from '@milkdown/kit/utils'
-import { Plugin, PluginKey, type EditorState } from '@milkdown/kit/prose/state'
+import { Plugin, PluginKey, TextSelection, type EditorState } from '@milkdown/kit/prose/state'
 import { Decoration, DecorationSet, type EditorView } from '@milkdown/kit/prose/view'
 
 /**
@@ -50,12 +50,20 @@ function readVar(name: string, fallback: string): string {
 /** 描いた SVG。同じ図を何度も描き直さない */
 const cache = new Map<string, string>()
 const failed = new Map<string, string>()
+/** 描画中のもの。打鍵のたびに同じ図を何本も描き始めないようにする */
+const pending = new Set<string>()
 let counter = 0
 
-function diagramFor(view: EditorView, code: string): HTMLElement {
+/**
+ * ⚠️ **編集の入口を図に持たせる。** フェンスは畳んであるので、図をクリックできないと
+ * 直す手段が無くなる (実機で確認)。`data-edit-pos` でキャレットの行き先を持つ。
+ */
+function diagramFor(view: EditorView, code: string, editPos: number): HTMLElement {
   const box = document.createElement('div')
   box.className = 'diagram'
   box.contentEditable = 'false'
+  box.title = '図のもとを編集する'
+  box.dataset['editPos'] = String(editPos)
 
   const svg = cache.get(code)
   if (svg !== undefined) {
@@ -71,14 +79,18 @@ function diagramFor(view: EditorView, code: string): HTMLElement {
 
   box.classList.add('is-loading')
   box.textContent = '図を描いています…'
+  if (pending.has(code)) return box
+  pending.add(code)
   void loadMermaid()
     .then(async (api) => api.render(`loamium-diagram-${String(counter++)}`, code))
     .then((result) => {
       cache.set(code, result.svg)
-      view.dispatch(view.state.tr)
     })
     .catch((cause: unknown) => {
       failed.set(code, cause instanceof Error ? cause.message : '図を描けません')
+    })
+    .finally(() => {
+      pending.delete(code)
       view.dispatch(view.state.tr)
     })
   return box
@@ -110,15 +122,39 @@ const diagramPlugin = new Plugin({
         decorations.push(Decoration.node(pos, to, {
           class: `mermaid-source ${editing ? 'is-editing' : 'is-rendered'}`,
         }))
-        // 図は常に添える (書きながら結果が見える)
-        decorations.push(Decoration.widget(to, (view) => diagramFor(view, code), {
+        // 図は常に添える (書きながら結果が見える)。
+        // キャレットはフェンスの**末尾**に入れる (続きを書き足す場所)。
+        // ⚠️ **key には図の中身と描画状態の両方を入れる** (実機で 2 回踏んだ):
+        //    中身が無い → 書き換えても key が同じで DOM が再利用され、新しい図が描かれない
+        //    状態が無い → 描き終わっても key が同じで「描いています…」のまま止まる
+        const phase = cache.has(code) ? 'ready' : failed.has(code) ? 'broken' : 'loading'
+        decorations.push(Decoration.widget(to, (view) => diagramFor(view, code, to - 1), {
           side: 1,
-          key: `diagram-${String(pos)}-${String(cache.has(code))}-${String(failed.has(code))}`,
+          key: `diagram-${String(pos)}-${phase}-${code}`,
           ignoreSelection: true,
         }))
         return false
       })
       return DecorationSet.create(state.doc, decorations)
+    },
+
+    handleDOMEvents: {
+      /**
+       * 図を押したら、そのフェンスの中へキャレットを入れる。
+       * ⚠️ **click ではなく mousedown で拾って preventDefault する** (数式と同じ理由)。
+       */
+      mousedown: (view, event) => {
+        // ⚠️ SVG の中を押すと target は SVGElement で、HTMLElement ではない。
+        //    Element で受けないと図の操作が素通りする (実機で発生)
+        const el = event.target instanceof Element ? event.target.closest('[data-edit-pos]') : null
+        if (el === null) return false
+        const at = Number(el.getAttribute('data-edit-pos'))
+        if (!Number.isFinite(at)) return false
+        event.preventDefault()
+        view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(at))))
+        view.focus()
+        return true
+      },
     },
   },
 })

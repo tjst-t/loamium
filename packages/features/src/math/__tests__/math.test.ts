@@ -94,6 +94,28 @@ describe('エディタの中', () => {
     expect(rendered()).toHaveLength(0)
   })
 
+  it('描画を押すと式の中へキャレットが入る (編集の入口)', () => {
+    load('式は $E = mc^2$ です\n')
+    const el = rendered()[0]
+    if (el === undefined) throw new Error('描画が無い')
+    const event = new MouseEvent('mousedown', { bubbles: true })
+    Object.defineProperty(event, 'target', { value: el })
+    view.someProp('handleDOMEvents', (handlers) => handlers.mousedown?.(view, event))
+    expect(host.querySelectorAll('.math-inline.is-editing')).toHaveLength(1)
+  })
+
+  it('キャレットは式の末尾に入る (先頭だと打った文字が式の外へ出る)', () => {
+    load('式は $E = mc^2$ です\n')
+    const el = rendered()[0]
+    if (el === undefined) throw new Error('描画が無い')
+    const event = new MouseEvent('mousedown', { bubbles: true })
+    Object.defineProperty(event, 'target', { value: el })
+    view.someProp('handleDOMEvents', (handlers) => handlers.mousedown?.(view, event))
+    // そのまま打つと式の中に入る
+    view.dispatch(view.state.tr.insertText('+1'))
+    expect(save()).toBe('式は $E = mc^2+1$ です\n')
+  })
+
   it('保存される Markdown は動かない (インライン)', () => {
     const body = '式は $E = mc^2$ です\n'
     load(body)

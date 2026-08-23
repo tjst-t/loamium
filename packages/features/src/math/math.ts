@@ -1,5 +1,5 @@
 import { $node, $prose, $remark } from '@milkdown/kit/utils'
-import { Plugin, PluginKey, type EditorState } from '@milkdown/kit/prose/state'
+import { Plugin, PluginKey, TextSelection, type EditorState } from '@milkdown/kit/prose/state'
 import { Decoration, DecorationSet } from '@milkdown/kit/prose/view'
 import remarkMath from 'remark-math'
 import katex from 'katex'
@@ -68,11 +68,19 @@ const mathInlineNode = $node('math_inline', () => ({
   },
 }))
 
-/** 描画。壊れた式は赤く出す (黙って消さない) */
-export function renderMath(formula: string, display: boolean): HTMLElement {
+/**
+ * 描画。壊れた式は赤く出す (黙って消さない)。
+ *
+ * ⚠️ **編集の入口をここに持たせる。** 元の式は畳んであるので、描画をクリックできないと
+ * 直す手段が無くなる (実機で確認: クリックも矢印キーも効かなかった)。
+ * `data-edit-pos` を目印にして、プラグイン側でキャレットを式の中へ入れる。
+ */
+export function renderMath(formula: string, display: boolean, editPos?: number): HTMLElement {
   const el = document.createElement(display ? 'div' : 'span')
   el.className = `math-render${display ? ' is-display' : ''}`
   el.contentEditable = 'false'
+  el.title = '数式を編集する'
+  if (editPos !== undefined) el.dataset['editPos'] = String(editPos)
   try {
     el.innerHTML = katex.renderToString(formula, { displayMode: display, throwOnError: true, output: 'html' })
   } catch (error: unknown) {
@@ -103,9 +111,14 @@ const mathViewPlugin = new Plugin({
         decorations.push(Decoration.node(pos, to, {
           class: `${display ? 'math-block' : 'math-inline'} ${editing ? 'is-editing' : 'is-rendered'}`,
         }))
-        // **描画は常に添える。** 編集中は式そのものと並べて出す (直しながら結果が見える)。
-        // 編集中だけ描画を消すと、ノート先頭の数式にカーソルが来ただけで何も見えなくなる
-        decorations.push(Decoration.widget(to, () => renderMath(formula, display), {
+        // ブロックは編集中も描画を並べて出す (直しながら結果が見える)。
+        // インラインは並べると `E = mc^2E=mc²` と読めなくなるので、編集中は式だけにする。
+        // ⚠️ 編集中に**必ず**描画を消してはいけない: ノート先頭の数式にカーソルが来ただけで
+        //    何も見えなくなる (埋め込みで踏んだのと同じ罠)
+        if (editing && !display) return false
+        // ⚠️ キャレットは式の**末尾**に入れる。先頭 (pos + 1) に置くと、
+        //    打った文字がノードの外 (段落側) に入ってしまう (実機で発生)
+        decorations.push(Decoration.widget(to, () => renderMath(formula, display, to - 1), {
           side: 1,
           key: `math-${String(pos)}-${formula}`,
           ignoreSelection: true,
@@ -113,6 +126,27 @@ const mathViewPlugin = new Plugin({
         return false
       })
       return DecorationSet.create(state.doc, decorations)
+    },
+
+    handleDOMEvents: {
+      /**
+       * 描画を押したら、その式の中へキャレットを入れる (= 編集に入る)。
+       * ⚠️ **click ではなく mousedown で拾って preventDefault する。**
+       * click まで待つとブラウザ側が widget 全体を選んだ状態を作り、こちらの選択を
+       * 上書きしてしまう (実機で発生: 打った 1 文字で式がまるごと消えた)。
+       */
+      mousedown: (view, event) => {
+        // ⚠️ SVG の中を押すと target は SVGElement で、HTMLElement ではない。
+        //    Element で受けないと図の操作が素通りする (実機で発生)
+        const el = event.target instanceof Element ? event.target.closest('[data-edit-pos]') : null
+        if (el === null) return false
+        const at = Number(el.getAttribute('data-edit-pos'))
+        if (!Number.isFinite(at)) return false
+        event.preventDefault()
+        view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(at))))
+        view.focus()
+        return true
+      },
     },
   },
 })

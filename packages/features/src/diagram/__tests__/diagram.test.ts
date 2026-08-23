@@ -66,6 +66,42 @@ describe('Mermaid のフェンス', () => {
     expect(diagrams()).toHaveLength(1)
   })
 
+  it('図を押すとフェンスの中へキャレットが入る (編集の入口)', () => {
+    load('```mermaid\n' + CODE + '\n```\n')
+    const box = diagrams()[0]
+    if (box === undefined) throw new Error('図が無い')
+    const event = new MouseEvent('mousedown', { bubbles: true })
+    Object.defineProperty(event, 'target', { value: box })
+    view.someProp('handleDOMEvents', (handlers) => handlers.mousedown?.(view, event))
+    expect(host.querySelectorAll('.mermaid-source.is-editing')).toHaveLength(1)
+  })
+
+  it('widget の key は「中身」と「描画状態」の両方で変わる', () => {
+    // ⚠️ どちらかが欠けると実機で止まる:
+    //    中身が無い → 書き換えても DOM が再利用され、新しい図が描かれない
+    //    状態が無い → 描き終わっても「描いています…」のまま止まる
+    load('```mermaid\n' + CODE + '\n```\n')
+    const keyOf = (): string => {
+      for (const plugin of view.state.plugins) {
+        const set = plugin.props.decorations?.call(plugin, view.state) as
+          { find?: () => { type: { spec?: { key?: string } } }[] } | undefined
+        for (const deco of set?.find?.() ?? []) {
+          const key = deco.type.spec?.key
+          if (key !== undefined && key.startsWith('diagram-')) return key
+        }
+      }
+      return ''
+    }
+    const ready = keyOf()
+    expect(ready).toContain('ready')      // 差し込み済みなので ready
+    expect(ready).toContain(CODE)         // 中身が入っている
+
+    load('```mermaid\ngraph LR\n  X --> Y\n```\n')
+    const loading = keyOf()
+    expect(loading).not.toBe(ready)
+    expect(loading).toContain('loading')  // まだ描いていない
+  })
+
   it('保存される Markdown は動かない', () => {
     const body = '```mermaid\n' + CODE + '\n```\n'
     load(body)

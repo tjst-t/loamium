@@ -567,6 +567,8 @@ body.is-resizing { cursor: col-resize; user-select: none; }
   border: 1px solid var(--rule); border-radius: var(--radius); background: var(--panel);
   text-align: center; overflow: auto;
 }
+.diagram { cursor: text; transition: border-color .12s ease; }
+.diagram:hover { border-color: var(--rule-strong); }
 .diagram svg { max-width: 100%; height: auto; }
 .diagram.is-loading, .diagram.is-broken {
   font-family: var(--mono); font-size: 12px; color: var(--ink-3); text-align: left;
@@ -587,7 +589,8 @@ body.is-resizing { cursor: col-resize; user-select: none; }
   background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius);
   padding: var(--s2) var(--s3); white-space: pre-wrap;
 }
-.math-render { color: var(--ink); }
+.math-render { color: var(--ink); cursor: text; border-radius: 3px; }
+.math-render:hover { background: var(--accent-soft); }
 .math-render.is-display { display: block; margin: var(--s3) 0; text-align: center; }
 .math-render.is-broken {
   font-family: var(--mono); font-size: .85em; color: var(--flag);
