@@ -12,7 +12,8 @@ import { TextSelection } from '@milkdown/kit/prose/state'
 import type { EditorView } from '@milkdown/kit/prose/view'
 import { normalizeForSave } from '@loamium/shared'
 import { applyLoamiumStringifyOptions } from '@loamium/ui/src/editor/markdown-config'
-import { taskFields } from '../task-fields'
+import { taskFields, fieldsOf } from '../task-fields'
+import { rangeToDelete } from '@loamium/ui/src/editor/hidden-range'
 
 let editor: Editor
 let view: EditorView
@@ -75,6 +76,19 @@ describe('インラインフィールド', () => {
     })
     view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(at))))
     expect(host.querySelectorAll('.task-field')).toHaveLength(0)
+  })
+
+  it('Backspace / Delete でフィールドごと 1 回で消える (直前の空白も)', () => {
+    load('- [ ] やること [due:: 2026-08-30]\n')
+    // フィールドの直後 (行末) にカーソルを置く
+    const field = fieldsOf(view.state)[0]
+    view.dispatch(view.state.tr.setSelection(
+      TextSelection.near(view.state.doc.resolve(field?.to ?? 0)),
+    ))
+    const range = rangeToDelete(view.state, true, [...fieldsOf(view.state)])
+    expect(range).not.toBeNull()
+    view.dispatch(view.state.tr.delete((range?.from ?? 0) - 1, range?.to ?? 0))
+    expect(save()).toBe('- [ ] やること\n')
   })
 
   it('チェックボックスの行に文字を足しても壊れない', () => {

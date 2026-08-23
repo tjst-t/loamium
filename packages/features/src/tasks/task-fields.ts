@@ -4,6 +4,7 @@ import { Decoration, DecorationSet, type EditorView } from '@milkdown/kit/prose/
 import type { Node as ProseNode } from '@milkdown/kit/prose/model'
 import { parseInlineFields } from '@loamium/shared'
 import { apiJson } from '@loamium/ui/src/api'
+import { rangeToDelete } from '@loamium/ui/src/editor/hidden-range'
 import { tasksApi, type TaskVocab, type VocabItem } from './contract'
 
 /**
@@ -46,7 +47,7 @@ interface Found {
   value: string
 }
 
-function fieldsIn(state: EditorState): Found[] {
+export function fieldsOf(state: EditorState): Found[] {
   const out: Found[] = []
   state.doc.descendants((node, pos, parent) => {
     if (!node.isText || node.text === null || node.text === undefined) return true
@@ -80,8 +81,8 @@ function setValue(view: EditorView, found: Found, value: string | null): void {
   // ⚠️ **位置を取り直してから書く。** メニューを開いたあとに本文が動くことがあり
   //    (別の差し込み・エージェントの書き込み)、掴んだままの位置で置換すると
   //    無関係な文字を消す (実機でタスク行が `-` だけになった)
-  const current = fieldsIn(view.state).find((f) => f.key === found.key && f.from === found.from)
-    ?? fieldsIn(view.state).find((f) => f.key === found.key && f.value === found.value)
+  const current = fieldsOf(view.state).find((f) => f.key === found.key && f.from === found.from)
+    ?? fieldsOf(view.state).find((f) => f.key === found.key && f.value === found.value)
   if (current === undefined) return
   const text = value === null ? '' : `[${found.key}:: ${value}]`
   const tr = view.state.tr.insertText(text, current.from, current.to)
@@ -111,6 +112,15 @@ function openMenu(view: EditorView, anchor: HTMLElement, found: Found): void {
     setValue(view, found, value)
   }
 
+  /** 選択肢のボタン (キーボードで動かす対象) */
+  const buttons: HTMLButtonElement[] = []
+  let index = 0
+  const highlight = (): void => {
+    for (const [i, button] of buttons.entries()) button.classList.toggle('is-active', i === index)
+    // jsdom には scrollIntoView が無い (テストでも同じ経路を通す)
+    buttons[index]?.scrollIntoView?.({ block: 'nearest' })
+  }
+
   const items = itemsFor(found.key)
   if (items.length === 0) {
     // 語彙を持たないフィールド (`due` など) はそのまま打てるようにする
@@ -133,6 +143,9 @@ function openMenu(view: EditorView, anchor: HTMLElement, found: Found): void {
       button.textContent = item.label
       button.addEventListener('mousedown', (event) => { event.preventDefault(); choose(item.key) })
       menu.append(button)
+      buttons.push(button)
+      // いまの値から始める (押した値がそのまま選ばれた状態で開く)
+      if (item.key === found.value) index = buttons.length - 1
     }
   }
 
@@ -142,6 +155,29 @@ function openMenu(view: EditorView, anchor: HTMLElement, found: Found): void {
   remove.textContent = 'このフィールドを消す'
   remove.addEventListener('mousedown', (event) => { event.preventDefault(); choose(null) })
   menu.append(remove)
+  buttons.push(remove)
+
+  /**
+   * ⚠️ **キーボードで選べること。** マウス専用のメニューは、差し込んだ直後に
+   * 手がキーボードにある流れ (`/期限` → Enter) と噛み合わない。
+   */
+  menu.tabIndex = -1
+  menu.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') { event.preventDefault(); closeMenu?.(); view.focus(); return }
+    if (buttons.length === 0) return
+    if (event.key === 'ArrowDown' || (event.key === 'Tab' && !event.shiftKey)) {
+      event.preventDefault()
+      index = (index + 1) % buttons.length
+      highlight()
+    } else if (event.key === 'ArrowUp' || (event.key === 'Tab' && event.shiftKey)) {
+      event.preventDefault()
+      index = (index - 1 + buttons.length) % buttons.length
+      highlight()
+    } else if (event.key === 'Enter') {
+      event.preventDefault()
+      buttons[index]?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
+    }
+  })
 
   document.body.append(menu)
   const box = anchor.getBoundingClientRect()
@@ -160,6 +196,11 @@ function openMenu(view: EditorView, anchor: HTMLElement, found: Found): void {
   }
   window.addEventListener('mousedown', close, true)
   closeMenu = dismiss
+  // 語彙があるときはメニュー自身にフォーカスを移す (日付入力は input が持っていく)
+  if (items.length > 0) {
+    highlight()
+    window.setTimeout(() => { menu.focus() }, 0)
+  }
 }
 
 function pillFor(view: EditorView, found: Found): HTMLElement {
@@ -223,7 +264,7 @@ const fieldsPlugin = new Plugin<number | null>({
         if (prev.doc !== updated.state.doc) closeMenu?.()
         const at = fieldsKey.getState(updated.state)
         if (at === null || at === undefined || at === shown) return
-        const found = fieldsIn(updated.state).find((f) => f.from === at)
+        const found = fieldsOf(updated.state).find((f) => f.from === at)
         const pill = document.querySelector(`.task-field[data-from="${String(at)}"]`)
         if (found === undefined || !(pill instanceof HTMLElement)) return
         // 一度出したら忘れる (同じ場所で何度も開かない)。
@@ -252,7 +293,7 @@ const fieldsPlugin = new Plugin<number | null>({
       const checked = node.attrs['checked'] === true
       // ⚠️ 位置は**ドキュメント座標で取り直す**。node の中の文字数から足し算すると
       //    段落やマークのぶんだけずれて、`[status:: todo]]` のように壊れる (実機で発生)
-      const field = fieldsIn(newState).find((f) =>
+      const field = fieldsOf(newState).find((f) =>
         f.key === 'status' && f.from >= pos && f.to <= pos + node.nodeSize)
       if (field === undefined) return true
       const wanted = checked
@@ -266,10 +307,27 @@ const fieldsPlugin = new Plugin<number | null>({
   },
 
   props: {
+    /**
+     * ⚠️ **ピルは Backspace / Delete で 1 回で消える。**
+     * 記法は隠れているので、素の Backspace だと見えない文字を 1 つずつ削ることになる
+     * (`[status:: todo]` を消すのに 16 回。実機で「消せない」と言われた)。
+     */
+    handleKeyDown(view, event) {
+      if (event.key !== 'Backspace' && event.key !== 'Delete') return false
+      const range = rangeToDelete(view.state, event.key === 'Backspace', fieldsOf(view.state))
+      if (range === null) return false
+      event.preventDefault()
+      // 直前の空白も一緒に消す (`やること [due:: …]` → `やること`)
+      const before = view.state.doc.textBetween(Math.max(range.from - 1, 0), range.from)
+      const from = before === ' ' ? range.from - 1 : range.from
+      view.dispatch(view.state.tr.delete(from, range.to).scrollIntoView())
+      return true
+    },
+
     decorations(state) {
       const { from: selFrom, to: selTo } = state.selection
       const decorations: Decoration[] = []
-      for (const found of fieldsIn(state)) {
+      for (const found of fieldsOf(state)) {
         // ⚠️ 素の Markdown を見せるのは**括弧の中**にカーソルがあるときだけ。
         //    端に触れただけで生に戻すと、差し込んだ直後 (カーソルは `]` の直後) に
         //    ピルが出ず、選択肢を出す取っかかりが無くなる

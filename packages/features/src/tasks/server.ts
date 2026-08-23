@@ -134,7 +134,12 @@ export const tasksFeature = defineFeature({
         patch.key = body['key']
         patch.value = typeof body['value'] === 'string' ? body['value'] : null
       }
-      return c.json(await patchTask(ctx, patch))
+      try {
+        return c.json(await patchTask(ctx, patch))
+      } catch (error: unknown) {
+        // 行番号がずれている (外部から書き換わった) ときは 404。500 にしない
+        return c.json({ error: error instanceof Error ? error.message : 'not_a_task' }, 404)
+      }
     })
   },
 

@@ -4,6 +4,7 @@ import { Decoration, DecorationSet, type EditorView } from '@milkdown/kit/prose/
 import { attachmentKind, isAttachment, parseDelimited, parseWikiLinks } from '@loamium/shared'
 import { apiJson } from '@loamium/ui/src/api'
 import { attachActions } from '@loamium/ui/src/editor/block-actions'
+import { rangeToDelete } from '@loamium/ui/src/editor/hidden-range'
 import { filesApi, ASSETS_DIR, type VaultFile } from './contract'
 
 /**
@@ -292,11 +293,12 @@ async function filesFromDataUrls(urls: readonly string[]): Promise<File[]> {
 export function deleteAttachmentAt(state: EditorState, back: boolean): { from: number; to: number } | null {
   const { empty, from } = state.selection
   if (!empty) return null
+  // 「中にいる」「端に触れている」の判定は共通ヘルパー (どの記法でも同じ約束にする)
+  const direct = rangeToDelete(state, back, attachmentsIn(state))
+  if (direct !== null) return direct
+
   const $caret = state.doc.resolve(from)
   for (const found of attachmentsIn(state)) {
-    if (from > found.from && from < found.to) return { from: found.from, to: found.to }
-    if (back ? from === found.to : from === found.from) return { from: found.from, to: found.to }
-
     // 埋め込みだけの段落は高さがほとんど無く、そこへカーソルを置くのは難しい。
     // **隣の行から寄せてきたときも** 1 回で消せるようにする (画像を消す一番自然な操作)
     const $block = state.doc.resolve(found.from)
