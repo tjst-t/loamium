@@ -11,6 +11,7 @@ Loamium の各機能を「実際に動く例」で説明するサンプル vault
 
 - [[エージェントチャットの使い方]] — 内蔵エージェントでvaultを自然言語で検索・操作 / メッセージ編集・やり直し
 - [[dataview の使い方]] — LIST / TABLE / TASK クエリの書き方と結果の読み方
+- [[ブックマーク]] — ★ でノートに印を付ける (frontmatter の bookmark: true)
 - [[プロパティ]] — frontmatter を型つきで編集する情報パネル (テキスト/数値/日付/真偽/リスト/タグ)
 - [[テーブル]] — Markdown テーブルと WYSIWYG 編集(セル編集・Tab/Enter 移動)
 - [[embed と transclusion]] — `![[ノート]]` によるノート/セクション/画像の埋め込み

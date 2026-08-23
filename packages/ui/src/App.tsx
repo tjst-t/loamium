@@ -357,6 +357,9 @@ export function App(): JSX.Element {
             onOpenLink={open}
             onCreateLink={createFromLink}
             onOpenTag={openTag}
+            actions={features.map((f) => (
+              f.noteAction === undefined ? null : <Fragment key={f.name}>{f.noteAction({ path: current })}</Fragment>
+            ))}
             beforePreset={editorPlugins(features, 'before-preset')}
             afterPreset={editorPlugins(features, 'after-preset')}
           />

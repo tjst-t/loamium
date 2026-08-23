@@ -28,6 +28,11 @@ export interface UiFeature {
   editor?: { order: 'before-preset' | 'after-preset'; plugins: MilkdownPlugin[] }
   /** 情報パネルに足す節 */
   panelSection?: (props: { path: string }) => JSX.Element | null
+  /**
+   * 開いているノートに対する操作。エディタの上のバー (保存の左) に並ぶ。
+   * ★ のように「いま見ているノート 1 枚」に効くものだけを置くこと。
+   */
+  noteAction?: (props: { path: string }) => JSX.Element | null
   /** 左サイドバーに足す区画 (並び順は features.ts の登録順) */
   sidebarItem?: () => JSX.Element | null
   /** 画面全体に重ねるもの (コマンドパレットなど)。開閉は機能側が持つ */

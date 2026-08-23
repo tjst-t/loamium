@@ -1215,3 +1215,33 @@ body.is-drawer-open { overflow: hidden; }
   font-family: var(--mono); font-size: 12.5px; color: var(--ink); text-decoration: none;
 }
 .attachment.is-file a:hover { border-color: var(--accent); color: var(--accent); }
+
+/* --- ブックマーク (task #18) --- */
+
+/* 出すものが無い機能で、区切り線だけが残らないように */
+.sidebar-slot:empty { display: none; }
+
+.star-button {
+  display: grid; place-items: center; width: 28px; height: 28px;
+  border: 0; background: none; border-radius: var(--radius);
+  color: var(--ink-3); cursor: pointer;
+  transition: color .12s ease, background .12s ease;
+}
+.star-button:hover { background: var(--panel-2); color: var(--ink-2); }
+/* 付いているものはアクセント = いまここ、ではなく「印」なので同じ琥珀を使う */
+.star-button.is-on { color: var(--accent); }
+
+.bookmark-list { list-style: none; margin: var(--s2) 0 0; padding: 0; display: flex; flex-direction: column; }
+.bookmark {
+  display: block; width: 100%; text-align: left;
+  border: 0; background: none; cursor: pointer;
+  padding: 3px var(--s2); border-radius: var(--radius);
+  font-size: 12.5px; color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bookmark:hover { background: var(--panel-2); color: var(--ink); }
+.bookmark[aria-current='true'] { color: var(--accent); }
+@media (max-width: 680px) {
+  .bookmark { min-height: var(--tap); display: flex; align-items: center; }
+  .star-button { width: var(--tap); height: var(--tap); }
+}

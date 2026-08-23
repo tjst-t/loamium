@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type JSX } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react'
 import { Editor as MilkdownEditor, rootCtx, defaultValueCtx, editorViewCtx, serializerCtx } from '@milkdown/kit/core'
 import { TextSelection } from '@milkdown/kit/prose/state'
 import type { EditorView } from '@milkdown/kit/prose/view'
@@ -148,6 +148,8 @@ export interface EditorProps {
   /** 有効な機能が持ち込む Milkdown プラグイン */
   beforePreset: MilkdownPlugin[]
   afterPreset: MilkdownPlugin[]
+  /** 機能が差し込むノート操作 (★ など)。シェルが集めて渡す */
+  actions?: ReactNode
   /** ファイルの内容そのもの (frontmatter を含む) */
   value: string
   onSave: (next: string) => void
@@ -159,7 +161,7 @@ export interface EditorProps {
  * **文書単位**で切り替える (行単位ではない)。
  */
 export function Editor({
-  path, notes, tags, value, onSave, onOpenLink, onCreateLink, onOpenTag, beforePreset, afterPreset,
+  path, notes, tags, value, onSave, onOpenLink, onCreateLink, onOpenTag, beforePreset, afterPreset, actions,
 }: EditorProps): JSX.Element {
   const [mode, setMode] = useState<Mode>('wysiwyg')
   const { frontmatter, body } = useMemo(() => splitFrontmatter(value), [value])
@@ -227,6 +229,7 @@ export function Editor({
             frontmatter
           </span>
         )}
+        {actions}
         <button
           type="button"
           className={`save-button${dirty ? ' is-dirty' : ''}`}
