@@ -17,6 +17,7 @@ import { embedFeature } from '@loamium/features/embed/server'
 import { propertiesFeature } from '@loamium/features/properties/server'
 import { filesFeature } from '@loamium/features/files/server'
 import { bookmarksFeature } from '@loamium/features/bookmarks/server'
+import { tasksFeature } from '@loamium/features/tasks/server'
 import { agentFeature } from '@loamium/features/agent/server'
 
 export interface AppConfig {
@@ -54,6 +55,7 @@ export async function createApp(config: AppConfig): Promise<Context> {
   ctx.plugin(propertiesFeature)
   ctx.plugin(filesFeature)
   ctx.plugin(bookmarksFeature)
+  ctx.plugin(tasksFeature)
   ctx.plugin(fmtFeature)
   ctx.plugin(agentFeature)
 

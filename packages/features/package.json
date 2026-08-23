@@ -18,7 +18,8 @@
     "html-to-image": "^1.11.13",
     "katex": "^0.18.4",
     "mermaid": "^11.17.0",
-    "prismjs": "^1.30.0"
+    "prismjs": "^1.30.0",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@types/prismjs": "^1.26.6"

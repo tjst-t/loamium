@@ -126,10 +126,22 @@ function insertInline(name: string, placeholder: string): Command {
 }
 
 /** 今日の日付 (ISO)。ジャーナルのファイル名と同じ書き方に揃える */
-const insertToday: Command = (state, dispatch) => {
+/**
+ * タスクのインラインフィールド (ADR-0029)。**ただのテキスト**なので、ここから
+ * 入れられる (値の選び直しはピルを押す)。期限は今日の日付を入れておく。
+ */
+const insertField = (key: string, value: string): Command => (state, dispatch) => {
+  dispatch?.(state.tr.insertText(`[${key}:: ${value}]`).scrollIntoView())
+  return true
+}
+
+const todayIso = (): string => {
   const now = new Date()
-  const iso = `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  dispatch?.(state.tr.insertText(iso).scrollIntoView())
+  return `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
+const insertToday: Command = (state, dispatch) => {
+  dispatch?.(state.tr.insertText(todayIso()).scrollIntoView())
   return true
 }
 
@@ -180,6 +192,9 @@ export const SLASH_ITEMS: SlashItem[] = [
   { value: 'bullet', title: '箇条書き', subtitle: '- ', keywords: ['かじょうがき', 'list', 'ul', 'kajogaki'], run: toList('bullet_list') },
   { value: 'ordered', title: '番号付きリスト', subtitle: '1. ', keywords: ['ばんごう', 'list', 'ol', 'bangou'], run: toList('ordered_list') },
   { value: 'task', title: 'チェックボックス', subtitle: '- [ ] ', keywords: ['ちぇっく', 'todo', 'task', 'check'], run: toList('bullet_list', true) },
+  { value: 'status', title: 'タスクの状態', subtitle: '[status:: todo]', keywords: ['じょうたい', 'status', 'task', 'joutai'], run: insertField('status', 'todo') },
+  { value: 'priority', title: 'タスクの優先度', subtitle: '[priority:: medium]', keywords: ['ゆうせん', 'priority', 'task', 'yusen'], run: insertField('priority', 'medium') },
+  { value: 'due', title: 'タスクの期限', subtitle: '[due:: 2026-01-01]', keywords: ['きげん', 'due', 'task', 'kigen'], run: (state, dispatch) => insertField('due', todayIso())(state, dispatch) },
   { value: 'quote', title: '引用', subtitle: '> ', keywords: ['いんよう', 'quote', 'inyou'], run: toQuote },
   { value: 'code', title: 'コードブロック', subtitle: '```', keywords: ['こーど', 'code', 'fence'], run: toBlock('code_block') },
   { value: 'table', title: '表', subtitle: '| a | b |', keywords: ['ひょう', 'table', 'hyou'], run: insertTable },

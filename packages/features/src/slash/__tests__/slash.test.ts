@@ -98,7 +98,8 @@ describe('候補の絞り込み', () => {
 
   it('英語 (ローマ字) でも引ける', () => {
     expect(filterSlashItems('table').map((i) => i.value)).toEqual(['table'])
-    expect(filterSlashItems('todo').map((i) => i.value)).toEqual(['task'])
+    // `todo` はチェックボックスと、状態フィールドの既定値 `[status:: todo]` の両方に当たる
+    expect(filterSlashItems('todo').map((i) => i.value)).toEqual(['task', 'status'])
   })
 
   it('記法そのものでも引ける', () => {
