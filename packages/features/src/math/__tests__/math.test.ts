@@ -94,26 +94,35 @@ describe('エディタの中', () => {
     expect(rendered()).toHaveLength(0)
   })
 
-  it('描画を押すと式の中へキャレットが入る (編集の入口)', () => {
+  it('ホバーで操作バーが出る (押しただけでは編集に入らない)', () => {
     load('式は $E = mc^2$ です\n')
     const el = rendered()[0]
     if (el === undefined) throw new Error('描画が無い')
-    const event = new MouseEvent('mousedown', { bubbles: true })
-    Object.defineProperty(event, 'target', { value: el })
-    view.someProp('handleDOMEvents', (handlers) => handlers.mousedown?.(view, event))
-    expect(host.querySelectorAll('.math-inline.is-editing')).toHaveLength(1)
+    expect(document.querySelector('.block-actions')).toBeNull()
+    const before = view.state.selection.from
+    el.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }))
+    const bar = document.querySelector('.block-actions')
+    expect(bar).not.toBeNull()
+    expect([...(bar?.querySelectorAll('.block-action') ?? [])].map((b) => b.textContent))
+      .toEqual(['編集', '画像をコピー', 'LaTeX をコピー'])
+    // バーを出しただけでキャレットは動かない (読むつもりで触っても編集に入らない)
+    expect(view.state.selection.from).toBe(before)
+    bar?.remove()
   })
 
-  it('キャレットは式の末尾に入る (先頭だと打った文字が式の外へ出る)', () => {
+  it('「編集」を押すと式の末尾にキャレットが入る (先頭だと文字が式の外へ出る)', () => {
     load('式は $E = mc^2$ です\n')
+    // キャレットを式の外 (段落の先頭) に置いてから始める
+    view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(1))))
     const el = rendered()[0]
     if (el === undefined) throw new Error('描画が無い')
-    const event = new MouseEvent('mousedown', { bubbles: true })
-    Object.defineProperty(event, 'target', { value: el })
-    view.someProp('handleDOMEvents', (handlers) => handlers.mousedown?.(view, event))
-    // そのまま打つと式の中に入る
+    el.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }))
+    const edit = [...document.querySelectorAll('.block-action')].find((b) => b.textContent === '編集')
+    edit?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    expect(host.querySelectorAll('.math-inline.is-editing')).toHaveLength(1)
     view.dispatch(view.state.tr.insertText('+1'))
     expect(save()).toBe('式は $E = mc^2+1$ です\n')
+    document.querySelector('.block-actions')?.remove()
   })
 
   it('保存される Markdown は動かない (インライン)', () => {

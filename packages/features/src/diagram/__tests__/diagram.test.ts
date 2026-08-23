@@ -66,14 +66,24 @@ describe('Mermaid のフェンス', () => {
     expect(diagrams()).toHaveLength(1)
   })
 
-  it('図を押すとフェンスの中へキャレットが入る (編集の入口)', () => {
-    load('```mermaid\n' + CODE + '\n```\n')
+  it('ホバーで操作バーが出て、「編集」からフェンスに入る', () => {
+    // 末尾に段落を置き、キャレットをフェンスの外に出しておく
+    load('```mermaid\n' + CODE + '\n```\n\n本文\n')
+    view.dispatch(view.state.tr.setSelection(
+      TextSelection.near(view.state.doc.resolve(view.state.doc.content.size - 1)),
+    ))
     const box = diagrams()[0]
     if (box === undefined) throw new Error('図が無い')
-    const event = new MouseEvent('mousedown', { bubbles: true })
-    Object.defineProperty(event, 'target', { value: box })
-    view.someProp('handleDOMEvents', (handlers) => handlers.mousedown?.(view, event))
+    box.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }))
+    const labels = [...document.querySelectorAll('.block-action')].map((b) => b.textContent)
+    expect(labels).toEqual(['編集', '画像をコピー', 'テキストをコピー'])
+    // 出しただけでは編集に入らない
+    expect(host.querySelectorAll('.mermaid-source.is-editing')).toHaveLength(0)
+
+    const edit = [...document.querySelectorAll('.block-action')].find((b) => b.textContent === '編集')
+    edit?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
     expect(host.querySelectorAll('.mermaid-source.is-editing')).toHaveLength(1)
+    document.querySelector('.block-actions')?.remove()
   })
 
   it('widget の key は「中身」と「描画状態」の両方で変わる', () => {

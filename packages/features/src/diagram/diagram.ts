@@ -1,6 +1,8 @@
 import { $prose } from '@milkdown/kit/utils'
 import { Plugin, PluginKey, TextSelection, type EditorState } from '@milkdown/kit/prose/state'
 import { Decoration, DecorationSet, type EditorView } from '@milkdown/kit/prose/view'
+import { attachActions } from '@loamium/ui/src/editor/block-actions'
+import { copyAsImage, paperColor } from '@loamium/ui/src/editor/copy-image'
 
 /**
  * Mermaid 図 (task #14)。
@@ -55,15 +57,25 @@ const pending = new Set<string>()
 let counter = 0
 
 /**
- * ⚠️ **編集の入口を図に持たせる。** フェンスは畳んであるので、図をクリックできないと
- * 直す手段が無くなる (実機で確認)。`data-edit-pos` でキャレットの行き先を持つ。
+ * ⚠️ **編集の入口が要る。** フェンスは畳んであるので、図から入れないと直す手段が無くなる。
+ * ただし**押しただけで編集に入れない** — ホバー/タップで操作バーを出す。
  */
 function diagramFor(view: EditorView, code: string, editPos: number): HTMLElement {
   const box = document.createElement('div')
   box.className = 'diagram'
   box.contentEditable = 'false'
-  box.title = '図のもとを編集する'
-  box.dataset['editPos'] = String(editPos)
+  attachActions(box, [
+    {
+      label: '編集',
+      run: () => {
+        view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(editPos))))
+        view.focus()
+        return false
+      },
+    },
+    { label: '画像をコピー', run: async () => copyAsImage(box, paperColor()) },
+    { label: 'テキストをコピー', run: async () => { await navigator.clipboard.writeText(code); return true } },
+  ])
 
   const svg = cache.get(code)
   if (svg !== undefined) {
@@ -91,7 +103,9 @@ function diagramFor(view: EditorView, code: string, editPos: number): HTMLElemen
     })
     .finally(() => {
       pending.delete(code)
-      view.dispatch(view.state.tr)
+      // ⚠️ 描画中にエディタが畳まれることがある (ノート切り替え・アンマウント)。
+      //    破棄済みの view に dispatch すると Milkdown の ctx が無く例外になる
+      if (!view.isDestroyed) view.dispatch(view.state.tr)
     })
   return box
 }
@@ -138,24 +152,6 @@ const diagramPlugin = new Plugin({
       return DecorationSet.create(state.doc, decorations)
     },
 
-    handleDOMEvents: {
-      /**
-       * 図を押したら、そのフェンスの中へキャレットを入れる。
-       * ⚠️ **click ではなく mousedown で拾って preventDefault する** (数式と同じ理由)。
-       */
-      mousedown: (view, event) => {
-        // ⚠️ SVG の中を押すと target は SVGElement で、HTMLElement ではない。
-        //    Element で受けないと図の操作が素通りする (実機で発生)
-        const el = event.target instanceof Element ? event.target.closest('[data-edit-pos]') : null
-        if (el === null) return false
-        const at = Number(el.getAttribute('data-edit-pos'))
-        if (!Number.isFinite(at)) return false
-        event.preventDefault()
-        view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(at))))
-        view.focus()
-        return true
-      },
-    },
   },
 })
 

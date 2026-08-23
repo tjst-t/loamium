@@ -567,13 +567,38 @@ body.is-resizing { cursor: col-resize; user-select: none; }
   border: 1px solid var(--rule); border-radius: var(--radius); background: var(--panel);
   text-align: center; overflow: auto;
 }
-.diagram { cursor: text; transition: border-color .12s ease; }
+.diagram { position: relative; transition: border-color .12s ease; }
 .diagram:hover { border-color: var(--rule-strong); }
 .diagram svg { max-width: 100%; height: auto; }
 .diagram.is-loading, .diagram.is-broken {
   font-family: var(--mono); font-size: 12px; color: var(--ink-3); text-align: left;
 }
 .diagram.is-broken { color: var(--flag); border-color: color-mix(in srgb, var(--flag) 40%, var(--rule)); }
+
+/* --- 描画に添える操作 (編集 / 画像をコピー) --- */
+
+/*
+ * ⚠️ **常に浮かせる (fixed)。** 対象の中に入れると `overflow: auto` の要素にクリップされ、
+ * はみ出した部分が押せなくなる (図で発生: ボタンに触れた瞬間にバーが消えた)。
+ */
+.block-actions {
+  position: fixed; z-index: 45;
+  display: flex; gap: 2px; padding: 2px;
+  background: var(--paper); border: 1px solid var(--rule-strong);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+}
+
+.block-action {
+  min-height: 26px; padding: 0 8px;
+  border: 0; border-radius: 4px; background: none; cursor: pointer;
+  font-size: 11.5px; color: var(--ink-2); white-space: nowrap;
+}
+.block-action:hover { background: var(--panel-2); color: var(--ink); }
+.block-action.is-done { color: var(--accent); }
+
+@media (max-width: 680px) {
+  .block-action { min-height: var(--tap); padding: 0 12px; font-size: 13px; }
+}
 
 /* --- 数式 (task #14) --- */
 
@@ -589,8 +614,9 @@ body.is-resizing { cursor: col-resize; user-select: none; }
   background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius);
   padding: var(--s2) var(--s3); white-space: pre-wrap;
 }
-.math-render { color: var(--ink); cursor: text; border-radius: 3px; }
-.math-render:hover { background: var(--accent-soft); }
+.math-render { color: var(--ink); border-radius: 3px; }
+.math-render.is-display { position: relative; }
+.math-render:not(.is-display):hover { background: var(--accent-soft); }
 .math-render.is-display { display: block; margin: var(--s3) 0; text-align: center; }
 .math-render.is-broken {
   font-family: var(--mono); font-size: .85em; color: var(--flag);
