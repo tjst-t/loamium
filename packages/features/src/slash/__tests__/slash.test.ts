@@ -79,9 +79,11 @@ describe('候補の絞り込み', () => {
     expect(filterSlashItems('')).toHaveLength(SLASH_ITEMS.length)
   })
 
-  it('往復しない記法は候補に無い (数式は #14 待ち)', () => {
+  it('往復する記法だけが候補にある', () => {
     const values = SLASH_ITEMS.map((item) => item.value)
-    expect(values).not.toContain('math')
+    expect(values).toContain('highlight')
+    expect(values).toContain('math')
+    expect(values).toContain('diagram')
   })
 
   it('日本語で引ける', () => {
@@ -177,6 +179,20 @@ describe('挿入した結果 (保存される Markdown)', () => {
     pick('callout')
     expect(save()).toBe('> [!note] タイトル\n')
     expect(view.state.doc.textBetween(view.state.selection.from, view.state.selection.to)).toBe('タイトル')
+  })
+
+  it('数式 → $…$ が入り、中身が選択される', () => {
+    load()
+    type('/')
+    pick('math')
+    expect(save()).toBe('$x^2$\n')
+  })
+
+  it('Mermaid 図 → ```mermaid のフェンスと雛形が入る', () => {
+    load()
+    type('/')
+    pick('diagram')
+    expect(save()).toBe('```mermaid\ngraph TD\n  A[はじめ] --> B[つぎ]\n```\n')
   })
 
   it('表 → GFM の表になる', () => {

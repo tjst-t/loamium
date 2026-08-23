@@ -148,6 +148,16 @@ function insertWrapped(open: string, close: string, placeholder: string): Comman
   }
 }
 
+/** Mermaid のフェンスを置き、雛形を入れる */
+const insertMermaid: Command = (state, dispatch, view) => {
+  const codeBlock = type(state, 'code_block')
+  if (codeBlock === undefined) return false
+  if (!setBlockType(codeBlock, { language: 'mermaid' })(state, dispatch, view)) return false
+  if (dispatch === undefined || view === undefined) return true
+  view.dispatch(view.state.tr.insertText('graph TD\n  A[はじめ] --> B[つぎ]'))
+  return true
+}
+
 /** そのまま文字を置く候補 (置いたあと別の補完に引き継ぐ) */
 function insertText(text: string): Command {
   return (state, dispatch) => {
@@ -180,6 +190,8 @@ export const SLASH_ITEMS: SlashItem[] = [
   { value: 'inline-code', title: 'インラインコード', subtitle: '`…`', keywords: ['こーど', 'code', 'inline'], run: insertInline('inlineCode', 'コード') },
   { value: 'today', title: '今日の日付', subtitle: '2026-01-01', keywords: ['ひづけ', 'date', 'today', 'kyou'], run: insertToday },
   { value: 'highlight', title: 'ハイライト', subtitle: '==…==', keywords: ['はいらいと', 'highlight', 'mark'], run: insertWrapped('==', '==', 'ハイライト') },
+  { value: 'math', title: '数式', subtitle: '$…$', keywords: ['すうしき', 'math', 'katex', 'tex'], run: insertWrapped('$', '$', 'x^2') },
+  { value: 'diagram', title: 'Mermaid 図', subtitle: '```mermaid', keywords: ['ず', 'diagram', 'mermaid', 'graph'], run: insertMermaid },
   { value: 'callout', title: 'callout (注記)', subtitle: '> [!note]', keywords: ['ちゅうき', 'callout', 'note', 'admonition'], run: insertCallout },
 ]
 

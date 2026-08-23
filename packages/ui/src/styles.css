@@ -511,6 +511,89 @@ body.is-resizing { cursor: col-resize; user-select: none; }
   color: var(--ink-3); text-decoration: line-through;
 }
 
+/* --- コードの色付け (task #14) --- */
+
+/* 外から持ってきたテーマは使わない。インクの濃淡 + アクセントで組む */
+.milkdown .ProseMirror .tok-comment,
+.milkdown .ProseMirror .tok-prolog,
+.milkdown .ProseMirror .tok-doctype,
+.milkdown .ProseMirror .tok-cdata { color: var(--ink-3); font-style: italic; }
+.milkdown .ProseMirror .tok-punctuation { color: var(--ink-3); }
+.milkdown .ProseMirror .tok-keyword,
+.milkdown .ProseMirror .tok-atrule,
+.milkdown .ProseMirror .tok-important { color: var(--accent); font-weight: 500; }
+.milkdown .ProseMirror .tok-string,
+.milkdown .ProseMirror .tok-char,
+.milkdown .ProseMirror .tok-attr-value,
+.milkdown .ProseMirror .tok-regex { color: #3f7d58; }
+.milkdown .ProseMirror .tok-number,
+.milkdown .ProseMirror .tok-boolean,
+.milkdown .ProseMirror .tok-constant { color: #8a5a2b; }
+.milkdown .ProseMirror .tok-function,
+.milkdown .ProseMirror .tok-class-name,
+.milkdown .ProseMirror .tok-tag { color: #2f6690; }
+.milkdown .ProseMirror .tok-operator,
+.milkdown .ProseMirror .tok-entity,
+.milkdown .ProseMirror .tok-url { color: var(--ink-2); }
+.milkdown .ProseMirror .tok-property,
+.milkdown .ProseMirror .tok-attr-name,
+.milkdown .ProseMirror .tok-symbol { color: #7a4b8a; }
+.milkdown .ProseMirror .tok-deleted { color: var(--flag); }
+.milkdown .ProseMirror .tok-inserted { color: #3f7d58; }
+
+@media (prefers-color-scheme: dark) {
+  .milkdown .ProseMirror .tok-string,
+  .milkdown .ProseMirror .tok-char,
+  .milkdown .ProseMirror .tok-attr-value,
+  .milkdown .ProseMirror .tok-regex { color: #8fbf9f; }
+  .milkdown .ProseMirror .tok-number,
+  .milkdown .ProseMirror .tok-boolean,
+  .milkdown .ProseMirror .tok-constant { color: #d3a273; }
+  .milkdown .ProseMirror .tok-function,
+  .milkdown .ProseMirror .tok-class-name,
+  .milkdown .ProseMirror .tok-tag { color: #8ab4d8; }
+  .milkdown .ProseMirror .tok-property,
+  .milkdown .ProseMirror .tok-attr-name,
+  .milkdown .ProseMirror .tok-symbol { color: #c3a0d0; }
+}
+
+/* --- Mermaid 図 (task #14) --- */
+
+/* 描けているときは元のフェンスを畳む。カーソルが入ったら中身を出す */
+.milkdown .ProseMirror .mermaid-source.is-rendered { display: none; }
+.milkdown .ProseMirror .mermaid-source.is-editing { display: block; }
+.diagram {
+  display: block; margin: var(--s3) 0; padding: var(--s3);
+  border: 1px solid var(--rule); border-radius: var(--radius); background: var(--panel);
+  text-align: center; overflow: auto;
+}
+.diagram svg { max-width: 100%; height: auto; }
+.diagram.is-loading, .diagram.is-broken {
+  font-family: var(--mono); font-size: 12px; color: var(--ink-3); text-align: left;
+}
+.diagram.is-broken { color: var(--flag); border-color: color-mix(in srgb, var(--flag) 40%, var(--rule)); }
+
+/* --- 数式 (task #14) --- */
+
+/* 描画しているときは元の式を畳む。カーソルが中に入ったら式そのものを出す */
+.milkdown .ProseMirror .math-inline.is-rendered,
+.milkdown .ProseMirror .math-block.is-rendered { display: none; }
+.milkdown .ProseMirror .math-inline.is-editing {
+  font-family: var(--mono); font-size: .9em; color: var(--ink-3);
+  background: var(--panel); border-radius: 3px; padding: 0 3px;
+}
+.milkdown .ProseMirror .math-block.is-editing {
+  display: block; font-family: var(--mono); font-size: 13px; color: var(--ink-2);
+  background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius);
+  padding: var(--s2) var(--s3); white-space: pre-wrap;
+}
+.math-render { color: var(--ink); }
+.math-render.is-display { display: block; margin: var(--s3) 0; text-align: center; }
+.math-render.is-broken {
+  font-family: var(--mono); font-size: .85em; color: var(--flag);
+  border-bottom: 1px dashed var(--flag);
+}
+
 /* --- callout とハイライト (task #13) --- */
 
 .milkdown .ProseMirror .callout {

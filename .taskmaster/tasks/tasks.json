@@ -178,8 +178,9 @@
         "testStrategy": "3 種すべてがネットワーク遮断下で描画されること。",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-08-23T12:30:00.000Z"
       },
       {
         "id": "15",
