@@ -471,8 +471,14 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 .milkdown .ProseMirror th { background: var(--panel); font-weight: 500; text-align: left; }
 .milkdown .ProseMirror hr { border: 0; border-top: 1px solid var(--rule); margin: var(--s5) 0; }
 
+/*
+ * ⚠️ **高さを自分で確保すること。** 親 (`.editor-body`) は `display:flex` の row で
+ * `align-items:flex-start` なので、textarea の高さは既定の 2 行 (43px) に潰れる。
+ * 実機ではソースモードが 1 行しか見えない状態になっていた。
+ */
 .source-view {
-  flex: 1; border: 0; padding: 0; resize: none; outline: none; background: none;
+  flex: 1; align-self: stretch; min-height: 60vh; overflow: hidden;
+  border: 0; padding: 0; resize: none; outline: none; background: none;
   color: var(--ink);
   font-family: var(--mono); font-size: 13px; line-height: 1.65;
 }

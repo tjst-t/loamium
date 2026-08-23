@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type JSX } from 'react'
 import { Editor as MilkdownEditor, rootCtx, defaultValueCtx, editorViewCtx, serializerCtx } from '@milkdown/kit/core'
 import { TextSelection } from '@milkdown/kit/prose/state'
 import type { EditorView } from '@milkdown/kit/prose/view'
@@ -175,6 +175,18 @@ export function Editor({
     setDraftBody(markdown)
   }, [])
 
+  /**
+   * ソースモードは**中身の高さまで伸ばす**。textarea の中でスクロールさせると、
+   * 本文のスクロール (`.main`) と二重になって迷子になる。
+   */
+  const sourceRef = useRef<HTMLTextAreaElement | null>(null)
+  useLayoutEffect(() => {
+    const area = sourceRef.current
+    if (area === null) return
+    area.style.height = 'auto'
+    area.style.height = `${String(area.scrollHeight)}px`
+  }, [draftBody, mode])
+
   const dirty = draftBody !== bodyRef.current
   const save = useCallback(() => {
     // **書き戻しは必ず normalizeForSave を通す。**
@@ -239,6 +251,7 @@ export function Editor({
         </MilkdownProvider>
         ) : (
           <textarea
+            ref={sourceRef}
             className="source-view"
             value={draftBody}
             spellCheck={false}
