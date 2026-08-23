@@ -1097,3 +1097,23 @@ body.is-drawer-open { overflow: hidden; }
   /* 指で押せる大きさに (モバイルでは選択の変換手段がこれしかない) */
   .format-button { min-width: var(--tap); height: var(--tap); font-size: 14px; }
 }
+
+/* --- 表の操作バー (task #15) --- */
+
+.table-bar {
+  position: fixed; z-index: 45;
+  display: flex; gap: 2px; padding: 2px;
+  background: var(--paper); border: 1px solid var(--rule-strong);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.table-button {
+  border: 0; background: none; cursor: pointer;
+  padding: 3px var(--s2); border-radius: calc(var(--radius) - 2px);
+  font: inherit; font-size: 12px; color: var(--ink-muted); white-space: nowrap;
+}
+.table-button:hover:not(:disabled) { background: var(--wash); color: var(--ink); }
+.table-button:disabled { opacity: .35; cursor: default; }
+.table-button.is-danger:hover:not(:disabled) { color: var(--flag); }
+@media (max-width: 680px) {
+  .table-button { min-height: var(--tap); padding-inline: var(--s3); }
+}

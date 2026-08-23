@@ -190,7 +190,7 @@
         "testStrategy": "行/列の追加削除が UI からでき、保存後の Markdown が round-trip gate を通ること。",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
