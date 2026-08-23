@@ -212,7 +212,7 @@
         "testStrategy": "型ごとの入力 UI が出る。追加・編集・削除が frontmatter に反映される。",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {

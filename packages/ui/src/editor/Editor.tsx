@@ -234,9 +234,13 @@ export function Editor({
       <div className="editor-body">
         {mode === 'wysiwyg' ? (
         <MilkdownProvider>
-          {/* key で強制再マウント: ファイルを切り替えたら中身を作り直す */}
+          {/*
+            key で強制再マウント: ファイルを切り替えたら中身を作り直す。
+            ⚠️ **value ではなく body で keying する。** プロパティパネルが frontmatter を
+            書き換えただけでエディタが作り直されると、カーソルもスクロールも飛ぶ。
+          */}
           <MilkdownHost
-            key={value}
+            key={body}
             path={path}
             initialBody={body}
             onChange={handleChange}

@@ -1117,3 +1117,42 @@ body.is-drawer-open { overflow: hidden; }
 @media (max-width: 680px) {
   .table-button { min-height: var(--tap); padding-inline: var(--s3); }
 }
+
+/* --- frontmatter プロパティ (task #17) --- */
+
+.property-row { display: grid; gap: 2px; margin-bottom: var(--s2); }
+.property-key { display: flex; gap: var(--s1); align-items: center; }
+/* キーは**ディスク上の文字列**なので等幅 (デザイン言語) */
+.property-key-input {
+  flex: 1; min-width: 0; border: 1px solid transparent; background: none;
+  padding: 2px var(--s1); border-radius: calc(var(--radius) - 2px);
+  font-family: var(--mono); font-size: 12px; color: var(--ink-muted);
+}
+.property-key-input:hover { border-color: var(--rule); }
+.property-key-input:focus { border-color: var(--accent); outline: none; color: var(--ink); }
+.property-type {
+  border: 0; background: none; color: var(--ink-faint);
+  font: inherit; font-size: 11px; padding: 0 2px; cursor: pointer;
+}
+.property-value { display: flex; gap: var(--s1); align-items: center; }
+.property-input {
+  flex: 1; min-width: 0;
+  border: 1px solid var(--rule); border-radius: calc(var(--radius) - 2px);
+  padding: 3px var(--s2); background: var(--paper); color: var(--ink);
+  font: inherit; font-size: 12.5px;
+}
+.property-input:focus { border-color: var(--accent); outline: none; }
+.property-bool { flex: 1; display: flex; gap: var(--s2); align-items: center; font-size: 12.5px; color: var(--ink-muted); }
+.property-remove, .property-add-button {
+  display: grid; place-items: center; width: 22px; height: 22px;
+  border: 0; background: none; border-radius: calc(var(--radius) - 2px);
+  color: var(--ink-faint); cursor: pointer;
+}
+.property-remove:hover { background: var(--wash); color: var(--flag); }
+.property-add-button:hover { background: var(--wash); color: var(--ink); }
+.property-add { display: flex; gap: var(--s1); align-items: center; margin-top: var(--s2); }
+.panel-note.is-flag { color: var(--flag); }
+@media (max-width: 680px) {
+  .property-input, .property-key-input { font-size: 16px; min-height: var(--tap); }
+  .property-remove, .property-add-button { width: var(--tap); height: var(--tap); }
+}

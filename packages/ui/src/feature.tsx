@@ -80,6 +80,13 @@ export interface Shell {
   tags: readonly string[]
   tree: TreeNode[]
   currentPath: string | null
+  /** 開いているノートの中身 (frontmatter を含む)。開いていなければ null */
+  content: string | null
+  /**
+   * 開いているノートの中身を差し替える (frontmatter の書き換えなど、**本文の外**から触るとき)。
+   * ファイルへの書き込みは機能が自分で済ませてから呼ぶこと — ここは画面を合わせるだけ。
+   */
+  patchContent: (next: string) => void
   search: SearchParams | null
   /** ノートを開く */
   openNote: (path: string) => void

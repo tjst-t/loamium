@@ -242,6 +242,8 @@ export function App(): JSX.Element {
     tags,
     tree,
     currentPath: current,
+    content,
+    patchContent: setContent,
     search,
     openNote: open,
     openHit,
