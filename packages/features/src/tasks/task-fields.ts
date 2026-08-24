@@ -1,10 +1,10 @@
 import { $prose } from '@milkdown/kit/utils'
-import { Plugin, PluginKey, type EditorState, type Transaction } from '@milkdown/kit/prose/state'
+import { Plugin, PluginKey, TextSelection, type EditorState, type Transaction } from '@milkdown/kit/prose/state'
 import { Decoration, DecorationSet, type EditorView } from '@milkdown/kit/prose/view'
 import type { Node as ProseNode } from '@milkdown/kit/prose/model'
 import { parseInlineFields } from '@loamium/shared'
 import { apiJson } from '@loamium/ui/src/api'
-import { rangeToDelete } from '@loamium/ui/src/editor/hidden-range'
+import { caretOutside, rangeToDelete, stepOverHidden } from '@loamium/ui/src/editor/hidden-range'
 import { tasksApi, type TaskVocab, type VocabItem } from './contract'
 
 /**
@@ -116,7 +116,10 @@ function openMenu(view: EditorView, anchor: HTMLElement, found: Found): void {
   const buttons: HTMLButtonElement[] = []
   let index = 0
   const highlight = (): void => {
-    for (const [i, button] of buttons.entries()) button.classList.toggle('is-active', i === index)
+    for (const [i, button] of buttons.entries()) {
+      button.classList.toggle('is-active', i === index)
+      button.setAttribute('aria-selected', String(i === index))
+    }
     // jsdom には scrollIntoView が無い (テストでも同じ経路を通す)
     buttons[index]?.scrollIntoView?.({ block: 'nearest' })
   }
@@ -140,6 +143,7 @@ function openMenu(view: EditorView, anchor: HTMLElement, found: Found): void {
       const button = document.createElement('button')
       button.type = 'button'
       button.className = `task-menu-item${item.key === found.value ? ' is-current' : ''}`
+      button.setAttribute('role', 'option')
       button.textContent = item.label
       button.addEventListener('mousedown', (event) => { event.preventDefault(); choose(item.key) })
       menu.append(button)
@@ -162,19 +166,21 @@ function openMenu(view: EditorView, anchor: HTMLElement, found: Found): void {
    * 手がキーボードにある流れ (`/期限` → Enter) と噛み合わない。
    */
   menu.tabIndex = -1
+  menu.setAttribute('role', 'listbox')
   menu.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') { event.preventDefault(); closeMenu?.(); view.focus(); return }
+    // ⚠️ **キーをブラウザに渡さない。** 開いている間の Backspace が「戻る」になり、
+    //    編集中のノートから離脱してしまった (実機で発生)
+    if (!event.metaKey && !event.ctrlKey && !event.altKey) event.preventDefault()
+    if (event.key === 'Escape') { closeMenu?.(); view.focus(); return }
+    if (event.key === 'Backspace' || event.key === 'Delete') { closeMenu?.(); view.focus(); return }
     if (buttons.length === 0) return
     if (event.key === 'ArrowDown' || (event.key === 'Tab' && !event.shiftKey)) {
-      event.preventDefault()
       index = (index + 1) % buttons.length
       highlight()
     } else if (event.key === 'ArrowUp' || (event.key === 'Tab' && event.shiftKey)) {
-      event.preventDefault()
       index = (index - 1 + buttons.length) % buttons.length
       highlight()
     } else if (event.key === 'Enter') {
-      event.preventDefault()
       buttons[index]?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
     }
   })
@@ -280,6 +286,14 @@ const fieldsPlugin = new Plugin<number | null>({
    * ⚠️ **status を持たない行には何も足さない** (単純なタスクを複雑にしない)。
    */
   appendTransaction(_transactions, oldState, newState): Transaction | null {
+    // ⚠️ **ピルの中にカーソルを残さない** (隠れたテキストの上を歩かせない)。
+    //    doc が変わっていなくても、カーソルだけが動いたときに効かせる必要がある
+    if (newState.selection.empty) {
+      const at = caretOutside(fieldsOf(newState), newState.selection.from, oldState.selection.from)
+      if (at !== null) {
+        return newState.tr.setSelection(TextSelection.near(newState.doc.resolve(at)))
+      }
+    }
     if (oldState.doc === newState.doc || vocab.status.length === 0) return null
     let tr: Transaction | null = null
     newState.doc.descendants((node, pos) => {
@@ -313,6 +327,13 @@ const fieldsPlugin = new Plugin<number | null>({
      * (`[status:: todo]` を消すのに 16 回。実機で「消せない」と言われた)。
      */
     handleKeyDown(view, event) {
+      // 矢印はピルを 1 文字として跨ぐ (隠したテキストの上を歩かせない)
+      const step = stepOverHidden(view.state, event.key, fieldsOf(view.state))
+      if (step !== null) {
+        event.preventDefault()
+        view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(step))))
+        return true
+      }
       if (event.key !== 'Backspace' && event.key !== 'Delete') return false
       const range = rangeToDelete(view.state, event.key === 'Backspace', fieldsOf(view.state))
       if (range === null) return false
@@ -325,16 +346,17 @@ const fieldsPlugin = new Plugin<number | null>({
     },
 
     decorations(state) {
-      const { from: selFrom, to: selTo } = state.selection
       const decorations: Decoration[] = []
       for (const found of fieldsOf(state)) {
-        // ⚠️ 素の Markdown を見せるのは**括弧の中**にカーソルがあるときだけ。
-        //    端に触れただけで生に戻すと、差し込んだ直後 (カーソルは `]` の直後) に
-        //    ピルが出ず、選択肢を出す取っかかりが無くなる
-        if (selFrom > found.from && selTo < found.to) continue
+        // ⚠️ **カーソルが来ても生の Markdown に戻さない。** 戻す作りだと隠れたテキストの
+        //    中にカーソルが入れてしまい、→ で飛んで戻る・Delete が効かない、といった
+        //    説明のつかない挙動になる (実機で報告された)。ピルは 1 文字のように扱い、
+        //    中身はメニューか `.md` (ソースモード) で直す
         decorations.push(Decoration.inline(found.from, found.to, { class: 'task-field-syntax' }))
         decorations.push(Decoration.widget(found.to, (view) => pillFor(view, found), {
-          side: 1,
+          // ⚠️ side: -1 で「ピルの後ろにカーソルが来る」ようにする。1 だと範囲の末尾に
+          //    置いたカーソルがピルの**左**に描かれ、→ を押しても動いていないように見える
+          side: -1,
           key: `task-${String(found.from)}-${found.key}-${found.value}-${vocabLoaded ? 'ready' : 'loading'}`,
           ignoreSelection: true,
         }))

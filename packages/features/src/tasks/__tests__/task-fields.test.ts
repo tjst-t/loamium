@@ -67,15 +67,32 @@ describe('インラインフィールド', () => {
     expect(host.querySelector('.task-field')?.textContent).toBe('未着手')
   })
 
-  it('括弧の中にカーソルを入れると素の Markdown が出る', () => {
+  it('カーソルが来てもピルのまま (隠したテキストの上を歩かせない)', () => {
+    // ⚠️ 以前はカーソルが中に入ると生の `[status:: todo]` に戻していたが、
+    //    隠れた位置にカーソルを置けてしまい、→ で飛んで戻る・Delete が効かない
+    //    といった挙動になっていた。中身はメニューか `.md` で直す
     load('- [ ] やること [status:: todo]\n')
-    let at = -1
-    view.state.doc.descendants((node, pos) => {
-      if (at === -1 && node.isText && node.text?.includes('status') === true) at = pos + 8
-      return at === -1
-    })
-    view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(at))))
-    expect(host.querySelectorAll('.task-field')).toHaveLength(0)
+    const field = fieldsOf(view.state)[0]
+    view.dispatch(view.state.tr.setSelection(
+      TextSelection.near(view.state.doc.resolve((field?.from ?? 0) + 3)),
+    ))
+    expect(host.querySelectorAll('.task-field')).toHaveLength(1)
+    // カーソルは範囲の中に残らない (端へ押し出される)
+    expect([field?.from, field?.to]).toContain(view.state.selection.from)
+  })
+
+  it('← / → はピルを 1 文字として跨ぐ', async () => {
+    const { stepOverHidden } = await import('@loamium/ui/src/editor/hidden-range')
+    load('- [ ] やること [status:: todo] あと\n')
+    const field = fieldsOf(view.state)[0]
+    view.dispatch(view.state.tr.setSelection(
+      TextSelection.near(view.state.doc.resolve(field?.from ?? 0)),
+    ))
+    expect(stepOverHidden(view.state, 'ArrowRight', fieldsOf(view.state))).toBe(field?.to)
+    view.dispatch(view.state.tr.setSelection(
+      TextSelection.near(view.state.doc.resolve(field?.to ?? 0)),
+    ))
+    expect(stepOverHidden(view.state, 'ArrowLeft', fieldsOf(view.state))).toBe(field?.from)
   })
 
   it('Backspace / Delete でフィールドごと 1 回で消える (直前の空白も)', () => {

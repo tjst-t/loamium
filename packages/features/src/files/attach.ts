@@ -1,10 +1,10 @@
 import { $prose } from '@milkdown/kit/utils'
-import { Plugin, PluginKey, type EditorState } from '@milkdown/kit/prose/state'
+import { Plugin, PluginKey, TextSelection, type EditorState } from '@milkdown/kit/prose/state'
 import { Decoration, DecorationSet, type EditorView } from '@milkdown/kit/prose/view'
 import { attachmentKind, isAttachment, parseDelimited, parseWikiLinks } from '@loamium/shared'
 import { apiJson } from '@loamium/ui/src/api'
 import { attachActions } from '@loamium/ui/src/editor/block-actions'
-import { rangeToDelete } from '@loamium/ui/src/editor/hidden-range'
+import { rangeToDelete, stepOverHidden } from '@loamium/ui/src/editor/hidden-range'
 import { filesApi, ASSETS_DIR, type VaultFile } from './contract'
 
 /**
@@ -323,6 +323,13 @@ const attachPlugin = new Plugin({
   },
   props: {
     handleKeyDown(view, event) {
+      // 矢印は埋め込みを 1 文字として跨ぐ (隠した `![[…]]` の上を歩かせない)
+      const step = stepOverHidden(view.state, event.key, attachmentsIn(view.state))
+      if (step !== null) {
+        event.preventDefault()
+        view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(step))))
+        return true
+      }
       if (event.key !== 'Backspace' && event.key !== 'Delete') return false
       const range = deleteAttachmentAt(view.state, event.key === 'Backspace')
       if (range === null) return false
