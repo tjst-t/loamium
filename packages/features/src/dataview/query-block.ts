@@ -1,7 +1,10 @@
 import { $prose } from '@milkdown/kit/utils'
-import { Plugin, PluginKey, type EditorState } from '@milkdown/kit/prose/state'
+import { Plugin, PluginKey, TextSelection, type EditorState } from '@milkdown/kit/prose/state'
 import { Decoration, DecorationSet, type EditorView } from '@milkdown/kit/prose/view'
 import { apiJson } from '@loamium/ui/src/api'
+import { attachActions } from '@loamium/ui/src/editor/block-actions'
+import { copyText } from '@loamium/ui/src/editor/clipboard'
+import { rangeToDelete } from '@loamium/ui/src/editor/hidden-range'
 import { getEditorEnv } from '@loamium/ui/src/editor/editor-env'
 import { tasksApi } from '@loamium/features/tasks/contract'
 import { dataviewApi, QUERY_LANG, type QueryResponse, type QueryResult } from './contract'
@@ -10,8 +13,10 @@ import { dataviewApi, QUERY_LANG, type QueryResponse, type QueryResult } from '.
  * クエリブロックの描画 (task #20)。
  *
  * **スキーマも serializer も触らない。** ファイルにあるのは ` ```dataview ` の
- * コードフェンスそのままで、その下に結果を widget decoration で添える
- * (mermaid と同じ作り)。カーソルをフェンスに入れればクエリを直せる。
+ * コードフェンスそのままで、結果を widget decoration で添える (mermaid と同じ作り)。
+ *
+ * 読んでいる間はフェンスを畳み、直すときは**操作バーの「編集」**から開く。
+ * 隠したものは Backspace / Delete でまるごと消せる (エディタ規約)。
  */
 
 interface Found {
@@ -31,6 +36,12 @@ function queriesIn(state: EditorState): Found[] {
     return false
   })
   return out
+}
+
+/** そのフェンスを直している最中か (カーソルが中にある) */
+function isEditing(state: EditorState, found: Found): boolean {
+  const { from, to } = state.selection
+  return from > found.pos && to < found.to
 }
 
 /** クエリ文字列 → 結果。同じ文字列は使い回す (打つたびに投げない) */
@@ -144,15 +155,35 @@ function renderTasks(view: EditorView, result: QueryResult, box: HTMLElement): v
   box.append(list)
 }
 
-function resultFor(view: EditorView, source: string): HTMLElement {
+/**
+ * 結果。**編集中はフェンスと 1 枚のカードになる** (`is-attached`)。
+ * 上が式、下がその答え、という関係を隙間ではなく継ぎ目で示す。
+ */
+function resultFor(view: EditorView, source: string, editPos: number, editing: boolean): HTMLElement {
   const box = document.createElement('div')
-  box.className = 'query-result'
+  box.className = `query-result${editing ? ' is-attached' : ''}`
   box.contentEditable = 'false'
+  attachActions(box, [
+    {
+      // 画面に出ているのは結果なので、クエリを直す入口が要る (mermaid と同じ)
+      label: '編集',
+      run: () => {
+        view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(editPos))))
+        view.focus()
+        return false
+      },
+    },
+    { label: 'クエリをコピー', run: async () => copyText(source) },
+  ])
+
+  const seam = document.createElement('div')
+  seam.className = 'query-count'
+  box.append(seam)
 
   const found = cache.get(source)
   if (found === undefined) {
     box.classList.add('is-loading')
-    box.textContent = '数えています…'
+    seam.textContent = editing ? '結果 · 数えています…' : '数えています…'
     if (!pending.has(source)) {
       pending.add(source)
       apiJson<QueryResponse>(dataviewApi.run(), {
@@ -174,15 +205,18 @@ function resultFor(view: EditorView, source: string): HTMLElement {
   if (found.error !== undefined || found.result === undefined) {
     // ⚠️ 書き方が違っても黙って空にしない (なぜ 0 件なのかが分からなくなる)
     box.classList.add('is-broken')
-    box.textContent = found.error ?? 'クエリを実行できませんでした'
+    seam.textContent = editing ? '結果 · 書き方を直してください' : '書き方を直してください'
+    const why = document.createElement('p')
+    why.className = 'query-why'
+    why.textContent = found.error ?? 'クエリを実行できませんでした'
+    box.append(why)
     return box
   }
 
   const result = found.result
-  const count = document.createElement('div')
-  count.className = 'query-count'
-  count.textContent = `${String(result.rows.length)} 件`
-  box.append(count)
+  seam.textContent = editing
+    ? `結果 · ${String(result.rows.length)} 件`
+    : `${String(result.rows.length)} 件`
   if (result.rows.length === 0) {
     const empty = document.createElement('p')
     empty.className = 'query-empty'
@@ -204,16 +238,35 @@ const queryPlugin = new Plugin({
     return {}
   },
   props: {
+    /** 畳んだフェンスは Backspace / Delete で 1 回で消せる (エディタ規約) */
+    handleKeyDown(view, event) {
+      if (event.key !== 'Backspace' && event.key !== 'Delete') return false
+      const blocks = queriesIn(view.state)
+        .filter((found) => !isEditing(view.state, found))
+        .map((found) => ({ from: found.pos, to: found.to }))
+      const range = rangeToDelete(view.state, event.key === 'Backspace', blocks)
+      if (range === null) return false
+      event.preventDefault()
+      view.dispatch(view.state.tr.delete(range.from, range.to).scrollIntoView())
+      return true
+    },
+
     decorations(state) {
       const decorations: Decoration[] = []
       for (const found of queriesIn(state)) {
         const response = cache.get(found.source)
+        // 中にカーソルがあるときはクエリを直している最中。畳まずに見せる
+        const editing = isEditing(state, found)
+        decorations.push(Decoration.node(found.pos, found.to, {
+          class: `query-source ${editing ? 'is-editing' : 'is-rendered'}`,
+        }))
         // ⚠️ key に**中身の段階**まで入れる。入れないと「数えています…」の DOM が
         //    使い回されて、結果が届いても止まったままになる (embed / mermaid と同じ罠)
         const phase = response === undefined ? 'loading' : response.error === undefined ? 'ready' : 'broken'
-        decorations.push(Decoration.widget(found.to, (view) => resultFor(view, found.source), {
+        decorations.push(Decoration.widget(found.to, (view) => resultFor(view, found.source, found.to - 1, editing), {
           side: 1,
-          key: `query-${String(found.pos)}-${phase}-${found.source}`,
+          // 編集中かどうかで見え方が変わるので key にも入れる (入れないと DOM が使い回される)
+          key: `query-${String(found.pos)}-${phase}-${editing ? 'edit' : 'read'}-${found.source}`,
           ignoreSelection: true,
         }))
       }

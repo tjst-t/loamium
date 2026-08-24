@@ -11,6 +11,7 @@
   --paper: #ffffff;        /* 本文の紙 */
   --panel: #f4f5f7;        /* 左右のクローム */
   --panel-2: #e8eaed;      /* クローム上の押し込み */
+  --wash: #f4f5f7;         /* 紙の上のごく薄い面 (表の見出し・継ぎ目) */
   --rule: #e2e5e9;         /* 罫線 */
   --rule-strong: #c5cad0;
 
@@ -42,6 +43,7 @@
     --paper: #15181c;
     --panel: #0f1216;
     --panel-2: #1d2127;
+    --wash: #1b1f24;
     --rule: #262b32;
     --rule-strong: #3a4048;
 
@@ -1307,6 +1309,41 @@ body.is-drawer-open { overflow: hidden; }
 }
 
 /* --- クエリブロックの結果 (task #20) --- */
+
+/* 読んでいる間はクエリを畳む (直すときは操作バーの「編集」から) */
+.milkdown .ProseMirror .query-source.is-rendered { display: none; }
+
+/*
+ * 編集中は**クエリと結果が 1 枚のカード**になる。
+ * 上が式、下がその答え。関係を隙間ではなく「継ぎ目」で示し、
+ * 左のレールが両方を貫く (琥珀 = いまここ)。
+ */
+.milkdown .ProseMirror .query-source.is-editing {
+  display: block;
+  margin: var(--s3) 0 0;
+  background: var(--paper);
+  border: 1px solid var(--rule-strong);
+  border-left: 2px solid var(--accent);
+  border-bottom: 0;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.query-result.is-attached {
+  margin-top: 0;
+  padding-top: 0;
+  border-color: var(--rule-strong);
+  border-left-color: var(--accent);
+  border-top: 0;
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+/* 継ぎ目。ここに「結果 · 4 件」を刻む */
+.query-result.is-attached .query-count {
+  margin: 0 calc(var(--s3) * -1) var(--s2);
+  padding: var(--s2) var(--s3);
+  border-top: 1px solid var(--rule);
+  background: var(--wash);
+  color: var(--ink-2);
+}
+.query-why { margin: 0; font-size: 12.5px; }
 
 .query-result {
   margin: var(--s2) 0 var(--s3);
