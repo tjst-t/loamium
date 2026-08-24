@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useSyncExternalStore, type JSX } from 'react'
-import { FolderSearch, Plus, Trash2, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileText, FolderSearch, Plus, Trash2, X } from 'lucide-react'
 import { apiJson } from '@loamium/ui/src/api'
 import { defineUiFeature, useShell } from '@loamium/ui/src/feature'
 import { smartFoldersApi, type SmartFolder, type SmartFolderResult } from './contract'
@@ -7,12 +7,21 @@ import { smartFoldersApi, type SmartFolder, type SmartFolderResult } from './con
 /**
  * スマートフォルダ (task #25)。
  *
- * サイドバーの一覧と、開いたときの画面。**選んでいるフォルダはこの機能が持つ**
- * (機能の内部状態をシェルに持たせない)。中身は dataview と同じクエリ。
+ * **普通のフォルダと同じ操作語彙で開ける**: `▸` で展開して中身をその場に出し、
+ * 名前を押すと一覧の画面になる。ただし**物理ツリーには混ぜない** — ツリーの行は
+ * 「ディスクにこう置かれている」の写像で、移動やドラッグはパスを意味する。
+ * 条件で集まるものを同じ見た目で混ぜると、その意味が定義できなくなる。
+ *
+ * 中身は dataview と同じクエリ。選んでいるフォルダはこの機能が持つ
+ * (何を見せるかは機能、画面を前に出しているかはシェル)。
  */
 
 let folders: SmartFolder[] = []
 let opened: string | null = null
+/** 展開しているフォルダと、その中身 */
+const expanded = new Set<string>()
+const contents = new Map<string, SmartFolderResult>()
+
 const listeners = new Set<() => void>()
 const publish = (): void => { for (const listener of listeners) listener() }
 const subscribe = (listener: () => void): (() => void) => {
@@ -23,10 +32,30 @@ const subscribe = (listener: () => void): (() => void) => {
 async function refresh(): Promise<void> {
   try {
     folders = (await apiJson<{ folders: SmartFolder[] }>(smartFoldersApi.list())).folders
+    contents.clear()
     publish()
   } catch {
     // 取れないだけ。他の機能は動く
   }
+}
+
+async function load(id: string): Promise<void> {
+  try {
+    contents.set(id, await apiJson<SmartFolderResult>(smartFoldersApi.run(id)))
+  } catch {
+    // 下で「読めません」を出す
+  }
+  publish()
+}
+
+function toggle(id: string): void {
+  if (expanded.has(id)) expanded.delete(id)
+  else {
+    expanded.add(id)
+    // 開くたびに数え直す (索引を持たないので、常にいまの vault が出る)
+    void load(id)
+  }
+  publish()
 }
 
 function open(id: string | null): void {
@@ -34,20 +63,15 @@ function open(id: string | null): void {
   publish()
 }
 
-function useFolders(): SmartFolder[] {
-  const list = useSyncExternalStore(subscribe, () => folders)
-  useEffect(() => { void refresh() }, [])
-  return list
-}
+const useStore = <T,>(read: () => T): T => useSyncExternalStore(subscribe, read)
 
-const useOpened = (): string | null => useSyncExternalStore(subscribe, () => opened)
-
-/** サイドバーの一覧 */
-function FolderList(): JSX.Element | null {
-  const list = useFolders()
-  const current = useOpened()
-  const { dismiss, openFeatureView } = useShell()
+/** サイドバーの一覧。フォルダのように開ける */
+function FolderList(): JSX.Element {
+  const list = useStore(() => folders)
+  const current = useStore(() => opened)
+  const { dismiss, openFeatureView, openNote, currentPath } = useShell()
   const [adding, setAdding] = useState(false)
+  useEffect(() => { void refresh() }, [])
 
   return (
     <section>
@@ -56,30 +80,90 @@ function FolderList(): JSX.Element | null {
         <button
           type="button"
           className="icon-button is-small"
-          aria-label="スマートフォルダを作る"
-          title="スマートフォルダを作る"
+          aria-label={adding ? '作るのをやめる' : 'スマートフォルダを作る'}
+          title={adding ? '作るのをやめる' : 'スマートフォルダを作る'}
           onClick={() => { setAdding((value) => !value) }}
         >
           {adding ? <X size={14} /> : <Plus size={14} />}
         </button>
       </h2>
       {adding && <FolderForm onDone={() => { setAdding(false); void refresh() }} />}
-      <ul className="smart-list">
+      <ul className="tree-list smart-tree">
         {list.map((folder) => (
-          <li key={folder.id}>
-            <button
-              type="button"
-              className="smart-folder"
-              aria-current={folder.id === current}
-              onClick={() => { open(folder.id); openFeatureView('smartFolders'); dismiss() }}
-            >
-              {folder.name}
-            </button>
-          </li>
+          <SmartRow
+            key={folder.id}
+            folder={folder}
+            current={current}
+            currentPath={currentPath}
+            onOpenView={() => { open(folder.id); openFeatureView('smartFolders'); dismiss() }}
+            onOpenNote={(path) => { openNote(path) }}
+          />
         ))}
       </ul>
       {list.length === 0 && !adding && <p className="panel-note">まだありません</p>}
     </section>
+  )
+}
+
+function SmartRow({ folder, current, currentPath, onOpenView, onOpenNote }: {
+  folder: SmartFolder
+  current: string | null
+  currentPath: string | null
+  onOpenView: () => void
+  onOpenNote: (path: string) => void
+}): JSX.Element {
+  const isOpen = useStore(() => expanded.has(folder.id))
+  const found = useStore(() => contents.get(folder.id))
+
+  return (
+    <li>
+      <div className="tree-row">
+        <button
+          type="button"
+          className="tree-label"
+          aria-current={folder.id === current}
+          aria-expanded={isOpen}
+          onClick={onOpenView}
+        >
+          <span
+            className="tree-twist"
+            role="presentation"
+            onClick={(event) => { event.stopPropagation(); toggle(folder.id) }}
+          >
+            {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          </span>
+          <FolderSearch size={14} />
+          <span className="tree-name">{folder.name}</span>
+          {isOpen && found?.result !== undefined && (
+            <span className="tree-count">{found.result.rows.length}</span>
+          )}
+        </button>
+      </div>
+      {isOpen && (
+        <ul className="tree-list is-nested">
+          {found === undefined && <li className="panel-note">数えています…</li>}
+          {found?.error !== undefined && <li className="panel-note is-flag">{found.error}</li>}
+          {found?.result?.rows.map((row) => (
+            <li key={`${row.path}:${String(row.task?.line ?? 0)}`}>
+              <div className="tree-row">
+                <button
+                  type="button"
+                  className="tree-label"
+                  aria-current={row.path === currentPath}
+                  onClick={() => { onOpenNote(row.path) }}
+                  title={row.path}
+                >
+                  <span className="tree-spacer" />
+                  <FileText size={14} />
+                  <span className="tree-name">{row.task?.text ?? row.title}</span>
+                </button>
+              </div>
+            </li>
+          ))}
+          {found?.result?.rows.length === 0 && <li className="panel-note">当てはまるものはありません</li>}
+        </ul>
+      )}
+    </li>
   )
 }
 
@@ -126,9 +210,9 @@ function FolderForm({ folder, onDone }: { folder?: SmartFolder; onDone: () => vo
   )
 }
 
-/** 開いたときの画面 */
+/** 名前を押したときの画面 (件数が多いとき・条件を直すとき) */
 function FolderView(): JSX.Element {
-  const id = useOpened()
+  const id = useStore(() => opened)
   const { openNote, openFeatureView } = useShell()
   const [found, setFound] = useState<SmartFolderResult | null>(null)
   const [editing, setEditing] = useState(false)
@@ -209,7 +293,6 @@ export default defineUiFeature({
   name: 'smartFolders',
   requires: 'smartFolders',
   sidebarItem: () => <FolderList />,
-  // ノートを開いていないときだけ前に出る (ノートを開いたら本文が主役)
   view: {
     match: (route) => route.feature === 'smartFolders' && opened !== null,
     render: () => <FolderView />,

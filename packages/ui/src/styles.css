@@ -1372,16 +1372,21 @@ body.is-drawer-open { overflow: hidden; }
 /* --- スマートフォルダ (task #25) --- */
 
 .section-label .icon-button.is-small { margin-left: auto; width: 20px; height: 20px; }
-.smart-list { list-style: none; margin: var(--s2) 0 0; padding: 0; display: flex; flex-direction: column; }
-.smart-folder {
-  display: block; width: 100%; text-align: left;
-  border: 0; background: none; cursor: pointer;
-  padding: 3px var(--s2); border-radius: var(--radius);
-  font-size: 12.5px; color: var(--ink-2);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+
+/*
+ * 物理フォルダと**同じ操作語彙**で開ける (`▸` で展開 / 名前で開く)。
+ * ただし住む場所は別 — ツリーの行はパスを意味するので、条件で集まるものを混ぜない。
+ */
+.smart-tree { list-style: none; margin: var(--s1) 0 0; padding: 0; }
+.smart-tree ul { list-style: none; margin: 0; padding: 0; }
+.tree-list.is-nested { padding-left: var(--s4); }
+/* ▸ だけを押したときは展開、それ以外は開く */
+.tree-twist { display: grid; place-items: center; width: 16px; height: 16px; flex: none; }
+.tree-twist:hover { color: var(--ink); }
+.tree-count {
+  font-family: var(--mono); font-size: 10px; color: var(--ink-3);
+  flex: none; padding-left: var(--s1);
 }
-.smart-folder:hover { background: var(--panel-2); color: var(--ink); }
-.smart-folder[aria-current='true'] { color: var(--accent); }
 
 .smart-form { display: flex; flex-direction: column; gap: var(--s2); margin-top: var(--s2); }
 .smart-input {
