@@ -248,3 +248,38 @@ describe('挿入した結果 (保存される Markdown)', () => {
     expect(save()).toBe('[[\n')
   })
 })
+
+describe('文脈で並びが変わる (task #52)', () => {
+  const values = (query: string, contexts: string[]): string[] =>
+    filterSlashItems(query, undefined, new Set(contexts as never[])).map((i) => i.value)
+
+  it('タスクの行では状態・優先度・期限が先頭に来る (狭い文脈ほど強い)', () => {
+    expect(values('', ['list', 'task']).slice(0, 3)).toEqual(['status', 'priority', 'due'])
+  })
+
+  it('表の中では表の操作が上に来る', () => {
+    expect(values('', ['table', 'empty']).indexOf('table')).toBeLessThan(values('', ['table', 'empty']).indexOf('status'))
+  })
+
+  it('タスクの行でも他の候補は消えない (並びが下がるだけ)', () => {
+    const all = values('', ['list', 'task'])
+    expect(all).toContain('table')
+    expect(all).toHaveLength(filterSlashItems('').length)
+  })
+
+  it('何も書いていない行ではブロックを作るものが上に来る', () => {
+    expect(values('', ['empty']).slice(0, 3)).toEqual(['h1', 'h2', 'h3'])
+    // タスク用のフィールドは沈む (チェックボックスの行ではないので)
+    expect(values('', ['empty']).indexOf('status')).toBeGreaterThan(values('', ['empty']).indexOf('table'))
+  })
+
+  it('同じ重みのものは宣言順のまま (並びが毎回変わらない)', () => {
+    const listed = values('', ['task'])
+    expect(listed.indexOf('status')).toBeLessThan(listed.indexOf('priority'))
+    expect(listed.indexOf('priority')).toBeLessThan(listed.indexOf('due'))
+  })
+
+  it('文脈が無ければ宣言順のまま', () => {
+    expect(values('', [])).toEqual(filterSlashItems('').map((i) => i.value))
+  })
+})

@@ -185,24 +185,29 @@ function insertText(text: string): Command {
 export interface SlashItem extends SuggestItem {
   /** 探すときの手がかり (かな読みと英語の両方) */
   keywords: string[]
+  /**
+   * この候補が主役になる場所。**その場に居るとき上に出る**だけで、
+   * 他の場所から消えるわけではない (task #52)
+   */
+  contexts?: SlashContext[]
   run: Command
 }
 
 /** 候補。**標準 Markdown に落ちるものだけ** */
 export const SLASH_ITEMS: SlashItem[] = [
-  { value: 'h1', title: '見出し 1', subtitle: '#', keywords: ['みだし', 'midashi', 'heading', 'h1'], run: toBlock('heading', { level: 1 }) },
-  { value: 'h2', title: '見出し 2', subtitle: '##', keywords: ['みだし', 'midashi', 'heading', 'h2'], run: toBlock('heading', { level: 2 }) },
-  { value: 'h3', title: '見出し 3', subtitle: '###', keywords: ['みだし', 'midashi', 'heading', 'h3'], run: toBlock('heading', { level: 3 }) },
-  { value: 'bullet', title: '箇条書き', subtitle: '- ', keywords: ['かじょうがき', 'list', 'ul', 'kajogaki'], run: toList('bullet_list') },
-  { value: 'ordered', title: '番号付きリスト', subtitle: '1. ', keywords: ['ばんごう', 'list', 'ol', 'bangou'], run: toList('ordered_list') },
-  { value: 'task', title: 'チェックボックス', subtitle: '- [ ] ', keywords: ['ちぇっく', 'todo', 'task', 'check'], run: toList('bullet_list', true) },
-  { value: 'status', title: 'タスクの状態', subtitle: '[status:: todo]', keywords: ['じょうたい', 'status', 'task', 'joutai'], run: insertField('status', 'todo') },
-  { value: 'priority', title: 'タスクの優先度', subtitle: '[priority:: medium]', keywords: ['ゆうせん', 'priority', 'task', 'yusen'], run: insertField('priority', 'medium') },
-  { value: 'due', title: 'タスクの期限', subtitle: '[due:: 2026-01-01]', keywords: ['きげん', 'due', 'task', 'kigen'], run: (state, dispatch) => insertField('due', todayIso())(state, dispatch) },
-  { value: 'quote', title: '引用', subtitle: '> ', keywords: ['いんよう', 'quote', 'inyou'], run: toQuote },
-  { value: 'code', title: 'コードブロック', subtitle: '```', keywords: ['こーど', 'code', 'fence'], run: toBlock('code_block') },
-  { value: 'table', title: '表', subtitle: '| a | b |', keywords: ['ひょう', 'table', 'hyou'], run: insertTable },
-  { value: 'hr', title: '区切り線', subtitle: '---', keywords: ['くぎり', 'hr', 'divider', 'kugiri'], run: insertHr },
+  { value: 'h1', contexts: ['empty'], title: '見出し 1', subtitle: '#', keywords: ['みだし', 'midashi', 'heading', 'h1'], run: toBlock('heading', { level: 1 }) },
+  { value: 'h2', contexts: ['empty'], title: '見出し 2', subtitle: '##', keywords: ['みだし', 'midashi', 'heading', 'h2'], run: toBlock('heading', { level: 2 }) },
+  { value: 'h3', contexts: ['empty'], title: '見出し 3', subtitle: '###', keywords: ['みだし', 'midashi', 'heading', 'h3'], run: toBlock('heading', { level: 3 }) },
+  { value: 'bullet', contexts: ['empty', 'list'], title: '箇条書き', subtitle: '- ', keywords: ['かじょうがき', 'list', 'ul', 'kajogaki'], run: toList('bullet_list') },
+  { value: 'ordered', contexts: ['empty', 'list'], title: '番号付きリスト', subtitle: '1. ', keywords: ['ばんごう', 'list', 'ol', 'bangou'], run: toList('ordered_list') },
+  { value: 'task', contexts: ['empty', 'list'], title: 'チェックボックス', subtitle: '- [ ] ', keywords: ['ちぇっく', 'todo', 'task', 'check'], run: toList('bullet_list', true) },
+  { value: 'status', contexts: ['task'], title: 'タスクの状態', subtitle: '[status:: todo]', keywords: ['じょうたい', 'status', 'task', 'joutai'], run: insertField('status', 'todo') },
+  { value: 'priority', contexts: ['task'], title: 'タスクの優先度', subtitle: '[priority:: medium]', keywords: ['ゆうせん', 'priority', 'task', 'yusen'], run: insertField('priority', 'medium') },
+  { value: 'due', contexts: ['task'], title: 'タスクの期限', subtitle: '[due:: 2026-01-01]', keywords: ['きげん', 'due', 'task', 'kigen'], run: (state, dispatch) => insertField('due', todayIso())(state, dispatch) },
+  { value: 'quote', contexts: ['empty'], title: '引用', subtitle: '> ', keywords: ['いんよう', 'quote', 'inyou'], run: toQuote },
+  { value: 'code', contexts: ['empty'], title: 'コードブロック', subtitle: '```', keywords: ['こーど', 'code', 'fence'], run: toBlock('code_block') },
+  { value: 'table', contexts: ['empty'], title: '表', subtitle: '| a | b |', keywords: ['ひょう', 'table', 'hyou'], run: insertTable },
+  { value: 'hr', contexts: ['empty'], title: '区切り線', subtitle: '---', keywords: ['くぎり', 'hr', 'divider', 'kugiri'], run: insertHr },
   { value: 'link', title: 'ノートへのリンク', subtitle: '[[', keywords: ['りんく', 'link', 'wikilink', 'rinku'], run: insertText('[[') },
   { value: 'tag', title: 'タグ', subtitle: '#tag', keywords: ['たぐ', 'tag', 'tagu'], run: insertText('#') },
   // --- ここからインライン (task #51)。数式とハイライトは記法が通ってから (#13 / #14) ---
@@ -210,19 +215,75 @@ export const SLASH_ITEMS: SlashItem[] = [
   { value: 'today', title: '今日の日付', subtitle: '2026-01-01', keywords: ['ひづけ', 'date', 'today', 'kyou'], run: insertToday },
   { value: 'highlight', title: 'ハイライト', subtitle: '==…==', keywords: ['はいらいと', 'highlight', 'mark'], run: insertWrapped('==', '==', 'ハイライト') },
   { value: 'math', title: '数式', subtitle: '$…$', keywords: ['すうしき', 'math', 'katex', 'tex'], run: insertWrapped('$', '$', 'x^2') },
-  { value: 'diagram', title: 'Mermaid 図', subtitle: '```mermaid', keywords: ['ず', 'diagram', 'mermaid', 'graph'], run: insertMermaid },
-  { value: 'callout', title: 'callout (注記)', subtitle: '> [!note]', keywords: ['ちゅうき', 'callout', 'note', 'admonition'], run: insertCallout },
+  { value: 'diagram', contexts: ['empty'], title: 'Mermaid 図', subtitle: '```mermaid', keywords: ['ず', 'diagram', 'mermaid', 'graph'], run: insertMermaid },
+  { value: 'callout', contexts: ['empty'], title: 'callout (注記)', subtitle: '> [!note]', keywords: ['ちゅうき', 'callout', 'note', 'admonition'], run: insertCallout },
 ]
+
+/**
+ * いまカーソルが居る場所 (task #52)。
+ *
+ * **候補を消すのではなく、並べ替えるために使う。** 消すと「あるはずのものが無い」と
+ * 迷子になる (タスクの行から表を作りたいことだってある)。
+ */
+export type SlashContext = 'task' | 'list' | 'table' | 'quote' | 'heading' | 'empty'
+
+export function contextsAt(state: EditorState): Set<SlashContext> {
+  const out = new Set<SlashContext>()
+  const { $from } = state.selection
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    const name = $from.node(depth).type.name
+    if (name === 'list_item' || name === 'listItem') {
+      out.add('list')
+      // GFM のチェックボックスは list_item の attrs に checked を持つ
+      if ('checked' in $from.node(depth).attrs) out.add('task')
+    }
+    if (name === 'table_cell' || name === 'table_header') out.add('table')
+    if (name === 'blockquote') out.add('quote')
+    if (name === 'heading') out.add('heading')
+  }
+  // 「まだ何も書いていない行」= ブロックを差し替える候補が主役
+  const text = $from.parent.textBetween(0, $from.parent.content.size)
+  if (text.replace(/\/[^\s/]*$/, '').trim() === '') out.add('empty')
+  return out
+}
 
 const fold = (text: string): string => text.normalize('NFC').toLowerCase()
 
-export function filterSlashItems(query: string, items: readonly SlashItem[] = SLASH_ITEMS): SlashItem[] {
+/**
+ * 文脈の細かさ。**狭い文脈ほど強い。**
+ * タスクの行では「タスクの状態」が、リストを作り直す候補より上に来てほしい。
+ */
+const SPECIFICITY: Record<SlashContext, number> = {
+  task: 3, table: 3, quote: 2, heading: 2, list: 2, empty: 2,
+}
+
+/**
+ * 文脈での重み。
+ * 3〜2 = いまの場所の主役 / 1 = どこでも使える / 0 = 他所のもの (下に沈める)
+ */
+function weigh(item: SlashItem, contexts: ReadonlySet<SlashContext>): number {
+  if (item.contexts === undefined) return 1
+  const matched = item.contexts.filter((context) => contexts.has(context))
+  if (matched.length === 0) return 0
+  return Math.max(...matched.map((context) => SPECIFICITY[context]))
+}
+
+export function filterSlashItems(
+  query: string,
+  items: readonly SlashItem[] = SLASH_ITEMS,
+  contexts: ReadonlySet<SlashContext> = new Set(),
+): SlashItem[] {
   const needle = fold(query.trim())
-  if (needle === '') return [...items]
-  return items.filter((item) =>
+  const matched = needle === '' ? [...items] : items.filter((item) =>
     fold(item.title).includes(needle)
     || fold(item.subtitle ?? '').includes(needle)
     || item.keywords.some((keyword) => fold(keyword).startsWith(needle)))
+  if (contexts.size === 0) return matched
+  // **安定ソート**にする (同じ重みなら宣言順のまま。並びが毎回変わると探せない)
+  return matched
+    .map((item, index) => ({ item, index, weight: weigh(item, contexts) }))
+    .sort((a, b) => (b.weight - a.weight) || (a.index - b.index))
+    .map((entry) => entry.item)
 }
 
 /**
@@ -245,7 +306,7 @@ export const slashSuggest = createSuggest({
   priority: 10,
   header: (query) => (query === '' ? '挿入' : `挿入: ${query}`),
   match: activeQuery,
-  items: (query) => filterSlashItems(query),
+  items: (query, state) => filterSlashItems(query, SLASH_ITEMS, contextsAt(state)),
   // `/` と入力、それに直前の空白まで消してから `run` を走らせる (既定の apply)
   trigger: { length: 1, eatLeadingSpace: true },
 })

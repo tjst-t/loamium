@@ -62,7 +62,11 @@ export interface SuggestConfig {
   header: (query: string) => string
   /** カーソル直前が「書きかけ」なら、その範囲を返す */
   match: (state: EditorState) => SuggestRange | null
-  items: (query: string) => SuggestItem[]
+  /**
+   * 候補。**state も受け取る** — いまカーソルがどこに居るか (タスクの行 / 表の中 …) で
+   * 並びを変えられるようにするため (task #52)。
+   */
+  items: (query: string, state: EditorState) => SuggestItem[]
   /**
    * 確定。range を置き換える。
    * 省略すると「トリガと入力を消して `item.run` を走らせる」既定の動きになる
@@ -153,7 +157,7 @@ export function createSuggest(config: SuggestConfig): SuggestPlugin {
   const compute = (state: EditorState, index = 0): SuggestState['active'] => {
     const range = config.match(state)
     if (range === null) return null
-    const items = config.items(range.query)
+    const items = config.items(range.query, state)
     return { ...range, items, index: Math.min(Math.max(index, 0), Math.max(items.length - 1, 0)) }
   }
 
