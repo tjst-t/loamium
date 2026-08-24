@@ -1368,3 +1368,64 @@ body.is-drawer-open { overflow: hidden; }
 .query-table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
 .query-table th, .query-table td { border: 1px solid var(--rule); padding: 3px var(--s2); text-align: left; }
 .query-table th { background: var(--wash); font-weight: 600; color: var(--ink-2); }
+
+/* --- スマートフォルダ (task #25) --- */
+
+.section-label .icon-button.is-small { margin-left: auto; width: 20px; height: 20px; }
+.smart-list { list-style: none; margin: var(--s2) 0 0; padding: 0; display: flex; flex-direction: column; }
+.smart-folder {
+  display: block; width: 100%; text-align: left;
+  border: 0; background: none; cursor: pointer;
+  padding: 3px var(--s2); border-radius: var(--radius);
+  font-size: 12.5px; color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.smart-folder:hover { background: var(--panel-2); color: var(--ink); }
+.smart-folder[aria-current='true'] { color: var(--accent); }
+
+.smart-form { display: flex; flex-direction: column; gap: var(--s2); margin-top: var(--s2); }
+.smart-input {
+  border: 1px solid var(--rule); border-radius: calc(var(--radius) - 2px);
+  padding: var(--s2); background: var(--paper); color: var(--ink); font-size: 12.5px;
+}
+/* クエリはディスク上の文字列そのもの */
+.smart-input.is-query { font-family: var(--mono); font-size: 12px; resize: vertical; }
+.smart-input:focus { border-color: var(--accent); outline: none; }
+.smart-form-actions { display: flex; justify-content: flex-end; }
+.smart-save {
+  border: 1px solid var(--rule-strong); background: var(--paper); color: var(--ink);
+  border-radius: var(--radius); padding: 3px var(--s3); font-size: 12px; cursor: pointer;
+}
+.smart-save:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.smart-save:disabled { opacity: .45; cursor: default; }
+
+.smart-page { max-width: var(--measure); width: 100%; margin-inline: auto; padding: var(--s5) var(--s5) var(--s7); }
+.smart-head { display: flex; align-items: baseline; gap: var(--s3); }
+.smart-title { flex: 1; font-family: var(--slab); font-size: 22px; font-weight: 600; margin: 0; }
+.smart-head-actions { display: flex; gap: var(--s2); }
+.smart-action {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: 0; background: none; cursor: pointer; padding: 2px var(--s2);
+  border-radius: var(--radius); font-size: 12px; color: var(--ink-3);
+}
+.smart-action:hover { background: var(--panel-2); color: var(--ink); }
+.smart-action.is-danger:hover { color: var(--flag); }
+.smart-query {
+  margin: var(--s3) 0 0; padding: var(--s2) var(--s3);
+  border-left: 2px solid var(--accent); background: var(--wash);
+  font-family: var(--mono); font-size: 12px; color: var(--ink-2);
+}
+.smart-count { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; color: var(--ink-3); margin: var(--s4) 0 var(--s2); }
+.smart-results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.smart-result {
+  display: flex; flex-direction: column; gap: 1px; width: 100%; text-align: left;
+  border: 0; background: none; cursor: pointer; padding: var(--s2); border-radius: var(--radius);
+}
+.smart-result:hover { background: var(--wash); }
+.smart-result-title { font-size: 13.5px; color: var(--ink); }
+/* パスはディスク上の文字列 */
+.smart-result-path { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+@media (max-width: 680px) {
+  .smart-folder, .smart-result { min-height: var(--tap); }
+  .smart-page { padding: var(--s3) var(--s3) calc(var(--s7) + env(safe-area-inset-bottom)); }
+}

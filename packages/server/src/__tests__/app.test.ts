@@ -82,12 +82,13 @@ describe('REST: agent', () => {
     const body = (await (await call('/api/agent/tools')).json()) as { tools: { name: string }[] }
     expect(body.tools.map((t) => t.name).sort()).toEqual(
       [
-        'delete_file', 'find_broken_links', 'fmt_vault', 'folder_create', 'get_properties',
-        'help', 'journal_append', 'journal_read', 'list_backlinks', 'list_bookmarks', 'list_files',
-        'list_links', 'list_notes', 'list_property_keys', 'list_tags', 'list_tasks', 'list_tree',
+        'delete_file', 'delete_smart_folder', 'find_broken_links', 'fmt_vault', 'folder_create',
+        'get_properties', 'help', 'journal_append', 'journal_read', 'list_backlinks',
+        'list_bookmarks', 'list_files', 'list_links', 'list_notes', 'list_property_keys',
+        'list_smart_folders', 'list_tags', 'list_tasks', 'list_tree',
         'note_create', 'note_delete', 'note_move', 'notes_by_tag', 'read_embed', 'read_file',
-        'read_note', 'remove_property', 'run_query', 'search', 'set_bookmark', 'set_property',
-        'set_task', 'task_vocab', 'write_note',
+        'read_note', 'remove_property', 'run_query', 'run_smart_folder', 'save_smart_folder',
+        'search', 'set_bookmark', 'set_property', 'set_task', 'task_vocab', 'write_note',
       ],
     )
   })
@@ -98,8 +99,8 @@ describe('REST: agent', () => {
       [
         'find_broken_links', 'get_properties', 'help', 'journal_read', 'list_backlinks',
         'list_bookmarks', 'list_files', 'list_links', 'list_notes', 'list_property_keys',
-        'list_tags', 'list_tasks', 'list_tree', 'notes_by_tag', 'read_embed', 'read_file',
-        'read_note', 'run_query', 'search', 'task_vocab',
+        'list_smart_folders', 'list_tags', 'list_tasks', 'list_tree', 'notes_by_tag', 'read_embed',
+        'read_file', 'read_note', 'run_query', 'run_smart_folder', 'search', 'task_vocab',
       ])
   })
 
@@ -107,7 +108,7 @@ describe('REST: agent', () => {
     const body = (await (await call('/api/agent/help')).json()) as { topics: string[] }
     expect(body.topics.sort()).toEqual([
       'bookmarks', 'dataview', 'embed', 'files', 'fmt', 'help', 'journal', 'links', 'notes',
-      'properties', 'search', 'tags', 'tasks',
+      'properties', 'search', 'smart-folders', 'tags', 'tasks',
     ])
   })
 

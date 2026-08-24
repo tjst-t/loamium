@@ -44,6 +44,8 @@ export function App(): JSX.Element {
   const [error, setError] = useState<string | null>(null)
   /** 本文を強制的に読み直すための世代番号 (リネームでリンクが書き換わったときなど) */
   const [reloadToken, setReloadToken] = useState(0)
+  /** 前に出ている機能の画面 (どの機能か。何を見せるかは機能が持つ) */
+  const [featureView, setFeatureView] = useState<string | null>(null)
   /** モバイルのドロワー。**開閉はシェルが持つ** (機能はどこに置かれるかを知らない) */
   const isMobile = useIsMobile()
   const [navOpen, setNavOpen] = useState(false)
@@ -107,6 +109,8 @@ export function App(): JSX.Element {
   const open = useCallback((path: string) => {
     // 添付 (.md 以外) はノートとして開けない。そのまま配る URL を別タブで見せる
     if (!path.endsWith('.md')) { window.open(fileUrl(path), '_blank', 'noreferrer'); return }
+    // ノートを開いたら本文が主役。機能の画面は引っ込める
+    setFeatureView(null)
     navigate(path)
     dismiss()
   }, [dismiss, navigate])
@@ -169,6 +173,7 @@ export function App(): JSX.Element {
 
   /** 詳細検索ページを開く (task #8) */
   const openSearchPage = useCallback(() => {
+    setFeatureView(null)
     navigateSearch({ q: '', tag: '', folder: '' }, { replace: false })
     dismiss()
   }, [dismiss, navigateSearch])
@@ -251,6 +256,7 @@ export function App(): JSX.Element {
     openHit,
     openTag,
     openSearch: openSearchPage,
+    openFeatureView: setFeatureView,
     setSearch: (next) => { navigateSearch(next) },
     dismiss,
     openJournal,
@@ -258,7 +264,8 @@ export function App(): JSX.Element {
     renameEntry: onRename,
     deleteEntry: onDelete,
   }
-  const view = features.find((feature) => feature.view?.match({ path: current, search }) === true)
+  const view = features.find((feature) =>
+    feature.view?.match({ path: current, search, feature: featureView }) === true)
 
   /** 左の面の中身。デスクトップではサイドバー、モバイルではドロワーに入る */
   const navContent = (

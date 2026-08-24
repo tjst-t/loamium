@@ -19,6 +19,7 @@ import { filesFeature } from '@loamium/features/files/server'
 import { bookmarksFeature } from '@loamium/features/bookmarks/server'
 import { tasksFeature } from '@loamium/features/tasks/server'
 import { dataviewFeature } from '@loamium/features/dataview/server'
+import { smartFoldersFeature } from '@loamium/features/smart-folders/server'
 import { agentFeature } from '@loamium/features/agent/server'
 
 export interface AppConfig {
@@ -58,6 +59,7 @@ export async function createApp(config: AppConfig): Promise<Context> {
   ctx.plugin(bookmarksFeature)
   ctx.plugin(tasksFeature)
   ctx.plugin(dataviewFeature)
+  ctx.plugin(smartFoldersFeature)
   ctx.plugin(fmtFeature)
   ctx.plugin(agentFeature)
 

@@ -227,6 +227,9 @@ function noteField(note: QueryNote, field: string, properties: Map<string, Field
     case 'file.link': return `[[${baseName(note.path)}]]`
     case 'file.mtime': return note.mtime ?? null
     case 'file.tags': return collectTags(note.content)
+    // 「やり残しがあるノート」を引くための組み込み (スマートフォルダの既定で使う)
+    case 'file.tasks': return parseTasks(note.content).length
+    case 'file.open_tasks': return parseTasks(note.content).filter((task) => !task.checked).length
     default: return properties.get(field) ?? null
   }
 }
@@ -268,8 +271,14 @@ function compare(left: FieldValue, op: CompareOp, right: string | number | boole
   return x <= y
 }
 
+/**
+ * 値を書かない `WHERE ○○` の判定。
+ * ⚠️ **0 は「無い」** 扱いにする (`WHERE file.open_tasks` = やり残しがあるノート。
+ * 0 件のノートまで出ると、この書き方が意味を成さない)
+ */
 const truthy = (value: FieldValue): boolean =>
-  value !== null && value !== false && value !== '' && !(Array.isArray(value) && value.length === 0)
+  value !== null && value !== false && value !== '' && value !== 0
+  && !(Array.isArray(value) && value.length === 0)
 
 function matchesSource(note: QueryNote, query: Query, tags: string[]): boolean {
   if (query.from.length === 0) return true

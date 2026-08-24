@@ -115,3 +115,13 @@ describe('TASK', () => {
     expect(run('TASK FROM "プロジェクト"').rows[0]?.task).toMatchObject({ line: 7, checked: false })
   })
 })
+
+describe('組み込みフィールド', () => {
+  it('file.tasks / file.open_tasks でやり残しを引ける', () => {
+    expect(run('TABLE file.tasks, file.open_tasks FROM "データ" SORT file.name ASC').rows.map((r) => r.values))
+      .toEqual([[1, 1], [2, 1]])
+    // 値を書かなければ「0 でないもの」= やり残しがあるノート
+    expect(paths('LIST WHERE file.open_tasks').sort())
+      .toEqual(['データ/SF短編集.md', 'データ/失敗の科学.md', 'プロジェクト/Hydra.md'])
+  })
+})

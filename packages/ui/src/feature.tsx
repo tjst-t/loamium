@@ -37,9 +37,16 @@ export interface UiFeature {
   sidebarItem?: () => JSX.Element | null
   /** 画面全体に重ねるもの (コマンドパレットなど)。開閉は機能側が持つ */
   overlay?: () => JSX.Element | null
-  /** URL に応じてメイン領域を占める画面 (検索ページなど) */
+  /**
+   * メイン領域を占める画面 (検索ページ・スマートフォルダなど)。
+   *
+   * ⚠️ **開いているかどうかはシェルが持つ** (`shell.openFeatureView(name)`)。
+   * 機能側のモジュール変数だけで決めると、シェルが描き直す理由が無く画面が変わらない
+   * (実機でスマートフォルダを押しても何も起きなかった)。
+   * *何を*開いているか (どのフォルダか) は機能が持ってよい。
+   */
   view?: {
-    match: (route: { path: string | null; search: SearchParams | null }) => boolean
+    match: (route: { path: string | null; search: SearchParams | null; feature: string | null }) => boolean
     render: () => JSX.Element
   }
   /**
@@ -101,6 +108,8 @@ export interface Shell {
   openTag: (tag: string) => void
   /** 空の検索ページへ */
   openSearch: () => void
+  /** 機能の画面を前に出す (閉じるときは null)。**どの機能か**だけを持つ */
+  openFeatureView: (name: string | null) => void
   /** 検索条件を変える */
   setSearch: (next: Partial<SearchParams>) => void
   /**

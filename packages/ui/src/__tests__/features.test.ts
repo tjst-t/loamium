@@ -15,13 +15,13 @@ describe('UI 機能レジストリ', () => {
 
   it('サーバー機能に対応するものは requires を書く (outline のようにエディタ内で完結するものは書かない)', () => {
     const requiring = uiFeatures.filter((f) => f.requires !== undefined).map((f) => f.name)
-    expect(requiring).toEqual(['journal', 'bookmarks', 'notes', 'search', 'properties', 'links', 'tags', 'embed', 'files', 'tasks', 'dataview'])
+    expect(requiring).toEqual(['journal', 'bookmarks', 'smartFolders', 'notes', 'search', 'properties', 'links', 'tags', 'embed', 'files', 'tasks', 'dataview'])
     expect(uiFeatures.find((f) => f.name === 'outline')?.requires).toBeUndefined()
   })
 
   it('サイドバーの並び順は登録順 (ジャーナル → ツリー → 詳細検索)', () => {
     expect(uiFeatures.filter((f) => f.sidebarItem !== undefined).map((f) => f.name))
-      .toEqual(['journal', 'bookmarks', 'notes', 'search'])
+      .toEqual(['journal', 'bookmarks', 'smartFolders', 'notes', 'search'])
   })
 
   it('コマンドはシェルを受け取り、キーは Mod 表記で宣言される', () => {
