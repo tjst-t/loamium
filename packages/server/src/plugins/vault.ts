@@ -237,6 +237,12 @@ export class VaultService extends Service {
     return out.sort((a, b) => a.path.localeCompare(b.path, 'ja'))
   }
 
+  /** 最終更新時刻 (ISO 8601)。クエリの並べ替えに使う。取れなければ null */
+  async mtime(path: string): Promise<string | undefined> {
+    const info = await this.statOrNull(resolveVaultPath(this.config.root, path))
+    return info?.mtime.toISOString()
+  }
+
   /** 添付をそのまま読む (画像・PDF)。テキストとして解釈しない */
   async readBytes(path: string): Promise<Uint8Array> {
     return new Uint8Array(await readFile(resolveVaultPath(this.config.root, path)))

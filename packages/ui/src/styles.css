@@ -1305,3 +1305,29 @@ body.is-drawer-open { overflow: hidden; }
   .task-field { min-height: 24px; font-size: 12px; }
   .task-menu-item { min-height: var(--tap); display: flex; align-items: center; }
 }
+
+/* --- クエリブロックの結果 (task #20) --- */
+
+.query-result {
+  margin: var(--s2) 0 var(--s3);
+  padding: var(--s3);
+  border: 1px solid var(--rule); border-left: 2px solid var(--accent);
+  border-radius: var(--radius); background: var(--panel);
+  line-height: 1.6;
+}
+.query-count { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; color: var(--ink-3); margin-bottom: var(--s2); }
+.query-empty, .query-result.is-loading { margin: 0; color: var(--ink-3); font-size: 12.5px; }
+.query-result.is-broken { color: var(--flag); border-left-color: var(--flag); font-size: 12.5px; }
+.query-list, .query-tasks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.query-tasks li { display: flex; align-items: baseline; gap: var(--s2); }
+.query-task-text { flex: 1; font-size: 13px; }
+.query-link {
+  border: 0; background: none; padding: 0; cursor: pointer;
+  font: inherit; font-size: 13px; color: var(--accent); text-align: left;
+}
+.query-link:hover { text-decoration: underline; }
+/* どのノートの行かは補足なので小さく、等幅 (ディスク上の名前) */
+.query-link.is-source { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+.query-table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.query-table th, .query-table td { border: 1px solid var(--rule); padding: 3px var(--s2); text-align: left; }
+.query-table th { background: var(--wash); font-weight: 600; color: var(--ink-2); }

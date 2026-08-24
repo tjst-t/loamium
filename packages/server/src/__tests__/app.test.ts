@@ -86,8 +86,8 @@ describe('REST: agent', () => {
         'help', 'journal_append', 'journal_read', 'list_backlinks', 'list_bookmarks', 'list_files',
         'list_links', 'list_notes', 'list_property_keys', 'list_tags', 'list_tasks', 'list_tree',
         'note_create', 'note_delete', 'note_move', 'notes_by_tag', 'read_embed', 'read_file',
-        'read_note', 'remove_property', 'search', 'set_bookmark', 'set_property', 'set_task',
-        'task_vocab', 'write_note',
+        'read_note', 'remove_property', 'run_query', 'search', 'set_bookmark', 'set_property',
+        'set_task', 'task_vocab', 'write_note',
       ],
     )
   })
@@ -99,15 +99,15 @@ describe('REST: agent', () => {
         'find_broken_links', 'get_properties', 'help', 'journal_read', 'list_backlinks',
         'list_bookmarks', 'list_files', 'list_links', 'list_notes', 'list_property_keys',
         'list_tags', 'list_tasks', 'list_tree', 'notes_by_tag', 'read_embed', 'read_file',
-        'read_note', 'search', 'task_vocab',
+        'read_note', 'run_query', 'search', 'task_vocab',
       ])
   })
 
   it('help トピックが機能ごとに登録されている (ADR-0014)', async () => {
     const body = (await (await call('/api/agent/help')).json()) as { topics: string[] }
     expect(body.topics.sort()).toEqual([
-      'bookmarks', 'embed', 'files', 'fmt', 'help', 'journal', 'links', 'notes', 'properties',
-      'search', 'tags', 'tasks',
+      'bookmarks', 'dataview', 'embed', 'files', 'fmt', 'help', 'journal', 'links', 'notes',
+      'properties', 'search', 'tags', 'tasks',
     ])
   })
 
