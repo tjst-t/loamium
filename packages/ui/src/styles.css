@@ -786,13 +786,19 @@ mark {
 
 /* ============================================================ 補完ポップアップ */
 
+/*
+ * ⚠️ **見出しは固定、一覧だけがスクロールする。** 全体を overflow:auto にすると
+ * 「何のポップアップか」が真っ先に流れて消える。
+ */
 .suggest-popup {
   position: fixed; z-index: 40;
-  max-height: 280px; overflow: auto;
+  display: flex; flex-direction: column;
+  max-height: 280px; overflow: hidden;
   min-width: 260px; max-width: 400px; padding: var(--s1);
   background: var(--paper); border: 1px solid var(--rule); border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
 }
+.suggest-list { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .suggest-header {
   padding: var(--s1) var(--s2) 6px;
   /* ⚠️ 大文字化しない: 打った文字をそのまま映す欄なので、`roc` を `ROC` に見せない */

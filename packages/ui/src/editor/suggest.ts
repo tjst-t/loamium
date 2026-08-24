@@ -98,56 +98,121 @@ export type SuggestPlugin = Plugin<SuggestState> & {
   accept: (view: EditorView, item: SuggestItem) => void
 }
 
-/** 閉じるときは中身も捨てる (見えないボタンが DOM に残らないように) */
-function hidePopup(dom: HTMLElement): void {
-  dom.replaceChildren()
-  dom.style.display = 'none'
+/**
+ * ポップアップの中身。
+ *
+ * ⚠️ **候補が同じなら DOM を作り直さない。** 以前は ↑ ↓ のたびに全部作り直しており、
+ * 一覧のスクロール位置が毎回 0 に戻っていた。そのため下のほうの候補を選ぶと、
+ * 選択中の行が枠の外に隠れて見えなくなる (実機で報告された)。
+ */
+interface Popup {
+  root: HTMLElement
+  header: HTMLElement
+  list: HTMLElement
+  buttons: HTMLButtonElement[]
+  /** いま並んでいる候補。これが変わったときだけ作り直す */
+  signature: string
 }
 
-function renderPopup(
-  dom: HTMLElement, config: SuggestConfig, state: NonNullable<SuggestState['active']>,
+function createPopup(): Popup {
+  const root = document.createElement('div')
+  root.className = 'suggest-popup'
+  const header = document.createElement('div')
+  header.className = 'suggest-header'
+  const list = document.createElement('div')
+  list.className = 'suggest-list'
+  list.setAttribute('role', 'listbox')
+  root.append(header, list)
+  root.style.display = 'none'
+  return { root, header, list, buttons: [], signature: '' }
+}
+
+/** 閉じるときは中身も捨てる (見えないボタンが DOM に残らないように) */
+function hidePopup(popup: Popup): void {
+  popup.list.replaceChildren()
+  popup.buttons = []
+  popup.signature = ''
+  popup.root.style.display = 'none'
+}
+
+const signatureOf = (state: NonNullable<SuggestState['active']>): string =>
+  state.items.map((item) => item.value).join('\u0000')
+
+/** 選択中の行を見えるところへ (これが無いと下の候補が枠の外に隠れる) */
+function highlight(popup: Popup, index: number): void {
+  for (const [i, button] of popup.buttons.entries()) {
+    button.classList.toggle('is-active', i === index)
+    button.setAttribute('aria-selected', String(i === index))
+  }
+  // jsdom には scrollIntoView が無い (テストでも同じ経路を通す)
+  popup.buttons[index]?.scrollIntoView?.({ block: 'nearest' })
+}
+
+/**
+ * 出す位置。下に入らなければ**上に返す**。
+ * 入る高さに合わせて `max-height` も決める (画面外にはみ出したまま出さない)。
+ */
+function place(popup: Popup, view: EditorView, from: number): void {
+  try {
+    const coords = view.coordsAtPos(from)
+    const margin = 8
+    const below = window.innerHeight - coords.bottom - margin
+    const above = coords.top - margin
+    const flip = below < 200 && above > below
+    // 既定の高さ (CSS の 280px) を超えて伸ばさない。入らないときだけ縮める
+    const room = Math.max(flip ? above : below, 120)
+    popup.root.style.maxHeight = `${String(Math.round(Math.min(room, 280)))}px`
+    const height = popup.root.getBoundingClientRect().height
+    popup.root.style.left = `${String(Math.round(coords.left))}px`
+    popup.root.style.top = `${String(Math.round(flip ? coords.top - height - 4 : coords.bottom + 4))}px`
+  } catch { /* 座標が取れない環境 (jsdom) では位置決めを諦める */ }
+}
+
+export function renderPopup(
+  popup: Popup, config: SuggestConfig, state: NonNullable<SuggestState['active']>,
   view: EditorView, accept: (view: EditorView, item: SuggestItem) => void,
 ): void {
-  dom.replaceChildren()
   if (state.items.length === 0) {
-    hidePopup(dom)
+    hidePopup(popup)
     return
   }
   // 何のポップアップなのかを明示する (急に出ると何が起きたのか分からない)
-  const header = document.createElement('div')
-  header.className = 'suggest-header'
-  header.textContent = config.header(state.query)
-  dom.append(header)
+  popup.header.textContent = config.header(state.query)
 
-  for (const [i, item] of state.items.entries()) {
-    const button = document.createElement('button')
-    button.type = 'button'
-    button.className = `suggest-item${i === state.index ? ' is-active' : ''}`
-    const title = document.createElement('span')
-    title.className = 'suggest-title'
-    title.textContent = item.title
-    button.append(title)
-    if (item.subtitle !== undefined && item.subtitle !== '') {
-      const subtitle = document.createElement('span')
-      subtitle.className = 'suggest-subtitle'
-      subtitle.textContent = item.subtitle
-      button.append(subtitle)
+  const signature = signatureOf(state)
+  if (signature !== popup.signature) {
+    popup.signature = signature
+    popup.buttons = []
+    popup.list.replaceChildren()
+    for (const item of state.items) {
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.className = 'suggest-item'
+      button.setAttribute('role', 'option')
+      const title = document.createElement('span')
+      title.className = 'suggest-title'
+      title.textContent = item.title
+      button.append(title)
+      if (item.subtitle !== undefined && item.subtitle !== '') {
+        const subtitle = document.createElement('span')
+        subtitle.className = 'suggest-subtitle'
+        subtitle.textContent = item.subtitle
+        button.append(subtitle)
+      }
+      // mousedown で確定する (click まで待つとエディタが blur してしまう)
+      button.addEventListener('mousedown', (event) => {
+        event.preventDefault()
+        accept(view, item)
+      })
+      popup.list.append(button)
+      popup.buttons.push(button)
     }
-    // mousedown で確定する (click まで待つとエディタが blur してしまう)
-    button.addEventListener('mousedown', (event) => {
-      event.preventDefault()
-      accept(view, item)
-    })
-    dom.append(button)
+    popup.list.scrollTop = 0
   }
 
-  dom.style.display = 'block'
-  // 座標は環境によっては取れない (jsdom には getClientRects が無い)。位置決めだけ諦める
-  try {
-    const coords = view.coordsAtPos(state.from)
-    dom.style.left = `${String(Math.round(coords.left))}px`
-    dom.style.top = `${String(Math.round(coords.bottom + 4))}px`
-  } catch { /* 位置は据え置き */ }
+  popup.root.style.display = 'flex'
+  place(popup, view, state.from)
+  highlight(popup, state.index)
 }
 
 export function createSuggest(config: SuggestConfig): SuggestPlugin {
@@ -233,17 +298,15 @@ export function createSuggest(config: SuggestConfig): SuggestPlugin {
     },
 
     view(view) {
-      const dom = document.createElement('div')
-      dom.className = 'suggest-popup'
-      hidePopup(dom)
-      document.body.append(dom)
+      const popup = createPopup()
+      document.body.append(popup.root)
       const render = (v: EditorView): void => {
         const active = key.getState(v.state)?.active
-        if (active === null || active === undefined) hidePopup(dom)
-        else renderPopup(dom, config, active, v, accept)
+        if (active === null || active === undefined) hidePopup(popup)
+        else renderPopup(popup, config, active, v, accept)
       }
       render(view)
-      return { update: render, destroy: () => { dom.remove() } }
+      return { update: render, destroy: () => { popup.root.remove() } }
     },
   }) as SuggestPlugin
 

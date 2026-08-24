@@ -124,3 +124,50 @@ describe('補完の調停', () => {
     expect(openCount()).toBe(1)
   })
 })
+
+/**
+ * ポップアップの中身 (task #52 の指摘)。
+ *
+ * ↑ ↓ のたびに DOM を作り直していたため一覧のスクロールが 0 に戻り、
+ * 下のほうの候補を選ぶと**選択中の行が枠の外に隠れていた**。
+ */
+describe('候補一覧の描画', () => {
+  const popup = (): HTMLElement => {
+    const found = document.querySelector('.suggest-popup')
+    if (!(found instanceof HTMLElement)) throw new Error('ポップアップが無い')
+    return found
+  }
+  const items = (): HTMLElement[] => [...popup().querySelectorAll('.suggest-item')] as HTMLElement[]
+
+  it('見出しは一覧の外にある (スクロールしても流れて消えない)', () => {
+    load()
+    type('/')
+    expect(popup().querySelector(':scope > .suggest-header')).not.toBeNull()
+    expect(popup().querySelector(':scope > .suggest-list')).not.toBeNull()
+    expect(popup().querySelector('.suggest-list > .suggest-item')).not.toBeNull()
+  })
+
+  it('候補が同じなら DOM を作り直さない (スクロール位置が飛ばない)', () => {
+    load()
+    type('/')
+    const before = items()
+    view.dispatch(view.state.tr.setMeta(slashSuggest.spec.key as never, { move: 1 }))
+    const after = items()
+    expect(after[0]).toBe(before[0])
+    expect(after.filter((el) => el.classList.contains('is-active'))).toHaveLength(1)
+  })
+
+  it('選択中の行を見えるところへ送る', () => {
+    load()
+    const seen: unknown[] = []
+    for (const element of items()) {
+      Object.defineProperty(element, 'scrollIntoView', { configurable: true, value: (arg: unknown) => { seen.push(arg) } })
+    }
+    type('/')
+    for (const element of items()) {
+      Object.defineProperty(element, 'scrollIntoView', { configurable: true, value: (arg: unknown) => { seen.push(arg) } })
+    }
+    view.dispatch(view.state.tr.setMeta(slashSuggest.spec.key as never, { move: 1 }))
+    expect(seen).toContainEqual({ block: 'nearest' })
+  })
+})
